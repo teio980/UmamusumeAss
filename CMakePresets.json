@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "configurePresets": [
+    {
+      "name":          "mingw-debug",
+      "displayName":   "MinGW x64 Debug",
+      "description":   "Debug build using MinGW-w64 (UCRT64) — the only locally-verified preset",
+      "generator":     "MinGW Makefiles",
+      "binaryDir":     "${sourceDir}/build/mingw-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER":    "C:/msys64/ucrt64/bin/g++.exe",
+        "CMAKE_BUILD_TYPE":      "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name":          "release",
+      "displayName":   "Release (MSVC)",
+      "description":   "Release build targeting Visual Studio 17 2022 with /MT runtime.",
+      "generator":     "Visual Studio 17 2022",
+      "binaryDir":     "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ]
+}
