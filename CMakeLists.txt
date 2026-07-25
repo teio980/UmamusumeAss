@@ -43,7 +43,7 @@ add_subdirectory(src/UmaAssistantCore)
 
 # ── Tests ──────────────────────────────────────────────────────────────────
 option(UMA_BUILD_TESTS "Build tests" ON)
-if(UMA_BUILD_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+if(UMA_BUILD_TESTS)
   include(CTest)
   add_subdirectory(tests)
 endif()
