@@ -1,0 +1,17 @@
+{
+  "connection": [
+    {
+      "configName": "General",
+      "baseConfig": null,
+      "commands": {
+        "list_devices": ["devices"],
+        "get_state": ["-s", "[AdbSerial]", "get-state"],
+        "connect": ["connect", "[AdbSerial]"],
+        "boot_completed": ["-s", "[AdbSerial]", "shell", "getprop", "sys.boot_completed"],
+        "android_id": ["-s", "[AdbSerial]", "shell", "settings", "get", "secure", "android_id"],
+        "android_version": ["-s", "[AdbSerial]", "shell", "getprop", "ro.build.version.release"],
+        "get_size": ["-s", "[AdbSerial]", "shell", "wm", "size"]
+      }
+    }
+  ]
+}
