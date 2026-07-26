@@ -1,6 +1,10 @@
 list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
 include(Catch)
 
+# ============================================================================
+# Existing Phase 1–2 tests
+# ============================================================================
+
 add_executable(ConnectionProfileTests
   ConnectionProfileTests.cpp
   AdbCommandRunnerTests.cpp
@@ -17,10 +21,9 @@ target_include_directories(ConnectionProfileTests
 target_link_libraries(ConnectionProfileTests
   PRIVATE
     Catch2::Catch2WithMain
-    UmaAssistantCore
+    UmaAssistantCoreObjects
 )
 
-# Provide CMAKE_SOURCE_DIR as a preprocessor define for test_resource_path()
 target_compile_definitions(ConnectionProfileTests
   PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
@@ -28,18 +31,100 @@ target_compile_definitions(ConnectionProfileTests
 
 uma_add_strict_warnings(ConnectionProfileTests)
 
-if(NOT MSVC)
-  get_filename_component(_uma_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
-  catch_discover_tests(ConnectionProfileTests
-    DISCOVERY_MODE PRE_TEST
-    DL_PATHS "${_uma_compiler_dir}"
+# ============================================================================
+# Phase 3 — C ABI tests
+# ============================================================================
+
+add_executable(UmaCallerTests
+  UmaCallerTests.cpp
+)
+
+add_executable(UmaFakeAdb
+  FakeAdb.cpp
+)
+
+uma_add_strict_warnings(UmaFakeAdb)
+
+target_include_directories(UmaCallerTests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore
+)
+
+target_link_libraries(UmaCallerTests
+  PRIVATE
+    Catch2::Catch2WithMain
+    UmaAssistantCore
+    nlohmann_json::nlohmann_json
+)
+
+target_compile_definitions(UmaCallerTests
+  PRIVATE
+    CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    UMA_FAKE_ADB_PATH="$<TARGET_FILE:UmaFakeAdb>"
+)
+
+add_dependencies(UmaCallerTests UmaFakeAdb)
+
+uma_add_strict_warnings(UmaCallerTests)
+
+# ============================================================================
+# Phase 3 — C consumer ABI check
+# ============================================================================
+
+add_executable(UmaCallerCConsumer
+  UmaCallerCConsumer.c
+)
+
+target_include_directories(UmaCallerCConsumer
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(UmaCallerCConsumer
+  PRIVATE
+    UmaAssistantCore
+)
+
+foreach(uma_consumer IN ITEMS UmaCallerTests UmaCallerCConsumer)
+  add_custom_command(TARGET ${uma_consumer} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:UmaAssistantCore>
+      $<TARGET_FILE_DIR:${uma_consumer}>
   )
-else()
-  catch_discover_tests(ConnectionProfileTests
-    DISCOVERY_MODE PRE_TEST
+endforeach()
+
+target_compile_definitions(UmaCallerCConsumer
+  PRIVATE
+    CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+# C consumer gets C-compatible warning flags
+if(MSVC)
+  target_compile_options(UmaCallerCConsumer PRIVATE
+    /W4 /WX /utf-8
   )
 endif()
 
-# On MinGW, CTest discovery needs MSYS2 UCRT bin in PATH.
-# Run tests directly from a shell with the correct PATH, or set:
-#   set(CTEST_ENVIRONMENT "PATH=C:/msys64/ucrt64/bin;$ENV{PATH}")
+# ============================================================================
+# Discover Catch2 tests
+# ============================================================================
+
+# Common helper: discover Catch2 tests for a given target
+function(uma_discover_catch2_tests TARGET)
+  if(NOT MSVC)
+    get_filename_component(_uma_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    catch_discover_tests(${TARGET}
+      DISCOVERY_MODE PRE_TEST
+      DL_PATHS "${_uma_compiler_dir}"
+    )
+  else()
+    catch_discover_tests(${TARGET}
+      DISCOVERY_MODE PRE_TEST
+    )
+  endif()
+endfunction()
+
+uma_discover_catch2_tests(ConnectionProfileTests)
+uma_discover_catch2_tests(UmaCallerTests)
+add_test(NAME UmaCallerCConsumer COMMAND UmaCallerCConsumer)
