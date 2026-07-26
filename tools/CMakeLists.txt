@@ -5,7 +5,7 @@ add_executable(uma_connect_smoke
 
 target_link_libraries(uma_connect_smoke
   PRIVATE
-    UmaAssistantCore
+    UmaAssistantCoreObjects
     nlohmann_json::nlohmann_json
 )
 
