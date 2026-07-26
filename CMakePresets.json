@@ -7,6 +7,9 @@
       "description":   "Debug build using MinGW-w64 (UCRT64) — the only locally-verified preset",
       "generator":     "MinGW Makefiles",
       "binaryDir":     "${sourceDir}/build/mingw-debug",
+      "environment": {
+        "PATH": "C:/msys64/ucrt64/bin;$penv{PATH}"
+      },
       "cacheVariables": {
         "CMAKE_CXX_COMPILER":    "C:/msys64/ucrt64/bin/g++.exe",
         "CMAKE_BUILD_TYPE":      "Debug",
@@ -21,6 +24,27 @@
       "binaryDir":     "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mingw-debug",
+      "configurePreset": "mingw-debug",
+      "environment": {
+        "PATH": "C:/msys64/ucrt64/bin;$penv{PATH}"
+      }
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "mingw-debug",
+      "configurePreset": "mingw-debug",
+      "environment": {
+        "PATH": "C:/msys64/ucrt64/bin;$penv{PATH}"
+      },
+      "output": {
+        "outputOnFailure": true
       }
     }
   ]
