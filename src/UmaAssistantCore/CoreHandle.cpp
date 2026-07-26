@@ -166,6 +166,11 @@ UmaHandle create_handle(UmaApiCallback callback, void* custom_arg)
         .callback = callback,
         .custom_arg = custom_arg,
         .profile = std::move(profile),
+        .mutex = {},
+        .worker = {},
+        .cancellation = {},
+        .active_operation_id = 0,
+        .terminal_operation_ids = {},
     };
 }
 
