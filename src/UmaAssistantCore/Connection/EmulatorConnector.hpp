@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -16,6 +17,9 @@
 using namespace std::chrono_literals;
 
 namespace UmaAssistant {
+
+/// Optional callback invoked before each connection phase with the phase name.
+using PhaseCallback = std::function<void(std::string_view)>;
 
 struct ConnectionRequest
 {
@@ -45,15 +49,17 @@ public:
 
     [[nodiscard]] ConnectionResult connect(
         ConnectionRequest const& request,
-        std::stop_token          cancellation = {});
+        std::stop_token          cancellation = {},
+        PhaseCallback            on_phase    = nullptr);
 
-private:
     [[nodiscard]] static std::optional<ConnectionFailure> validate_request(
         ConnectionRequest const& request);
 
+private:
     [[nodiscard]] std::optional<ConnectionFailure> step_resolve_target(
         ConnectionRequest const& request,
-        std::stop_token const&   cancellation);
+        std::stop_token const&   cancellation,
+        PhaseCallback const&     on_phase);
 
     [[nodiscard]] std::optional<ConnectionFailure> step_boot_poll(
         ConnectionRequest const& request,

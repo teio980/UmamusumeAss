@@ -85,7 +85,8 @@ std::optional<ConnectionFailure> EmulatorConnector::validate_request(
 
 ConnectionResult EmulatorConnector::connect(
     ConnectionRequest const& request,
-    std::stop_token          cancellation)
+    std::stop_token          cancellation,
+    PhaseCallback            on_phase)
 {
     {
         auto err = validate_request(request);
@@ -101,14 +102,18 @@ ConnectionResult EmulatorConnector::connect(
     ConnectedDevice device;
     device.serial = request.serial;
 
-    if (auto err = step_resolve_target(request, cancellation))
+    if (auto err = step_resolve_target(request, cancellation, on_phase))
         return ConnectionResult{*err};
+    if (on_phase) on_phase("boot_poll");
     if (auto err = step_boot_poll(request, cancellation))
         return ConnectionResult{*err};
+    if (on_phase) on_phase("android_id");
     if (auto err = step_android_id(request, cancellation, device))
         return ConnectionResult{*err};
+    if (on_phase) on_phase("android_version");
     if (auto err = step_android_version(request, cancellation, device))
         return ConnectionResult{*err};
+    if (on_phase) on_phase("wm_size");
     if (auto err = step_get_size(request, cancellation, device))
         return ConnectionResult{*err};
 

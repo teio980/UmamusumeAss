@@ -8,8 +8,10 @@ namespace UmaAssistant {
 
 std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
     ConnectionRequest const& request,
-    std::stop_token const&   cancellation)
+    std::stop_token const&   cancellation,
+    PhaseCallback const&     on_phase)
 {
+    if (on_phase) on_phase("adb_devices");
     auto devices_inv = profile_.expand(
         request.profile_name, "list_devices", request.adb_path, request.serial);
 
@@ -38,6 +40,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
     {
         if (target_entry->state == "device")
         {
+            if (on_phase) on_phase("adb_get_state");
             auto state_inv = profile_.expand(
                 request.profile_name, "get_state", request.adb_path, request.serial);
             if (!state_inv)
@@ -101,6 +104,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
             };
         }
 
+        if (on_phase) on_phase("adb_connect");
         auto const connect_result = runner_.run(
             *connect_inv, timings_.connect, cancellation);
 
@@ -115,6 +119,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
             };
         }
 
+        if (on_phase) on_phase("ready_poll");
         auto const poll_start = std::chrono::steady_clock::now();
         while (true)
         {
@@ -153,6 +158,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
             std::this_thread::sleep_for(timings_.ready_poll_interval);
         }
 
+        if (on_phase) on_phase("adb_get_state");
         auto state_inv = profile_.expand(
             request.profile_name, "get_state", request.adb_path, request.serial);
         if (!state_inv)
