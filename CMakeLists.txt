@@ -40,6 +40,7 @@ FetchContent_MakeAvailable(Catch2)
 
 # ── Subdirectories ────────────────────────────────────────────────────────
 add_subdirectory(src/UmaAssistantCore)
+add_subdirectory(tools)
 
 # ── Tests ──────────────────────────────────────────────────────────────────
 option(UMA_BUILD_TESTS "Build tests" ON)
