@@ -1,0 +1,130 @@
+<Window x:Class="UmamusumeWpfGui.Views.Dialogs.SelectionDialogView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels.Dialogs"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:SelectionDialogViewModel}"
+        Title="{DynamicResource SelectionDialogTitle}"
+        Width="480"
+        Height="360"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource CardBackgroundBrush}"
+        FontSize="14"
+        Foreground="{StaticResource TextPrimaryBrush}">
+
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Title / Header -->
+    <TextBlock Grid.Row="0"
+               Text="{DynamicResource SelectionDialogTitle}"
+               FontSize="16"
+               FontWeight="Bold"
+               Margin="0,0,0,12" />
+
+    <!-- Candidate list -->
+    <ListBox Grid.Row="1"
+             ItemsSource="{Binding Items}"
+             Background="Transparent"
+             BorderThickness="0"
+             Margin="0,0,0,12"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="8,8" />
+          <Setter Property="Margin" Value="0,0,0,4" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+          <Setter Property="Cursor" Value="Hand" />
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+              <Setter Property="Background" Value="{StaticResource PrimaryLightestBrush}" />
+              <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </ListBox.ItemContainerStyle>
+
+      <ListBox.ItemTemplate>
+        <DataTemplate DataType="vm:SelectionDialogViewModel+SelectableEmulatorItem">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Radio indicator -->
+            <Border Grid.Column="0"
+                    Grid.RowSpan="2"
+                    Width="18"
+                    Height="18"
+                    CornerRadius="9"
+                    BorderThickness="2"
+                    BorderBrush="{StaticResource PrimaryLighterBrush}"
+                    Background="Transparent"
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center">
+              <Border.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                  <DataTrigger.Setters>
+                    <Setter Property="Border.Background" Value="{StaticResource PrimaryBrush}" />
+                    <Setter Property="Border.BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                  </DataTrigger.Setters>
+                </DataTrigger>
+              </Border.Triggers>
+            </Border>
+
+            <!-- Emulator name -->
+            <TextBlock Grid.Row="0"
+                       Grid.Column="1"
+                       Text="{Binding EmulatorName}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+
+            <!-- ADB path (secondary) -->
+            <TextBlock Grid.Row="1"
+                       Grid.Column="1"
+                       Text="{Binding AdbPath}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="12"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,2,0,0" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <!-- Buttons -->
+    <StackPanel Grid.Row="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right">
+      <Button Content="{DynamicResource SelectionDialogCancel}"
+              Margin="0,0,8,0"
+              Command="{Binding CancelCommand}"
+              Width="90"
+              Height="32"
+              Style="{StaticResource SecondaryButtonStyle}" />
+
+      <Button Content="{DynamicResource SelectionDialogConfirm}"
+              Command="{Binding ConfirmCommand}"
+              Width="90"
+              Height="32"
+              Style="{StaticResource PrimaryButtonStyle}" />
+    </StackPanel>
+  </Grid>
+</Window>
