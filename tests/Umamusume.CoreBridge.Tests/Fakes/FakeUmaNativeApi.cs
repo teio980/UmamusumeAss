@@ -14,6 +14,10 @@ internal sealed class FakeUmaNativeApi : IUmaNativeApi
     internal bool CreateInvalidHandle { get; set; }
     internal int DestroyCalls { get; private set; }
     internal UmaStartResult ConnectResult { get; set; } = new(0, (int)ConnectionErrorCode.InvalidArgument);
+    internal Action? BeforeConnectReturn { get; set; }
+    internal Action<ulong>? CancelOperationAction { get; set; }
+    internal int CancelOperationResult { get; set; }
+    internal List<ulong> CanceledOperationIds { get; } = [];
 
     public string GetVersion()
     {
@@ -44,14 +48,20 @@ internal sealed class FakeUmaNativeApi : IUmaNativeApi
     public UmaStartResult Connect(SafeUmaHandle handle, string adbPath, string serial, string profile)
     {
         Calls.Add(nameof(Connect));
+        BeforeConnectReturn?.Invoke();
         return ConnectResult;
     }
 
     public int CancelConnect(SafeUmaHandle handle, ulong operationId) =>
         (int)ConnectionErrorCode.InvalidArgument;
 
-    public int CancelOperation(SafeUmaHandle handle, ulong operationId) =>
-        (int)ConnectionErrorCode.InvalidArgument;
+    public int CancelOperation(SafeUmaHandle handle, ulong operationId)
+    {
+        Calls.Add(nameof(CancelOperation));
+        CanceledOperationIds.Add(operationId);
+        CancelOperationAction?.Invoke(operationId);
+        return CancelOperationResult;
+    }
 
     public UmaStartResult VerifyGame(SafeUmaHandle handle, string packageId) =>
         new(0, (int)ConnectionErrorCode.InvalidArgument);
@@ -92,4 +102,7 @@ internal sealed class FakeUmaNativeApi : IUmaNativeApi
             _callback?.Invoke(messageId, (IntPtr)pointer, IntPtr.Zero);
         }
     }
+
+    internal void EmitNull(int messageId) =>
+        _callback?.Invoke(messageId, IntPtr.Zero, IntPtr.Zero);
 }
