@@ -1,6 +1,6 @@
 namespace Umamusume.CoreBridge;
 
-internal enum ConnectionErrorCode : int
+public enum ConnectionErrorCode : int
 {
     Success = 0,
     AdbExecutableNotFound = 1,
