@@ -13,6 +13,8 @@ internal sealed class FakeUmaNativeApi : IUmaNativeApi
     internal string Version { get; set; } = "0.1.0";
     internal bool CreateInvalidHandle { get; set; }
     internal int DestroyCalls { get; private set; }
+    internal ManualResetEventSlim? DestroyEntered { get; set; }
+    internal ManualResetEventSlim? ContinueDestroy { get; set; }
     internal UmaStartResult ConnectResult { get; set; } = new(0, (int)ConnectionErrorCode.InvalidArgument);
     internal Action? BeforeConnectReturn { get; set; }
     internal Action<ulong>? CancelOperationAction { get; set; }
@@ -30,7 +32,12 @@ internal sealed class FakeUmaNativeApi : IUmaNativeApi
         Calls.Add(nameof(Create));
         _callback = callback;
         IntPtr value = CreateInvalidHandle ? IntPtr.Zero : (IntPtr)42;
-        return new SafeUmaHandle(value, _ => DestroyCalls++);
+        return new SafeUmaHandle(value, _ =>
+        {
+            DestroyCalls++;
+            DestroyEntered?.Set();
+            ContinueDestroy?.Wait();
+        });
     }
 
     public int SetUserDir(string path)

@@ -11,23 +11,40 @@ public sealed class UmaService : IUmaService
     private readonly IUmaNativeApi _native;
     private readonly IEventDispatcher _dispatcher;
     private readonly UmaApiCallback _nativeCallback;
+    private readonly TimeSpan _shutdownTimeout;
+    private readonly TimeProvider _timeProvider;
     private SafeUmaHandle? _handle;
     private OperationState? _startingOperation;
     private OperationState? _activeOperation;
     private bool _initializing;
+    private bool _disposing;
     private bool _disposed;
+    private Task? _disposeTask;
 
     public UmaService(IEventDispatcher dispatcher)
-        : this(new UmaCoreBridgeNative(), dispatcher)
+        : this(new UmaCoreBridgeNative(), dispatcher, TimeSpan.FromSeconds(10), TimeProvider.System)
     {
     }
 
     internal UmaService(IUmaNativeApi native, IEventDispatcher dispatcher)
+        : this(native, dispatcher, TimeSpan.FromSeconds(10), TimeProvider.System)
+    {
+    }
+
+    internal UmaService(
+        IUmaNativeApi native,
+        IEventDispatcher dispatcher,
+        TimeSpan shutdownTimeout,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(native);
         ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentOutOfRangeException.ThrowIfLessThan(shutdownTimeout, TimeSpan.Zero);
         _native = native;
         _dispatcher = dispatcher;
+        _shutdownTimeout = shutdownTimeout;
+        _timeProvider = timeProvider;
         _nativeCallback = OnNativeCallback;
     }
 
@@ -199,21 +216,92 @@ public sealed class UmaService : IUmaService
 
     public ValueTask DisposeAsync()
     {
-        SafeUmaHandle? handle;
         lock (_lifecycleLock)
         {
-            if (_disposed)
+            if (_disposeTask is not null)
             {
-                return ValueTask.CompletedTask;
+                return new ValueTask(_disposeTask);
             }
 
-            _disposed = true;
-            handle = _handle;
-            _handle = null;
+            _disposing = true;
+            _disposeTask = DisposeCoreAsync(_handle);
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeCoreAsync(SafeUmaHandle? handle)
+    {
+        long startedAt = _timeProvider.GetTimestamp();
+        OperationState? operation;
+        lock (_operationLock)
+        {
+            operation = _startingOperation ?? _activeOperation;
         }
 
-        handle?.Dispose();
-        return ValueTask.CompletedTask;
+        if (operation is not null && handle is not null)
+        {
+            RequestCancellation(operation, handle);
+            try
+            {
+                await operation.Completion.Task
+                    .WaitAsync(RemainingShutdownTime(startedAt), _timeProvider)
+                    .ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                IntPtr abandoned = handle.Abandon();
+                AbandonedNativeHandleRegistry.RetainAbandoned(abandoned, _nativeCallback);
+                FailOperation(
+                    operation,
+                    new ManagedBridgeException(
+                        DiagnosticCategory.FatalShutdownTimeout,
+                        operation.OperationId,
+                        "The native operation did not terminate before shutdown timeout."));
+                SafePublishDiagnostic(Diagnostic(
+                    DiagnosticCategory.FatalShutdownTimeout,
+                    operation.OperationId,
+                    "The native handle was retained because shutdown timed out."));
+                CompleteDisposal();
+                return;
+            }
+        }
+
+        if (handle is not null)
+        {
+            Task destroyTask = Task.Run(handle.Dispose);
+            try
+            {
+                await destroyTask
+                    .WaitAsync(RemainingShutdownTime(startedAt), _timeProvider)
+                    .ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                AbandonedNativeHandleRegistry.RetainUntilDestroyCompletes(destroyTask, _nativeCallback);
+                SafePublishDiagnostic(Diagnostic(
+                    DiagnosticCategory.FatalShutdownTimeout,
+                    operation?.OperationId,
+                    "UmaDestroy remained in progress after shutdown timeout."));
+            }
+        }
+
+        CompleteDisposal();
+    }
+
+    private TimeSpan RemainingShutdownTime(long startedAt)
+    {
+        TimeSpan remaining = _shutdownTimeout - _timeProvider.GetElapsedTime(startedAt);
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+    }
+
+    private void CompleteDisposal()
+    {
+        lock (_lifecycleLock)
+        {
+            _handle = null;
+            _disposed = true;
+            _disposing = false;
+        }
     }
 
     private void OnNativeCallback(int message, IntPtr detailsJson, IntPtr customArg)
@@ -469,7 +557,7 @@ public sealed class UmaService : IUmaService
         operation.Completion.TrySetException(exception);
     }
 
-    private void RequestCancellation(OperationState operation)
+    private void RequestCancellation(OperationState operation, SafeUmaHandle? handle = null)
     {
         lock (_operationLock)
         {
@@ -481,19 +569,26 @@ public sealed class UmaService : IUmaService
             operation.CancellationRequested = true;
         }
 
-        TryIssueCancellation(operation);
+        TryIssueCancellation(operation, handle);
     }
 
-    private void TryIssueCancellation(OperationState operation)
+    private void TryIssueCancellation(OperationState operation, SafeUmaHandle? handleOverride = null)
     {
         SafeUmaHandle handle;
-        try
+        if (handleOverride is not null)
         {
-            handle = GetInitializedHandle();
+            handle = handleOverride;
         }
-        catch (ObjectDisposedException)
+        else
         {
-            return;
+            try
+            {
+                handle = GetInitializedHandle();
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
         }
 
         ulong operationId;
@@ -578,7 +673,7 @@ public sealed class UmaService : IUmaService
 
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(_disposed || _disposing, this);
     }
 
     private static string ValidateBaseDirectory(string path)

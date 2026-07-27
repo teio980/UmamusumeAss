@@ -340,6 +340,77 @@ public sealed class UmaServiceTests : IDisposable
         Assert.Empty(native.CanceledOperationIds);
     }
 
+    [Fact]
+    public async Task DisposeDestroysIdleHandleExactlyOnce()
+    {
+        var native = new FakeUmaNativeApi();
+        var service = CreateService(native);
+        await Initialize(service);
+
+        await service.DisposeAsync();
+        await service.DisposeAsync();
+
+        Assert.Equal(1, native.DestroyCalls);
+    }
+
+    [Fact]
+    public async Task DisposeCancelsActiveOperationBeforeDestroy()
+    {
+        var native = new FakeUmaNativeApi { ConnectResult = new UmaStartResult(42, 0) };
+        native.CancelOperationAction = id =>
+        {
+            native.Emit(1, Started(id));
+            native.Emit(4, Failed(id, 9));
+        };
+        var service = CreateService(native);
+        await Initialize(service);
+        Task<ConnectionTerminalEvent> operation = service.ConnectAsync("adb.exe", "serial", "General");
+
+        await service.DisposeAsync();
+
+        Assert.IsType<ConnectionFailedEvent>(await operation);
+        Assert.Equal([42UL], native.CanceledOperationIds);
+        Assert.Equal(1, native.DestroyCalls);
+    }
+
+    [Fact]
+    public async Task DisposeAbandonsHandleWhenTerminalNeverArrives()
+    {
+        var native = new FakeUmaNativeApi { ConnectResult = new UmaStartResult(42, 0) };
+        var service = CreateService(native, TimeSpan.Zero);
+        await Initialize(service);
+        var diagnostics = new List<BridgeDiagnostic>();
+        service.DiagnosticReceived += diagnostics.Add;
+        _ = service.ConnectAsync("adb.exe", "serial", "General");
+
+        await service.DisposeAsync();
+
+        Assert.Equal(0, native.DestroyCalls);
+        Assert.Contains(diagnostics, item => item.Category == DiagnosticCategory.FatalShutdownTimeout);
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            service.ConnectAsync("adb.exe", "serial", "General"));
+    }
+
+    [Fact]
+    public async Task DisposeReturnsWhenDestroyRemainsBlocked()
+    {
+        using var destroyEntered = new ManualResetEventSlim();
+        using var continueDestroy = new ManualResetEventSlim();
+        var native = new FakeUmaNativeApi
+        {
+            DestroyEntered = destroyEntered,
+            ContinueDestroy = continueDestroy,
+        };
+        var service = CreateService(native, TimeSpan.Zero);
+        await Initialize(service);
+
+        await service.DisposeAsync();
+        Assert.True(destroyEntered.Wait(TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(1, native.DestroyCalls);
+        continueDestroy.Set();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -351,8 +422,8 @@ public sealed class UmaServiceTests : IDisposable
     private Task Initialize(UmaService service) =>
         service.InitializeAsync(_root, Path.Combine(_root, "app-data"));
 
-    private static UmaService CreateService(FakeUmaNativeApi native) =>
-        new(native, new InlineEventDispatcher());
+    private static UmaService CreateService(FakeUmaNativeApi native, TimeSpan? shutdownTimeout = null) =>
+        new(native, new InlineEventDispatcher(), shutdownTimeout ?? TimeSpan.FromSeconds(10), TimeProvider.System);
 
     private static void EmitSuccess(FakeUmaNativeApi native, ulong operationId)
     {
