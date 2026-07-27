@@ -14,6 +14,13 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
     if (on_phase) on_phase("adb_devices");
     auto devices_inv = profile_.expand(
         request.profile_name, "list_devices", request.adb_path, request.serial);
+    if (!devices_inv)
+    {
+        return ConnectionFailure{
+            ConnectionErrorCode::InvalidDeviceResponse, "list_devices",
+            "failed to expand list_devices command"
+        };
+    }
 
     auto const devices_result = runner_.run(
         *devices_inv, timings_.devices, cancellation);
@@ -52,6 +59,11 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
             }
             auto const state_result = runner_.run(
                 *state_inv, timings_.device_query, cancellation);
+            {
+                auto err = detail::check_runner_result(
+                    state_result, "get_state", cancellation);
+                if (err) return err;
+            }
             auto const state_trimmed = detail::trim(state_result.standard_output);
             if (state_trimmed != "device")
             {
@@ -107,6 +119,11 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
         if (on_phase) on_phase("adb_connect");
         auto const connect_result = runner_.run(
             *connect_inv, timings_.connect, cancellation);
+        {
+            auto err = detail::check_runner_result(
+                connect_result, "connect", cancellation);
+            if (err) return err;
+        }
 
         auto const combined = connect_result.standard_output
                             + connect_result.standard_error;
@@ -133,6 +150,11 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
 
             auto const poll_result = runner_.run(
                 *devices_inv, timings_.devices, cancellation);
+            {
+                auto err = detail::check_runner_result(
+                    poll_result, "ready_poll", cancellation);
+                if (err) return err;
+            }
 
             auto const poll_entries = detail::parse_devices_output(
                 poll_result.standard_output);
@@ -170,6 +192,11 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
         }
         auto const state_result = runner_.run(
             *state_inv, timings_.device_query, cancellation);
+        {
+            auto err = detail::check_runner_result(
+                state_result, "get_state", cancellation);
+            if (err) return err;
+        }
         auto const state_trimmed = detail::trim(state_result.standard_output);
         if (state_trimmed != "device")
         {

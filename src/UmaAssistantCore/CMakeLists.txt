@@ -28,6 +28,16 @@ target_include_directories(UmaAssistantCoreObjects
 
 uma_add_strict_warnings(UmaAssistantCoreObjects)
 
+add_executable(UmaExportVerification
+  VerifyExports.cpp
+)
+
+uma_add_strict_warnings(UmaExportVerification)
+
+if(MINGW)
+  target_link_options(UmaExportVerification PRIVATE -municode)
+endif()
+
 add_library(UmaAssistantCore SHARED
   UmaCaller.cpp
   $<TARGET_OBJECTS:UmaAssistantCoreObjects>
@@ -35,6 +45,7 @@ add_library(UmaAssistantCore SHARED
 
 set_target_properties(UmaAssistantCore PROPERTIES
   OUTPUT_NAME UmamusumeCore
+  PREFIX ""
 )
 
 target_link_libraries(UmaAssistantCore PRIVATE
@@ -50,6 +61,14 @@ target_include_directories(UmaAssistantCore
 
 target_compile_definitions(UmaAssistantCore PRIVATE
   UMA_DLL_EXPORTS
+)
+
+add_dependencies(UmaAssistantCore UmaExportVerification)
+
+add_custom_command(TARGET UmaAssistantCore POST_BUILD
+  COMMAND "$<TARGET_FILE:UmaExportVerification>" "$<TARGET_FILE:UmaAssistantCore>"
+  COMMENT "Verifying UmamusumeCore exports"
+  VERBATIM
 )
 
 uma_add_strict_warnings(UmaAssistantCore)

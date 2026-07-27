@@ -839,6 +839,75 @@ TEST_CASE("devices command non-zero exit returns CommandFailed",
             == ConnectionErrorCode::CommandFailed);
 }
 
+TEST_CASE("unknown profile fails before list_devices invocation is dereferenced",
+          "[EmulatorConnector][profile][regression]")
+{
+    ScriptedRunner runner{{}};
+    EmulatorConnector connector{general_profile(), runner, test_timings()};
+
+    auto request = default_request();
+    request.profile_name = "MissingProfile";
+    auto const result = connector.connect(request);
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& fail = std::get<ConnectionFailure>(result);
+    REQUIRE(fail.error_code == ConnectionErrorCode::InvalidDeviceResponse);
+    REQUIRE(fail.phase == "list_devices");
+    REQUIRE(runner.arguments().empty());
+}
+
+TEST_CASE("existing-device get-state start failure maps to ProcessStartFailed",
+          "[EmulatorConnector][get-state][regression]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        not_started(),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, test_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& fail = std::get<ConnectionFailure>(result);
+    REQUIRE(fail.error_code == ConnectionErrorCode::ProcessStartFailed);
+    REQUIRE(fail.phase == "get_state");
+}
+
+TEST_CASE("adb connect non-zero exit maps to CommandFailed even when output mentions connected",
+          "[EmulatorConnector][tcp-endpoint][regression]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n"),
+        failure(1, "failed to connect to 127.0.0.1:5555\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, test_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& fail = std::get<ConnectionFailure>(result);
+    REQUIRE(fail.error_code == ConnectionErrorCode::CommandFailed);
+    REQUIRE(fail.phase == "connect");
+}
+
+TEST_CASE("ready poll process start failure maps to ProcessStartFailed",
+          "[EmulatorConnector][tcp-endpoint][regression]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n"),
+        success("connected to 127.0.0.1:5555\n"),
+        not_started(),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, test_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& fail = std::get<ConnectionFailure>(result);
+    REQUIRE(fail.error_code == ConnectionErrorCode::ProcessStartFailed);
+    REQUIRE(fail.phase == "ready_poll");
+}
+
 // ==========================================================================
 // Timing defaults
 // ==========================================================================

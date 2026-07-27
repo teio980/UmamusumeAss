@@ -28,7 +28,7 @@ S1 proves an end-to-end ADB device handshake, not game automation. S2 turns that
 | Settings layout | 160 px left nav + scrollable right content | Three panels: Connection, Language, System |
 | Core language | C++20 | Same as MAA `MaaCore` |
 | Build system | CMake 3.28+ | Same as MAA |
-| C ABI macros | `UMA_API` (import/export) / `UMA_CALL` (calling convention) + `extern "C"` | Stable undecorated C exports; mirrors MAA's native boundary |
+| C ABI macros | `UMA_API_PORT` (import/export), `UMA_CALL` (calling convention), and combined `UMA_API` + `extern "C"` | Stable undecorated C exports; mirrors MAA's native boundary |
 | String marshalling | `Marshal.PtrToStringUTF8` / `UTF8Pinned` | Avoid implicit string marshalling at the ABI boundary |
 | Callback JSON | Versioned envelope with typed schemas | Each callback carries `"version": 1` and a `"type"` field |
 | ADB policy | Reuse configured adb, never `kill-server` | The app does not own the ADB server unless it started one and user enabled cleanup |
@@ -126,14 +126,16 @@ S1 is a connection verifier only. It must never be presented as a usable Umamusu
 #if defined(_WIN32)
 #  define UMA_CALL __stdcall
 #  if defined(UMA_DLL_EXPORTS)
-#    define UMA_API __declspec(dllexport) UMA_CALL
+#    define UMA_API_PORT __declspec(dllexport)
 #  else
-#    define UMA_API __declspec(dllimport) UMA_CALL
+#    define UMA_API_PORT __declspec(dllimport)
 #  endif
 #else
 #  define UMA_CALL
-#  define UMA_API UMA_CALL
+#  define UMA_API_PORT
 #endif
+
+#define UMA_API UMA_API_PORT UMA_CALL
 
 typedef struct UmaHandleImpl* UmaHandle;
 
@@ -150,27 +152,27 @@ typedef void (UMA_CALL* UmaApiCallback)(
 #ifdef __cplusplus
 extern "C" {
 #endif
-UMA_API const char* UmaGetVersion(void);
-UMA_API UmaHandle UmaCreate(UmaApiCallback callback, void* custom_arg);
-UMA_API void UmaDestroy(UmaHandle handle);
-UMA_API int32_t UmaSetUserDir(const char* utf8_path);
-UMA_API int32_t UmaLoadResource(const char* utf8_path);
-UMA_API UmaStartResult UmaConnectAsync(UmaHandle handle,
+UMA_API_PORT const char* UMA_CALL UmaGetVersion(void);
+UmaHandle UMA_API UmaCreate(UmaApiCallback callback, void* custom_arg);
+void UMA_API UmaDestroy(UmaHandle handle);
+int32_t UMA_API UmaSetUserDir(const char* utf8_path);
+int32_t UMA_API UmaLoadResource(const char* utf8_path);
+UmaStartResult UMA_API UmaConnectAsync(UmaHandle handle,
                                        const char* adb_path,
                                        const char* serial,
                                        const char* profile);
-UMA_API int32_t UmaCancelConnect(UmaHandle handle, uint64_t operation_id);
-UMA_API int32_t UmaCancelOperation(UmaHandle handle, uint64_t operation_id);
+int32_t UMA_API UmaCancelConnect(UmaHandle handle, uint64_t operation_id);
+int32_t UMA_API UmaCancelOperation(UmaHandle handle, uint64_t operation_id);
 // S2 control-ready APIs. Each async call reports its result through UmaApiCallback.
-UMA_API UmaStartResult UmaVerifyGameAsync(UmaHandle handle, const char* utf8_package_id);
-UMA_API UmaStartResult UmaCaptureAsync(UmaHandle handle);
-UMA_API int32_t UmaGetFramePngSize(UmaHandle handle, uint64_t frame_id, uint64_t* size);
-UMA_API int32_t UmaCopyFramePng(UmaHandle handle, uint64_t frame_id,
-                                 uint8_t* destination, uint64_t capacity);
-UMA_API int32_t UmaReleaseFrame(UmaHandle handle, uint64_t frame_id);
-UMA_API UmaStartResult UmaTapAsync(UmaHandle handle, uint64_t frame_id,
+UmaStartResult UMA_API UmaVerifyGameAsync(UmaHandle handle, const char* utf8_package_id);
+UmaStartResult UMA_API UmaCaptureAsync(UmaHandle handle);
+int32_t UMA_API UmaGetFramePngSize(UmaHandle handle, uint64_t frame_id, uint64_t* size);
+int32_t UMA_API UmaCopyFramePng(UmaHandle handle, uint64_t frame_id,
+                                uint8_t* destination, uint64_t capacity);
+int32_t UMA_API UmaReleaseFrame(UmaHandle handle, uint64_t frame_id);
+UmaStartResult UMA_API UmaTapAsync(UmaHandle handle, uint64_t frame_id,
                                    int32_t canonical_x, int32_t canonical_y);
-UMA_API UmaStartResult UmaSwipeAsync(UmaHandle handle, uint64_t frame_id,
+UmaStartResult UMA_API UmaSwipeAsync(UmaHandle handle, uint64_t frame_id,
                                      int32_t x1, int32_t y1, int32_t x2, int32_t y2,
                                      int32_t duration_ms);
 #ifdef __cplusplus
@@ -186,7 +188,7 @@ S2 uses the same start/result contract for verify, capture, tap, and swipe. Only
 
 All exported P/Invoke methods carry `[UnmanagedCallConv(CallConvs = [typeof(CallConvStdcall)])]`; `UmaApiCallback` carries `[UnmanagedFunctionPointer(CallingConvention.StdCall)]`. Every input string is a NUL-terminated UTF-8 buffer. Native code never retains those input pointers after `UmaConnectAsync` returns. Native code catches all exceptions before crossing the C ABI; managed callback code catches all exceptions before returning to native code.
 
-`UMA_API` / `UMA_CALL` are used everywhere instead of spelling export or calling-convention attributes on individual functions. The Windows definitions mirror MAA's macro boundary while keeping the header portable to a future non-Windows toolchain.
+`UMA_API` combines `UMA_API_PORT` and `UMA_CALL` after ordinary return types. Pointer-returning `UmaGetVersion` uses MAA's split form so MSVC sees the export attribute before `const char*` and the calling convention after it. The macros keep the header portable to a future non-Windows toolchain.
 
 ### 3.3 P/Invoke UTF-8 Boundary
 
@@ -660,7 +662,7 @@ No registry reads, config file parsing, or vendor DLL paths in S1.
 |---|---|---|
 | 3.1 UmaCaller.h + UmaCaller.cpp | `include/UmaAssistant/UmaCaller.h`, `src/UmaAssistantCore/UmaCaller.cpp`, `src/UmaAssistantCore/CoreRuntime.hpp` | Resource must load before `UmaCreate`; C ABI has `extern "C"`, import/export separation, explicit `StdCall`, and `UmaStartResult`; `UmaDestroy` cancels/joins and guarantees no post-return callback |
 | 3.2 Build as shared library | Update `src/UmaAssistantCore/CMakeLists.txt` to `SHARED` | `UmamusumeCore.dll` produced; all existing C++ tests still pass |
-| 3.3 C ABI lifecycle tests | `tests/Connection/UmaCallerTests.cpp`, `tests/Connection/UmaCallerCConsumer.c` | A C consumer links to the DLL and `dumpbin /exports` verifies undecorated names; immediate validation failure emits no callback; async connection emits the versioned sequence; cancellation emits exactly one `Canceled` terminal event; concurrent start returns `Busy` |
+| 3.3 C ABI lifecycle tests | `tests/Connection/UmaCallerTests.cpp`, `tests/Connection/UmaCallerCConsumer.c` | A C consumer links to the DLL and the post-build `UmaExportVerification` gate verifies exactly 15 undecorated names; immediate validation failure emits no callback; async connection emits the versioned sequence; cancellation emits exactly one `Canceled` terminal event; concurrent start returns `Busy` |
 
 ### Phase 4: C# P/Invoke Bridge (Task 7)
 

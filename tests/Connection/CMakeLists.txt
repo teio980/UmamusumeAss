@@ -86,6 +86,18 @@ target_link_libraries(UmaCallerCConsumer
     UmaAssistantCore
 )
 
+# ============================================================================
+# Phase 3 — Export-name verification
+# ============================================================================
+
+add_library(UmaUnexpectedExportFixture SHARED
+  UnexpectedExportFixture.c
+)
+
+set_target_properties(UmaUnexpectedExportFixture PROPERTIES
+  PREFIX ""
+)
+
 foreach(uma_consumer IN ITEMS UmaCallerTests UmaCallerCConsumer)
   add_custom_command(TARGET ${uma_consumer} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -128,3 +140,34 @@ endfunction()
 uma_discover_catch2_tests(ConnectionProfileTests)
 uma_discover_catch2_tests(UmaCallerTests)
 add_test(NAME UmaCallerCConsumer COMMAND UmaCallerCConsumer)
+add_test(
+  NAME UmaExportVerification
+  COMMAND UmaExportVerification "$<TARGET_FILE:UmaAssistantCore>"
+)
+add_test(
+  NAME UmaExportVerificationRejectsUnexpectedExport
+  COMMAND UmaExportVerification "$<TARGET_FILE:UmaUnexpectedExportFixture>"
+)
+set_tests_properties(UmaExportVerificationRejectsUnexpectedExport PROPERTIES
+  WILL_FAIL TRUE
+)
+
+# ============================================================================
+# Phase 3 — Same-count wrong-name export fixture
+# ============================================================================
+
+add_library(UmaWrongNameExportFixture SHARED
+  WrongNameExportFixture.c
+)
+
+set_target_properties(UmaWrongNameExportFixture PROPERTIES
+  PREFIX ""
+)
+
+add_test(
+  NAME UmaExportVerificationRejectsWrongName
+  COMMAND UmaExportVerification "$<TARGET_FILE:UmaWrongNameExportFixture>"
+)
+set_tests_properties(UmaExportVerificationRejectsWrongName PROPERTIES
+  WILL_FAIL TRUE
+)

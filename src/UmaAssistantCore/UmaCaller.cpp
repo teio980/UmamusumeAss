@@ -16,7 +16,7 @@ namespace {
 
 extern "C" {
 
-UMA_API char const* UMA_CALL UmaGetVersion(void)
+UMA_API_PORT char const* UMA_CALL UmaGetVersion(void)
 {
     try
     {
@@ -28,7 +28,7 @@ UMA_API char const* UMA_CALL UmaGetVersion(void)
     }
 }
 
-UMA_API UmaHandle UMA_CALL UmaCreate(UmaApiCallback callback, void* custom_arg)
+UmaHandle UMA_API UmaCreate(UmaApiCallback callback, void* custom_arg)
 {
     try
     {
@@ -40,7 +40,7 @@ UMA_API UmaHandle UMA_CALL UmaCreate(UmaApiCallback callback, void* custom_arg)
     }
 }
 
-UMA_API void UMA_CALL UmaDestroy(UmaHandle handle)
+void UMA_API UmaDestroy(UmaHandle handle)
 {
     try
     {
@@ -52,7 +52,7 @@ UMA_API void UMA_CALL UmaDestroy(UmaHandle handle)
     }
 }
 
-UMA_API int32_t UMA_CALL UmaSetUserDir(char const* utf8_path)
+int32_t UMA_API UmaSetUserDir(char const* utf8_path)
 {
     try
     {
@@ -67,7 +67,7 @@ UMA_API int32_t UMA_CALL UmaSetUserDir(char const* utf8_path)
     }
 }
 
-UMA_API int32_t UMA_CALL UmaLoadResource(char const* utf8_path)
+int32_t UMA_API UmaLoadResource(char const* utf8_path)
 {
     try
     {
@@ -82,7 +82,7 @@ UMA_API int32_t UMA_CALL UmaLoadResource(char const* utf8_path)
     }
 }
 
-UMA_API UmaStartResult UMA_CALL UmaConnectAsync(
+UmaStartResult UMA_API UmaConnectAsync(
     UmaHandle handle, char const* adb_path, char const* serial, char const* profile)
 {
     try
@@ -100,7 +100,7 @@ UMA_API UmaStartResult UMA_CALL UmaConnectAsync(
     }
 }
 
-UMA_API int32_t UMA_CALL UmaCancelConnect(UmaHandle handle, uint64_t operation_id)
+int32_t UMA_API UmaCancelConnect(UmaHandle handle, uint64_t operation_id)
 {
     try
     {
@@ -112,7 +112,7 @@ UMA_API int32_t UMA_CALL UmaCancelConnect(UmaHandle handle, uint64_t operation_i
     }
 }
 
-UMA_API int32_t UMA_CALL UmaCancelOperation(UmaHandle handle, uint64_t operation_id)
+int32_t UMA_API UmaCancelOperation(UmaHandle handle, uint64_t operation_id)
 {
     try
     {
@@ -124,37 +124,37 @@ UMA_API int32_t UMA_CALL UmaCancelOperation(UmaHandle handle, uint64_t operation
     }
 }
 
-UMA_API UmaStartResult UMA_CALL UmaVerifyGameAsync(UmaHandle, char const*)
+UmaStartResult UMA_API UmaVerifyGameAsync(UmaHandle, char const*)
 {
     try { return unsupported_start(); } catch (...) { return unsupported_start(); }
 }
 
-UMA_API UmaStartResult UMA_CALL UmaCaptureAsync(UmaHandle)
+UmaStartResult UMA_API UmaCaptureAsync(UmaHandle)
 {
     try { return unsupported_start(); } catch (...) { return unsupported_start(); }
 }
 
-UMA_API int32_t UMA_CALL UmaGetFramePngSize(UmaHandle, uint64_t, uint64_t*)
+int32_t UMA_API UmaGetFramePngSize(UmaHandle, uint64_t, uint64_t*)
 {
     try { return UMA_ERROR_INVALID_ARGUMENT; } catch (...) { return UMA_ERROR_INVALID_ARGUMENT; }
 }
 
-UMA_API int32_t UMA_CALL UmaCopyFramePng(UmaHandle, uint64_t, uint8_t*, uint64_t)
+int32_t UMA_API UmaCopyFramePng(UmaHandle, uint64_t, uint8_t*, uint64_t)
 {
     try { return UMA_ERROR_INVALID_ARGUMENT; } catch (...) { return UMA_ERROR_INVALID_ARGUMENT; }
 }
 
-UMA_API int32_t UMA_CALL UmaReleaseFrame(UmaHandle, uint64_t)
+int32_t UMA_API UmaReleaseFrame(UmaHandle, uint64_t)
 {
     try { return UMA_ERROR_INVALID_ARGUMENT; } catch (...) { return UMA_ERROR_INVALID_ARGUMENT; }
 }
 
-UMA_API UmaStartResult UMA_CALL UmaTapAsync(UmaHandle, uint64_t, int32_t, int32_t)
+UmaStartResult UMA_API UmaTapAsync(UmaHandle, uint64_t, int32_t, int32_t)
 {
     try { return unsupported_start(); } catch (...) { return unsupported_start(); }
 }
 
-UMA_API UmaStartResult UMA_CALL UmaSwipeAsync(
+UmaStartResult UMA_API UmaSwipeAsync(
     UmaHandle, uint64_t, int32_t, int32_t, int32_t, int32_t, int32_t)
 {
     try { return unsupported_start(); } catch (...) { return unsupported_start(); }

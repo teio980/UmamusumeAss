@@ -5,14 +5,16 @@
 #if defined(_WIN32)
 #  define UMA_CALL __stdcall
 #  if defined(UMA_DLL_EXPORTS)
-#    define UMA_API __declspec(dllexport)
+#    define UMA_API_PORT __declspec(dllexport)
 #  else
-#    define UMA_API __declspec(dllimport)
+#    define UMA_API_PORT __declspec(dllimport)
 #  endif
 #else
 #  define UMA_CALL
-#  define UMA_API
+#  define UMA_API_PORT
 #endif
+
+#define UMA_API UMA_API_PORT UMA_CALL
 
 typedef struct UmaHandleImpl* UmaHandle;
 
@@ -24,7 +26,7 @@ typedef struct UmaStartResult
 
 typedef void (UMA_CALL* UmaApiCallback)(
     int32_t message,
-    char const* details_json,
+    const char* details_json,
     void* custom_arg);
 
 #define UMA_MSG_CONNECTION_STARTED 1
@@ -59,27 +61,29 @@ typedef void (UMA_CALL* UmaApiCallback)(
 extern "C" {
 #endif
 
-UMA_API char const* UMA_CALL UmaGetVersion(void);
-UMA_API UmaHandle UMA_CALL UmaCreate(UmaApiCallback callback, void* custom_arg);
-UMA_API void UMA_CALL UmaDestroy(UmaHandle handle);
-UMA_API int32_t UMA_CALL UmaSetUserDir(char const* utf8_path);
-UMA_API int32_t UMA_CALL UmaLoadResource(char const* utf8_path);
-UMA_API UmaStartResult UMA_CALL UmaConnectAsync(
-    UmaHandle handle, char const* adb_path, char const* serial, char const* profile);
-UMA_API int32_t UMA_CALL UmaCancelConnect(UmaHandle handle, uint64_t operation_id);
-UMA_API int32_t UMA_CALL UmaCancelOperation(UmaHandle handle, uint64_t operation_id);
+UMA_API_PORT const char* UMA_CALL UmaGetVersion(void);
+UmaHandle UMA_API UmaCreate(UmaApiCallback callback, void* custom_arg);
+void UMA_API UmaDestroy(UmaHandle handle);
+int32_t UMA_API UmaSetUserDir(const char* utf8_path);
+int32_t UMA_API UmaLoadResource(const char* utf8_path);
+UmaStartResult UMA_API UmaConnectAsync(UmaHandle handle,
+                                       const char* adb_path,
+                                       const char* serial,
+                                       const char* profile);
+int32_t UMA_API UmaCancelConnect(UmaHandle handle, uint64_t operation_id);
+int32_t UMA_API UmaCancelOperation(UmaHandle handle, uint64_t operation_id);
 
-UMA_API UmaStartResult UMA_CALL UmaVerifyGameAsync(UmaHandle handle, char const* utf8_package_id);
-UMA_API UmaStartResult UMA_CALL UmaCaptureAsync(UmaHandle handle);
-UMA_API int32_t UMA_CALL UmaGetFramePngSize(UmaHandle handle, uint64_t frame_id, uint64_t* size);
-UMA_API int32_t UMA_CALL UmaCopyFramePng(
-    UmaHandle handle, uint64_t frame_id, uint8_t* destination, uint64_t capacity);
-UMA_API int32_t UMA_CALL UmaReleaseFrame(UmaHandle handle, uint64_t frame_id);
-UMA_API UmaStartResult UMA_CALL UmaTapAsync(
-    UmaHandle handle, uint64_t frame_id, int32_t canonical_x, int32_t canonical_y);
-UMA_API UmaStartResult UMA_CALL UmaSwipeAsync(
-    UmaHandle handle, uint64_t frame_id,
-    int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t duration_ms);
+UmaStartResult UMA_API UmaVerifyGameAsync(UmaHandle handle, const char* utf8_package_id);
+UmaStartResult UMA_API UmaCaptureAsync(UmaHandle handle);
+int32_t UMA_API UmaGetFramePngSize(UmaHandle handle, uint64_t frame_id, uint64_t* size);
+int32_t UMA_API UmaCopyFramePng(UmaHandle handle, uint64_t frame_id,
+                                uint8_t* destination, uint64_t capacity);
+int32_t UMA_API UmaReleaseFrame(UmaHandle handle, uint64_t frame_id);
+UmaStartResult UMA_API UmaTapAsync(UmaHandle handle, uint64_t frame_id,
+                                   int32_t canonical_x, int32_t canonical_y);
+UmaStartResult UMA_API UmaSwipeAsync(UmaHandle handle, uint64_t frame_id,
+                                     int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                                     int32_t duration_ms);
 
 #ifdef __cplusplus
 }
