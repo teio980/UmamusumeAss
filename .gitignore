@@ -2,4 +2,6 @@ MaaAssistantArknights/
 .omo/
 .codegraph/
 build/
+bin/
+obj/
 .worktrees/
