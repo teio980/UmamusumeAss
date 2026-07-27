@@ -104,6 +104,30 @@ public sealed class UmaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DisposeRacingWithCreateDestroysTheUnassignedHandle()
+    {
+        using var createReachedReturn = new ManualResetEventSlim();
+        using var releaseCreate = new ManualResetEventSlim();
+        var native = new FakeUmaNativeApi
+        {
+            BeforeCreateReturn = () =>
+            {
+                createReachedReturn.Set();
+                releaseCreate.Wait();
+            },
+        };
+        var service = CreateService(native);
+        Task initialization = Task.Run(() => Initialize(service));
+        Assert.True(createReachedReturn.Wait(TimeSpan.FromSeconds(5)));
+
+        await service.DisposeAsync();
+        releaseCreate.Set();
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await initialization);
+
+        Assert.Equal(1, native.DestroyCalls);
+    }
+
+    [Fact]
     public async Task ConnectBeforeInitializationIsRejected()
     {
         var native = new FakeUmaNativeApi();
@@ -267,6 +291,30 @@ public sealed class UmaServiceTests : IDisposable
 
         Assert.IsType<ConnectionSucceededEvent>(first);
         Assert.Contains(diagnostics, item => item.Category == DiagnosticCategory.LateEvent);
+    }
+
+    [Fact]
+    public async Task TerminalEventHandlerCannotStartAnotherOperationBeforeCallbackCleanup()
+    {
+        var native = new FakeUmaNativeApi { ConnectResult = new UmaStartResult(42, 0) };
+        await using var service = CreateService(native);
+        await Initialize(service);
+        Task<ConnectionTerminalEvent>? reentrant = null;
+        service.ConnectionEventReceived += connectionEvent =>
+        {
+            if (connectionEvent is ConnectionTerminalEvent)
+            {
+                reentrant = service.ConnectAsync("adb.exe", "serial", "General");
+            }
+        };
+        Task<ConnectionTerminalEvent> first = service.ConnectAsync("adb.exe", "serial", "General");
+
+        EmitSuccess(native, 42);
+        await first;
+
+        Assert.NotNull(reentrant);
+        await Assert.ThrowsAsync<ManagedBridgeException>(async () => await reentrant);
+        Assert.Equal(1, native.Calls.Count(call => call == "Connect"));
     }
 
     [Fact]

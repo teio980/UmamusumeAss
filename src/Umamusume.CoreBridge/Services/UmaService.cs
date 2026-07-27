@@ -73,6 +73,8 @@ public sealed class UmaService : IUmaService
             _initializing = true;
         }
 
+        SafeUmaHandle? createdHandle = null;
+        bool handleAssigned = false;
         try
         {
             Directory.CreateDirectory(canonicalAppDataDir);
@@ -85,24 +87,31 @@ public sealed class UmaService : IUmaService
                 throw BridgeFailure("The native core returned an empty version.");
             }
 
-            SafeUmaHandle handle = _native.Create(_nativeCallback, IntPtr.Zero);
-            if (handle.IsInvalid)
+            createdHandle = _native.Create(_nativeCallback, IntPtr.Zero);
+            if (createdHandle.IsInvalid)
             {
-                handle.Dispose();
+                createdHandle.Dispose();
+                createdHandle = null;
                 throw BridgeFailure("UmaCreate returned an invalid handle.");
             }
 
             lock (_lifecycleLock)
             {
                 ThrowIfDisposed();
-                _handle = handle;
+                _handle = createdHandle;
                 CoreVersion = version;
+                handleAssigned = true;
             }
 
             return Task.CompletedTask;
         }
         finally
         {
+            if (!handleAssigned)
+            {
+                createdHandle?.Dispose();
+            }
+
             lock (_lifecycleLock)
             {
                 _initializing = false;
@@ -231,6 +240,7 @@ public sealed class UmaService : IUmaService
 
     private async Task DisposeCoreAsync(SafeUmaHandle? handle)
     {
+        await Task.Yield();
         long startedAt = _timeProvider.GetTimestamp();
         OperationState? operation;
         lock (_operationLock)
@@ -433,10 +443,6 @@ public sealed class UmaService : IUmaService
                 operation.Terminal = true;
                 terminal = true;
                 registration = operation.CancellationRegistration;
-                if (ReferenceEquals(_activeOperation, operation))
-                {
-                    _activeOperation = null;
-                }
             }
         }
 
@@ -473,6 +479,7 @@ public sealed class UmaService : IUmaService
         {
             registration.Dispose();
             operation.Completion.TrySetResult((ConnectionTerminalEvent)connectionEvent);
+            CleanupOperation(operation);
         }
     }
 
@@ -531,15 +538,6 @@ public sealed class UmaService : IUmaService
             if (!alreadyTerminal)
             {
                 operation.Terminal = true;
-                if (ReferenceEquals(_startingOperation, operation))
-                {
-                    _startingOperation = null;
-                }
-
-                if (ReferenceEquals(_activeOperation, operation))
-                {
-                    _activeOperation = null;
-                }
             }
         }
 
@@ -555,6 +553,7 @@ public sealed class UmaService : IUmaService
         registration.Dispose();
         SafePublishDiagnostic(Diagnostic(exception.Category, exception.OperationId, exception.Message));
         operation.Completion.TrySetException(exception);
+        CleanupOperation(operation);
     }
 
     private void RequestCancellation(OperationState operation, SafeUmaHandle? handle = null)
@@ -654,6 +653,22 @@ public sealed class UmaService : IUmaService
         FailOperation(
             operation,
             new ManagedBridgeException(category, operation.OperationId, message));
+    }
+
+    private void CleanupOperation(OperationState operation)
+    {
+        lock (_operationLock)
+        {
+            if (ReferenceEquals(_startingOperation, operation))
+            {
+                _startingOperation = null;
+            }
+
+            if (ReferenceEquals(_activeOperation, operation))
+            {
+                _activeOperation = null;
+            }
+        }
     }
 
     private static BridgeDiagnostic Diagnostic(
