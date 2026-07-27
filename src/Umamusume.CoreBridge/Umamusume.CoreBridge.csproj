@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Umamusume.CoreBridge</RootNamespace>
+    <AssemblyName>Umamusume.CoreBridge</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umamusume.CoreBridge.Tests" />
+    <InternalsVisibleTo Include="Umamusume.CoreBridge.IntegrationHost" />
+  </ItemGroup>
+</Project>
