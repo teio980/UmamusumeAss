@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- ============================================================
+       Strings.en-US.xaml — English (United States) resources
+       ============================================================ -->
+
+  <!-- Window -->
+  <sys:String x:Key="WindowTitle">UmamusumeAss</sys:String>
+
+  <!-- Tab bar -->
+  <sys:String x:Key="TabLog">Log</sys:String>
+  <sys:String x:Key="TabSettings">Settings</sys:String>
+
+  <!-- Settings navigation -->
+  <sys:String x:Key="NavConnection">Connection</sys:String>
+  <sys:String x:Key="NavLanguage">Language</sys:String>
+  <sys:String x:Key="NavSystem">System</sys:String>
+
+  <!-- Connection panel -->
+  <sys:String x:Key="ConnectionTitle">Connection Configuration</sys:String>
+  <sys:String x:Key="AdbPathLabel">ADB Path</sys:String>
+  <sys:String x:Key="SerialLabel">Serial</sys:String>
+  <sys:String x:Key="AutoDetectButton">Auto Detect</sys:String>
+  <sys:String x:Key="AlwaysAutoDetectLabel">Always auto-detect before connect</sys:String>
+  <sys:String x:Key="ProfileLabel">Profile</sys:String>
+  <sys:String x:Key="ConnectButton">Connect</sys:String>
+  <sys:String x:Key="CancelButton">Cancel</sys:String>
+  <sys:String x:Key="BrowseButton">Browse</sys:String>
+  <sys:String x:Key="SaveButton">Save</sys:String>
+  <sys:String x:Key="ForgetButton">Forget</sys:String>
+  <sys:String x:Key="StatusLabel">Status</sys:String>
+  <sys:String x:Key="DeviceInfoTitle">Device Information</sys:String>
+  <sys:String x:Key="SerialField">Serial</sys:String>
+  <sys:String x:Key="AndroidIdField">Android ID</sys:String>
+  <sys:String x:Key="AndroidVersionField">Android Version</sys:String>
+  <sys:String x:Key="ResolutionField">Resolution</sys:String>
+  <sys:String x:Key="LastVerifiedLabel">Last verified</sys:String>
+
+  <!-- Language panel -->
+  <sys:String x:Key="LanguageTitle">Language</sys:String>
+  <sys:String x:Key="LanguageHint">Changes take effect immediately.</sys:String>
+
+  <!-- System panel -->
+  <sys:String x:Key="SystemTitle">System</sys:String>
+  <sys:String x:Key="CoreVersionLabel">Core Version</sys:String>
+  <sys:String x:Key="ResourcePathLabel">Resource Path</sys:String>
+  <sys:String x:Key="CurrentAdbPathLabel">Current ADB Path</sys:String>
+  <sys:String x:Key="LastDetectedEmulatorLabel">Last Detected Emulator</sys:String>
+
+  <!-- Connection states -->
+  <sys:String x:Key="StateIdle">Idle</sys:String>
+  <sys:String x:Key="StateDetecting">Detecting…</sys:String>
+  <sys:String x:Key="StateConnecting">Connecting…</sys:String>
+  <sys:String x:Key="StateConnected">Connected</sys:String>
+  <sys:String x:Key="StateDisconnected">Disconnected</sys:String>
+  <sys:String x:Key="StateFailed">Failed</sys:String>
+  <sys:String x:Key="StateCanceling">Canceling…</sys:String>
+
+  <!-- Log view -->
+  <sys:String x:Key="LogEmptyMessage">No log entries yet.</sys:String>
+  <sys:String x:Key="LogTimestampHeader">Timestamp</sys:String>
+  <sys:String x:Key="LogTypeHeader">Type</sys:String>
+  <sys:String x:Key="LogDetailsHeader">Details</sys:String>
+
+  <!-- Selection dialog -->
+  <sys:String x:Key="SelectionDialogTitle">Select Device</sys:String>
+  <sys:String x:Key="SelectionDialogConfirm">OK</sys:String>
+  <sys:String x:Key="SelectionDialogCancel">Cancel</sys:String>
+
+  <!-- Control readiness (S2) -->
+  <sys:String x:Key="ControlReadinessTitle">Control Readiness</sys:String>
+  <sys:String x:Key="VerifyGameButton">Verify Game</sys:String>
+  <sys:String x:Key="CaptureScreenButton">Capture Screen</sys:String>
+  <sys:String x:Key="TapTestButton">Tap Test</sys:String>
+  <sys:String x:Key="SwipeTestButton">Swipe Test</sys:String>
+  <sys:String x:Key="ConfirmActionLabel">Confirm</sys:String>
+
+  <!-- Startup error -->
+  <sys:String x:Key="StartupErrorTitle">Initialization Error</sys:String>
+  <sys:String x:Key="StartupErrorMessage">The application could not initialize the core component. Connection features are disabled.</sys:String>
+
+</ResourceDictionary>
