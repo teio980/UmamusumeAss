@@ -666,13 +666,13 @@ No registry reads, config file parsing, or vendor DLL paths in S1.
 
 ### Phase 4: C# P/Invoke Bridge (Task 7)
 
-**Goal:** C# code can call DLL functions and receive typed events.
+**Goal:** C# code can call DLL functions and receive typed events. (Phase 5 supplies the WPF `IEventDispatcher` adapter.)
 
 | Task | Files | Acceptance Gate |
 |---|---|---|
-| 4.1 Bridge declarations | `src/UmamusumeWpfGui/CoreBridge/UmaCoreBridgeNative.cs` | `NativeLibrary.TryLoad("UmamusumeCore.dll")` succeeds |
-| 4.2 SafeHandle | `src/UmamusumeWpfGui/CoreBridge/SafeUmaHandle.cs` | `ReleaseHandle` calls `UmaDestroy` |
-| 4.3 UmaService | `src/UmamusumeWpfGui/Services/UmaService.cs` | Explicit initialization loads packaged resources before handle creation; callback JSON is synchronously copied, schema-validated, buffered during start registration, then dispatched; cancellation, shutdown, and terminal events complete exactly one matching Task; a late event cannot update the active operation; marshalling uses `Marshal.PtrToStringUTF8` and explicit calling-convention attributes |
+| 4.1 Bridge declarations | `src/Umamusume.CoreBridge/CoreBridge/UmaCoreBridgeNative.cs` | `NativeLibrary.TryLoad("UmamusumeCore.dll")` succeeds |
+| 4.2 SafeHandle | `src/Umamusume.CoreBridge/CoreBridge/SafeUmaHandle.cs` | `ReleaseHandle` calls `UmaDestroy` |
+| 4.3 UmaService | `src/Umamusume.CoreBridge/Services/UmaService.cs` | Explicit initialization loads packaged resources before handle creation; callback JSON is synchronously copied, schema-validated, buffered during start registration, then dispatched; cancellation, shutdown, and terminal events complete exactly one matching Task; a late event cannot update the active operation; marshalling uses `Marshal.PtrToStringUTF8` and explicit calling-convention attributes |
 
 ### Phase 5: WPF Application (Tasks 8–10)
 
@@ -817,13 +817,17 @@ UmamusumeAss/
 │   │       ├── ScreenCapture.cpp
 │   │       ├── AdbInput.hpp                 # canonical-coordinate tap/swipe
 │   │       └── AdbInput.cpp
+│   ├── Umamusume.CoreBridge/
+│   │   ├── Umamusume.CoreBridge.csproj
+│   │   ├── CoreBridge/
+│   │   │   ├── UmaCoreBridgeNative.cs
+│   │   │   └── SafeUmaHandle.cs
+│   │   └── Services/
+│   │       └── UmaService.cs
 │   └── UmamusumeWpfGui/
 │       ├── UmamusumeWpfGui.csproj
 │       ├── App.xaml / App.xaml.cs
 │       ├── Main/Bootstrapper.cs
-│       ├── CoreBridge/
-│       │   ├── UmaCoreBridgeNative.cs
-│       │   └── SafeUmaHandle.cs
 │       ├── Models/ConnectionSettings.cs
 │       ├── Models/ControlSessionSnapshot.cs
 │       ├── Models/DeviceFrame.cs
@@ -831,8 +835,7 @@ UmamusumeAss/
 │       │   ├── ILocalizationService.cs
 │       │   ├── IConnectionStateService.cs
 │       │   ├── ISettingsService.cs
-│       │   ├── JsonSettingsService.cs
-│       │   └── UmaService.cs
+│       │   └── JsonSettingsService.cs
 │       ├── Helper/
 │       │   ├── WinAdapter.cs
 │       │   └── ThemeHelper.cs
@@ -855,14 +858,17 @@ UmamusumeAss/
 │           └── Styles/{Button,TextBox,ComboBox,CheckBox,ScrollBar}.xaml
 ├── tests/
 │   ├── CMakeLists.txt
-│   └── Connection/
-│       ├── ConnectionProfileTests.cpp
-│       ├── EmulatorConnectorTests.cpp
-│       └── UmaCallerTests.cpp
+│   ├── Connection/
+│   │   ├── ConnectionProfileTests.cpp
+│   │   ├── EmulatorConnectorTests.cpp
+│   │   └── UmaCallerTests.cpp
 │   ├── Session/
-│       ├── DeviceSessionTests.cpp
-│       ├── ScreenCaptureTests.cpp
-│       └── AdbInputTests.cpp
+│   │   ├── DeviceSessionTests.cpp
+│   │   ├── ScreenCaptureTests.cpp
+│   │   └── AdbInputTests.cpp
+│   └── Umamusume.CoreBridge.Tests/
+│       ├── Umamusume.CoreBridge.Tests.csproj
+│       └── GlobalUsings.cs
 ├── tools/
 │   ├── connect_smoke.cpp
 │   ├── control_smoke.cpp
