@@ -15,5 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
+    <ProjectReference Include="..\..\tools\Umamusume.CoreBridge.IntegrationHost\Umamusume.CoreBridge.IntegrationHost.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
