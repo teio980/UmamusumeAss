@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:hc="https://handyorg.github.io/handycontrol">
+
+  <!-- ============================================================
+       Button Styles — Primary (Connect) and Secondary (Cancel/Browse)
+       DESIGN.md section 5: Buttons
+       ============================================================ -->
+
+  <!-- Gradient for primary button: PrimaryLightestBrush → PrimaryBrush top-to-bottom -->
+  <LinearGradientBrush x:Key="PrimaryButtonGradient"
+                       StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#FFE4EC" Offset="0.0" />
+    <GradientStop Color="#E91E8C" Offset="1.0" />
+  </LinearGradientBrush>
+
+  <!-- Primary action button: pink gradient, white text, 6 px radius, 200x60 -->
+  <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+    <Setter Property="Background" Value="{StaticResource PrimaryButtonGradient}" />
+    <Setter Property="Foreground" Value="{StaticResource TextOnPrimaryBrush}" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="60" />
+    <Setter Property="Width" Value="200" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="hc:BorderElement.CornerRadius" Value="6" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <!-- Secondary button: white background, pink border, 14 px text, 6 px radius -->
+  <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+    <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="hc:BorderElement.CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <!-- Default button style (applied to all buttons without explicit key) -->
+  <Style TargetType="Button">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="hc:BorderElement.CornerRadius" Value="6" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="10,5" />
+  </Style>
+
+</ResourceDictionary>

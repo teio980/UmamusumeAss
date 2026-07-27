@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:hc="https://handyorg.github.io/handycontrol">
+
+  <!-- ============================================================
+       ComboBox Style
+       DESIGN.md section 5: Inputs
+       Same as TextBox: white background, 2 px PrimaryLighterBrush border,
+       4 px radius. Editable (IsEditable=True) for serial address input.
+       ============================================================ -->
+
+  <Style TargetType="ComboBox">
+    <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource PrimaryLighterBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="hc:BorderElement.CornerRadius" Value="4" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="Padding" Value="8,4" />
+  </Style>
+
+  <!-- ComboBoxItem style for dropdown items -->
+  <Style TargetType="ComboBoxItem">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+  </Style>
+
+</ResourceDictionary>

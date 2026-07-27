@@ -1,0 +1,589 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
+             xmlns:m="clr-namespace:UmamusumeWpfGui.Models"
+             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
+             xmlns:hc="https://handyorg.github.io/handycontrol">
+
+  <UserControl.Resources>
+    <c:IntToVisibilityConverter x:Key="IntToVisibility" />
+    <c:NullToVisibilityConverter x:Key="NullToVisibility" />
+    <c:NullToVisibilityConverter x:Key="NotNullToVisibility" Invert="True" />
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+
+  <Grid Background="{StaticResource WindowBackgroundBrush}">
+    <Grid.ColumnDefinitions>
+      <!-- Left navigation: exactly 160 px -->
+      <ColumnDefinition Width="160" />
+      <!-- Right content area -->
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ============================================================
+         Left Navigation (160 px)
+         ============================================================ -->
+    <Border Grid.Column="0"
+            Background="{StaticResource CardBackgroundBrush}"
+            BorderThickness="0,0,1,0"
+            BorderBrush="{StaticResource DividerBrush}">
+
+      <ItemsControl ItemsSource="{Binding MenuItems}"
+                    VerticalAlignment="Top"
+                    Margin="0,8,0,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="vm:MenuItemViewModel">
+            <Border Padding="10,16"
+                    Cursor="Hand"
+                    Background="Transparent"
+                    MouseLeftButtonUp="OnNavItemClick">
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 2 px left selection indicator -->
+                <Border Grid.Column="0"
+                        Width="2"
+                        Margin="-10,0,6,0"
+                        Background="{StaticResource PrimaryBrush}"
+                        Visibility="{Binding IsSelected,
+                            Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Menu item label via DynamicResource -->
+                <TextBlock Grid.Column="1"
+                           FontSize="14"
+                           VerticalAlignment="Center">
+                  <TextBlock.Text>
+                    <Binding Path="LabelKey"
+                             Converter="{x:Static c:StringResourceConverter.Instance}" />
+                  </TextBlock.Text>
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Foreground"
+                              Value="{StaticResource TextSecondaryBrush}" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                          <Setter Property="Foreground"
+                                  Value="{StaticResource PrimaryBrush}" />
+                          <Setter Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <!-- ============================================================
+         Right Content Area (scrollable, 24 px padding)
+         ============================================================ -->
+    <ScrollViewer Grid.Column="1"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="24,16,24,24"
+                  Background="Transparent">
+
+      <StackPanel>
+        <!-- ============================================================
+             CONNECTION PANEL (SelectedMenuIndex == 0)
+             ============================================================ -->
+        <StackPanel Visibility="{Binding SelectedMenuIndex,
+                          Converter={StaticResource IntToVisibility},
+                          ConverterParameter=0}">
+
+          <!-- Panel heading -->
+          <TextBlock Text="{DynamicResource ConnectionTitle}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Margin="0,0,0,8" />
+
+          <!-- ADB Path row -->
+          <Grid Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0"
+                       Grid.ColumnSpan="3"
+                       Text="{DynamicResource AdbPathLabel}"
+                       Margin="0,0,0,4"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+
+            <TextBox Grid.Row="1"
+                     Grid.Column="0"
+                     Text="{Binding DraftAdbPath, UpdateSourceTrigger=PropertyChanged}"
+                     Width="300"
+                     Height="30"
+                     VerticalAlignment="Center" />
+
+            <Button Grid.Row="1"
+                    Grid.Column="1"
+                    Content="{DynamicResource BrowseButton}"
+                    Click="OnBrowseAdbPath"
+                    Width="80"
+                    Height="30"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+
+            <Button Grid.Row="1"
+                    Grid.Column="2"
+                    Content="{DynamicResource SaveButton}"
+                    Command="{Binding SaveCommand}"
+                    Width="80"
+                    Height="30"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+          </Grid>
+
+          <!-- Serial row -->
+          <Grid Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0"
+                       Grid.ColumnSpan="2"
+                       Text="{DynamicResource SerialLabel}"
+                       Margin="0,0,0,4"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+
+            <ComboBox Grid.Row="1"
+                      Grid.Column="0"
+                      Text="{Binding DraftConnectAddress, UpdateSourceTrigger=PropertyChanged}"
+                      ItemsSource="{Binding ConnectAddressHistory}"
+                      IsEditable="True"
+                      Width="400"
+                      Height="30"
+                      VerticalAlignment="Center"
+                      IsTextSearchEnabled="True" />
+          </Grid>
+
+          <!-- Auto Detect row -->
+          <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Content="{DynamicResource AutoDetectButton}"
+                    Command="{Binding DetectAdbConfigCommand}"
+                    Height="30"
+                    Padding="12,0"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+
+            <CheckBox Grid.Column="1"
+                      IsChecked="{Binding DraftAlwaysAutoDetect}"
+                      Content="{DynamicResource AlwaysAutoDetectLabel}"
+                      Margin="12,0,0,0"
+                      VerticalAlignment="Center"
+                      FontSize="14" />
+          </Grid>
+
+          <!-- Profile row (read-only, General only in S1) -->
+          <Grid Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0"
+                       Text="{DynamicResource ProfileLabel}"
+                       Margin="0,0,0,4"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+
+            <ComboBox Grid.Row="1"
+                      IsReadOnly="True"
+                      Width="200"
+                      Height="30"
+                      HorizontalAlignment="Left"
+                      Text="General">
+              <ComboBox.Items>
+                <ComboBoxItem IsSelected="True">General</ComboBoxItem>
+              </ComboBox.Items>
+            </ComboBox>
+          </Grid>
+
+          <!-- Connect / Cancel buttons + Status -->
+          <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Connect button -->
+            <Button Grid.Column="0"
+                    Content="{DynamicResource ConnectButton}"
+                    Command="{Binding ConnectCommand}"
+                    Style="{StaticResource PrimaryButtonStyle}" />
+
+            <!-- Cancel button -->
+            <Button Grid.Column="1"
+                    Content="{DynamicResource CancelButton}"
+                    Command="{Binding CancelConnectCommand}"
+                    Width="100"
+                    Height="36"
+                    Margin="8,0,0,0"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+
+            <!-- Status text -->
+            <TextBlock Grid.Column="2"
+                       Text="{Binding StatusText}"
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0"
+                       FontSize="14"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+          </Grid>
+
+          <!-- ============================================================
+               Device Information Card (Last Verified)
+               ============================================================ -->
+          <Border Margin="0,12,0,0"
+                  Padding="16"
+                  Background="{StaticResource CardBackgroundBrush}"
+                  BorderBrush="{StaticResource DividerBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Visibility="{Binding LastVerified,
+                      Converter={StaticResource NotNullToVisibility}}">
+
+            <StackPanel>
+
+              <!-- Card heading -->
+              <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="{DynamicResource DeviceInfoTitle}"
+                             FontSize="16"
+                             FontWeight="Bold" />
+                  <TextBlock Text="{DynamicResource LastVerifiedLabel}"
+                             FontSize="12"
+                             Foreground="{StaticResource TextSecondaryBrush}"
+                             Margin="0,2,0,0" />
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="{DynamicResource ForgetButton}"
+                        Command="{Binding ForgetCommand}"
+                        Height="28"
+                        Padding="10,0"
+                        FontSize="12"
+                        VerticalAlignment="Top"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+              </Grid>
+
+              <!-- Last verified fields (read-only) -->
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Serial -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="{DynamicResource SerialField}"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="{Binding LastVerified.Serial}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="8,0,0,0" />
+
+                <!-- Android ID -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="{DynamicResource AndroidIdField}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Text="{Binding LastVerified.AndroidId}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="8,8,0,0" />
+
+                <!-- Android Version -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="{DynamicResource AndroidVersionField}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="2" Grid.Column="1"
+                           Text="{Binding LastVerified.AndroidVersion}"
+                           Margin="8,8,0,0" />
+
+                <!-- Resolution -->
+                <TextBlock Grid.Row="3" Grid.Column="0"
+                           Text="{DynamicResource ResolutionField}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="3" Grid.Column="1"
+                           Margin="8,8,0,0">
+                  <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0} × {1}">
+                      <Binding Path="LastVerified.Width" />
+                      <Binding Path="LastVerified.Height" />
+                    </MultiBinding>
+                  </TextBlock.Text>
+                </TextBlock>
+
+                <!-- Verified at -->
+                <TextBlock Grid.Row="4" Grid.Column="1"
+                           Text="{Binding LastVerified.VerifiedAt,
+                               StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="8,8,0,0" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- ============================================================
+               Control Readiness Card (disabled; S2 APIs not yet available)
+               ============================================================ -->
+          <Border Margin="0,12,0,0"
+                  Padding="16"
+                  Background="{StaticResource CardBackgroundBrush}"
+                  BorderBrush="{StaticResource DividerBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  IsEnabled="False"
+                  Opacity="0.6">
+
+            <StackPanel>
+
+              <!-- Card heading -->
+              <TextBlock Text="{DynamicResource ControlReadinessTitle}"
+                         FontSize="16"
+                         FontWeight="Bold"
+                         Margin="0,0,0,8" />
+
+              <!-- Control session fields (read-only display) -->
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- State -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="{DynamicResource StatusLabel}"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="{Binding ControlSession.State}"
+                           Margin="8,0,0,0" />
+
+                <!-- Target Package ID -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="{DynamicResource ProfileLabel}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Text="{Binding ControlSession.TargetPackageId}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="8,8,0,0" />
+
+                <!-- Frame dimensions -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="{DynamicResource ResolutionField}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="2" Grid.Column="1"
+                           Margin="8,8,0,0">
+                  <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0} × {1}">
+                      <Binding Path="ControlSession.FrameWidth" />
+                      <Binding Path="ControlSession.FrameHeight" />
+                    </MultiBinding>
+                  </TextBlock.Text>
+                </TextBlock>
+
+                <!-- Geometry generation -->
+                <TextBlock Grid.Row="3" Grid.Column="0"
+                           Text="{DynamicResource LastDetectedEmulatorLabel}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0" />
+                <TextBlock Grid.Row="3" Grid.Column="1"
+                           Text="{Binding ControlSession.GeometryGeneration}"
+                           Margin="8,8,0,0" />
+              </Grid>
+
+              <!-- Action buttons (all disabled; S2 not available) -->
+              <WrapPanel Margin="0,12,0,0">
+                <Button Content="{DynamicResource VerifyGameButton}"
+                        IsEnabled="False"
+                        Height="28"
+                        Padding="10,0"
+                        FontSize="12"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+
+                <Button Content="{DynamicResource CaptureScreenButton}"
+                        IsEnabled="False"
+                        Height="28"
+                        Padding="10,0"
+                        FontSize="12"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+
+                <Button Content="{DynamicResource TapTestButton}"
+                        IsEnabled="False"
+                        Height="28"
+                        Padding="10,0"
+                        FontSize="12"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+
+                <Button Content="{DynamicResource SwipeTestButton}"
+                        IsEnabled="False"
+                        Height="28"
+                        Padding="10,0"
+                        FontSize="12"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ============================================================
+             LANGUAGE PANEL (SelectedMenuIndex == 1)
+             ============================================================ -->
+        <StackPanel Visibility="{Binding SelectedMenuIndex,
+                          Converter={StaticResource IntToVisibility},
+                          ConverterParameter=1}">
+
+          <TextBlock Text="{DynamicResource LanguageTitle}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Margin="0,0,0,8" />
+
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ComboBox Grid.Row="0"
+                      SelectedItem="{Binding SelectedLanguage}"
+                      Width="200"
+                      Height="30"
+                      HorizontalAlignment="Left"
+                      IsReadOnly="True">
+              <ComboBox.Items>
+                <ComboBoxItem>en-US</ComboBoxItem>
+                <ComboBoxItem>zh-CN</ComboBoxItem>
+              </ComboBox.Items>
+            </ComboBox>
+
+            <TextBlock Grid.Row="1"
+                       Text="{DynamicResource LanguageHint}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="12"
+                       Margin="0,8,0,0"
+                       FontStyle="Italic" />
+          </Grid>
+        </StackPanel>
+
+        <!-- ============================================================
+             SYSTEM PANEL (SelectedMenuIndex == 2)
+             ============================================================ -->
+        <StackPanel Visibility="{Binding SelectedMenuIndex,
+                          Converter={StaticResource IntToVisibility},
+                          ConverterParameter=2}">
+
+          <TextBlock Text="{DynamicResource SystemTitle}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Margin="0,0,0,8" />
+
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Core Version -->
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="{DynamicResource CoreVersionLabel}"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+            <TextBlock Grid.Row="0" Grid.Column="1"
+                       Text="{Binding CoreVersion}"
+                       TextTrimming="CharacterEllipsis" />
+
+            <!-- Resource Path -->
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="{DynamicResource ResourcePathLabel}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,8,0,0" />
+            <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{Binding ResourcePath}"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,8,0,0" />
+
+            <!-- Current ADB Path -->
+            <TextBlock Grid.Row="2" Grid.Column="0"
+                       Text="{DynamicResource CurrentAdbPathLabel}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,8,0,0" />
+            <TextBlock Grid.Row="2" Grid.Column="1"
+                       Text="{Binding DraftAdbPath}"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,8,0,0" />
+
+            <!-- Last Detected Emulator -->
+            <TextBlock Grid.Row="3" Grid.Column="0"
+                       Text="{DynamicResource LastDetectedEmulatorLabel}"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,8,0,0" />
+            <TextBlock Grid.Row="3" Grid.Column="1"
+                       Text="{Binding LastDetectedEmulator}"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,8,0,0" />
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>
