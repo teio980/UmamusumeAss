@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ============================================================
+       Section 6 Color Palette — UmamusumeAss Design System
+       All brush tokens from docs/DESIGN.md section 2 and
+       docs/superpowers.md section 6.1.
+       ============================================================ -->
+
+  <!-- Primary / Accent -->
+  <SolidColorBrush x:Key="PrimaryBrush" Color="#E91E8C" />
+  <SolidColorBrush x:Key="PrimaryLightBrush" Color="#FF6B9D" />
+  <SolidColorBrush x:Key="PrimaryLighterBrush" Color="#FFB3D0" />
+  <SolidColorBrush x:Key="PrimaryLightestBrush" Color="#FFE4EC" />
+
+  <!-- Gold Accent -->
+  <SolidColorBrush x:Key="GoldBrush" Color="#FFB300" />
+
+  <!-- Surface -->
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFF0F5" />
+  <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+
+  <!-- Text -->
+  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#2D2D2D" />
+  <SolidColorBrush x:Key="TextSecondaryBrush" Color="#888888" />
+  <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="#FFFFFF" />
+
+  <!-- Dividers -->
+  <SolidColorBrush x:Key="DividerBrush" Color="#FFE4EC" />
+
+  <!-- Status -->
+  <SolidColorBrush x:Key="SuccessBrush" Color="#4CAF50" />
+  <SolidColorBrush x:Key="ErrorBrush" Color="#F44336" />
+
+  <!-- ============================================================
+       Window Background Gradient
+       Top-to-bottom: #FFE4EC → #FFF0F5 → #FFFFFF
+       ============================================================ -->
+  <LinearGradientBrush x:Key="WindowBackgroundGradient"
+                       StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#FFE4EC" Offset="0.0" />
+    <GradientStop Color="#FFF0F5" Offset="0.5" />
+    <GradientStop Color="#FFFFFF" Offset="1.0" />
+  </LinearGradientBrush>
+
+</ResourceDictionary>

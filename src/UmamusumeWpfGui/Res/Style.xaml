@@ -1,0 +1,65 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ============================================================
+       Merge focused control style dictionaries
+       ============================================================ -->
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="Styles/Button.xaml" />
+    <ResourceDictionary Source="Styles/TextBox.xaml" />
+    <ResourceDictionary Source="Styles/ComboBox.xaml" />
+    <ResourceDictionary Source="Styles/CheckBox.xaml" />
+    <ResourceDictionary Source="Styles/ScrollBar.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <!-- ============================================================
+       HandyControls Property Overrides
+       No custom ControlTemplate definitions — only property setters
+       and resource overrides per DESIGN.md section 6.
+       ============================================================ -->
+
+  <!-- TabControl: active tab pink, inactive gray -->
+  <Style TargetType="TabItem">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Height" Value="48" />
+  </Style>
+
+  <!-- Border (used for cards): 1 px DividerBrush, 8 px radius -->
+  <Style TargetType="Border">
+    <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <!-- Label / TextBlock defaults -->
+  <Style TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+  </Style>
+
+  <!-- GroupBox / expander-like containers -->
+  <Style TargetType="GroupBox">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <!-- ListBox (used for settings nav) -->
+  <Style TargetType="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+  </Style>
+
+  <Style TargetType="ListBoxItem">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="10,16" />
+  </Style>
+
+</ResourceDictionary>
