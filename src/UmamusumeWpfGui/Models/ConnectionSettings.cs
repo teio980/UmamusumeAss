@@ -20,6 +20,12 @@ public sealed class ConnectionSettings
     /// <summary>Whether auto-detect should run on every connect.</summary>
     public bool AlwaysAutoDetectConnection { get; set; }
 
+    /// <summary>Whether a configured emulator should start when Connect finds none running.</summary>
+    public bool AutoStartEmulator { get; set; }
+
+    /// <summary>Executable or shortcut used to start the emulator.</summary>
+    public string EmulatorExecutablePath { get; set; } = "";
+
     private string _connectConfig = "General";
 
     /// <summary>
