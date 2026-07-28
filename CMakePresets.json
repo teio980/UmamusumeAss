@@ -21,6 +21,7 @@
       "displayName":   "Release (MSVC)",
       "description":   "Release build targeting Visual Studio 17 2022 with /MT runtime.",
       "generator":     "Visual Studio 17 2022",
+      "architecture":  "x64",
       "binaryDir":     "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
@@ -34,6 +35,11 @@
       "environment": {
         "PATH": "C:/msys64/ucrt64/bin;$penv{PATH}"
       }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
@@ -43,6 +49,14 @@
       "environment": {
         "PATH": "C:/msys64/ucrt64/bin;$penv{PATH}"
       },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       }
