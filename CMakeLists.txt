@@ -42,6 +42,11 @@ FetchContent_MakeAvailable(Catch2)
 add_subdirectory(src/UmaAssistantCore)
 add_subdirectory(tools)
 
+# ── Install ──────────────────────────────────────────────────────────────────
+# Runtime resource: connection.json is required at resource/connection.json
+# relative to the install prefix (side-by-side with the managed EXE).
+install(FILES ${CMAKE_SOURCE_DIR}/resource/connection.json DESTINATION resource)
+
 # ── Tests ──────────────────────────────────────────────────────────────────
 option(UMA_BUILD_TESTS "Build tests" ON)
 if(UMA_BUILD_TESTS)

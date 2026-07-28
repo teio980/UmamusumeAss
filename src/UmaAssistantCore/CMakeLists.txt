@@ -72,3 +72,12 @@ add_custom_command(TARGET UmaAssistantCore POST_BUILD
 )
 
 uma_add_strict_warnings(UmaAssistantCore)
+
+# ── Install ──────────────────────────────────────────────────────────────────
+# The SHARED library (UmamusumeCore.dll) is a RUNTIME artifact — lands at the
+# install-prefix root for side-by-side layout beside the managed EXE.  The
+# import library (UmamusumeCore.lib) goes to lib/ for development consumption.
+install(TARGETS UmaAssistantCore
+  RUNTIME DESTINATION .
+  ARCHIVE DESTINATION lib
+)
