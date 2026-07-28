@@ -25,6 +25,7 @@ public sealed class SettingsViewModelTests
         public FakeSettingsService Settings { get; } = new();
         public FakeLocalizationService Localization { get; } = new();
         public FakeWinAdapter WinAdapter { get; } = new();
+        public FakeEmulatorLauncher EmulatorLauncher { get; } = new();
 
         public Fixture()
         {
@@ -41,7 +42,7 @@ public sealed class SettingsViewModelTests
         public SettingsViewModel CreateViewModel()
         {
             return new SettingsViewModel(
-                UmaService, ConnectionState, Settings, Localization, WinAdapter);
+                UmaService, ConnectionState, Settings, Localization, WinAdapter, EmulatorLauncher);
         }
     }
 
@@ -836,6 +837,27 @@ public sealed class SettingsViewModelTests
         await vm.ConnectAsync();
 
         // Since no candidates, we expect connect was not called (blank address remained blank)
+        Assert.Equal(0, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
+    public async Task Connect_AutoDetectNoCandidates_WithAutoStartEnabled_StartsConfiguredEmulator()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+        });
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(@"C:\MuMu\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
 
@@ -1808,6 +1830,17 @@ public sealed class SettingsViewModelTests
             return new EndpointResolutionResult(
                 records.Where(record => record.State == "device").Select(record => record.Serial).ToList(),
                 NextDevicesResult?.Diagnostics ?? []);
+        }
+    }
+
+    private sealed class FakeEmulatorLauncher : IEmulatorLauncher
+    {
+        public string? StartedPath { get; private set; }
+
+        public EmulatorLaunchResult Start(string executablePath)
+        {
+            StartedPath = executablePath;
+            return new EmulatorLaunchResult(true, "Emulator startup was requested.");
         }
     }
 }

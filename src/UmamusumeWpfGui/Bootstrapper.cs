@@ -43,6 +43,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbRunner>();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
+        builder.Bind<IEmulatorLauncher>()
+            .To<EmulatorLauncher>();
         builder.Bind<IWinAdapter>()
             .To<WinAdapter>();
 

@@ -39,6 +39,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly ILocalizationService _localizationService;
     private readonly IWinAdapter _winAdapter;
+    private readonly IEmulatorLauncher _emulatorLauncher;
 
     // ────────────────────────────────────────────────────────────────
     // Mutable state
@@ -50,6 +51,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _draftConnectAddress;
     private bool _draftAutoDetect;
     private bool _draftAlwaysAutoDetect;
+    private bool _draftAutoStartEmulator;
+    private string _draftEmulatorExecutablePath;
     private string _draftLanguage;
     private string _selectedLanguage;
     private string _lastDetectedEmulator = string.Empty;
@@ -71,19 +74,22 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         IConnectionStateService connectionState,
         ISettingsService settingsService,
         ILocalizationService localizationService,
-        IWinAdapter winAdapter)
+        IWinAdapter winAdapter,
+        IEmulatorLauncher emulatorLauncher)
     {
         ArgumentNullException.ThrowIfNull(umaService);
         ArgumentNullException.ThrowIfNull(connectionState);
         ArgumentNullException.ThrowIfNull(settingsService);
         ArgumentNullException.ThrowIfNull(localizationService);
         ArgumentNullException.ThrowIfNull(winAdapter);
+        ArgumentNullException.ThrowIfNull(emulatorLauncher);
 
         _umaService = umaService;
         _connectionState = connectionState;
         _settingsService = settingsService;
         _localizationService = localizationService;
         _winAdapter = winAdapter;
+        _emulatorLauncher = emulatorLauncher;
 
         // Load draft settings from persistence
         _draft = _settingsService.Load();
@@ -91,6 +97,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _draftConnectAddress = _draft.ConnectAddress;
         _draftAutoDetect = _draft.AutoDetectConnection;
         _draftAlwaysAutoDetect = _draft.AlwaysAutoDetectConnection;
+        _draftAutoStartEmulator = _draft.AutoStartEmulator;
+        _draftEmulatorExecutablePath = _draft.EmulatorExecutablePath;
         _draftLanguage = _draft.Language;
         _selectedLanguage = _localizationService.CurrentCulture;
 
@@ -201,6 +209,30 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_draftAlwaysAutoDetect == value)
                 return;
             _draftAlwaysAutoDetect = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool DraftAutoStartEmulator
+    {
+        get => _draftAutoStartEmulator;
+        set
+        {
+            if (_draftAutoStartEmulator == value)
+                return;
+            _draftAutoStartEmulator = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string DraftEmulatorExecutablePath
+    {
+        get => _draftEmulatorExecutablePath;
+        set
+        {
+            if (_draftEmulatorExecutablePath == value)
+                return;
+            _draftEmulatorExecutablePath = value;
             OnPropertyChanged();
         }
     }
@@ -500,6 +532,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _draft.ConnectAddress = DraftConnectAddress;
         _draft.AutoDetectConnection = DraftAutoDetect;
         _draft.AlwaysAutoDetectConnection = DraftAlwaysAutoDetect;
+        _draft.AutoStartEmulator = DraftAutoStartEmulator;
+        _draft.EmulatorExecutablePath = DraftEmulatorExecutablePath;
         _draft.Language = DraftLanguage;
 
         _settingsService.Save(_draft);
@@ -538,6 +572,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             if (candidates.Count == 0)
             {
+                if (DraftAutoStartEmulator)
+                {
+                    var launch = _emulatorLauncher.Start(DraftEmulatorExecutablePath);
+                    SetConnectionDiagnostic(launch.Message);
+                    _connectionState.SetState(ConnectionState.Disconnected);
+                    return;
+                }
                 SetConnectionDiagnostic("No running emulator with a usable ADB executable was found.");
                 _connectionState.SetState(ConnectionState.Disconnected);
                 return;
