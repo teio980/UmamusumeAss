@@ -1,0 +1,71 @@
+# Phase 6 CI workflow: build, test, package, and upload artifact.
+#
+# This workflow runs on every push and pull_request to main/master.
+# It builds the native C++20 DLL and the managed .NET 10 WPF app,
+# runs all CTest tests (including the managed bridge and WPF GUI
+# tests), validates the portable ZIP layout, and uploads the final
+# artifact.
+#
+# The real-emulator hardware smoke test is a separate documented
+# release gate run on a controlled Windows machine — it is NOT
+# part of this CI workflow.
+
+name: Build, Test, and Package
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Configure CMake (Release)
+        run: cmake --preset release
+        shell: pwsh
+
+      - name: Build (Release)
+        run: cmake --build --preset release
+        shell: pwsh
+
+      - name: Run CTest (Release)
+        run: ctest --preset release -C Release --output-on-failure
+        shell: pwsh
+
+      - name: Run Package Layout Tests
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
+        shell: pwsh
+
+      - name: Package Portable ZIP
+        run: tools/package.ps1
+        shell: pwsh
+
+      - name: Verify ZIP Exists
+        run: |
+          $zip = "dist/UmamusumeAss-win-x64.zip"
+          if (-not (Test-Path -LiteralPath $zip)) {
+            throw "ZIP not found at expected path: $zip"
+          }
+          Write-Host "ZIP exists and is ready for upload: $zip"
+        shell: pwsh
+
+      # Upload the final artifact even if some steps above failed
+      # (e.g. a test failure), so the ZIP can be inspected.
+      - name: Upload Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: UmamusumeAss-win-x64
+          path: dist/UmamusumeAss-win-x64.zip
+          retention-days: 7
