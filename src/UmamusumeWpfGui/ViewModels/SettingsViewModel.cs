@@ -52,6 +52,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _draftAlwaysAutoDetect;
     private string _draftLanguage;
     private string _selectedLanguage;
+    private string _lastDetectedEmulator = string.Empty;
     private CancellationTokenSource? _connectCts;
     private bool _disposed;
 
@@ -313,9 +314,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
 #pragma warning restore CA1822
 
     /// <summary>Last detected emulator name, or empty if none.</summary>
-#pragma warning disable CA1822 // WPF binding requires instance property
-    public string LastDetectedEmulator => string.Empty;
-#pragma warning restore CA1822
+    public string LastDetectedEmulator => _lastDetectedEmulator;
 
     // ────────────────────────────────────────────────────────────────
     // Forget command
@@ -508,58 +507,67 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         _connectionState.SetState(ConnectionState.Detecting);
 
-        var discoveryResult = _winAdapter.RefreshEmulatorsInfo();
-
-        // Filter to candidates with resolvable ADB paths
-        var candidates = discoveryResult.Candidates
-            .Where(c => c.AdbPath is not null)
-            .ToList();
-
-        if (candidates.Count == 0)
+        try
         {
-            _connectionState.SetState(ConnectionState.Disconnected);
-            return;
-        }
+            var discoveryResult = _winAdapter.RefreshEmulatorsInfo();
 
-        // Select candidate — ask for user input when multiple, or auto-pick
-        DetectedEmulatorInfo selected;
-        if (candidates.Count == 1)
-        {
-            selected = candidates[0];
-        }
-        else if (RequestCandidateSelection is not null)
-        {
-            var picked = await RequestCandidateSelection(candidates);
-            if (picked is null || picked.AdbPath is null)
+            // Filter to candidates with resolvable ADB paths
+            var candidates = discoveryResult.Candidates
+                .Where(c => c.AdbPath is not null)
+                .ToList();
+
+            if (candidates.Count == 0)
             {
                 _connectionState.SetState(ConnectionState.Disconnected);
                 return;
             }
-            selected = picked;
+
+            // Select candidate — ask for user input when multiple, or auto-pick
+            DetectedEmulatorInfo selected;
+            if (candidates.Count == 1)
+            {
+                selected = candidates[0];
+            }
+            else if (RequestCandidateSelection is not null)
+            {
+                var picked = await RequestCandidateSelection(candidates);
+                if (picked is null || picked.AdbPath is null)
+                {
+                    _connectionState.SetState(ConnectionState.Disconnected);
+                    return;
+                }
+                selected = picked;
+            }
+            else
+            {
+                // No seam and multiple candidates — pick the first one
+                selected = candidates[0];
+            }
+
+            // Apply ADB path
+            DraftAdbPath = selected.AdbPath!;
+            _lastDetectedEmulator = selected.EmulatorName;
+            OnPropertyChanged(nameof(LastDetectedEmulator));
+
+            // Run adb devices to find a serial
+            var devicesResult = _winAdapter.GetAdbDevices(selected.AdbPath!);
+            var eligibleDevices = devicesResult.Records
+                .Where(r => r.State == "device")
+                .ToList();
+
+            if (eligibleDevices.Count > 0)
+            {
+                // Use the first eligible device (multi-device selection
+                // can be added via a seam in a future task)
+                DraftConnectAddress = eligibleDevices[0].Serial;
+            }
+
+            _connectionState.SetState(ConnectionState.Disconnected);
         }
-        else
+        catch
         {
-            // No seam and multiple candidates — pick the first one
-            selected = candidates[0];
+            _connectionState.SetState(ConnectionState.Disconnected);
         }
-
-        // Apply ADB path
-        DraftAdbPath = selected.AdbPath!;
-
-        // Run adb devices to find a serial
-        var devicesResult = _winAdapter.GetAdbDevices(selected.AdbPath!);
-        var eligibleDevices = devicesResult.Records
-            .Where(r => r.State == "device")
-            .ToList();
-
-        if (eligibleDevices.Count > 0)
-        {
-            // Use the first eligible device (multi-device selection
-            // can be added via a seam in a future task)
-            DraftConnectAddress = eligibleDevices[0].Serial;
-        }
-
-        _connectionState.SetState(ConnectionState.Disconnected);
     }
 
     // ────────────────────────────────────────────────────────────────

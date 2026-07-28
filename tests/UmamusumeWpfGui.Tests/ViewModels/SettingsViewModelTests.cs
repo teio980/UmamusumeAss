@@ -947,6 +947,25 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task AutoDetectEmulators_WithDiscovery_UpdatesLastDetectedEmulator()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("BlueStacks", @"C:\BS\HD-Adb.exe")],
+            []
+        );
+        f.WinAdapter.NextDevicesResult = new AdbDevicesResult(
+            [new AdbDeviceRecord("emulator-5554", "device")],
+            []
+        );
+
+        await vm.AutoDetectEmulatorsAsync();
+
+        Assert.Equal("BlueStacks", vm.LastDetectedEmulator);
+    }
+
+    [Fact]
     public async Task AutoDetectEmulators_NoCandidates_DoesNotChangeDraft()
     {
         var f = CreateFixture();
@@ -961,6 +980,19 @@ public sealed class SettingsViewModelTests
         // Draft unchanged
         Assert.Equal(@"C:\existing\adb.exe", vm.DraftAdbPath);
         Assert.Equal("192.168.1.1:5555", vm.DraftConnectAddress);
+    }
+
+    [Fact]
+    public async Task AutoDetectEmulators_WhenDiscoveryThrows_ReturnsToDisconnected()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.WinAdapter.RefreshException = new InvalidOperationException("Process scan failed");
+
+        var exception = await Record.ExceptionAsync(vm.AutoDetectEmulatorsAsync);
+
+        Assert.Null(exception);
+        Assert.Equal(ConnectionState.Disconnected, vm.State);
     }
 
     [Fact]
@@ -1671,6 +1703,7 @@ public sealed class SettingsViewModelTests
     {
         public DiscoveryResult? NextDiscoveryResult { get; set; }
         public AdbDevicesResult? NextDevicesResult { get; set; }
+        public Exception? RefreshException { get; set; }
         public int RefreshCallCount { get; private set; }
         public int DevicesCallCount { get; private set; }
 
@@ -1683,6 +1716,8 @@ public sealed class SettingsViewModelTests
         public DiscoveryResult RefreshEmulatorsInfo()
         {
             RefreshCallCount++;
+            if (RefreshException is not null)
+                throw RefreshException;
             return NextDiscoveryResult ?? new DiscoveryResult([], []);
         }
 
