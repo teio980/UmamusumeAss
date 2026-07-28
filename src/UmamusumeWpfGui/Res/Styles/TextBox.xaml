@@ -10,12 +10,12 @@
        ============================================================ -->
 
   <Style TargetType="TextBox">
-    <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-    <Setter Property="BorderBrush" Value="{StaticResource PrimaryLighterBrush}" />
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryLighterBrush}" />
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="hc:BorderElement.CornerRadius" Value="4" />
     <Setter Property="FontSize" Value="14" />
-    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="Padding" Value="8,4" />
   </Style>
 

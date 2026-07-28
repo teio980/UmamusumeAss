@@ -13,7 +13,7 @@
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
   </UserControl.Resources>
 
-  <Grid Background="{StaticResource WindowBackgroundBrush}">
+  <Grid Background="{DynamicResource WindowBackgroundBrush}">
     <Grid.ColumnDefinitions>
       <!-- Left navigation: exactly 160 px -->
       <ColumnDefinition Width="160" />
@@ -25,9 +25,9 @@
          Left Navigation (160 px)
          ============================================================ -->
     <Border Grid.Column="0"
-            Background="{StaticResource CardBackgroundBrush}"
+            Background="{DynamicResource CardBackgroundBrush}"
             BorderThickness="0,0,1,0"
-            BorderBrush="{StaticResource DividerBrush}">
+            BorderBrush="{DynamicResource DividerBrush}">
 
       <ItemsControl ItemsSource="{Binding MenuItems}"
                     VerticalAlignment="Top"
@@ -49,7 +49,7 @@
                 <Border Grid.Column="0"
                         Width="2"
                         Margin="-10,0,6,0"
-                        Background="{StaticResource PrimaryBrush}"
+                        Background="{DynamicResource PrimaryBrush}"
                         Visibility="{Binding IsSelected,
                             Converter={StaticResource BoolToVisibility}}" />
 
@@ -64,11 +64,11 @@
                   <TextBlock.Style>
                     <Style TargetType="TextBlock">
                       <Setter Property="Foreground"
-                              Value="{StaticResource TextSecondaryBrush}" />
+                               Value="{DynamicResource TextSecondaryBrush}" />
                       <Style.Triggers>
                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
                           <Setter Property="Foreground"
-                                  Value="{StaticResource PrimaryBrush}" />
+                                   Value="{DynamicResource PrimaryBrush}" />
                           <Setter Property="FontWeight" Value="SemiBold" />
                         </DataTrigger>
                       </Style.Triggers>
@@ -121,7 +121,7 @@
                        Grid.ColumnSpan="3"
                        Text="{DynamicResource AdbPathLabel}"
                        Margin="0,0,0,4"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
 
             <TextBox Grid.Row="1"
                      Grid.Column="0"
@@ -166,7 +166,7 @@
                        Grid.ColumnSpan="2"
                        Text="{DynamicResource SerialLabel}"
                        Margin="0,0,0,4"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
 
             <ComboBox Grid.Row="1"
                       Grid.Column="0"
@@ -212,7 +212,7 @@
             <TextBlock Grid.Row="0"
                        Text="{DynamicResource ProfileLabel}"
                        Margin="0,0,0,4"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
 
             <ComboBox Grid.Row="1"
                       IsReadOnly="True"
@@ -255,7 +255,7 @@
                        VerticalAlignment="Center"
                        Margin="12,0,0,0"
                        FontSize="14"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
           </Grid>
 
           <!-- ============================================================
@@ -263,8 +263,8 @@
                ============================================================ -->
           <Border Margin="0,12,0,0"
                   Padding="16"
-                  Background="{StaticResource CardBackgroundBrush}"
-                  BorderBrush="{StaticResource DividerBrush}"
+                   Background="{DynamicResource CardBackgroundBrush}"
+                   BorderBrush="{DynamicResource DividerBrush}"
                   BorderThickness="1"
                   CornerRadius="8"
                   Visibility="{Binding LastVerified,
@@ -285,7 +285,7 @@
                              FontWeight="Bold" />
                   <TextBlock Text="{DynamicResource LastVerifiedLabel}"
                              FontSize="12"
-                             Foreground="{StaticResource TextSecondaryBrush}"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
                              Margin="0,2,0,0" />
                 </StackPanel>
 
@@ -316,7 +316,7 @@
                 <!-- Serial -->
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="{DynamicResource SerialField}"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
                 <TextBlock Grid.Row="0" Grid.Column="1"
                            Text="{Binding LastVerified.Serial}"
                            TextTrimming="CharacterEllipsis"
@@ -325,7 +325,7 @@
                 <!-- Android ID -->
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="{DynamicResource AndroidIdField}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="1" Grid.Column="1"
                            Text="{Binding LastVerified.AndroidId}"
@@ -335,7 +335,7 @@
                 <!-- Android Version -->
                 <TextBlock Grid.Row="2" Grid.Column="0"
                            Text="{DynamicResource AndroidVersionField}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="2" Grid.Column="1"
                            Text="{Binding LastVerified.AndroidVersion}"
@@ -344,7 +344,7 @@
                 <!-- Resolution -->
                 <TextBlock Grid.Row="3" Grid.Column="0"
                            Text="{DynamicResource ResolutionField}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="3" Grid.Column="1"
                            Margin="8,8,0,0">
@@ -361,7 +361,7 @@
                            Text="{Binding LastVerified.VerifiedAt,
                                StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
                            FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="8,8,0,0" />
               </Grid>
             </StackPanel>
@@ -372,8 +372,8 @@
                ============================================================ -->
           <Border Margin="0,12,0,0"
                   Padding="16"
-                  Background="{StaticResource CardBackgroundBrush}"
-                  BorderBrush="{StaticResource DividerBrush}"
+                   Background="{DynamicResource CardBackgroundBrush}"
+                   BorderBrush="{DynamicResource DividerBrush}"
                   BorderThickness="1"
                   CornerRadius="8"
                   IsEnabled="False"
@@ -403,7 +403,7 @@
                 <!-- State -->
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="{DynamicResource StatusLabel}"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
                 <TextBlock Grid.Row="0" Grid.Column="1"
                            Text="{Binding ControlSession.State}"
                            Margin="8,0,0,0" />
@@ -411,7 +411,7 @@
                 <!-- Target Package ID -->
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="{DynamicResource ProfileLabel}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="1" Grid.Column="1"
                            Text="{Binding ControlSession.TargetPackageId}"
@@ -421,7 +421,7 @@
                 <!-- Frame dimensions -->
                 <TextBlock Grid.Row="2" Grid.Column="0"
                            Text="{DynamicResource ResolutionField}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="2" Grid.Column="1"
                            Margin="8,8,0,0">
@@ -436,7 +436,7 @@
                 <!-- Geometry generation -->
                 <TextBlock Grid.Row="3" Grid.Column="0"
                            Text="{DynamicResource LastDetectedEmulatorLabel}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,8,0,0" />
                 <TextBlock Grid.Row="3" Grid.Column="1"
                            Text="{Binding ControlSession.GeometryGeneration}"
@@ -512,7 +512,7 @@
 
             <TextBlock Grid.Row="1"
                        Text="{DynamicResource LanguageHint}"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                        Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="12"
                        Margin="0,8,0,0"
                        FontStyle="Italic" />
@@ -546,7 +546,7 @@
             <!-- Core Version -->
             <TextBlock Grid.Row="0" Grid.Column="0"
                        Text="{DynamicResource CoreVersionLabel}"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding CoreVersion}"
                        TextTrimming="CharacterEllipsis" />
@@ -554,7 +554,7 @@
             <!-- Resource Path -->
             <TextBlock Grid.Row="1" Grid.Column="0"
                        Text="{DynamicResource ResourcePathLabel}"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="0,8,0,0" />
             <TextBlock Grid.Row="1" Grid.Column="1"
                        Text="{Binding ResourcePath}"
@@ -564,7 +564,7 @@
             <!-- Current ADB Path -->
             <TextBlock Grid.Row="2" Grid.Column="0"
                        Text="{DynamicResource CurrentAdbPathLabel}"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="0,8,0,0" />
             <TextBlock Grid.Row="2" Grid.Column="1"
                        Text="{Binding DraftAdbPath}"
@@ -574,7 +574,7 @@
             <!-- Last Detected Emulator -->
             <TextBlock Grid.Row="3" Grid.Column="0"
                        Text="{DynamicResource LastDetectedEmulatorLabel}"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="0,8,0,0" />
             <TextBlock Grid.Row="3" Grid.Column="1"
                        Text="{Binding LastDetectedEmulator}"

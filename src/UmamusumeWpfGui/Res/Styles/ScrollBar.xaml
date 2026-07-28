@@ -7,8 +7,8 @@
        ============================================================ -->
 
   <Style TargetType="ScrollBar">
-    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
-    <Setter Property="Background" Value="{StaticResource PrimaryLightestBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimaryLightestBrush}" />
   </Style>
 
 </ResourceDictionary>

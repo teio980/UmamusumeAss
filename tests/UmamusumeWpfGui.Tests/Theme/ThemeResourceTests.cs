@@ -238,6 +238,56 @@ public sealed class ThemeResourceTests
         Assert.Equal("8", crSetter.value);
     }
 
+    [Fact]
+    public void StyleXamlTabItemForegroundUsesDynamicThemeResource()
+    {
+        var resources = GetResources(Path.Combine(ResDir, "Style.xaml"));
+        var style = GetStyle(resources, null, targetType: "TabItem");
+
+        var foregroundSetter = style.setters.FirstOrDefault(
+            setter => setter.property == "Foreground");
+
+        Assert.Equal("{DynamicResource TextSecondaryBrush}", foregroundSetter.value);
+    }
+
+    [Fact]
+    public void StyleXamlTextBlockForegroundUsesDynamicThemeResource()
+    {
+        var resources = GetResources(Path.Combine(ResDir, "Style.xaml"));
+        var style = GetStyle(resources, null, targetType: "TextBlock");
+
+        var foregroundSetter = style.setters.FirstOrDefault(
+            setter => setter.property == "Foreground");
+
+        Assert.Equal("{DynamicResource TextPrimaryBrush}", foregroundSetter.value);
+    }
+
+    [Fact]
+    public void ThemePaletteResourcesUseDynamicLookupOutsidePaletteDefinition()
+    {
+        var sourceDir = Path.GetFullPath(
+            Path.Combine(ResDir, ".."));
+        var paletteKeys = new[]
+        {
+            "PrimaryBrush", "PrimaryLightBrush", "PrimaryLighterBrush",
+            "PrimaryLightestBrush", "GoldBrush", "WindowBackgroundBrush",
+            "CardBackgroundBrush", "TextPrimaryBrush", "TextSecondaryBrush",
+            "TextOnPrimaryBrush", "DividerBrush", "SuccessBrush", "ErrorBrush",
+        };
+
+        foreach (var path in Directory.GetFiles(sourceDir, "*.xaml", SearchOption.AllDirectories))
+        {
+            if (string.Equals(Path.GetFullPath(path), Path.Combine(ThemesDir, "Light.xaml"), StringComparison.Ordinal))
+                continue;
+
+            var content = File.ReadAllText(path);
+            foreach (var key in paletteKeys)
+            {
+                Assert.DoesNotContain($"{{StaticResource {key}}}", content);
+            }
+        }
+    }
+
     // ================================================================
     // XML parsing helpers
     // ================================================================

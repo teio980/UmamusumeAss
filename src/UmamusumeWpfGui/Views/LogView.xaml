@@ -17,7 +17,7 @@
 
     <!-- Column headers -->
     <Border Grid.Row="0"
-            Background="{StaticResource PrimaryLightestBrush}"
+             Background="{DynamicResource PrimaryLightestBrush}"
             Padding="8,6">
       <Grid>
         <Grid.ColumnDefinitions>
@@ -29,15 +29,15 @@
         <TextBlock Grid.Column="0"
                    Text="{DynamicResource LogTimestampHeader}"
                    FontWeight="SemiBold"
-                   Foreground="{StaticResource TextPrimaryBrush}" />
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <TextBlock Grid.Column="1"
                    Text="{DynamicResource LogTypeHeader}"
                    FontWeight="SemiBold"
-                   Foreground="{StaticResource TextPrimaryBrush}" />
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <TextBlock Grid.Column="2"
                    Text="{DynamicResource LogDetailsHeader}"
                    FontWeight="SemiBold"
-                   Foreground="{StaticResource TextPrimaryBrush}" />
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
       </Grid>
     </Border>
 
@@ -59,9 +59,9 @@
           <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
               <Setter Property="Background"
-                      Value="{StaticResource PrimaryLighterBrush}" />
+                       Value="{DynamicResource PrimaryLighterBrush}" />
               <Setter Property="Foreground"
-                      Value="{StaticResource TextPrimaryBrush}" />
+                       Value="{DynamicResource TextPrimaryBrush}" />
             </Trigger>
           </Style.Triggers>
         </Style>
@@ -93,7 +93,7 @@
     <!-- Empty state overlay -->
     <TextBlock Grid.Row="1"
                Text="{DynamicResource LogEmptyMessage}"
-               Foreground="{StaticResource TextSecondaryBrush}"
+               Foreground="{DynamicResource TextSecondaryBrush}"
                FontStyle="Italic"
                HorizontalAlignment="Center"
                VerticalAlignment="Center"

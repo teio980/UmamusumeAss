@@ -12,9 +12,9 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{StaticResource CardBackgroundBrush}"
+        Background="{DynamicResource CardBackgroundBrush}"
         FontSize="14"
-        Foreground="{StaticResource TextPrimaryBrush}">
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
   <Grid Margin="16">
     <Grid.RowDefinitions>
@@ -45,12 +45,12 @@
           <Setter Property="Padding" Value="8,8" />
           <Setter Property="Margin" Value="0,0,0,4" />
           <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
           <Setter Property="Cursor" Value="Hand" />
           <Style.Triggers>
             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-              <Setter Property="Background" Value="{StaticResource PrimaryLightestBrush}" />
-              <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+              <Setter Property="Background" Value="{DynamicResource PrimaryLightestBrush}" />
+              <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
             </DataTrigger>
           </Style.Triggers>
         </Style>
@@ -75,15 +75,15 @@
                     Height="18"
                     CornerRadius="9"
                     BorderThickness="2"
-                    BorderBrush="{StaticResource PrimaryLighterBrush}"
+                    BorderBrush="{DynamicResource PrimaryLighterBrush}"
                     Background="Transparent"
                     Margin="0,0,10,0"
                     VerticalAlignment="Center">
               <Border.Triggers>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                   <DataTrigger.Setters>
-                    <Setter Property="Border.Background" Value="{StaticResource PrimaryBrush}" />
-                    <Setter Property="Border.BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                    <Setter Property="Border.Background" Value="{DynamicResource PrimaryBrush}" />
+                    <Setter Property="Border.BorderBrush" Value="{DynamicResource PrimaryBrush}" />
                   </DataTrigger.Setters>
                 </DataTrigger>
               </Border.Triggers>
@@ -100,7 +100,7 @@
             <TextBlock Grid.Row="1"
                        Grid.Column="1"
                        Text="{Binding AdbPath}"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="12"
                        TextTrimming="CharacterEllipsis"
                        Margin="0,2,0,0" />
