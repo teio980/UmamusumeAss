@@ -33,6 +33,8 @@
   <sys:String x:Key="SerialLabel">Serial</sys:String>
   <sys:String x:Key="AutoDetectButton">Auto Detect</sys:String>
   <sys:String x:Key="AlwaysAutoDetectLabel">Always auto-detect before connect</sys:String>
+  <sys:String x:Key="AutoStartEmulatorLabel">Start emulator automatically when it is not running</sys:String>
+  <sys:String x:Key="EmulatorExecutablePathHint">Emulator executable or shortcut path</sys:String>
   <sys:String x:Key="ProfileLabel">Profile</sys:String>
   <sys:String x:Key="ConnectButton">Connect</sys:String>
   <sys:String x:Key="CancelButton">Cancel</sys:String>

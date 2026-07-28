@@ -233,6 +233,23 @@
                       FontSize="14" />
           </Grid>
 
+          <Grid Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <CheckBox Grid.Row="0"
+                      IsChecked="{Binding DraftAutoStartEmulator}"
+                      Content="{DynamicResource AutoStartEmulatorLabel}"
+                      VerticalAlignment="Center"
+                      FontSize="14" />
+            <TextBox Grid.Row="1"
+                     Text="{Binding DraftEmulatorExecutablePath, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="{DynamicResource EmulatorExecutablePathHint}"
+                     Height="30"
+                     Margin="0,6,0,0" />
+          </Grid>
+
           <!-- Profile row (read-only, General only in S1) -->
           <Grid Margin="0,0,0,12">
             <Grid.RowDefinitions>
