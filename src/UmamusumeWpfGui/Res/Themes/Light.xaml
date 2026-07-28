@@ -3,44 +3,32 @@
 
   <!-- ============================================================
        Section 6 Color Palette — UmamusumeAss Design System
-       All brush tokens from docs/DESIGN.md section 2 and
-       docs/superpowers.md section 6.1.
+       All brush tokens from docs/DESIGN.md section 2.
        ============================================================ -->
-
-  <!-- Primary / Accent -->
-  <SolidColorBrush x:Key="PrimaryBrush" Color="#E91E8C" />
-  <SolidColorBrush x:Key="PrimaryLightBrush" Color="#FF6B9D" />
-  <SolidColorBrush x:Key="PrimaryLighterBrush" Color="#FFB3D0" />
-  <SolidColorBrush x:Key="PrimaryLightestBrush" Color="#FFE4EC" />
-
-  <!-- Gold Accent -->
-  <SolidColorBrush x:Key="GoldBrush" Color="#FFB300" />
 
   <!-- Surface -->
-  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFF0F5" />
-  <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#F6F5F8" />
+  <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="#EEEAF3" />
+  <SolidColorBrush x:Key="SurfacePanelBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#FBFAFD" />
 
   <!-- Text -->
-  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#2D2D2D" />
-  <SolidColorBrush x:Key="TextSecondaryBrush" Color="#888888" />
-  <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#24212A" />
+  <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6D6875" />
+  <SolidColorBrush x:Key="TextDisabledBrush" Color="#9A94A3" />
 
-  <!-- Dividers -->
-  <SolidColorBrush x:Key="DividerBrush" Color="#FFE4EC" />
+  <!-- Border -->
+  <SolidColorBrush x:Key="BorderDefaultBrush" Color="#DCD7E2" />
+  <SolidColorBrush x:Key="BorderSubtleBrush" Color="#ECE8F0" />
+
+  <!-- Accent -->
+  <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#7653A6" />
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#65458F" />
 
   <!-- Status -->
-  <SolidColorBrush x:Key="SuccessBrush" Color="#4CAF50" />
-  <SolidColorBrush x:Key="ErrorBrush" Color="#F44336" />
-
-  <!-- ============================================================
-       Window Background Gradient
-       Top-to-bottom: #FFE4EC → #FFF0F5 → #FFFFFF
-       ============================================================ -->
-  <LinearGradientBrush x:Key="WindowBackgroundGradient"
-                       StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#FFE4EC" Offset="0.0" />
-    <GradientStop Color="#FFF0F5" Offset="0.5" />
-    <GradientStop Color="#FFFFFF" Offset="1.0" />
-  </LinearGradientBrush>
+  <SolidColorBrush x:Key="StatusSuccessBrush" Color="#317B62" />
+  <SolidColorBrush x:Key="StatusWarningBrush" Color="#A86F23" />
+  <SolidColorBrush x:Key="StatusErrorBrush" Color="#B84B58" />
+  <SolidColorBrush x:Key="StatusInfoBrush" Color="#4D739B" />
 
 </ResourceDictionary>

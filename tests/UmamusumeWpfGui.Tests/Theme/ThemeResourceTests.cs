@@ -17,6 +17,10 @@ public sealed class ThemeResourceTests
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             @"..\..\..\..\..\src\UmamusumeWpfGui\Res"));
 
+    private static string ResourcesDir => Path.GetFullPath(
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+            @"..\..\..\..\..\src\UmamusumeWpfGui\Resources"));
+
     private static string ThemesDir => Path.Combine(ResDir, "Themes");
     private static string StylesDir => Path.Combine(ResDir, "Styles");
 
@@ -52,46 +56,69 @@ public sealed class ThemeResourceTests
     // ================================================================
 
     [Fact]
-    public void LightXamlContainsPrimaryBrush()
+    public void LightXamlContainsAccentPrimaryBrush()
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
-        var brush = GetSolidColorBrush(resources, "PrimaryBrush");
-        Assert.Equal("#E91E8C", brush.color, ignoreCase: true);
+        var brush = GetSolidColorBrush(resources, "AccentPrimaryBrush");
+        Assert.Equal("#7653A6", brush.color, ignoreCase: true);
     }
 
     [Fact]
-    public void LightXamlContainsWindowBackgroundBrush()
+    public void LightXamlContainsSurfaceCanvasBrush()
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
-        var brush = GetSolidColorBrush(resources, "WindowBackgroundBrush");
-        Assert.Equal("#FFF0F5", brush.color, ignoreCase: true);
+        var brush = GetSolidColorBrush(resources, "SurfaceCanvasBrush");
+        Assert.Equal("#F6F5F8", brush.color, ignoreCase: true);
     }
 
     [Fact]
-    public void LightXamlContainsErrorBrush()
+    public void LightXamlContainsStatusErrorBrush()
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
-        var brush = GetSolidColorBrush(resources, "ErrorBrush");
-        Assert.Equal("#F44336", brush.color, ignoreCase: true);
+        var brush = GetSolidColorBrush(resources, "StatusErrorBrush");
+        Assert.Equal("#B84B58", brush.color, ignoreCase: true);
+    }
+
+    // ================================================================
+    // Light.xaml — DESIGN.md brush tokens (Task 1)
+    // ================================================================
+
+    private static readonly string[] DesignBrushKeys =
+    [
+        "SurfaceCanvasBrush",
+        "SurfaceSidebarBrush",
+        "SurfacePanelBrush",
+        "SurfaceRaisedBrush",
+        "TextPrimaryBrush",
+        "TextSecondaryBrush",
+        "TextDisabledBrush",
+        "BorderDefaultBrush",
+        "BorderSubtleBrush",
+        "AccentPrimaryBrush",
+        "AccentHoverBrush",
+        "StatusSuccessBrush",
+        "StatusWarningBrush",
+        "StatusErrorBrush",
+        "StatusInfoBrush",
+    ];
+
+    [Fact]
+    public void LightXamlContainsAllDesignBrushKeys()
+    {
+        var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
+        var keys = resources
+            .Where(e => e.Name.LocalName is "SolidColorBrush")
+            .Select(GetKey)
+            .Where(k => k is not null)
+            .Select(k => k!)
+            .ToHashSet();
+
+        foreach (var key in DesignBrushKeys)
+            Assert.Contains(key, keys);
     }
 
     [Fact]
-    public void LightXamlContainsWindowBackgroundGradient()
-    {
-        var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
-        var gradient = GetGradientBrush(resources, "WindowBackgroundGradient");
-
-        Assert.Equal("0,0", gradient.startPoint);
-        Assert.Equal("0,1", gradient.endPoint);
-        Assert.Equal(3, gradient.stops.Count);
-
-        Assert.Equal("#FFE4EC", gradient.stops[0].color, ignoreCase: true);
-        Assert.Equal("#FFF0F5", gradient.stops[1].color, ignoreCase: true);
-        Assert.Equal("#FFFFFF", gradient.stops[2].color, ignoreCase: true);
-    }
-
-    [Fact]
-    public void LightXamlContainsAllPaletteBrushes()
+    public void LightXamlNoLongerContainsPrimaryBrush()
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
         var keys = resources
@@ -101,25 +128,81 @@ public sealed class ThemeResourceTests
             .Select(k => k!)
             .ToHashSet();
 
-        var expected = new[]
-        {
-            "PrimaryBrush",
-            "PrimaryLightBrush",
-            "PrimaryLighterBrush",
-            "PrimaryLightestBrush",
-            "GoldBrush",
-            "WindowBackgroundBrush",
-            "CardBackgroundBrush",
-            "TextPrimaryBrush",
-            "TextSecondaryBrush",
-            "TextOnPrimaryBrush",
-            "DividerBrush",
-            "SuccessBrush",
-            "ErrorBrush",
-            "WindowBackgroundGradient",
-        };
+        Assert.DoesNotContain("PrimaryBrush", keys);
+    }
 
-        foreach (var key in expected)
+    [Fact]
+    public void LightXamlNoLongerContainsGoldBrush()
+    {
+        var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
+        var keys = resources
+            .Where(e => e.Name.LocalName is "SolidColorBrush" or "LinearGradientBrush")
+            .Select(GetKey)
+            .Where(k => k is not null)
+            .Select(k => k!)
+            .ToHashSet();
+
+        Assert.DoesNotContain("GoldBrush", keys);
+    }
+
+    [Fact]
+    public void LightXamlNoLongerContainsWindowBackgroundGradient()
+    {
+        var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
+        var keys = resources
+            .Where(e => e.Name.LocalName is "SolidColorBrush" or "LinearGradientBrush")
+            .Select(GetKey)
+            .Where(k => k is not null)
+            .Select(k => k!)
+            .ToHashSet();
+
+        Assert.DoesNotContain("WindowBackgroundGradient", keys);
+    }
+
+    // ================================================================
+    // Strings.en-US.xaml — Overview resource keys
+    // ================================================================
+
+    private static readonly string[] OverviewStringKeys =
+    [
+        "NavOverview",
+        "OverviewTitle",
+        "OverviewConnectionStatus",
+        "OverviewDevice",
+        "OverviewCoreVersion",
+        "OverviewNoConnection",
+        "OverviewOpenSettings",
+    ];
+
+    [Fact]
+    public void EnUsStringsContainsAllOverviewKeys()
+    {
+        var resources = GetResources(
+            Path.Combine(ResourcesDir, "Strings.en-US.xaml"));
+        var keys = resources
+            .Where(e => e.Name.LocalName == "String")
+            .Select(GetKey)
+            .Where(k => k is not null)
+            .Select(k => k!)
+            .ToHashSet();
+
+        foreach (var key in OverviewStringKeys)
+            Assert.Contains(key, keys);
+    }
+
+    [Fact]
+    public void ZhCnStringsContainsAllOverviewKeys()
+    {
+        var resources = GetResources(
+            Path.Combine(ResourcesDir, "Strings.zh-CN.xaml"));
+        var keys = resources
+            .Where(e => e.Name.LocalName == "String")
+            .Select(GetKey)
+            .Where(k => k is not null)
+            .Select(k => k!)
+            .ToHashSet();
+
+        foreach (var key in OverviewStringKeys)
             Assert.Contains(key, keys);
     }
 
@@ -267,13 +350,7 @@ public sealed class ThemeResourceTests
     {
         var sourceDir = Path.GetFullPath(
             Path.Combine(ResDir, ".."));
-        var paletteKeys = new[]
-        {
-            "PrimaryBrush", "PrimaryLightBrush", "PrimaryLighterBrush",
-            "PrimaryLightestBrush", "GoldBrush", "WindowBackgroundBrush",
-            "CardBackgroundBrush", "TextPrimaryBrush", "TextSecondaryBrush",
-            "TextOnPrimaryBrush", "DividerBrush", "SuccessBrush", "ErrorBrush",
-        };
+        var paletteKeys = DesignBrushKeys;
 
         foreach (var path in Directory.GetFiles(sourceDir, "*.xaml", SearchOption.AllDirectories))
         {

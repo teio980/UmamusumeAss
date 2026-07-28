@@ -12,6 +12,15 @@
   <!-- Tab bar -->
   <sys:String x:Key="TabLog">Log</sys:String>
   <sys:String x:Key="TabSettings">Settings</sys:String>
+  <sys:String x:Key="NavOverview">Overview</sys:String>
+
+  <!-- Overview panel -->
+  <sys:String x:Key="OverviewTitle">Overview</sys:String>
+  <sys:String x:Key="OverviewConnectionStatus">Connection status</sys:String>
+  <sys:String x:Key="OverviewDevice">Device</sys:String>
+  <sys:String x:Key="OverviewCoreVersion">Core version</sys:String>
+  <sys:String x:Key="OverviewNoConnection">No device connected. Configure a connection in Settings.</sys:String>
+  <sys:String x:Key="OverviewOpenSettings">Open settings</sys:String>
 
   <!-- Settings navigation -->
   <sys:String x:Key="NavConnection">Connection</sys:String>

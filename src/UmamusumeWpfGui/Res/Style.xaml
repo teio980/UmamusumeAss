@@ -28,7 +28,7 @@
 
   <!-- Border (used for cards): 1 px DividerBrush, 8 px radius -->
   <Style TargetType="Border">
-    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="8" />
   </Style>
@@ -43,7 +43,7 @@
   <Style TargetType="GroupBox">
     <Setter Property="FontSize" Value="14" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 

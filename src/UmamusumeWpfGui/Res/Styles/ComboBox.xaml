@@ -10,8 +10,8 @@
        ============================================================ -->
 
   <Style TargetType="ComboBox">
-    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryLighterBrush}" />
+    <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="hc:BorderElement.CornerRadius" Value="4" />
     <Setter Property="FontSize" Value="14" />
