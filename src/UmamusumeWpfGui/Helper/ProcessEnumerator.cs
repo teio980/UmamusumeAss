@@ -17,22 +17,25 @@ public sealed class ProcessEnumerator : IProcessEnumerator
         foreach (var process in processes)
         {
             string? mainModulePath = null;
+            string processName;
 
             try
             {
+                processName = process.ProcessName;
                 mainModulePath = process.MainModule?.FileName;
             }
             catch
             {
                 // Process is inaccessible (e.g. elevated or system process).
                 // Leave mainModulePath as null.
+                processName = string.Empty;
             }
             finally
             {
                 process.Dispose();
             }
 
-            entries.Add(new ProcessEntry(process.ProcessName, mainModulePath));
+            entries.Add(new ProcessEntry(processName, mainModulePath));
         }
 
         return [.. entries];
