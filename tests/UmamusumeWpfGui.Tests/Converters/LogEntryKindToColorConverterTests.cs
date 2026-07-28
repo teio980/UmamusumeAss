@@ -15,27 +15,27 @@ public sealed class LogEntryKindToColorConverterTests
     // ================================================================
 
     [Fact]
-    public void InfoKind_ReturnsGrayFallback()
+    public void InfoKind_ReturnsInfoFallback()
     {
         var result = Converter.Convert(LogEntryKind.Info, typeof(Brush), null, Invariant);
         var brush = Assert.IsType<SolidColorBrush>(result);
-        Assert.Equal(Color.FromRgb(0x88, 0x88, 0x88), brush.Color);
+        Assert.Equal(Color.FromRgb(0x4D, 0x73, 0x9B), brush.Color);
     }
 
     [Fact]
-    public void SuccessKind_ReturnsPinkFallback()
+    public void SuccessKind_ReturnsSuccessFallback()
     {
         var result = Converter.Convert(LogEntryKind.Success, typeof(Brush), null, Invariant);
         var brush = Assert.IsType<SolidColorBrush>(result);
-        Assert.Equal(Color.FromRgb(0xE9, 0x1E, 0x8C), brush.Color);
+        Assert.Equal(Color.FromRgb(0x31, 0x7B, 0x62), brush.Color);
     }
 
     [Fact]
-    public void FailureKind_ReturnsRedFallback()
+    public void FailureKind_ReturnsErrorFallback()
     {
         var result = Converter.Convert(LogEntryKind.Failure, typeof(Brush), null, Invariant);
         var brush = Assert.IsType<SolidColorBrush>(result);
-        Assert.Equal(Color.FromRgb(0xF4, 0x43, 0x36), brush.Color);
+        Assert.Equal(Color.FromRgb(0xB8, 0x4B, 0x58), brush.Color);
     }
 
     // ================================================================
@@ -47,7 +47,7 @@ public sealed class LogEntryKindToColorConverterTests
     {
         var result = Converter.Convert(null, typeof(Brush), null, Invariant);
         var brush = Assert.IsType<SolidColorBrush>(result);
-        Assert.Equal(Color.FromRgb(0x88, 0x88, 0x88), brush.Color);
+        Assert.Equal(Color.FromRgb(0x4D, 0x73, 0x9B), brush.Color);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class LogEntryKindToColorConverterTests
     {
         var result = Converter.Convert("not a LogEntryKind", typeof(Brush), null, Invariant);
         var brush = Assert.IsType<SolidColorBrush>(result);
-        Assert.Equal(Color.FromRgb(0x88, 0x88, 0x88), brush.Color);
+        Assert.Equal(Color.FromRgb(0x4D, 0x73, 0x9B), brush.Color);
     }
 
     [Fact]

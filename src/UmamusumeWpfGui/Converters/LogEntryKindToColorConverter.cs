@@ -19,16 +19,16 @@ namespace UmamusumeWpfGui.Converters;
 /// </summary>
 public sealed class LogEntryKindToColorConverter : IValueConverter
 {
-    private const string InfoKey = "TextSecondaryBrush";
-    private const string SuccessKey = "PrimaryBrush";
-    private const string FailureKey = "ErrorBrush";
+    private const string InfoKey = "StatusInfoBrush";
+    private const string SuccessKey = "StatusSuccessBrush";
+    private const string FailureKey = "StatusErrorBrush";
 
     private static readonly SolidColorBrush FallbackInfo =
-        new(Color.FromRgb(0x88, 0x88, 0x88));
+        new(Color.FromRgb(0x4D, 0x73, 0x9B));
     private static readonly SolidColorBrush FallbackSuccess =
-        new(Color.FromRgb(0xE9, 0x1E, 0x8C));
+        new(Color.FromRgb(0x31, 0x7B, 0x62));
     private static readonly SolidColorBrush FallbackFailure =
-        new(Color.FromRgb(0xF4, 0x43, 0x36));
+        new(Color.FromRgb(0xB8, 0x4B, 0x58));
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
