@@ -12,6 +12,15 @@
   <!-- Tab bar -->
   <sys:String x:Key="TabLog">日志</sys:String>
   <sys:String x:Key="TabSettings">设置</sys:String>
+  <sys:String x:Key="NavOverview">概览</sys:String>
+
+  <!-- Overview panel -->
+  <sys:String x:Key="OverviewTitle">概览</sys:String>
+  <sys:String x:Key="OverviewConnectionStatus">连接状态</sys:String>
+  <sys:String x:Key="OverviewDevice">设备</sys:String>
+  <sys:String x:Key="OverviewCoreVersion">核心版本</sys:String>
+  <sys:String x:Key="OverviewNoConnection">未连接设备。请在设置中配置连接。</sys:String>
+  <sys:String x:Key="OverviewOpenSettings">打开设置</sys:String>
 
   <!-- Settings navigation -->
   <sys:String x:Key="NavConnection">连接</sys:String>
