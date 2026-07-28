@@ -22,4 +22,6 @@ public interface IWinAdapter
     /// non-zero exit codes, stderr, timeouts, and malformed output.
     /// </summary>
     AdbDevicesResult GetAdbDevices(string adbPath);
+
+    EndpointResolutionResult ResolveEndpoints(string adbPath, string profileName, CancellationToken cancellationToken);
 }

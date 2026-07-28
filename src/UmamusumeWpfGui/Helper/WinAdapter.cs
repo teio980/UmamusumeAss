@@ -47,7 +47,7 @@ public sealed class WinAdapter : IWinAdapter
                 continue;
             }
 
-            if (!EmulatorProfiles.Table.TryGetValue(process.Name, out var profile))
+            if (!EmulatorProfileCatalog.TryGetForProcess(process.Name, out var profile))
             {
                 diagnostics.Add(new DiscoveryDiagnostic(
                     $"Skipped unrecognized process '{process.Name}'",
@@ -87,7 +87,7 @@ public sealed class WinAdapter : IWinAdapter
             if (resolvedAdbPath == null && candidates.Any(c => c.AdbPath == null))
                 continue;
 
-            candidates.Add(new DetectedEmulatorInfo(profile.EmulatorName, resolvedAdbPath));
+            candidates.Add(new DetectedEmulatorInfo(profile.Name, resolvedAdbPath));
         }
 
         return new DiscoveryResult(candidates.AsReadOnly(), diagnostics.AsReadOnly());
@@ -139,6 +139,12 @@ public sealed class WinAdapter : IWinAdapter
         return new AdbDevicesResult(records.AsReadOnly(), diagnostics.AsReadOnly());
     }
 
+    public EndpointResolutionResult ResolveEndpoints(
+        string adbPath,
+        string profileName,
+        CancellationToken cancellationToken) =>
+        new EndpointResolver(_adbRunner).Resolve(adbPath, profileName, cancellationToken);
+
     /// <summary>
     /// Parses the stdout of <c>adb devices</c> into device records.
     /// Skips the "List of devices attached" header and blank lines.
@@ -176,52 +182,4 @@ public sealed class WinAdapter : IWinAdapter
         return records;
     }
 
-    // ================================================================
-    // Emulator profile table
-    // ================================================================
-
-    /// <summary>
-    /// Maps emulator process names to display names and ordered ADB candidate paths.
-    /// The paths are relative to the process directory.
-    /// </summary>
-    internal static class EmulatorProfiles
-    {
-        public static readonly IReadOnlyDictionary<string, EmulatorProfile> Table =
-            new Dictionary<string, EmulatorProfile>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["HD-Player"] = new EmulatorProfile(
-                    "BlueStacks",
-                    ["HD-Adb.exe", @"Engine\ProgramFiles\HD-Adb.exe"]),
-                ["dnplayer"] = new EmulatorProfile(
-                    "LDPlayer",
-                    ["adb.exe"]),
-                ["Nox"] = new EmulatorProfile(
-                    "Nox",
-                    ["nox_adb.exe"]),
-                ["MuMuPlayer"] = new EmulatorProfile(
-                    "MuMuEmulator12",
-                    [
-                        @"..\..\..\nx_main\adb.exe",
-                        @"..\vmonitor\bin\adb_server.exe",
-                        @"..\..\MuMu\emulator\nemu\vmonitor\bin\adb_server.exe",
-                        "adb.exe",
-                    ]),
-                ["MuMuNxDevice"] = new EmulatorProfile(
-                    "MuMuEmulator12",
-                    [
-                        @"..\..\..\nx_main\adb.exe",
-                        @"..\vmonitor\bin\adb_server.exe",
-                        @"..\..\MuMu\emulator\nemu\vmonitor\bin\adb_server.exe",
-                        "adb.exe",
-                    ]),
-                ["MEmu"] = new EmulatorProfile(
-                    "XYAZ",
-                    ["adb.exe"]),
-            };
-    }
-
-    /// <summary>
-    /// Describes one emulator entry in the profile table.
-    /// </summary>
-    internal sealed record EmulatorProfile(string EmulatorName, IReadOnlyList<string> AdbCandidates);
 }
