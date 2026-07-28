@@ -15,3 +15,13 @@ add_test(
     "--property:ResourceFilePath=${CMAKE_SOURCE_DIR}/resource/connection.json"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+add_test(
+  NAME WpfGuiTests
+  COMMAND "${CMAKE_COMMAND}" -E env
+    "DOTNET_CLI_TELEMETRY_OPTOUT=1"
+    "${DOTNET_EXECUTABLE}" test
+    "${CMAKE_SOURCE_DIR}/tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj"
+    -c Release
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
