@@ -45,6 +45,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<FileSystem>();
         builder.Bind<IEmulatorLauncher>()
             .To<EmulatorLauncher>();
+        builder.Bind<IAsyncDelay>()
+            .To<AsyncDelay>();
         builder.Bind<IWinAdapter>()
             .To<WinAdapter>();
 

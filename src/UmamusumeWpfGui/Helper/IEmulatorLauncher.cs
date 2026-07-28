@@ -17,12 +17,17 @@ public sealed class EmulatorLauncher : IEmulatorLauncher
         if (string.IsNullOrWhiteSpace(executablePath))
             return new EmulatorLaunchResult(false, "An emulator executable path is required.");
 
-        if (!File.Exists(executablePath))
+        var (fileName, arguments) = SplitCommand(executablePath);
+        if (!File.Exists(fileName))
             return new EmulatorLaunchResult(false, "The configured emulator executable was not found.");
 
         try
         {
-            var process = Process.Start(new ProcessStartInfo(executablePath) { UseShellExecute = true });
+            var process = Process.Start(new ProcessStartInfo(fileName)
+            {
+                Arguments = arguments,
+                UseShellExecute = true,
+            });
             return process is null
                 ? new EmulatorLaunchResult(false, "The emulator process could not be started.")
                 : new EmulatorLaunchResult(true, "Emulator startup was requested.");
@@ -31,5 +36,20 @@ public sealed class EmulatorLauncher : IEmulatorLauncher
         {
             return new EmulatorLaunchResult(false, $"The emulator could not be started: {exception.Message}");
         }
+    }
+
+    private static (string FileName, string Arguments) SplitCommand(string command)
+    {
+        var trimmed = command.Trim();
+        if (!trimmed.StartsWith('"'))
+            return (trimmed, string.Empty);
+
+        var closingQuote = trimmed.IndexOf('"', 1);
+        if (closingQuote < 0)
+            return (trimmed, string.Empty);
+
+        return (
+            trimmed[1..closingQuote],
+            trimmed[(closingQuote + 1)..].TrimStart());
     }
 }

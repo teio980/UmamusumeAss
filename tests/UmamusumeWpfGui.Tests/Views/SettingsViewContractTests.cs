@@ -255,6 +255,10 @@ public sealed class SettingsViewContractTests
             "Connection panel should have Auto Detect button");
         Assert.True(content.Contains("AlwaysAutoDetectLabel"),
             "Connection panel should have Always Auto Detect checkbox");
+        Assert.True(content.Contains("AutoStartEmulatorWaitSecondsLabel"),
+            "Connection panel should label the emulator startup wait setting");
+        Assert.True(content.Contains("DraftAutoStartEmulatorWaitSeconds"),
+            "Connection panel should bind the emulator startup wait setting");
 
         // Profile
         Assert.True(content.Contains("ProfileLabel"),
@@ -279,6 +283,19 @@ public sealed class SettingsViewContractTests
         // Forget button
         Assert.True(content.Contains("ForgetButton"),
             "Connection panel should have Forget button");
+    }
+
+    [Fact]
+    public void ConnectionResources_ContainAutoStartWaitLabel()
+    {
+        var resourcesDirectory = Path.Combine(ProjectDir, "src", "UmamusumeWpfGui", "Resources");
+
+        Assert.Contains(
+            "AutoStartEmulatorWaitSecondsLabel",
+            File.ReadAllText(Path.Combine(resourcesDirectory, "Strings.en-US.xaml")));
+        Assert.Contains(
+            "AutoStartEmulatorWaitSecondsLabel",
+            File.ReadAllText(Path.Combine(resourcesDirectory, "Strings.zh-CN.xaml")));
     }
 
     // ================================================================

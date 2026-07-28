@@ -28,7 +28,7 @@ namespace UmamusumeWpfGui.ViewModels;
 /// <see cref="RequestOverwriteConfirmation"/>) allow Task 8's selection dialog
 /// to be wired in without creating a view dependency here.
 /// </summary>
-public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
+public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     // ────────────────────────────────────────────────────────────────
     // Dependencies
@@ -40,6 +40,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private readonly ILocalizationService _localizationService;
     private readonly IWinAdapter _winAdapter;
     private readonly IEmulatorLauncher _emulatorLauncher;
+    private readonly IAsyncDelay _asyncDelay;
 
     // ────────────────────────────────────────────────────────────────
     // Mutable state
@@ -75,7 +76,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         ISettingsService settingsService,
         ILocalizationService localizationService,
         IWinAdapter winAdapter,
-        IEmulatorLauncher emulatorLauncher)
+        IEmulatorLauncher emulatorLauncher,
+        IAsyncDelay asyncDelay)
     {
         ArgumentNullException.ThrowIfNull(umaService);
         ArgumentNullException.ThrowIfNull(connectionState);
@@ -83,6 +85,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         ArgumentNullException.ThrowIfNull(localizationService);
         ArgumentNullException.ThrowIfNull(winAdapter);
         ArgumentNullException.ThrowIfNull(emulatorLauncher);
+        ArgumentNullException.ThrowIfNull(asyncDelay);
 
         _umaService = umaService;
         _connectionState = connectionState;
@@ -90,6 +93,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _localizationService = localizationService;
         _winAdapter = winAdapter;
         _emulatorLauncher = emulatorLauncher;
+        _asyncDelay = asyncDelay;
 
         // Load draft settings from persistence
         _draft = _settingsService.Load();
@@ -99,6 +103,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _draftAlwaysAutoDetect = _draft.AlwaysAutoDetectConnection;
         _draftAutoStartEmulator = _draft.AutoStartEmulator;
         _draftEmulatorExecutablePath = _draft.EmulatorExecutablePath;
+        _draftAutoStartEmulatorWaitSeconds = _draft.AutoStartEmulatorWaitSeconds;
         _draftLanguage = _draft.Language;
         _selectedLanguage = _localizationService.CurrentCulture;
 
@@ -413,6 +418,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
         ClearConnectionDiagnostic();
 
+        using var cts = new CancellationTokenSource();
+        _connectCts = cts;
+
         // ── Auto-detect phase ───────────────────────────────────
         if (DraftAutoDetect)
         {
@@ -435,34 +443,39 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     }
                     else
                     {
-                        await RunDiscoveryAsync();
+                        await RunDiscoveryAsync(cts.Token);
                     }
                 }
                 else
                 {
-                    await RunDiscoveryAsync();
+                    await RunDiscoveryAsync(cts.Token);
                 }
             }
+        }
+
+        if (cts.IsCancellationRequested)
+        {
+            _connectCts = null;
+            return;
         }
 
         // ── Validate before connect ─────────────────────────────
         if (string.IsNullOrWhiteSpace(DraftAdbPath))
         {
             SetConnectionDiagnostic("An ADB executable path is required.");
+            _connectCts = null;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(DraftConnectAddress))
         {
             SetConnectionDiagnostic("A connection address is required.");
+            _connectCts = null;
             return;
         }
 
         // ── Connect phase ───────────────────────────────────────
         _connectionState.SetState(ConnectionState.Connecting);
-
-        using var cts = new CancellationTokenSource();
-        _connectCts = cts;
 
         try
         {
@@ -534,6 +547,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _draft.AlwaysAutoDetectConnection = DraftAlwaysAutoDetect;
         _draft.AutoStartEmulator = DraftAutoStartEmulator;
         _draft.EmulatorExecutablePath = DraftEmulatorExecutablePath;
+        _draft.AutoStartEmulatorWaitSeconds = DraftAutoStartEmulatorWaitSeconds;
         _draft.Language = DraftLanguage;
 
         _settingsService.Save(_draft);
@@ -557,7 +571,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     /// optionally asks the user to pick when multiple are found, then runs
     /// adb devices on the selected candidate to find an eligible serial.
     /// </summary>
-    private async Task RunDiscoveryAsync()
+    private async Task RunDiscoveryAsync(CancellationToken cancellationToken = default)
     {
         _connectionState.SetState(ConnectionState.Detecting);
 
@@ -574,9 +588,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 if (DraftAutoStartEmulator)
                 {
-                    var launch = _emulatorLauncher.Start(DraftEmulatorExecutablePath);
-                    SetConnectionDiagnostic(launch.Message);
-                    _connectionState.SetState(ConnectionState.Disconnected);
+                    await HandleAutoStartLaunchAsync(cancellationToken);
                     return;
                 }
                 SetConnectionDiagnostic("No running emulator with a usable ADB executable was found.");
@@ -643,6 +655,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
 
             _connectionState.SetState(ConnectionState.Disconnected);
+        }
+        catch (OperationCanceledException)
+        {
+            _connectionState.SetState(ConnectionState.Disconnected);
+            SetConnectionDiagnostic("Connection canceled.");
         }
         catch
         {

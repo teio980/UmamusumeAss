@@ -26,6 +26,15 @@ public sealed class ConnectionSettings
     /// <summary>Executable or shortcut used to start the emulator.</summary>
     public string EmulatorExecutablePath { get; set; } = "";
 
+    private int _autoStartEmulatorWaitSeconds = 5;
+
+    /// <summary>Seconds to wait after successfully starting an emulator.</summary>
+    public int AutoStartEmulatorWaitSeconds
+    {
+        get => _autoStartEmulatorWaitSeconds;
+        set => _autoStartEmulatorWaitSeconds = Math.Max(0, value);
+    }
+
     private string _connectConfig = "General";
 
     /// <summary>

@@ -47,6 +47,18 @@ public sealed class ConnectionSettingsTests
     }
 
     [Fact]
+    public void AutoStartEmulatorWaitSeconds_DefaultsToFive_AndClampsNegativeValues()
+    {
+        var settings = new ConnectionSettings();
+
+        Assert.Equal(5, settings.AutoStartEmulatorWaitSeconds);
+
+        settings.AutoStartEmulatorWaitSeconds = -1;
+
+        Assert.Equal(0, settings.AutoStartEmulatorWaitSeconds);
+    }
+
+    [Fact]
     public void Defaults_ConnectConfigIsGeneral()
     {
         var s = new ConnectionSettings();
@@ -205,6 +217,7 @@ public sealed class ConnectionSettingsTests
             AlwaysAutoDetectConnection = true,
             AutoStartEmulator = true,
             EmulatorExecutablePath = @"C:\Program Files\Netease\MuMuPlayer\nx_device\15.0\shell\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 12,
             ConnectConfig = "General",
             Language = "zh-CN",
         };
@@ -222,6 +235,7 @@ public sealed class ConnectionSettingsTests
         Assert.Equal(s.AlwaysAutoDetectConnection, deserialized.AlwaysAutoDetectConnection);
         Assert.Equal(s.AutoStartEmulator, deserialized.AutoStartEmulator);
         Assert.Equal(s.EmulatorExecutablePath, deserialized.EmulatorExecutablePath);
+        Assert.Equal(s.AutoStartEmulatorWaitSeconds, deserialized.AutoStartEmulatorWaitSeconds);
         Assert.Equal(s.ConnectConfig, deserialized.ConnectConfig);
         Assert.Equal(s.Language, deserialized.Language);
         Assert.Equal(s.ConnectAddressHistory, deserialized.ConnectAddressHistory);

@@ -139,7 +139,7 @@ IWin32Process::Result RealWin32Process::execute(
         nullptr,                     // lpProcessAttributes
         nullptr,                     // lpThreadAttributes
         TRUE,                        // bInheritHandles    (pipes are inherited)
-        CREATE_SUSPENDED,            // dwCreationFlags
+        CREATE_SUSPENDED | CREATE_NO_WINDOW, // dwCreationFlags
         nullptr,                     // lpEnvironment
         nullptr,                     // lpCurrentDirectory
         &si,

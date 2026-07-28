@@ -26,6 +26,7 @@ public sealed class SettingsViewModelTests
         public FakeLocalizationService Localization { get; } = new();
         public FakeWinAdapter WinAdapter { get; } = new();
         public FakeEmulatorLauncher EmulatorLauncher { get; } = new();
+        public FakeAsyncDelay Delay { get; } = new();
 
         public Fixture()
         {
@@ -42,7 +43,7 @@ public sealed class SettingsViewModelTests
         public SettingsViewModel CreateViewModel()
         {
             return new SettingsViewModel(
-                UmaService, ConnectionState, Settings, Localization, WinAdapter, EmulatorLauncher);
+                UmaService, ConnectionState, Settings, Localization, WinAdapter, EmulatorLauncher, Delay);
         }
     }
 
@@ -858,6 +859,101 @@ public sealed class SettingsViewModelTests
         await vm.ConnectAsync();
 
         Assert.Equal(@"C:\MuMu\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
+        Assert.Equal(0, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
+    public void Constructor_LoadsAutoStartEmulatorWaitSecondsFromSettings()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings { AutoStartEmulatorWaitSeconds = 9 });
+
+        var vm = f.CreateViewModel();
+
+        Assert.Equal(9, vm.DraftAutoStartEmulatorWaitSeconds);
+    }
+
+    [Fact]
+    public async Task Connect_AutoStart_PersistsPathAndWaitsConfiguredDuration()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 7,
+        });
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+        vm.DraftEmulatorExecutablePath = @"D:\Cached\MuMuNxDevice.exe";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(@"D:\Cached\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
+        Assert.Equal([TimeSpan.FromSeconds(7)], f.Delay.Durations);
+        Assert.Equal(@"D:\Cached\MuMuNxDevice.exe", f.Settings.Load().EmulatorExecutablePath);
+        Assert.Equal(0, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
+    public void SaveSettings_PersistsAutoStartEmulatorWaitSeconds()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        vm.DraftAutoStartEmulatorWaitSeconds = 15;
+
+        vm.SaveSettings();
+
+        Assert.Equal(15, f.Settings.Load().AutoStartEmulatorWaitSeconds);
+    }
+
+    [Fact]
+    public async Task Connect_AutoStart_DoesNotWaitWhenLaunchFails()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 7,
+        });
+        f.EmulatorLauncher.NextResult = new EmulatorLaunchResult(false, "Launch failed.");
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
+
+        await vm.ConnectAsync();
+
+        Assert.Empty(f.Delay.Durations);
+    }
+
+    [Fact]
+    public async Task Connect_AutoStart_CancelDuringWait_StopsWaiting()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 7,
+        });
+        f.Delay.WaitForCancellation = true;
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
+
+        var connectTask = vm.ConnectAsync();
+        await f.Delay.Started.Task;
+
+        vm.Cancel();
+        await connectTask;
+
+        Assert.Equal(ConnectionState.Disconnected, f.ConnectionState.State);
+        Assert.Equal("Connection canceled.", vm.StatusText);
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
 
@@ -1836,11 +1932,31 @@ public sealed class SettingsViewModelTests
     private sealed class FakeEmulatorLauncher : IEmulatorLauncher
     {
         public string? StartedPath { get; private set; }
+        public EmulatorLaunchResult NextResult { get; set; } =
+            new(true, "Emulator startup was requested.");
 
         public EmulatorLaunchResult Start(string executablePath)
         {
             StartedPath = executablePath;
-            return new EmulatorLaunchResult(true, "Emulator startup was requested.");
+            return NextResult;
+        }
+    }
+
+    private sealed class FakeAsyncDelay : IAsyncDelay
+    {
+        public List<TimeSpan> Durations { get; } = [];
+        public bool WaitForCancellation { get; set; }
+        public TaskCompletionSource Started { get; } = new();
+
+        public Task DelayAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+        {
+            Durations.Add(duration);
+            Started.TrySetResult();
+            if (WaitForCancellation)
+            {
+                return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            return Task.CompletedTask;
         }
     }
 }
