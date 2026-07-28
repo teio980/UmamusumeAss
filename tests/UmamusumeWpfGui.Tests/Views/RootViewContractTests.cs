@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests.Views;
 
@@ -47,5 +48,12 @@ public sealed class RootViewContractTests
         var root = LoadXaml().Root!;
         Assert.Equal("960", root.Attribute("Width")?.Value);
         Assert.Equal("680", root.Attribute("Height")?.Value);
+    }
+
+    [Fact]
+    public void RootViewModel_ImplementsPropertyChangedNotification()
+    {
+        Assert.Contains(typeof(System.ComponentModel.INotifyPropertyChanged),
+            typeof(RootViewModel).GetInterfaces());
     }
 }

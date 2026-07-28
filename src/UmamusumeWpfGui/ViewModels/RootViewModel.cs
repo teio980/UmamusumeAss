@@ -6,7 +6,7 @@ namespace UmamusumeWpfGui.ViewModels;
 /// Ownership of child VMs is transferred to this instance — call Dispose
 /// to clean up children.
 /// </summary>
-public sealed class RootViewModel : IDisposable
+public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPropertyChanged
 {
     private readonly OverviewViewModel _overviewViewModel;
     private bool _disposed;
