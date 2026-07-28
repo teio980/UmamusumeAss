@@ -665,6 +665,22 @@ public sealed class SettingsViewModelTests
         Assert.Equal("192.168.1.100:5555", f.UmaService.LastConnectCall?.Serial);
     }
 
+    [Fact]
+    public async Task Connect_WhenAddressIsBlank_ShowsActionableDiagnostic()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        vm.DraftAutoDetect = false;
+        vm.DraftAdbPath = @"C:\adb\adb.exe";
+        vm.DraftConnectAddress = "";
+
+        await vm.ConnectAsync();
+
+        Assert.Contains("address", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, f.UmaService.ConnectCallCount);
+    }
+
     // ================================================================
     // 9. AlwaysAutoDetect
     // ================================================================
@@ -917,6 +933,58 @@ public sealed class SettingsViewModelTests
         // ADB path should be set (from candidate), but address should still be blank
         Assert.Equal(@"C:\BS\HD-Adb.exe", vm.DraftAdbPath);
         Assert.Equal(@"", vm.DraftConnectAddress);
+    }
+
+    [Fact]
+    public async Task Connect_AutoDetectMuMuWithResolvedFallback_UsesVerifiedEndpoint()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "127.0.0.1:16384", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+
+        vm.DraftAutoDetect = true;
+        vm.DraftAdbPath = "";
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("MuMuEmulator12", @"C:\MuMu\nx_main\adb.exe")],
+            []);
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            ["127.0.0.1:16384"],
+            []);
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(@"C:\MuMu\nx_main\adb.exe", vm.DraftAdbPath);
+        Assert.Equal("127.0.0.1:16384", vm.DraftConnectAddress);
+        Assert.Equal(1, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
+    public async Task Connect_AutoDetectMultipleResolvedEndpoints_UsesSelectedEndpoint()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "emulator-5556", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+
+        vm.DraftAutoDetect = true;
+        vm.DraftAdbPath = "";
+        vm.DraftConnectAddress = "";
+        vm.RequestAddressSelection = endpoints => Task.FromResult<string?>(endpoints[1]);
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("LDPlayer", @"C:\LDPlayer\adb.exe")],
+            []);
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            ["emulator-5554", "emulator-5556"],
+            []);
+
+        await vm.ConnectAsync();
+
+        Assert.Equal("emulator-5556", vm.DraftConnectAddress);
+        Assert.Equal("emulator-5556", f.UmaService.LastConnectCall?.Serial);
     }
 
     // ================================================================
@@ -1703,6 +1771,7 @@ public sealed class SettingsViewModelTests
     {
         public DiscoveryResult? NextDiscoveryResult { get; set; }
         public AdbDevicesResult? NextDevicesResult { get; set; }
+        public EndpointResolutionResult? NextEndpointResolutionResult { get; set; }
         public Exception? RefreshException { get; set; }
         public int RefreshCallCount { get; private set; }
         public int DevicesCallCount { get; private set; }
@@ -1725,6 +1794,20 @@ public sealed class SettingsViewModelTests
         {
             DevicesCallCount++;
             return NextDevicesResult ?? new AdbDevicesResult([], []);
+        }
+
+        public EndpointResolutionResult ResolveEndpoints(
+            string adbPath,
+            string profileName,
+            CancellationToken cancellationToken)
+        {
+            if (NextEndpointResolutionResult is not null)
+                return NextEndpointResolutionResult;
+
+            var records = NextDevicesResult?.Records ?? [];
+            return new EndpointResolutionResult(
+                records.Where(record => record.State == "device").Select(record => record.Serial).ToList(),
+                NextDevicesResult?.Diagnostics ?? []);
         }
     }
 }

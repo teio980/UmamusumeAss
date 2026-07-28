@@ -53,6 +53,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _draftLanguage;
     private string _selectedLanguage;
     private string _lastDetectedEmulator = string.Empty;
+    private string _connectionDiagnostic = string.Empty;
     private CancellationTokenSource? _connectCts;
     private bool _disposed;
 
@@ -233,17 +234,19 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
             or ConnectionState.Connecting
             or ConnectionState.Canceling;
 
-    public string StatusText => _connectionState.State switch
-    {
-        ConnectionState.Idle => "Disconnected",
-        ConnectionState.Disconnected => "Disconnected",
-        ConnectionState.Detecting => "Detecting emulators...",
-        ConnectionState.Connecting => "Connecting...",
-        ConnectionState.Connected => "Connected",
-        ConnectionState.Failed => "Connection failed",
-        ConnectionState.Canceling => "Canceling...",
-        _ => "Unknown",
-    };
+    public string StatusText => !string.IsNullOrEmpty(_connectionDiagnostic)
+        ? _connectionDiagnostic
+        : _connectionState.State switch
+        {
+            ConnectionState.Idle => "Disconnected",
+            ConnectionState.Disconnected => "Disconnected",
+            ConnectionState.Detecting => "Detecting emulators...",
+            ConnectionState.Connecting => "Connecting...",
+            ConnectionState.Connected => "Connected",
+            ConnectionState.Failed => "Connection failed",
+            ConnectionState.Canceling => "Canceling...",
+            _ => "Unknown",
+        };
 
     // ────────────────────────────────────────────────────────────────
     // Last verified (read-only, immutable snapshot)
@@ -335,6 +338,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public Func<IReadOnlyList<DetectedEmulatorInfo>, Task<DetectedEmulatorInfo?>>?
         RequestCandidateSelection { get; set; }
 
+    public Func<IReadOnlyList<string>, Task<string?>>? RequestAddressSelection { get; set; }
+
     /// <summary>
     /// Called when <see cref="DraftAlwaysAutoDetect"/> is enabled and
     /// auto-detect would overwrite non-blank manual values.
@@ -374,6 +379,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         if (currentState is not (ConnectionState.Disconnected or ConnectionState.Failed))
             return;
 
+        ClearConnectionDiagnostic();
+
         // ── Auto-detect phase ───────────────────────────────────
         if (DraftAutoDetect)
         {
@@ -407,9 +414,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
 
         // ── Validate before connect ─────────────────────────────
-        if (string.IsNullOrWhiteSpace(DraftAdbPath)
-            || string.IsNullOrWhiteSpace(DraftConnectAddress))
+        if (string.IsNullOrWhiteSpace(DraftAdbPath))
         {
+            SetConnectionDiagnostic("An ADB executable path is required.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(DraftConnectAddress))
+        {
+            SetConnectionDiagnostic("A connection address is required.");
             return;
         }
 
@@ -435,12 +448,19 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
                 case ConnectionFailedEvent failure:
                     _connectionState.SetState(ConnectionState.Failed);
+                    SetConnectionDiagnostic($"Connection failed: {failure.Message}");
                     break;
             }
         }
         catch (OperationCanceledException)
         {
             _connectionState.SetState(ConnectionState.Disconnected);
+            SetConnectionDiagnostic("Connection canceled.");
+        }
+        catch (Exception exception)
+        {
+            _connectionState.SetState(ConnectionState.Failed);
+            SetConnectionDiagnostic($"Connection failed: {exception.Message}");
         }
         finally
         {
@@ -518,6 +538,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             if (candidates.Count == 0)
             {
+                SetConnectionDiagnostic("No running emulator with a usable ADB executable was found.");
                 _connectionState.SetState(ConnectionState.Disconnected);
                 return;
             }
@@ -533,6 +554,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 var picked = await RequestCandidateSelection(candidates);
                 if (picked is null || picked.AdbPath is null)
                 {
+                    SetConnectionDiagnostic("Emulator selection was canceled.");
                     _connectionState.SetState(ConnectionState.Disconnected);
                     return;
                 }
@@ -549,25 +571,58 @@ public sealed class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _lastDetectedEmulator = selected.EmulatorName;
             OnPropertyChanged(nameof(LastDetectedEmulator));
 
-            // Run adb devices to find a serial
-            var devicesResult = _winAdapter.GetAdbDevices(selected.AdbPath!);
-            var eligibleDevices = devicesResult.Records
-                .Where(r => r.State == "device")
-                .ToList();
+            var resolution = _winAdapter.ResolveEndpoints(
+                selected.AdbPath!,
+                selected.EmulatorName,
+                CancellationToken.None);
 
-            if (eligibleDevices.Count > 0)
+            if (resolution.VerifiedEndpoints.Count == 1)
             {
-                // Use the first eligible device (multi-device selection
-                // can be added via a seam in a future task)
-                DraftConnectAddress = eligibleDevices[0].Serial;
+                DraftConnectAddress = resolution.VerifiedEndpoints[0];
+            }
+            else if (resolution.VerifiedEndpoints.Count > 1 && RequestAddressSelection is not null)
+            {
+                var address = await RequestAddressSelection(resolution.VerifiedEndpoints);
+                if (address is null || !resolution.VerifiedEndpoints.Contains(address))
+                {
+                    SetConnectionDiagnostic("Connection address selection was canceled.");
+                    _connectionState.SetState(ConnectionState.Disconnected);
+                    return;
+                }
+
+                DraftConnectAddress = address;
+            }
+            else if (resolution.VerifiedEndpoints.Count > 1)
+            {
+                DraftConnectAddress = resolution.VerifiedEndpoints[0];
+            }
+            else
+            {
+                SetConnectionDiagnostic($"No usable {selected.EmulatorName} connection endpoint was found.");
             }
 
             _connectionState.SetState(ConnectionState.Disconnected);
         }
         catch
         {
+            SetConnectionDiagnostic("Emulator discovery failed.");
             _connectionState.SetState(ConnectionState.Disconnected);
         }
+    }
+
+    private void SetConnectionDiagnostic(string diagnostic)
+    {
+        _connectionDiagnostic = diagnostic;
+        OnPropertyChanged(nameof(StatusText));
+    }
+
+    private void ClearConnectionDiagnostic()
+    {
+        if (string.IsNullOrEmpty(_connectionDiagnostic))
+            return;
+
+        _connectionDiagnostic = string.Empty;
+        OnPropertyChanged(nameof(StatusText));
     }
 
     // ────────────────────────────────────────────────────────────────
