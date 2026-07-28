@@ -207,38 +207,27 @@ public sealed class ThemeResourceTests
     }
 
     // ================================================================
-    // Button.xaml — PrimaryButtonGradient and CornerRadius
-    // ================================================================
-
     [Fact]
-    public void ButtonXamlContainsPrimaryButtonGradient()
+    public void ButtonXamlPrimaryButtonUsesAccentBrush()
     {
         var resources = GetResources(Path.Combine(StylesDir, "Button.xaml"));
-        var gradient = GetGradientBrush(resources, "PrimaryButtonGradient");
-
-        Assert.Equal("0,0", gradient.startPoint);
-        Assert.Equal("0,1", gradient.endPoint);
-        Assert.Equal(2, gradient.stops.Count);
-
-        Assert.Equal("#FFE4EC", gradient.stops[0].color, ignoreCase: true);
-        Assert.Equal("0.0", gradient.stops[0].offset);
-        Assert.Equal("#E91E8C", gradient.stops[1].color, ignoreCase: true);
-        Assert.Equal("1.0", gradient.stops[1].offset);
+        var style = GetStyle(resources, "PrimaryButtonStyle");
+        var background = style.setters.First(s => s.property == "Background");
+        Assert.Equal("{DynamicResource AccentPrimaryBrush}", background.value);
     }
 
     [Fact]
-    public void ButtonXamlPrimaryButtonStyleHasGradientBackground()
+    public void ButtonXamlPrimaryButtonHasCompactHeight()
     {
         var resources = GetResources(Path.Combine(StylesDir, "Button.xaml"));
         var style = GetStyle(resources, "PrimaryButtonStyle");
 
-        var bgSetter = style.setters.FirstOrDefault(s => s.property == "Background");
-        Assert.NotEqual(default, bgSetter);
-        Assert.Contains("PrimaryButtonGradient", bgSetter.value);
+        var height = style.setters.First(s => s.property == "Height");
+        Assert.Equal("34", height.value);
     }
 
     [Fact]
-    public void ButtonXamlPrimaryButtonStyleHasCornerRadius6()
+    public void ButtonXamlPrimaryButtonStyleHasCornerRadius4()
     {
         var resources = GetResources(Path.Combine(StylesDir, "Button.xaml"));
         var style = GetStyle(resources, "PrimaryButtonStyle");
@@ -246,11 +235,11 @@ public sealed class ThemeResourceTests
         var crSetter = style.setters.FirstOrDefault(
             s => s.property.Contains("CornerRadius"));
         Assert.NotEqual(default, crSetter);
-        Assert.Equal("6", crSetter.value);
+        Assert.Equal("4", crSetter.value);
     }
 
     [Fact]
-    public void ButtonXamlSecondaryButtonStyleHasCornerRadius6()
+    public void ButtonXamlSecondaryButtonStyleHasCornerRadius4()
     {
         var resources = GetResources(Path.Combine(StylesDir, "Button.xaml"));
         var style = GetStyle(resources, "SecondaryButtonStyle");
@@ -258,19 +247,16 @@ public sealed class ThemeResourceTests
         var crSetter = style.setters.FirstOrDefault(
             s => s.property.Contains("CornerRadius"));
         Assert.NotEqual(default, crSetter);
-        Assert.Equal("6", crSetter.value);
+        Assert.Equal("4", crSetter.value);
     }
 
     [Fact]
-    public void ButtonXamlDefaultButtonStyleHasCornerRadius6()
+    public void ButtonXamlPrimaryButtonHasHoverTrigger()
     {
         var resources = GetResources(Path.Combine(StylesDir, "Button.xaml"));
-        var style = GetStyle(resources, null); // default (TargetType) style
-
-        var crSetter = style.setters.FirstOrDefault(
-            s => s.property.Contains("CornerRadius"));
-        Assert.NotEqual(default, crSetter);
-        Assert.Equal("6", crSetter.value);
+        var content = File.ReadAllText(Path.Combine(StylesDir, "Button.xaml"));
+        Assert.Contains("IsMouseOver", content);
+        Assert.Contains("AccentHoverBrush", content);
     }
 
     // ================================================================
