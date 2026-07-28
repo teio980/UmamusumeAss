@@ -35,6 +35,8 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate DataType="vm:MenuItemViewModel">
             <Border Padding="10,16"
+                    BorderThickness="0,0,0,1"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     Cursor="Hand"
                     Background="Transparent"
                     MouseLeftButtonUp="OnNavItemClick">
@@ -99,11 +101,40 @@
                           Converter={StaticResource IntToVisibility},
                           ConverterParameter=0}">
 
-          <!-- Panel heading -->
-          <TextBlock Text="{DynamicResource ConnectionTitle}"
-                     FontSize="16"
-                     FontWeight="Bold"
-                     Margin="0,0,0,8" />
+          <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="{DynamicResource ConnectionTitle}"
+                         FontSize="18"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding StatusText}"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         Margin="0,4,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button Content="{DynamicResource ConnectButton}"
+                      Command="{Binding ConnectCommand}"
+                      Height="36"
+                      Padding="16,0"
+                      Style="{StaticResource PrimaryButtonStyle}" />
+              <Button Content="{DynamicResource CancelButton}"
+                      Command="{Binding CancelConnectCommand}"
+                      Height="36"
+                      Margin="8,0,0,0"
+                      Padding="14,0"
+                      Style="{StaticResource SecondaryButtonStyle}" />
+            </StackPanel>
+          </Grid>
+
+          <Border Padding="20"
+                  Background="{DynamicResource SurfacePanelBrush}"
+                  BorderBrush="{DynamicResource BorderDefaultBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8">
+            <StackPanel>
 
           <!-- ADB Path row -->
           <Grid Margin="0,0,0,12">
@@ -226,37 +257,8 @@
             </ComboBox>
           </Grid>
 
-          <!-- Connect / Cancel buttons + Status -->
-          <Grid Margin="0,8,0,0">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Connect button -->
-            <Button Grid.Column="0"
-                    Content="{DynamicResource ConnectButton}"
-                    Command="{Binding ConnectCommand}"
-                    Style="{StaticResource PrimaryButtonStyle}" />
-
-            <!-- Cancel button -->
-            <Button Grid.Column="1"
-                    Content="{DynamicResource CancelButton}"
-                    Command="{Binding CancelConnectCommand}"
-                    Width="100"
-                    Height="36"
-                    Margin="8,0,0,0"
-                    Style="{StaticResource SecondaryButtonStyle}" />
-
-            <!-- Status text -->
-            <TextBlock Grid.Column="2"
-                       Text="{Binding StatusText}"
-                       VerticalAlignment="Center"
-                       Margin="12,0,0,0"
-                       FontSize="14"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
-          </Grid>
+            </StackPanel>
+          </Border>
 
           <!-- ============================================================
                Device Information Card (Last Verified)

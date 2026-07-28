@@ -136,6 +136,19 @@ public sealed class SettingsViewContractTests
             "SettingsView should have an ItemsControl/ListBox bound to MenuItems");
     }
 
+    [Fact]
+    public void SettingsView_NavigationItemsUseBottomDividers()
+    {
+        var xaml = LoadXaml();
+        var navigationItem = xaml.Descendants()
+            .First(element => element.Name.LocalName == "Border"
+                && element.Attribute("MouseLeftButtonUp")?.Value == "OnNavItemClick");
+
+        Assert.Equal("0,0,0,1", navigationItem.Attribute("BorderThickness")?.Value);
+        Assert.Equal("{DynamicResource BorderSubtleBrush}", navigationItem.Attribute("BorderBrush")?.Value);
+        Assert.Null(navigationItem.Attribute("Margin"));
+    }
+
     // ================================================================
     // 4. All user-visible labels use DynamicResource
     // ================================================================
