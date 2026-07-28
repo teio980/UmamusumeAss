@@ -3,8 +3,8 @@ using System.Diagnostics;
 namespace UmamusumeWpfGui.Helper;
 
 /// <summary>
-/// Real implementation of <see cref="IAdbRunner"/> that executes
-/// <c>adb devices</c> via <see cref="Process"/> with stdout/stderr capture,
+/// Real implementation of <see cref="IAdbRunner"/> that executes ADB commands
+/// via <see cref="Process"/> with stdout/stderr capture,
 /// a timeout, and basic exception handling.
 /// </summary>
 public sealed class AdbRunner : IAdbRunner
@@ -12,7 +12,7 @@ public sealed class AdbRunner : IAdbRunner
     private readonly TimeSpan _timeout;
 
     /// <summary>
-    /// Creates a runner with the default 15-second timeout for <c>adb devices</c>.
+    /// Creates a runner with the default 15-second timeout for ADB commands.
     /// </summary>
     public AdbRunner()
         : this(TimeSpan.FromSeconds(15))
@@ -27,18 +27,26 @@ public sealed class AdbRunner : IAdbRunner
         _timeout = timeout;
     }
 
-    public (string Stdout, string Stderr, int ExitCode, bool TimedOut, Exception? Error) RunDevices(
-        string adbPath)
+    public (string Stdout, string Stderr, int ExitCode, bool TimedOut, Exception? Error) RunDevices(string adbPath)
+    {
+        var result = Run(adbPath, ["devices"]);
+        return (result.Stdout, result.Stderr, result.ExitCode, result.TimedOut, result.Error);
+    }
+
+    public AdbCommandResult Run(string adbPath, IReadOnlyList<string> arguments)
     {
         try
         {
             using var process = new Process();
             process.StartInfo.FileName = adbPath;
-            process.StartInfo.Arguments = "devices";
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.CreateNoWindow = true;
+            foreach (var argument in arguments)
+            {
+                process.StartInfo.ArgumentList.Add(argument);
+            }
 
             var stdoutBuilder = new System.Text.StringBuilder();
             var stderrBuilder = new System.Text.StringBuilder();
@@ -64,7 +72,11 @@ public sealed class AdbRunner : IAdbRunner
 
             if (!process.Start())
             {
-                return ("", $"Failed to start process: {adbPath}", -1, false,
+                return new AdbCommandResult(
+                    "",
+                    $"Failed to start process: {adbPath}",
+                    -1,
+                    false,
                     new InvalidOperationException($"Could not start {adbPath}"));
             }
 
@@ -75,16 +87,17 @@ public sealed class AdbRunner : IAdbRunner
 
             if (!completed)
             {
+                Exception? terminationException = null;
                 try
                 {
                     process.Kill(entireProcessTree: true);
                 }
-                catch
+                catch (InvalidOperationException exception)
                 {
-                    // Best-effort kill on timeout
+                    terminationException = exception;
                 }
 
-                return ("", "", -1, true, null);
+                return new AdbCommandResult("", "", -1, true, terminationException);
             }
 
             // Ensure async read completion
@@ -93,11 +106,11 @@ public sealed class AdbRunner : IAdbRunner
 
             var stdout = stdoutBuilder.ToString().TrimEnd();
             var stderr = stderrBuilder.ToString().TrimEnd();
-            return (stdout, stderr, process.ExitCode, false, null);
+            return new AdbCommandResult(stdout, stderr, process.ExitCode, false, null);
         }
         catch (Exception ex)
         {
-            return ("", $"Exception running 'adb devices': {ex.Message}", -1, false, ex);
+            return new AdbCommandResult("", $"Exception running ADB: {ex.Message}", -1, false, ex);
         }
     }
 }
