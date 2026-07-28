@@ -1,27 +1,36 @@
 <Window x:Class="UmamusumeWpfGui.Views.RootView"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:s="https://github.com/canton7/Stylet"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:s="https://github.com/canton7/Stylet"
+         xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
         Title="{DynamicResource WindowTitle}"
         Width="960"
         Height="680"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SurfaceCanvasBrush}">
 
   <Grid>
-    <TabControl>
-      <!-- Log tab -->
-      <TabItem Header="{DynamicResource TabLog}">
-        <ContentControl s:View.Model="{Binding LogViewModel}"
-                        VerticalContentAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch" />
-      </TabItem>
-
-      <!-- Settings tab -->
-      <TabItem Header="{DynamicResource TabSettings}">
-        <ContentControl s:View.Model="{Binding SettingsViewModel}"
-                        VerticalContentAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch" />
-      </TabItem>
-    </TabControl>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="184" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+    <Border Background="{DynamicResource SurfaceSidebarBrush}"
+            BorderBrush="{DynamicResource BorderDefaultBrush}"
+            BorderThickness="0,0,1,0">
+      <ListBox ItemsSource="{Binding NavigationItems}"
+               SelectedValue="{Binding SelectedNavigationIndex}"
+               SelectedValuePath="Index"
+               Margin="12,24">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding LabelKey, Converter={x:Static c:StringResourceConverter.Instance}}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+    <ContentControl Grid.Column="1"
+                    s:View.Model="{Binding ActiveContent}"
+                    VerticalContentAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" />
   </Grid>
 </Window>

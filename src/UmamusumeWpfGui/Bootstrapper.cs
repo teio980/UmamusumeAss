@@ -46,8 +46,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<IWinAdapter>()
             .To<WinAdapter>();
 
-        // ViewModels (transient — each screen gets its own)
-        builder.Bind<LogViewModel>().ToSelf();
+        builder.Bind<LogViewModel>().ToSelf().InSingletonScope();
+        builder.Bind<OverviewViewModel>().ToSelf();
         builder.Bind<SettingsViewModel>().ToSelf();
         builder.Bind<RootViewModel>().ToSelf();
     }

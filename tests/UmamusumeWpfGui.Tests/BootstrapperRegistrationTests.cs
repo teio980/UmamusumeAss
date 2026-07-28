@@ -102,7 +102,7 @@ public sealed class BootstrapperRegistrationTests
     }
 
     [Fact]
-    public void Bootstrapper_LogViewModel_IsTransient()
+    public void Bootstrapper_LogViewModel_IsSingleton()
     {
         var builder = new StyletIoCBuilder();
         var bootstrapper = new TestBootstrapper();
@@ -112,7 +112,7 @@ public sealed class BootstrapperRegistrationTests
         var first = container.Get<LogViewModel>();
         var second = container.Get<LogViewModel>();
 
-        Assert.NotSame(first, second);
+        Assert.Same(first, second);
     }
 
     [Fact]
