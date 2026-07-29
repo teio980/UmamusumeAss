@@ -49,6 +49,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AsyncDelay>();
         builder.Bind<IWinAdapter>()
             .To<WinAdapter>();
+        builder.Bind<IConnectionHealthMonitor>()
+            .To<ConnectionHealthMonitor>()
+            .InSingletonScope();
 
         builder.Bind<LogViewModel>().ToSelf().InSingletonScope();
         builder.Bind<OverviewViewModel>().ToSelf();
