@@ -138,6 +138,33 @@ public sealed class ConnectionStateServiceTests
         Assert.Equal(record.VerifiedAt, stored.VerifiedAt);
     }
 
+    [Fact]
+    public void UpdateLastVerified_RaisesStateChanged()
+    {
+        var svc = new ConnectionStateService();
+        var notifications = 0;
+        svc.StateChanged += (_, _) => notifications++;
+
+        svc.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "s1", "id1", "12", 100, 200, 100, 200, DateTimeOffset.UtcNow));
+
+        Assert.Equal(1, notifications);
+    }
+
+    [Fact]
+    public void ClearLastVerified_RaisesStateChanged()
+    {
+        var svc = new ConnectionStateService();
+        svc.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "s1", "id1", "12", 100, 200, 100, 200, DateTimeOffset.UtcNow));
+        var notifications = 0;
+        svc.StateChanged += (_, _) => notifications++;
+
+        svc.ClearLastVerified();
+
+        Assert.Equal(1, notifications);
+    }
+
     // ================================================================
     // ControlSession — display state defaults and updates
     // ================================================================

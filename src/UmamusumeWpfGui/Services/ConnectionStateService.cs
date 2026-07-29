@@ -56,6 +56,7 @@ public sealed class ConnectionStateService : IConnectionStateService
     {
         ArgumentNullException.ThrowIfNull(record);
         _lastVerified = record;
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -73,5 +74,6 @@ public sealed class ConnectionStateService : IConnectionStateService
     public void ClearLastVerified()
     {
         _lastVerified = null;
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 }
