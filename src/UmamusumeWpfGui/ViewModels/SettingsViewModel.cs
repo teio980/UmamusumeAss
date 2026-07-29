@@ -738,6 +738,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         OnPropertyChanged(nameof(IsOperationInProgress));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(ControlSession));
+        OnPropertyChanged(nameof(LastVerified));
 
         if (ConnectCommand is RelayCommand rc)
             rc.RaiseCanExecuteChanged();

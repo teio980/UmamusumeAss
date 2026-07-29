@@ -1276,6 +1276,37 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public void StateChanged_RaisesLastVerifiedChanged()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "s1", "id1", "12", 100, 200, 100, 200, DateTimeOffset.UtcNow));
+        var changed = new List<string>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? "");
+
+        f.ConnectionState.SetState(ConnectionState.Connected);
+
+        Assert.Contains(nameof(SettingsViewModel.LastVerified), changed);
+    }
+
+    [Fact]
+    public void Forget_RaisesLastVerifiedChanged()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "s1", "id1", "12", 100, 200, 100, 200, DateTimeOffset.UtcNow));
+        var changed = new List<string>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? "");
+
+        vm.Forget();
+
+        Assert.Contains(nameof(SettingsViewModel.LastVerified), changed);
+        Assert.Null(vm.LastVerified);
+    }
+
+    [Fact]
     public void StateChanged_RaisesIsOperationInProgressChanged()
     {
         var f = CreateFixture();
@@ -1837,11 +1868,13 @@ public sealed class SettingsViewModelTests
         {
             ArgumentNullException.ThrowIfNull(record);
             _lastVerified = record;
+            StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ClearLastVerified()
         {
             _lastVerified = null;
+            StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void UpdateControlSession(ControlSessionSnapshot snapshot)
