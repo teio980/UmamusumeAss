@@ -413,3 +413,26 @@ TEST_CASE("profile expand returns nullopt for unknown command name", "[Connectio
     auto const profile = ConnectionProfile::load(test_resource_path());
     REQUIRE_FALSE(profile.expand("General", "nonexistent_command", "adb", "s").has_value());
 }
+
+TEST_CASE("each named profile inherits get_size from General", "[ConnectionProfile][inheritance][named]") {
+    auto const profile = ConnectionProfile::load(test_resource_path());
+
+    auto const general = profile.expand("General", "get_size", R"(C:\adb\adb.exe)", "127.0.0.1:5555");
+    REQUIRE(general.has_value());
+
+    auto const check = [&](std::string_view profile_name) {
+        auto const inv = profile.expand(std::string{profile_name}, "get_size", R"(C:\adb\adb.exe)", "127.0.0.1:5555");
+        INFO("profile: " << profile_name);
+        REQUIRE(inv.has_value());
+        CHECK(inv->executable == general->executable);
+        CHECK(inv->arguments == general->arguments);
+    };
+
+    check("MuMuEmulator12");
+    check("LDPlayer");
+    check("BlueStacks");
+    check("Nox");
+    check("XYAZ");
+    check("WSA");
+    check("Androws");
+}
