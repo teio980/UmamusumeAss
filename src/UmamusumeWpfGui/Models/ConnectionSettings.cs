@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace UmamusumeWpfGui.Models;
 
 /// <summary>
 /// Persisted connection configuration.
-/// S1 mode restricts <see cref="ConnectConfig"/> to "General" only.
+/// Connection profiles are validated against the supported MAA-style profile names.
 /// </summary>
 public sealed class ConnectionSettings
 {
@@ -35,16 +36,28 @@ public sealed class ConnectionSettings
         set => _autoStartEmulatorWaitSeconds = Math.Max(0, value);
     }
 
+    private static readonly HashSet<string> KnownConnectConfigs = new(StringComparer.Ordinal)
+    {
+        "General",
+        "MuMuEmulator12",
+        "LDPlayer",
+        "BlueStacks",
+        "Nox",
+        "XYAZ",
+        "WSA",
+        "Androws",
+    };
+
     private string _connectConfig = "General";
 
     /// <summary>
-    /// Connection profile. In S1 mode, only "General" is accepted;
+    /// Connection profile. Preserves known MAA-style profile names;
     /// any unknown, empty, or null value silently falls back to "General".
     /// </summary>
     public string ConnectConfig
     {
         get => _connectConfig;
-        set => _connectConfig = value is "General" ? value : "General";
+        set => _connectConfig = value is not null && KnownConnectConfigs.Contains(value) ? value : "General";
     }
 
     /// <summary>Display language culture code.</summary>

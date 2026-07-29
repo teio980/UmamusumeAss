@@ -104,6 +104,20 @@ public sealed class ConnectionSettingsTests
         Assert.Equal("General", s.ConnectConfig);
     }
 
+    [Theory]
+    [InlineData("MuMuEmulator12")]
+    [InlineData("LDPlayer")]
+    [InlineData("BlueStacks")]
+    [InlineData("Nox")]
+    [InlineData("XYAZ")]
+    [InlineData("WSA")]
+    [InlineData("Androws")]
+    public void ConnectConfig_SetToKnownProfile_PreservesValue(string profileName)
+    {
+        var s = new ConnectionSettings { ConnectConfig = profileName };
+        Assert.Equal(profileName, s.ConnectConfig);
+    }
+
     [Fact]
     public void ConnectConfig_SetToEmptyString_FallsBackToGeneral()
     {
