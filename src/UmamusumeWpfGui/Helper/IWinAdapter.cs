@@ -24,4 +24,10 @@ public interface IWinAdapter
     AdbDevicesResult GetAdbDevices(string adbPath);
 
     EndpointResolutionResult ResolveEndpoints(string adbPath, string profileName, CancellationToken cancellationToken);
+
+    Task<EndpointResolutionResult> ResolveEndpointsAsync(
+        string adbPath,
+        string profileName,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(ResolveEndpoints(adbPath, profileName, cancellationToken));
 }

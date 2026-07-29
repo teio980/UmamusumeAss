@@ -147,6 +147,34 @@ public sealed class WinAdapterTests
     }
 
     [Fact]
+    public void RefreshEmulatorsInfo_MuMuNxMain_FindsMuMuCandidate()
+    {
+        var adapter = CreateAdapter(processes:
+        [
+            new("MuMuNxMain", @"F:\MuMu\emulator\nemushell\MuMuNxMain.exe")
+        ]);
+
+        var result = adapter.RefreshEmulatorsInfo();
+
+        var candidate = Assert.Single(result.Candidates);
+        Assert.Equal("MuMuEmulator12", candidate.EmulatorName);
+        Assert.NotNull(candidate.AdbPath);
+    }
+
+    [Fact]
+    public async Task ResolveEndpointsAsync_WithCanceledToken_PropagatesCancellation()
+    {
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        var adapter = CreateAdapter(processes: []);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => adapter.ResolveEndpointsAsync(
+            @"C:\MuMu\nx_main\adb.exe",
+            "MuMuEmulator12",
+            source.Token));
+    }
+
+    [Fact]
     public void RefreshEmulatorsInfo_MEmuWithAdb_FindsXYAZCandidate()
     {
         var adapter = CreateAdapter(processes:

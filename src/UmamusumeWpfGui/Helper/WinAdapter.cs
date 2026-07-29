@@ -12,18 +12,30 @@ public sealed class WinAdapter : IWinAdapter
     private readonly IProcessEnumerator _processEnumerator;
     private readonly IAdbRunner _adbRunner;
     private readonly IFileSystem _fileSystem;
+    private readonly IAsyncDelay _asyncDelay;
 
     public WinAdapter(
         IProcessEnumerator processEnumerator,
         IAdbRunner adbRunner,
         IFileSystem fileSystem)
+        : this(processEnumerator, adbRunner, fileSystem, new AsyncDelay())
+    {
+    }
+
+    public WinAdapter(
+        IProcessEnumerator processEnumerator,
+        IAdbRunner adbRunner,
+        IFileSystem fileSystem,
+        IAsyncDelay asyncDelay)
     {
         ArgumentNullException.ThrowIfNull(processEnumerator);
         ArgumentNullException.ThrowIfNull(adbRunner);
         ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(asyncDelay);
         _processEnumerator = processEnumerator;
         _adbRunner = adbRunner;
         _fileSystem = fileSystem;
+        _asyncDelay = asyncDelay;
     }
 
     // ================================================================
@@ -144,6 +156,13 @@ public sealed class WinAdapter : IWinAdapter
         string profileName,
         CancellationToken cancellationToken) =>
         new EndpointResolver(_adbRunner).Resolve(adbPath, profileName, cancellationToken);
+
+    public Task<EndpointResolutionResult> ResolveEndpointsAsync(
+        string adbPath,
+        string profileName,
+        CancellationToken cancellationToken) =>
+        new EndpointResolver(_adbRunner, _asyncDelay)
+            .ResolveAsync(adbPath, profileName, cancellationToken);
 
     /// <summary>
     /// Parses the stdout of <c>adb devices</c> into device records.
