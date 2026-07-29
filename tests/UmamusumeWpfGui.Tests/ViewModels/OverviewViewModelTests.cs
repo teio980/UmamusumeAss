@@ -39,6 +39,38 @@ public sealed class OverviewViewModelTests
         Assert.Contains(nameof(OverviewViewModel.HasVerifiedConnection), changed);
     }
 
+    [Fact]
+    public void LastVerifiedChange_RefreshesConnectionProjection()
+    {
+        var connectionState = new FakeConnectionStateService();
+        using var viewModel = new OverviewViewModel(connectionState, new FakeUmaService("1.0"));
+        var changed = new List<string>();
+        viewModel.PropertyChanged += (_, eventArgs) => changed.Add(eventArgs.PropertyName ?? string.Empty);
+
+        connectionState.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "serial", "android", "14", 1080, 1920, 1080, 1920, DateTimeOffset.UtcNow));
+
+        Assert.Contains(nameof(OverviewViewModel.LastVerifiedConnection), changed);
+        Assert.Contains(nameof(OverviewViewModel.HasVerifiedConnection), changed);
+    }
+
+    [Fact]
+    public void ClearingLastVerified_RefreshesConnectionProjection()
+    {
+        var connectionState = new FakeConnectionStateService();
+        connectionState.UpdateLastVerified(new LastVerifiedConnection(
+            "adb", "serial", "android", "14", 1080, 1920, 1080, 1920, DateTimeOffset.UtcNow));
+        using var viewModel = new OverviewViewModel(connectionState, new FakeUmaService("1.0"));
+        var changed = new List<string>();
+        viewModel.PropertyChanged += (_, eventArgs) => changed.Add(eventArgs.PropertyName ?? string.Empty);
+
+        connectionState.ClearLastVerified();
+
+        Assert.Contains(nameof(OverviewViewModel.LastVerifiedConnection), changed);
+        Assert.Contains(nameof(OverviewViewModel.HasVerifiedConnection), changed);
+        Assert.False(viewModel.HasVerifiedConnection);
+    }
+
     private sealed class FakeUmaService(string coreVersion) : IUmaService
     {
         public string? CoreVersion { get; } = coreVersion;
@@ -64,7 +96,15 @@ public sealed class OverviewViewModelTests
             State = newState;
             StateChanged?.Invoke(this, EventArgs.Empty);
         }
-        public void UpdateLastVerified(LastVerifiedConnection record) => LastVerifiedConnection = record;
-        public void ClearLastVerified() => LastVerifiedConnection = null;
+        public void UpdateLastVerified(LastVerifiedConnection record)
+        {
+            LastVerifiedConnection = record;
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+        public void ClearLastVerified()
+        {
+            LastVerifiedConnection = null;
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 }
