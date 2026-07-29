@@ -37,6 +37,8 @@ struct ConnectionTimings
     std::chrono::milliseconds ready_poll_interval = 250ms;
     std::chrono::milliseconds boot_poll_timeout   = 60000ms;
     std::chrono::milliseconds boot_poll_interval  = 500ms;
+    int                      max_attempts         = 3;
+    std::chrono::milliseconds retry_interval       = 2000ms;
 };
 
 class EmulatorConnector

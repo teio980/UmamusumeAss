@@ -42,6 +42,8 @@ struct ConnectionFailure
     ConnectionErrorCode  error_code;
     std::string          phase;
     std::string          message;
+    std::int32_t         attempt      = 1;
+    std::int32_t         max_attempts = 1;
 };
 
 using ConnectionResult = std::variant<ConnectedDevice, ConnectionFailure>;

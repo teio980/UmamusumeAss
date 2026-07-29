@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <source_location>
 #include <stop_token>
@@ -83,6 +84,8 @@ public:
         {
             recorded_commands_.push_back(arg);
         }
+        ++invocation_count_;
+        if (invocation_hook_) invocation_hook_(invocation);
 
         if (next_ < results_.size())
         {
@@ -133,15 +136,30 @@ public:
 
     [[nodiscard]] std::size_t invocation_count() const
     {
-        return recorded_commands_.empty()
-            ? 0
-            : 1; // We track per-command, not per-invocation
+        return invocation_count_;
+    }
+
+    [[nodiscard]] std::size_t count_command(std::string_view command) const
+    {
+        std::size_t count = 0;
+        for (auto const& argument : recorded_commands_)
+        {
+            if (argument == command) ++count;
+        }
+        return count;
+    }
+
+    void set_invocation_hook(std::function<void(AdbInvocation const&)> hook)
+    {
+        invocation_hook_ = std::move(hook);
     }
 
 private:
-    std::vector<Result>  results_;
-    std::size_t          next_ = 0;
+    std::vector<Result>                  results_;
+    std::size_t                          next_ = 0;
+    std::size_t                          invocation_count_ = 0;
     std::vector<std::string> recorded_commands_;
+    std::function<void(AdbInvocation const&)> invocation_hook_;
 };
 
 // ── Script helpers ─────────────────────────────────────────────────────────
@@ -232,7 +250,16 @@ private:
         .ready_poll_interval = 10ms,
         .boot_poll_timeout  = 5000ms,
         .boot_poll_interval  = 10ms,
+        .max_attempts        = 1,
+        .retry_interval      = 0ms,
     };
+}
+
+[[nodiscard]] ConnectionTimings retry_timings()
+{
+    auto timings = test_timings();
+    timings.max_attempts = 3;
+    return timings;
 }
 
 } // anonymous namespace
@@ -474,15 +501,158 @@ TEST_CASE("offline device returns DeviceOffline",
           "[EmulatorConnector][offline]")
 {
     ScriptedRunner runner{{
-        success("List of devices attached\n127.0.0.1:5555\toffline\n"),
+        success("List of devices attached\nemulator-5554\toffline\n"),
     }};
 
-    EmulatorConnector connector{general_profile(), runner, test_timings()};
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto request = default_request();
+    request.serial = "emulator-5554";
+    auto const result = connector.connect(request);
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& failure_result = std::get<ConnectionFailure>(result);
+    REQUIRE(failure_result.error_code == ConnectionErrorCode::DeviceOffline);
+    REQUIRE(failure_result.attempt == 1);
+    REQUIRE(failure_result.max_attempts == 3);
+    REQUIRE(runner.invocation_count() == 1);
+}
+
+TEST_CASE("offline TCP endpoint reconnects and completes the handshake",
+          "[EmulatorConnector][retry][offline]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n127.0.0.1:5555\toffline\n"),
+        success("connected to 127.0.0.1:5555\n"),
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        success("device\n"),
+        success("1\n"),
+        success("0123456789abcdef\n"),
+        success("14\n"),
+        success("Physical size: 1920x1080\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectedDevice>(result));
+    REQUIRE(runner.count_command("connect") == 1);
+}
+
+TEST_CASE("transient TCP connect failure retries from target resolution",
+          "[EmulatorConnector][retry][connect]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n"),
+        failure(1, "failed to connect\n"),
+        success("List of devices attached\n"),
+        success("connected to 127.0.0.1:5555\n"),
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        success("device\n"),
+        success("1\n"),
+        success("0123456789abcdef\n"),
+        success("14\n"),
+        success("Physical size: 1920x1080\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectedDevice>(result));
+    REQUIRE(runner.count_command("devices") == 3);
+    REQUIRE(runner.count_command("connect") == 2);
+}
+
+TEST_CASE("retry exhaustion reports the final attempt metadata",
+          "[EmulatorConnector][retry][exhausted]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n"),
+        failure(1, "failed to connect 1\n"),
+        success("List of devices attached\n"),
+        failure(1, "failed to connect 2\n"),
+        success("List of devices attached\n"),
+        failure(1, "failed to connect 3\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
     auto const result = connector.connect(default_request());
 
     REQUIRE(std::holds_alternative<ConnectionFailure>(result));
-    REQUIRE(std::get<ConnectionFailure>(result).error_code
-            == ConnectionErrorCode::DeviceOffline);
+    auto const& failure_result = std::get<ConnectionFailure>(result);
+    REQUIRE(failure_result.error_code == ConnectionErrorCode::CommandFailed);
+    REQUIRE(failure_result.attempt == 3);
+    REQUIRE(failure_result.max_attempts == 3);
+    REQUIRE(runner.count_command("connect") == 3);
+}
+
+TEST_CASE("cancellation during retry prevents the next attempt",
+          "[EmulatorConnector][retry][cancel]")
+{
+    std::stop_source source;
+    ScriptedRunner runner{{
+        success("List of devices attached\n"),
+        failure(1, "failed to connect\n"),
+    }};
+    runner.set_invocation_hook([&source](AdbInvocation const& invocation) {
+        if (!invocation.arguments.empty() && invocation.arguments.front() == "connect")
+        {
+            source.request_stop();
+        }
+    });
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto const result = connector.connect(default_request(), source.get_token());
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& failure_result = std::get<ConnectionFailure>(result);
+    REQUIRE(failure_result.error_code == ConnectionErrorCode::Canceled);
+    REQUIRE(failure_result.attempt == 1);
+    REQUIRE(failure_result.max_attempts == 3);
+    REQUIRE(runner.invocation_count() == 2);
+}
+
+TEST_CASE("invalid identity does not retry the handshake",
+          "[EmulatorConnector][retry][non-retryable]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        success("device\n"),
+        success("1\n"),
+        success("not-a-valid-android-id\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectionFailure>(result));
+    auto const& failure_result = std::get<ConnectionFailure>(result);
+    REQUIRE(failure_result.error_code == ConnectionErrorCode::InvalidDeviceResponse);
+    REQUIRE(failure_result.attempt == 1);
+    REQUIRE(failure_result.max_attempts == 3);
+    REQUIRE(runner.count_command("devices") == 1);
+}
+
+TEST_CASE("retryable handshake failure restarts from target resolution",
+          "[EmulatorConnector][retry][handshake]")
+{
+    ScriptedRunner runner{{
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        success("device\n"),
+        success("1\n"),
+        failure(1, "transport disappeared\n"),
+        success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
+        success("device\n"),
+        success("1\n"),
+        success("0123456789abcdef\n"),
+        success("14\n"),
+        success("Physical size: 1920x1080\n"),
+    }};
+
+    EmulatorConnector connector{general_profile(), runner, retry_timings()};
+    auto const result = connector.connect(default_request());
+
+    REQUIRE(std::holds_alternative<ConnectedDevice>(result));
+    REQUIRE(runner.count_command("devices") == 2);
 }
 
 TEST_CASE("unauthorized device returns DeviceUnauthorized",
@@ -550,6 +720,8 @@ TEST_CASE("connect success but device never becomes ready reports DeviceNotReady
         .ready_poll_interval = 50ms,
         .boot_poll_timeout  = 5000ms,
         .boot_poll_interval  = 10ms,
+        .max_attempts        = 1,
+        .retry_interval      = 0ms,
     };
 
     EmulatorConnector connector{general_profile(), runner, fast_ready_poll};
@@ -586,6 +758,8 @@ TEST_CASE("boot timeout returns BootNotCompleted and performs no identity query"
         .ready_poll_interval = 10ms,
         .boot_poll_timeout   = 200ms,
         .boot_poll_interval   = 50ms,
+        .max_attempts         = 1,
+        .retry_interval       = 0ms,
     };
 
     EmulatorConnector connector{general_profile(), runner, fast_boot_timeout};
@@ -911,6 +1085,26 @@ TEST_CASE("ready poll process start failure maps to ProcessStartFailed",
 // ==========================================================================
 // Timing defaults
 // ==========================================================================
+
+TEST_CASE("ConnectionTimings default max_attempts and retry_interval match contract",
+          "[EmulatorConnector][timing]")
+{
+    auto const timings = ConnectionTimings{};
+    REQUIRE(timings.max_attempts == 3);
+    REQUIRE(timings.retry_interval == 2000ms);
+}
+
+TEST_CASE("ConnectionFailure aggregate init preserves attempt defaults",
+          "[EmulatorConnector][failure]")
+{
+    ConnectionFailure const failure{
+        ConnectionErrorCode::AdbExecutableNotFound,
+        "preflight",
+        "some message",
+    };
+    REQUIRE(failure.attempt == 1);
+    REQUIRE(failure.max_attempts == 1);
+}
 
 TEST_CASE("connector default timings match the protocol contract",
           "[EmulatorConnector][timing]")

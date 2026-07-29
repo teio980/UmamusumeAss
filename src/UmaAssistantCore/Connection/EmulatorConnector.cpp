@@ -2,6 +2,7 @@
 #include "EmulatorConnectorDetail.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -11,6 +12,63 @@
 #include <vector>
 
 namespace UmaAssistant {
+
+namespace {
+
+[[nodiscard]] bool wait_with_cancellation(
+    std::chrono::milliseconds duration,
+    std::stop_token              cancellation)
+{
+    if (duration <= 0ms) return !cancellation.stop_requested();
+
+    auto const deadline = std::chrono::steady_clock::now() + duration;
+    while (true)
+    {
+        if (cancellation.stop_requested()) return false;
+
+        auto const remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        if (remaining <= 0ms) return true;
+        std::this_thread::sleep_for(std::min(remaining, 10ms));
+    }
+}
+
+[[nodiscard]] bool is_retryable_failure(ConnectionFailure const& failure) noexcept
+{
+    switch (failure.error_code)
+    {
+    case ConnectionErrorCode::DeviceOffline:
+        return failure.phase != "resolve_target";
+    case ConnectionErrorCode::DeviceNotReady:
+        return true;
+    case ConnectionErrorCode::ProcessStartFailed:
+    case ConnectionErrorCode::CommandTimedOut:
+        return failure.phase != "preflight";
+    case ConnectionErrorCode::DeviceUnavailable:
+        return failure.phase == "connect" || failure.phase == "ready_poll";
+    case ConnectionErrorCode::CommandFailed:
+        return failure.phase == "list_devices" || failure.phase == "connect"
+               || failure.phase == "ready_poll" || failure.phase == "get_state"
+               || failure.phase == "boot_poll" || failure.phase == "android_id"
+               || failure.phase == "android_version" || failure.phase == "get_size";
+    default:
+        return false;
+    }
+}
+
+[[nodiscard]] ConnectionFailure with_attempt_metadata(
+    ConnectionFailure failure,
+    int               attempt,
+    int               max_attempts)
+{
+    failure.attempt      = attempt;
+    failure.max_attempts = max_attempts;
+    failure.message += " (attempt " + std::to_string(attempt) + "/"
+                       + std::to_string(max_attempts) + ")";
+    return failure;
+}
+
+}
 
 EmulatorConnector::EmulatorConnector(
     ConnectionProfile const& profile,
@@ -99,25 +157,80 @@ ConnectionResult EmulatorConnector::connect(
         }};
     }
 
-    ConnectedDevice device;
-    device.serial = request.serial;
+    auto const max_attempts = std::max(timings_.max_attempts, 1);
+    for (int attempt = 1; attempt <= max_attempts; ++attempt)
+    {
+        if (cancellation.stop_requested())
+        {
+            return ConnectionResult{with_attempt_metadata(
+                ConnectionFailure{
+                    ConnectionErrorCode::Canceled,
+                    "retry",
+                    "canceled before connection attempt",
+                },
+                attempt,
+                max_attempts)};
+        }
 
-    if (auto err = step_resolve_target(request, cancellation, on_phase))
-        return ConnectionResult{*err};
-    if (on_phase) on_phase("boot_poll");
-    if (auto err = step_boot_poll(request, cancellation))
-        return ConnectionResult{*err};
-    if (on_phase) on_phase("android_id");
-    if (auto err = step_android_id(request, cancellation, device))
-        return ConnectionResult{*err};
-    if (on_phase) on_phase("android_version");
-    if (auto err = step_android_version(request, cancellation, device))
-        return ConnectionResult{*err};
-    if (on_phase) on_phase("wm_size");
-    if (auto err = step_get_size(request, cancellation, device))
-        return ConnectionResult{*err};
+        ConnectedDevice device;
+        device.serial = request.serial;
 
-    return ConnectionResult{std::move(device)};
+        std::optional<ConnectionFailure> failure;
+        if (auto err = step_resolve_target(request, cancellation, on_phase))
+        {
+            failure = std::move(*err);
+        }
+        else if (on_phase)
+        {
+            on_phase("boot_poll");
+            failure = step_boot_poll(request, cancellation);
+        }
+        else
+        {
+            failure = step_boot_poll(request, cancellation);
+        }
+
+        if (!failure)
+        {
+            if (on_phase) on_phase("android_id");
+            failure = step_android_id(request, cancellation, device);
+        }
+        if (!failure)
+        {
+            if (on_phase) on_phase("android_version");
+            failure = step_android_version(request, cancellation, device);
+        }
+        if (!failure)
+        {
+            if (on_phase) on_phase("wm_size");
+            failure = step_get_size(request, cancellation, device);
+        }
+
+        if (!failure) return ConnectionResult{std::move(device)};
+
+        auto annotated = with_attempt_metadata(
+            std::move(*failure), attempt, max_attempts);
+        if (!is_retryable_failure(annotated) || attempt == max_attempts)
+        {
+            return ConnectionResult{std::move(annotated)};
+        }
+
+        if (!wait_with_cancellation(timings_.retry_interval, cancellation))
+        {
+            return ConnectionResult{with_attempt_metadata(
+                ConnectionFailure{
+                    ConnectionErrorCode::Canceled,
+                    "retry",
+                    "canceled before next connection attempt",
+                },
+                attempt,
+                max_attempts)};
+        }
+    }
+
+    return ConnectionResult{ConnectionFailure{
+        ConnectionErrorCode::Canceled, "retry", "connection loop terminated"
+    }};
 }
 
 std::optional<ConnectionFailure> EmulatorConnector::step_boot_poll(
@@ -144,10 +257,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_boot_poll(
         }
         auto const result = runner_.run(*inv, timings_.device_query, cancellation);
         auto err = detail::check_runner_result(result, "boot_poll", cancellation);
-        if (err && err->error_code != ConnectionErrorCode::CommandFailed)
-        {
-            return err;
-        }
+        if (err) return err;
         if (detail::trim(result.standard_output) == "1")
         {
             return std::nullopt;
