@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -8,6 +10,46 @@
 #include <vector>
 
 namespace {
+
+[[nodiscard]] std::string environment_value(char const* name)
+{
+    char* raw = nullptr;
+    std::size_t size = 0;
+    if (_dupenv_s(&raw, &size, name) != 0 || raw == nullptr)
+    {
+        return {};
+    }
+    std::unique_ptr<char, decltype(&std::free)> value(raw, &std::free);
+    return value.get();
+}
+
+[[nodiscard]] bool offline_then_ready_enabled()
+{
+    return environment_value("UMA_FAKE_ADB_OFFLINE_THEN_READY") == "1";
+}
+
+[[nodiscard]] std::filesystem::path state_file_path()
+{
+    auto const configured = environment_value("UMA_FAKE_ADB_STATE_FILE");
+    return configured.empty()
+        ? std::filesystem::temp_directory_path() / "uma-fake-adb-offline.state"
+        : std::filesystem::path(configured);
+}
+
+[[nodiscard]] std::size_t next_devices_invocation()
+{
+    auto const path = state_file_path();
+    std::size_t invocation = 0;
+    {
+        std::ifstream input(path);
+        input >> invocation;
+    }
+    {
+        std::ofstream output(path, std::ios::trunc);
+        output << invocation + 1;
+    }
+    return invocation;
+}
 
 void apply_delay()
 {
@@ -36,8 +78,26 @@ int main(int argc, char** argv)
 
     if (args == std::vector<std::string>{"devices"})
     {
-        std::cout << "List of devices attached\ntest-serial\tdevice\n";
+        if (offline_then_ready_enabled())
+        {
+            auto const state = next_devices_invocation() == 0 ? "offline" : "device";
+            std::cout << "List of devices attached\n127.0.0.1:16384\t"
+                      << state << "\n";
+        }
+        else
+        {
+            std::cout << "List of devices attached\ntest-serial\tdevice\n";
+        }
         return 0;
+    }
+    if (offline_then_ready_enabled() && contains(args, "connect"))
+    {
+        auto const connect_position = std::find(args.begin(), args.end(), "connect");
+        if (connect_position + 1 != args.end())
+        {
+            std::cout << "connected to " << *(connect_position + 1) << "\n";
+            return 0;
+        }
     }
     if (contains(args, "get-state"))
     {

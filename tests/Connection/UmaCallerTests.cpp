@@ -201,6 +201,34 @@ private:
     std::wstring previous_;
 };
 
+class FakeAdbOfflineThenReady
+{
+public:
+    FakeAdbOfflineThenReady()
+        : state_path_(fs::temp_directory_path()
+            / (L"uma-fake-adb-state-" + std::to_wstring(GetCurrentProcessId()) + L".txt"))
+    {
+        std::error_code error;
+        fs::remove(state_path_, error);
+        SetEnvironmentVariableW(L"UMA_FAKE_ADB_OFFLINE_THEN_READY", L"1");
+        SetEnvironmentVariableW(L"UMA_FAKE_ADB_STATE_FILE", state_path_.c_str());
+    }
+
+    ~FakeAdbOfflineThenReady()
+    {
+        SetEnvironmentVariableW(L"UMA_FAKE_ADB_OFFLINE_THEN_READY", nullptr);
+        SetEnvironmentVariableW(L"UMA_FAKE_ADB_STATE_FILE", nullptr);
+        std::error_code error;
+        fs::remove(state_path_, error);
+    }
+
+    FakeAdbOfflineThenReady(FakeAdbOfflineThenReady const&) = delete;
+    FakeAdbOfflineThenReady& operator=(FakeAdbOfflineThenReady const&) = delete;
+
+private:
+    fs::path state_path_;
+};
+
 [[nodiscard]] char const* source_root() noexcept
 {
     return CMAKE_SOURCE_DIR;
@@ -357,6 +385,25 @@ TEST_CASE("accepted connect emits ordered versioned callbacks", "[UmaCaller][con
     REQUIRE(payload.at("physical_width") == 1080);
     REQUIRE(payload.at("physical_height") == 1920);
     REQUIRE(payload.at("size_source") == "physical");
+
+    UmaDestroy(handle);
+}
+
+TEST_CASE("offline TCP endpoint recovers through fake ADB", "[UmaCaller][connect][retry]")
+{
+    FakeAdbOfflineThenReady scenario;
+    Collector collector;
+    auto handle = make_handle(collector);
+
+    auto const start = UmaConnectAsync(
+        handle, fake_adb(), "127.0.0.1:16384", "General");
+    REQUIRE(start.error_code == UMA_SUCCESS);
+    REQUIRE(start.operation_id != 0);
+    REQUIRE(collector.wait_for_terminal());
+
+    auto const messages = collector.messages();
+    REQUIRE(messages.back().id == UMA_MSG_CONNECTION_SUCCEEDED);
+    REQUIRE(messages.back().details.at("payload").at("serial") == "127.0.0.1:16384");
 
     UmaDestroy(handle);
 }
