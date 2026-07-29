@@ -506,6 +506,8 @@ public sealed class UmaServiceTests : IDisposable
             error_code = errorCode,
             phase = "cancel",
             message = "failed",
+            attempt = 1,
+            max_attempts = 1,
         });
 
     private static string Envelope(ulong operationId, string type, object payload) =>

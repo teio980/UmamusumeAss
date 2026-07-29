@@ -43,5 +43,7 @@ public sealed record ConnectionFailedEvent(
     ulong OperationId,
     ConnectionErrorCode ErrorCode,
     string Phase,
-    string Message)
+    string Message,
+    int Attempt,
+    int MaxAttempts)
     : ConnectionTerminalEvent(OperationId);

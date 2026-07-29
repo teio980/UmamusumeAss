@@ -50,11 +50,30 @@ public sealed class CallbackParserTests
     public void ParseReturnsConnectionFailed()
     {
         var result = Assert.IsType<ConnectionFailedEvent>(CallbackParser.Parse(
-            Raw(4, "ConnectionFailed", """{"error_code":9,"phase":"boot_poll","message":"Canceled"}""")));
+            Raw(4, "ConnectionFailed", """{"error_code":9,"phase":"boot_poll","message":"Canceled","attempt":1,"max_attempts":1}""")));
 
         Assert.Equal(ConnectionErrorCode.Canceled, result.ErrorCode);
         Assert.Equal("boot_poll", result.Phase);
         Assert.Equal("Canceled", result.Message);
+        Assert.Equal(1, result.Attempt);
+        Assert.Equal(1, result.MaxAttempts);
+    }
+
+    [Fact]
+    public void ParseReturnsConnectionFailedWithAttemptMetadata()
+    {
+        var result = Assert.IsType<ConnectionFailedEvent>(CallbackParser.Parse(
+            Raw(4, "ConnectionFailed", """{"error_code":9,"phase":"boot_poll","message":"Canceled","attempt":2,"max_attempts":3}""")));
+
+        Assert.Equal(2, result.Attempt);
+        Assert.Equal(3, result.MaxAttempts);
+    }
+
+    [Fact]
+    public void ParseRejectsAttemptExceedingMaxAttempts()
+    {
+        Assert.Throws<CallbackProtocolException>(() => CallbackParser.Parse(
+            Raw(4, "ConnectionFailed", """{"error_code":1,"phase":"preflight","message":"fail","attempt":3,"max_attempts":1}""")));
     }
 
     [Fact]

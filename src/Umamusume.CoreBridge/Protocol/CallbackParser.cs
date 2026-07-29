@@ -153,11 +153,20 @@ internal static class CallbackParser
             throw Failure(DiagnosticCategory.MalformedCallback, envelope.OperationId, "Unknown connection error code.");
         }
 
+        int attempt = RequiredPositiveInt32(envelope.Payload, "attempt", envelope.OperationId);
+        int maxAttempts = RequiredPositiveInt32(envelope.Payload, "max_attempts", envelope.OperationId);
+        if (attempt > maxAttempts)
+        {
+            throw Failure(DiagnosticCategory.MalformedCallback, envelope.OperationId, "attempt must not exceed max_attempts.");
+        }
+
         return new ConnectionFailedEvent(
             envelope.OperationId,
             (ConnectionErrorCode)errorCode,
             RequiredString(envelope.Payload, "phase", envelope.OperationId),
-            RequiredString(envelope.Payload, "message", envelope.OperationId));
+            RequiredString(envelope.Payload, "message", envelope.OperationId),
+            attempt,
+            maxAttempts);
     }
 
     private static void RequireType(CallbackEnvelope envelope, string expected)

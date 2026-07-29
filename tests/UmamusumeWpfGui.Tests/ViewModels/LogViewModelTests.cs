@@ -423,7 +423,7 @@ public sealed class LogViewModelTests
             string message)
         {
             ConnectionEventReceived?.Invoke(
-                new ConnectionFailedEvent(operationId, errorCode, phase, message));
+                new ConnectionFailedEvent(operationId, errorCode, phase, message, 1, 1));
         }
 
         public Task InitializeAsync(
