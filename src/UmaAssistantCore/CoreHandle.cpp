@@ -82,6 +82,8 @@ void emit_failure(
             {"error_code", static_cast<std::int32_t>(failure.error_code)},
             {"phase", failure.phase},
             {"message", failure.message},
+            {"attempt", failure.attempt},
+            {"max_attempts", failure.max_attempts},
         });
 }
 
