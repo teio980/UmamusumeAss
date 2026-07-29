@@ -41,6 +41,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private readonly IWinAdapter _winAdapter;
     private readonly IEmulatorLauncher _emulatorLauncher;
     private readonly IAsyncDelay _asyncDelay;
+    private readonly IConnectionHealthMonitor _healthMonitor;
 
     // ────────────────────────────────────────────────────────────────
     // Mutable state
@@ -77,7 +78,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         ILocalizationService localizationService,
         IWinAdapter winAdapter,
         IEmulatorLauncher emulatorLauncher,
-        IAsyncDelay asyncDelay)
+        IAsyncDelay asyncDelay,
+        IConnectionHealthMonitor healthMonitor)
     {
         ArgumentNullException.ThrowIfNull(umaService);
         ArgumentNullException.ThrowIfNull(connectionState);
@@ -86,6 +88,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         ArgumentNullException.ThrowIfNull(winAdapter);
         ArgumentNullException.ThrowIfNull(emulatorLauncher);
         ArgumentNullException.ThrowIfNull(asyncDelay);
+        ArgumentNullException.ThrowIfNull(healthMonitor);
 
         _umaService = umaService;
         _connectionState = connectionState;
@@ -94,6 +97,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _winAdapter = winAdapter;
         _emulatorLauncher = emulatorLauncher;
         _asyncDelay = asyncDelay;
+        _healthMonitor = healthMonitor;
+        _healthMonitor.Failed += OnHealthMonitorFailed;
 
         // Load draft settings from persistence
         _draft = _settingsService.Load();
@@ -417,6 +422,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             return;
 
         ClearConnectionDiagnostic();
+        await _healthMonitor.StopAsync();
 
         using var cts = new CancellationTokenSource();
         _connectCts = cts;
@@ -524,6 +530,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             return;
 
         _connectionState.SetState(ConnectionState.Canceling);
+        _healthMonitor.StopAsync().GetAwaiter().GetResult();
         _connectCts.Cancel();
     }
 
@@ -579,18 +586,26 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         {
             var discoveryResult = _winAdapter.RefreshEmulatorsInfo();
 
-            // Filter to candidates with resolvable ADB paths
             var candidates = discoveryResult.Candidates
                 .Where(c => c.AdbPath is not null)
                 .ToList();
 
-            if (candidates.Count == 0)
+            if (candidates.Count == 0 && DraftAutoStartEmulator)
             {
-                if (DraftAutoStartEmulator)
+                if (!await HandleAutoStartLaunchAsync(cancellationToken))
                 {
-                    await HandleAutoStartLaunchAsync(cancellationToken);
+                    _connectionState.SetState(ConnectionState.Disconnected);
                     return;
                 }
+
+                discoveryResult = _winAdapter.RefreshEmulatorsInfo();
+                candidates = discoveryResult.Candidates
+                    .Where(c => c.AdbPath is not null)
+                    .ToList();
+            }
+
+            if (candidates.Count == 0)
+            {
                 SetConnectionDiagnostic("No running emulator with a usable ADB executable was found.");
                 _connectionState.SetState(ConnectionState.Disconnected);
                 return;
@@ -624,10 +639,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _lastDetectedEmulator = selected.EmulatorName;
             OnPropertyChanged(nameof(LastDetectedEmulator));
 
-            var resolution = _winAdapter.ResolveEndpoints(
+            var resolution = await _winAdapter.ResolveEndpointsAsync(
                 selected.AdbPath!,
                 selected.EmulatorName,
-                CancellationToken.None);
+                cancellationToken);
 
             if (resolution.VerifiedEndpoints.Count == 1)
             {
@@ -651,7 +666,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             }
             else
             {
-                SetConnectionDiagnostic($"No usable {selected.EmulatorName} connection endpoint was found.");
+                var details = string.Join(
+                    " | ",
+                    resolution.Diagnostics
+                        .Select(diagnostic => diagnostic.Message)
+                        .Distinct(StringComparer.Ordinal));
+                SetConnectionDiagnostic(string.IsNullOrEmpty(details)
+                    ? $"No usable {selected.EmulatorName} connection endpoint was found."
+                    : $"No usable {selected.EmulatorName} connection endpoint was found: {details}");
             }
 
             _connectionState.SetState(ConnectionState.Disconnected);
@@ -661,9 +683,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _connectionState.SetState(ConnectionState.Disconnected);
             SetConnectionDiagnostic("Connection canceled.");
         }
-        catch
+        catch (Exception exception)
         {
-            SetConnectionDiagnostic("Emulator discovery failed.");
+            SetConnectionDiagnostic($"Emulator discovery failed: {exception.Message}");
             _connectionState.SetState(ConnectionState.Disconnected);
         }
     }
@@ -711,6 +733,19 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         SaveSettings();
 
         _connectionState.SetState(ConnectionState.Connected);
+        _healthMonitor.Start(new ConnectionHealthTarget(
+            DraftAdbPath,
+            success.Serial,
+            _draft.ConnectConfig));
+    }
+
+    private void OnHealthMonitorFailed(ConnectionHealthFailure failure)
+    {
+        if (_disposed)
+            return;
+
+        SetConnectionDiagnostic($"Connection health failed: {failure.Diagnostic}");
+        _connectionState.SetState(ConnectionState.Failed);
     }
 
     /// <summary>
@@ -770,9 +805,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         _disposed = true;
         _connectionState.StateChanged -= OnStateChanged;
+        _healthMonitor.Failed -= OnHealthMonitorFailed;
         _connectCts?.Cancel();
         _connectCts?.Dispose();
         _connectCts = null;
+        _healthMonitor.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
     // ────────────────────────────────────────────────────────────────

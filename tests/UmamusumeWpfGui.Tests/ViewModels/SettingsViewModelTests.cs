@@ -27,6 +27,7 @@ public sealed class SettingsViewModelTests
         public FakeWinAdapter WinAdapter { get; } = new();
         public FakeEmulatorLauncher EmulatorLauncher { get; } = new();
         public FakeAsyncDelay Delay { get; } = new();
+        public FakeHealthMonitor HealthMonitor { get; } = new();
 
         public Fixture()
         {
@@ -43,7 +44,14 @@ public sealed class SettingsViewModelTests
         public SettingsViewModel CreateViewModel()
         {
             return new SettingsViewModel(
-                UmaService, ConnectionState, Settings, Localization, WinAdapter, EmulatorLauncher, Delay);
+                UmaService,
+                ConnectionState,
+                Settings,
+                Localization,
+                WinAdapter,
+                EmulatorLauncher,
+                Delay,
+                HealthMonitor);
         }
     }
 
@@ -460,7 +468,7 @@ public sealed class SettingsViewModelTests
         var vm = f.CreateViewModel();
         f.ConnectionState.SetState(ConnectionState.Disconnected);
         f.UmaService.NextConnectResult = new ConnectionFailedEvent(
-            1, ConnectionErrorCode.DeviceOffline, "adb_devices", "device offline");
+            1, ConnectionErrorCode.DeviceOffline, "adb_devices", "device offline", 1, 1);
         vm.DraftAdbPath = @"C:\adb\adb.exe";
         vm.DraftConnectAddress = "emulator-5554";
 
@@ -476,7 +484,7 @@ public sealed class SettingsViewModelTests
         var vm = f.CreateViewModel();
         f.ConnectionState.SetState(ConnectionState.Disconnected);
         f.UmaService.NextConnectResult = new ConnectionFailedEvent(
-            1, ConnectionErrorCode.CommandTimedOut, "boot_poll", "timeout");
+            1, ConnectionErrorCode.CommandTimedOut, "boot_poll", "timeout", 1, 1);
 
         // Set up an existing last verified
         var existingRecord = new LastVerifiedConnection(
@@ -499,7 +507,7 @@ public sealed class SettingsViewModelTests
         var vm = f.CreateViewModel();
         f.ConnectionState.SetState(ConnectionState.Disconnected);
         f.UmaService.NextConnectResult = new ConnectionFailedEvent(
-            1, ConnectionErrorCode.DeviceUnauthorized, "adb_devices", "unauthorized");
+            1, ConnectionErrorCode.DeviceUnauthorized, "adb_devices", "unauthorized", 1, 1);
         vm.DraftAdbPath = @"C:\adb\adb.exe";
         vm.DraftConnectAddress = "emulator-5554";
 
@@ -898,6 +906,56 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Connect_AutoStart_WhenCandidateAppearsAfterLaunch_ContinuesToNativeConnect()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+        });
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "127.0.0.1:16384", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+        f.WinAdapter.DiscoveryResults.Enqueue(new DiscoveryResult([], []));
+        f.WinAdapter.DiscoveryResults.Enqueue(new DiscoveryResult(
+            [new DetectedEmulatorInfo("MuMuEmulator12", @"C:\MuMu\nx_main\adb.exe")],
+            []));
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            ["127.0.0.1:16384"], []);
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(2, f.WinAdapter.RefreshCallCount);
+        Assert.Equal(1, f.UmaService.ConnectCallCount);
+        Assert.Equal("127.0.0.1:16384", f.UmaService.LastConnectCall?.Serial);
+    }
+
+    [Fact]
+    public async Task Connect_AutoStart_WithZeroWait_PerformsOneImmediateRediscoveryPass()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 0,
+        });
+        f.WinAdapter.DiscoveryResults.Enqueue(new DiscoveryResult([], []));
+        f.WinAdapter.DiscoveryResults.Enqueue(new DiscoveryResult([], []));
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(2, f.WinAdapter.RefreshCallCount);
+        Assert.Empty(f.Delay.Durations);
+    }
+
+    [Fact]
     public void SaveSettings_PersistsAutoStartEmulatorWaitSeconds()
     {
         var f = CreateFixture();
@@ -1077,6 +1135,46 @@ public sealed class SettingsViewModelTests
         Assert.Equal(@"C:\MuMu\nx_main\adb.exe", vm.DraftAdbPath);
         Assert.Equal("127.0.0.1:16384", vm.DraftConnectAddress);
         Assert.Equal(1, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
+    public async Task Connect_Success_StartsHealthMonitorWithVerifiedTarget()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "127.0.0.1:16384", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+        vm.DraftAdbPath = @"C:\MuMu\nx_main\adb.exe";
+        vm.DraftConnectAddress = "127.0.0.1:16384";
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(1, f.HealthMonitor.StartCallCount);
+        Assert.Equal(
+            new ConnectionHealthTarget(
+                vm.DraftAdbPath,
+                "127.0.0.1:16384",
+                "General"),
+            f.HealthMonitor.LastTarget);
+    }
+
+    [Fact]
+    public async Task HealthMonitorFailure_TransitionsViewModelToFailed()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Connected);
+
+        f.HealthMonitor.FireFailure(new ConnectionHealthFailure(
+            "127.0.0.1:16384",
+            ConnectionErrorCode.DeviceDisconnected,
+            "endpoint disappeared"));
+
+        Assert.Equal(ConnectionState.Failed, f.ConnectionState.State);
+        Assert.Contains("endpoint disappeared", vm.StatusText, StringComparison.Ordinal);
+
+        vm.Dispose();
     }
 
     [Fact]
@@ -1793,7 +1891,7 @@ public sealed class SettingsViewModelTests
             string message)
         {
             ConnectionEventReceived?.Invoke(
-                new ConnectionFailedEvent(operationId, errorCode, phase, message));
+                new ConnectionFailedEvent(operationId, errorCode, phase, message, 1, 1));
         }
 
         public async Task<ConnectionTerminalEvent> ConnectAsync(
@@ -1926,6 +2024,7 @@ public sealed class SettingsViewModelTests
         public Exception? RefreshException { get; set; }
         public int RefreshCallCount { get; private set; }
         public int DevicesCallCount { get; private set; }
+        public Queue<DiscoveryResult> DiscoveryResults { get; } = new();
 
         public FakeWinAdapter()
         {
@@ -1938,6 +2037,8 @@ public sealed class SettingsViewModelTests
             RefreshCallCount++;
             if (RefreshException is not null)
                 throw RefreshException;
+            if (DiscoveryResults.Count > 0)
+                return DiscoveryResults.Dequeue();
             return NextDiscoveryResult ?? new DiscoveryResult([], []);
         }
 
@@ -1973,6 +2074,33 @@ public sealed class SettingsViewModelTests
             StartedPath = executablePath;
             return NextResult;
         }
+    }
+
+    private sealed class FakeHealthMonitor : IConnectionHealthMonitor
+    {
+        public int StartCallCount { get; private set; }
+        public int StopCallCount { get; private set; }
+        public bool IsRunning { get; private set; }
+        public ConnectionHealthTarget? LastTarget { get; private set; }
+        public event Action<ConnectionHealthFailure>? Failed;
+
+        public void Start(ConnectionHealthTarget target)
+        {
+            StartCallCount++;
+            LastTarget = target;
+            IsRunning = true;
+        }
+
+        public Task StopAsync()
+        {
+            StopCallCount++;
+            IsRunning = false;
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => new(StopAsync());
+
+        public void FireFailure(ConnectionHealthFailure failure) => Failed?.Invoke(failure);
     }
 
     private sealed class FakeAsyncDelay : IAsyncDelay
