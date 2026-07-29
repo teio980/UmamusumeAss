@@ -18,6 +18,12 @@ public interface IAdbRunner
             ? FromLegacyResult(RunDevices(adbPath))
             : throw new NotSupportedException("This ADB runner supports only 'adb devices'.");
 
+    Task<AdbCommandResult> RunAsync(
+        string adbPath,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken = default) =>
+        Task.Run(() => Run(adbPath, arguments), cancellationToken);
+
     /// <summary>
     /// Runs <c>adb devices</c> with the given ADB executable path.
     /// Returns the raw stdout, stderr, exit code, timeout flag, and any exception.

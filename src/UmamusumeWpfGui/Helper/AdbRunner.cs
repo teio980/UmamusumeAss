@@ -33,6 +33,97 @@ public sealed class AdbRunner : IAdbRunner
         return (result.Stdout, result.Stderr, result.ExitCode, result.TimedOut, result.Error);
     }
 
+    public async Task<AdbCommandResult> RunAsync(
+        string adbPath,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            using var process = new Process();
+            process.StartInfo.FileName = adbPath;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+            foreach (var argument in arguments)
+            {
+                process.StartInfo.ArgumentList.Add(argument);
+            }
+
+            if (!process.Start())
+            {
+                return new AdbCommandResult(
+                    "",
+                    $"Failed to start process: {adbPath}",
+                    -1,
+                    false,
+                    new InvalidOperationException($"Could not start {adbPath}"));
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+            using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutSource.CancelAfter(_timeout);
+
+            try
+            {
+                await process.WaitForExitAsync(timeoutSource.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                TryTerminate(process);
+                try
+                {
+                    await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    throw new OperationCanceledException(
+                        "ADB output could not be drained after cancellation.",
+                        exception,
+                        cancellationToken);
+                }
+                throw;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                var terminationError = TryTerminate(process);
+                var output = await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+                return new AdbCommandResult(
+                    output[0].TrimEnd(),
+                    output[1].TrimEnd(),
+                    -1,
+                    true,
+                    terminationError);
+            }
+
+            var completedOutput = await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new AdbCommandResult(
+                completedOutput[0].TrimEnd(),
+                completedOutput[1].TrimEnd(),
+                process.ExitCode,
+                false,
+                null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return new AdbCommandResult(
+                "",
+                $"Exception running ADB: {exception.Message}",
+                -1,
+                false,
+                exception);
+        }
+    }
+
     public AdbCommandResult Run(string adbPath, IReadOnlyList<string> arguments)
     {
         try
@@ -111,6 +202,24 @@ public sealed class AdbRunner : IAdbRunner
         catch (Exception ex)
         {
             return new AdbCommandResult("", $"Exception running ADB: {ex.Message}", -1, false, ex);
+        }
+    }
+
+    private static Exception? TryTerminate(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            return null;
+        }
+        catch (InvalidOperationException exception)
+        {
+            return exception;
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            return exception;
         }
     }
 }
