@@ -49,6 +49,16 @@ public sealed class EmulatorProfileCatalogTests
             endpoints);
     }
 
+    [Theory]
+    [InlineData("MuMuNxMain")]
+    [InlineData("MuMuPlayer")]
+    [InlineData("MuMuNxDevice")]
+    public void MuMuProcessAliases_MapToMuMuProfile(string processName)
+    {
+        Assert.True(EmulatorProfileCatalog.TryGetForProcess(processName, out var profile));
+        Assert.Equal("MuMuEmulator12", profile.Name);
+    }
+
     [Fact]
     public void GetFallbackEndpoints_WhenProfileIsUnknown_ReturnsNoEndpoints()
     {

@@ -16,6 +16,7 @@ internal static class EmulatorProfileCatalog
             ["Nox"] = new("Nox", ["nox_adb.exe"], ["127.0.0.1:62001", "127.0.0.1:59865"]),
             ["MuMuPlayer"] = MuMuProfile(),
             ["MuMuNxDevice"] = MuMuProfile(),
+            ["MuMuNxMain"] = MuMuProfile(),
             ["MEmu"] = new("XYAZ", ["adb.exe"], ["127.0.0.1:21503"]),
         };
 
