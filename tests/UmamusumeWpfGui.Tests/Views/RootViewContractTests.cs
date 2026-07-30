@@ -29,8 +29,8 @@ public sealed class RootViewContractTests
         Assert.Contains("http://schemas.lepo.co/wpfui/2022/xaml", content);
         Assert.Contains("NavigationView", content);
         Assert.Contains("TitleBar", content);
-        Assert.Contains("AutoSuggestBox", content);
         Assert.Contains("BreadcrumbBar", content);
+        Assert.DoesNotContain("AutoSuggestBox", content);
     }
 
     [Fact]
