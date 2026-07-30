@@ -13,15 +13,18 @@ public sealed class StartGameTaskSettingsViewModel : INotifyPropertyChanged
 
     private readonly ISettingsService _settingsService;
     private string _packageId;
+    private string _activityName;
     private string _status = string.Empty;
 
     public StartGameTaskSettingsViewModel(ISettingsService settingsService)
     {
         ArgumentNullException.ThrowIfNull(settingsService);
         _settingsService = settingsService;
-        _packageId = settingsService.Load().TargetPackageIds.FirstOrDefault(
+        var settings = settingsService.Load();
+        _packageId = settings.TargetPackageIds.FirstOrDefault(
             package => !string.IsNullOrWhiteSpace(package))
             ?? DefaultPackageId;
+        _activityName = settings.TargetActivityName.Trim();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -35,6 +38,23 @@ public sealed class StartGameTaskSettingsViewModel : INotifyPropertyChanged
             if (_packageId == normalized)
                 return;
             _packageId = normalized;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Optional fully-qualified Activity or Activity class name. Blank uses
+    /// the package's launcher Activity.
+    /// </summary>
+    public string ActivityName
+    {
+        get => _activityName;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (_activityName == normalized)
+                return;
+            _activityName = normalized;
             OnPropertyChanged();
         }
     }
@@ -62,6 +82,7 @@ public sealed class StartGameTaskSettingsViewModel : INotifyPropertyChanged
         settings.TargetPackageIds.Insert(0, PackageId);
         if (settings.TargetPackageIds.Count > 5)
             settings.TargetPackageIds.RemoveRange(5, settings.TargetPackageIds.Count - 5);
+        settings.TargetActivityName = ActivityName;
         _settingsService.Save(settings);
     }
 

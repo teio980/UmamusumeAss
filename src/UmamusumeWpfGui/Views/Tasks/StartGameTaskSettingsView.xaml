@@ -17,6 +17,12 @@
                  Foreground="{DynamicResource TextSecondaryBrush}" />
       <ui:TextBox Margin="0,10,0,0"
                   Text="{Binding PackageId, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,10,0,0"
+                 Text="{DynamicResource GrassGameActivityHint}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <ui:TextBox Margin="0,6,0,0"
+                  Text="{Binding ActivityName, UpdateSourceTrigger=PropertyChanged}" />
       <TextBlock Margin="0,8,0,0"
                  Text="{Binding Status}"
                  TextWrapping="Wrap"
