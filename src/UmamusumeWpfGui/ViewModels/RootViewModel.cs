@@ -37,10 +37,10 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
         _grassViewModel = grassViewModel;
         NavigationItems =
         [
+            new("TabHachimi", 3),
             new("NavOverview", 0),
             new("TabLog", 1),
             new("TabSettings", 2),
-            new("TabGrass", 3),
         ];
         ActiveContent = _overviewViewModel;
     }
