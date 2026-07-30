@@ -8,6 +8,8 @@
 
   <!-- Window -->
   <sys:String x:Key="WindowTitle">马娘助手</sys:String>
+  <sys:String x:Key="AppSubtitle">模拟器连接助手</sys:String>
+  <sys:String x:Key="NavigationSearchPlaceholder">搜索</sys:String>
 
   <!-- Tab bar -->
   <sys:String x:Key="TabLog">日志</sys:String>

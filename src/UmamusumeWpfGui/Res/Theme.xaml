@@ -1,18 +1,13 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-  <!-- ============================================================
-       Theme.xaml — Merge Root
-       Merges brush/gradient resources and HandyControls style overrides.
-       Referenced from App.xaml as the single theme entry point.
-       ============================================================ -->
-
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
   <ResourceDictionary.MergedDictionaries>
-    <!-- Brush and gradient resources (section 6 palette) -->
-    <ResourceDictionary Source="Themes/Light.xaml" />
+    <!-- Official WPF-UI dictionaries, matching the upstream sample shell. -->
+    <ui:ThemesDictionary Theme="Light" />
+    <ui:ControlsDictionary />
 
-    <!-- HandyControls property/style overrides -->
+    <!-- App-specific localization and connection palette tokens. -->
+    <ResourceDictionary Source="Themes/Light.xaml" />
     <ResourceDictionary Source="Style.xaml" />
   </ResourceDictionary.MergedDictionaries>
-
 </ResourceDictionary>
