@@ -132,6 +132,39 @@ public sealed class AdbRuntimeTests
     }
 
     [Fact]
+    public async Task StartPackageUsesResolvedLauncherActivityAndAmStart()
+    {
+        var runner = new RecordingAdbRunner([
+            new AdbCommandResult(
+                "priority=0 preferredOrder=0 match=0x108000\ncom.cygames.umamusume/.MainActivity",
+                "",
+                0,
+                false,
+                null),
+            SuccessfulCommand(),
+        ]);
+        var runtime = CreateRuntime(runner);
+
+        var result = await runtime.StartPackageAsync(
+            "adb.exe",
+            "device",
+            "com.cygames.umamusume");
+
+        Assert.Null(result.Error);
+        Assert.False(result.TimedOut);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(
+            [
+                "-s", "device", "shell", "cmd", "package",
+                "resolve-activity", "--brief", "com.cygames.umamusume"
+            ],
+            runner.Commands[0]);
+        Assert.Equal(
+            ["-s", "device", "shell", "am", "start", "-n", "com.cygames.umamusume/.MainActivity"],
+            runner.Commands[1]);
+    }
+
+    [Fact]
     public async Task TouchRuntimeStartsInteractiveProtocolAndScalesCoordinates()
     {
         var interactive = new FakeInteractiveSession("$\n^ 10 1000 2000 255\n");

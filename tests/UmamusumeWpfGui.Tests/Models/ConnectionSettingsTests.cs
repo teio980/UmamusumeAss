@@ -234,6 +234,7 @@ public sealed class ConnectionSettingsTests
             AutoStartEmulatorWaitSeconds = 12,
             ConnectConfig = "General",
             Language = "zh-CN",
+            TargetActivityName = "com.example.app/com.example.MainActivity",
         };
         s.AddAddressToHistory("10.0.0.1:5555");
         s.AddAddressToHistory("10.0.0.2:5555");
@@ -254,6 +255,7 @@ public sealed class ConnectionSettingsTests
         Assert.Equal(s.Language, deserialized.Language);
         Assert.Equal(s.ConnectAddressHistory, deserialized.ConnectAddressHistory);
         Assert.Equal(s.TargetPackageIds, deserialized.TargetPackageIds);
+        Assert.Equal(s.TargetActivityName, deserialized.TargetActivityName);
     }
 
     [Fact]
@@ -272,6 +274,7 @@ public sealed class ConnectionSettingsTests
         Assert.Equal("en-US", deserialized.Language);
         Assert.Empty(deserialized.ConnectAddressHistory);
         Assert.Empty(deserialized.TargetPackageIds);
+        Assert.Equal("", deserialized.TargetActivityName);
     }
 
     [Fact]

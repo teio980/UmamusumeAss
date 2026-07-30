@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 
@@ -82,10 +83,21 @@ public sealed class JsonSettingsServiceTests : IDisposable
             AlwaysAutoDetectConnection = true,
             ConnectConfig = "General",
             Language = "zh-CN",
+            TargetActivityName = "com.umamusume.app/com.example.MainActivity",
         };
         original.AddAddressToHistory("10.0.0.1:5555");
         original.AddAddressToHistory("10.0.0.2:5555");
         original.TargetPackageIds.Add("com.umamusume.app");
+        original.TaskQueue.Add(new GrassTaskCacheItem
+        {
+            TaskId = "start-game",
+            IsEnabled = false,
+            Settings = new JsonObject
+            {
+                ["packageId"] = "com.umamusume.app",
+                ["activityName"] = "com.umamusume.app/com.example.MainActivity",
+            },
+        });
 
         service.Save(original);
         var loaded = service.Load();
@@ -98,6 +110,14 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Equal(original.Language, loaded.Language);
         Assert.Equal(original.ConnectAddressHistory, loaded.ConnectAddressHistory);
         Assert.Equal(original.TargetPackageIds, loaded.TargetPackageIds);
+        Assert.Equal(original.TargetActivityName, loaded.TargetActivityName);
+        var cachedTask = Assert.Single(loaded.TaskQueue);
+        Assert.Equal("start-game", cachedTask.TaskId);
+        Assert.False(cachedTask.IsEnabled);
+        Assert.Equal("com.umamusume.app", cachedTask.Settings["packageId"]!.GetValue<string>());
+        Assert.Equal(
+            "com.umamusume.app/com.example.MainActivity",
+            cachedTask.Settings["activityName"]!.GetValue<string>());
     }
 
     [Fact]
@@ -116,6 +136,8 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Equal("en-US", loaded.Language);
         Assert.Empty(loaded.ConnectAddressHistory);
         Assert.Empty(loaded.TargetPackageIds);
+        Assert.Equal("", loaded.TargetActivityName);
+        Assert.Empty(loaded.TaskQueue);
     }
 
     // ================================================================

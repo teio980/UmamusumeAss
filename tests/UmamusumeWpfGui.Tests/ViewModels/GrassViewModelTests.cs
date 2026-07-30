@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
@@ -87,6 +88,47 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public void TaskQueueRestoresOrderEnabledStateAndModuleSettingsFromSettingsCache()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var settings = new InMemorySettingsService();
+        settings.Load().TaskQueue.Add(new GrassTaskCacheItem
+        {
+            TaskId = "start-game",
+            IsEnabled = false,
+            Settings = new JsonObject
+            {
+                ["packageId"] = "com.cached.umamusume",
+                ["activityName"] = "com.cached.umamusume/com.cached.MainActivity",
+            },
+        });
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(new StartGameTaskModule(
+            new FakeGameLauncher(),
+            settings,
+            new FakeLocalizationService()));
+
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            catalog,
+            null,
+            settings);
+
+        var task = Assert.Single(viewModel.Tasks);
+        var taskSettings = Assert.IsType<StartGameTaskSettingsViewModel>(task.Settings);
+        Assert.False(task.IsEnabled);
+        Assert.Equal("com.cached.umamusume", taskSettings.PackageId);
+        Assert.Equal(
+            "com.cached.umamusume/com.cached.MainActivity",
+            taskSettings.ActivityName);
+
+        task.IsEnabled = true;
+
+        Assert.True(settings.Load().TaskQueue[0].IsEnabled);
+    }
+
+    [Fact]
     public async Task StartGamePassesConfiguredPackageToLauncherWhenConnected()
     {
         using var log = new LogViewModel(new FakeUmaService());
@@ -121,6 +163,7 @@ public sealed class GrassViewModelTests
         var taskSettings = Assert.IsType<StartGameTaskSettingsViewModel>(
             viewModel.SelectedTask!.Settings);
         taskSettings.PackageId = "com.example.umamusume";
+        taskSettings.ActivityName = "com.example.umamusume/com.example.MainActivity";
         Assert.True(viewModel.CanStartQueue);
 
         viewModel.StartCommand.Execute(null);
@@ -129,7 +172,13 @@ public sealed class GrassViewModelTests
         Assert.Equal("adb.exe", launcher.AdbPath);
         Assert.Equal("emulator-5554", launcher.Serial);
         Assert.Equal("com.example.umamusume", launcher.PackageName);
+        Assert.Equal(
+            "com.example.umamusume/com.example.MainActivity",
+            launcher.ActivityName);
         Assert.Equal("com.example.umamusume", settings.Load().TargetPackageIds[0]);
+        Assert.Equal(
+            "com.example.umamusume/com.example.MainActivity",
+            settings.Load().TargetActivityName);
         Assert.True(viewModel.IsQueueRunning);
     }
 
@@ -218,16 +267,26 @@ public sealed class GrassViewModelTests
         public string? AdbPath { get; private set; }
         public string? Serial { get; private set; }
         public string? PackageName { get; private set; }
+        public string? ActivityName { get; private set; }
 
         public Task<GameLaunchResult> StartAsync(
             string adbPath,
             string serial,
             string packageName,
+            CancellationToken cancellationToken = default) =>
+            StartAsync(adbPath, serial, packageName, null, cancellationToken);
+
+        public Task<GameLaunchResult> StartAsync(
+            string adbPath,
+            string serial,
+            string packageName,
+            string? activityName,
             CancellationToken cancellationToken = default)
         {
             AdbPath = adbPath;
             Serial = serial;
             PackageName = packageName;
+            ActivityName = activityName;
             Started.TrySetResult(true);
             return Task.FromResult(new GameLaunchResult(
                 true,
@@ -259,6 +318,12 @@ public sealed class GrassViewModelTests
 
         public object Settings { get; } = new();
 
+        public JsonObject ExportSettings() => new();
+
+        public void ImportSettings(JsonObject settings)
+        {
+        }
+
         public IGrassTaskModule CreateInstance() => new FakeGrassTaskModule(Definition);
 
         public bool CanExecute(GrassTaskExecutionContext context) => true;
@@ -283,6 +348,15 @@ public sealed class GrassViewModelTests
         public void Save(ConnectionSettings settings)
         {
             _settings.TargetPackageIds = [.. settings.TargetPackageIds];
+            _settings.TargetActivityName = settings.TargetActivityName;
+            _settings.TaskQueue = settings.TaskQueue
+                .Select(item => new GrassTaskCacheItem
+                {
+                    TaskId = item.TaskId,
+                    IsEnabled = item.IsEnabled,
+                    Settings = item.Settings.DeepClone().AsObject(),
+                })
+                .ToList();
         }
     }
 }
