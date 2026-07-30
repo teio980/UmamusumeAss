@@ -19,6 +19,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     private readonly ILocalizationService _localizationService;
     private readonly IGrassTaskCatalog _taskCatalog;
     private readonly IConnectionStateService? _connectionState;
+    private readonly ISettingsService? _settingsService;
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
@@ -32,7 +33,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         LogViewModel logViewModel,
         ILocalizationService localizationService,
         IGrassTaskCatalog taskCatalog)
-        : this(logViewModel, localizationService, taskCatalog, null)
+        : this(logViewModel, localizationService, taskCatalog, null, null)
     {
     }
 
@@ -41,6 +42,16 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         ILocalizationService localizationService,
         IGrassTaskCatalog taskCatalog,
         IConnectionStateService? connectionState)
+        : this(logViewModel, localizationService, taskCatalog, connectionState, null)
+    {
+    }
+
+    public GrassViewModel(
+        LogViewModel logViewModel,
+        ILocalizationService localizationService,
+        IGrassTaskCatalog taskCatalog,
+        IConnectionStateService? connectionState,
+        ISettingsService? settingsService)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -49,6 +60,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         _localizationService = localizationService;
         _taskCatalog = taskCatalog;
         _connectionState = connectionState;
+        _settingsService = settingsService;
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
@@ -63,6 +75,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         InvertSelectionCommand = new RelayCommand(_ => InvertTaskSelection());
         StartCommand = new RelayCommand(_ => _ = StartQueueAsync(), _ => CanStartQueue);
         StopCommand = new RelayCommand(_ => _ = StopQueueAsync(), _ => CanStopQueue);
+
+        RestoreTaskQueue();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -221,7 +235,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         _queueOperationCts?.Dispose();
         _queueOperationCts = null;
         foreach (var task in Tasks)
-            task.PropertyChanged -= OnTaskPropertyChanged;
+            DetachTaskEvents(task);
     }
 
     private GrassTaskExecutionContext CurrentContext =>
@@ -241,9 +255,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
             return;
 
         var item = CreateTaskItem(prototype.CreateInstance());
-        item.PropertyChanged += OnTaskPropertyChanged;
+        AttachTaskEvents(item);
         Tasks.Add(item);
         SelectedTask = item;
+        SaveTaskQueueCache();
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
@@ -254,9 +269,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
             return;
 
         var index = Tasks.IndexOf(SelectedTask);
-        SelectedTask.PropertyChanged -= OnTaskPropertyChanged;
+        DetachTaskEvents(SelectedTask);
         Tasks.Remove(SelectedTask);
         SelectedTask = Tasks.ElementAtOrDefault(Math.Max(0, index - 1));
+        SaveTaskQueueCache();
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
@@ -266,12 +282,15 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedTask is null)
             return;
 
-        var copy = CreateTaskItem(SelectedTask.Module.CreateInstance());
+        var copiedModule = SelectedTask.Module.CreateInstance();
+        copiedModule.ImportSettings(SelectedTask.Module.ExportSettings());
+        var copy = CreateTaskItem(copiedModule);
         copy.IsEnabled = SelectedTask.IsEnabled;
-        copy.PropertyChanged += OnTaskPropertyChanged;
+        AttachTaskEvents(copy);
         var index = Tasks.IndexOf(SelectedTask);
         Tasks.Insert(index + 1, copy);
         SelectedTask = copy;
+        SaveTaskQueueCache();
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
@@ -280,6 +299,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     {
         foreach (var task in Tasks)
             task.IsEnabled = enabled;
+        SaveTaskQueueCache();
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
@@ -288,6 +308,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     {
         foreach (var task in Tasks)
             task.IsEnabled = !task.IsEnabled;
+        SaveTaskQueueCache();
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
@@ -400,16 +421,98 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void RestoreTaskQueue()
+    {
+        if (_settingsService is null)
+            return;
+
+        foreach (var cachedTask in _settingsService.Load().TaskQueue)
+        {
+            var prototype = _taskCatalog.Modules.FirstOrDefault(module =>
+                module.Definition.Id.Equals(cachedTask.TaskId, StringComparison.Ordinal));
+            if (prototype is null)
+                continue;
+
+            var module = prototype.CreateInstance();
+            try
+            {
+                module.ImportSettings(cachedTask.Settings ?? new());
+            }
+            catch (Exception exception)
+            {
+                _logViewModel.AddLocal(
+                    Localize("GrassLogs", "Activity log"),
+                    $"Could not restore task '{cachedTask.TaskId}': {exception.Message}",
+                    LogEntryKind.Failure);
+                continue;
+            }
+
+            var item = CreateTaskItem(module);
+            item.IsEnabled = cachedTask.IsEnabled;
+            AttachTaskEvents(item);
+            Tasks.Add(item);
+        }
+
+        if (Tasks.Count > 0)
+            SelectedTask = Tasks[0];
+
+        NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
+    }
+
+    private void SaveTaskQueueCache()
+    {
+        if (_settingsService is null)
+            return;
+
+        try
+        {
+            var settings = _settingsService.Load();
+            settings.TaskQueue = Tasks.Select(task => new GrassTaskCacheItem
+            {
+                TaskId = task.Module.Definition.Id,
+                IsEnabled = task.IsEnabled,
+                Settings = task.Module.ExportSettings(),
+            }).ToList();
+            _settingsService.Save(settings);
+        }
+        catch (Exception exception)
+        {
+            _logViewModel.AddLocal(
+                Localize("GrassLogs", "Activity log"),
+                $"Could not save task queue: {exception.Message}",
+                LogEntryKind.Failure);
+        }
+    }
+
+    private void AttachTaskEvents(GrassTaskItemViewModel task)
+    {
+        task.PropertyChanged += OnTaskPropertyChanged;
+        if (task.Settings is INotifyPropertyChanged settings)
+            settings.PropertyChanged += OnTaskSettingsPropertyChanged;
+    }
+
+    private void DetachTaskEvents(GrassTaskItemViewModel task)
+    {
+        task.PropertyChanged -= OnTaskPropertyChanged;
+        if (task.Settings is INotifyPropertyChanged settings)
+            settings.PropertyChanged -= OnTaskSettingsPropertyChanged;
+    }
+
     private void NotifyTaskSummaryChanged() => OnPropertyChanged(nameof(TaskCountSummary));
 
     private void OnTaskPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(GrassTaskItemViewModel.IsEnabled))
         {
+            SaveTaskQueueCache();
             NotifyTaskSummaryChanged();
             RaiseQueueCommandStateChanged();
         }
     }
+
+    private void OnTaskSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) =>
+        SaveTaskQueueCache();
 
     private void OnLanguageChanged(object? sender, string culture)
     {
