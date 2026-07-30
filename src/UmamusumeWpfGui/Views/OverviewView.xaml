@@ -2,101 +2,57 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             Background="{DynamicResource SurfaceCanvasBrush}"
-             Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+             ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+             ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+             mc:Ignorable="d">
   <UserControl.Resources>
     <c:NullToVisibilityConverter x:Key="NotNullVisibility" />
     <c:NullToVisibilityConverter x:Key="NullVisibility" Invert="True" />
   </UserControl.Resources>
 
-  <ScrollViewer Background="{DynamicResource ApplicationBackgroundBrush}"
-                HorizontalScrollBarVisibility="Disabled"
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="42,32,42,42">
+    <StackPanel Margin="42"
+                VerticalAlignment="Top">
       <TextBlock Text="{DynamicResource OverviewTitle}"
-                 FontSize="28"
-                 FontWeight="DemiBold" />
-      <TextBlock Text="{DynamicResource AppSubtitle}"
-                 Margin="0,8,0,28"
+                 FontSize="20"
+                 FontWeight="Medium" />
+      <TextBlock Margin="0,12,0,0"
+                 Text="{Binding State}" />
+
+      <TextBlock Margin="0,24,0,0"
+                 Text="{DynamicResource OverviewConnectionStatus}"
+                 FontSize="20"
+                 FontWeight="Medium" />
+      <TextBlock Margin="0,12,0,0"
+                 Text="{DynamicResource OverviewNoConnection}"
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                 FontSize="14" />
+                 Visibility="{Binding LastVerifiedConnection,
+                     Converter={StaticResource NullVisibility}}" />
+      <StackPanel Margin="0,12,0,0"
+                  Visibility="{Binding LastVerifiedConnection,
+                      Converter={StaticResource NotNullVisibility}}">
+        <TextBlock Text="{DynamicResource SerialField}" />
+        <TextBlock Margin="0,8,0,0"
+                   Text="{Binding LastVerifiedConnection.Serial}" />
+        <TextBlock Margin="0,12,0,0"
+                   Text="{DynamicResource AndroidIdField}" />
+        <TextBlock Margin="0,8,0,0"
+                   Text="{Binding LastVerifiedConnection.AndroidId}" />
+      </StackPanel>
 
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="16" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-
-        <ui:Card Grid.Column="0"
-                 Padding="24"
-                 Background="{DynamicResource SurfacePanelBrush}">
-          <StackPanel>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="PlugConnected24"
-                             FontSize="22"
-                             Foreground="{DynamicResource AccentFillColorDefaultBrush}"
-                             Margin="0,0,10,0" />
-              <TextBlock Text="{DynamicResource OverviewConnectionStatus}"
-                         FontSize="20"
-                         FontWeight="Medium"
-                         VerticalAlignment="Center" />
-            </StackPanel>
-            <TextBlock Text="{Binding State}"
-                       Margin="0,20,0,0"
-                       FontSize="18"
-                       FontWeight="Medium" />
-            <Border Margin="0,16,0,0"
-                    Padding="12,10"
-                    CornerRadius="8"
-                    Background="{DynamicResource ControlFillColorSecondaryBrush}"
-                    Visibility="{Binding LastVerifiedConnection, Converter={StaticResource NotNullVisibility}}">
-              <StackPanel Orientation="Horizontal">
-                <ui:SymbolIcon Symbol="CheckmarkCircle24"
-                               FontSize="18"
-                               Foreground="{DynamicResource SystemFillColorSuccessBrush}"
-                               Margin="0,0,8,0" />
-                <TextBlock Text="{Binding LastVerifiedConnection.Serial}"
-                           FontFamily="Cascadia Mono, Consolas"
-                           VerticalAlignment="Center" />
-              </StackPanel>
-            </Border>
-            <TextBlock Text="{DynamicResource OverviewNoConnection}"
-                       Margin="0,16,0,0"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Visibility="{Binding LastVerifiedConnection, Converter={StaticResource NullVisibility}}" />
-          </StackPanel>
-        </ui:Card>
-
-        <ui:Card Grid.Column="2"
-                 Padding="24"
-                 Background="{DynamicResource SurfacePanelBrush}">
-          <StackPanel>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Info24"
-                             FontSize="22"
-                             Foreground="{DynamicResource AccentFillColorDefaultBrush}"
-                             Margin="0,0,10,0" />
-              <TextBlock Text="{DynamicResource OverviewCoreVersion}"
-                         FontSize="20"
-                         FontWeight="Medium"
-                         VerticalAlignment="Center" />
-            </StackPanel>
-            <TextBlock Text="{Binding CoreVersion}"
-                       Margin="0,20,0,18"
-                       FontSize="18"
-                       FontWeight="Medium" />
-            <TextBlock Text="{DynamicResource OverviewDevice}"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Visibility="{Binding LastVerifiedConnection, Converter={StaticResource NotNullVisibility}}" />
-            <TextBlock Text="{Binding LastVerifiedConnection.Serial}"
-                       Margin="0,6,0,0"
-                       FontFamily="Cascadia Mono, Consolas"
-                       Visibility="{Binding LastVerifiedConnection, Converter={StaticResource NotNullVisibility}}" />
-          </StackPanel>
-        </ui:Card>
-      </Grid>
+      <TextBlock Margin="0,24,0,0"
+                 Text="{DynamicResource OverviewCoreVersion}"
+                 FontSize="20"
+                 FontWeight="Medium" />
+      <TextBlock Margin="0,12,0,0"
+                 Text="{Binding CoreVersion}" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

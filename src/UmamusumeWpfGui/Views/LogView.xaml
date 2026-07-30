@@ -10,127 +10,93 @@
     <c:CountToVisibilityConverter x:Key="CountToVisibility" />
   </UserControl.Resources>
 
-  <Grid Background="{DynamicResource ApplicationBackgroundBrush}">
+  <Grid Margin="42"
+        VerticalAlignment="Stretch">
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <StackPanel Grid.Row="0" Margin="42,32,42,20">
-      <TextBlock Text="{DynamicResource TabLog}"
-                 FontSize="28"
-                 FontWeight="DemiBold" />
+    <TextBlock Grid.Row="0"
+               Text="{DynamicResource TabLog}"
+               FontSize="20"
+               FontWeight="Medium" />
+    <Grid Grid.Row="1"
+          Margin="0,12,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
       <TextBlock Text="{DynamicResource LogDetailsHeader}"
-                 Margin="0,8,0,0"
-                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-    </StackPanel>
+                 VerticalAlignment="Center" />
+      <ui:Button Grid.Column="1"
+                 Content="{DynamicResource CopyAllLogButton}"
+                 Appearance="Secondary"
+                 Icon="Copy24"
+                 Click="OnCopyAllClick" />
+    </Grid>
 
-    <ui:Card Grid.Row="1" Margin="42,0,42,42" Padding="0">
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Grid Grid.Row="0" Margin="20,16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="160" />
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0"
-                     Text="{DynamicResource LogTimestampHeader}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                     FontWeight="Medium" />
-          <TextBlock Grid.Column="1"
-                     Text="{DynamicResource LogTypeHeader}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                     FontWeight="Medium" />
-          <TextBlock Grid.Column="2"
-                     Text="{DynamicResource LogDetailsHeader}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                     FontWeight="Medium" />
-          <ui:Button Grid.Column="3"
-                     Content="{DynamicResource CopyAllLogButton}"
-                     Appearance="Secondary"
-                     Icon="Copy24"
-                     Click="OnCopyAllClick"
-                     Height="32" />
-        </Grid>
-
-        <Grid Grid.Row="1" Margin="20,0,20,20">
-          <ListBox x:Name="EntriesListBox"
-                   ItemsSource="{Binding Entries}"
-                   Background="Transparent"
-                   BorderThickness="0"
-                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                   ScrollViewer.VerticalScrollBarVisibility="Auto">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="Padding" Value="8,7" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="Foreground"
-                        Value="{Binding Kind, Converter={StaticResource LogColorConverter}}" />
-                <Style.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
-                  </Trigger>
-                  <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                  </Trigger>
-                </Style.Triggers>
-              </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="m:LogEntry">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160" />
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <ui:TextBox Grid.Column="0"
-                              Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                              IsReadOnly="True"
-                              BorderThickness="0"
-                              Background="Transparent"
-                              Padding="0"
-                              TextWrapping="NoWrap"
-                              HorizontalScrollBarVisibility="Hidden"
-                              VerticalScrollBarVisibility="Hidden" />
-                  <ui:TextBox Grid.Column="1"
-                              Text="{Binding Type}"
-                              IsReadOnly="True"
-                              BorderThickness="0"
-                              Background="Transparent"
-                              Padding="0"
-                              TextWrapping="NoWrap"
-                              HorizontalScrollBarVisibility="Hidden"
-                              VerticalScrollBarVisibility="Hidden" />
-                  <ui:TextBox Grid.Column="2"
-                              Text="{Binding Details}"
-                              IsReadOnly="True"
-                              BorderThickness="0"
-                              Background="Transparent"
-                              Padding="0"
-                              TextWrapping="NoWrap"
-                              HorizontalScrollBarVisibility="Hidden"
-                              VerticalScrollBarVisibility="Hidden" />
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-          <TextBlock Text="{DynamicResource LogEmptyMessage}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                     FontStyle="Italic"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     Visibility="{Binding Entries.Count, Converter={StaticResource CountToVisibility}}"
-                     IsHitTestVisible="False" />
-        </Grid>
-      </Grid>
-    </ui:Card>
+    <Grid Grid.Row="2">
+      <ListBox x:Name="EntriesListBox"
+               ItemsSource="{Binding Entries}"
+               BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="8,7" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground"
+                    Value="{Binding Kind, Converter={StaticResource LogColorConverter}}" />
+          </Style>
+        </ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="m:LogEntry">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <ui:TextBox Grid.Column="0"
+                          Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                          IsReadOnly="True"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          Padding="0"
+                          TextWrapping="NoWrap"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden" />
+              <ui:TextBox Grid.Column="1"
+                          Text="{Binding Type}"
+                          IsReadOnly="True"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          Padding="0"
+                          TextWrapping="NoWrap"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden" />
+              <ui:TextBox Grid.Column="2"
+                          Text="{Binding Details}"
+                          IsReadOnly="True"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          Padding="0"
+                          TextWrapping="NoWrap"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Text="{DynamicResource LogEmptyMessage}"
+                 FontStyle="Italic"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Visibility="{Binding Entries.Count,
+                     Converter={StaticResource CountToVisibility}}"
+                 IsHitTestVisible="False" />
+    </Grid>
   </Grid>
 </UserControl>

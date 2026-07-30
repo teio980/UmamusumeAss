@@ -4,16 +4,18 @@
                  xmlns:s="https://github.com/canton7/Stylet"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="{DynamicResource WindowTitle}"
-                 Width="960"
-                 Height="680"
-                 MinWidth="860"
-                 MinHeight="600"
+                 Width="1100"
+                 Height="650"
                  ExtendsContentIntoTitleBar="True"
-                 Background="{DynamicResource SurfaceCanvasBrush}"
                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                  WindowBackdropType="Mica"
                  WindowCornerPreference="Round"
                  WindowStartupLocation="CenterScreen">
+  <ui:FluentWindow.InputBindings>
+    <KeyBinding Key="F"
+                Command="{Binding ElementName=AutoSuggestBox, Path=FocusCommand}"
+                Modifiers="Control" />
+  </ui:FluentWindow.InputBindings>
 
   <Grid>
     <Grid.RowDefinitions>
@@ -23,30 +25,10 @@
 
     <ui:NavigationView x:Name="RootNavigation"
                        Grid.Row="1"
-                       Padding="0"
-                       Background="{DynamicResource SurfaceSidebarBrush}"
-                       PaneDisplayMode="Left"
-                       IsBackButtonVisible="Collapsed"
-                       IsPaneToggleVisible="False"
-                       IsFooterSeparatorVisible="False"
-                       IsTopSeparatorVisible="False"
-                       OpenPaneLength="248"
-                       FrameMargin="0"
                        SelectionChanged="OnNavigationSelectionChanged">
-      <ui:NavigationView.Header>
-        <StackPanel Margin="42,28,42,20">
-          <TextBlock Text="{DynamicResource WindowTitle}"
-                     FontSize="28"
-                     FontWeight="DemiBold" />
-          <TextBlock Text="{DynamicResource AppSubtitle}"
-                     Margin="0,6,0,0"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                     FontSize="14" />
-        </StackPanel>
-      </ui:NavigationView.Header>
-
       <ui:NavigationView.AutoSuggestBox>
-        <ui:AutoSuggestBox PlaceholderText="{DynamicResource NavigationSearchPlaceholder}">
+        <ui:AutoSuggestBox x:Name="AutoSuggestBox"
+                           PlaceholderText="Search">
           <ui:AutoSuggestBox.Icon>
             <ui:IconSourceElement>
               <ui:SymbolIconSource Symbol="Search24" />
@@ -54,6 +36,12 @@
           </ui:AutoSuggestBox.Icon>
         </ui:AutoSuggestBox>
       </ui:NavigationView.AutoSuggestBox>
+
+      <ui:NavigationView.Header>
+        <ui:BreadcrumbBar Margin="42,32,0,0"
+                          FontSize="28"
+                          FontWeight="DemiBold" />
+      </ui:NavigationView.Header>
 
       <ui:NavigationView.MenuItems>
         <ui:NavigationViewItem Tag="0"
@@ -67,7 +55,7 @@
                                Content="{DynamicResource TabLog}"
                                NavigationCacheMode="Enabled">
           <ui:NavigationViewItem.Icon>
-            <ui:SymbolIcon Symbol="DocumentBulletList24" />
+            <ui:SymbolIcon Symbol="DataHistogram24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>
@@ -81,25 +69,19 @@
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
       </ui:NavigationView.FooterMenuItems>
-
     </ui:NavigationView>
 
-    <!-- WPF-UI NavigationView owns its internal Frame. The existing Stylet
-         content host stays in the same official shell, aligned beside the
-         fixed navigation pane so no view-model navigation contract changes. -->
+    <!-- Stylet remains the content bridge for the existing view models. The
+         surrounding window and navigation are the upstream WPF-UI shell. -->
     <Grid Grid.Row="1"
-          Margin="248,0,0,0"
-          Background="{DynamicResource SurfaceCanvasBrush}">
-      <Border BorderBrush="{DynamicResource BorderDefaultBrush}"
-              BorderThickness="1,0,0,0">
-        <ContentControl s:View.Model="{Binding ActiveContent}"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch" />
-      </Border>
+          Margin="320,0,0,0"
+          Panel.ZIndex="1">
+      <ContentControl s:View.Model="{Binding ActiveContent}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch" />
     </Grid>
 
-    <!-- Compatibility binding retained for callers that inspect the original
-         navigation contract; the visible navigation is WPF-UI NavigationView. -->
+    <!-- Compatibility binding for the existing navigation contract. -->
     <ListBox ItemsSource="{Binding NavigationItems}"
              Visibility="Collapsed" />
 
