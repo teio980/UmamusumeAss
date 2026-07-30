@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Tasks;
@@ -11,6 +12,12 @@ public interface IGrassTaskModule
     GrassTaskDefinition Definition { get; }
 
     object Settings { get; }
+
+    /// <summary>Exports only this module's persisted settings.</summary>
+    JsonObject ExportSettings();
+
+    /// <summary>Restores this module's settings from the queue cache.</summary>
+    void ImportSettings(JsonObject settings);
 
     IGrassTaskModule CreateInstance();
 

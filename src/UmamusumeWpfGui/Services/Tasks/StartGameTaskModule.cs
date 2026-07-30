@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.ViewModels.Tasks;
@@ -39,6 +40,19 @@ public sealed class StartGameTaskModule : IGrassTaskModule
 
     object IGrassTaskModule.Settings => Settings;
 
+    public JsonObject ExportSettings() => new()
+    {
+        ["packageId"] = Settings.PackageId,
+        ["activityName"] = Settings.ActivityName,
+    };
+
+    public void ImportSettings(JsonObject settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Settings.PackageId = ReadString(settings, "packageId") ?? Settings.PackageId;
+        Settings.ActivityName = ReadString(settings, "activityName") ?? Settings.ActivityName;
+    }
+
     public IGrassTaskModule CreateInstance() => new StartGameTaskModule(
         _gameLauncher,
         _settingsService,
@@ -69,6 +83,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
             connection.AdbPath,
             connection.Serial,
             Settings.PackageId,
+            Settings.ActivityName,
             cancellationToken).ConfigureAwait(false);
 
         Settings.SetStatus(result.ProcessDetected
@@ -118,5 +133,21 @@ public sealed class StartGameTaskModule : IGrassTaskModule
     {
         var value = _localizationService.GetString(key);
         return string.IsNullOrWhiteSpace(value) || value == key ? fallback : value;
+    }
+
+    private static string? ReadString(JsonObject settings, string key)
+    {
+        try
+        {
+            return settings[key]?.GetValue<string>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 }
