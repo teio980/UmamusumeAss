@@ -1,12 +1,13 @@
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services;
 
 /// <summary>
-/// Registry of task types that can be offered by the grass page.
-/// It is intentionally empty until task modules are implemented.
+/// Registry of independent task modules that can be offered by the Hachimi~
+/// page. The queue never needs to know a module's internal implementation.
 /// </summary>
 public interface IGrassTaskCatalog
 {
-    IReadOnlyList<GrassTaskDefinition> Definitions { get; }
+    IReadOnlyList<IGrassTaskModule> Modules { get; }
 }

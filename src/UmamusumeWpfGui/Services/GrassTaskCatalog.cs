@@ -1,23 +1,46 @@
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services;
 
 /// <summary>
-/// Application task registry. Future task modules can register definitions
-/// here without changing the queue view or its layout.
+/// Application task registry. It stores independent module prototypes; queued
+/// items receive module instances so each task owns its own settings.
 /// </summary>
 public sealed class GrassTaskCatalog : IGrassTaskCatalog
 {
-    private readonly List<GrassTaskDefinition> _definitions = [];
+    private readonly List<IGrassTaskModule> _modules = [];
 
-    public IReadOnlyList<GrassTaskDefinition> Definitions => _definitions;
+    public static GrassTaskCatalog CreateEmpty() => new();
 
-    public void Register(GrassTaskDefinition definition)
+    public IReadOnlyList<IGrassTaskModule> Modules => _modules;
+
+    public void Register(IGrassTaskModule module)
     {
-        ArgumentNullException.ThrowIfNull(definition);
-        if (_definitions.Any(item => item.Id == definition.Id))
-            throw new InvalidOperationException($"Grass task '{definition.Id}' is already registered.");
+        ArgumentNullException.ThrowIfNull(module);
+        if (_modules.Any(item => item.Definition.Id == module.Definition.Id))
+        {
+            throw new InvalidOperationException(
+                $"Grass task '{module.Definition.Id}' is already registered.");
+        }
 
-        _definitions.Add(definition);
+        _modules.Add(module);
     }
+}
+
+/// <summary>
+/// Production catalog composition. Register a new module here without adding
+/// task-specific execution code to GrassViewModel.
+/// </summary>
+public sealed class DefaultGrassTaskCatalog : IGrassTaskCatalog
+{
+    private readonly GrassTaskCatalog _catalog = new();
+
+    public DefaultGrassTaskCatalog(StartGameTaskModule startGameTaskModule)
+    {
+        ArgumentNullException.ThrowIfNull(startGameTaskModule);
+        _catalog.Register(startGameTaskModule);
+    }
+
+    public IReadOnlyList<IGrassTaskModule> Modules => _catalog.Modules;
 }

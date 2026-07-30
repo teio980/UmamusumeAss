@@ -1,11 +1,11 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.ViewModels;
 
 /// <summary>
-/// Display-only task item for the MAA-inspired grass page.
-/// Execution is intentionally not part of this phase.
+/// Generic queue item. Task-specific settings and execution stay on Module.
 /// </summary>
 public sealed class GrassTaskItemViewModel : INotifyPropertyChanged
 {
@@ -14,16 +14,22 @@ public sealed class GrassTaskItemViewModel : INotifyPropertyChanged
     private bool _isEnabled;
     private string _status = "Idle";
 
-    public GrassTaskItemViewModel(string name, string description, bool isEnabled = true)
+    public GrassTaskItemViewModel(IGrassTaskModule module, bool isEnabled = true)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
-        _name = name;
-        _description = description;
+        ArgumentNullException.ThrowIfNull(module);
+        ArgumentException.ThrowIfNullOrWhiteSpace(module.Definition.FallbackName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(module.Definition.FallbackDescription);
+        Module = module;
+        _name = module.Definition.FallbackName;
+        _description = module.Definition.FallbackDescription;
         _isEnabled = isEnabled;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public IGrassTaskModule Module { get; }
+
+    public object Settings => Module.Settings;
 
     public string Name => _name;
 

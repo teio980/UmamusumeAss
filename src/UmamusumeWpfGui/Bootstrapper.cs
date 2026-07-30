@@ -7,6 +7,7 @@ using StyletIoC;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui;
@@ -41,6 +42,17 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<ProcessEnumerator>();
         builder.Bind<IAdbRunner>()
             .To<AdbRunner>();
+        builder.Bind<IAdbRuntime>()
+            .To<AdbRuntime>();
+        builder.Bind<IAdbTouchRuntime>()
+            .To<AdbTouchRuntime>();
+        builder.Bind<IAdbConnectionSessionFactory>()
+            .To<AdbConnectionSessionFactory>();
+        builder.Bind<IGameLauncher>()
+            .To<AdbGameLauncher>();
+        builder.Bind<StartGameTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
         builder.Bind<IEmulatorLauncher>()
@@ -55,7 +67,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
 
         builder.Bind<LogViewModel>().ToSelf().InSingletonScope();
         builder.Bind<IGrassTaskCatalog>()
-            .To<GrassTaskCatalog>()
+            .To<DefaultGrassTaskCatalog>()
             .InSingletonScope();
         builder.Bind<GrassViewModel>().ToSelf().InSingletonScope();
         builder.Bind<OverviewViewModel>().ToSelf();
