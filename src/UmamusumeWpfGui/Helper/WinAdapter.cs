@@ -111,9 +111,33 @@ public sealed class WinAdapter : IWinAdapter
 
     public AdbDevicesResult GetAdbDevices(string adbPath)
     {
-        var diagnostics = new List<DiscoveryDiagnostic>();
-
         var (stdout, stderr, exitCode, timedOut, error) = _adbRunner.RunDevices(adbPath);
+
+        return ParseAdbDevicesResult(stdout, stderr, exitCode, timedOut, error);
+    }
+
+    public async Task<AdbDevicesResult> GetAdbDevicesAsync(
+        string adbPath,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _adbRunner.RunAsync(
+            adbPath, ["devices"], cancellationToken).ConfigureAwait(false);
+        return ParseAdbDevicesResult(
+            result.Stdout,
+            result.Stderr,
+            result.ExitCode,
+            result.TimedOut,
+            result.Error);
+    }
+
+    private static AdbDevicesResult ParseAdbDevicesResult(
+        string stdout,
+        string stderr,
+        int exitCode,
+        bool timedOut,
+        Exception? error)
+    {
+        var diagnostics = new List<DiscoveryDiagnostic>();
 
         if (error != null)
         {
@@ -182,7 +206,7 @@ public sealed class WinAdapter : IWinAdapter
                 continue;
 
             // Skip the known header line
-            if (line.StartsWith("List of devices", StringComparison.Ordinal))
+            if (line.Equals("List of devices attached", StringComparison.Ordinal))
                 continue;
 
             // Split by tab: serial \t state

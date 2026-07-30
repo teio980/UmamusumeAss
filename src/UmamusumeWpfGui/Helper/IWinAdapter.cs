@@ -23,6 +23,15 @@ public interface IWinAdapter
     /// </summary>
     AdbDevicesResult GetAdbDevices(string adbPath);
 
+    /// <summary>
+    /// Asynchronously runs <c>adb devices</c>. The cancellation token covers
+    /// both process execution and the caller's discovery operation.
+    /// </summary>
+    Task<AdbDevicesResult> GetAdbDevicesAsync(
+        string adbPath,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(GetAdbDevices(adbPath));
+
     EndpointResolutionResult ResolveEndpoints(string adbPath, string profileName, CancellationToken cancellationToken);
 
     Task<EndpointResolutionResult> ResolveEndpointsAsync(
