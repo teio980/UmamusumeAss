@@ -60,6 +60,32 @@ public sealed class ConnectionHealthMonitorTests
     }
 
     [Fact]
+    public async Task MissingTargetFromAdbDevices_RaisesDeviceDisconnected()
+    {
+        var runner = new FakeAdbRunner([]);
+        var delay = new ControlledDelay();
+        var winAdapter = new FakeWinAdapter
+        {
+            NextDevices = new AdbDevicesResult([], []),
+        };
+        var failureSource = new TaskCompletionSource<ConnectionHealthFailure>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var monitor = CreateMonitor(runner, delay, winAdapter: winAdapter);
+        monitor.Failed += failure => failureSource.TrySetResult(failure);
+
+        monitor.Start(Target);
+        await delay.WaitForCallAsync();
+        delay.ReleaseCurrent();
+        var failure = await failureSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(ConnectionErrorCode.DeviceDisconnected, failure.ErrorCode);
+        Assert.Contains("no longer present", failure.Diagnostic, StringComparison.Ordinal);
+        Assert.Empty(runner.Commands);
+
+        await monitor.StopAsync();
+    }
+
+    [Fact]
     public async Task FailedProbe_WhenRecoveryFails_RaisesFailure()
     {
         var runner = new FakeAdbRunner([
@@ -192,10 +218,12 @@ public sealed class ConnectionHealthMonitorTests
     private sealed class FakeWinAdapter : IWinAdapter
     {
         public EndpointResolutionResult NextResolution { get; set; } = new([Target.Serial], []);
+        public AdbDevicesResult NextDevices { get; set; } = new(
+            [new AdbDeviceRecord(Target.Serial, "device")], []);
 
         public DiscoveryResult RefreshEmulatorsInfo() => new([], []);
 
-        public AdbDevicesResult GetAdbDevices(string adbPath) => new([], []);
+        public AdbDevicesResult GetAdbDevices(string adbPath) => NextDevices;
 
         public EndpointResolutionResult ResolveEndpoints(
             string adbPath,
