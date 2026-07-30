@@ -1,18 +1,18 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using Microsoft.Win32;
 using UmamusumeWpfGui.ViewModels;
+using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views;
 
 /// <summary>
-/// Settings view with a 160 px left navigation and scrollable right content panel.
+/// Settings view with an official WPF-UI top NavigationView.
 /// Connection, Language, and System panels switch based on selected menu index.
 ///
 /// Code-behind handles only:
 /// - File dialog plumbing for Browse ADB Path
-/// - Navigation item click routing
+/// - Top navigation item routing
 /// </summary>
 public sealed partial class SettingsView : UserControl
 {
@@ -25,15 +25,25 @@ public sealed partial class SettingsView : UserControl
     }
 
     /// <summary>
-    /// Handles navigation item clicks by updating the ViewModel's selected index.
+    /// Routes the official top NavigationView item click to the existing
+    /// SettingsViewModel section index and updates its active indicator.
     /// </summary>
-    private void OnNavItemClick(object sender, MouseButtonEventArgs e)
+    private void OnSettingsNavigationItemClick(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement element
-            && element.DataContext is MenuItemViewModel menuItem
-            && DataContext is SettingsViewModel vm)
+        if (sender is not NavigationViewItem item
+            || DataContext is not SettingsViewModel vm
+            || !int.TryParse(item.Tag?.ToString(), out var index))
         {
-            vm.SelectedMenuIndex = menuItem.Index;
+            return;
+        }
+
+        vm.SelectedMenuIndex = index;
+        foreach (var menuItem in SettingsNavigation.MenuItems)
+        {
+            if (menuItem is NavigationViewItem navigationItem)
+            {
+                navigationItem.IsActive = ReferenceEquals(navigationItem, item);
+            }
         }
     }
 

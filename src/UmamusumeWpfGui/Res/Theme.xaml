@@ -1,18 +1,20 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-  <!-- ============================================================
-       Theme.xaml — Merge Root
-       Merges brush/gradient resources and HandyControls style overrides.
-       Referenced from App.xaml as the single theme entry point.
-       ============================================================ -->
-
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
   <ResourceDictionary.MergedDictionaries>
-    <!-- Brush and gradient resources (section 6 palette) -->
-    <ResourceDictionary Source="Themes/Light.xaml" />
-
-    <!-- HandyControls property/style overrides -->
-    <ResourceDictionary Source="Style.xaml" />
+    <ui:ThemesDictionary Theme="Light" />
+    <ui:ControlsDictionary />
   </ResourceDictionary.MergedDictionaries>
 
+  <!--
+    WPF-UI's Light theme resolves these button brushes through the accent
+    manager. The Stylet resource loader wraps this dictionary, so provide the
+    same official accent brushes at application scope as a fallback.
+  -->
+  <SolidColorBrush x:Key="AccentButtonBackground"
+                   Color="{DynamicResource SystemAccentColorPrimary}" />
+  <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver"
+                   Color="{DynamicResource SystemAccentColorSecondary}" />
+  <SolidColorBrush x:Key="AccentButtonBackgroundPressed"
+                   Color="{DynamicResource SystemAccentColorTertiary}" />
 </ResourceDictionary>

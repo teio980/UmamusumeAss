@@ -8,6 +8,8 @@
 
   <!-- Window -->
   <sys:String x:Key="WindowTitle">UmamusumeAss</sys:String>
+  <sys:String x:Key="AppSubtitle">Connection assistant</sys:String>
+  <sys:String x:Key="NavigationSearchPlaceholder">Search</sys:String>
 
   <!-- Tab bar -->
   <sys:String x:Key="TabLog">Log</sys:String>

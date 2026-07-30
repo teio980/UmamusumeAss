@@ -1,34 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:hc="https://handyorg.github.io/handycontrol">
-
-  <!-- ============================================================
-       ComboBox Style
-       DESIGN.md section 5: Inputs
-       Same as TextBox: white background, 2 px PrimaryLighterBrush border,
-       4 px radius. Editable (IsEditable=True) for serial address input.
-       ============================================================ -->
-
-  <Style TargetType="ComboBox">
-    <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
-    <Setter Property="Height" Value="32" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="hc:BorderElement.CornerRadius" Value="4" />
-    <Setter Property="FontSize" Value="14" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="Padding" Value="8,0" />
-    <Style.Triggers>
-      <Trigger Property="IsKeyboardFocusWithin" Value="True">
-        <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}" />
-      </Trigger>
-    </Style.Triggers>
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Compatibility style; the active theme uses WPF-UI's own implicit style. -->
+  <Style TargetType="{x:Type ComboBox}">
+    <Setter Property="Border.CornerRadius" Value="4" />
   </Style>
-
-  <!-- ComboBoxItem style for dropdown items -->
-  <Style TargetType="ComboBoxItem">
-    <Setter Property="FontSize" Value="14" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-  </Style>
-
 </ResourceDictionary>
