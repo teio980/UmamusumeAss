@@ -9,6 +9,20 @@ namespace UmamusumeWpfGui.Models;
 /// </summary>
 public sealed class ConnectionSettings
 {
+    public const int MaxAutoStartEmulatorWaitSeconds = 300;
+
+    public static IReadOnlyList<string> SupportedConnectConfigs { get; } =
+    [
+        "General",
+        "MuMuEmulator12",
+        "LDPlayer",
+        "BlueStacks",
+        "Nox",
+        "XYAZ",
+        "WSA",
+        "Androws",
+    ];
+
     /// <summary>Path to the ADB executable.</summary>
     public string AdbPath { get; set; } = "";
 
@@ -33,20 +47,14 @@ public sealed class ConnectionSettings
     public int AutoStartEmulatorWaitSeconds
     {
         get => _autoStartEmulatorWaitSeconds;
-        set => _autoStartEmulatorWaitSeconds = Math.Max(0, value);
+        set => _autoStartEmulatorWaitSeconds = Math.Clamp(
+            value,
+            0,
+            MaxAutoStartEmulatorWaitSeconds);
     }
 
-    private static readonly HashSet<string> KnownConnectConfigs = new(StringComparer.Ordinal)
-    {
-        "General",
-        "MuMuEmulator12",
-        "LDPlayer",
-        "BlueStacks",
-        "Nox",
-        "XYAZ",
-        "WSA",
-        "Androws",
-    };
+    private static readonly HashSet<string> KnownConnectConfigs =
+        new(SupportedConnectConfigs, StringComparer.Ordinal);
 
     private string _connectConfig = "General";
 
