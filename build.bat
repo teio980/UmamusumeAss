@@ -58,7 +58,7 @@ goto :end_err
 :err_install
 echo [ERROR] Install step failed.
 goto :end_err
-:err_dotnet_build
+:err_dotnet_build+
 echo [ERROR] Managed code build failed.
 goto :end_err
 :err_copy_native
