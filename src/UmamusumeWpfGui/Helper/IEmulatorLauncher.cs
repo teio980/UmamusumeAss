@@ -23,10 +23,22 @@ public sealed class EmulatorLauncher : IEmulatorLauncher
 
         try
         {
+            var isDirectExecutable = string.Equals(
+                Path.GetExtension(fileName),
+                ".exe",
+                StringComparison.OrdinalIgnoreCase);
             var process = Process.Start(new ProcessStartInfo(fileName)
             {
                 Arguments = arguments,
-                UseShellExecute = true,
+                // Direct emulator executables such as MuMuManager.exe are
+                // console-subsystem launchers. Start them without ShellExecute
+                // so their helper console window is not shown. Keep ShellExecute
+                // for shortcuts and shell-associated launch targets.
+                UseShellExecute = !isDirectExecutable,
+                CreateNoWindow = isDirectExecutable,
+                WindowStyle = isDirectExecutable
+                    ? ProcessWindowStyle.Hidden
+                    : ProcessWindowStyle.Normal,
             });
             return process is null
                 ? new EmulatorLaunchResult(false, "The emulator process could not be started.")
