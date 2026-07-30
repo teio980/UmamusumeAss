@@ -241,6 +241,7 @@ private:
 
 [[nodiscard]] UmaHandle make_handle(Collector& collector)
 {
+    REQUIRE(UmaSetUserDir(source_root()) == 0);
     REQUIRE(UmaLoadResource(source_root()) == 0);
     auto handle = UmaCreate(&Collector::callback, &collector);
     REQUIRE(handle != nullptr);
@@ -303,6 +304,7 @@ private:
 
 TEST_CASE("C ABI rejects creation without a callback", "[UmaCaller][abi]")
 {
+    REQUIRE(UmaSetUserDir(source_root()) == 0);
     REQUIRE(UmaLoadResource(source_root()) == 0);
     REQUIRE(UmaCreate(nullptr, nullptr) == nullptr);
 }
@@ -412,6 +414,7 @@ TEST_CASE("accepted connect survives pre-registration callbacks", "[UmaCaller][r
 {
     FakeAdbDelay no_delay{L"0"};
     RegistrationBuffer buffer;
+    REQUIRE(UmaSetUserDir(source_root()) == 0);
     REQUIRE(UmaLoadResource(source_root()) == 0);
     auto handle = UmaCreate(&RegistrationBuffer::callback, &buffer);
     REQUIRE(handle != nullptr);
