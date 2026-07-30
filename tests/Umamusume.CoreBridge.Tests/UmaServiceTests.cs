@@ -23,6 +23,7 @@ public sealed class UmaServiceTests : IDisposable
 
         Assert.Equal(["SetUserDir", "LoadResource", "GetVersion", "Create"], native.Calls);
         Assert.Equal("0.1.0", service.CoreVersion);
+        Assert.Equal(Path.Combine(_root, "resource"), service.ResourcePath);
         Assert.True(Directory.Exists(appData));
     }
 

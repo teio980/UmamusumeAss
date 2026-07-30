@@ -398,10 +398,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// <summary>Core bridge version string, or empty if unavailable.</summary>
     public string CoreVersion => _umaService.CoreVersion ?? string.Empty;
 
-    /// <summary>Application resource path, or empty if unavailable.</summary>
-#pragma warning disable CA1822 // WPF binding requires instance property
-    public string ResourcePath => string.Empty;
-#pragma warning restore CA1822
+    /// <summary>Loaded application resource directory, or empty if unavailable.</summary>
+    public string ResourcePath => _umaService.ResourcePath ?? string.Empty;
 
     /// <summary>Last detected emulator name, or empty if none.</summary>
     public string LastDetectedEmulator => _lastDetectedEmulator;

@@ -49,6 +49,7 @@ public sealed class UmaService : IUmaService
     }
 
     public string? CoreVersion { get; private set; }
+    public string? ResourcePath { get; private set; }
 
     public event Action<ConnectionEvent>? ConnectionEventReceived;
     public event Action<BridgeDiagnostic>? DiagnosticReceived;
@@ -100,6 +101,7 @@ public sealed class UmaService : IUmaService
                 ThrowIfDisposed();
                 _handle = createdHandle;
                 CoreVersion = version;
+                ResourcePath = Path.Combine(canonicalBaseDir, "resource");
                 handleAssigned = true;
             }
 

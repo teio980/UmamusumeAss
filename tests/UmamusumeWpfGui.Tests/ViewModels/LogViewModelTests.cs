@@ -383,6 +383,7 @@ public sealed class LogViewModelTests
     public sealed class FakeUmaService : IUmaService
     {
         public string? CoreVersion => "1.0.0";
+        public string? ResourcePath => null;
 
         public event Action<ConnectionEvent>? ConnectionEventReceived;
 #pragma warning disable CS0067 // DiagnosticReceived is not raised in tests

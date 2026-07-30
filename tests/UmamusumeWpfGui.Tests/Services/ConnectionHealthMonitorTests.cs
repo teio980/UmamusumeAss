@@ -249,6 +249,7 @@ public sealed class ConnectionHealthMonitorTests
         public int ConnectCallCount { get; private set; }
         public (string AdbPath, string Serial, string Profile)? LastConnectCall { get; private set; }
         public string? CoreVersion => "test";
+        public string? ResourcePath => null;
         #pragma warning disable CS0067
         public event Action<ConnectionEvent>? ConnectionEventReceived;
         public event Action<BridgeDiagnostic>? DiagnosticReceived;

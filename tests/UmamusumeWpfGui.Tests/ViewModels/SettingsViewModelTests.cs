@@ -1578,6 +1578,16 @@ public sealed class SettingsViewModelTests
         Assert.Equal("", vm.CoreVersion);
     }
 
+    [Fact]
+    public void ResourcePath_ReflectsUmaService()
+    {
+        var f = CreateFixture();
+        f.UmaService.ResourcePath = @"C:\app\resource";
+        var vm = f.CreateViewModel();
+
+        Assert.Equal(@"C:\app\resource", vm.ResourcePath);
+    }
+
     // ================================================================
     // 15. Dispose
     // ================================================================
@@ -1951,6 +1961,7 @@ public sealed class SettingsViewModelTests
     private sealed class FakeUmaService : IUmaService
     {
         public string? CoreVersion { get; set; } = "1.0.0";
+        public string? ResourcePath { get; set; }
 
         public event Action<ConnectionEvent>? ConnectionEventReceived;
 #pragma warning disable CS0067

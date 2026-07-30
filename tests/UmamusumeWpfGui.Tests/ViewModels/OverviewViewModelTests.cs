@@ -74,6 +74,7 @@ public sealed class OverviewViewModelTests
     private sealed class FakeUmaService(string coreVersion) : IUmaService
     {
         public string? CoreVersion { get; } = coreVersion;
+        public string? ResourcePath => null;
 #pragma warning disable CS0067
         public event Action<ConnectionEvent>? ConnectionEventReceived;
         public event Action<BridgeDiagnostic>? DiagnosticReceived;
