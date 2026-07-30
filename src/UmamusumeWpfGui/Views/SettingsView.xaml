@@ -54,9 +54,9 @@
     <ScrollViewer Grid.Row="1"
                   HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
-      <StackPanel Margin="42"
+      <StackPanel Margin="42,0,42,42"
                   VerticalAlignment="Top">
-        <Grid Margin="0,20,0,0">
+        <Grid>
         <StackPanel Visibility="{Binding SelectedMenuIndex,
             Converter={StaticResource MenuIndexToVisibility},
             ConverterParameter=0}">

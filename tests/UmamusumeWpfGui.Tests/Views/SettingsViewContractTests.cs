@@ -35,7 +35,7 @@ public sealed class SettingsViewContractTests
         var stackPanel = document.Root!.Descendants()
             .First(element => element.Name.LocalName == "StackPanel");
 
-        Assert.Equal("42", stackPanel.Attribute("Margin")?.Value);
+        Assert.Equal("42,0,42,42", stackPanel.Attribute("Margin")?.Value);
         Assert.Contains("ScrollViewer", content);
         Assert.Contains("http://schemas.lepo.co/wpfui/2022/xaml", content);
         Assert.DoesNotContain("SurfaceCanvasBrush", content);
