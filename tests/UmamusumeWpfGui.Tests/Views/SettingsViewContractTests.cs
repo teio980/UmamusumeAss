@@ -407,6 +407,26 @@ public sealed class SettingsViewContractTests
             "Device info card fields should be read-only TextBlocks");
     }
 
+    [Fact]
+    public void DeviceInfoCard_UsesNonNullVisibilityConverter()
+    {
+        var content = LoadXaml().ToString();
+        int resourceIndex = content.IndexOf(
+            "x:Key=\"NotNullToVisibility\"",
+            StringComparison.Ordinal);
+
+        Assert.True(resourceIndex >= 0,
+            "SettingsView should define the device info visibility converter");
+
+        int resourceEnd = content.IndexOf(" />", resourceIndex, StringComparison.Ordinal);
+        Assert.True(resourceEnd > resourceIndex,
+            "Device info visibility converter should be self-closing");
+
+        var resource = content[resourceIndex..resourceEnd];
+        Assert.False(resource.Contains("Invert=\"True\"", StringComparison.Ordinal),
+            "A non-null LastVerified snapshot must make the device info card visible");
+    }
+
     // ================================================================
     // 12. Profile ComboBox is read-only (General only in S1)
     // ================================================================
