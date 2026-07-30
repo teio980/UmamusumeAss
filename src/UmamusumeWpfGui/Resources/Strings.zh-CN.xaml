@@ -15,6 +15,41 @@
   <sys:String x:Key="TabLog">日志</sys:String>
   <sys:String x:Key="TabSettings">设置</sys:String>
   <sys:String x:Key="NavOverview">概览</sys:String>
+  <sys:String x:Key="TabGrass">长草</sys:String>
+
+  <!-- MAA 风格长草页面 -->
+  <sys:String x:Key="GrassTitle">长草</sys:String>
+  <sys:String x:Key="GrassTaskQueue">任务队列</sys:String>
+  <sys:String x:Key="GrassSettings">任务设置</sys:String>
+  <sys:String x:Key="GrassLogs">活动日志</sys:String>
+  <sys:String x:Key="GrassAddTask">添加</sys:String>
+  <sys:String x:Key="GrassCopyTask">复制</sys:String>
+  <sys:String x:Key="GrassDeleteTask">删除</sys:String>
+  <sys:String x:Key="GrassSelectAll">全选</sys:String>
+  <sys:String x:Key="GrassInvertSelection">反选</sys:String>
+  <sys:String x:Key="GrassGeneralSettings">普通设置</sys:String>
+  <sys:String x:Key="GrassAdvancedSettings">高级设置</sys:String>
+  <sys:String x:Key="GrassTodayHint">接入游戏数据后，这里将显示每日内容提示。</sys:String>
+  <sys:String x:Key="GrassPlaceholderTitle">设置占位区</sys:String>
+  <sys:String x:Key="GrassPlaceholderMessage">当前任务已预留稳定的 UI 位置，具体游戏操作将在后续阶段接入。</sys:String>
+  <sys:String x:Key="GrassLogHint">Core 连接事件会与日志 Tab 共享。</sys:String>
+  <sys:String x:Key="GrassStart">开始</sys:String>
+  <sys:String x:Key="GrassStop">停止</sys:String>
+  <sys:String x:Key="GrassTaskDailyTraining">每日训练</sys:String>
+  <sys:String x:Key="GrassTaskDailyTrainingDescription">训练计划与日常育成流程（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollection">奖励领取</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollectionDescription">领取可用奖励（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskFriendsShop">好友与商店</sys:String>
+  <sys:String x:Key="GrassTaskFriendsShopDescription">好友互动及商店检查（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskIdle">空闲</sys:String>
+  <sys:String x:Key="GrassNoTaskSelected">未选择任务</sys:String>
+  <sys:String x:Key="GrassSelectTaskHint">从左侧选择一个任务查看设置</sys:String>
+  <sys:String x:Key="GrassTaskCountSummary">已配置 {0} 项，启用 {1} 项</sys:String>
+  <sys:String x:Key="GrassExecutionEnabled">任务执行功能已启用</sys:String>
+  <sys:String x:Key="GrassExecutionFuture">任务执行功能将在后续版本接入</sys:String>
+  <sys:String x:Key="GrassCustomTaskName">自定义任务 {0}</sys:String>
+  <sys:String x:Key="GrassCustomTaskDescription">自定义任务设置（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskCopyName">{0} 副本</sys:String>
 
   <!-- Overview panel -->
   <sys:String x:Key="OverviewTitle">概览</sys:String>

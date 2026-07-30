@@ -15,6 +15,41 @@
   <sys:String x:Key="TabLog">Log</sys:String>
   <sys:String x:Key="TabSettings">Settings</sys:String>
   <sys:String x:Key="NavOverview">Overview</sys:String>
+  <sys:String x:Key="TabGrass">Grass</sys:String>
+
+  <!-- MAA-inspired grass page -->
+  <sys:String x:Key="GrassTitle">Grass</sys:String>
+  <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
+  <sys:String x:Key="GrassSettings">Task settings</sys:String>
+  <sys:String x:Key="GrassLogs">Activity log</sys:String>
+  <sys:String x:Key="GrassAddTask">Add</sys:String>
+  <sys:String x:Key="GrassCopyTask">Copy</sys:String>
+  <sys:String x:Key="GrassDeleteTask">Delete</sys:String>
+  <sys:String x:Key="GrassSelectAll">Select all</sys:String>
+  <sys:String x:Key="GrassInvertSelection">Invert</sys:String>
+  <sys:String x:Key="GrassGeneralSettings">General</sys:String>
+  <sys:String x:Key="GrassAdvancedSettings">Advanced</sys:String>
+  <sys:String x:Key="GrassTodayHint">Daily information will appear here when game data support is added.</sys:String>
+  <sys:String x:Key="GrassPlaceholderTitle">Configuration placeholder</sys:String>
+  <sys:String x:Key="GrassPlaceholderMessage">This task has a stable UI slot, but its game operation is intentionally reserved for a later phase.</sys:String>
+  <sys:String x:Key="GrassLogHint">Core connection events are shared with the Log tab.</sys:String>
+  <sys:String x:Key="GrassStart">Start</sys:String>
+  <sys:String x:Key="GrassStop">Stop</sys:String>
+  <sys:String x:Key="GrassTaskDailyTraining">Daily Training</sys:String>
+  <sys:String x:Key="GrassTaskDailyTrainingDescription">Training plan and daily development flow (not connected)</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollection">Rewards Collection</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollectionDescription">Collect available rewards (not connected)</sys:String>
+  <sys:String x:Key="GrassTaskFriendsShop">Friends &amp; Shop</sys:String>
+  <sys:String x:Key="GrassTaskFriendsShopDescription">Friend interactions and shop checks (not connected)</sys:String>
+  <sys:String x:Key="GrassTaskIdle">Idle</sys:String>
+  <sys:String x:Key="GrassNoTaskSelected">No task selected</sys:String>
+  <sys:String x:Key="GrassSelectTaskHint">Select a task on the left to view its settings</sys:String>
+  <sys:String x:Key="GrassTaskCountSummary">Configured {0} tasks, {1} enabled</sys:String>
+  <sys:String x:Key="GrassExecutionEnabled">Task execution is enabled</sys:String>
+  <sys:String x:Key="GrassExecutionFuture">Task execution will be added in a later version</sys:String>
+  <sys:String x:Key="GrassCustomTaskName">Custom Task {0}</sys:String>
+  <sys:String x:Key="GrassCustomTaskDescription">Custom task settings (not connected)</sys:String>
+  <sys:String x:Key="GrassTaskCopyName">{0} Copy</sys:String>
 
   <!-- Overview panel -->
   <sys:String x:Key="OverviewTitle">Overview</sys:String>
