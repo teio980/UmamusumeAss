@@ -9,15 +9,43 @@ namespace UmamusumeWpfGui.Services;
 /// </summary>
 public sealed class ConnectionStateService : IConnectionStateService
 {
+    private readonly object _gate = new();
     private ConnectionState _state = ConnectionState.Disconnected;
     private LastVerifiedConnection? _lastVerified;
     private ControlSessionSnapshot? _controlSession;
 
-    public ConnectionState State => _state;
+    public ConnectionState State
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _state;
+            }
+        }
+    }
 
-    public LastVerifiedConnection? LastVerifiedConnection => _lastVerified;
+    public LastVerifiedConnection? LastVerifiedConnection
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastVerified;
+            }
+        }
+    }
 
-    public ControlSessionSnapshot? ControlSession => _controlSession;
+    public ControlSessionSnapshot? ControlSession
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _controlSession;
+            }
+        }
+    }
 
     public event EventHandler? StateChanged;
 
@@ -42,10 +70,17 @@ public sealed class ConnectionStateService : IConnectionStateService
     /// </summary>
     public void SetState(ConnectionState newState)
     {
-        if (_state == newState)
-            return;
+        lock (_gate)
+        {
+            if (_state == newState)
+                return;
 
-        _state = newState;
+            _state = newState;
+            if (_controlSession is { } session && session.State != newState)
+            {
+                _controlSession = session with { State = newState };
+            }
+        }
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -55,7 +90,10 @@ public sealed class ConnectionStateService : IConnectionStateService
     public void UpdateLastVerified(LastVerifiedConnection record)
     {
         ArgumentNullException.ThrowIfNull(record);
-        _lastVerified = record;
+        lock (_gate)
+        {
+            _lastVerified = record;
+        }
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -65,7 +103,11 @@ public sealed class ConnectionStateService : IConnectionStateService
     public void UpdateControlSession(ControlSessionSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        _controlSession = snapshot;
+        lock (_gate)
+        {
+            _controlSession = snapshot;
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -73,7 +115,10 @@ public sealed class ConnectionStateService : IConnectionStateService
     /// </summary>
     public void ClearLastVerified()
     {
-        _lastVerified = null;
+        lock (_gate)
+        {
+            _lastVerified = null;
+        }
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 }
