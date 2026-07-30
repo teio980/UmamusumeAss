@@ -25,14 +25,17 @@ public sealed class GrassViewContractTests
     }
 
     [Fact]
-    public void GrassView_StartAndStopAreExplicitlyDisabledBeforeExecutionPhase()
+    public void GrassView_UsesIndependentTaskSettingsTemplates()
     {
         var content = File.ReadAllText(GrassViewPath);
 
-        Assert.Contains("Content=\"{DynamicResource GrassStart}\"", content);
-        Assert.Contains("Content=\"{DynamicResource GrassStop}\"", content);
+        Assert.Contains("SelectedTask.Settings", content);
+        Assert.Contains("StartGameTaskSettingsViewModel", content);
+        Assert.Contains("StartGameTaskSettingsView", content);
         Assert.Contains("Command=\"{Binding StartCommand}\"", content);
         Assert.Contains("Command=\"{Binding StopCommand}\"", content);
-        Assert.Contains("IsEnabled=\"False\"", content);
+        Assert.Contains("CanStartQueue", content);
+        Assert.Contains("CanStopQueue", content);
+        Assert.DoesNotContain("Content=\"{DynamicResource GrassStartGame}\"", content);
     }
 }
