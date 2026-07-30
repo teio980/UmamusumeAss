@@ -1,0 +1,251 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.GrassView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:UmamusumeWpfGui.Models"
+             xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <Style x:Key="PanelBorderStyle" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style x:Key="TaskListItemStyle" TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,2" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+          <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        </Trigger>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <Grid Grid.Row="0" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassTitle}"
+                   FontSize="24"
+                   FontWeight="SemiBold" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding PageStatus}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </StackPanel>
+      <Border HorizontalAlignment="Right"
+              Padding="10,6"
+              Background="{DynamicResource SurfaceRaisedBrush}"
+              BorderBrush="{DynamicResource BorderSubtleBrush}"
+              BorderThickness="1"
+              CornerRadius="6">
+        <TextBlock Text="{Binding TaskCountSummary}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.05*" />
+        <ColumnDefinition Width="1.15*" />
+        <ColumnDefinition Width="1.2*" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Left: queue and bottom actions -->
+      <Grid Grid.Column="0" Margin="0,0,8,0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Padding="10" Style="{StaticResource PanelBorderStyle}">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top"
+                       Margin="4,2,4,8"
+                       Text="{DynamicResource GrassTaskQueue}"
+                       FontWeight="SemiBold" />
+            <ListBox ItemsSource="{Binding Tasks}"
+                     SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+                     ItemContainerStyle="{StaticResource TaskListItemStyle}"
+                     BorderThickness="0"
+                     Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:GrassTaskItemViewModel}">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+                      <TextBlock Margin="0,2,0,0"
+                                 Text="{Binding Status}"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+                    <CheckBox Grid.Column="1"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1" Margin="0,10,0,0" Orientation="Horizontal">
+          <ui:Button Content="{DynamicResource GrassAddTask}"
+                     Command="{Binding AddTaskCommand}"
+                     Appearance="Secondary"
+                     Icon="Add24" />
+          <ui:Button Margin="6,0,0,0"
+                     Content="{DynamicResource GrassCopyTask}"
+                     Command="{Binding CopyTaskCommand}"
+                     Appearance="Secondary"
+                     Icon="Copy24" />
+          <ui:Button Margin="6,0,0,0"
+                     Content="{DynamicResource GrassDeleteTask}"
+                     Command="{Binding RemoveTaskCommand}"
+                     Appearance="Secondary"
+                     Icon="Delete24" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
+          <ui:Button Content="{DynamicResource GrassSelectAll}"
+                     Command="{Binding SelectAllCommand}"
+                     Appearance="Secondary" />
+          <ui:Button Margin="6,0,0,0"
+                     Content="{DynamicResource GrassInvertSelection}"
+                     Command="{Binding InvertSelectionCommand}"
+                     Appearance="Secondary" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Middle: selected task settings and bottom mode switch -->
+      <Grid Grid.Column="1" Margin="8,0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Padding="18" Style="{StaticResource PanelBorderStyle}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <TextBlock Text="{DynamicResource GrassSettings}"
+                         FontWeight="SemiBold" />
+              <TextBlock Margin="0,18,0,0"
+                         Text="{Binding SelectedTaskTitle}"
+                         FontSize="18"
+                         FontWeight="SemiBold" />
+              <TextBlock Margin="0,6,0,0"
+                         Text="{Binding SelectedTaskDescription}"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <Border Margin="0,20,0,0"
+                      Padding="12"
+                      Background="{DynamicResource SurfaceRaisedBrush}"
+                      BorderBrush="{DynamicResource BorderSubtleBrush}"
+                      BorderThickness="1"
+                      CornerRadius="6">
+                <StackPanel>
+                  <TextBlock Text="{DynamicResource GrassPlaceholderTitle}"
+                             FontWeight="Medium" />
+                  <TextBlock Margin="0,6,0,0"
+                             Text="{DynamicResource GrassPlaceholderMessage}"
+                             TextWrapping="Wrap"
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <StackPanel Grid.Row="1" Margin="0,10,0,0" Orientation="Horizontal">
+          <RadioButton Content="{DynamicResource GrassGeneralSettings}"
+                       GroupName="GrassSettingsMode"
+                       IsChecked="{Binding IsGeneralSettings, Mode=TwoWay}" />
+          <RadioButton Margin="14,0,0,0"
+                       Content="{DynamicResource GrassAdvancedSettings}"
+                       GroupName="GrassSettingsMode"
+                       IsChecked="{Binding IsAdvancedSettings, Mode=TwoWay}" />
+        </StackPanel>
+
+        <Border Grid.Row="2"
+                Margin="0,10,0,0"
+                Padding="10"
+                Background="{DynamicResource SurfaceRaisedBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+          <TextBlock Text="{DynamicResource GrassTodayHint}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+        </Border>
+      </Grid>
+
+      <!-- Right: logs and execution placeholders -->
+      <Grid Grid.Column="2" Margin="8,0,0,0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Padding="14" Style="{StaticResource PanelBorderStyle}">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top"
+                       Margin="0,0,0,8"
+                       Text="{DynamicResource GrassLogs}"
+                       FontWeight="SemiBold" />
+            <ListBox ItemsSource="{Binding Logs}"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type m:LogEntry}">
+                  <StackPanel Margin="0,4">
+                    <TextBlock Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding Type}"
+                               FontWeight="Medium" />
+                    <TextBlock Text="{Binding Details}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock DockPanel.Dock="Bottom"
+                       Margin="0,12,0,0"
+                       Text="{DynamicResource GrassLogHint}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </DockPanel>
+        </Border>
+        <StackPanel Grid.Row="1" Margin="0,10,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+          <ui:Button Width="110"
+                     Content="{DynamicResource GrassStart}"
+                     Command="{Binding StartCommand}"
+                     IsEnabled="False"
+                     Appearance="Primary" />
+          <ui:Button Width="110"
+                     Margin="8,0,0,0"
+                     Content="{DynamicResource GrassStop}"
+                     Command="{Binding StopCommand}"
+                     IsEnabled="False"
+                     Appearance="Secondary" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>
