@@ -22,7 +22,6 @@
                        Grid.Row="1"
                        IsBackButtonVisible="Collapsed"
                        IsPaneToggleVisible="False"
-                       ItemInvoked="OnNavigationItemInvoked"
                        SelectionChanged="OnNavigationSelectionChanged">
       <ui:NavigationView.Header>
         <ui:BreadcrumbBar Margin="42,32,0,0"
@@ -31,10 +30,16 @@
       </ui:NavigationView.Header>
 
       <ui:NavigationView.MenuItems>
+        <ui:NavigationViewItem Tag="3"
+                               Content="{DynamicResource TabHachimi}"
+                               TargetPageType="{x:Type pages:GrassNavigationPage}"
+                               NavigationCacheMode="Enabled">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="AppsListDetail24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
         <ui:NavigationViewItem Tag="0"
                                Content="{DynamicResource NavOverview}"
-                               Click="OnNavigationItemClick"
-                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
                                TargetPageType="{x:Type pages:OverviewNavigationPage}"
                                NavigationCacheMode="Enabled">
           <ui:NavigationViewItem.Icon>
@@ -43,22 +48,10 @@
         </ui:NavigationViewItem>
         <ui:NavigationViewItem Tag="1"
                                Content="{DynamicResource TabLog}"
-                               Click="OnNavigationItemClick"
-                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
                                TargetPageType="{x:Type pages:LogNavigationPage}"
                                NavigationCacheMode="Enabled">
           <ui:NavigationViewItem.Icon>
             <ui:SymbolIcon Symbol="DataHistogram24" />
-          </ui:NavigationViewItem.Icon>
-        </ui:NavigationViewItem>
-        <ui:NavigationViewItem Tag="3"
-                               Content="{DynamicResource TabGrass}"
-                               Click="OnNavigationItemClick"
-                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
-                               TargetPageType="{x:Type pages:GrassNavigationPage}"
-                               NavigationCacheMode="Enabled">
-          <ui:NavigationViewItem.Icon>
-            <ui:SymbolIcon Symbol="AppsListDetail24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>
@@ -66,8 +59,6 @@
       <ui:NavigationView.FooterMenuItems>
         <ui:NavigationViewItem Tag="2"
                                Content="{DynamicResource TabSettings}"
-                               Click="OnNavigationItemClick"
-                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
                                TargetPageType="{x:Type pages:SettingsNavigationPage}"
                                NavigationCacheMode="Disabled">
           <ui:NavigationViewItem.Icon>
