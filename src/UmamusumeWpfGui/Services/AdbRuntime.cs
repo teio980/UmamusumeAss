@@ -344,20 +344,44 @@ public sealed class AdbRuntime : IAdbRuntime
         CancellationToken cancellationToken = default) =>
         KeyEventAsync(adbPath, serial, "111", cancellationToken: cancellationToken);
 
-    public Task<AdbCommandResult> StartPackageAsync(
+    public async Task<AdbCommandResult> StartPackageAsync(
         string adbPath,
         string serial,
         string packageName,
         CancellationToken cancellationToken = default)
     {
         RequirePackageName(packageName);
-        // monkey works without knowing the package's launcher activity. A
-        // caller that knows the exact Unity activity can use StartActivityAsync.
-        return RunShellAsync(
+
+        // MAA starts a concrete component with `am start -n`. The game
+        // package can differ between distributions, so resolve its launcher
+        // component when the task has not supplied an explicit Activity.
+        var resolved = await RunShellAsync(
             adbPath,
             serial,
-            ["monkey", "-p", packageName, "1"],
-            cancellationToken);
+            ["cmd", "package", "resolve-activity", "--brief", packageName],
+            cancellationToken).ConfigureAwait(false);
+        if (IsSuccessful(resolved)
+            && TryExtractActivityComponent(resolved.Stdout, out var component))
+        {
+            return await RunShellAsync(
+                adbPath,
+                serial,
+                ["am", "start", "-n", component],
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        // Keep the fallback within ActivityManager as well. This handles
+        // Android images that do not expose `cmd package resolve-activity`.
+        return await RunShellAsync(
+            adbPath,
+            serial,
+            [
+                "am", "start",
+                "-a", "android.intent.action.MAIN",
+                "-c", "android.intent.category.LAUNCHER",
+                "-p", packageName
+            ],
+            cancellationToken).ConfigureAwait(false);
     }
 
     public Task<AdbCommandResult> StartActivityAsync(
@@ -1058,6 +1082,38 @@ public sealed class AdbRuntime : IAdbRuntime
 
     private static bool IsSuccessful(AdbBinaryCommandResult result) =>
         result.Error is null && !result.TimedOut && result.ExitCode == 0;
+
+    private static bool TryExtractActivityComponent(
+        string output,
+        out string component)
+    {
+        foreach (var line in output.Split(
+                     ['\r', '\n'],
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                     .Reverse())
+        {
+            if (line.Contains("No activity", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var token in line.Split(
+                         [' ', '\t'],
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                         .Reverse())
+            {
+                if (!token.Contains('/', StringComparison.Ordinal)
+                    || token.Contains('=', StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                component = token.Trim();
+                return true;
+            }
+        }
+
+        component = string.Empty;
+        return false;
+    }
 
     private static TimeSpan NonNegative(TimeSpan value) =>
         value < TimeSpan.Zero ? TimeSpan.Zero : value;
