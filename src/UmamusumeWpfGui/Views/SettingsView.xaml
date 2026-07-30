@@ -4,7 +4,8 @@
              xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
              xmlns:m="clr-namespace:UmamusumeWpfGui.Models"
              xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
-             xmlns:hc="https://handyorg.github.io/handycontrol">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}">
 
   <UserControl.Resources>
     <c:IntToVisibilityConverter x:Key="IntToVisibility" />
@@ -14,7 +15,7 @@
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
   </UserControl.Resources>
 
-  <Grid Background="{DynamicResource SurfaceCanvasBrush}">
+  <Grid Background="{DynamicResource ApplicationBackgroundBrush}">
     <Grid.ColumnDefinitions>
       <!-- Left navigation: exactly 160 px -->
       <ColumnDefinition Width="160" />
@@ -26,7 +27,7 @@
          Left Navigation (160 px)
          ============================================================ -->
     <Border Grid.Column="0"
-            Background="{DynamicResource SurfacePanelBrush}"
+            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
             BorderThickness="0,0,1,0"
             BorderBrush="{DynamicResource BorderDefaultBrush}">
 
@@ -109,38 +110,37 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
               <TextBlock Text="{DynamicResource ConnectionTitle}"
-                         FontSize="18"
-                         FontWeight="SemiBold" />
+                         FontSize="28"
+                         FontWeight="DemiBold" />
               <TextBlock Text="{Binding StatusText}"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          Margin="0,4,0,0" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button Content="{DynamicResource ConnectButton}"
+              <ui:Button Content="{DynamicResource ConnectButton}"
                       Command="{Binding ConnectCommand}"
                       Height="36"
                       Padding="16,0"
-                      Style="{StaticResource PrimaryButtonStyle}" />
-              <Button Content="{DynamicResource CancelButton}"
+                      Appearance="Primary"
+                      Icon="ArrowSync24" />
+              <ui:Button Content="{DynamicResource CancelButton}"
                       Command="{Binding CancelConnectCommand}"
                       Height="36"
                       Margin="8,0,0,0"
                       Padding="14,0"
-                      Style="{StaticResource SecondaryButtonStyle}" />
-              <Button Content="{DynamicResource DisconnectButton}"
+                      Appearance="Secondary"
+                      Icon="DismissCircle24" />
+              <ui:Button Content="{DynamicResource DisconnectButton}"
                       Command="{Binding DisconnectCommand}"
                       Height="36"
                       Margin="8,0,0,0"
                       Padding="14,0"
-                      Style="{StaticResource SecondaryButtonStyle}" />
+                      Appearance="Secondary"
+                      Icon="PlugDisconnected24" />
             </StackPanel>
           </Grid>
 
-          <Border Padding="20"
-                  Background="{DynamicResource SurfacePanelBrush}"
-                  BorderBrush="{DynamicResource BorderDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8">
+          <ui:Card Padding="20">
             <StackPanel>
 
           <!-- ADB Path row -->
@@ -161,14 +161,14 @@
                        Margin="0,0,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
 
-            <TextBox Grid.Row="1"
+            <ui:TextBox Grid.Row="1"
                      Grid.Column="0"
                      Text="{Binding DraftAdbPath, UpdateSourceTrigger=PropertyChanged}"
                      Width="300"
                      Height="30"
                      VerticalAlignment="Center" />
 
-            <Button Grid.Row="1"
+            <ui:Button Grid.Row="1"
                     Grid.Column="1"
                     Content="{DynamicResource BrowseButton}"
                     Click="OnBrowseAdbPath"
@@ -176,9 +176,10 @@
                     Height="30"
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
-                    Style="{StaticResource SecondaryButtonStyle}" />
+                    Appearance="Secondary"
+                    Icon="FolderOpen24" />
 
-            <Button Grid.Row="1"
+            <ui:Button Grid.Row="1"
                     Grid.Column="2"
                     Content="{DynamicResource SaveButton}"
                     Command="{Binding SaveCommand}"
@@ -186,7 +187,8 @@
                     Height="30"
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
-                    Style="{StaticResource SecondaryButtonStyle}" />
+                    Appearance="Secondary"
+                    Icon="Save24" />
           </Grid>
 
           <!-- Serial row -->
@@ -225,12 +227,13 @@
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0"
+            <ui:Button Grid.Column="0"
                     Content="{DynamicResource AutoDetectButton}"
                     Command="{Binding DetectAdbConfigCommand}"
                     Height="30"
                     Padding="12,0"
-                    Style="{StaticResource SecondaryButtonStyle}" />
+                    Appearance="Secondary"
+                    Icon="Search24" />
 
             <CheckBox Grid.Column="1"
                       IsChecked="{Binding DraftAlwaysAutoDetect}"
@@ -251,7 +254,7 @@
                       Content="{DynamicResource AutoStartEmulatorLabel}"
                       VerticalAlignment="Center"
                       FontSize="14" />
-            <TextBox Grid.Row="1"
+            <ui:TextBox Grid.Row="1"
                      Text="{Binding DraftEmulatorExecutablePath, UpdateSourceTrigger=PropertyChanged}"
                      ToolTip="{DynamicResource EmulatorExecutablePathHint}"
                      Height="30"
@@ -260,7 +263,7 @@
               <TextBlock Text="{DynamicResource AutoStartEmulatorWaitSecondsLabel}"
                          Margin="0,0,0,4"
                          Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBox Text="{Binding DraftAutoStartEmulatorWaitSeconds, UpdateSourceTrigger=PropertyChanged}"
+              <ui:TextBox Text="{Binding DraftAutoStartEmulatorWaitSeconds, UpdateSourceTrigger=PropertyChanged}"
                        Height="30"
                        Width="120"
                        HorizontalAlignment="Left" />
@@ -292,19 +295,15 @@
           </Grid>
 
             </StackPanel>
-          </Border>
+          </ui:Card>
 
           <!-- ============================================================
                Device Information Card (Last Verified)
                ============================================================ -->
-          <Border Margin="0,12,0,0"
-                  Padding="16"
-                  Background="{DynamicResource SurfacePanelBrush}"
-                  BorderBrush="{DynamicResource BorderDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Visibility="{Binding LastVerified,
-                      Converter={StaticResource NotNullToVisibility}}">
+          <ui:Card Margin="0,12,0,0"
+                   Padding="16"
+                   Visibility="{Binding LastVerified,
+                       Converter={StaticResource NotNullToVisibility}}">
 
             <StackPanel>
 
@@ -325,14 +324,15 @@
                              Margin="0,2,0,0" />
                 </StackPanel>
 
-                <Button Grid.Column="1"
+                <ui:Button Grid.Column="1"
                         Content="{DynamicResource ForgetButton}"
                         Command="{Binding ForgetCommand}"
                         Height="28"
                         Padding="10,0"
                         FontSize="12"
                         VerticalAlignment="Top"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Appearance="Secondary"
+                        Icon="Delete24" />
               </Grid>
 
               <!-- Last verified fields (read-only) -->
@@ -401,7 +401,7 @@
                            Margin="8,8,0,0" />
               </Grid>
             </StackPanel>
-          </Border>
+          </ui:Card>
 
           <!-- ============================================================
                Control Readiness Card (disabled; S2 APIs not yet available)
@@ -481,36 +481,36 @@
 
               <!-- Action buttons (all disabled; S2 not available) -->
               <WrapPanel Margin="0,12,0,0">
-                <Button Content="{DynamicResource VerifyGameButton}"
+                <ui:Button Content="{DynamicResource VerifyGameButton}"
                         IsEnabled="False"
                         Height="28"
                         Padding="10,0"
                         FontSize="12"
                         Margin="0,0,8,0"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Appearance="Secondary" />
 
-                <Button Content="{DynamicResource CaptureScreenButton}"
+                <ui:Button Content="{DynamicResource CaptureScreenButton}"
                         IsEnabled="False"
                         Height="28"
                         Padding="10,0"
                         FontSize="12"
                         Margin="0,0,8,0"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Appearance="Secondary" />
 
-                <Button Content="{DynamicResource TapTestButton}"
+                <ui:Button Content="{DynamicResource TapTestButton}"
                         IsEnabled="False"
                         Height="28"
                         Padding="10,0"
                         FontSize="12"
                         Margin="0,0,8,0"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Appearance="Secondary" />
 
-                <Button Content="{DynamicResource SwipeTestButton}"
+                <ui:Button Content="{DynamicResource SwipeTestButton}"
                         IsEnabled="False"
                         Height="28"
                         Padding="10,0"
                         FontSize="12"
-                        Style="{StaticResource SecondaryButtonStyle}" />
+                        Appearance="Secondary" />
               </WrapPanel>
             </StackPanel>
           </Border>

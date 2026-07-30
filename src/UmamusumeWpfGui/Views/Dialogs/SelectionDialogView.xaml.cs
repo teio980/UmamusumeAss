@@ -1,5 +1,6 @@
 using System.Windows;
 using UmamusumeWpfGui.ViewModels.Dialogs;
+using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views.Dialogs;
 
@@ -8,7 +9,7 @@ namespace UmamusumeWpfGui.Views.Dialogs;
 /// Wires the ViewModel's <see cref="SelectionDialogViewModel.RequestClose"/>
 /// event to close the window with the appropriate result.
 /// </summary>
-public sealed partial class SelectionDialogView : Window
+public sealed partial class SelectionDialogView : FluentWindow
 {
     /// <summary>
     /// Creates the selection dialog and wires the close handler.

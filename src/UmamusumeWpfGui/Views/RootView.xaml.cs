@@ -16,6 +16,17 @@ public sealed partial class RootView : FluentWindow
     public RootView()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (RootNavigation.SelectedItem is null && RootNavigation.MenuItems.Count > 0)
+        {
+            RootNavigation.SetCurrentValue(
+                System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
+                RootNavigation.MenuItems[0]);
+        }
     }
 
     private void OnNavigationSelectionChanged(object sender, RoutedEventArgs e)

@@ -8,6 +8,5 @@
 
     <!-- App-specific localization and connection palette tokens. -->
     <ResourceDictionary Source="Themes/Light.xaml" />
-    <ResourceDictionary Source="Style.xaml" />
   </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>
