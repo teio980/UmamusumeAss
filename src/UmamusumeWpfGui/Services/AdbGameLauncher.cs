@@ -5,12 +5,16 @@ namespace UmamusumeWpfGui.Services;
 
 /// <summary>
 /// MAA-style game lifecycle implementation:
-/// launch the configured package, poll for its process, and force-stop it on
-/// request. The generic package launch uses Android's monkey launcher so the
-/// UI does not need to hard-code a vendor-specific Activity name.
+/// start the configured component, retry the launch while the client is not
+/// visible, and force-stop it on request. The retry window mirrors MAA's
+/// StartGameTaskPlugin (30 attempts with a 1.5 second interval).
 /// </summary>
 public sealed class AdbGameLauncher : IGameLauncher
 {
+    private const int MaxStartAttempts = 30;
+    private static readonly TimeSpan StartRetryInterval = TimeSpan.FromMilliseconds(1500);
+    private static readonly TimeSpan StartProbeWindow = TimeSpan.FromMilliseconds(250);
+
     private readonly IAdbRuntime _adbRuntime;
     private readonly IAsyncDelay _asyncDelay;
 
@@ -24,43 +28,75 @@ public sealed class AdbGameLauncher : IGameLauncher
         _asyncDelay = asyncDelay;
     }
 
+    public Task<GameLaunchResult> StartAsync(
+        string adbPath,
+        string serial,
+        string packageName,
+        CancellationToken cancellationToken = default) =>
+        StartAsync(adbPath, serial, packageName, null, cancellationToken);
+
     public async Task<GameLaunchResult> StartAsync(
         string adbPath,
         string serial,
         string packageName,
+        string? activityName,
         CancellationToken cancellationToken = default)
     {
-        var start = await _adbRuntime.StartPackageAsync(
-            adbPath, serial, packageName, cancellationToken).ConfigureAwait(false);
-        if (!IsSuccessful(start))
+        var normalizedActivity = string.IsNullOrWhiteSpace(activityName)
+            ? null
+            : activityName.Trim();
+        AdbCommandResult? lastStart = null;
+
+        for (var attempt = 1; attempt <= MaxStartAttempts; attempt++)
         {
-            return new GameLaunchResult(
-                false,
-                false,
-                "The game launch command failed.",
-                start);
+            cancellationToken.ThrowIfCancellationRequested();
+            lastStart = normalizedActivity is null
+                ? await _adbRuntime.StartPackageAsync(
+                    adbPath, serial, packageName, cancellationToken).ConfigureAwait(false)
+                : await _adbRuntime.StartActivityAsync(
+                    adbPath,
+                    serial,
+                    packageName,
+                    normalizedActivity,
+                    cancellationToken).ConfigureAwait(false);
+
+            if (IsSuccessful(lastStart))
+            {
+                var running = await WaitForRunningAsync(
+                    adbPath,
+                    serial,
+                    packageName,
+                    StartProbeWindow,
+                    TimeSpan.FromMilliseconds(250),
+                    cancellationToken).ConfigureAwait(false);
+                if (running.Value == true)
+                {
+                    return new GameLaunchResult(
+                        true,
+                        true,
+                        "The game process is running.",
+                        lastStart);
+                }
+            }
+
+            if (attempt < MaxStartAttempts)
+            {
+                await _asyncDelay.DelayAsync(
+                    StartRetryInterval,
+                    cancellationToken).ConfigureAwait(false);
+            }
         }
 
-        var running = await WaitForRunningAsync(
-            adbPath,
-            serial,
-            packageName,
-            TimeSpan.FromSeconds(8),
-            TimeSpan.FromMilliseconds(250),
-            cancellationToken).ConfigureAwait(false);
-        if (running.Value == true)
-        {
-            return new GameLaunchResult(true, true, "The game process is running.", start);
-        }
-
-        // A few Android images return from monkey before the Unity process is
-        // visible to pidof. The command itself succeeded, so report a warning
-        // state instead of pretending launch failed.
+        // Preserve the last ADB result so the task log can still show the
+        // concrete failure after the bounded retry window.
+        var finalResult = lastStart!;
         return new GameLaunchResult(
-            true,
+            IsSuccessful(finalResult),
             false,
-            "The launch command completed, but the game process was not detected yet.",
-            start);
+            IsSuccessful(finalResult)
+                ? "The launch command completed, but the game process was not detected."
+                : "The game launch command failed after the retry window.",
+            finalResult);
     }
 
     public async Task<GameLaunchResult> StopAsync(
