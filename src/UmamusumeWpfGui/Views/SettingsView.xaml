@@ -9,17 +9,22 @@
     <c:IntToVisibilityConverter x:Key="MenuIndexToVisibility" />
   </UserControl.Resources>
 
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="42"
-                VerticalAlignment="Top">
-      <!-- Official WPF-UI top NavigationView pattern. -->
-      <ui:NavigationView x:Name="SettingsNavigation"
-                         Height="48"
-                         PaneDisplayMode="Top"
-                         IsBackButtonVisible="Collapsed"
-                         IsPaneToggleVisible="False"
-                         IsTopSeparatorVisible="False">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Keep the settings section bar outside the content ScrollViewer so it
+         remains visible while the selected settings page is scrolled. -->
+    <ui:NavigationView x:Name="SettingsNavigation"
+                       Grid.Row="0"
+                       Height="48"
+                       Margin="42,0,42,0"
+                       PaneDisplayMode="Top"
+                       IsBackButtonVisible="Collapsed"
+                       IsPaneToggleVisible="False"
+                       IsTopSeparatorVisible="False">
         <ui:NavigationView.MenuItems>
           <ui:NavigationViewItem Tag="0"
                                  Content="{DynamicResource NavConnection}"
@@ -44,9 +49,14 @@
             </ui:NavigationViewItem.Icon>
           </ui:NavigationViewItem>
         </ui:NavigationView.MenuItems>
-      </ui:NavigationView>
+    </ui:NavigationView>
 
-      <Grid Margin="0,20,0,0">
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="42"
+                  VerticalAlignment="Top">
+        <Grid Margin="0,20,0,0">
         <StackPanel Visibility="{Binding SelectedMenuIndex,
             Converter={StaticResource MenuIndexToVisibility},
             ConverterParameter=0}">
@@ -236,11 +246,12 @@
           <TextBlock Margin="0,8,0,0"
                      Text="{Binding LastDetectedEmulator}" />
         </StackPanel>
-      </Grid>
+        </Grid>
 
-      <!-- Kept out of the visual tree's layout contract for old callers. -->
-      <ItemsControl ItemsSource="{Binding MenuItems}"
-                    Visibility="Collapsed" />
-    </StackPanel>
-  </ScrollViewer>
+        <!-- Kept out of the visual tree's layout contract for old callers. -->
+        <ItemsControl ItemsSource="{Binding MenuItems}"
+                      Visibility="Collapsed" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </UserControl>
