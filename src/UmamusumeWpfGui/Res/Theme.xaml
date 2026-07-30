@@ -5,4 +5,16 @@
     <ui:ThemesDictionary Theme="Light" />
     <ui:ControlsDictionary />
   </ResourceDictionary.MergedDictionaries>
+
+  <!--
+    WPF-UI's Light theme resolves these button brushes through the accent
+    manager. The Stylet resource loader wraps this dictionary, so provide the
+    same official accent brushes at application scope as a fallback.
+  -->
+  <SolidColorBrush x:Key="AccentButtonBackground"
+                   Color="{DynamicResource SystemAccentColorPrimary}" />
+  <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver"
+                   Color="{DynamicResource SystemAccentColorSecondary}" />
+  <SolidColorBrush x:Key="AccentButtonBackgroundPressed"
+                   Color="{DynamicResource SystemAccentColorTertiary}" />
 </ResourceDictionary>
