@@ -1,11 +1,13 @@
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
+using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
 public sealed class ConnectionHealthMonitor : IConnectionHealthMonitor
 {
-    private static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(15);
+    // Keep device-loss detection within the documented 10-second window.
+    private static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly IAdbRunner _adbRunner;
     private readonly IWinAdapter _winAdapter;
@@ -86,6 +88,28 @@ public sealed class ConnectionHealthMonitor : IConnectionHealthMonitor
             {
                 await _asyncDelay.DelayAsync(ProbeInterval, cancellationToken)
                     .ConfigureAwait(false);
+
+                // Some emulator ADB servers keep answering get-state briefly
+                // after the emulator process exits. Confirm the serial is
+                // still present and ready in the authoritative device list
+                // before treating the session as healthy.
+                var devices = await _winAdapter.GetAdbDevicesAsync(
+                    target.AdbPath,
+                    cancellationToken).ConfigureAwait(false);
+                if (!IsTargetReady(devices, target.Serial))
+                {
+                    var diagnostic = devices.Diagnostics.Count == 0
+                        ? $"Device '{target.Serial}' is no longer present in adb devices."
+                        : string.Join(
+                            " | ",
+                            devices.Diagnostics.Select(item => item.Message));
+                    PublishFailure(new ConnectionHealthFailure(
+                        target.Serial,
+                        ConnectionErrorCode.DeviceDisconnected,
+                        diagnostic));
+                    return;
+                }
+
                 var probe = await _adbRunner.RunAsync(
                     target.AdbPath,
                     ["-s", target.Serial, "get-state"],
@@ -163,6 +187,13 @@ public sealed class ConnectionHealthMonitor : IConnectionHealthMonitor
         && !result.TimedOut
         && result.ExitCode == 0
         && string.Equals(result.Stdout.Trim(), "device", StringComparison.Ordinal);
+
+    private static bool IsTargetReady(
+        AdbDevicesResult devices,
+        string serial) =>
+        devices.Records.Any(record =>
+            string.Equals(record.Serial, serial, StringComparison.Ordinal)
+            && string.Equals(record.State, "device", StringComparison.OrdinalIgnoreCase));
 
     private static void ValidateTarget(ConnectionHealthTarget target)
     {
