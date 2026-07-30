@@ -62,6 +62,20 @@ public sealed class RootViewContractTests
     }
 
     [Fact]
+    public void RootView_PlacesHachimiBeforeOverview()
+    {
+        var menuItems = LoadXaml().Descendants()
+            .Where(element => element.Name.LocalName == "NavigationViewItem")
+            .Take(3)
+            .ToList();
+
+        Assert.Equal("3", menuItems[0].Attribute("Tag")?.Value);
+        Assert.Contains("TabHachimi", menuItems[0].Attribute("Content")?.Value);
+        Assert.Equal("0", menuItems[1].Attribute("Tag")?.Value);
+        Assert.Contains("NavOverview", menuItems[1].Attribute("Content")?.Value);
+    }
+
+    [Fact]
     public void RootViewModel_ImplementsPropertyChangedNotification()
     {
         Assert.Contains(typeof(INotifyPropertyChanged),
