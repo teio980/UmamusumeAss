@@ -31,9 +31,48 @@ public sealed partial class RootView : FluentWindow
 
     private void OnNavigationSelectionChanged(object sender, RoutedEventArgs e)
     {
-        if (sender is not NavigationView navigationView
-            || navigationView.SelectedItem is not NavigationViewItem item
-            || !int.TryParse(item.Tag?.ToString(), out var index)
+        if (sender is NavigationView navigationView
+            && navigationView.SelectedItem is NavigationViewItem item)
+        {
+            ApplyNavigationItem(item);
+        }
+    }
+
+    private void OnNavigationItemInvoked(NavigationView sender, RoutedEventArgs e)
+    {
+        if (sender.SelectedItem is NavigationViewItem item)
+        {
+            ApplyNavigationItem(item);
+        }
+    }
+
+    private void OnNavigationItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NavigationViewItem item)
+            return;
+
+        SelectNavigationItem(item);
+    }
+
+    private void OnNavigationItemMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is NavigationViewItem item)
+        {
+            SelectNavigationItem(item);
+        }
+    }
+
+    private void SelectNavigationItem(NavigationViewItem item)
+    {
+        RootNavigation.SetCurrentValue(
+            System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
+            item);
+        ApplyNavigationItem(item);
+    }
+
+    private void ApplyNavigationItem(NavigationViewItem item)
+    {
+        if (!int.TryParse(item.Tag?.ToString(), out var index)
             || DataContext is not RootViewModel viewModel)
         {
             return;

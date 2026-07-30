@@ -3,6 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:s="https://github.com/canton7/Stylet"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:pages="clr-namespace:UmamusumeWpfGui.Views.Navigation"
                  Title="{DynamicResource WindowTitle}"
                  Width="1100"
                  Height="650"
@@ -21,6 +22,7 @@
                        Grid.Row="1"
                        IsBackButtonVisible="Collapsed"
                        IsPaneToggleVisible="False"
+                       ItemInvoked="OnNavigationItemInvoked"
                        SelectionChanged="OnNavigationSelectionChanged">
       <ui:NavigationView.Header>
         <ui:BreadcrumbBar Margin="42,32,0,0"
@@ -31,6 +33,9 @@
       <ui:NavigationView.MenuItems>
         <ui:NavigationViewItem Tag="0"
                                Content="{DynamicResource NavOverview}"
+                               Click="OnNavigationItemClick"
+                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
+                               TargetPageType="{x:Type pages:OverviewNavigationPage}"
                                NavigationCacheMode="Enabled">
           <ui:NavigationViewItem.Icon>
             <ui:SymbolIcon Symbol="Home24" />
@@ -38,6 +43,9 @@
         </ui:NavigationViewItem>
         <ui:NavigationViewItem Tag="1"
                                Content="{DynamicResource TabLog}"
+                               Click="OnNavigationItemClick"
+                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
+                               TargetPageType="{x:Type pages:LogNavigationPage}"
                                NavigationCacheMode="Enabled">
           <ui:NavigationViewItem.Icon>
             <ui:SymbolIcon Symbol="DataHistogram24" />
@@ -48,6 +56,9 @@
       <ui:NavigationView.FooterMenuItems>
         <ui:NavigationViewItem Tag="2"
                                Content="{DynamicResource TabSettings}"
+                               Click="OnNavigationItemClick"
+                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
+                               TargetPageType="{x:Type pages:SettingsNavigationPage}"
                                NavigationCacheMode="Disabled">
           <ui:NavigationViewItem.Icon>
             <ui:SymbolIcon Symbol="Settings24" />
