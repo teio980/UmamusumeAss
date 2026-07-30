@@ -15,10 +15,10 @@
   <sys:String x:Key="TabLog">日志</sys:String>
   <sys:String x:Key="TabSettings">设置</sys:String>
   <sys:String x:Key="NavOverview">概览</sys:String>
-  <sys:String x:Key="TabGrass">长草</sys:String>
+  <sys:String x:Key="TabHachimi">Hachimi~</sys:String>
 
   <!-- MAA 风格长草页面 -->
-  <sys:String x:Key="GrassTitle">长草</sys:String>
+  <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">任务队列</sys:String>
   <sys:String x:Key="GrassSettings">任务设置</sys:String>
   <sys:String x:Key="GrassLogs">活动日志</sys:String>
@@ -47,8 +47,6 @@
   <sys:String x:Key="GrassTaskCountSummary">已配置 {0} 项，启用 {1} 项</sys:String>
   <sys:String x:Key="GrassExecutionEnabled">任务执行功能已启用</sys:String>
   <sys:String x:Key="GrassExecutionFuture">任务执行功能将在后续版本接入</sys:String>
-  <sys:String x:Key="GrassCustomTaskName">自定义任务 {0}</sys:String>
-  <sys:String x:Key="GrassCustomTaskDescription">自定义任务设置（待接入）</sys:String>
   <sys:String x:Key="GrassTaskCopyName">{0} 副本</sys:String>
 
   <!-- Overview panel -->

@@ -15,10 +15,10 @@
   <sys:String x:Key="TabLog">Log</sys:String>
   <sys:String x:Key="TabSettings">Settings</sys:String>
   <sys:String x:Key="NavOverview">Overview</sys:String>
-  <sys:String x:Key="TabGrass">Grass</sys:String>
+  <sys:String x:Key="TabHachimi">Hachimi~</sys:String>
 
   <!-- MAA-inspired grass page -->
-  <sys:String x:Key="GrassTitle">Grass</sys:String>
+  <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
   <sys:String x:Key="GrassSettings">Task settings</sys:String>
   <sys:String x:Key="GrassLogs">Activity log</sys:String>
@@ -47,8 +47,6 @@
   <sys:String x:Key="GrassTaskCountSummary">Configured {0} tasks, {1} enabled</sys:String>
   <sys:String x:Key="GrassExecutionEnabled">Task execution is enabled</sys:String>
   <sys:String x:Key="GrassExecutionFuture">Task execution will be added in a later version</sys:String>
-  <sys:String x:Key="GrassCustomTaskName">Custom Task {0}</sys:String>
-  <sys:String x:Key="GrassCustomTaskDescription">Custom task settings (not connected)</sys:String>
   <sys:String x:Key="GrassTaskCopyName">{0} Copy</sys:String>
 
   <!-- Overview panel -->
