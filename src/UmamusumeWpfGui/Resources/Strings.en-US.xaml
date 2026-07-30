@@ -39,6 +39,7 @@
   <sys:String x:Key="GrassStopGame">Stop game</sys:String>
   <sys:String x:Key="GrassGameLaunchTitle">Game launch</sys:String>
   <sys:String x:Key="GrassGamePackageHint">Enter the Android package ID. The connected device must be ready.</sys:String>
+  <sys:String x:Key="GrassGameActivityHint">Optional Activity. Leave blank to resolve the package launcher automatically; use package/activity for a fixed MAA-style component.</sys:String>
   <sys:String x:Key="GrassGameStarting">Starting game</sys:String>
   <sys:String x:Key="GrassGameStopping">Stopping game</sys:String>
   <sys:String x:Key="GrassGameReady">Game launch is ready</sys:String>

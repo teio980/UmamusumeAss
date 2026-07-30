@@ -152,4 +152,6 @@
   <sys:String x:Key="StartupErrorTitle">初始化错误</sys:String>
   <sys:String x:Key="StartupErrorMessage">应用程序无法初始化核心组件。连接功能已禁用。</sys:String>
 
+  <sys:String x:Key="GrassGameActivityHint">可选 Activity。留空会自动解析应用入口；固定 MAA 组件时可填写 package/activity。</sys:String>
+
 </ResourceDictionary>
