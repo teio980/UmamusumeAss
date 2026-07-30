@@ -1,7 +1,45 @@
+# Project-specific
 MaaAssistantArknights/
 .omo/
 .codegraph/
+.worktrees/
+
+# Build output
 build/
 bin/
 obj/
-.worktrees/
+[Bb]uild/
+[Bb]in/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.sln.docstates
+
+# .NET
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Visual Studio
+.vs/
+*.csproj.user
+*.csproj.props
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.DotSettings
+
+# Temp / runner files
+tempCodeRunnerFile*
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
