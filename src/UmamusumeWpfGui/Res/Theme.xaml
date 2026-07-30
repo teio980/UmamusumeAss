@@ -4,6 +4,7 @@
   <ResourceDictionary.MergedDictionaries>
     <ui:ThemesDictionary Theme="Light" />
     <ui:ControlsDictionary />
+    <ResourceDictionary Source="Themes/Light.xaml" />
   </ResourceDictionary.MergedDictionaries>
 
   <!--
