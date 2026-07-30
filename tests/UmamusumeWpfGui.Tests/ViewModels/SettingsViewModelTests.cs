@@ -1142,6 +1142,31 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Connect_WhenEndpointResolutionFails_DoesNotReplaceDiagnosticWithAddressRequired()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        vm.DraftAutoDetect = true;
+        vm.DraftAdbPath = "";
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("MuMuEmulator12", @"C:\MuMu\nx_main\adb.exe")],
+            []);
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            [],
+            [new DiscoveryDiagnostic(
+                "ADB endpoint did not become ready",
+                UmamusumeWpfGui.Models.DiagnosticSeverity.Warning)]);
+
+        await vm.ConnectAsync();
+
+        Assert.Contains("ADB endpoint did not become ready", vm.StatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("A connection address is required", vm.StatusText, StringComparison.Ordinal);
+        Assert.Equal(0, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
     public async Task Connect_AutoDetectMuMuWithResolvedFallback_UsesVerifiedEndpoint()
     {
         var f = CreateFixture();

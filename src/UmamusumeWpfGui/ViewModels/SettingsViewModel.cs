@@ -550,6 +550,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         using var cts = new CancellationTokenSource();
         _connectCts = cts;
+        var discoverySucceeded = true;
 
         // ── Auto-detect phase ───────────────────────────────────
         if (DraftAutoDetect)
@@ -573,7 +574,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                     }
                     else
                     {
-                        await RunDiscoveryAsync(
+                        discoverySucceeded = await RunDiscoveryAsync(
                             preferCachedAdb: true,
                             allowAutoStart: true,
                             cancellationToken: cts.Token);
@@ -581,7 +582,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 }
                 else
                 {
-                    await RunDiscoveryAsync(
+                    discoverySucceeded = await RunDiscoveryAsync(
                         preferCachedAdb: true,
                         allowAutoStart: true,
                         cancellationToken: cts.Token);
@@ -589,7 +590,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             }
         }
 
-        if (cts.IsCancellationRequested)
+        if (cts.IsCancellationRequested || !discoverySucceeded)
         {
             _connectCts = null;
             return;
@@ -747,7 +748,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// optionally asks the user to pick when multiple are found, then runs
     /// adb devices on the selected candidate to find an eligible serial.
     /// </summary>
-    private async Task RunDiscoveryAsync(
+    private async Task<bool> RunDiscoveryAsync(
         bool preferCachedAdb = false,
         bool allowAutoStart = false,
         CancellationToken cancellationToken = default)
@@ -776,7 +777,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 {
                     DraftConnectAddress = cachedDevice.Serial;
                     _connectionState.SetState(ConnectionState.Disconnected);
-                    return;
+                    return true;
                 }
             }
 
@@ -793,7 +794,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 if (!await HandleAutoStartLaunchAsync(cancellationToken))
                 {
                     _connectionState.SetState(ConnectionState.Disconnected);
-                    return;
+                    return false;
                 }
 
                 discoveryResult = await RefreshAfterAutoStartAsync(cancellationToken)
@@ -807,7 +808,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             {
                 SetConnectionDiagnostic("No running emulator with a usable ADB executable was found.");
                 _connectionState.SetState(ConnectionState.Disconnected);
-                return;
+                return false;
             }
 
             // Select candidate — ask for user input when multiple, or auto-pick
@@ -823,7 +824,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 {
                     SetConnectionDiagnostic("Emulator selection was canceled.");
                     _connectionState.SetState(ConnectionState.Disconnected);
-                    return;
+                    return false;
                 }
                 selected = picked;
             }
@@ -852,7 +853,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                     if (!await HandleAutoStartLaunchAsync(cancellationToken))
                     {
                         _connectionState.SetState(ConnectionState.Disconnected);
-                        return;
+                        return false;
                     }
                 }
             }
@@ -873,7 +874,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 {
                     SetConnectionDiagnostic("Connection address selection was canceled.");
                     _connectionState.SetState(ConnectionState.Disconnected);
-                    return;
+                    return false;
                 }
 
                 DraftConnectAddress = address;
@@ -892,19 +893,24 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 SetConnectionDiagnostic(string.IsNullOrEmpty(details)
                     ? $"No usable {selected.EmulatorName} connection endpoint was found."
                     : $"No usable {selected.EmulatorName} connection endpoint was found: {details}");
+                _connectionState.SetState(ConnectionState.Disconnected);
+                return false;
             }
 
             _connectionState.SetState(ConnectionState.Disconnected);
+            return true;
         }
         catch (OperationCanceledException)
         {
             _connectionState.SetState(ConnectionState.Disconnected);
             SetConnectionDiagnostic("Connection canceled.");
+            return false;
         }
         catch (Exception exception)
         {
             SetConnectionDiagnostic($"Emulator discovery failed: {exception.Message}");
             _connectionState.SetState(ConnectionState.Disconnected);
+            return false;
         }
     }
 
