@@ -192,7 +192,21 @@ public sealed class UmaService : IUmaService
             _activeOperation = operation;
         }
 
-        operation.Buffer.Bind(start.OperationId);
+        try
+        {
+            operation.Buffer.Bind(start.OperationId);
+        }
+        catch (Exception exception)
+        {
+            FailOperation(
+                operation,
+                new ManagedBridgeException(
+                    DiagnosticCategory.NativeContractViolation,
+                    operation.OperationId,
+                    "The native callback buffer could not be bound.",
+                    exception));
+            return operation.Completion.Task;
+        }
         lock (_operationLock)
         {
             if (ReferenceEquals(_startingOperation, operation))
