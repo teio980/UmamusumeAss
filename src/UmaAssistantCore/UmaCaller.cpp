@@ -1,6 +1,7 @@
 #include "UmaAssistant/UmaCaller.h"
 
 #include "CoreHandle.hpp"
+#include "Core.hpp"
 #include "CoreRuntime.hpp"
 
 #include <string>
@@ -20,7 +21,7 @@ UMA_API_PORT char const* UMA_CALL UmaGetVersion(void)
 {
     try
     {
-        return "0.1.0";
+        return UmaAssistant::core_version();
     }
     catch (...)
     {

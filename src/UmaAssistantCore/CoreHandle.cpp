@@ -170,8 +170,16 @@ void run_connect(
 
 UmaHandle create_handle(UmaApiCallback callback, void* custom_arg)
 {
-    auto profile = CoreRuntime::instance().profile();
-    if (callback == nullptr || profile == nullptr) return nullptr;
+    auto& runtime = CoreRuntime::instance();
+    if (callback == nullptr
+        || runtime.user_dir().empty()
+        || !runtime.is_resource_loaded())
+    {
+        return nullptr;
+    }
+
+    auto profile = runtime.profile();
+    if (profile == nullptr) return nullptr;
     return new UmaHandleImpl{
         .callback = callback,
         .custom_arg = custom_arg,

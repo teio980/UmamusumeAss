@@ -28,6 +28,9 @@ public:
     /// Stores a user directory path.  Returns true.
     bool set_user_dir(std::string const& path);
 
+    /// Returns the configured user directory, or an empty string before setup.
+    std::string user_dir() const;
+
     /// Loads resource/connection.json from <base_path>/resource/.
     /// Returns true on success, false on failure.
     bool load_resource(std::string const& base_path);

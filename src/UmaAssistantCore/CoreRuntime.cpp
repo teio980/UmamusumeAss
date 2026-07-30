@@ -26,6 +26,12 @@ bool CoreRuntime::set_user_dir(std::string const& path)
     return true;
 }
 
+std::string CoreRuntime::user_dir() const
+{
+    std::lock_guard lock(mutex_);
+    return user_dir_;
+}
+
 bool CoreRuntime::load_resource(std::string const& base_path)
 {
     // Build path: <base_path>/resource/connection.json
