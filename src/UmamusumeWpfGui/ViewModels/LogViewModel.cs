@@ -36,6 +36,21 @@ public sealed class LogViewModel : IDisposable
     public ObservableCollection<LogEntry> Entries => _entries;
 
     /// <summary>
+    /// Adds a GUI-owned event such as Hachimi game launch feedback to the
+    /// shared activity log. Core callback handling and the local path use the
+    /// same capped collection.
+    /// </summary>
+    public void AddLocal(string type, string details, LogEntryKind kind = LogEntryKind.Info)
+    {
+        if (_disposed)
+            return;
+
+        _entries.Add(new LogEntry(DateTimeOffset.UtcNow, type, details, kind));
+        if (_entries.Count > 500)
+            _entries.RemoveAt(0);
+    }
+
+    /// <summary>
     /// Disposes the ViewModel and unsubscribes from the service.
     /// Idempotent — safe to call multiple times.
     /// </summary>

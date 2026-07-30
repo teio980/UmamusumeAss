@@ -11,7 +11,7 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
     private readonly OverviewViewModel _overviewViewModel;
     private readonly GrassViewModel _grassViewModel;
     private bool _disposed;
-    private int _selectedNavigationIndex;
+    private int _selectedNavigationIndex = 3;
 
     /// <summary>
     /// Creates the RootViewModel with child view models injected via DI.
@@ -42,7 +42,7 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
             new("TabLog", 1),
             new("TabSettings", 2),
         ];
-        ActiveContent = _overviewViewModel;
+        ActiveContent = _grassViewModel;
     }
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
