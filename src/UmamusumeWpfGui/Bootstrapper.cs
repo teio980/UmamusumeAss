@@ -54,6 +54,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .InSingletonScope();
 
         builder.Bind<LogViewModel>().ToSelf().InSingletonScope();
+        builder.Bind<IGrassTaskCatalog>()
+            .To<GrassTaskCatalog>()
+            .InSingletonScope();
         builder.Bind<GrassViewModel>().ToSelf().InSingletonScope();
         builder.Bind<OverviewViewModel>().ToSelf();
         builder.Bind<SettingsViewModel>().ToSelf();
