@@ -858,6 +858,27 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 }
             }
 
+            // Starting an emulator is asynchronous.  A running emulator
+            // process is not the same thing as a ready ADB endpoint: MuMu
+            // can take several seconds to publish its device after the
+            // launch command returns.  Waiting only for the process above
+            // caused Connect to probe the fallback ports too early and then
+            // fail, even though `adb devices` became ready moments later.
+            // Honor the configured startup window by polling the selected
+            // ADB server before falling back to endpoint probing.
+            if (autoStartAttempted)
+            {
+                var readyDevice = await WaitForAutoStartAdbDeviceAsync(
+                    selected.AdbPath!,
+                    cancellationToken).ConfigureAwait(true);
+                if (readyDevice is not null)
+                {
+                    DraftConnectAddress = readyDevice;
+                    _connectionState.SetState(ConnectionState.Disconnected);
+                    return true;
+                }
+            }
+
             var resolution = await _winAdapter.ResolveEndpointsAsync(
                 selected.AdbPath!,
                 selected.EmulatorName,

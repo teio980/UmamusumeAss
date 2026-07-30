@@ -964,6 +964,36 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Connect_AutoStart_WhenExistingProcessBecomesAdbReady_WaitsAndConnects()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuManager.exe control --vmindex 0 launch",
+            AutoStartEmulatorWaitSeconds = 0,
+        });
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "127.0.0.1:16384", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("MuMuEmulator12", @"C:\MuMu\nx_main\adb.exe")],
+            []);
+        f.WinAdapter.DevicesResults.Enqueue(new AdbDevicesResult([], []));
+        f.WinAdapter.DevicesResults.Enqueue(new AdbDevicesResult(
+            [new AdbDeviceRecord("127.0.0.1:16384", "device")],
+            []));
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(@"C:\MuMu\MuMuManager.exe control --vmindex 0 launch", f.EmulatorLauncher.StartedPath);
+        Assert.Equal("127.0.0.1:16384", vm.DraftConnectAddress);
+        Assert.Equal(1, f.UmaService.ConnectCallCount);
+    }
+
+    [Fact]
     public async Task Connect_AutoStart_WithZeroWait_PerformsOneImmediateRediscoveryPass()
     {
         var f = CreateFixture();
@@ -2098,6 +2128,7 @@ public sealed class SettingsViewModelTests
         public int RefreshCallCount { get; private set; }
         public int DevicesCallCount { get; private set; }
         public Queue<DiscoveryResult> DiscoveryResults { get; } = new();
+        public Queue<AdbDevicesResult> DevicesResults { get; } = new();
 
         public FakeWinAdapter()
         {
@@ -2118,6 +2149,8 @@ public sealed class SettingsViewModelTests
         public AdbDevicesResult GetAdbDevices(string adbPath)
         {
             DevicesCallCount++;
+            if (DevicesResults.Count > 0)
+                return DevicesResults.Dequeue();
             return NextDevicesResult ?? new AdbDevicesResult([], []);
         }
 

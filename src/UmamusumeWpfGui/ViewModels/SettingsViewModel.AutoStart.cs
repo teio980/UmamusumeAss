@@ -79,4 +79,47 @@ public sealed partial class SettingsViewModel
 
         return result;
     }
+
+    /// <summary>
+    /// Waits for the ADB server selected during discovery to expose a ready
+    /// device after an emulator launch.  Process discovery alone is not a
+    /// readiness signal; the emulator may still be booting its ADB endpoint.
+    /// </summary>
+    private async Task<string?> WaitForAutoStartAdbDeviceAsync(
+        string adbPath,
+        CancellationToken cancellationToken)
+    {
+        var pollCount = (int)Math.Clamp(
+            (long)DraftAutoStartEmulatorWaitSeconds * 1000
+                / (long)AutoStartDiscoveryPollInterval.TotalMilliseconds + 1,
+            1,
+            int.MaxValue);
+
+        SetConnectionDiagnostic("Waiting for emulator ADB device...");
+
+        for (var poll = 0; poll < pollCount; poll++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var devices = await _winAdapter.GetAdbDevicesAsync(
+                adbPath,
+                cancellationToken).ConfigureAwait(true);
+            var readyDevice = devices.Records.FirstOrDefault(
+                device => string.Equals(
+                    device.State,
+                    "device",
+                    StringComparison.OrdinalIgnoreCase));
+            if (readyDevice is not null)
+                return readyDevice.Serial;
+
+            if (poll < pollCount - 1)
+            {
+                await _asyncDelay.DelayAsync(
+                    AutoStartDiscoveryPollInterval,
+                    cancellationToken).ConfigureAwait(true);
+            }
+        }
+
+        return null;
+    }
 }
