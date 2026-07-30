@@ -19,6 +19,8 @@
 
     <ui:NavigationView x:Name="RootNavigation"
                        Grid.Row="1"
+                       IsBackButtonVisible="Collapsed"
+                       IsPaneToggleVisible="False"
                        SelectionChanged="OnNavigationSelectionChanged">
       <ui:NavigationView.Header>
         <ui:BreadcrumbBar Margin="42,32,0,0"
