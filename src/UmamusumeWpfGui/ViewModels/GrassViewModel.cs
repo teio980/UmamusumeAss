@@ -1,35 +1,46 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.ViewModels;
 
 /// <summary>
-/// MAA-inspired grass/task page state.
-/// This phase owns queue editing and presentation only; no game launch or task
-/// execution is wired yet.
+/// Generic MAA-style task queue coordinator.
+/// Task-specific settings and execution belong to IGrassTaskModule instances.
 /// </summary>
 public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly LogViewModel _logViewModel;
     private readonly ILocalizationService _localizationService;
     private readonly IGrassTaskCatalog _taskCatalog;
-    private readonly Dictionary<GrassTaskItemViewModel, GrassTaskDefinition> _taskDefinitions = [];
+    private readonly IConnectionStateService? _connectionState;
     private GrassTaskItemViewModel? _selectedTask;
-    private Func<IReadOnlyList<GrassTaskDefinition>, GrassTaskDefinition?>? _requestTaskSelection;
+    private GrassTaskItemViewModel? _runningTask;
+    private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
     private bool _isAdvancedSettings;
-    private readonly bool _executionImplemented;
+    private bool _isQueueOperationInProgress;
+    private bool _isQueueRunning;
+    private CancellationTokenSource? _queueOperationCts;
     private bool _disposed;
 
     public GrassViewModel(
         LogViewModel logViewModel,
         ILocalizationService localizationService,
         IGrassTaskCatalog taskCatalog)
+        : this(logViewModel, localizationService, taskCatalog, null)
+    {
+    }
+
+    public GrassViewModel(
+        LogViewModel logViewModel,
+        ILocalizationService localizationService,
+        IGrassTaskCatalog taskCatalog,
+        IConnectionStateService? connectionState)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -37,10 +48,12 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         _logViewModel = logViewModel;
         _localizationService = localizationService;
         _taskCatalog = taskCatalog;
-        _executionImplemented = false;
+        _connectionState = connectionState;
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
+        if (_connectionState is not null)
+            _connectionState.StateChanged += OnConnectionStateChanged;
         RefreshLocalizedText();
 
         AddTaskCommand = new RelayCommand(_ => AddTask(), _ => CanAddTask);
@@ -48,8 +61,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         CopyTaskCommand = new RelayCommand(_ => CopySelectedTask(), _ => SelectedTask is not null);
         SelectAllCommand = new RelayCommand(_ => SetAllTasks(true));
         InvertSelectionCommand = new RelayCommand(_ => InvertTaskSelection());
-        StartCommand = new RelayCommand(_ => { }, _ => false);
-        StopCommand = new RelayCommand(_ => { }, _ => false);
+        StartCommand = new RelayCommand(_ => _ = StartQueueAsync(), _ => CanStartQueue);
+        StopCommand = new RelayCommand(_ => _ = StopQueueAsync(), _ => CanStopQueue);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -77,26 +90,77 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     public string SelectedTaskTitle => SelectedTask?.Name
         ?? Localize("GrassNoTaskSelected", "No task selected");
 
-    public string SelectedTaskDescription =>
-        SelectedTask?.Description
+    public string SelectedTaskDescription => SelectedTask?.Description
         ?? Localize("GrassSelectTaskHint", "Select a task on the left to view its settings");
 
-    public string TaskCountSummary =>
-        string.Format(
-            CultureInfo.InvariantCulture,
-            Localize("GrassTaskCountSummary", "Configured {0} tasks, {1} enabled"),
-            Tasks.Count,
-            Tasks.Count(task => task.IsEnabled));
+    public string TaskCountSummary => string.Format(
+        CultureInfo.InvariantCulture,
+        Localize("GrassTaskCountSummary", "Configured {0} tasks, {1} enabled"),
+        Tasks.Count,
+        Tasks.Count(task => task.IsEnabled));
 
-    public string PageStatus => _executionImplemented
-        ? Localize("GrassExecutionEnabled", "Task execution is enabled")
-        : Localize("GrassExecutionFuture", "Task execution will be added in a later version");
+    public bool IsConnected =>
+        _connectionState?.State == ConnectionState.Connected
+        && _connectionState.LastVerifiedConnection is not null;
+
+    public bool IsQueueOperationInProgress
+    {
+        get => _isQueueOperationInProgress;
+        private set
+        {
+            if (_isQueueOperationInProgress == value)
+                return;
+            _isQueueOperationInProgress = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PageStatus));
+            RaiseQueueCommandStateChanged();
+        }
+    }
+
+    public bool IsQueueRunning
+    {
+        get => _isQueueRunning;
+        private set
+        {
+            if (_isQueueRunning == value)
+                return;
+            _isQueueRunning = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PageStatus));
+            RaiseQueueCommandStateChanged();
+        }
+    }
+
+    public string PageStatus => _connectionState is null
+        ? Localize("GrassExecutionFuture", "Task execution will be added in a later version")
+        : IsQueueOperationInProgress
+            ? Localize("GrassGameStarting", "Starting queue")
+            : IsQueueRunning
+                ? Localize("GrassGameRunning", "Queue is running")
+                : IsConnected
+                    ? Localize("GrassGameReady", "Queue is ready")
+                    : Localize(
+                        "GrassGameConnectionRequired",
+                        "Connect a device in Settings to start the queue");
+
+    public bool CanStartQueue =>
+        _connectionState is not null
+        && IsConnected
+        && !IsQueueOperationInProgress
+        && !IsQueueRunning
+        && Tasks.Any(task => task.IsEnabled && task.Module.CanExecute(CurrentContext));
+
+    public bool CanStopQueue =>
+        _connectionState is not null
+        && IsConnected
+        && !IsQueueOperationInProgress
+        && IsQueueRunning
+        && _runningTask is not null;
 
     /// <summary>
-    /// Task picker seam for the future Add flow. It remains null in this phase,
-    /// so Add is disabled and cannot create placeholder/custom tasks.
+    /// Future UI task picker seam. With one module, Add uses it directly.
     /// </summary>
-    public Func<IReadOnlyList<GrassTaskDefinition>, GrassTaskDefinition?>? RequestTaskSelection
+    public Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? RequestTaskSelection
     {
         get => _requestTaskSelection;
         set
@@ -109,7 +173,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public bool CanAddTask => _requestTaskSelection is not null && _taskCatalog.Definitions.Count > 0;
+    public bool CanAddTask =>
+        _taskCatalog.Modules.Count == 1
+        || (_requestTaskSelection is not null && _taskCatalog.Modules.Count > 0);
 
     public bool IsAdvancedSettings
     {
@@ -149,25 +215,37 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
             return;
         _disposed = true;
         _localizationService.LanguageChanged -= OnLanguageChanged;
+        if (_connectionState is not null)
+            _connectionState.StateChanged -= OnConnectionStateChanged;
+        _queueOperationCts?.Cancel();
+        _queueOperationCts?.Dispose();
+        _queueOperationCts = null;
         foreach (var task in Tasks)
             task.PropertyChanged -= OnTaskPropertyChanged;
     }
+
+    private GrassTaskExecutionContext CurrentContext =>
+        new(_connectionState?.LastVerifiedConnection);
 
     private void AddTask()
     {
         if (!CanAddTask)
             return;
 
-        var definition = _requestTaskSelection!(_taskCatalog.Definitions);
-        if (definition is null)
+        var prototype = _requestTaskSelection is not null
+            ? _requestTaskSelection(_taskCatalog.Modules)
+            : _taskCatalog.Modules.Count == 1
+                ? _taskCatalog.Modules[0]
+                : null;
+        if (prototype is null)
             return;
 
-        var item = CreateTaskItem(definition);
-        _taskDefinitions[item] = definition;
+        var item = CreateTaskItem(prototype.CreateInstance());
         item.PropertyChanged += OnTaskPropertyChanged;
         Tasks.Add(item);
         SelectedTask = item;
         NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
     }
 
     private void RemoveSelectedTask()
@@ -177,10 +255,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
         var index = Tasks.IndexOf(SelectedTask);
         SelectedTask.PropertyChanged -= OnTaskPropertyChanged;
-        _taskDefinitions.Remove(SelectedTask);
         Tasks.Remove(SelectedTask);
         SelectedTask = Tasks.ElementAtOrDefault(Math.Max(0, index - 1));
         NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
     }
 
     private void CopySelectedTask()
@@ -188,20 +266,14 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedTask is null)
             return;
 
-        var copy = new GrassTaskItemViewModel(
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassTaskCopyName", "{0} Copy"),
-                SelectedTask.Name),
-            SelectedTask.Description,
-            SelectedTask.IsEnabled);
-        if (_taskDefinitions.TryGetValue(SelectedTask, out var definition))
-            _taskDefinitions[copy] = definition;
+        var copy = CreateTaskItem(SelectedTask.Module.CreateInstance());
+        copy.IsEnabled = SelectedTask.IsEnabled;
         copy.PropertyChanged += OnTaskPropertyChanged;
         var index = Tasks.IndexOf(SelectedTask);
         Tasks.Insert(index + 1, copy);
         SelectedTask = copy;
         NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
     }
 
     private void SetAllTasks(bool enabled)
@@ -209,6 +281,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         foreach (var task in Tasks)
             task.IsEnabled = enabled;
         NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
     }
 
     private void InvertTaskSelection()
@@ -216,6 +289,115 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         foreach (var task in Tasks)
             task.IsEnabled = !task.IsEnabled;
         NotifyTaskSummaryChanged();
+        RaiseQueueCommandStateChanged();
+    }
+
+    private async Task StartQueueAsync()
+    {
+        if (!CanStartQueue)
+            return;
+
+        var context = CurrentContext;
+        var queuedTasks = Tasks.Where(task => task.IsEnabled).ToList();
+        IsQueueOperationInProgress = true;
+        _queueOperationCts?.Dispose();
+        _queueOperationCts = new CancellationTokenSource();
+
+        try
+        {
+            foreach (var task in queuedTasks)
+            {
+                if (!task.Module.CanExecute(context))
+                {
+                    task.Status = Localize("GrassTaskError", "Error");
+                    continue;
+                }
+
+                _runningTask = task;
+                task.Status = Localize("GrassTaskRunning", "Running");
+                var result = await task.Module.ExecuteAsync(
+                    context,
+                    _queueOperationCts.Token).ConfigureAwait(true);
+                task.Status = result.Succeeded
+                    ? Localize("GrassTaskCompleted", "Completed")
+                    : Localize("GrassTaskError", "Error");
+                _logViewModel.AddLocal(
+                    task.Name,
+                    result.Message,
+                    result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
+
+                if (!result.Succeeded)
+                    break;
+
+                IsQueueRunning = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (_runningTask is not null)
+                _runningTask.Status = Localize("GrassTaskIdle", "Idle");
+        }
+        catch (Exception exception)
+        {
+            if (_runningTask is not null)
+                _runningTask.Status = Localize("GrassTaskError", "Error");
+            _logViewModel.AddLocal(
+                Localize("GrassLogs", "Activity log"),
+                exception.Message,
+                LogEntryKind.Failure);
+        }
+        finally
+        {
+            IsQueueOperationInProgress = false;
+            RaiseQueueCommandStateChanged();
+        }
+    }
+
+    private async Task StopQueueAsync()
+    {
+        var runningTask = _runningTask;
+        if (!CanStopQueue || runningTask is null)
+            return;
+
+        IsQueueOperationInProgress = true;
+        _queueOperationCts?.Dispose();
+        _queueOperationCts = new CancellationTokenSource();
+        try
+        {
+            var result = await runningTask.Module.StopAsync(
+                CurrentContext,
+                _queueOperationCts.Token).ConfigureAwait(true);
+            _logViewModel.AddLocal(
+                runningTask.Name,
+                result.Message,
+                result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
+            if (result.Succeeded)
+            {
+                runningTask.Status = Localize("GrassTaskCompleted", "Completed");
+                IsQueueRunning = false;
+                _runningTask = null;
+            }
+            else
+            {
+                runningTask.Status = Localize("GrassTaskError", "Error");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The task remains marked as running so the user can retry Stop.
+        }
+        catch (Exception exception)
+        {
+            _logViewModel.AddLocal(
+                runningTask.Name,
+                exception.Message,
+                LogEntryKind.Failure);
+        }
+        finally
+        {
+            IsQueueOperationInProgress = false;
+            RaiseQueueCommandStateChanged();
+        }
     }
 
     private void NotifyTaskSummaryChanged() => OnPropertyChanged(nameof(TaskCountSummary));
@@ -223,7 +405,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     private void OnTaskPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(GrassTaskItemViewModel.IsEnabled))
+        {
             NotifyTaskSummaryChanged();
+            RaiseQueueCommandStateChanged();
+        }
     }
 
     private void OnLanguageChanged(object? sender, string culture)
@@ -235,23 +420,48 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(PageStatus));
     }
 
+    private void OnConnectionStateChanged(object? sender, EventArgs e)
+    {
+        if (_disposed)
+            return;
+        if (!IsConnected)
+        {
+            IsQueueRunning = false;
+            _runningTask = null;
+        }
+        OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(PageStatus));
+        RaiseQueueCommandStateChanged();
+    }
+
+    private void RaiseQueueCommandStateChanged()
+    {
+        if (StartCommand is RelayCommand start)
+            start.RaiseCanExecuteChanged();
+        if (StopCommand is RelayCommand stop)
+            stop.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(CanStartQueue));
+        OnPropertyChanged(nameof(CanStopQueue));
+    }
+
     private void RefreshLocalizedText()
     {
-        foreach (var (task, definition) in _taskDefinitions)
+        foreach (var task in Tasks)
         {
+            var definition = task.Module.Definition;
             task.UpdateText(
                 Localize(definition.NameResourceKey, definition.FallbackName),
                 Localize(definition.DescriptionResourceKey, definition.FallbackDescription));
-            task.Status = Localize("GrassTaskIdle", "Idle");
         }
     }
 
-    private GrassTaskItemViewModel CreateTaskItem(GrassTaskDefinition definition)
+    private GrassTaskItemViewModel CreateTaskItem(IGrassTaskModule module)
     {
-        var item = new GrassTaskItemViewModel(
+        var definition = module.Definition;
+        var item = new GrassTaskItemViewModel(module, definition.IsEnabledByDefault);
+        item.UpdateText(
             Localize(definition.NameResourceKey, definition.FallbackName),
-            Localize(definition.DescriptionResourceKey, definition.FallbackDescription),
-            definition.IsEnabledByDefault);
+            Localize(definition.DescriptionResourceKey, definition.FallbackDescription));
         item.Status = Localize("GrassTaskIdle", "Idle");
         return item;
     }
