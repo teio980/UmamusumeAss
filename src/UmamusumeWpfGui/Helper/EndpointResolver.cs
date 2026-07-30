@@ -61,6 +61,15 @@ internal sealed class EndpointResolver
                 continue;
             }
 
+            var connectOutput = $"{connect.Stdout}\n{connect.Stderr}";
+            if (!ReportsConnected(connectOutput))
+            {
+                diagnostics.Add(new DiscoveryDiagnostic(
+                    $"ADB 'connect {endpoint}' did not report a successful connection",
+                    DiagnosticSeverity.Warning));
+                continue;
+            }
+
             var state = _adbRunner.Run(adbPath, ["-s", endpoint, "get-state"]);
             AddCommandDiagnostic(state, $"get-state {endpoint}", diagnostics);
             if (state.Error is null && !state.TimedOut && state.ExitCode == 0 && state.Stdout.Trim() == "device")
@@ -165,8 +174,7 @@ internal sealed class EndpointResolver
         result.Error is null && !result.TimedOut && result.ExitCode == 0;
 
     private static bool ReportsConnected(string output) =>
-        output.Contains("connected to ", StringComparison.OrdinalIgnoreCase)
-        || output.Contains("already connected", StringComparison.OrdinalIgnoreCase);
+        output.Contains("connected", StringComparison.OrdinalIgnoreCase);
 
     private static TimeSpan NonNegative(TimeSpan value) =>
         value < TimeSpan.Zero ? TimeSpan.Zero : value;
@@ -202,8 +210,8 @@ internal sealed class EndpointResolver
     {
         foreach (var rawLine in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var line = rawLine.TrimEnd('\r');
-            if (line.StartsWith("List of devices", StringComparison.Ordinal))
+            var line = rawLine.Trim().TrimEnd('\r');
+            if (line.Equals("List of devices attached", StringComparison.Ordinal))
             {
                 continue;
             }
