@@ -18,34 +18,32 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly LogViewModel _logViewModel;
     private readonly ILocalizationService _localizationService;
+    private readonly IGrassTaskCatalog _taskCatalog;
+    private readonly Dictionary<GrassTaskItemViewModel, GrassTaskDefinition> _taskDefinitions = [];
     private GrassTaskItemViewModel? _selectedTask;
+    private Func<IReadOnlyList<GrassTaskDefinition>, GrassTaskDefinition?>? _requestTaskSelection;
     private bool _isAdvancedSettings;
     private readonly bool _executionImplemented;
     private bool _disposed;
 
     public GrassViewModel(
         LogViewModel logViewModel,
-        ILocalizationService localizationService)
+        ILocalizationService localizationService,
+        IGrassTaskCatalog taskCatalog)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
+        ArgumentNullException.ThrowIfNull(taskCatalog);
         _logViewModel = logViewModel;
         _localizationService = localizationService;
+        _taskCatalog = taskCatalog;
         _executionImplemented = false;
 
-        Tasks =
-        [
-            new("Daily Training", "Training plan and daily development flow (not connected)"),
-            new("Rewards Collection", "Collect available rewards (not connected)"),
-            new("Friends & Shop", "Friend interactions and shop checks (not connected)"),
-        ];
-        foreach (var task in Tasks)
-            task.PropertyChanged += OnTaskPropertyChanged;
-        _selectedTask = Tasks[0];
+        Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
         RefreshLocalizedText();
 
-        AddTaskCommand = new RelayCommand(_ => AddTask());
+        AddTaskCommand = new RelayCommand(_ => AddTask(), _ => CanAddTask);
         RemoveTaskCommand = new RelayCommand(_ => RemoveSelectedTask(), _ => SelectedTask is not null);
         CopyTaskCommand = new RelayCommand(_ => CopySelectedTask(), _ => SelectedTask is not null);
         SelectAllCommand = new RelayCommand(_ => SetAllTasks(true));
@@ -94,6 +92,25 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         ? Localize("GrassExecutionEnabled", "Task execution is enabled")
         : Localize("GrassExecutionFuture", "Task execution will be added in a later version");
 
+    /// <summary>
+    /// Task picker seam for the future Add flow. It remains null in this phase,
+    /// so Add is disabled and cannot create placeholder/custom tasks.
+    /// </summary>
+    public Func<IReadOnlyList<GrassTaskDefinition>, GrassTaskDefinition?>? RequestTaskSelection
+    {
+        get => _requestTaskSelection;
+        set
+        {
+            if (ReferenceEquals(_requestTaskSelection, value))
+                return;
+            _requestTaskSelection = value;
+            OnPropertyChanged();
+            ((RelayCommand)AddTaskCommand).RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool CanAddTask => _requestTaskSelection is not null && _taskCatalog.Definitions.Count > 0;
+
     public bool IsAdvancedSettings
     {
         get => _isAdvancedSettings;
@@ -138,12 +155,15 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
     private void AddTask()
     {
-        var item = new GrassTaskItemViewModel(
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassCustomTaskName", "Custom Task {0}"),
-                Tasks.Count + 1),
-            Localize("GrassCustomTaskDescription", "Custom task settings (not connected)"));
+        if (!CanAddTask)
+            return;
+
+        var definition = _requestTaskSelection!(_taskCatalog.Definitions);
+        if (definition is null)
+            return;
+
+        var item = CreateTaskItem(definition);
+        _taskDefinitions[item] = definition;
         item.PropertyChanged += OnTaskPropertyChanged;
         Tasks.Add(item);
         SelectedTask = item;
@@ -157,6 +177,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
         var index = Tasks.IndexOf(SelectedTask);
         SelectedTask.PropertyChanged -= OnTaskPropertyChanged;
+        _taskDefinitions.Remove(SelectedTask);
         Tasks.Remove(SelectedTask);
         SelectedTask = Tasks.ElementAtOrDefault(Math.Max(0, index - 1));
         NotifyTaskSummaryChanged();
@@ -174,6 +195,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
                 SelectedTask.Name),
             SelectedTask.Description,
             SelectedTask.IsEnabled);
+        if (_taskDefinitions.TryGetValue(SelectedTask, out var definition))
+            _taskDefinitions[copy] = definition;
         copy.PropertyChanged += OnTaskPropertyChanged;
         var index = Tasks.IndexOf(SelectedTask);
         Tasks.Insert(index + 1, copy);
@@ -214,21 +237,23 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshLocalizedText()
     {
-        var definitions = new[]
+        foreach (var (task, definition) in _taskDefinitions)
         {
-            ("GrassTaskDailyTraining", "GrassTaskDailyTrainingDescription", "Daily Training", "Training plan and daily development flow (not connected)"),
-            ("GrassTaskRewardsCollection", "GrassTaskRewardsCollectionDescription", "Rewards Collection", "Collect available rewards (not connected)"),
-            ("GrassTaskFriendsShop", "GrassTaskFriendsShopDescription", "Friends & Shop", "Friend interactions and shop checks (not connected)"),
-        };
-
-        for (var index = 0; index < definitions.Length && index < Tasks.Count; index++)
-        {
-            var definition = definitions[index];
-            Tasks[index].UpdateText(
-                Localize(definition.Item1, definition.Item3),
-                Localize(definition.Item2, definition.Item4));
-            Tasks[index].Status = Localize("GrassTaskIdle", "Idle");
+            task.UpdateText(
+                Localize(definition.NameResourceKey, definition.FallbackName),
+                Localize(definition.DescriptionResourceKey, definition.FallbackDescription));
+            task.Status = Localize("GrassTaskIdle", "Idle");
         }
+    }
+
+    private GrassTaskItemViewModel CreateTaskItem(GrassTaskDefinition definition)
+    {
+        var item = new GrassTaskItemViewModel(
+            Localize(definition.NameResourceKey, definition.FallbackName),
+            Localize(definition.DescriptionResourceKey, definition.FallbackDescription),
+            definition.IsEnabledByDefault);
+        item.Status = Localize("GrassTaskIdle", "Idle");
+        return item;
     }
 
     private string Localize(string key, string fallback)

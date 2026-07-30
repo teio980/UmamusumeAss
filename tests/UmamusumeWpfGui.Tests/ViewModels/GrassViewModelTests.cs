@@ -10,39 +10,71 @@ public sealed class GrassViewModelTests
     public void InitializesQueueAndKeepsExecutionCommandsDisabled()
     {
         using var log = new LogViewModel(new FakeUmaService());
-        using var viewModel = new GrassViewModel(log, new FakeLocalizationService());
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            new GrassTaskCatalog());
 
-        Assert.Equal(3, viewModel.Tasks.Count);
-        Assert.Same(viewModel.Tasks[0], viewModel.SelectedTask);
+        Assert.Empty(viewModel.Tasks);
+        Assert.Null(viewModel.SelectedTask);
+        Assert.False(viewModel.CanAddTask);
         Assert.False(viewModel.StartCommand.CanExecute(null));
         Assert.False(viewModel.StopCommand.CanExecute(null));
     }
 
     [Fact]
-    public void QueueCommandsUpdateSelectionAndSummary()
+    public void AddDoesNotCreatePlaceholderTaskWhenNoModuleIsRegistered()
     {
         using var log = new LogViewModel(new FakeUmaService());
-        using var viewModel = new GrassViewModel(log, new FakeLocalizationService());
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            new GrassTaskCatalog());
 
+        viewModel.AddTaskCommand.Execute(null);
+
+        Assert.Empty(viewModel.Tasks);
+        Assert.Null(viewModel.SelectedTask);
+    }
+
+    [Fact]
+    public void QueueCommandsUpdateSelectionAndSummaryForRegisteredModule()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var catalog = new GrassTaskCatalog();
+        catalog.Register(new GrassTaskDefinition(
+            "daily-training",
+            "GrassTaskDailyTraining",
+            "GrassTaskDailyTrainingDescription",
+            "Daily Training",
+            "Training plan and daily development flow (not connected)"));
+        using var viewModel = new GrassViewModel(log, new FakeLocalizationService(), catalog);
+        viewModel.RequestTaskSelection = definitions => definitions[0];
+
+        viewModel.AddTaskCommand.Execute(null);
         var original = viewModel.SelectedTask;
+        Assert.Single(viewModel.Tasks);
         viewModel.CopyTaskCommand.Execute(null);
 
-        Assert.Equal(4, viewModel.Tasks.Count);
+        Assert.Equal(2, viewModel.Tasks.Count);
         Assert.NotSame(original, viewModel.SelectedTask);
-        Assert.Contains("4 enabled", viewModel.TaskCountSummary);
+        Assert.Contains("2 enabled", viewModel.TaskCountSummary);
 
         viewModel.SelectedTask!.IsEnabled = false;
-        Assert.Contains("3 enabled", viewModel.TaskCountSummary);
+        Assert.Contains("1 enabled", viewModel.TaskCountSummary);
 
         viewModel.RemoveTaskCommand.Execute(null);
-        Assert.Equal(3, viewModel.Tasks.Count);
+        Assert.Single(viewModel.Tasks);
     }
 
     [Fact]
     public void InvertCommandTogglesAllTaskSelections()
     {
         using var log = new LogViewModel(new FakeUmaService());
-        using var viewModel = new GrassViewModel(log, new FakeLocalizationService());
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            new GrassTaskCatalog());
 
         viewModel.InvertSelectionCommand.Execute(null);
 
@@ -56,7 +88,16 @@ public sealed class GrassViewModelTests
         using var log = new LogViewModel(new FakeUmaService());
         var localization = new FakeLocalizationService();
         localization.Values["GrassTaskDailyTraining"] = "Daily Training";
-        using var viewModel = new GrassViewModel(log, localization);
+        var catalog = new GrassTaskCatalog();
+        catalog.Register(new GrassTaskDefinition(
+            "daily-training",
+            "GrassTaskDailyTraining",
+            "GrassTaskDailyTrainingDescription",
+            "Daily Training",
+            "Training plan and daily development flow (not connected)"));
+        using var viewModel = new GrassViewModel(log, localization, catalog);
+        viewModel.RequestTaskSelection = definitions => definitions[0];
+        viewModel.AddTaskCommand.Execute(null);
 
         localization.Values["GrassTaskDailyTraining"] = "每日训练";
         localization.SwitchLanguage("zh-CN");
