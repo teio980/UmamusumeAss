@@ -612,6 +612,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
 
         // ── Connect phase ───────────────────────────────────────
+        // Discovery may have shown a transient readiness message (for
+        // example, while waiting for MuMu's ADB device to leave `offline`).
+        // Once discovery has succeeded that message must not mask the real
+        // Connecting/Connected state in the status line.
+        ClearConnectionDiagnostic();
         _connectionState.SetState(ConnectionState.Connecting);
 
         try
@@ -956,6 +961,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
     private void HandleConnectSuccess(ConnectionSucceededEvent success)
     {
+        ClearConnectionDiagnostic();
+
         // Store immutable last-verified snapshot
         var verified = new LastVerifiedConnection(
             AdbPath: DraftAdbPath,

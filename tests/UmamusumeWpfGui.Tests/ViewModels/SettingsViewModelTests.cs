@@ -991,6 +991,7 @@ public sealed class SettingsViewModelTests
         Assert.Equal(@"C:\MuMu\MuMuManager.exe control --vmindex 0 launch", f.EmulatorLauncher.StartedPath);
         Assert.Equal("127.0.0.1:16384", vm.DraftConnectAddress);
         Assert.Equal(1, f.UmaService.ConnectCallCount);
+        Assert.Equal("Connected", vm.StatusText);
     }
 
     [Fact]
