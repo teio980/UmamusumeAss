@@ -716,6 +716,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draft.AutoStartEmulatorWaitSeconds = DraftAutoStartEmulatorWaitSeconds;
         _draft.Language = DraftLanguage;
 
+        // SettingsViewModel keeps an editable draft alive for the page. Merge
+        // the latest Hachimi cache before saving so a Settings-page save does
+        // not overwrite tasks added after this draft was created.
+        var latest = _settingsService.Load();
+        _draft.TargetPackageIds = latest.TargetPackageIds;
+        _draft.TargetActivityName = latest.TargetActivityName;
+        _draft.TaskQueue = latest.TaskQueue;
+
         _settingsService.Save(_draft);
     }
 
