@@ -18,3 +18,7 @@ public sealed class LogNavigationPage : Page
 public sealed class SettingsNavigationPage : Page
 {
 }
+
+public sealed class GrassNavigationPage : Page
+{
+}

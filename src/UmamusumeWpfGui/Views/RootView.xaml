@@ -51,6 +51,16 @@
             <ui:SymbolIcon Symbol="DataHistogram24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
+        <ui:NavigationViewItem Tag="3"
+                               Content="{DynamicResource TabGrass}"
+                               Click="OnNavigationItemClick"
+                               PreviewMouseLeftButtonDown="OnNavigationItemMouseDown"
+                               TargetPageType="{x:Type pages:GrassNavigationPage}"
+                               NavigationCacheMode="Enabled">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="AppsListDetail24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>
 
       <ui:NavigationView.FooterMenuItems>
