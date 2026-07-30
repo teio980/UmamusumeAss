@@ -61,11 +61,19 @@ void emit(
     }
 }
 
-void mark_terminal(UmaHandleImpl& handle, std::uint64_t operation_id)
+void mark_terminal(UmaHandleImpl& handle, std::uint64_t operation_id) noexcept
 {
     std::lock_guard lock(handle.mutex);
-    handle.terminal_operation_ids.insert(operation_id);
     handle.active_operation_id = 0;
+    try
+    {
+        handle.terminal_operation_ids.insert(operation_id);
+    }
+    catch (...)
+    {
+        // A finished operation must not block a subsequent connection if
+        // diagnostic bookkeeping cannot allocate.
+    }
 }
 
 void emit_failure(

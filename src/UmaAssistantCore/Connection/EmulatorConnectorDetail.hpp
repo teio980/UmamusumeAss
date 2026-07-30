@@ -4,6 +4,7 @@
 #include "UmaAssistant/Connection.hpp"
 
 #include <charconv>
+#include <cctype>
 #include <cstdint>
 #include <optional>
 #include <sstream>
@@ -67,13 +68,15 @@ struct ParsedSize
 
 [[nodiscard]] inline bool is_tcp_endpoint(std::string_view serial) noexcept
 {
-    if (serial.empty()) return false;
+    if (serial.empty() || has_control_characters(serial)) return false;
     if (serial.front() == '[')
     {
         auto const close_bracket = serial.find(']');
         if (close_bracket == std::string_view::npos) return false;
         if (close_bracket == serial.size() - 1) return false;
         if (serial[close_bracket + 1] != ':') return false;
+        if (close_bracket == 1 || serial.find(']', close_bracket + 1) != std::string_view::npos)
+            return false;
         auto const port_str = serial.substr(close_bracket + 2);
         if (port_str.empty()) return false;
         int port = 0;
@@ -84,7 +87,14 @@ struct ParsedSize
     }
     auto const last_colon = serial.rfind(':');
     if (last_colon == std::string_view::npos) return false;
+    // IPv6 endpoints must use the bracketed form.  Without this check an
+    // arbitrary serial containing a colon could accidentally be passed to
+    // `adb connect`.
+    if (serial.find(':') != last_colon || last_colon == 0) return false;
     if (last_colon == serial.size() - 1) return false;
+    auto const host = serial.substr(0, last_colon);
+    if (host.empty() || host.find_first_of(" \t") != std::string_view::npos)
+        return false;
     auto const port_str = serial.substr(last_colon + 1);
     if (port_str.empty()) return false;
     int port = 0;
@@ -149,11 +159,11 @@ struct ParsedSize
     {
         auto const trimmed = trim(line);
         if (trimmed.empty()) continue;
-        if (trimmed.find("List of devices") != std::string_view::npos) continue;
+        if (trimmed == "List of devices attached") continue;
         auto const tab_pos = trimmed.find('\t');
         if (tab_pos == std::string_view::npos) continue;
         auto const serial = std::string(trimmed.substr(0, tab_pos));
-        auto const state  = std::string(trimmed.substr(tab_pos + 1));
+        auto const state  = std::string(trim(trimmed.substr(tab_pos + 1)));
         if (!serial.empty() && !state.empty())
         {
             entries.push_back({std::move(serial), std::move(state)});

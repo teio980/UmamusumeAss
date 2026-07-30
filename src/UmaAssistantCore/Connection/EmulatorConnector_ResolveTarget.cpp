@@ -1,10 +1,45 @@
 #include "EmulatorConnector.hpp"
 #include "EmulatorConnectorDetail.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <string>
 #include <thread>
 
 namespace UmaAssistant {
+
+namespace {
+
+[[nodiscard]] bool reports_connected(std::string const& output) noexcept
+{
+    std::string lower;
+    lower.reserve(output.size());
+    for (auto const ch : output)
+    {
+        lower.push_back(static_cast<char>(
+            std::tolower(static_cast<unsigned char>(ch))));
+    }
+    return lower.find("connected") != std::string::npos;
+}
+
+[[nodiscard]] bool wait_with_cancellation(
+    std::chrono::milliseconds duration,
+    std::stop_token              cancellation)
+{
+    if (duration <= 0ms) return !cancellation.stop_requested();
+    auto const deadline = std::chrono::steady_clock::now() + duration;
+    while (true)
+    {
+        if (cancellation.stop_requested()) return false;
+        auto const remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        if (remaining <= 0ms) return true;
+        std::this_thread::sleep_for(std::min(remaining, 10ms));
+    }
+}
+
+}
 
 std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
     ConnectionRequest const& request,
@@ -129,8 +164,7 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
 
     auto const combined = connect_result.standard_output
                         + connect_result.standard_error;
-    if (combined.find("connected") == std::string_view::npos
-        && combined.find("already connected") == std::string_view::npos)
+    if (!reports_connected(combined))
     {
         return ConnectionFailure{
             ConnectionErrorCode::DeviceUnavailable, "connect",
@@ -179,7 +213,13 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
                 "device did not become ready after connect"
             };
         }
-        std::this_thread::sleep_for(timings_.ready_poll_interval);
+        if (!wait_with_cancellation(timings_.ready_poll_interval, cancellation))
+        {
+            return ConnectionFailure{
+                ConnectionErrorCode::Canceled, "ready_poll",
+                "canceled during device poll after connect"
+            };
+        }
     }
 
     return get_state();

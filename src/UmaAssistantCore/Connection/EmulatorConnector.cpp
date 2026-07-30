@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cwctype>
 #include <filesystem>
 #include <optional>
 #include <stop_token>
@@ -31,6 +32,16 @@ namespace {
         if (remaining <= 0ms) return true;
         std::this_thread::sleep_for(std::min(remaining, 10ms));
     }
+}
+
+[[nodiscard]] bool wait_for_poll_interval(
+    std::chrono::milliseconds duration,
+    std::stop_token              cancellation)
+{
+    // `sleep_for` makes cancellation appear broken during the ready/boot
+    // windows.  Keep the wait bounded to small slices so a Cancel request is
+    // observed promptly even when the child ADB command already completed.
+    return wait_with_cancellation(duration, cancellation);
 }
 
 [[nodiscard]] bool is_retryable_failure(ConnectionFailure const& failure) noexcept
@@ -123,7 +134,8 @@ std::optional<ConnectionFailure> EmulatorConnector::validate_request(
             "profile name contains control characters"
         };
     }
-    if (!std::filesystem::exists(request.adb_path))
+    std::error_code file_error;
+    if (!std::filesystem::is_regular_file(request.adb_path, file_error))
     {
         return ConnectionFailure{
             ConnectionErrorCode::AdbExecutableNotFound, "preflight",
@@ -131,7 +143,15 @@ std::optional<ConnectionFailure> EmulatorConnector::validate_request(
         };
     }
     auto const ext = request.adb_path.extension().wstring();
-    if (ext != L".exe" && ext != L".EXE")
+    bool is_executable_extension = ext.size() == 4;
+    if (is_executable_extension)
+    {
+        is_executable_extension = std::towlower(ext[0]) == L'.'
+            && std::towlower(ext[1]) == L'e'
+            && std::towlower(ext[2]) == L'x'
+            && std::towlower(ext[3]) == L'e';
+    }
+    if (!is_executable_extension)
     {
         return ConnectionFailure{
             ConnectionErrorCode::AdbExecutableNotFound, "preflight",
@@ -270,7 +290,12 @@ std::optional<ConnectionFailure> EmulatorConnector::step_boot_poll(
                 "sys.boot_completed did not return 1 within timeout"
             };
         }
-        std::this_thread::sleep_for(timings_.boot_poll_interval);
+        if (!wait_for_poll_interval(timings_.boot_poll_interval, cancellation))
+        {
+            return ConnectionFailure{
+                ConnectionErrorCode::Canceled, "boot_poll", "canceled during boot poll"
+            };
+        }
     }
 }
 
