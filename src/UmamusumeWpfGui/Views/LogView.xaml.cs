@@ -1,7 +1,10 @@
 using System.Collections.Specialized;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Views;
 
@@ -99,6 +102,20 @@ public sealed partial class LogView : UserControl
             _scrollViewer.VerticalOffset
             >= _scrollViewer.ScrollableHeight - 1;
     }
+
+    private void OnCopyAllClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not LogViewModel viewModel || viewModel.Entries.Count == 0)
+            return;
+
+        var text = string.Join(
+            Environment.NewLine,
+            viewModel.Entries.Select(FormatEntry));
+        Clipboard.SetText(text);
+    }
+
+    private static string FormatEntry(LogEntry entry) =>
+        $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Type}\t{entry.Details}";
 
     private static T? FindVisualChild<T>(DependencyObject parent)
         where T : DependencyObject

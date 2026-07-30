@@ -24,6 +24,7 @@
           <ColumnDefinition Width="160" />
           <ColumnDefinition Width="120" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Column="0"
@@ -38,6 +39,14 @@
                    Text="{DynamicResource LogDetailsHeader}"
                    FontWeight="SemiBold"
                    Foreground="{DynamicResource TextPrimaryBrush}" />
+
+        <Button Grid.Column="3"
+                Content="{DynamicResource CopyAllLogButton}"
+                Click="OnCopyAllClick"
+                Height="28"
+                Padding="10,0"
+                Margin="12,0,0,0"
+                Style="{StaticResource SecondaryButtonStyle}" />
       </Grid>
     </Border>
 
@@ -76,15 +85,33 @@
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0"
-                       Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                       TextTrimming="None" />
-            <TextBlock Grid.Column="1"
-                       Text="{Binding Type}"
-                       TextTrimming="CharacterEllipsis" />
-            <TextBlock Grid.Column="2"
-                       Text="{Binding Details}"
-                       TextTrimming="CharacterEllipsis" />
+            <TextBox Grid.Column="0"
+                     Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                     IsReadOnly="True"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     Padding="0"
+                     TextWrapping="NoWrap"
+                     HorizontalScrollBarVisibility="Hidden"
+                     VerticalScrollBarVisibility="Hidden" />
+            <TextBox Grid.Column="1"
+                     Text="{Binding Type}"
+                     IsReadOnly="True"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     Padding="0"
+                     TextWrapping="NoWrap"
+                     HorizontalScrollBarVisibility="Hidden"
+                     VerticalScrollBarVisibility="Hidden" />
+            <TextBox Grid.Column="2"
+                     Text="{Binding Details}"
+                     IsReadOnly="True"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     Padding="0"
+                     TextWrapping="NoWrap"
+                     HorizontalScrollBarVisibility="Hidden"
+                     VerticalScrollBarVisibility="Hidden" />
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>
