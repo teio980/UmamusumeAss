@@ -6,11 +6,14 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.ViewModels.Dialogs;
+using UmamusumeWpfGui.Views.Dialogs;
 
 namespace UmamusumeWpfGui.ViewModels;
 
@@ -51,6 +54,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private int _selectedMenuIndex;
     private string _draftAdbPath;
     private string _draftConnectAddress;
+    private string _draftConnectConfig;
     private bool _draftAutoDetect;
     private bool _draftAlwaysAutoDetect;
     private bool _draftAutoStartEmulator;
@@ -60,6 +64,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private string _lastDetectedEmulator = string.Empty;
     private string _connectionDiagnostic = string.Empty;
     private CancellationTokenSource? _connectCts;
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private bool _disposed;
 
     // ────────────────────────────────────────────────────────────────
@@ -102,8 +107,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         // Load draft settings from persistence
         _draft = _settingsService.Load();
-        _draftAdbPath = _draft.AdbPath;
-        _draftConnectAddress = _draft.ConnectAddress;
+        _draftAdbPath = _draft.AdbPath?.Trim() ?? string.Empty;
+        _draftConnectAddress = NormalizeConnectionAddress(_draft.ConnectAddress);
+        _draftConnectConfig = _draft.ConnectConfig;
         _draftAutoDetect = _draft.AutoDetectConnection;
         _draftAlwaysAutoDetect = _draft.AlwaysAutoDetectConnection;
         _draftAutoStartEmulator = _draft.AutoStartEmulator;
@@ -119,9 +125,12 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _connectionState.StateChanged += OnStateChanged;
 
         // Wire commands
+        RequestCandidateSelection = ShowCandidateSelectionAsync;
+        RequestAddressSelection = ShowAddressSelectionAsync;
+
         ConnectCommand = new RelayCommand(
             _ => { _ = ConnectAsync(); },
-            _ => !_disposed && State is ConnectionState.Disconnected or ConnectionState.Failed);
+            _ => !_disposed && (State is ConnectionState.Disconnected or ConnectionState.Failed));
 
         CancelConnectCommand = new RelayCommand(
             _ => Cancel(),
@@ -134,6 +143,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         DetectAdbConfigCommand = new RelayCommand(
             _ => { _ = AutoDetectEmulatorsAsync(); },
             _ => !_disposed && !IsOperationInProgress);
+
+        DisconnectCommand = new RelayCommand(
+            _ => Disconnect(),
+            _ => !_disposed && (State is ConnectionState.Connected or ConnectionState.Failed));
 
         ForgetCommand = new RelayCommand(
             _ => Forget(),
@@ -177,6 +190,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         get => _draftAdbPath;
         set
         {
+            value = value?.Trim() ?? string.Empty;
             if (_draftAdbPath == value)
                 return;
             _draftAdbPath = value;
@@ -190,12 +204,43 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         get => _draftConnectAddress;
         set
         {
+            value = NormalizeConnectionAddress(value);
             if (_draftConnectAddress == value)
                 return;
             _draftConnectAddress = value;
             OnPropertyChanged();
         }
     }
+
+    private static string NormalizeConnectionAddress(string? value) =>
+        (value ?? string.Empty)
+            .Replace("：", ":", StringComparison.Ordinal)
+            .Replace("；", ":", StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+    /// <summary>Draft MAA-compatible connection profile used by native ADB commands.</summary>
+    public string DraftConnectConfig
+    {
+        get => _draftConnectConfig;
+        set
+        {
+            var normalized = ConnectionSettings.SupportedConnectConfigs.Contains(
+                value,
+                StringComparer.Ordinal)
+                ? value
+                : "General";
+            if (_draftConnectConfig == normalized)
+                return;
+
+            _draftConnectConfig = normalized;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Profiles available to the connection ComboBox.</summary>
+    public ObservableCollection<string> ConnectConfigOptions { get; } =
+        new(ConnectionSettings.SupportedConnectConfigs);
 
     /// <summary>Draft auto-detect connection toggle.</summary>
     public bool DraftAutoDetect
@@ -390,6 +435,67 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// </summary>
     public Func<Task<bool>>? RequestOverwriteConfirmation { get; set; }
 
+    private Task<DetectedEmulatorInfo?> ShowCandidateSelectionAsync(
+        IReadOnlyList<DetectedEmulatorInfo> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        if (Application.Current is null)
+            return Task.FromResult(candidates.Count == 0 ? null : candidates[0]);
+
+        var dispatcher = Application.Current.Dispatcher;
+        if (dispatcher.CheckAccess())
+            return Task.FromResult(ShowCandidateSelection(candidates));
+
+        return dispatcher.InvokeAsync(() => ShowCandidateSelection(candidates)).Task;
+    }
+
+    private static DetectedEmulatorInfo? ShowCandidateSelection(
+        IReadOnlyList<DetectedEmulatorInfo> candidates)
+    {
+        var viewModel = new SelectionDialogViewModel(candidates);
+        var dialog = new SelectionDialogView
+        {
+            DataContext = viewModel,
+            Owner = Application.Current?.MainWindow,
+        };
+
+        return dialog.ShowDialog() == true
+            ? viewModel.SelectedCandidate
+            : null;
+    }
+
+    private Task<string?> ShowAddressSelectionAsync(IReadOnlyList<string> endpoints)
+    {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
+        if (Application.Current is null)
+            return Task.FromResult(endpoints.Count == 0 ? null : endpoints[0]);
+
+        var dispatcher = Application.Current.Dispatcher;
+        if (dispatcher.CheckAccess())
+            return Task.FromResult(ShowAddressSelection(endpoints));
+
+        return dispatcher.InvokeAsync(() => ShowAddressSelection(endpoints)).Task;
+    }
+
+    private static string? ShowAddressSelection(IReadOnlyList<string> endpoints)
+    {
+        var candidates = endpoints
+            .Select(endpoint => new DetectedEmulatorInfo("ADB endpoint", endpoint))
+            .ToList();
+        var viewModel = new SelectionDialogViewModel(candidates);
+        var dialog = new SelectionDialogView
+        {
+            DataContext = viewModel,
+            Owner = Application.Current?.MainWindow,
+        };
+
+        return dialog.ShowDialog() == true
+            ? viewModel.SelectedCandidate?.AdbPath
+            : null;
+    }
+
     // ────────────────────────────────────────────────────────────────
     // Commands
     // ────────────────────────────────────────────────────────────────
@@ -406,12 +512,30 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// <summary>Command wrapping <see cref="AutoDetectEmulatorsAsync"/>; disabled during operations.</summary>
     public ICommand DetectAdbConfigCommand { get; }
 
+    /// <summary>Stops health monitoring and marks the current session disconnected.</summary>
+    public ICommand DisconnectCommand { get; }
+
     /// <summary>
     /// Runs the full connect flow: optional auto-detect (if enabled),
     /// then connect via <see cref="IUmaService.ConnectAsync"/>.
     /// Guards against overlapping operations.
     /// </summary>
     public async Task ConnectAsync()
+    {
+        if (_disposed || !await _operationGate.WaitAsync(0).ConfigureAwait(true))
+            return;
+
+        try
+        {
+            await ConnectCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
+    private async Task ConnectCoreAsync()
     {
         if (_disposed)
             return;
@@ -449,12 +573,18 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                     }
                     else
                     {
-                        await RunDiscoveryAsync(cts.Token);
+                        await RunDiscoveryAsync(
+                            preferCachedAdb: true,
+                            allowAutoStart: true,
+                            cancellationToken: cts.Token);
                     }
                 }
                 else
                 {
-                    await RunDiscoveryAsync(cts.Token);
+                    await RunDiscoveryAsync(
+                        preferCachedAdb: true,
+                        allowAutoStart: true,
+                        cancellationToken: cts.Token);
                 }
             }
         }
@@ -488,7 +618,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             var result = await _umaService.ConnectAsync(
                 DraftAdbPath,
                 DraftConnectAddress,
-                _draft.ConnectConfig,
+                DraftConnectConfig,
                 cts.Token);
 
             switch (result)
@@ -498,8 +628,18 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                     break;
 
                 case ConnectionFailedEvent failure:
-                    _connectionState.SetState(ConnectionState.Failed);
-                    SetConnectionDiagnostic($"Connection failed: {failure.Message}");
+                    if (failure.ErrorCode == ConnectionErrorCode.Canceled
+                        || cts.IsCancellationRequested)
+                    {
+                        _connectionState.SetState(ConnectionState.Disconnected);
+                        SetConnectionDiagnostic("Connection canceled.");
+                    }
+                    else
+                    {
+                        _connectionState.SetState(ConnectionState.Failed);
+                        SetConnectionDiagnostic(
+                            $"Connection failed ({failure.ErrorCode}) at {failure.Phase}: {failure.Message}");
+                    }
                     break;
             }
         }
@@ -530,8 +670,22 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             return;
 
         _connectionState.SetState(ConnectionState.Canceling);
-        _healthMonitor.StopAsync().GetAwaiter().GetResult();
+        _ = _healthMonitor.StopAsync();
         _connectCts.Cancel();
+    }
+
+    /// <summary>
+    /// Ends the managed session without touching the shared ADB server.
+    /// </summary>
+    public void Disconnect()
+    {
+        if (_disposed)
+            return;
+
+        _connectCts?.Cancel();
+        _ = _healthMonitor.StopAsync();
+        _connectionState.SetState(ConnectionState.Disconnected);
+        SetConnectionDiagnostic("Disconnected.");
     }
 
     /// <summary>
@@ -550,6 +704,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     {
         _draft.AdbPath = DraftAdbPath;
         _draft.ConnectAddress = DraftConnectAddress;
+        _draft.ConnectConfig = DraftConnectConfig;
         _draft.AutoDetectConnection = DraftAutoDetect;
         _draft.AlwaysAutoDetectConnection = DraftAlwaysAutoDetect;
         _draft.AutoStartEmulator = DraftAutoStartEmulator;
@@ -566,7 +721,21 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// </summary>
     public async Task AutoDetectEmulatorsAsync()
     {
-        await RunDiscoveryAsync();
+        if (_disposed || !await _operationGate.WaitAsync(0).ConfigureAwait(true))
+            return;
+
+        using var cts = new CancellationTokenSource();
+        _connectCts = cts;
+        try
+        {
+            await RunDiscoveryAsync(cancellationToken: cts.Token).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (ReferenceEquals(_connectCts, cts))
+                _connectCts = null;
+            _operationGate.Release();
+        }
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -578,27 +747,57 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// optionally asks the user to pick when multiple are found, then runs
     /// adb devices on the selected candidate to find an eligible serial.
     /// </summary>
-    private async Task RunDiscoveryAsync(CancellationToken cancellationToken = default)
+    private async Task RunDiscoveryAsync(
+        bool preferCachedAdb = false,
+        bool allowAutoStart = false,
+        CancellationToken cancellationToken = default)
     {
         _connectionState.SetState(ConnectionState.Detecting);
 
         try
         {
+            // A previously verified ADB path is the cheapest and most stable
+            // discovery source. Only fall back to process scanning when the
+            // cached ADB server has no ready device; this also handles emulator
+            // process names that changed between vendor releases.
+            if (preferCachedAdb
+                && !DraftAlwaysAutoDetect
+                && !string.IsNullOrWhiteSpace(DraftAdbPath))
+            {
+                var cachedDevices = await _winAdapter.GetAdbDevicesAsync(
+                    DraftAdbPath,
+                    cancellationToken).ConfigureAwait(true);
+                var cachedDevice = cachedDevices.Records.FirstOrDefault(
+                    device => string.Equals(
+                        device.State,
+                        "device",
+                        StringComparison.OrdinalIgnoreCase));
+                if (cachedDevice is not null)
+                {
+                    DraftConnectAddress = cachedDevice.Serial;
+                    _connectionState.SetState(ConnectionState.Disconnected);
+                    return;
+                }
+            }
+
             var discoveryResult = _winAdapter.RefreshEmulatorsInfo();
 
             var candidates = discoveryResult.Candidates
                 .Where(c => c.AdbPath is not null)
                 .ToList();
+            var autoStartAttempted = false;
 
-            if (candidates.Count == 0 && DraftAutoStartEmulator)
+            if (allowAutoStart && candidates.Count == 0 && DraftAutoStartEmulator)
             {
+                autoStartAttempted = true;
                 if (!await HandleAutoStartLaunchAsync(cancellationToken))
                 {
                     _connectionState.SetState(ConnectionState.Disconnected);
                     return;
                 }
 
-                discoveryResult = _winAdapter.RefreshEmulatorsInfo();
+                discoveryResult = await RefreshAfterAutoStartAsync(cancellationToken)
+                    .ConfigureAwait(true);
                 candidates = discoveryResult.Candidates
                     .Where(c => c.AdbPath is not null)
                     .ToList();
@@ -636,8 +835,27 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
             // Apply ADB path
             DraftAdbPath = selected.AdbPath!;
+            DraftConnectConfig = selected.EmulatorName;
             _lastDetectedEmulator = selected.EmulatorName;
             OnPropertyChanged(nameof(LastDetectedEmulator));
+
+            if (allowAutoStart && DraftAutoStartEmulator && !autoStartAttempted)
+            {
+                var devices = await _winAdapter.GetAdbDevicesAsync(
+                    selected.AdbPath!,
+                    cancellationToken).ConfigureAwait(true);
+                var hasReadyDevice = devices.Records.Any(
+                    device => string.Equals(device.State, "device", StringComparison.OrdinalIgnoreCase));
+                if (!hasReadyDevice)
+                {
+                    autoStartAttempted = true;
+                    if (!await HandleAutoStartLaunchAsync(cancellationToken))
+                    {
+                        _connectionState.SetState(ConnectionState.Disconnected);
+                        return;
+                    }
+                }
+            }
 
             var resolution = await _winAdapter.ResolveEndpointsAsync(
                 selected.AdbPath!,
@@ -736,7 +954,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _healthMonitor.Start(new ConnectionHealthTarget(
             DraftAdbPath,
             success.Serial,
-            _draft.ConnectConfig));
+            DraftConnectConfig));
     }
 
     private void OnHealthMonitorFailed(ConnectionHealthFailure failure)
@@ -744,8 +962,19 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         if (_disposed)
             return;
 
-        SetConnectionDiagnostic($"Connection health failed: {failure.Diagnostic}");
-        _connectionState.SetState(ConnectionState.Failed);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(new Action(() => OnHealthMonitorFailed(failure)));
+            return;
+        }
+
+        var disconnected = failure.ErrorCode == ConnectionErrorCode.DeviceDisconnected;
+        SetConnectionDiagnostic(disconnected
+            ? $"Disconnected: {failure.Diagnostic}"
+            : $"Connection health failed: {failure.Diagnostic}");
+        _connectionState.SetState(
+            disconnected ? ConnectionState.Disconnected : ConnectionState.Failed);
     }
 
     /// <summary>
@@ -781,6 +1010,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             rc2.RaiseCanExecuteChanged();
         if (DetectAdbConfigCommand is RelayCommand rc3)
             rc3.RaiseCanExecuteChanged();
+        if (DisconnectCommand is RelayCommand rc4)
+            rc4.RaiseCanExecuteChanged();
     }
 
     // ────────────────────────────────────────────────────────────────

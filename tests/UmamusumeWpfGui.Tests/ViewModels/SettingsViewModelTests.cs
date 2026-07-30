@@ -871,6 +871,33 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Connect_AutoStart_WhenDetectedCandidateHasNoVerifiedEndpoint_StartsConfiguredEmulator()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoDetectConnection = true,
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+            AutoStartEmulatorWaitSeconds = 0,
+        });
+        var vm = f.CreateViewModel();
+        vm.DraftConnectAddress = "";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("MuMuEmulator12", @"C:\MuMu\nx_main\adb.exe")],
+            []);
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            [],
+            [new DiscoveryDiagnostic(
+                "device is not ready",
+                UmamusumeWpfGui.Models.DiagnosticSeverity.Warning)]);
+
+        await vm.ConnectAsync();
+
+        Assert.Equal(@"C:\MuMu\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
+    }
+
+    [Fact]
     public void Constructor_LoadsAutoStartEmulatorWaitSecondsFromSettings()
     {
         var f = CreateFixture();
@@ -900,7 +927,10 @@ public sealed class SettingsViewModelTests
         await vm.ConnectAsync();
 
         Assert.Equal(@"D:\Cached\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
-        Assert.Equal([TimeSpan.FromSeconds(7)], f.Delay.Durations);
+        Assert.NotEmpty(f.Delay.Durations);
+        Assert.All(f.Delay.Durations, duration =>
+            Assert.Equal(TimeSpan.FromMilliseconds(250), duration));
+        Assert.Equal(28, f.Delay.Durations.Count);
         Assert.Equal(@"D:\Cached\MuMuNxDevice.exe", f.Settings.Load().EmulatorExecutablePath);
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
@@ -1160,7 +1190,7 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public async Task HealthMonitorFailure_TransitionsViewModelToFailed()
+    public async Task HealthMonitorFailure_TransitionsViewModelToDisconnected()
     {
         var f = CreateFixture();
         var vm = f.CreateViewModel();
@@ -1171,7 +1201,7 @@ public sealed class SettingsViewModelTests
             ConnectionErrorCode.DeviceDisconnected,
             "endpoint disappeared"));
 
-        Assert.Equal(ConnectionState.Failed, f.ConnectionState.State);
+        Assert.Equal(ConnectionState.Disconnected, f.ConnectionState.State);
         Assert.Contains("endpoint disappeared", vm.StatusText, StringComparison.Ordinal);
 
         vm.Dispose();
@@ -1264,6 +1294,24 @@ public sealed class SettingsViewModelTests
         // Draft unchanged
         Assert.Equal(@"C:\existing\adb.exe", vm.DraftAdbPath);
         Assert.Equal("192.168.1.1:5555", vm.DraftConnectAddress);
+    }
+
+    [Fact]
+    public async Task AutoDetectEmulators_WithAutoStartEnabled_DoesNotLaunchEmulator()
+    {
+        var f = CreateFixture();
+        f.Settings.Save(new ConnectionSettings
+        {
+            AutoStartEmulator = true,
+            EmulatorExecutablePath = @"C:\MuMu\MuMuNxDevice.exe",
+        });
+        var vm = f.CreateViewModel();
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
+
+        await vm.AutoDetectEmulatorsAsync();
+
+        Assert.Null(f.EmulatorLauncher.StartedPath);
+        Assert.Equal(ConnectionState.Disconnected, vm.State);
     }
 
     [Fact]
