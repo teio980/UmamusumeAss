@@ -39,6 +39,7 @@
   <sys:String x:Key="ProfileLabel">Profile</sys:String>
   <sys:String x:Key="ConnectButton">Connect</sys:String>
   <sys:String x:Key="CancelButton">Cancel</sys:String>
+  <sys:String x:Key="DisconnectButton">Disconnect</sys:String>
   <sys:String x:Key="BrowseButton">Browse</sys:String>
   <sys:String x:Key="SaveButton">Save</sys:String>
   <sys:String x:Key="ForgetButton">Forget</sys:String>
@@ -75,6 +76,7 @@
   <sys:String x:Key="LogTimestampHeader">Timestamp</sys:String>
   <sys:String x:Key="LogTypeHeader">Type</sys:String>
   <sys:String x:Key="LogDetailsHeader">Details</sys:String>
+  <sys:String x:Key="CopyAllLogButton">Copy all</sys:String>
 
   <!-- Selection dialog -->
   <sys:String x:Key="SelectionDialogTitle">Select Device</sys:String>
