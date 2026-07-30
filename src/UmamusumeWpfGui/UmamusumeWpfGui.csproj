@@ -17,4 +17,12 @@
     <ProjectReference Include="..\..\src\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The native core loads connection.json relative to the executable. -->
+    <Content Include="..\..\resource\connection.json"
+             Link="resource\connection.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
