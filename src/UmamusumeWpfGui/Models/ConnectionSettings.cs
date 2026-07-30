@@ -78,6 +78,15 @@ public sealed class ConnectionSettings
     public List<string> TargetPackageIds { get; set; } = [];
 
     /// <summary>
+    /// Optional launcher Activity used by the Start game task. When blank, the
+    /// ADB runtime resolves the package's launcher Activity automatically.
+    /// </summary>
+    public string TargetActivityName { get; set; } = "";
+
+    /// <summary>Cached Hachimi task queue, in execution order.</summary>
+    public List<GrassTaskCacheItem> TaskQueue { get; set; } = [];
+
+    /// <summary>
     /// Adds an address to the history. Blank or null values are ignored.
     /// Existing addresses are moved to the front. History is capped at 5 entries.
     /// </summary>
