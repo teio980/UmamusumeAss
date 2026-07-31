@@ -228,7 +228,8 @@
                        Margin="0,0,0,8"
                        Text="{DynamicResource GrassLogs}"
                        FontWeight="SemiBold" />
-            <ListBox ItemsSource="{Binding ScriptLogs}"
+            <ListBox x:Name="ScriptLogListBox"
+                     ItemsSource="{Binding ScriptLogs}"
                      BorderThickness="0"
                      Background="Transparent"
                      ScrollViewer.VerticalScrollBarVisibility="Auto">
