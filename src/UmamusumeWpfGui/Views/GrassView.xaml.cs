@@ -3,6 +3,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.ViewModels;
+using UmamusumeWpfGui.ViewModels.Dialogs;
+using UmamusumeWpfGui.Views.Dialogs;
 
 namespace UmamusumeWpfGui.Views;
 
@@ -21,9 +25,15 @@ public sealed partial class GrassView : UserControl
     public GrassView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
+
+    private void OnDataContextChanged(
+        object sender,
+        DependencyPropertyChangedEventArgs e) =>
+        AttachTaskSelectionPicker();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -31,6 +41,7 @@ public sealed partial class GrassView : UserControl
         _scrollRequestPending = false;
         LocateScrollViewer();
         SubscribeToCollection();
+        AttachTaskSelectionPicker();
         RequestScrollToEnd(DispatcherPriority.Loaded);
     }
 
@@ -119,6 +130,34 @@ public sealed partial class GrassView : UserControl
 
         _isAtBottom = _scrollViewer.VerticalOffset
             >= _scrollViewer.ScrollableHeight - 1;
+    }
+
+    private void AttachTaskSelectionPicker()
+    {
+        if (DataContext is GrassViewModel viewModel
+            && viewModel.RequestTaskSelection is null)
+        {
+            viewModel.RequestTaskSelection = ShowTaskSelection;
+        }
+    }
+
+    private IGrassTaskModule? ShowTaskSelection(
+        IReadOnlyList<IGrassTaskModule> modules)
+    {
+        if (modules.Count == 1)
+            return modules[0];
+
+        var owner = Window.GetWindow(this);
+        if (owner is null)
+            return null;
+
+        var viewModel = new TaskSelectionDialogViewModel(modules);
+        var dialog = new TaskSelectionDialogView
+        {
+            Owner = owner,
+            DataContext = viewModel,
+        };
+        return dialog.ShowDialog() == true ? viewModel.SelectedModule : null;
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent)

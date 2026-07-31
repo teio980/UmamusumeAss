@@ -1,0 +1,73 @@
+<ui:FluentWindow x:Class="UmamusumeWpfGui.Views.Dialogs.TaskSelectionDialogView"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="{DynamicResource GrassTaskSelectionTitle}"
+                 Width="520"
+                 Height="400"
+                 ResizeMode="NoResize"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round"
+                 WindowStartupLocation="CenterOwner"
+                 ShowInTaskbar="False"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar Grid.Row="0"
+                 Title="{DynamicResource GrassTaskSelectionTitle}"
+                 ShowMaximize="False"
+                 ShowMinimize="False" />
+
+    <StackPanel Grid.Row="1" Margin="32,24,32,16">
+      <TextBlock Text="{DynamicResource GrassTaskSelectionHint}"
+                 Margin="0,0,0,16"
+                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      <ListBox ItemsSource="{Binding Items}"
+               SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+               Background="Transparent"
+               BorderThickness="0">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Style.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel>
+              <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+              <TextBlock Margin="0,3,0,0"
+                         Text="{Binding Description}"
+                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2"
+                Margin="32,0,32,24"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right">
+      <ui:Button Content="{DynamicResource GrassTaskSelectionCancel}"
+                 Command="{Binding CancelCommand}"
+                 Appearance="Secondary"
+                 Margin="0,0,8,0" />
+      <ui:Button Content="{DynamicResource GrassTaskSelectionConfirm}"
+                 Command="{Binding ConfirmCommand}"
+                 Appearance="Primary" />
+    </StackPanel>
+  </Grid>
+</ui:FluentWindow>
