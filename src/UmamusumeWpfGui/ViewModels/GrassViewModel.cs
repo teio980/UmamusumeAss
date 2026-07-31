@@ -28,6 +28,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private bool _isAdvancedSettings;
     private bool _isQueueOperationInProgress;
     private bool _isQueueRunning;
+    private bool _stopRequested;
     private CancellationTokenSource? _queueOperationCts;
     private bool _disposed;
 
@@ -188,10 +189,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
     public bool CanStopQueue =>
         _connectionState is not null
-        && IsConnected
-        && !IsQueueOperationInProgress
-        && IsQueueRunning
-        && _runningTask is not null;
+        && _runningTask is not null
+        && !_stopRequested;
 
 
 
@@ -343,7 +342,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         var queuedTasks = Tasks.Where(task => task.IsEnabled).ToList();
         IsQueueOperationInProgress = true;
         _queueOperationCts?.Dispose();
-        _queueOperationCts = new CancellationTokenSource();
+        var operationCts = new CancellationTokenSource();
+        _queueOperationCts = operationCts;
+        _stopRequested = false;
         ScriptLogs.Clear();
         AddScriptLog(
             Localize("GrassScriptQueue", "Task queue"),
@@ -464,6 +465,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
             foreach (var task in queuedTasks)
             {
+                operationCts.Token.ThrowIfCancellationRequested();
                 if (!task.Module.CanExecute(context))
                 {
                     task.Status = Localize("GrassTaskError", "Error");
@@ -477,13 +479,14 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 }
 
                 _runningTask = task;
+                IsQueueRunning = true;
                 task.Status = Localize("GrassTaskRunning", "Running");
                 AddScriptLog(
                     task.Name,
                     Localize("GrassScriptTaskRunning", "Running task"));
                 var result = await task.Module.ExecuteAsync(
                     context,
-                    _queueOperationCts.Token).ConfigureAwait(true);
+                    operationCts.Token).ConfigureAwait(true);
                 task.Status = result.Succeeded
                     ? Localize("GrassTaskCompleted", "Completed")
                     : Localize("GrassTaskError", "Error");
@@ -499,7 +502,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     task.Name,
                     Localize("GrassScriptTaskCompleted", "Task completed"),
                     LogEntryKind.Success);
-                IsQueueRunning = true;
             }
 
             queueSucceeded = queuedTasks.Count > 0
@@ -537,9 +539,15 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
 
 
-            IsQueueRunning = false;
             _runningTask = null;
+            _stopRequested = false;
+            IsQueueRunning = false;
             IsQueueOperationInProgress = false;
+            if (ReferenceEquals(_queueOperationCts, operationCts))
+            {
+                _queueOperationCts = null;
+                operationCts.Dispose();
+            }
             RaiseQueueCommandStateChanged();
         }
     }
@@ -547,31 +555,25 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private async Task StopQueueAsync()
     {
         var runningTask = _runningTask;
-        if (!CanStopQueue || runningTask is null)
+        var operationCts = _queueOperationCts;
+        if (!CanStopQueue || runningTask is null || operationCts is null)
             return;
 
-        IsQueueOperationInProgress = true;
-        _queueOperationCts?.Dispose();
-        _queueOperationCts = new CancellationTokenSource();
+        _stopRequested = true;
+        RaiseQueueCommandStateChanged();
+        AddScriptLog(
+            runningTask.Name,
+            Localize("GrassScriptStopRequested", "Stop requested; canceling the running task"));
         try
         {
+            operationCts.Cancel();
             var result = await runningTask.Module.StopAsync(
                 CurrentContext,
-                _queueOperationCts.Token).ConfigureAwait(true);
+                CancellationToken.None).ConfigureAwait(true);
             AddScriptLog(
                 runningTask.Name,
                 result.Message,
-                result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
-            if (result.Succeeded)
-            {
-                runningTask.Status = Localize("GrassTaskCompleted", "Completed");
-                IsQueueRunning = false;
-                _runningTask = null;
-            }
-            else
-            {
-                runningTask.Status = Localize("GrassTaskError", "Error");
-            }
+                result.Succeeded ? LogEntryKind.Info : LogEntryKind.Failure);
         }
         catch (OperationCanceledException)
         {
@@ -586,7 +588,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
         finally
         {
-            IsQueueOperationInProgress = false;
             RaiseQueueCommandStateChanged();
         }
     }
