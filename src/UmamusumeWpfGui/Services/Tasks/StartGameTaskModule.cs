@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -77,6 +78,22 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Settings.Status);
         }
 
+        var launchTarget = string.IsNullOrWhiteSpace(Settings.ActivityName)
+            ? Settings.PackageId
+            : Settings.ActivityName;
+        context.LogSink?.Add(
+            Localize("GrassScriptStartGame", "Start game"),
+            string.Format(
+                CultureInfo.InvariantCulture,
+                Localize("GrassScriptLaunchingGame", "Launching {0} on {1}"),
+                launchTarget,
+                connection.Serial));
+        context.LogSink?.Add(
+            Localize("GrassScriptStartGame", "Start game"),
+            Localize(
+                "GrassScriptWaitingForGameProcess",
+                "Waiting for the game process"));
+
         Settings.SetStatus(Localize("GrassGameStarting", "Starting game"));
         Settings.Persist();
         var result = await _gameLauncher.StartAsync(
@@ -85,6 +102,29 @@ public sealed class StartGameTaskModule : IGrassTaskModule
             Settings.PackageId,
             Settings.ActivityName,
             cancellationToken).ConfigureAwait(false);
+
+        if (result.ProcessDetected)
+        {
+            context.LogSink?.Add(
+                Localize("GrassScriptStartGame", "Start game"),
+                Localize("GrassScriptGameProcessDetected", "Game process detected"),
+                LogEntryKind.Success);
+        }
+        else if (result.Succeeded)
+        {
+            context.LogSink?.Add(
+                Localize("GrassScriptStartGame", "Start game"),
+                Localize(
+                    "GrassScriptGameLaunchAccepted",
+                    "Launch command completed; waiting for the game process"));
+        }
+        else
+        {
+            context.LogSink?.Add(
+                Localize("GrassScriptStartGame", "Start game"),
+                result.Message,
+                LogEntryKind.Failure);
+        }
 
         Settings.SetStatus(result.ProcessDetected
             ? Localize("GrassGameStarted", "Game started")
