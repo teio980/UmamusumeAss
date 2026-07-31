@@ -21,6 +21,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private readonly IConnectionStateService? _connectionState;
     private readonly ISettingsService? _settingsService;
     private readonly SettingsViewModel? _settingsViewModel;
+    private readonly IAdbRuntime? _adbRuntime;
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
@@ -63,7 +64,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         IGrassTaskCatalog taskCatalog,
         IConnectionStateService? connectionState,
         ISettingsService? settingsService,
-        SettingsViewModel? settingsViewModel)
+        SettingsViewModel? settingsViewModel,
+        IAdbRuntime? adbRuntime = null)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -73,6 +75,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _connectionState = connectionState;
         _settingsService = settingsService;
         _settingsViewModel = settingsViewModel;
+        _adbRuntime = adbRuntime;
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
@@ -362,7 +365,11 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             // MAA connects when the user presses Start instead of disabling
             // the button before the connection workflow has had a chance to
             // run. Reuse the existing Settings connection flow here.
-            if (IsConnected && _connectionState?.LastVerifiedConnection is { } currentConnection)
+            var currentConnection = _connectionState?.LastVerifiedConnection;
+            var cachedConnectionReady = currentConnection is not null
+                && await IsCachedConnectionReadyAsync(currentConnection)
+                    .ConfigureAwait(true);
+            if (IsConnected && currentConnection is not null && cachedConnectionReady)
             {
                 AddScriptLog(
                     Localize("GrassScriptEmulatorConnected", "Emulator connected"),
@@ -371,6 +378,17 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                         Localize("GrassScriptUsingConnection", "Using {0}"),
                         currentConnection.Serial),
                     LogEntryKind.Success);
+            }
+            else if (IsConnected && currentConnection is not null)
+            {
+                _connectionState?.SetState(ConnectionState.Disconnected);
+                _connectionState?.ClearLastVerified();
+                AddScriptLog(
+                    Localize("GrassScriptConnectionStale", "Emulator connection changed"),
+                    Localize(
+                        "GrassScriptConnectionStaleDetails",
+                        "The saved ADB connection is no longer ready; reconnecting"),
+                    LogEntryKind.Failure);
             }
             else if (_settingsViewModel is not null)
             {
@@ -695,6 +713,36 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         task.PropertyChanged -= OnTaskPropertyChanged;
         if (task.Settings is INotifyPropertyChanged settings)
             settings.PropertyChanged -= OnTaskSettingsPropertyChanged;
+    }
+
+    private async Task<bool> IsCachedConnectionReadyAsync(
+        LastVerifiedConnection connection)
+    {
+        if (_adbRuntime is null)
+            return true;
+
+        try
+        {
+            var devices = await _adbRuntime.ListDevicesAsync(
+                connection.AdbPath,
+                _queueOperationCts?.Token ?? CancellationToken.None)
+                .ConfigureAwait(true);
+            return devices.Succeeded
+                && devices.Devices.Any(device =>
+                    device.IsReady
+                    && string.Equals(
+                        device.Serial,
+                        connection.Serial,
+                        StringComparison.OrdinalIgnoreCase));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void NotifyTaskSummaryChanged() => OnPropertyChanged(nameof(TaskCountSummary));

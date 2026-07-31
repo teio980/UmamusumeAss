@@ -43,6 +43,12 @@ public:
     /// non-arrays, or placeholders are malformed.
     [[nodiscard]] static ConnectionProfile load(std::filesystem::path const& json_path);
 
+    /// Returns the built-in "General" profile plus the standard emulator
+    /// aliases (MuMuEmulator12, LDPlayer, BlueStacks, Nox, XYAZ, WSA,
+    /// Androws). Used when no connection.json resource is present so the
+    /// runtime can still initialize and connect through plain ADB.
+    [[nodiscard]] static ConnectionProfile default_profile();
+
     /// Expands a named command from a named profile by substituting
     /// the [AdbSerial] placeholder and setting the executable.
     /// Returns std::nullopt when the profile or command is not found,

@@ -13,40 +13,12 @@
         "get_size": ["-s", "[AdbSerial]", "shell", "wm", "size"]
       }
     },
-    {
-      "configName": "MuMuEmulator12",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "LDPlayer",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "BlueStacks",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "Nox",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "XYAZ",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "WSA",
-      "baseConfig": "General",
-      "commands": {}
-    },
-    {
-      "configName": "Androws",
-      "baseConfig": "General",
-      "commands": {}
-    }
+    { "configName": "MuMuEmulator12", "baseConfig": "General", "commands": {} },
+    { "configName": "LDPlayer", "baseConfig": "General", "commands": {} },
+    { "configName": "BlueStacks", "baseConfig": "General", "commands": {} },
+    { "configName": "Nox", "baseConfig": "General", "commands": {} },
+    { "configName": "XYAZ", "baseConfig": "General", "commands": {} },
+    { "configName": "WSA", "baseConfig": "General", "commands": {} },
+    { "configName": "Androws", "baseConfig": "General", "commands": {} }
   ]
 }

@@ -8,7 +8,7 @@ public sealed class NativeLoadTests
     private static readonly string[] Scenarios =
     [
         "load",
-        "missing-resource",
+        "default-resource",
         "corrupt-resource",
         "valid-resource",
         "s2-stubs",

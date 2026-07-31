@@ -116,7 +116,7 @@ public sealed class BootstrapperRegistrationTests
     }
 
     [Fact]
-    public void Bootstrapper_SettingsViewModel_IsTransient()
+    public void Bootstrapper_SettingsViewModel_IsSingleton()
     {
         var builder = new StyletIoCBuilder();
         var bootstrapper = new TestBootstrapper();
@@ -126,7 +126,7 @@ public sealed class BootstrapperRegistrationTests
         var first = container.Get<SettingsViewModel>();
         var second = container.Get<SettingsViewModel>();
 
-        Assert.NotSame(first, second);
+        Assert.Same(first, second);
     }
 }
 

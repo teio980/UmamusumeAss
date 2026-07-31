@@ -50,6 +50,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbConnectionSessionFactory>();
         builder.Bind<IGameLauncher>()
             .To<AdbGameLauncher>();
+        builder.Bind<IStartGamePipeline>()
+            .To<AdbStartGamePipeline>()
+            .InSingletonScope();
         builder.Bind<StartGameTaskModule>()
             .ToSelf()
             .InSingletonScope();

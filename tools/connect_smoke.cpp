@@ -3,7 +3,8 @@
 //
 // Usage:  connect_smoke <adb_path> <serial>
 //
-// Loads resource/connection.json (resolved relative to the executable),
+// Uses resource/connection.json (resolved relative to the executable or the
+// source tree) when present, otherwise the built-in default profile,
 // connects to the device via the General profile, and prints device info
 // on success or a structured error message on failure.
 //
@@ -99,16 +100,15 @@ int main(int argc, char* argv[])
 
     auto const& args = std::get<SmokCliArgs>(parse_result);
 
-    // ---- Resolve resource file ----
+    // ---- Resolve resource file (optional) ----
     auto const resource_path = resolve_resource_path();
-    if (resource_path.empty())
-    {
-        std::cerr << "ERROR: resource/connection.json not found\n";
-        return 1;
-    }
 
     // ---- Load connection profile ----
     ConnectionProfile profile = [&]() -> ConnectionProfile {
+        if (resource_path.empty())
+        {
+            return ConnectionProfile::default_profile();
+        }
         try
         {
             return ConnectionProfile::load(resource_path);

@@ -12,7 +12,6 @@ add_test(
     -c Release
     "--property:NativeDllPath=$<TARGET_FILE:UmaAssistantCore>"
     "--property:FakeAdbPath=$<TARGET_FILE:UmaFakeAdb>"
-    "--property:ResourceFilePath=${CMAKE_SOURCE_DIR}/resource/connection.json"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 

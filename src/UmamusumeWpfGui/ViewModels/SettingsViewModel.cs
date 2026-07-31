@@ -520,7 +520,12 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     /// </summary>
     public async Task ConnectAsync()
     {
-        if (_disposed || !await _operationGate.WaitAsync(0).ConfigureAwait(true))
+        // A queue start can race the health monitor or a previous discovery
+        // pass. Do not silently drop the user's Start request while that
+        // short connection operation is still finishing.
+        if (_disposed
+            || !await _operationGate.WaitAsync(
+                TimeSpan.FromSeconds(10)).ConfigureAwait(true))
             return;
 
         try
@@ -549,6 +554,38 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         using var cts = new CancellationTokenSource();
         _connectCts = cts;
         var discoverySucceeded = true;
+
+        // Prefer a saved TCP endpoint for reconnects. This lets the native
+        // connector issue adb connect directly after a transient disconnect;
+        // process discovery/autostart remains the fallback when the emulator
+        // is not available yet.
+        if (!string.IsNullOrWhiteSpace(DraftAdbPath)
+            && !string.IsNullOrWhiteSpace(DraftConnectAddress)
+            && DraftConnectAddress.Contains(':', StringComparison.Ordinal))
+        {
+            _connectionState.SetState(ConnectionState.Connecting);
+            try
+            {
+                var direct = await _umaService.ConnectAsync(
+                    DraftAdbPath,
+                    DraftConnectAddress,
+                    DraftConnectConfig,
+                    cts.Token);
+                if (direct is ConnectionSucceededEvent success)
+                {
+                    HandleConnectSuccess(success);
+                    _connectCts = null;
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // The emulator may be stopped. Discovery/autostart below is
+                // still responsible for bringing it up.
+            }
+
+            _connectionState.SetState(ConnectionState.Disconnected);
+        }
 
         // ── Auto-detect phase ───────────────────────────────────
         if (DraftAutoDetect)
@@ -773,17 +810,30 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             // cached ADB server has no ready device; this also handles emulator
             // process names that changed between vendor releases.
             if (preferCachedAdb
-                && !DraftAlwaysAutoDetect
                 && !string.IsNullOrWhiteSpace(DraftAdbPath))
             {
                 var cachedDevices = await _winAdapter.GetAdbDevicesAsync(
                     DraftAdbPath,
                     cancellationToken).ConfigureAwait(true);
+                // Keep the explicitly saved endpoint when it is ready. This
+                // is important for emulators that expose several ADB
+                // endpoints: auto-discovery must not replace a working MuMu
+                // endpoint merely because AlwaysAutoDetect is enabled.
                 var cachedDevice = cachedDevices.Records.FirstOrDefault(
                     device => string.Equals(
                         device.State,
                         "device",
-                        StringComparison.OrdinalIgnoreCase));
+                        StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(DraftConnectAddress)
+                        && string.Equals(
+                            device.Serial,
+                            DraftConnectAddress,
+                            StringComparison.OrdinalIgnoreCase))
+                    ?? cachedDevices.Records.FirstOrDefault(
+                        device => string.Equals(
+                            device.State,
+                            "device",
+                            StringComparison.OrdinalIgnoreCase));
                 if (cachedDevice is not null)
                 {
                     DraftConnectAddress = cachedDevice.Serial;

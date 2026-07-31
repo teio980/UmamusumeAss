@@ -118,27 +118,14 @@ if (-not (Test-Path -LiteralPath $nativeCoreDll)) {
 Copy-Item -LiteralPath $nativeCoreDll -Destination $PublishDir -Force
 Write-Host "  Copied UmamusumeCore.dll"
 
-# 5b. resource/connection.json — from native staging resource/ to publish resource/
-$nativeResourceDir = Join-Path -Path $NativeStaging -ChildPath "resource"
-$nativeResourceFile = Join-Path -Path $nativeResourceDir -ChildPath "connection.json"
-if (-not (Test-Path -LiteralPath $nativeResourceFile)) {
-    throw "Native resource not found: $nativeResourceFile"
-}
-$publishResourceDir = Join-Path -Path $PublishDir -ChildPath "resource"
-if (-not (Test-Path -LiteralPath $publishResourceDir)) {
-    New-Item -ItemType Directory -Path $publishResourceDir -Force | Out-Null
-}
-Copy-Item -LiteralPath $nativeResourceFile -Destination $publishResourceDir -Force
-Write-Host "  Copied resource/connection.json"
-
-# 5c. Verify Umamusume.CoreBridge.dll exists in publish output
+# 5b. Verify Umamusume.CoreBridge.dll exists in publish output
 $bridgeDll = Join-Path -Path $PublishDir -ChildPath "Umamusume.CoreBridge.dll"
 if (-not (Test-Path -LiteralPath $bridgeDll)) {
     throw "Umamusume.CoreBridge.dll not found in publish output: $bridgeDll"
 }
 Write-Host "  Verified Umamusume.CoreBridge.dll"
 
-# 5d. Verify self-contained runtime evidence
+# 5c. Verify self-contained runtime evidence
 $hostfxr = Join-Path -Path $PublishDir -ChildPath "hostfxr.dll"
 $spcl   = Join-Path -Path $PublishDir -ChildPath "System.Private.CoreLib.dll"
 if (-not (Test-Path -LiteralPath $hostfxr) -and -not (Test-Path -LiteralPath $spcl)) {

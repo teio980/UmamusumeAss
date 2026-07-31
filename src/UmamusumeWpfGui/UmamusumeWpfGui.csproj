@@ -18,9 +18,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The native core loads connection.json relative to the executable. -->
     <Content Include="..\..\resource\connection.json"
              Link="resource\connection.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\resource\hachimi\**\*"
+             Exclude="..\..\resource\hachimi\debug\**\*"
+             Link="resource\hachimi\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

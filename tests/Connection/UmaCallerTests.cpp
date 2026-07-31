@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -279,10 +280,9 @@ public:
             / (L"uma-resource-\u9a6c-" + std::to_wstring(GetCurrentProcessId())))
     {
         fs::create_directories(path_ / L"resource");
-        fs::copy_file(
-            fs::path(CMAKE_SOURCE_DIR) / L"resource" / L"connection.json",
-            path_ / L"resource" / L"connection.json",
-            fs::copy_options::overwrite_existing);
+        std::ofstream ofs(path_ / L"resource" / L"connection.json");
+        ofs << R"({"connection":[{"configName":"General","baseConfig":null,)"
+               R"("commands":{"get_size":["-s","[AdbSerial]","shell","wm","size"]}}]})";
     }
 
     ~UnicodeResourceRoot()

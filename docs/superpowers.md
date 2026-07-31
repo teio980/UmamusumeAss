@@ -95,7 +95,7 @@ S1 is a connection verifier only. It must never be presented as a usable Umamusu
 │  └────────────────────────────────────────────────────┘  │
 │                          │                                 │
 │                          ▼                                 │
-│  resource/connection.json  (General ADB profile)          │
+│  resource/  (optional connection.json + hachimi defs)     │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -180,7 +180,7 @@ UmaStartResult UMA_API UmaSwipeAsync(UmaHandle handle, uint64_t frame_id,
 #endif
 ```
 
-`UMA_DLL_EXPORTS` is defined only while building `UmamusumeCore.dll`; consumers receive `dllimport`. `UmaSetUserDir` and `UmaLoadResource` return `0` only for success. `UmaLoadResource` receives the application base directory and loads `<base>\\resource\\connection.json`; it validates the file before marking the runtime initialized. `UmaCreate` returns null before successful resource initialization or when `callback` is null.
+`UMA_DLL_EXPORTS` is defined only while building `UmamusumeCore.dll`; consumers receive `dllimport`. `UmaSetUserDir` and `UmaLoadResource` return `0` only for success. `UmaLoadResource` receives the application base directory and loads `<base>\\resource\\connection.json` when present; a missing file falls back to the built-in default profile (`ConnectionProfile::default_profile()`), while a present but invalid file fails initialization. `UmaCreate` returns null before successful resource initialization or when `callback` is null.
 
 `UmaConnectAsync`'s `profile` parameter is the UTF-8 **profile name** (for S1, `"General"`), not arbitrary JSON. Its `UmaStartResult` is the complete synchronous result: `error_code != 0` means no worker was started and no callback will occur; `error_code == 0` requires a non-zero `operation_id` and exactly one terminal callback. `Busy` is returned when a handle already owns an active user operation. `UmaCancelConnect` remains the S1 compatibility entry point; `UmaCancelOperation` is the idempotent cancellation API for every S1/S2 user operation. It returns `0` when cancellation was requested or the matching operation is already terminal, and `InvalidArgument` for another handle's or an unknown ID.
 
@@ -298,7 +298,7 @@ The last point means the app cannot guarantee that it did not start an ADB serve
 
 ### 4.1 Handshake State Machine
 
-The state machine runs inside `EmulatorConnector::connect()` in the Core DLL. Steps are strictly ordered. Each step uses a command expanded from `resource/connection.json` via `ConnectionProfile::expand()`.
+The state machine runs inside `EmulatorConnector::connect()` in the Core DLL. Steps are strictly ordered. Each step uses a command expanded from the loaded connection profile (the built-in default, overridden by `resource/connection.json` when present) via `ConnectionProfile::expand()`.
 
 Before step 1, preflight canonicalizes and validates that `adb_path` is an existing `.exe`, rejects empty or control-character-containing serial/profile values, and creates an `AdbInvocation { executable, arguments[] }`. The process runner must not execute an expanded user-controlled shell command line.
 
@@ -648,7 +648,7 @@ No registry reads, config file parsing, or vendor DLL paths in S1.
 
 | Task | Files | Acceptance Gate |
 |---|---|---|
-| 2.1 JSON profile + template expansion | `resource/connection.json`, `src/UmaAssistantCore/Connection/ConnectionProfile.{hpp,cpp}`, update `tests/` | Profile expands the `get_size` argument vector with the exact serial and configured executable path; rejects unclosed placeholders |
+| 2.1 JSON profile + template expansion | `src/UmaAssistantCore/Connection/ConnectionProfile.{hpp,cpp}` (built-in default profile), update `tests/` | Profile expands the `get_size` argument vector with the exact serial and configured executable path; rejects unclosed placeholders |
 | 2.2 ADB process runner (Win32) | `src/UmaAssistantCore/Connection/AdbCommandRunner.{hpp,cpp}` (Win32 impl) | Fake runner injectable; real runner uses executable + argument vector, `CreateProcessW`, concurrent stdout/stderr drains, Job Object cancellation, bounded output, and timeout; startup failure returns error code |
 | 2.3 Handshake state machine | `src/UmaAssistantCore/Connection/EmulatorConnector.{hpp,cpp}` | Fake ADB runner covers existing serial `get-state` → boot poll → ID → version → size; TCP endpoint absent→connect→ready poll→boot poll; offline, unauthorized, non-zero `devices`, absent opaque serial without connect, boot timeout, blank/invalid ID or version, physical/override sizes, timeout, and cancellation at every step |
 | 2.4 Smoke tool | `tools/connect_smoke.cpp` | `uma_connect_smoke.exe <adb> <serial>` exits 0 and prints device info with real emulator |
@@ -699,7 +699,7 @@ No registry reads, config file parsing, or vendor DLL paths in S1.
 | Task | Files | Acceptance Gate |
 |---|---|---|
 | 6.1 CMake presets | `CMakePresets.json` | `cmake --preset release` configures Release build |
-| 6.2 Package script | `tools/package.ps1` | Builds Core first, copies its install manifest into `dotnet publish --self-contained`, then generates `dist/UmamusumeAss-win-x64.zip`; fails on missing inputs and verifies EXE, Core DLL, all dependent native DLLs (or `/MT` static runtime), .NET runtime, and `resource/connection.json` relative layout |
+| 6.2 Package script | `tools/package.ps1` | Builds Core first, copies its install manifest into `dotnet publish --self-contained`, then generates `dist/UmamusumeAss-win-x64.zip`; fails on missing inputs and verifies EXE, Core DLL, all dependent native DLLs (or `/MT` static runtime), and .NET runtime relative layout |
 | 6.3 Running docs | `docs/RUNNING.md` | Documents extract → launch → configure → connect flow |
 | 6.4 CI workflow | `.github/workflows/build.yml` | Build + unit test + package-layout test run on every push; the hardware smoke test is a release gate run on a documented real-emulator machine |
 | 6.5 Real-emulator smoke test | Manual | `uma_connect_smoke.exe` against real emulator (BlueStacks, LDPlayer, or MuMu 12) exits 0 with correct device info |
@@ -735,12 +735,12 @@ S2 must use standard ADB commands only. Introducing vendor DLLs or autonomous ga
 8. **Language switch** — Toggle between en-US and zh-CN; all `DynamicResource` bindings update; runtime strings refresh via `LanguageChanged` event.
 9. **Address history** — Successful connect adds serial to history (max 5); duplicates move to front.
 10. **Real-emulator smoke test** — `uma_connect_smoke <adb> <serial>` exits 0 on BlueStacks, LDPlayer, or MuMu 12 (at least one). Reports serial, Android ID, Android version, resolution.
-11. **Portable ZIP is complete** — Contains GUI EXE, Core DLL, .NET runtime, `resource/connection.json`. Launches without additional install steps.
+11. **Portable ZIP is complete** — Contains GUI EXE, Core DLL, and .NET runtime. Launches without additional install steps.
 12. **No `ConnectView` or `ConnectViewModel`** — Grep the source tree; zero references.
 13. **Exactly 2 tabs** — `RootView.xaml` has exactly 2 `TabItem` elements.
 14. **No `StringMarshalling.Utf8`** — All P/Invoke marshalling uses `Marshal.PtrToStringUTF8` or `UTF8Pinned`.
 15. **No HTTP server, no `kill-server` by default, no auto-reconnect** — Grep confirms absence.
-16. **Initialization gate** — deleting or corrupting packaged `resource/connection.json` prevents handle creation and shows a localized startup error.
+16. **Initialization gate** — corrupting a packaged `resource/connection.json` prevents handle creation and shows a localized startup error; a missing file falls back to the built-in default profile.
 17. **Shutdown safety** — cancel/close while any ADB phase is active; `UmaDestroy` returns within the 10 s shutdown bound and no callback occurs afterwards.
 18. **Connect readiness** — a scripted `adb connect` success followed by non-`device` listings fails with `DeviceNotReady`; a later `device` listing succeeds.
 19. **Clean-machine package test** — on a Windows VM without a system .NET runtime or VC++ redistributable, extracted ZIP launches and can load Core DLL.
@@ -760,7 +760,9 @@ S2 must use standard ADB commands only. Introducing vendor DLLs or autonomous ga
 
 ---
 
-## 10. Resource File: connection.json
+## 10. Connection Profile Resource
+
+The runtime ships no `connection.json`. `CoreRuntime::load_resource()` uses the built-in default profile (`ConnectionProfile::default_profile()`) unless a `resource/connection.json` override exists next to the executable — a present-but-invalid file fails initialization, a missing file falls back to the defaults. The built-in profile is equivalent to:
 
 ```json
 {
@@ -782,6 +784,8 @@ S2 must use standard ADB commands only. Introducing vendor DLLs or autonomous ga
 }
 ```
 
+with the standard emulator aliases (`MuMuEmulator12`, `LDPlayer`, `BlueStacks`, `Nox`, `XYAZ`, `WSA`, `Androws`) inheriting from `General`.
+
 This is deliberately shaped like MAA's connection configuration: `connection` is an ordered profile list, each profile has `configName` and may inherit from `baseConfig`. S1 ships only `General`, but the loader must reject duplicate names, unknown bases, and inheritance cycles so S2 can add vendor profiles without a schema migration. Device-list parsing and TCP-endpoint classification are deliberately **not** configurable: sections 4.2 and 4.3 are the single structural contract, so a profile cannot accidentally hide `offline` or `unauthorized` states or pass an opaque serial to `adb connect`. The configured ADB executable is never represented in JSON command text: `ConnectionProfile::expand()` substitutes placeholders only inside the argument array and returns `AdbInvocation { adb_path, arguments }`. `[AdbSerial]` expands to one requested-device argument. Any placeholder left unexpanded (still containing `[` or `]`) after substitution causes the invocation to be rejected.
 
 ---
@@ -796,7 +800,7 @@ UmamusumeAss/
 ├── include/UmaAssistant/
 │   ├── Connection.hpp          # ConnectedDevice, ConnectionErrorCode, ConnectionResult, ConnectionRequest
 │   └── UmaCaller.h             # C ABI: UmaHandle, UmaApiCallback, UmaCreate, UmaDestroy, etc.
-├── resource/connection.json    # General ADB profile
+├── resource/                    # optional connection.json + hachimi start-game defs
 ├── src/
 │   ├── UmaAssistantCore/
 │   │   ├── CMakeLists.txt

@@ -43,16 +43,10 @@ namespace fs = std::filesystem;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/// Returns the path to resource/connection.json relative to the source root.
-[[nodiscard]] fs::path resource_path()
-{
-    return CMAKE_SOURCE_DIR "/resource/connection.json";
-}
-
 /// Load the General profile once for all tests.
 [[nodiscard]] ConnectionProfile const& general_profile()
 {
-    static auto const profile = ConnectionProfile::load(resource_path());
+    static auto const profile = ConnectionProfile::default_profile();
     return profile;
 }
 

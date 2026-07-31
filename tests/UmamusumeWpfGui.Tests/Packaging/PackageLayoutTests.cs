@@ -154,7 +154,6 @@ public sealed class PackageLayoutTests : IDisposable
         "UmamusumeAss.exe",
         "UmamusumeCore.dll",
         "Umamusume.CoreBridge.dll",
-        "resource/connection.json",
     ];
 
     // Self-contained runtime evidence — at least one of these must be present.
@@ -284,11 +283,5 @@ public sealed class PackageLayoutTests : IDisposable
             string.Equals(e.FullName.Replace('\\', '/'), "UmamusumeCore.dll", StringComparison.Ordinal));
         Assert.True(coreDll is not null, "UmamusumeCore.dll must be at archive root.");
         Assert.True(coreDll!.Length > 0, "UmamusumeCore.dll must not be empty.");
-
-        // resource/connection.json must be exactly one directory beneath root
-        var resourceEntry = entries.FirstOrDefault(e =>
-            string.Equals(e.FullName.Replace('\\', '/'), "resource/connection.json", StringComparison.Ordinal));
-        Assert.True(resourceEntry is not null, "resource/connection.json must be present.");
-        Assert.True(resourceEntry!.Length > 0, "resource/connection.json must not be empty.");
     }
 }

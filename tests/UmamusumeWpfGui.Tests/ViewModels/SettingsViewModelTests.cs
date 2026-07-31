@@ -696,7 +696,7 @@ public sealed class SettingsViewModelTests
     // ================================================================
 
     [Fact]
-    public async Task Connect_WithAlwaysAutoDetect_RunsDiscoveryEvenWithValues()
+    public async Task Connect_WithAlwaysAutoDetect_PrefersReadyCachedAdbDevice()
     {
         var f = CreateFixture();
         var vm = f.CreateViewModel();
@@ -719,8 +719,79 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Discovery should run even though address is non-blank
+        // The cached ADB path already has a ready device, so process
+        // discovery must not run — AlwaysAutoDetect must not replace a
+        // working endpoint with a discovered one.
+        Assert.Equal(0, f.WinAdapter.RefreshCallCount);
+        // Saved endpoint has no ready match, so the first ready cached
+        // device is used.
+        Assert.Equal("emulator-5554", vm.DraftConnectAddress);
+        Assert.Equal("emulator-5554", f.UmaService.LastConnectCall?.Serial);
+    }
+
+    [Fact]
+    public async Task Connect_WithAlwaysAutoDetect_PreservesSavedEndpointWhenReadyOnCachedAdb()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "s1", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+
+        vm.DraftAutoDetect = true;
+        vm.DraftAlwaysAutoDetect = true;
+        vm.DraftAdbPath = @"C:\manual\adb.exe";
+        vm.DraftConnectAddress = "192.168.1.100:5555";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("BlueStacks", @"C:\BlueStacks\HD-Adb.exe")],
+            []
+        );
+        f.WinAdapter.NextDevicesResult = new AdbDevicesResult(
+            [
+                new AdbDeviceRecord("emulator-5554", "device"),
+                new AdbDeviceRecord("192.168.1.100:5555", "device"),
+            ],
+            []
+        );
+
+        await vm.ConnectAsync();
+
+        // The explicitly saved endpoint is ready on the cached ADB server —
+        // it must be preserved instead of being replaced by another ready
+        // device, and discovery must not run.
+        Assert.Equal(0, f.WinAdapter.RefreshCallCount);
+        Assert.Equal("192.168.1.100:5555", vm.DraftConnectAddress);
+        Assert.Equal("192.168.1.100:5555", f.UmaService.LastConnectCall?.Serial);
+    }
+
+    [Fact]
+    public async Task Connect_WithAlwaysAutoDetect_RunsDiscoveryWhenCachedAdbHasNoReadyDevice()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+        f.ConnectionState.SetState(ConnectionState.Disconnected);
+        f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
+            1, "s1", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
+
+        vm.DraftAutoDetect = true;
+        vm.DraftAlwaysAutoDetect = true;
+        vm.DraftAdbPath = @"C:\manual\adb.exe";
+        vm.DraftConnectAddress = "192.168.1.100:5555";
+        f.WinAdapter.NextDiscoveryResult = new DiscoveryResult(
+            [new DetectedEmulatorInfo("BlueStacks", @"C:\BlueStacks\HD-Adb.exe")],
+            []
+        );
+        f.WinAdapter.NextDevicesResult = new AdbDevicesResult([], []);
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            ["emulator-5554"], []);
+
+        await vm.ConnectAsync();
+
+        // Cached ADB server has no ready device, so process discovery still
+        // runs even though the address field is non-blank.
         Assert.True(f.WinAdapter.RefreshCallCount > 0);
+        Assert.Equal("emulator-5554", vm.DraftConnectAddress);
+        Assert.Equal("emulator-5554", f.UmaService.LastConnectCall?.Serial);
     }
 
     [Fact]

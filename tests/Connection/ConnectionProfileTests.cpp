@@ -260,12 +260,6 @@ TEST_CASE("get_error_code works with every error code value",
 namespace {
 namespace fs = std::filesystem;
 
-/// Returns the path to resource/connection.json relative to the source root.
-[[nodiscard]] fs::path test_resource_path()
-{
-    return CMAKE_SOURCE_DIR "/resource/connection.json";
-}
-
 /// RAII temporary JSON file — keeps the file alive until the end of the test.
 struct JsonFile
 {
@@ -298,7 +292,7 @@ using UmaAssistant::ConnectionProfile;
 using UmaAssistant::ProfileError;
 
 TEST_CASE("General get_size expands serial into one argument", "[ConnectionProfile][expand]") {
-    auto const profile = ConnectionProfile::load(test_resource_path());
+    auto const profile = ConnectionProfile::default_profile();
     auto const invocation = profile.expand("General", "get_size", R"(C:\adb\adb.exe)", "127.0.0.1:5555");
 
     REQUIRE(invocation.has_value());
@@ -405,17 +399,17 @@ TEST_CASE("profile expands inherited commands merged with overrides", "[Connecti
 }
 
 TEST_CASE("profile expand returns nullopt for unknown profile name", "[ConnectionProfile][expand]") {
-    auto const profile = ConnectionProfile::load(test_resource_path());
+    auto const profile = ConnectionProfile::default_profile();
     REQUIRE_FALSE(profile.expand("NonExistent", "get_size", "adb", "s").has_value());
 }
 
 TEST_CASE("profile expand returns nullopt for unknown command name", "[ConnectionProfile][expand]") {
-    auto const profile = ConnectionProfile::load(test_resource_path());
+    auto const profile = ConnectionProfile::default_profile();
     REQUIRE_FALSE(profile.expand("General", "nonexistent_command", "adb", "s").has_value());
 }
 
 TEST_CASE("each named profile inherits get_size from General", "[ConnectionProfile][inheritance][named]") {
-    auto const profile = ConnectionProfile::load(test_resource_path());
+    auto const profile = ConnectionProfile::default_profile();
 
     auto const general = profile.expand("General", "get_size", R"(C:\adb\adb.exe)", "127.0.0.1:5555");
     REQUIRE(general.has_value());

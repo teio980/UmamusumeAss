@@ -15,11 +15,13 @@ public sealed class StartGameTaskModule : IGrassTaskModule
     private readonly IGameLauncher _gameLauncher;
     private readonly ISettingsService _settingsService;
     private readonly ILocalizationService _localizationService;
+    private readonly IStartGamePipeline? _startGamePipeline;
 
     public StartGameTaskModule(
         IGameLauncher gameLauncher,
         ISettingsService settingsService,
-        ILocalizationService localizationService)
+        ILocalizationService localizationService,
+        IStartGamePipeline? startGamePipeline = null)
     {
         ArgumentNullException.ThrowIfNull(gameLauncher);
         ArgumentNullException.ThrowIfNull(settingsService);
@@ -27,6 +29,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
         _gameLauncher = gameLauncher;
         _settingsService = settingsService;
         _localizationService = localizationService;
+        _startGamePipeline = startGamePipeline;
         Settings = new StartGameTaskSettingsViewModel(settingsService);
     }
 
@@ -57,7 +60,8 @@ public sealed class StartGameTaskModule : IGrassTaskModule
     public IGrassTaskModule CreateInstance() => new StartGameTaskModule(
         _gameLauncher,
         _settingsService,
-        _localizationService);
+        _localizationService,
+        _startGamePipeline);
 
     public bool CanExecute(GrassTaskExecutionContext context) =>
         context.Connection is not null
@@ -103,7 +107,30 @@ public sealed class StartGameTaskModule : IGrassTaskModule
             Settings.ActivityName,
             cancellationToken).ConfigureAwait(false);
 
-        if (result.ProcessDetected)
+        var pipelineResult = result.Succeeded && result.ProcessDetected && _startGamePipeline is not null
+            ? await RunStartGamePipelineAsync(
+                connection,
+                context.LogSink,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+        if (pipelineResult is { Succeeded: false })
+        {
+            context.LogSink?.Add(
+                Localize("GrassScriptStartGame", "Start game"),
+                pipelineResult.Message,
+                LogEntryKind.Failure);
+        }
+        else if (pipelineResult is { HomeDetected: true })
+        {
+            context.LogSink?.Add(
+                Localize("GrassScriptStartGame", "Start game"),
+                Localize(
+                    "GrassScriptGameHomeDetected",
+                    "Game home screen detected"),
+                LogEntryKind.Success);
+        }
+        else if (result.ProcessDetected)
         {
             context.LogSink?.Add(
                 Localize("GrassScriptStartGame", "Start game"),
@@ -126,18 +153,34 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 LogEntryKind.Failure);
         }
 
-        Settings.SetStatus(result.ProcessDetected
+        var succeeded = result.Succeeded && (pipelineResult?.Succeeded ?? true);
+        var processDetected = result.ProcessDetected;
+        var message = pipelineResult?.Message ?? result.Message;
+
+        Settings.SetStatus(processDetected && succeeded
             ? Localize("GrassGameStarted", "Game started")
-            : result.Succeeded
+            : succeeded
                 ? Localize(
                     "GrassGameLaunchPending",
                     "Launch command completed; game process is not detected yet")
                 : Localize("GrassGameLaunchFailed", "Game launch failed"));
 
         return new GrassTaskExecutionResult(
-            result.Succeeded,
-            result.ProcessDetected,
-            result.Message);
+            succeeded,
+            processDetected,
+            message);
+    }
+
+    private async Task<StartGamePipelineResult> RunStartGamePipelineAsync(
+        LastVerifiedConnection connection,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        return await _startGamePipeline!.RunAsync(
+            connection,
+            Settings.PackageId,
+            logSink,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<GrassTaskExecutionResult> StopAsync(

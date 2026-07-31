@@ -1,0 +1,84 @@
+{
+  "start": "CheckGameHome",
+  "tasks": {
+    "CheckGameHome": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/game_home.png",
+      "templThreshold": 0.86,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 250, 1400, 400, 200 ],
+      "action": "DoNothing",
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "success": true,
+      "onErrorNext": [ "CheckDataDownload" ]
+    },
+    "CheckDataDownload": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/data_download.png",
+      "templThreshold": 0.97,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 240, 440, 420, 150 ],
+      "action": "ClickRect",
+      "specificRect": [ 470, 990, 355, 105 ],
+      "postDelay": 1000,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "onErrorNext": [ "CheckPromoSkip" ],
+      "next": [ "CheckGameHome" ]
+    },
+    "CheckPromoSkip": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/promo_skip.png",
+      "templThreshold": 0.97,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 750, 1440, 150, 160 ],
+      "action": "ClickSelf",
+      "postDelay": 1500,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "onErrorNext": [ "CheckNotices" ],
+      "next": [ "CheckGameHome" ]
+    },
+    "CheckNotices": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/notices_close.png",
+      "templThreshold": 0.97,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 250, 1380, 400, 190 ],
+      "action": "ClickSelf",
+      "postDelay": 1000,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "onErrorNext": [ "CheckTapToStart" ],
+      "next": [ "CheckGameHome" ]
+    },
+    "CheckTapToStart": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/tap_to_start.png",
+      "templThreshold": 0.84,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 0, 0, 500, 120 ],
+      "action": "TapToStart",
+      "specificRect": [ 0, 0, 900, 1600 ],
+      "postDelay": 1500,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 200,
+      "onErrorNext": [ "WaitForStartup" ],
+      "next": [ "CheckGameHome" ]
+    },
+    "WaitForStartup": {
+      "algorithm": "JustReturn",
+      "action": "Wait",
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "waitMs": 1000,
+      "next": [ "CheckGameHome" ]
+    }
+  }
+}

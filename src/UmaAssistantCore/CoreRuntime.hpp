@@ -31,7 +31,8 @@ public:
     /// Returns the configured user directory, or an empty string before setup.
     std::string user_dir() const;
 
-    /// Loads resource/connection.json from <base_path>/resource/.
+    /// Loads resource/connection.json from <base_path>/resource/ when present,
+    /// otherwise falls back to the built-in default profile.
     /// Returns true on success, false on failure.
     bool load_resource(std::string const& base_path);
 

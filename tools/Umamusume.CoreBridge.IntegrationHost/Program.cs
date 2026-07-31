@@ -25,8 +25,8 @@ internal static class Program
     private static Task<bool> RunScenario(string scenario, string fakeAdbPath) => scenario switch
     {
         "load" => Task.FromResult(ProbeLoad()),
-        "missing-resource" => ExpectInitializationFailure(corruptResource: false),
-        "corrupt-resource" => ExpectInitializationFailure(corruptResource: true),
+        "default-resource" => ValidateDefaultResourceInitialization(),
+        "corrupt-resource" => ExpectCorruptResourceFailure(),
         "valid-resource" => ValidateResourceInitialization(),
         "s2-stubs" => Task.FromResult(ValidateS2Stubs()),
         "fake-adb-connect" => ValidateFakeAdbConnect(fakeAdbPath),
@@ -44,17 +44,14 @@ internal static class Program
         return true;
     }
 
-    private static async Task<bool> ExpectInitializationFailure(bool corruptResource)
+    private static async Task<bool> ExpectCorruptResourceFailure()
     {
         string root = CreateTemporaryDirectory();
         try
         {
-            if (corruptResource)
-            {
-                string resourceDirectory = Path.Combine(root, "resource");
-                Directory.CreateDirectory(resourceDirectory);
-                await File.WriteAllTextAsync(Path.Combine(resourceDirectory, "connection.json"), "not-json");
-            }
+            string resourceDirectory = Path.Combine(root, "resource");
+            Directory.CreateDirectory(resourceDirectory);
+            await File.WriteAllTextAsync(Path.Combine(resourceDirectory, "connection.json"), "not-json");
 
             await using var service = new UmaService(new InlineEventDispatcher());
             try
@@ -66,6 +63,21 @@ internal static class Program
             {
                 return true;
             }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task<bool> ValidateDefaultResourceInitialization()
+    {
+        string root = CreateTemporaryDirectory();
+        try
+        {
+            await using var service = new UmaService(new InlineEventDispatcher());
+            await service.InitializeAsync(root, Path.Combine(root, "data"));
+            return !string.IsNullOrWhiteSpace(service.CoreVersion);
         }
         finally
         {

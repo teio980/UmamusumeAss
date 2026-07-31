@@ -241,6 +241,30 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
 
 // ===========================================================================
 
+ConnectionProfile ConnectionProfile::default_profile()
+{
+    auto const general = CommandMap{
+        {"list_devices",    {"devices"}},
+        {"get_state",       {"-s", "[AdbSerial]", "get-state"}},
+        {"connect",         {"connect", "[AdbSerial]"}},
+        {"boot_completed",  {"-s", "[AdbSerial]", "shell", "getprop", "sys.boot_completed"}},
+        {"android_id",      {"-s", "[AdbSerial]", "shell", "settings", "get", "secure", "android_id"}},
+        {"android_version", {"-s", "[AdbSerial]", "shell", "getprop", "ro.build.version.release"}},
+        {"get_size",        {"-s", "[AdbSerial]", "shell", "wm", "size"}},
+    };
+
+    ProfileMap profiles;
+    profiles["General"] = general;
+    for (auto const* alias : {"MuMuEmulator12", "LDPlayer", "BlueStacks",
+                              "Nox", "XYAZ", "WSA", "Androws"})
+    {
+        profiles[alias] = general;
+    }
+    return ConnectionProfile{std::move(profiles)};
+}
+
+// ===========================================================================
+
 ConnectionProfile::ConnectionProfile(ProfileMap profiles)
     : profiles_(std::move(profiles))
 {

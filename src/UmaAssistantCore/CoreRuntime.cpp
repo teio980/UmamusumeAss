@@ -1,6 +1,7 @@
 #include "CoreRuntime.hpp"
 #include "Utf8Path.hpp"
 
+#include <filesystem>
 #include <fstream>
 
 namespace UmaAssistant {
@@ -38,6 +39,18 @@ bool CoreRuntime::load_resource(std::string const& base_path)
     auto const decoded_base = path_from_utf8(base_path);
     if (!decoded_base) return false;
     auto const json_path = *decoded_base / "resource" / "connection.json";
+
+    // Fall back to the built-in default profile when no resource file is
+    // present, so the runtime still initializes on a bare install.
+    if (!std::filesystem::exists(json_path))
+    {
+        auto profile = ConnectionProfile::default_profile();
+        std::lock_guard lock(mutex_);
+        profile_        = std::make_shared<ConnectionProfile const>(
+            std::move(profile));
+        resource_loaded_ = true;
+        return true;
+    }
 
     // Attempt to load and validate
     try
