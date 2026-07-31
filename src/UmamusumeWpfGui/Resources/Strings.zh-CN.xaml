@@ -19,6 +19,33 @@
 
   <!-- MAA 风格长草页面 -->
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
+  <sys:String x:Key="GrassScriptLog">Script log</sys:String>
+  <sys:String x:Key="GrassScriptQueue">Task queue</sys:String>
+  <sys:String x:Key="GrassScriptPreparing">Preparing {0} task(s)</sys:String>
+  <sys:String x:Key="GrassScriptTaskQueued">Task queued</sys:String>
+  <sys:String x:Key="GrassScriptTaskRunning">Running task</sys:String>
+  <sys:String x:Key="GrassScriptTaskCompleted">Task completed</sys:String>
+  <sys:String x:Key="GrassScriptTaskCannotExecute">Task cannot execute with the current configuration</sys:String>
+  <sys:String x:Key="GrassScriptConnecting">Connecting to emulator</sys:String>
+  <sys:String x:Key="GrassScriptStartingEmulator">Starting configured emulator</sys:String>
+  <sys:String x:Key="GrassScriptCallingEmulatorStartup">Calling the emulator startup configured in Settings</sys:String>
+  <sys:String x:Key="GrassScriptCallingEmulatorStartupWithPath">Calling the emulator startup configured in Settings: {0}</sys:String>
+  <sys:String x:Key="GrassScriptUsingSavedSettings">Using the saved emulator connection settings</sys:String>
+  <sys:String x:Key="GrassScriptWaitingForEmulator">Waiting for emulator connection</sys:String>
+  <sys:String x:Key="GrassScriptWaitingForAdb">Waiting for the emulator to appear on ADB</sys:String>
+  <sys:String x:Key="GrassScriptWaitingForConfiguredAdb">Waiting for the configured ADB endpoint</sys:String>
+  <sys:String x:Key="GrassScriptEmulatorConnected">Emulator connected</sys:String>
+  <sys:String x:Key="GrassScriptUsingConnection">Using {0}</sys:String>
+  <sys:String x:Key="GrassScriptConnectedToDevice">ADB connected to {0}</sys:String>
+  <sys:String x:Key="GrassScriptConnectionFailed">Emulator connection failed</sys:String>
+  <sys:String x:Key="GrassScriptConnectionFailedDetails">The emulator did not become available through ADB</sys:String>
+  <sys:String x:Key="GrassScriptStartGame">Start game</sys:String>
+  <sys:String x:Key="GrassScriptLaunchingGame">Launching {0} on {1}</sys:String>
+  <sys:String x:Key="GrassScriptWaitingForGameProcess">Waiting for the game process</sys:String>
+  <sys:String x:Key="GrassScriptGameProcessDetected">Game process detected</sys:String>
+  <sys:String x:Key="GrassScriptGameLaunchAccepted">Launch command completed; waiting for the game process</sys:String>
+  <sys:String x:Key="GrassScriptCanceled">Task queue canceled</sys:String>
+  <sys:String x:Key="GrassScriptCompleted">Task queue completed</sys:String>
   <sys:String x:Key="GrassTaskQueue">任务队列</sys:String>
   <sys:String x:Key="GrassSettings">任务设置</sys:String>
   <sys:String x:Key="GrassLogs">活动日志</sys:String>
