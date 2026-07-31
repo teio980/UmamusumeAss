@@ -60,7 +60,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .ToSelf()
             .InSingletonScope();
         builder.Bind<ITeamRacePipeline>()
-            .To<TeamRacePipelinePlaceholder>()
+            .To<AdbTeamRacePipeline>()
             .InSingletonScope();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
