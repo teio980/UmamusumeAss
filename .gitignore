@@ -43,3 +43,6 @@ tempCodeRunnerFile*
 # OS
 .DS_Store
 Thumbs.db
+
+# WPF build temp projects
+*_wpftmp.csproj
