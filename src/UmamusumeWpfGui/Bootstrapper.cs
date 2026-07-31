@@ -56,6 +56,12 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<StartGameTaskModule>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<TeamRaceTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<ITeamRacePipeline>()
+            .To<TeamRacePipelinePlaceholder>()
+            .InSingletonScope();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
         builder.Bind<IEmulatorLauncher>()

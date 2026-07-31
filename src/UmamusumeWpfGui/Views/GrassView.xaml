@@ -176,6 +176,9 @@
                   <DataTemplate DataType="{x:Type tasksettings:StartGameTaskSettingsViewModel}">
                     <taskviews:StartGameTaskSettingsView />
                   </DataTemplate>
+                  <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
+                    <taskviews:TeamRaceTaskSettingsView />
+                  </DataTemplate>
                 </ContentControl.Resources>
               </ContentControl>
               <Border Margin="0,20,0,0"
