@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -13,13 +14,13 @@ namespace UmamusumeWpfGui.ViewModels;
 /// Generic MAA-style task queue coordinator.
 /// Task-specific settings and execution belong to IGrassTaskModule instances.
 /// </summary>
-public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
+public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
-    private readonly LogViewModel _logViewModel;
     private readonly ILocalizationService _localizationService;
     private readonly IGrassTaskCatalog _taskCatalog;
     private readonly IConnectionStateService? _connectionState;
     private readonly ISettingsService? _settingsService;
+    private readonly SettingsViewModel? _settingsViewModel;
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
@@ -52,15 +53,26 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         IGrassTaskCatalog taskCatalog,
         IConnectionStateService? connectionState,
         ISettingsService? settingsService)
+        : this(logViewModel, localizationService, taskCatalog, connectionState, settingsService, null)
+    {
+    }
+
+    public GrassViewModel(
+        LogViewModel logViewModel,
+        ILocalizationService localizationService,
+        IGrassTaskCatalog taskCatalog,
+        IConnectionStateService? connectionState,
+        ISettingsService? settingsService,
+        SettingsViewModel? settingsViewModel)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
         ArgumentNullException.ThrowIfNull(taskCatalog);
-        _logViewModel = logViewModel;
         _localizationService = localizationService;
         _taskCatalog = taskCatalog;
         _connectionState = connectionState;
         _settingsService = settingsService;
+        _settingsViewModel = settingsViewModel;
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
@@ -83,7 +95,15 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
     public ObservableCollection<GrassTaskItemViewModel> Tasks { get; }
 
-    public ObservableCollection<LogEntry> Logs => _logViewModel.Entries;
+    /// <summary>
+    /// Hachimi-only execution history. This collection intentionally does not
+    /// share the Core callback entries shown by the global Log tab.
+    /// </summary>
+    public ObservableCollection<LogEntry> ScriptLogs { get; } = [];
+
+    // Kept as a compatibility alias for callers that used the original page
+    // property. It still points to the dedicated Hachimi collection.
+    public ObservableCollection<LogEntry> Logs => ScriptLogs;
 
     public GrassTaskItemViewModel? SelectedTask
     {
@@ -159,10 +179,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
 
     public bool CanStartQueue =>
         _connectionState is not null
-        && IsConnected
         && !IsQueueOperationInProgress
         && !IsQueueRunning
-        && Tasks.Any(task => task.IsEnabled && task.Module.CanExecute(CurrentContext));
+        && Tasks.Any(task => task.IsEnabled);
 
     public bool CanStopQueue =>
         _connectionState is not null
@@ -239,7 +258,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
     }
 
     private GrassTaskExecutionContext CurrentContext =>
-        new(_connectionState?.LastVerifiedConnection);
+        new(_connectionState?.LastVerifiedConnection, this);
 
     private void AddTask()
     {
@@ -318,31 +337,139 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         if (!CanStartQueue)
             return;
 
-        var context = CurrentContext;
         var queuedTasks = Tasks.Where(task => task.IsEnabled).ToList();
         IsQueueOperationInProgress = true;
         _queueOperationCts?.Dispose();
         _queueOperationCts = new CancellationTokenSource();
+        ScriptLogs.Clear();
+        AddScriptLog(
+            Localize("GrassScriptQueue", "Task queue"),
+            string.Format(
+                CultureInfo.InvariantCulture,
+                Localize("GrassScriptPreparing", "Preparing {0} task(s)"),
+                queuedTasks.Count));
+        foreach (var task in queuedTasks)
+        {
+            AddScriptLog(
+                task.Name,
+                Localize("GrassScriptTaskQueued", "Task queued"));
+        }
+
+        var queueSucceeded = false;
 
         try
         {
+            // MAA connects when the user presses Start instead of disabling
+            // the button before the connection workflow has had a chance to
+            // run. Reuse the existing Settings connection flow here.
+            if (IsConnected && _connectionState?.LastVerifiedConnection is { } currentConnection)
+            {
+                AddScriptLog(
+                    Localize("GrassScriptEmulatorConnected", "Emulator connected"),
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Localize("GrassScriptUsingConnection", "Using {0}"),
+                        currentConnection.Serial),
+                    LogEntryKind.Success);
+            }
+            else if (_settingsViewModel is not null)
+            {
+                if (_settingsViewModel.DraftAutoStartEmulator)
+                {
+                    var executable = _settingsViewModel.DraftEmulatorExecutablePath;
+                    AddScriptLog(
+                        Localize("GrassScriptStartingEmulator", "Starting configured emulator"),
+                        string.IsNullOrWhiteSpace(executable)
+                            ? Localize(
+                                "GrassScriptCallingEmulatorStartup",
+                                "Calling the emulator startup configured in Settings")
+                            : string.Format(
+                                CultureInfo.InvariantCulture,
+                                Localize(
+                                    "GrassScriptCallingEmulatorStartupWithPath",
+                                    "Calling the emulator startup configured in Settings: {0}"),
+                                executable));
+                }
+                else
+                {
+                    AddScriptLog(
+                        Localize("GrassScriptConnecting", "Connecting to emulator"),
+                        Localize(
+                            "GrassScriptUsingSavedSettings",
+                            "Using the saved emulator connection settings"));
+                }
+
+                AddScriptLog(
+                    Localize("GrassScriptWaitingForEmulator", "Waiting for emulator connection"),
+                    _settingsViewModel.DraftAutoDetect
+                        ? Localize(
+                            "GrassScriptWaitingForAdb",
+                            "Waiting for the emulator to appear on ADB")
+                        : Localize(
+                            "GrassScriptWaitingForConfiguredAdb",
+                            "Waiting for the configured ADB endpoint"));
+
+                await _settingsViewModel.ConnectAsync().ConfigureAwait(true);
+
+                if (_connectionState?.LastVerifiedConnection is { } connected)
+                {
+                    AddScriptLog(
+                        Localize("GrassScriptEmulatorConnected", "Emulator connected"),
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Localize("GrassScriptConnectedToDevice", "ADB connected to {0}"),
+                            connected.Serial),
+                        LogEntryKind.Success);
+                }
+                else
+                {
+                    AddScriptLog(
+                        Localize("GrassScriptConnectionFailed", "Emulator connection failed"),
+                        Localize(
+                            "GrassScriptConnectionFailedDetails",
+                            "The emulator did not become available through ADB"),
+                        LogEntryKind.Failure);
+                }
+            }
+
+            var context = CurrentContext;
+            if (context.Connection is null)
+            {
+                AddScriptLog(
+                    Localize("GrassScriptConnectionFailed", "Emulator connection failed"),
+                    Localize(
+                        "GrassGameConnectionRequired",
+                        "Connect a device in Settings to start the queue"),
+                    LogEntryKind.Failure);
+                return;
+            }
+
             foreach (var task in queuedTasks)
             {
                 if (!task.Module.CanExecute(context))
                 {
                     task.Status = Localize("GrassTaskError", "Error");
-                    continue;
+                    AddScriptLog(
+                        task.Name,
+                        Localize(
+                            "GrassScriptTaskCannotExecute",
+                            "Task cannot execute with the current configuration"),
+                        LogEntryKind.Failure);
+                    break;
                 }
 
                 _runningTask = task;
                 task.Status = Localize("GrassTaskRunning", "Running");
+                AddScriptLog(
+                    task.Name,
+                    Localize("GrassScriptTaskRunning", "Running task"));
                 var result = await task.Module.ExecuteAsync(
                     context,
                     _queueOperationCts.Token).ConfigureAwait(true);
                 task.Status = result.Succeeded
                     ? Localize("GrassTaskCompleted", "Completed")
                     : Localize("GrassTaskError", "Error");
-                _logViewModel.AddLocal(
+                AddScriptLog(
                     task.Name,
                     result.Message,
                     result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
@@ -350,25 +477,44 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
                 if (!result.Succeeded)
                     break;
 
+                AddScriptLog(
+                    task.Name,
+                    Localize("GrassScriptTaskCompleted", "Task completed"),
+                    LogEntryKind.Success);
                 IsQueueRunning = true;
             }
+
+            queueSucceeded = queuedTasks.Count > 0
+                && queuedTasks.All(task =>
+                    task.Status == Localize("GrassTaskCompleted", "Completed"));
         }
         catch (OperationCanceledException)
         {
             if (_runningTask is not null)
                 _runningTask.Status = Localize("GrassTaskIdle", "Idle");
+            AddScriptLog(
+                Localize("GrassScriptQueue", "Task queue"),
+                Localize("GrassScriptCanceled", "Task queue canceled"),
+                LogEntryKind.Failure);
         }
         catch (Exception exception)
         {
             if (_runningTask is not null)
                 _runningTask.Status = Localize("GrassTaskError", "Error");
-            _logViewModel.AddLocal(
-                Localize("GrassLogs", "Activity log"),
+            AddScriptLog(
+                Localize("GrassScriptQueue", "Task queue"),
                 exception.Message,
                 LogEntryKind.Failure);
         }
         finally
         {
+            if (queueSucceeded)
+            {
+                AddScriptLog(
+                    Localize("GrassScriptQueue", "Task queue"),
+                    Localize("GrassScriptCompleted", "Task queue completed"),
+                    LogEntryKind.Success);
+            }
             IsQueueOperationInProgress = false;
             RaiseQueueCommandStateChanged();
         }
@@ -388,7 +534,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
             var result = await runningTask.Module.StopAsync(
                 CurrentContext,
                 _queueOperationCts.Token).ConfigureAwait(true);
-            _logViewModel.AddLocal(
+            AddScriptLog(
                 runningTask.Name,
                 result.Message,
                 result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
@@ -409,7 +555,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception exception)
         {
-            _logViewModel.AddLocal(
+            AddScriptLog(
                 runningTask.Name,
                 exception.Message,
                 LogEntryKind.Failure);
@@ -440,8 +586,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
             }
             catch (Exception exception)
             {
-                _logViewModel.AddLocal(
-                    Localize("GrassLogs", "Activity log"),
+                AddScriptLog(
+                    Localize("GrassScriptQueue", "Task queue"),
                     $"Could not restore task '{cachedTask.TaskId}': {exception.Message}",
                     LogEntryKind.Failure);
                 continue;
@@ -478,11 +624,57 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception exception)
         {
-            _logViewModel.AddLocal(
-                Localize("GrassLogs", "Activity log"),
+            AddScriptLog(
+                Localize("GrassScriptQueue", "Task queue"),
                 $"Could not save task queue: {exception.Message}",
                 LogEntryKind.Failure);
         }
+    }
+
+    /// <summary>
+    /// Adds an entry to the Hachimi script log. Task modules can call this
+    /// through <see cref="IGrassTaskLogSink"/> without knowing about WPF or
+    /// the global Core log page.
+    /// </summary>
+    public void Add(string type, string details, LogEntryKind kind = LogEntryKind.Info)
+    {
+        if (_disposed)
+            return;
+
+        var entry = new LogEntry(DateTimeOffset.UtcNow, type, details, kind);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            try
+            {
+                dispatcher.Invoke(() => AppendScriptLog(entry));
+            }
+            catch (InvalidOperationException)
+            {
+                // The WPF dispatcher is shutting down; there is no useful
+                // destination for a late script-log entry.
+            }
+
+            return;
+        }
+
+        AppendScriptLog(entry);
+    }
+
+    private void AddScriptLog(
+        string type,
+        string details,
+        LogEntryKind kind = LogEntryKind.Info) =>
+        Add(type, details, kind);
+
+    private void AppendScriptLog(LogEntry entry)
+    {
+        if (_disposed)
+            return;
+
+        ScriptLogs.Add(entry);
+        if (ScriptLogs.Count > 500)
+            ScriptLogs.RemoveAt(0);
     }
 
     private void AttachTaskEvents(GrassTaskItemViewModel task)
