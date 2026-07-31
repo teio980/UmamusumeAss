@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 using UmamusumeWpfGui.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -11,13 +13,33 @@ namespace UmamusumeWpfGui.Views;
 /// </summary>
 public sealed partial class RootView : FluentWindow
 {
+    private readonly DispatcherTimer _navigationDebounceTimer;
+    private readonly DispatcherTimer _navigationInputGateTimer;
+    private int? _pendingNavigationIndex;
+    private bool _navigationInputLocked;
+
     /// <summary>
     /// Creates the RootView.
     /// </summary>
     public RootView()
     {
         InitializeComponent();
+        _navigationDebounceTimer = new DispatcherTimer(
+            DispatcherPriority.Background,
+            Dispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(50),
+        };
+        _navigationDebounceTimer.Tick += OnNavigationDebounceTick;
+        _navigationInputGateTimer = new DispatcherTimer(
+            DispatcherPriority.Input,
+            Dispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(100),
+        };
+        _navigationInputGateTimer.Tick += OnNavigationInputGateTick;
         Loaded += OnLoaded;
+        Closed += OnClosed;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -30,23 +52,81 @@ public sealed partial class RootView : FluentWindow
         }
     }
 
-    private void OnNavigationSelectionChanged(object sender, RoutedEventArgs e)
+    private void OnNavigationItemPreviewMouseDown(
+        object sender,
+        MouseButtonEventArgs e)
     {
-        if (sender is NavigationView navigationView
-            && navigationView.SelectedItem is NavigationViewItem item)
-        {
-            ApplyNavigationItem(item);
-        }
-    }
-
-    private void ApplyNavigationItem(NavigationViewItem item)
-    {
-        if (!int.TryParse(item.Tag?.ToString(), out var index)
-            || DataContext is not RootViewModel viewModel)
+        if (e.ChangedButton != MouseButton.Left
+            || sender is not NavigationViewItem item)
         {
             return;
         }
 
-        viewModel.SelectedNavigationIndex = index;
+        e.Handled = true;
+        TryAcceptNavigationItem(item);
+    }
+
+    private void OnNavigationItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is NavigationViewItem item)
+        {
+            TryAcceptNavigationItem(item);
+        }
+    }
+
+    private void TryAcceptNavigationItem(NavigationViewItem item)
+    {
+        if (_navigationInputLocked
+            || !int.TryParse(item.Tag?.ToString(), out _))
+        {
+            return;
+        }
+
+        _navigationInputLocked = true;
+        _navigationInputGateTimer.Stop();
+        _navigationInputGateTimer.Start();
+        RootNavigation.SetCurrentValue(
+            System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
+            item);
+        QueueNavigationItem(item);
+    }
+
+    private void QueueNavigationItem(NavigationViewItem item)
+    {
+        if (!int.TryParse(item.Tag?.ToString(), out var index))
+        {
+            return;
+        }
+
+        _pendingNavigationIndex = index;
+        _navigationDebounceTimer.Stop();
+        _navigationDebounceTimer.Start();
+    }
+
+    private void OnNavigationDebounceTick(object? sender, EventArgs e)
+    {
+        _navigationDebounceTimer.Stop();
+        var index = _pendingNavigationIndex;
+        _pendingNavigationIndex = null;
+        if (index is null || DataContext is not RootViewModel viewModel)
+        {
+            return;
+        }
+
+        viewModel.SelectedNavigationIndex = index.Value;
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        _navigationDebounceTimer.Stop();
+        _navigationInputGateTimer.Stop();
+        _navigationInputLocked = false;
+        _pendingNavigationIndex = null;
+    }
+
+    private void OnNavigationInputGateTick(object? sender, EventArgs e)
+    {
+        _navigationInputGateTimer.Stop();
+        _navigationInputLocked = false;
     }
 }

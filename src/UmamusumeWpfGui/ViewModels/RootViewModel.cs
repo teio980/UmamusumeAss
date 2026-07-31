@@ -74,6 +74,9 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
     /// <summary>Log tab view model — displays connection callback events.</summary>
     public LogViewModel LogViewModel { get; }
 
+    /// <summary>Overview tab view model.</summary>
+    public OverviewViewModel OverviewViewModel => _overviewViewModel;
+
     /// <summary>Settings tab view model — connection config, language, system info.</summary>
     public SettingsViewModel SettingsViewModel { get; }
 

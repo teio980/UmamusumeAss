@@ -53,12 +53,20 @@ public sealed class RootViewContractTests
     }
 
     [Fact]
-    public void RootView_HostsActiveContentThroughStylet()
+    public void RootView_CachesEachTabViewThroughStylet()
     {
-        var contentControl = LoadXaml().Descendants()
-            .Single(element => element.Name.LocalName == "ContentControl");
-        Assert.Contains("ActiveContent", contentControl.ToString());
-        Assert.Contains("View.Model", contentControl.ToString());
+        var contentControls = LoadXaml().Descendants()
+            .Where(element => element.Name.LocalName == "ContentControl")
+            .ToList();
+        var content = string.Join(Environment.NewLine, contentControls);
+
+        Assert.Equal(4, contentControls.Count);
+        Assert.Contains("GrassViewModel", content);
+        Assert.Contains("OverviewViewModel", content);
+        Assert.Contains("LogViewModel", content);
+        Assert.Contains("SettingsViewModel", content);
+        Assert.All(contentControls, control =>
+            Assert.Contains("View.Model", control.ToString()));
     }
 
     [Fact]
@@ -73,6 +81,26 @@ public sealed class RootViewContractTests
         Assert.Contains("TabHachimi", menuItems[0].Attribute("Content")?.Value);
         Assert.Equal("0", menuItems[1].Attribute("Tag")?.Value);
         Assert.Contains("NavOverview", menuItems[1].Attribute("Content")?.Value);
+    }
+
+    [Fact]
+    public void RootNavigation_OnlySelectsActiveContent()
+    {
+        var root = LoadXaml().Root!;
+        var navigationItems = root.Descendants()
+            .Where(element => element.Name.LocalName == "NavigationViewItem")
+            .ToList();
+
+        Assert.NotEmpty(navigationItems);
+        Assert.All(navigationItems, item =>
+            Assert.Null(item.Attribute("TargetPageType")));
+        Assert.All(navigationItems, item =>
+            Assert.Equal("OnNavigationItemClick", item.Attribute("Click")?.Value));
+        Assert.All(navigationItems, item =>
+            Assert.Equal(
+                "OnNavigationItemPreviewMouseDown",
+                item.Attribute("PreviewMouseLeftButtonDown")?.Value));
+        Assert.DoesNotContain("NavigationCacheMode", root.ToString());
     }
 
     [Fact]
