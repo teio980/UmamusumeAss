@@ -258,7 +258,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     }
 
     private GrassTaskExecutionContext CurrentContext =>
-        new(_connectionState?.LastVerifiedConnection, this);
+        new(IsConnected ? _connectionState?.LastVerifiedConnection : null, this);
 
     private void AddTask()
     {
@@ -515,6 +515,12 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     Localize("GrassScriptCompleted", "Task queue completed"),
                     LogEntryKind.Success);
             }
+
+            // A completed queue is idle even when the game process remains
+            // open. Reset the queue state so Start can be pressed again;
+            // stopping the game itself is a separate task operation.
+            IsQueueRunning = false;
+            _runningTask = null;
             IsQueueOperationInProgress = false;
             RaiseQueueCommandStateChanged();
         }
