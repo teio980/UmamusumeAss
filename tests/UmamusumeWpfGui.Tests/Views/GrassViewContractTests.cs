@@ -19,6 +19,9 @@ public sealed class GrassViewContractTests
         Assert.Contains("GrassTaskQueue", content);
         Assert.Contains("GrassSettings", content);
         Assert.Contains("GrassLogs", content);
+        Assert.Contains("ScriptLogs", content);
+        Assert.Contains("ScriptLogListBox", content);
+        Assert.DoesNotContain("ItemsSource=\"{Binding Logs}\"", content);
         Assert.Contains("GrassAddTask", content);
         Assert.Contains("GrassGeneralSettings", content);
         Assert.Contains("GrassTodayHint", content);

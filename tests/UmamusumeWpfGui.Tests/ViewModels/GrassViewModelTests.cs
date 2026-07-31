@@ -202,7 +202,16 @@ public sealed class GrassViewModelTests
         Assert.Equal(
             "com.example.umamusume/com.example.MainActivity",
             settings.Load().TargetActivityName);
-        Assert.True(viewModel.IsQueueRunning);
+        while (viewModel.IsQueueOperationInProgress)
+            await Task.Delay(10);
+
+        Assert.False(viewModel.IsQueueRunning);
+        Assert.True(viewModel.StartCommand.CanExecute(null));
+        Assert.NotEmpty(viewModel.ScriptLogs);
+        Assert.Contains(
+            viewModel.ScriptLogs,
+            entry => entry.Type == "Start game" && entry.Details == "Game process detected");
+        Assert.Empty(log.Entries);
     }
 
     [Fact]
