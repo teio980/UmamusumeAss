@@ -12,3 +12,13 @@ size, and coordinates are scaled to the connected device.
 
 Supported actions include `Screenshot`, `Wait`, `TapToStart`, `ClickSelf`,
 `ClickRect`, `Swipe`, `Back`, `Input`, and `KeyEvent`.
+
+## Team Race scaffold
+
+`team_race.json` is a separate MAA-inspired state-machine skeleton for the
+Team Race / Team Arena task. It includes the navigation states, retry paths,
+ticket check, and terminal states, but deliberately does not include client
+specific OCR execution or newly captured templates. Startup templates are
+under `templates/start_game/`; Team Race templates belong under
+`templates/team_race/`. Replace the `TeamRacePipelinePlaceholder` binding in
+the WPF bootstrapper with the implementation of `ITeamRacePipeline`.

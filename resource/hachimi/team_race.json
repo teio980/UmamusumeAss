@@ -1,0 +1,39 @@
+{
+  "name": "team-race",
+  "schemaVersion": 2,
+  "description": "Team Trials navigation and three-race playback flow for the English 900x1600 client.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {
+    "raceResult": "templates/team_race/race_result.png",
+    "randomShop": ""
+  },
+  "coordinates": {
+    "raceTab": [675, 1535],
+    "teamTrials": [270, 1060],
+    "teamRace": [450, 1035],
+    "opponent": [450, 780],
+    "matchupNext": [450, 1350],
+    "itemRace": [650, 1135],
+    "firstUma": [110, 880],
+    "viewRace": [330, 1470],
+    "detailRace": [450, 1470],
+    "playbackOk": [650, 1040],
+    "playbackStart": [450, 1470],
+    "playbackSkip": [700, 1535],
+    "playbackSpeed": [335, 1535],
+    "resultClose": [450, 1150],
+    "resultNext": [450, 1470]
+  },
+  "timing": {
+    "navigationMs": 1200,
+    "teamDownloadMs": 10000,
+    "nextRaceLoadMs": 10000,
+    "playbackLoadMs": 20000,
+    "skipSettleMs": 2500,
+    "raceTimeoutMs": 60000,
+    "shopProbeMs": 1500,
+    "pollIntervalMs": 1000,
+    "betweenRacesMs": 1200
+  }
+}
