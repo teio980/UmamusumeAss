@@ -41,7 +41,8 @@
       <ListBox x:Name="EntriesListBox"
                ItemsSource="{Binding Entries}"
                BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               HorizontalContentAlignment="Stretch"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                ScrollViewer.VerticalScrollBarVisibility="Auto">
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
@@ -77,15 +78,21 @@
                           TextWrapping="NoWrap"
                           HorizontalScrollBarVisibility="Hidden"
                           VerticalScrollBarVisibility="Hidden" />
-              <ui:TextBox Grid.Column="2"
-                          Text="{Binding Details}"
-                          IsReadOnly="True"
-                          BorderThickness="0"
-                          Background="Transparent"
-                          Padding="0"
-                          TextWrapping="NoWrap"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Hidden" />
+              <Expander Grid.Column="2"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Header="{Binding Details}"
+                        IsExpanded="False">
+                <Expander.HeaderTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </Expander.HeaderTemplate>
+                <TextBlock Text="{Binding Details}"
+                           TextWrapping="Wrap" />
+              </Expander>
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>

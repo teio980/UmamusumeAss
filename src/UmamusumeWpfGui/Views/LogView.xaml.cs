@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.ViewModels;
 
@@ -17,6 +18,8 @@ public sealed partial class LogView : UserControl
     private ScrollViewer? _scrollViewer;
     private INotifyCollectionChanged? _subscribedCollection;
     private bool _isAtBottom = true;
+    private bool _scrollRequestPending;
+    private int _viewGeneration;
 
     /// <summary>
     /// Creates the LogView and wires auto-scroll behavior.
@@ -30,12 +33,16 @@ public sealed partial class LogView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _viewGeneration++;
+        _scrollRequestPending = false;
         LocateScrollViewer();
         SubscribeToCollection();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _viewGeneration++;
+        _scrollRequestPending = false;
         UnsubscribeFromCollection();
         UnsubscribeFromScrollViewer();
     }
@@ -88,8 +95,27 @@ public sealed partial class LogView : UserControl
         if (_isAtBottom && _scrollViewer is not null
             && e.Action == NotifyCollectionChangedAction.Add)
         {
-            _scrollViewer.ScrollToEnd();
+            RequestScrollToEnd();
         }
+    }
+
+    private void RequestScrollToEnd()
+    {
+        if (_scrollRequestPending || _scrollViewer is null)
+            return;
+
+        _scrollRequestPending = true;
+        var generation = _viewGeneration;
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() =>
+            {
+                _scrollRequestPending = false;
+                if (generation != _viewGeneration || !IsLoaded)
+                    return;
+
+                _scrollViewer?.ScrollToEnd();
+            }));
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
