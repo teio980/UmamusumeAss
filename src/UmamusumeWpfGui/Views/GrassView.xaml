@@ -232,7 +232,14 @@
                      ItemsSource="{Binding ScriptLogs}"
                      BorderThickness="0"
                      Background="Transparent"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+              </ListBox.ItemContainerStyle>
               <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type m:LogEntry}">
                   <StackPanel Margin="0,4">
@@ -241,9 +248,23 @@
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                     <TextBlock Text="{Binding Type}"
                                FontWeight="Medium" />
-                    <TextBlock Text="{Binding Details}"
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <Expander Margin="0,2,0,0"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Header="{Binding Details}"
+                              IsExpanded="False">
+                      <Expander.HeaderTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding}"
+                                     TextWrapping="NoWrap"
+                                     TextTrimming="CharacterEllipsis"
+                                     Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </DataTemplate>
+                      </Expander.HeaderTemplate>
+                      <TextBlock Text="{Binding Details}"
+                                 TextWrapping="Wrap"
+                                 Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Expander>
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
