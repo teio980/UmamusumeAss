@@ -88,6 +88,29 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public void StartIsAvailableBeforeConnectionWhenAnEnabledTaskExists()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(new FakeGrassTaskModule(new GrassTaskDefinition(
+            "daily-training",
+            "GrassTaskDailyTraining",
+            "GrassTaskDailyTrainingDescription",
+            "Daily Training",
+            "Training plan and daily development flow (not connected)")));
+        var state = new ConnectionStateService();
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            catalog,
+            state);
+        viewModel.AddTaskCommand.Execute(null);
+
+        Assert.True(viewModel.CanStartQueue);
+        Assert.True(viewModel.StartCommand.CanExecute(null));
+    }
+
+    [Fact]
     public void TaskQueueRestoresOrderEnabledStateAndModuleSettingsFromSettingsCache()
     {
         using var log = new LogViewModel(new FakeUmaService());
