@@ -6,28 +6,28 @@ using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views;
 
-/// <summary>
-/// Settings view with an official WPF-UI top NavigationView.
-/// Connection, Language, and System panels switch based on selected menu index.
-///
-/// Code-behind handles only:
-/// - File dialog plumbing for Browse ADB Path
-/// - Top navigation item routing
-/// </summary>
+
+
+
+
+
+
+
+
 public sealed partial class SettingsView : UserControl
 {
-    /// <summary>
-    /// Creates the SettingsView.
-    /// </summary>
+
+
+
     public SettingsView()
     {
         InitializeComponent();
     }
 
-    /// <summary>
-    /// Routes the official top NavigationView item click to the existing
-    /// SettingsViewModel section index and updates its active indicator.
-    /// </summary>
+
+
+
+
     private void OnSettingsNavigationItemClick(object sender, RoutedEventArgs e)
     {
         if (sender is not NavigationViewItem item
@@ -47,10 +47,10 @@ public sealed partial class SettingsView : UserControl
         }
     }
 
-    /// <summary>
-    /// Opens an OpenFileDialog to select an ADB executable and
-    /// updates the ViewModel's DraftAdbPath.
-    /// </summary>
+
+
+
+
     private void OnBrowseAdbPath(object sender, RoutedEventArgs e)
     {
         if (DataContext is not SettingsViewModel vm)
@@ -64,7 +64,7 @@ public sealed partial class SettingsView : UserControl
             Multiselect = false,
         };
 
-        // Set initial directory from current draft value, or default
+
         if (!string.IsNullOrEmpty(vm.DraftAdbPath))
         {
             try
@@ -74,7 +74,7 @@ public sealed partial class SettingsView : UserControl
             }
             catch
             {
-                // Ignore invalid paths
+
             }
         }
 

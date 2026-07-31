@@ -5,11 +5,11 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Decoder for Android's raw screencap stream. MAA accepts both 12-byte and
-/// 16-byte headers and retries after removing CRLF inserted by a few emulator
-/// ADB builds; this codec follows the same compatibility rule.
-/// </summary>
+
+
+
+
+
 public static class AdbScreenshotCodec
 {
     public static bool TryDecodeRaw(

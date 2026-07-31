@@ -208,9 +208,9 @@ public sealed class AdbConnectionSession : IAdbConnectionSession
         }
 
         _disposed = true;
-        // MAA does not disconnect a serial device implicitly on every task;
-        // callers can explicitly call DisconnectAsync when they own a TCP
-        // connection. Disposal only ends the managed session context.
+
+
+
         await Task.CompletedTask.ConfigureAwait(false);
     }
 

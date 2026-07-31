@@ -37,9 +37,9 @@ internal static class GrayImageCodec
         }
         catch (COMException)
         {
-            // WPF can surface an unsupported/corrupt PNG as a native imaging
-            // COM error on a background decode. Treat it as a missing frame
-            // so the task graph can retry the next screenshot safely.
+
+
+
             return null;
         }
         catch (FileFormatException)

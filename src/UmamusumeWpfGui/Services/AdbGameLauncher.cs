@@ -3,12 +3,12 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// MAA-style game lifecycle implementation:
-/// start the configured component, retry the launch while the client is not
-/// visible, and force-stop it on request. The retry window mirrors MAA's
-/// StartGameTaskPlugin (30 attempts with a 1.5 second interval).
-/// </summary>
+
+
+
+
+
+
 public sealed class AdbGameLauncher : IGameLauncher
 {
     private const int MaxStartAttempts = 30;
@@ -87,8 +87,8 @@ public sealed class AdbGameLauncher : IGameLauncher
             }
         }
 
-        // Preserve the last ADB result so the task log can still show the
-        // concrete failure after the bounded retry window.
+
+
         var finalResult = lastStart!;
         return new GameLaunchResult(
             IsSuccessful(finalResult),

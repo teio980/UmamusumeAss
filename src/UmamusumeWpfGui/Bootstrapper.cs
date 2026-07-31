@@ -16,7 +16,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
 {
     protected override void ConfigureIoC(IStyletIoCBuilder builder)
     {
-        // Singleton services (shared state)
+
         builder.Bind<IConnectionStateService>()
             .To<ConnectionStateService>()
             .InSingletonScope();
@@ -37,7 +37,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<LocalizationService>()
             .InSingletonScope();
 
-        // Transient helpers
+
         builder.Bind<IProcessEnumerator>()
             .To<ProcessEnumerator>();
         builder.Bind<IAdbRunner>()

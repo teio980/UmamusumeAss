@@ -1,31 +1,31 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- ============================================================
-       Section 6 Color Palette — UmamusumeAss Design System
-       All brush tokens from docs/DESIGN.md section 2.
-       ============================================================ -->
 
-  <!-- Surface -->
+
+
+
+
+
   <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#F6F5F8" />
   <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="#EEEAF3" />
   <SolidColorBrush x:Key="SurfacePanelBrush" Color="#FFFFFF" />
   <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#FBFAFD" />
 
-  <!-- Text -->
+
   <SolidColorBrush x:Key="TextPrimaryBrush" Color="#24212A" />
   <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6D6875" />
   <SolidColorBrush x:Key="TextDisabledBrush" Color="#9A94A3" />
 
-  <!-- Border -->
+
   <SolidColorBrush x:Key="BorderDefaultBrush" Color="#DCD7E2" />
   <SolidColorBrush x:Key="BorderSubtleBrush" Color="#ECE8F0" />
 
-  <!-- Accent -->
+
   <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#7653A6" />
   <SolidColorBrush x:Key="AccentHoverBrush" Color="#65458F" />
 
-  <!-- Status -->
+
   <SolidColorBrush x:Key="StatusSuccessBrush" Color="#317B62" />
   <SolidColorBrush x:Key="StatusWarningBrush" Color="#A86F23" />
   <SolidColorBrush x:Key="StatusErrorBrush" Color="#B84B58" />

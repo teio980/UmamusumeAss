@@ -14,9 +14,9 @@ namespace UmamusumeWpfGui.Tests.ViewModels;
 
 public sealed class SettingsViewModelTests
 {
-    // ================================================================
-    // Fixture
-    // ================================================================
+
+
+
 
     private sealed class Fixture
     {
@@ -31,7 +31,7 @@ public sealed class SettingsViewModelTests
 
         public Fixture()
         {
-            // Default persisted settings
+
             Settings.Save(new ConnectionSettings
             {
                 AdbPath = @"C:\persisted\adb.exe",
@@ -60,9 +60,9 @@ public sealed class SettingsViewModelTests
         return new Fixture();
     }
 
-    // ================================================================
-    // 1. Menu Navigation
-    // ================================================================
+
+
+
 
     [Fact]
     public void SelectedMenuIndex_DefaultIsZero()
@@ -130,9 +130,9 @@ public sealed class SettingsViewModelTests
         Assert.Contains("SelectedMenuIndex", changed);
     }
 
-    // ================================================================
-    // 2. Draft vs Persisted Settings
-    // ================================================================
+
+
+
 
     [Fact]
     public void Constructor_LoadsDraftFromSettingsService()
@@ -154,7 +154,7 @@ public sealed class SettingsViewModelTests
         vm.DraftAdbPath = @"D:\new\adb.exe";
         vm.DraftConnectAddress = "10.0.0.1:5555";
 
-        // Persisted settings should still have old values
+
         var persisted = f.Settings.Load();
         Assert.Equal(@"C:\persisted\adb.exe", persisted.AdbPath);
         Assert.Equal("192.168.1.1:5555", persisted.ConnectAddress);
@@ -174,7 +174,7 @@ public sealed class SettingsViewModelTests
         var persisted = f.Settings.Load();
         Assert.Equal(@"D:\new\adb.exe", persisted.AdbPath);
         Assert.True(persisted.AutoDetectConnection);
-        // Language was also saved from draft
+
     }
 
     [Fact]
@@ -217,9 +217,9 @@ public sealed class SettingsViewModelTests
         Assert.Contains("DraftAutoDetect", changed);
     }
 
-    // ================================================================
-    // 3. Last Verified & Forget
-    // ================================================================
+
+
+
 
     [Fact]
     public void LastVerified_ReflectsConnectionStateService()
@@ -253,19 +253,19 @@ public sealed class SettingsViewModelTests
         var f = CreateFixture();
         var vm = f.CreateViewModel();
 
-        // Set up a last verified record
+
         var now = DateTimeOffset.UtcNow;
         f.ConnectionState.UpdateLastVerified(new LastVerifiedConnection(
             @"C:\adb\adb.exe", "s1", "id1", "12", 100, 200, 100, 200, now));
 
-        // Change draft to different values
+
         vm.DraftAdbPath = @"D:\other\adb.exe";
 
         vm.Forget();
 
-        // Last verified should be cleared
+
         Assert.Null(vm.LastVerified);
-        // Draft must be preserved
+
         Assert.Equal(@"D:\other\adb.exe", vm.DraftAdbPath);
     }
 
@@ -279,9 +279,9 @@ public sealed class SettingsViewModelTests
         Assert.Null(exception);
     }
 
-    // ================================================================
-    // 4. Connect: Overlap Prevention
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_WhenDisconnected_StartsOperation()
@@ -356,9 +356,9 @@ public sealed class SettingsViewModelTests
         Assert.Equal(1, f.UmaService.ConnectCallCount);
     }
 
-    // ================================================================
-    // 5. Connect: Success Path
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_OnSuccess_UpdatesStateToConnected()
@@ -427,7 +427,7 @@ public sealed class SettingsViewModelTests
             1, "emulator-5554", "id1", "14",
             1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
 
-        // Set draft with different values than persisted
+
         vm.DraftAdbPath = @"C:\custom\adb.exe";
         vm.DraftConnectAddress = "emulator-5554";
 
@@ -444,7 +444,7 @@ public sealed class SettingsViewModelTests
         var f = CreateFixture();
         var vm = f.CreateViewModel();
         f.ConnectionState.SetState(ConnectionState.Disconnected);
-        // Event has a different serial than what was passed in
+
         f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
             1, "127.0.0.1:5555", "id1", "14",
             1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
@@ -453,13 +453,13 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // History uses the serial from the success event, not the draft address
+
         Assert.Contains("127.0.0.1:5555", vm.ConnectAddressHistory);
     }
 
-    // ================================================================
-    // 6. Connect: Failure Path
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_OnFailure_UpdatesStateToFailed()
@@ -486,7 +486,7 @@ public sealed class SettingsViewModelTests
         f.UmaService.NextConnectResult = new ConnectionFailedEvent(
             1, ConnectionErrorCode.CommandTimedOut, "boot_poll", "timeout", 1, 1);
 
-        // Set up an existing last verified
+
         var existingRecord = new LastVerifiedConnection(
             "old", "old-serial", "old-id", "10", 100, 200, 100, 200, DateTimeOffset.UtcNow);
         f.ConnectionState.UpdateLastVerified(existingRecord);
@@ -495,7 +495,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Last verified should remain unchanged
+
         Assert.NotNull(f.ConnectionState.LastVerifiedConnection);
         Assert.Equal("old-serial", f.ConnectionState.LastVerifiedConnection.Serial);
     }
@@ -516,9 +516,9 @@ public sealed class SettingsViewModelTests
         Assert.Empty(vm.ConnectAddressHistory);
     }
 
-    // ================================================================
-    // 7. Cancel
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Cancel_WhenConnecting_CancelsOperation()
@@ -600,9 +600,9 @@ public sealed class SettingsViewModelTests
         Assert.Null(exception);
     }
 
-    // ================================================================
-    // 8. Auto-Detect during Connect
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_WithAutoDetectDisabled_DoesNotRunDiscovery()
@@ -618,7 +618,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // WinAdapter should not have been called
+
         Assert.Equal(0, f.WinAdapter.RefreshCallCount);
     }
 
@@ -631,7 +631,7 @@ public sealed class SettingsViewModelTests
         f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
             1, "s1", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
 
-        // Auto-detect enabled, blank address
+
         vm.DraftAutoDetect = true;
         vm.DraftAdbPath = @"";
         vm.DraftConnectAddress = @"";
@@ -646,9 +646,9 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Discovery should have been run
+
         Assert.True(f.WinAdapter.RefreshCallCount > 0);
-        // Should have connected to the discovered address
+
         Assert.True(f.UmaService.ConnectCallCount > 0);
         Assert.Equal("emulator-5554", f.UmaService.LastConnectCall?.Serial);
     }
@@ -662,16 +662,16 @@ public sealed class SettingsViewModelTests
         f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
             1, "s1", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
 
-        // Auto-detect enabled but address is already filled in
+
         vm.DraftAutoDetect = true;
         vm.DraftAdbPath = @"C:\manual\adb.exe";
         vm.DraftConnectAddress = "192.168.1.100:5555";
 
         await vm.ConnectAsync();
 
-        // WinAdapter should NOT have been called (blank-only behavior)
+
         Assert.Equal(0, f.WinAdapter.RefreshCallCount);
-        // Should have connected using the manual values
+
         Assert.Equal("192.168.1.100:5555", f.UmaService.LastConnectCall?.Serial);
     }
 
@@ -691,9 +691,9 @@ public sealed class SettingsViewModelTests
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
 
-    // ================================================================
-    // 9. AlwaysAutoDetect
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_WithAlwaysAutoDetect_PrefersReadyCachedAdbDevice()
@@ -719,12 +719,12 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // The cached ADB path already has a ready device, so process
-        // discovery must not run — AlwaysAutoDetect must not replace a
-        // working endpoint with a discovered one.
+
+
+
         Assert.Equal(0, f.WinAdapter.RefreshCallCount);
-        // Saved endpoint has no ready match, so the first ready cached
-        // device is used.
+
+
         Assert.Equal("emulator-5554", vm.DraftConnectAddress);
         Assert.Equal("emulator-5554", f.UmaService.LastConnectCall?.Serial);
     }
@@ -756,9 +756,9 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // The explicitly saved endpoint is ready on the cached ADB server —
-        // it must be preserved instead of being replaced by another ready
-        // device, and discovery must not run.
+
+
+
         Assert.Equal(0, f.WinAdapter.RefreshCallCount);
         Assert.Equal("192.168.1.100:5555", vm.DraftConnectAddress);
         Assert.Equal("192.168.1.100:5555", f.UmaService.LastConnectCall?.Serial);
@@ -787,8 +787,8 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Cached ADB server has no ready device, so process discovery still
-        // runs even though the address field is non-blank.
+
+
         Assert.True(f.WinAdapter.RefreshCallCount > 0);
         Assert.Equal("emulator-5554", vm.DraftConnectAddress);
         Assert.Equal("emulator-5554", f.UmaService.LastConnectCall?.Serial);
@@ -807,7 +807,7 @@ public sealed class SettingsViewModelTests
         vm.RequestOverwriteConfirmation = () =>
         {
             confirmationRequested = true;
-            return Task.FromResult(true); // confirmed
+            return Task.FromResult(true);
         };
 
         vm.DraftAutoDetect = true;
@@ -837,7 +837,7 @@ public sealed class SettingsViewModelTests
         f.UmaService.NextConnectResult = new ConnectionSucceededEvent(
             1, "s1", "id1", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
 
-        vm.RequestOverwriteConfirmation = () => Task.FromResult(false); // denied
+        vm.RequestOverwriteConfirmation = () => Task.FromResult(false);
 
         vm.DraftAutoDetect = true;
         vm.DraftAlwaysAutoDetect = true;
@@ -854,7 +854,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Draft should still have manual values
+
         Assert.Equal(@"C:\manual\adb.exe", vm.DraftAdbPath);
         Assert.Equal("192.168.1.100:5555", vm.DraftConnectAddress);
     }
@@ -890,13 +890,13 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // No confirmation needed when fields are blank (nothing to overwrite)
+
         Assert.False(confirmationRequested);
     }
 
-    // ================================================================
-    // 10. Discovery Candidates & Eligibility
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task Connect_AutoDetectNoCandidates_DoesNotChangeDraft()
@@ -908,15 +908,15 @@ public sealed class SettingsViewModelTests
         vm.DraftAutoDetect = true;
         vm.DraftAdbPath = @"C:\existing\adb.exe";
         vm.DraftConnectAddress = "192.168.1.100:5555";
-        // Blank address to trigger discovery, but values should not be overwritten
+
         vm.DraftConnectAddress = @"";
 
         f.WinAdapter.NextDiscoveryResult = new DiscoveryResult([], []);
 
-        // Don't set NextConnectResult so we can verify it stopped
+
         await vm.ConnectAsync();
 
-        // Since no candidates, we expect connect was not called (blank address remained blank)
+
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
 
@@ -1170,7 +1170,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Should have updated draft with discovered values
+
         Assert.Equal(@"D:\LDPlayer\adb.exe", vm.DraftAdbPath);
     }
 
@@ -1197,7 +1197,7 @@ public sealed class SettingsViewModelTests
         DetectedEmulatorInfo? selectedCandidate = null;
         vm.RequestCandidateSelection = async (available) =>
         {
-            selectedCandidate = available[1]; // pick LDPlayer
+            selectedCandidate = available[1];
             return selectedCandidate;
         };
 
@@ -1208,7 +1208,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // Should have asked for selection
+
         Assert.NotNull(selectedCandidate);
         Assert.Equal("LDPlayer", selectedCandidate.EmulatorName);
     }
@@ -1238,7 +1238,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        // ADB path should be set (from candidate), but address should still be blank
+
         Assert.Equal(@"C:\BS\HD-Adb.exe", vm.DraftAdbPath);
         Assert.Equal(@"", vm.DraftConnectAddress);
     }
@@ -1360,9 +1360,9 @@ public sealed class SettingsViewModelTests
         Assert.Equal("emulator-5556", f.UmaService.LastConnectCall?.Serial);
     }
 
-    // ================================================================
-    // 11. Manual AutoDetect Command
-    // ================================================================
+
+
+
 
     [Fact]
     public async Task AutoDetectEmulators_WithDiscovery_RunsDiscoveryAndUpdatesDraft()
@@ -1418,7 +1418,7 @@ public sealed class SettingsViewModelTests
 
         await vm.AutoDetectEmulatorsAsync();
 
-        // Draft unchanged
+
         Assert.Equal(@"C:\existing\adb.exe", vm.DraftAdbPath);
         Assert.Equal("192.168.1.1:5555", vm.DraftConnectAddress);
     }
@@ -1466,13 +1466,13 @@ public sealed class SettingsViewModelTests
 
         await vm.AutoDetectEmulatorsAsync();
 
-        // Should have transitioned through Detecting and back to Idle or Disconnected
+
         Assert.Contains(ConnectionState.Detecting, states);
     }
 
-    // ================================================================
-    // 12. Language
-    // ================================================================
+
+
+
 
     [Fact]
     public void SelectedLanguage_DefaultsToLocalizationCurrent()
@@ -1501,7 +1501,7 @@ public sealed class SettingsViewModelTests
     public void DraftLanguage_IsLoadedFromSettings()
     {
         var f = CreateFixture();
-        // Settings already has Language = "en-US" from fixture setup
+
         var vm = f.CreateViewModel();
 
         Assert.Equal("en-US", vm.DraftLanguage);
@@ -1514,15 +1514,15 @@ public sealed class SettingsViewModelTests
         var vm = f.CreateViewModel();
         f.Localization.CurrentCulture = "zh-CN";
 
-        // Changing SelectedLanguage should update DraftLanguage
+
         vm.SelectedLanguage = "zh-CN";
 
         Assert.Equal("zh-CN", vm.DraftLanguage);
     }
 
-    // ================================================================
-    // 13. State Monitoring
-    // ================================================================
+
+
+
 
     [Fact]
     public void State_ReflectsConnectionStateService()
@@ -1625,9 +1625,9 @@ public sealed class SettingsViewModelTests
         Assert.False(vm.IsOperationInProgress);
     }
 
-    // ================================================================
-    // 14. System Info
-    // ================================================================
+
+
+
 
     [Fact]
     public void CoreVersion_ReflectsUmaService()
@@ -1659,9 +1659,9 @@ public sealed class SettingsViewModelTests
         Assert.Equal(@"C:\app\resource", vm.ResourcePath);
     }
 
-    // ================================================================
-    // 15. Dispose
-    // ================================================================
+
+
+
 
     [Fact]
     public void Dispose_UnsubscribesFromStateChanged()
@@ -1673,7 +1673,7 @@ public sealed class SettingsViewModelTests
 
         vm.Dispose();
 
-        // After dispose, state changes should not trigger PropertyChanged
+
         f.ConnectionState.SetState(ConnectionState.Connected);
         Assert.Empty(changed);
     }
@@ -1703,9 +1703,9 @@ public sealed class SettingsViewModelTests
         Assert.Equal(0, f.UmaService.ConnectCallCount);
     }
 
-    // ================================================================
-    // 16. ObservableCollection Refreshes
-    // ================================================================
+
+
+
 
     [Fact]
     public void ConnectAddressHistory_IsPopulatedFromLoadedSettings()
@@ -1731,9 +1731,9 @@ public sealed class SettingsViewModelTests
         Assert.Empty(vm.ConnectAddressHistory);
     }
 
-    // ================================================================
-    // 17. StatusText
-    // ================================================================
+
+
+
 
     [Fact]
     public void StatusText_Default_ReturnsDisconnected()
@@ -1817,9 +1817,9 @@ public sealed class SettingsViewModelTests
         Assert.Contains("StatusText", changed);
     }
 
-    // ================================================================
-    // 18. ControlSession (read-only, from IConnectionStateService)
-    // ================================================================
+
+
+
 
     [Fact]
     public void ControlSession_DefaultIsFromConnectionStateService()
@@ -1862,9 +1862,9 @@ public sealed class SettingsViewModelTests
         Assert.Contains("ControlSession", changed);
     }
 
-    // ================================================================
-    // 19. Commands (Connect, CancelConnect, Save, DetectAdbConfig)
-    // ================================================================
+
+
+
 
     [Fact]
     public void ConnectCommand_CanExecute_WhenDisconnected_ReturnsTrue()
@@ -2025,9 +2025,9 @@ public sealed class SettingsViewModelTests
         Assert.True(raised);
     }
 
-    // ================================================================
-    // Fakes
-    // ================================================================
+
+
+
 
     private sealed class FakeUmaService : IUmaService
     {
@@ -2039,10 +2039,10 @@ public sealed class SettingsViewModelTests
         public event Action<BridgeDiagnostic>? DiagnosticReceived;
 #pragma warning restore CS0067
 
-        /// <summary>When set, ConnectAsync returns this value immediately.</summary>
+
         public ConnectionTerminalEvent? NextConnectResult { get; set; }
 
-        /// <summary>When set, ConnectAsync awaits this TCS (for cancellation testing).</summary>
+
         public TaskCompletionSource<ConnectionTerminalEvent>? ConnectTcs { get; set; }
 
         public int ConnectCallCount { get; private set; }

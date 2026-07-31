@@ -2,7 +2,7 @@
 
 #define UMA_FIXTURE_FUNCTION(name) UMA_FIXTURE_EXPORT void __stdcall name(void) {}
 
-/* Exactly 15 exports, but UmaGetVersionX instead of UmaGetVersion */
+
 UMA_FIXTURE_FUNCTION(UmaGetVersionX)
 UMA_FIXTURE_FUNCTION(UmaCreate)
 UMA_FIXTURE_FUNCTION(UmaDestroy)

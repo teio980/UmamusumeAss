@@ -1,10 +1,10 @@
-//
-// Tests for SmokCliArgs and parse_smoke_args — the smoke CLI argument parser.
-//
-// Given:  A C array of C-string arguments (argc/argv).
-// When:   parse_smoke_args is called.
-// Then:   Returns the parsed struct on success, a descriptive error on failure.
-//
+
+
+
+
+
+
+
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-// The header to test (will fail to compile until it exists — this is the "red")
+
 #include "Connection/SmokeCliParser.hpp"
 
 using UmaAssistant::SmokCliArgs;
@@ -22,14 +22,14 @@ using UmaAssistant::SmokCliError;
 using UmaAssistant::SmokCliParseResult;
 using UmaAssistant::parse_smoke_args;
 
-// ==========================================================================
-// Helpers — build argv-style arrays from initializer lists
-// ==========================================================================
+
+
+
 
 namespace {
 
-/// Builds a (argc, argv) pair from a vector of string views.
-/// The returned argv array points into owned strings in the fixture struct.
+
+
 struct ArgvFixture
 {
     int                    argc{};
@@ -45,11 +45,11 @@ struct ArgvFixture
     }
 };
 
-} // anonymous namespace
+}
 
-// ==========================================================================
-// Success cases
-// ==========================================================================
+
+
+
 
 TEST_CASE("parse_smoke_args returns adb_path and serial for 2 args",
           "[SmokeCliParser][success]")
@@ -89,9 +89,9 @@ TEST_CASE("parse_smoke_args accepts serial with only digits",
     REQUIRE(args.serial == "0123456789ABCDEF");
 }
 
-// ==========================================================================
-// Error cases — wrong argument count
-// ==========================================================================
+
+
+
 
 TEST_CASE("parse_smoke_args with only 1 arg returns error",
           "[SmokeCliParser][error][arg-count]")
@@ -131,9 +131,9 @@ TEST_CASE("parse_smoke_args with 3 args returns error",
     REQUIRE((has_usage || has_count));
 }
 
-// ==========================================================================
-// Error cases — empty arguments
-// ==========================================================================
+
+
+
 
 TEST_CASE("parse_smoke_args with empty adb_path returns error",
           "[SmokeCliParser][error][empty]")
@@ -165,9 +165,9 @@ TEST_CASE("parse_smoke_args with both empty returns error",
     REQUIRE(std::holds_alternative<SmokCliError>(result));
 }
 
-// ==========================================================================
-// Accessors on SmokCliArgs
-// ==========================================================================
+
+
+
 
 TEST_CASE("SmokCliArgs fields hold assigned values",
           "[SmokeCliParser][fields]")

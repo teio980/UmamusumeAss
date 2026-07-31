@@ -7,9 +7,9 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class ConnectionStateServiceTests
 {
-    // ================================================================
-    // Initial state defaults
-    // ================================================================
+
+
+
 
     [Fact]
     public void InitialState_IsDisconnected()
@@ -33,9 +33,9 @@ public sealed class ConnectionStateServiceTests
         Assert.Equal(ConnectionState.Disconnected, svc.ControlSession.State);
     }
 
-    // ================================================================
-    // State changes and notification
-    // ================================================================
+
+
+
 
     [Fact]
     public void SetState_RaisesStateChanged()
@@ -56,7 +56,7 @@ public sealed class ConnectionStateServiceTests
         int callCount = 0;
         svc.StateChanged += (_, _) => callCount++;
 
-        svc.SetState(ConnectionState.Disconnected); // same as default
+        svc.SetState(ConnectionState.Disconnected);
 
         Assert.Equal(0, callCount);
     }
@@ -102,9 +102,9 @@ public sealed class ConnectionStateServiceTests
         Assert.Equal(ConnectionState.Canceling, captured);
     }
 
-    // ================================================================
-    // LastVerifiedConnection — immutable snapshot
-    // ================================================================
+
+
+
 
     [Fact]
     public void UpdateLastVerified_SetsProperty()
@@ -130,7 +130,7 @@ public sealed class ConnectionStateServiceTests
 
         svc.UpdateLastVerified(record);
 
-        // Verify the returned reference is the same record (records are immutable)
+
         var stored = svc.LastVerifiedConnection;
         Assert.Equal(record.AdbPath, stored!.AdbPath);
         Assert.Equal(record.Serial, stored.Serial);
@@ -165,9 +165,9 @@ public sealed class ConnectionStateServiceTests
         Assert.Equal(1, notifications);
     }
 
-    // ================================================================
-    // ControlSession — display state defaults and updates
-    // ================================================================
+
+
+
 
     [Fact]
     public void UpdateControlSession_ReturnsNewSnapshot()
@@ -189,7 +189,7 @@ public sealed class ConnectionStateServiceTests
     {
         var svc = new ConnectionStateService();
 
-        // Initial value
+
         Assert.NotNull(svc.ControlSession);
         Assert.Equal(ConnectionState.Disconnected, svc.ControlSession.State);
     }

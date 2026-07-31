@@ -18,24 +18,24 @@ public sealed class EmulatorProfileCatalogTests
         string profileName,
         string expectedEndpoint)
     {
-        // Given: a profile supported by the emulator connection catalog.
 
-        // When: its fallback endpoints are requested.
+
+
         var endpoints = EmulatorProfileCatalog.GetFallbackEndpoints(profileName);
 
-        // Then: its MAA-compatible first candidate is retained.
+
         Assert.Equal(expectedEndpoint, endpoints[0]);
     }
 
     [Fact]
     public void GetFallbackEndpoints_WhenProfileIsMuMu_ReturnsFiniteKnownEndpoints()
     {
-        // Given: MuMu's documented local endpoint sequence.
 
-        // When: its fallback endpoints are requested.
+
+
         var endpoints = EmulatorProfileCatalog.GetFallbackEndpoints("MuMuEmulator12");
 
-        // Then: the resolver can probe the known instances without scanning arbitrary ports.
+
         Assert.Equal(
             [
                 "127.0.0.1:16384",
@@ -62,12 +62,12 @@ public sealed class EmulatorProfileCatalogTests
     [Fact]
     public void GetFallbackEndpoints_WhenProfileIsUnknown_ReturnsNoEndpoints()
     {
-        // Given: a profile outside the supported catalog.
 
-        // When: its fallback endpoints are requested.
+
+
         var endpoints = EmulatorProfileCatalog.GetFallbackEndpoints("Unknown");
 
-        // Then: the caller does not probe arbitrary ports.
+
         Assert.Empty(endpoints);
     }
 }

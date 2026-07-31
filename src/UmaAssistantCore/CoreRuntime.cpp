@@ -6,9 +6,9 @@
 
 namespace UmaAssistant {
 
-// ===========================================================================
-// Singleton
-// ===========================================================================
+
+
+
 
 CoreRuntime& CoreRuntime::instance()
 {
@@ -16,9 +16,9 @@ CoreRuntime& CoreRuntime::instance()
     return runtime;
 }
 
-// ===========================================================================
-// Resource management
-// ===========================================================================
+
+
+
 
 bool CoreRuntime::set_user_dir(std::string const& path)
 {
@@ -35,13 +35,13 @@ std::string CoreRuntime::user_dir() const
 
 bool CoreRuntime::load_resource(std::string const& base_path)
 {
-    // Build path: <base_path>/resource/connection.json
+
     auto const decoded_base = path_from_utf8(base_path);
     if (!decoded_base) return false;
     auto const json_path = *decoded_base / "resource" / "connection.json";
 
-    // Fall back to the built-in default profile when no resource file is
-    // present, so the runtime still initializes on a bare install.
+
+
     if (!std::filesystem::exists(json_path))
     {
         auto profile = ConnectionProfile::default_profile();
@@ -52,7 +52,7 @@ bool CoreRuntime::load_resource(std::string const& base_path)
         return true;
     }
 
-    // Attempt to load and validate
+
     try
     {
         auto profile = ConnectionProfile::load(json_path);
@@ -88,4 +88,4 @@ std::uint64_t CoreRuntime::allocate_operation_id() noexcept
     return next_operation_id_.fetch_add(1, std::memory_order_relaxed);
 }
 
-} // namespace UmaAssistant
+}

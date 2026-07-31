@@ -3,12 +3,12 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Localization service that manages WPF resource dictionaries for UI strings.
-/// Switches between culture-specific XAML dictionaries at runtime,
-/// persists the selected culture via <see cref="ISettingsService"/>,
-/// and fires <see cref="LanguageChanged"/> on switch.
-/// </summary>
+
+
+
+
+
+
 public sealed class LocalizationService : ILocalizationService
 {
     private readonly ISettingsService _settingsService;
@@ -17,10 +17,10 @@ public sealed class LocalizationService : ILocalizationService
     private ResourceDictionary? _currentStringDictionary;
     private string _currentCulture = "en-US";
 
-    /// <summary>
-    /// Production constructor. Uses <c>Application.Current.Resources</c>
-    /// and loads dictionaries from <c>Resources/Strings.{culture}.xaml</c>.
-    /// </summary>
+
+
+
+
     public LocalizationService(ISettingsService settingsService)
         : this(settingsService,
               Application.Current?.Resources ?? new ResourceDictionary(),
@@ -31,14 +31,14 @@ public sealed class LocalizationService : ILocalizationService
     {
     }
 
-    /// <summary>
-    /// Test constructor with full seam injection.
-    /// </summary>
-    /// <param name="settingsService">Settings persistence.</param>
-    /// <param name="appResources">The application-level <see cref="ResourceDictionary"/>
-    /// whose <c>MergedDictionaries</c> will be manipulated.</param>
-    /// <param name="loadDictionary">Factory that returns a populated
-    /// <see cref="ResourceDictionary"/> for the given culture code.</param>
+
+
+
+
+
+
+
+
     internal LocalizationService(
         ISettingsService settingsService,
         ResourceDictionary appResources,
@@ -53,13 +53,13 @@ public sealed class LocalizationService : ILocalizationService
         _loadDictionary = loadDictionary;
     }
 
-    /// <inheritdoc />
+
     public string CurrentCulture => _currentCulture;
 
-    /// <inheritdoc />
+
     public event EventHandler<string>? LanguageChanged;
 
-    /// <inheritdoc />
+
     public void Initialize()
     {
         var settings = _settingsService.Load();
@@ -71,7 +71,7 @@ public sealed class LocalizationService : ILocalizationService
         }
     }
 
-    /// <inheritdoc />
+
     public void SwitchLanguage(string culture)
     {
         if (!IsValidCulture(culture))
@@ -85,7 +85,7 @@ public sealed class LocalizationService : ILocalizationService
         LanguageChanged?.Invoke(this, culture);
     }
 
-    /// <inheritdoc />
+
     public string GetString(string key)
     {
         if (_currentStringDictionary is not null && _currentStringDictionary.Contains(key))
@@ -94,9 +94,9 @@ public sealed class LocalizationService : ILocalizationService
         return key;
     }
 
-    // ---------------------------------------------------------------
-    // Private helpers
-    // ---------------------------------------------------------------
+
+
+
 
     private void ApplyCultureInternal(string culture)
     {
@@ -113,11 +113,11 @@ public sealed class LocalizationService : ILocalizationService
 
     private void ReplaceStringDictionary(string culture)
     {
-        // Remove the previously loaded string dictionary, if any.
+
         if (_currentStringDictionary is not null)
             _appResources.MergedDictionaries.Remove(_currentStringDictionary);
 
-        // Load and add the new culture's dictionary.
+
         _currentStringDictionary = _loadDictionary(culture);
         _appResources.MergedDictionaries.Add(_currentStringDictionary);
     }

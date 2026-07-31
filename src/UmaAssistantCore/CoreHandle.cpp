@@ -71,8 +71,8 @@ void mark_terminal(UmaHandleImpl& handle, std::uint64_t operation_id) noexcept
     }
     catch (...)
     {
-        // A finished operation must not block a subsequent connection if
-        // diagnostic bookkeeping cannot allocate.
+
+
     }
 }
 

@@ -2,22 +2,22 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-  <!-- ============================================================
-       Strings.en-US.xaml — English (United States) resources
-       ============================================================ -->
 
-  <!-- Window -->
+
+
+
+
   <sys:String x:Key="WindowTitle">UmamusumeAss</sys:String>
   <sys:String x:Key="AppSubtitle">Connection assistant</sys:String>
   <sys:String x:Key="NavigationSearchPlaceholder">Search</sys:String>
 
-  <!-- Tab bar -->
+
   <sys:String x:Key="TabLog">Log</sys:String>
   <sys:String x:Key="TabSettings">Settings</sys:String>
   <sys:String x:Key="NavOverview">Overview</sys:String>
   <sys:String x:Key="TabHachimi">Hachimi~</sys:String>
 
-  <!-- MAA-inspired grass page -->
+
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
   <sys:String x:Key="GrassSettings">Task settings</sys:String>
@@ -102,7 +102,7 @@
   <sys:String x:Key="GrassExecutionFuture">Task execution will be added in a later version</sys:String>
   <sys:String x:Key="GrassTaskCopyName">{0} Copy</sys:String>
 
-  <!-- Overview panel -->
+
   <sys:String x:Key="OverviewTitle">Overview</sys:String>
   <sys:String x:Key="OverviewConnectionStatus">Connection status</sys:String>
   <sys:String x:Key="OverviewDevice">Device</sys:String>
@@ -110,12 +110,12 @@
   <sys:String x:Key="OverviewNoConnection">No device connected. Configure a connection in Settings.</sys:String>
   <sys:String x:Key="OverviewOpenSettings">Open settings</sys:String>
 
-  <!-- Settings navigation -->
+
   <sys:String x:Key="NavConnection">Connection</sys:String>
   <sys:String x:Key="NavLanguage">Language</sys:String>
   <sys:String x:Key="NavSystem">System</sys:String>
 
-  <!-- Connection panel -->
+
   <sys:String x:Key="ConnectionTitle">Connection Configuration</sys:String>
   <sys:String x:Key="AdbPathLabel">ADB Path</sys:String>
   <sys:String x:Key="SerialLabel">Serial</sys:String>
@@ -139,18 +139,18 @@
   <sys:String x:Key="ResolutionField">Resolution</sys:String>
   <sys:String x:Key="LastVerifiedLabel">Last verified</sys:String>
 
-  <!-- Language panel -->
+
   <sys:String x:Key="LanguageTitle">Language</sys:String>
   <sys:String x:Key="LanguageHint">Changes take effect immediately.</sys:String>
 
-  <!-- System panel -->
+
   <sys:String x:Key="SystemTitle">System</sys:String>
   <sys:String x:Key="CoreVersionLabel">Core Version</sys:String>
   <sys:String x:Key="ResourcePathLabel">Resource Path</sys:String>
   <sys:String x:Key="CurrentAdbPathLabel">Current ADB Path</sys:String>
   <sys:String x:Key="LastDetectedEmulatorLabel">Last Detected Emulator</sys:String>
 
-  <!-- Connection states -->
+
   <sys:String x:Key="StateIdle">Idle</sys:String>
   <sys:String x:Key="StateDetecting">Detecting…</sys:String>
   <sys:String x:Key="StateConnecting">Connecting…</sys:String>
@@ -159,19 +159,19 @@
   <sys:String x:Key="StateFailed">Failed</sys:String>
   <sys:String x:Key="StateCanceling">Canceling…</sys:String>
 
-  <!-- Log view -->
+
   <sys:String x:Key="LogEmptyMessage">No log entries yet.</sys:String>
   <sys:String x:Key="LogTimestampHeader">Timestamp</sys:String>
   <sys:String x:Key="LogTypeHeader">Type</sys:String>
   <sys:String x:Key="LogDetailsHeader">Details</sys:String>
   <sys:String x:Key="CopyAllLogButton">Copy all</sys:String>
 
-  <!-- Selection dialog -->
+
   <sys:String x:Key="SelectionDialogTitle">Select Device</sys:String>
   <sys:String x:Key="SelectionDialogConfirm">OK</sys:String>
   <sys:String x:Key="SelectionDialogCancel">Cancel</sys:String>
 
-  <!-- Control readiness (S2) -->
+
   <sys:String x:Key="ControlReadinessTitle">Control Readiness</sys:String>
   <sys:String x:Key="VerifyGameButton">Verify Game</sys:String>
   <sys:String x:Key="CaptureScreenButton">Capture Screen</sys:String>
@@ -179,7 +179,7 @@
   <sys:String x:Key="SwipeTestButton">Swipe Test</sys:String>
   <sys:String x:Key="ConfirmActionLabel">Confirm</sys:String>
 
-  <!-- Startup error -->
+
   <sys:String x:Key="StartupErrorTitle">Initialization Error</sys:String>
   <sys:String x:Key="StartupErrorMessage">The application could not initialize the core component. Connection features are disabled.</sys:String>
 

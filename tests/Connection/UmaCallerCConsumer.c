@@ -1,10 +1,10 @@
-//
-// UmaCallerCConsumer.c — Minimal C consumer that verifies the DLL's
-// C ABI compiles and links correctly from a pure-C translation unit.
-//
-// This file is compiled as C (not C++) and links to UmamusumeCore.dll's
-// import library.
-//
+
+
+
+
+
+
+
 
 #include "UmaAssistant/UmaCaller.h"
 
@@ -12,9 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* =========================================================================
- * Callback — records the first message and sets a flag
- * ========================================================================= */
+
+
+
 
 struct consumer_context
 {
@@ -44,18 +44,18 @@ static void UMA_CALL consumer_callback(
         ctx->terminal_seen = 1;
     }
 
-    (void)0; /* suppress empty-statement warning */
+    (void)0;
 }
 
-/* =========================================================================
- * ABI smoke test — minimal validation of exported symbols
- * ========================================================================= */
+
+
+
 
 int run_abi_smoke_test(void)
 {
     int failures = 0;
 
-    /* 1. UmaGetVersion returns a string */
+
     char const* ver = UmaGetVersion();
     if (!ver || strlen(ver) == 0)
     {
@@ -67,7 +67,7 @@ int run_abi_smoke_test(void)
         printf("PASS: UmaGetVersion = %s\n", ver);
     }
 
-    /* 2. UmaCreate returns null before resource loaded */
+
     struct consumer_context ctx = {0};
     UmaHandle h = UmaCreate(&consumer_callback, &ctx);
     if (h != NULL)
@@ -80,11 +80,11 @@ int run_abi_smoke_test(void)
         printf("PASS: UmaCreate before resource returns null\n");
     }
 
-    /* 3. UmaDestroy with null handle is safe */
+
     UmaDestroy(NULL);
     printf("PASS: UmaDestroy(NULL) did not crash\n");
 
-    /* 4. UmaLoadResource with bad path returns nonzero */
+
     int32_t load_result = UmaLoadResource("C:\\nonexistent\\path");
     if (load_result == 0)
     {
@@ -97,7 +97,7 @@ int run_abi_smoke_test(void)
                (int)load_result);
     }
 
-    /* 5. UmaSetUserDir with null returns nonzero */
+
     int32_t dir_result = UmaSetUserDir(NULL);
     if (dir_result == 0)
     {
@@ -121,7 +121,7 @@ int run_abi_smoke_test(void)
     return failures;
 }
 
-/* ========================================================================= */
+
 
 int main(void)
 {

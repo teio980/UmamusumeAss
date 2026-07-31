@@ -7,9 +7,9 @@ namespace UmamusumeWpfGui.Tests.ViewModels.Dialogs;
 
 public sealed class SelectionDialogViewModelTests
 {
-    // ================================================================
-    // 1. Constructor & Initial State
-    // ================================================================
+
+
+
 
     [Fact]
     public void Constructor_WithCandidates_PopulatesItems()
@@ -79,9 +79,9 @@ public sealed class SelectionDialogViewModelTests
         Assert.Null(vm.Items[0].AdbPath);
     }
 
-    // ================================================================
-    // 2. Selection
-    // ================================================================
+
+
+
 
     [Fact]
     public void SelectCandidate_SetsIsSelectedOnTargetAndClearsOthers()
@@ -134,9 +134,9 @@ public sealed class SelectionDialogViewModelTests
         Assert.Null(vm.SelectedCandidate);
     }
 
-    // ================================================================
-    // 3. Confirm / Cancel
-    // ================================================================
+
+
+
 
     [Fact]
     public void Confirm_WithSelection_ReturnsTrue()
@@ -212,19 +212,19 @@ public sealed class SelectionDialogViewModelTests
             new("LDPlayer", @"D:\LD\adb.exe"),
         };
         var vm = new SelectionDialogViewModel(candidates);
-        // Confirm should not be executable — but guard against accidental call
+
         Assert.False(vm.ConfirmCommand.CanExecute(null));
     }
 
-    // ================================================================
-    // 4. Dialog Binding Integration Semantics
-    //    (Selection preserves draft on cancel, overwrites ADB+serial on confirm)
-    // ================================================================
+
+
+
+
 
     [Fact]
     public void Cancel_DoesNotOverwriteDraft()
     {
-        // Simulate the flow: calling code shows dialog; if cancel, draft is unchanged.
+
         var candidates = new List<DetectedEmulatorInfo>
         {
             new("BlueStacks", @"C:\BS\HD-Adb.exe"),
@@ -232,22 +232,22 @@ public sealed class SelectionDialogViewModelTests
         };
         var vm = new SelectionDialogViewModel(candidates);
 
-        // Select something
+
         vm.Items[1].IsSelected = true;
         Assert.NotNull(vm.SelectedCandidate);
 
-        // Cancel
+
         bool? dialogResult = null;
         vm.RequestClose += (result) => dialogResult = result;
         vm.CancelCommand.Execute(null);
 
-        // Dialog says cancelled
+
         Assert.False(dialogResult);
 
-        // In the SettingsViewModel flow, cancel means the calling code does NOT
-        // apply the candidate — so SelectedCandidate is not null (the dialog still
-        // has it internally), but the caller ignores it.
-        // This test verifies the dialog itself reports cancellation correctly.
+
+
+
+
     }
 
     [Fact]
@@ -283,11 +283,11 @@ public sealed class SelectionDialogViewModelTests
         };
         var vm = new SelectionDialogViewModel(candidates);
 
-        // Select first
+
         vm.Items[0].IsSelected = true;
         Assert.Equal("BlueStacks", vm.SelectedCandidate!.EmulatorName);
 
-        // Switch to third
+
         vm.Items[2].IsSelected = true;
         Assert.Equal("Nox", vm.SelectedCandidate!.EmulatorName);
         Assert.False(vm.Items[0].IsSelected);
@@ -299,13 +299,13 @@ public sealed class SelectionDialogViewModelTests
     {
         var vm = new SelectionDialogViewModel([]);
 
-        // Title should be bound to a DynamicResource key
+
         Assert.Equal("SelectionDialogTitle", vm.TitleResourceKey);
     }
 
-    // ================================================================
-    // 5. Edge Cases
-    // ================================================================
+
+
+
 
     [Fact]
     public void CandidateWithNullAdbPath_CanStillBeSelected()

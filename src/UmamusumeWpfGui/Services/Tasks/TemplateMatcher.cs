@@ -2,12 +2,12 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-/// <summary>
-/// Small managed template matcher for the editable Start Game pipeline.
-/// It uses normalized grayscale samples and a MAA-compatible 1280x720 ROI.
-/// The matcher is deliberately isolated so it can later be replaced by an
-/// OpenCV or native MAA recognizer without changing task definitions.
-/// </summary>
+
+
+
+
+
+
 internal static class TemplateMatcher
 {
     public static TemplateMatchResult Find(
@@ -41,10 +41,10 @@ internal static class TemplateMatcher
 
         var sampleWidth = Math.Min(16, template.Width);
         var sampleHeight = Math.Min(16, template.Height);
-        // A two-pixel stride keeps recognition responsive while avoiding the
-        // one-pixel alignment misses that are common on Android screenshots.
-        // The task ROIs are intentionally small, so the extra comparisons
-        // remain bounded and deterministic.
+
+
+
+
         var candidateStep = 2;
         var bestScore = double.MinValue;
         var bestX = bounds.X;

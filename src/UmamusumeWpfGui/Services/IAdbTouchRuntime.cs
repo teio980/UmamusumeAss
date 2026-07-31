@@ -2,11 +2,11 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Long-lived high-frequency touch transport modelled after MAA's
-/// MinitouchController/MaatouchController. Standard ADB remains available in
-/// IAdbRuntime when a touch backend cannot be installed or started.
-/// </summary>
+
+
+
+
+
 public interface IAdbTouchSession : IAsyncDisposable
 {
     AdbTouchProperties Properties { get; }

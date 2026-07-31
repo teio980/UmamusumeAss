@@ -46,12 +46,12 @@ public sealed partial class SettingsViewModel
         return true;
     }
 
-    /// <summary>
-    /// Re-scans for an emulator after a launch request. Emulator processes do
-    /// not become discoverable at one deterministic point, so the configured
-    /// wait is treated as a bounded readiness window and sampled at a small
-    /// interval. A zero wait still performs one immediate scan.
-    /// </summary>
+
+
+
+
+
+
     private async Task<DiscoveryResult> RefreshAfterAutoStartAsync(
         CancellationToken cancellationToken)
     {
@@ -80,11 +80,11 @@ public sealed partial class SettingsViewModel
         return result;
     }
 
-    /// <summary>
-    /// Waits for the ADB server selected during discovery to expose a ready
-    /// device after an emulator launch.  Process discovery alone is not a
-    /// readiness signal; the emulator may still be booting its ADB endpoint.
-    /// </summary>
+
+
+
+
+
     private async Task<string?> WaitForAutoStartAdbDeviceAsync(
         string adbPath,
         CancellationToken cancellationToken)

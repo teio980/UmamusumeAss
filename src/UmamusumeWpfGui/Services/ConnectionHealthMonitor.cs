@@ -6,7 +6,7 @@ namespace UmamusumeWpfGui.Services;
 
 public sealed class ConnectionHealthMonitor : IConnectionHealthMonitor
 {
-    // Keep device-loss detection within the documented 10-second window.
+
     private static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly IAdbRunner _adbRunner;
@@ -89,10 +89,10 @@ public sealed class ConnectionHealthMonitor : IConnectionHealthMonitor
                 await _asyncDelay.DelayAsync(ProbeInterval, cancellationToken)
                     .ConfigureAwait(false);
 
-                // Some emulator ADB servers keep answering get-state briefly
-                // after the emulator process exits. Confirm the serial is
-                // still present and ready in the authoritative device list
-                // before treating the session as healthy.
+
+
+
+
                 var devices = await _winAdapter.GetAdbDevicesAsync(
                     target.AdbPath,
                     cancellationToken).ConfigureAwait(false);

@@ -10,9 +10,9 @@ public sealed class LogEntryKindToColorConverterTests
     private static readonly LogEntryKindToColorConverter Converter = new();
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
-    // ================================================================
-    // Fallback colors (Application.Current is null in unit tests)
-    // ================================================================
+
+
+
 
     [Fact]
     public void InfoKind_ReturnsInfoFallback()
@@ -38,9 +38,9 @@ public sealed class LogEntryKindToColorConverterTests
         Assert.Equal(Color.FromRgb(0xB8, 0x4B, 0x58), brush.Color);
     }
 
-    // ================================================================
-    // Edge cases
-    // ================================================================
+
+
+
 
     [Fact]
     public void NullValue_ReturnsInfoFallback()
@@ -65,15 +65,15 @@ public sealed class LogEntryKindToColorConverterTests
             Converter.ConvertBack(new SolidColorBrush(Colors.Red), typeof(LogEntryKind), null, Invariant));
     }
 
-    // ================================================================
-    // All values covered — no default fallthrough surprise
-    // ================================================================
 
-    /// <summary>
-    /// Ensures every defined <see cref="LogEntryKind"/> member maps to a
-    /// non-null brush. If a new kind is added and the switch is not updated,
-    /// this test will catch it.
-    /// </summary>
+
+
+
+
+
+
+
+
     [Fact]
     public void AllLogEntryKinds_MapToABrush()
     {

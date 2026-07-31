@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 
 namespace UmamusumeWpfGui.Tests.Packaging;
 
-/// <summary>
-/// Validates that tools/package.ps1 produces a portable ZIP with the
-/// correct archive layout.  The test first asserts the script exists,
-/// then runs it in a temporary output root and inspects every entry.
-/// </summary>
+
+
+
+
+
 public sealed class PackageLayoutTests : IDisposable
 {
     private readonly string _tempRoot;
@@ -25,8 +25,8 @@ public sealed class PackageLayoutTests : IDisposable
         _tempRoot = Path.Combine(Path.GetTempPath(), "UmaAssPkgTest", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempRoot);
 
-        // Walk up from the test assembly to find the solution root
-        // (the directory containing CMakeLists.txt or UmamusumeAss.sln).
+
+
         _solutionRoot = ResolveSolutionRoot();
     }
 
@@ -49,14 +49,14 @@ public sealed class PackageLayoutTests : IDisposable
         }
     }
 
-    // ================================================================
-    // Helpers
-    // ================================================================
+
+
+
 
     private static string ResolveSolutionRoot()
     {
-        // Use CMakePresets.json as the root marker — it exists only at the
-        // project root, not in tests/ or other subdirectories.
+
+
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 10; i++)
         {
@@ -76,15 +76,15 @@ public sealed class PackageLayoutTests : IDisposable
 
     private static string FindPowerShell()
     {
-        // Windows: powershell.exe is always at a known location.
-        // Fall back to PATH search for pwsh.exe (PowerShell Core).
+
+
         var ps = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),
             "WindowsPowerShell", "v1.0", "powershell.exe");
         if (File.Exists(ps))
             return ps;
 
-        // Try pwsh.exe from PATH
+
         var paths = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator);
         foreach (var p in paths)
         {
@@ -118,9 +118,9 @@ public sealed class PackageLayoutTests : IDisposable
 
         process.Start();
 
-        // Drain both streams concurrently to prevent pipe deadlock:
-        // if one pipe buffer fills while we read the other sequentially,
-        // the child process blocks and neither stream makes progress.
+
+
+
         var stdoutTask = Task.Run(() => process.StandardOutput.ReadToEnd());
         var stderrTask = Task.Run(() => process.StandardError.ReadToEnd());
 
@@ -128,9 +128,9 @@ public sealed class PackageLayoutTests : IDisposable
         if (!process.WaitForExit(timeoutMs))
         {
             try { process.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { /* already exited */ }
+            catch (InvalidOperationException) {   }
 
-            // Still wait for the readers so we can report partial output.
+
             Task.WaitAll([stdoutTask, stderrTask], TimeSpan.FromSeconds(30));
 
             throw new TimeoutException(
@@ -139,15 +139,15 @@ public sealed class PackageLayoutTests : IDisposable
                 $"Partial STDERR:\n{stderrTask.Result}");
         }
 
-        // Process exited normally — await the readers to finish.
+
         Task.WaitAll([stdoutTask, stderrTask], TimeSpan.FromSeconds(30));
 
         return (process.ExitCode, stdoutTask.Result ?? "", stderrTask.Result ?? "");
     }
 
-    // ================================================================
-    // Required archive entries
-    // ================================================================
+
+
+
 
     private static readonly string[] RequiredEntries =
     [
@@ -156,24 +156,24 @@ public sealed class PackageLayoutTests : IDisposable
         "Umamusume.CoreBridge.dll",
     ];
 
-    // Self-contained runtime evidence — at least one of these must be present.
+
     private static readonly string[] RuntimeEvidence =
     [
         "hostfxr.dll",
         "System.Private.CoreLib.dll",
     ];
 
-    // Paths that MUST NOT appear in the archive root (conflicting layout).
+
     private static readonly string[] ForbiddenRootEntries =
     [
         "lib/UmamusumeCore.lib",
     ];
 
-    // VC++ redistributable DLL names.  With /MT static linking none of
-    // these should appear in the portable ZIP — the archive must be
-    // deployable to a clean Windows machine without a VC++ redistributable.
-    // Note: vcruntime140_cor3.dll is a .NET-specific hosting DLL, not an
-    // MSVC redistributable DLL, so it is intentionally excluded here.
+
+
+
+
+
     private static readonly string[] VcRedistDllNames =
     [
         "vcruntime140.dll",
@@ -187,9 +187,9 @@ public sealed class PackageLayoutTests : IDisposable
         "concrt140d.dll",
     ];
 
-    // ================================================================
-    // Tests
-    // ================================================================
+
+
+
 
     [Fact]
     public void PackageScript_Exists()
@@ -202,7 +202,7 @@ public sealed class PackageLayoutTests : IDisposable
     [Fact]
     public void PackageScript_ProducesValidZipWithCorrectLayout()
     {
-        // Arrange
+
         var scriptPath = Path.Combine(_solutionRoot, "tools", "package.ps1");
         Assert.True(File.Exists(scriptPath),
             $"package.ps1 not found at expected path: {scriptPath}");
@@ -212,28 +212,28 @@ public sealed class PackageLayoutTests : IDisposable
 
         var powershell = FindPowerShell();
 
-        // Build the PowerShell command that invokes package.ps1 with the
-        // test output directory.  The script is expected to accept -OutputDirectory.
+
+
         var psArgs = $"-NoProfile -ExecutionPolicy Bypass -Command \"& '{scriptPath}' -OutputDirectory '{outputDir}' -ErrorAction Stop\"";
 
-        // Act
+
         var (exitCode, stdOut, stdErr) = RunProcess(powershell, psArgs, _solutionRoot);
 
-        // Assert — script must succeed
+
         Assert.True(exitCode == 0,
             $"package.ps1 exited with code {exitCode}.\nSTDOUT:\n{stdOut}\nSTDERR:\n{stdErr}");
 
-        // Find the produced ZIP
+
         var zipFiles = Directory.GetFiles(outputDir, "UmamusumeAss-win-x64.zip", SearchOption.TopDirectoryOnly);
         Assert.NotEmpty(zipFiles);
         Assert.Single(zipFiles);
         var zipPath = zipFiles[0];
 
-        // Inspect archive entries
+
         using var archive = ZipFile.OpenRead(zipPath);
         var entries = archive.Entries;
 
-        // Every required entry must be present
+
         foreach (var required in RequiredEntries)
         {
             var match = entries.FirstOrDefault(e =>
@@ -242,7 +242,7 @@ public sealed class PackageLayoutTests : IDisposable
                 $"Required entry '{required}' not found in archive. " +
                 $"Entries: [{string.Join(", ", entries.Select(e => e.FullName))}]");
 
-            // Non-directory entries must have non-zero length
+
             if (!required.EndsWith('/'))
             {
                 Assert.True(match!.Length > 0,
@@ -250,7 +250,7 @@ public sealed class PackageLayoutTests : IDisposable
             }
         }
 
-        // At least one runtime evidence file must be present
+
         var hasRuntime = RuntimeEvidence.Any(evidence =>
             entries.Any(e =>
                 string.Equals(e.FullName.Replace('\\', '/'), evidence, StringComparison.Ordinal)));
@@ -259,7 +259,7 @@ public sealed class PackageLayoutTests : IDisposable
             $"Expected at least one of: [{string.Join(", ", RuntimeEvidence)}]. " +
             $"Entries: [{string.Join(", ", entries.Select(e => e.FullName))}]");
 
-        // Forbidden root entries must not appear
+
         foreach (var forbidden in ForbiddenRootEntries)
         {
             var found = entries.Any(e =>
@@ -268,7 +268,7 @@ public sealed class PackageLayoutTests : IDisposable
                 $"Forbidden entry '{forbidden}' found in archive.");
         }
 
-        // No VC++ redistributable DLLs — /MT static linking must be effective
+
         var vcRedistEntries = entries
             .Where(e => VcRedistDllNames.Contains(
                 e.Name, StringComparer.OrdinalIgnoreCase))
@@ -278,7 +278,7 @@ public sealed class PackageLayoutTests : IDisposable
             $"VC++ redistributable DLLs found in archive — /MT static linking is not effective: " +
             string.Join(", ", vcRedistEntries));
 
-        // UmamusumeCore.dll must be at the root, not in a subdirectory
+
         var coreDll = entries.FirstOrDefault(e =>
             string.Equals(e.FullName.Replace('\\', '/'), "UmamusumeCore.dll", StringComparison.Ordinal));
         Assert.True(coreDll is not null, "UmamusumeCore.dll must be at archive root.");

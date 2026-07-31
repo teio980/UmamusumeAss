@@ -10,10 +10,10 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.ViewModels;
 
-/// <summary>
-/// Generic MAA-style task queue coordinator.
-/// Task-specific settings and execution belong to IGrassTaskModule instances.
-/// </summary>
+
+
+
+
 public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
     private readonly ILocalizationService _localizationService;
@@ -98,14 +98,14 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
     public ObservableCollection<GrassTaskItemViewModel> Tasks { get; }
 
-    /// <summary>
-    /// Hachimi-only execution history. This collection intentionally does not
-    /// share the Core callback entries shown by the global Log tab.
-    /// </summary>
+
+
+
+
     public ObservableCollection<LogEntry> ScriptLogs { get; } = [];
 
-    // Kept as a compatibility alias for callers that used the original page
-    // property. It still points to the dedicated Hachimi collection.
+
+
     public ObservableCollection<LogEntry> Logs => ScriptLogs;
 
     public GrassTaskItemViewModel? SelectedTask
@@ -193,9 +193,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         && IsQueueRunning
         && _runningTask is not null;
 
-    /// <summary>
-    /// Future UI task picker seam. With one module, Add uses it directly.
-    /// </summary>
+
+
+
     public Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? RequestTaskSelection
     {
         get => _requestTaskSelection;
@@ -362,9 +362,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
         try
         {
-            // MAA connects when the user presses Start instead of disabling
-            // the button before the connection workflow has had a chance to
-            // run. Reuse the existing Settings connection flow here.
+
+
+
             var currentConnection = _connectionState?.LastVerifiedConnection;
             var cachedConnectionReady = currentConnection is not null
                 && await IsCachedConnectionReadyAsync(currentConnection)
@@ -534,9 +534,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     LogEntryKind.Success);
             }
 
-            // A completed queue is idle even when the game process remains
-            // open. Reset the queue state so Start can be pressed again;
-            // stopping the game itself is a separate task operation.
+
+
+
             IsQueueRunning = false;
             _runningTask = null;
             IsQueueOperationInProgress = false;
@@ -575,7 +575,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
         catch (OperationCanceledException)
         {
-            // The task remains marked as running so the user can retry Stop.
+
         }
         catch (Exception exception)
         {
@@ -655,11 +655,11 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
     }
 
-    /// <summary>
-    /// Adds an entry to the Hachimi script log. Task modules can call this
-    /// through <see cref="IGrassTaskLogSink"/> without knowing about WPF or
-    /// the global Core log page.
-    /// </summary>
+
+
+
+
+
     public void Add(string type, string details, LogEntryKind kind = LogEntryKind.Info)
     {
         if (_disposed)
@@ -675,8 +675,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             }
             catch (InvalidOperationException)
             {
-                // The WPF dispatcher is shutting down; there is no useful
-                // destination for a late script-log entry.
+
+
             }
 
             return;

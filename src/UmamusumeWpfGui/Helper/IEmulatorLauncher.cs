@@ -30,10 +30,10 @@ public sealed class EmulatorLauncher : IEmulatorLauncher
             var process = Process.Start(new ProcessStartInfo(fileName)
             {
                 Arguments = arguments,
-                // Direct emulator executables such as MuMuManager.exe are
-                // console-subsystem launchers. Start them without ShellExecute
-                // so their helper console window is not shown. Keep ShellExecute
-                // for shortcuts and shell-associated launch targets.
+
+
+
+
                 UseShellExecute = !isDirectExecutable,
                 CreateNoWindow = isDirectExecutable,
                 WindowStyle = isDirectExecutable

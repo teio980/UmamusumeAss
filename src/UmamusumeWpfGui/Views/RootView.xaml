@@ -5,6 +5,7 @@
                  xmlns:s="https://github.com/canton7/Stylet"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="{DynamicResource WindowTitle}"
+                 Icon="/UmamusumeAss;component/Assets/teio-logo.png"
                  Width="1100"
                  Height="650"
                  ExtendsContentIntoTitleBar="True"
@@ -71,10 +72,10 @@
       </ui:NavigationView.FooterMenuItems>
     </ui:NavigationView>
 
-    <!-- Keep one visual instance per tab. Replacing View.Model on every click
-         makes Stylet tear down and rebuild large log/task trees while a task
-         is producing callbacks. Visibility switches preserve each view and
-         prevent re-entrant navigation/layout work. -->
+
+
+
+
     <Grid Grid.Row="1"
           Margin="320,0,0,0"
           Panel.ZIndex="1">
@@ -104,11 +105,12 @@
                       VerticalContentAlignment="Stretch" />
     </Grid>
 
-    <!-- Compatibility binding for the existing navigation contract. -->
+
     <ListBox ItemsSource="{Binding NavigationItems}"
              Visibility="Collapsed" />
 
     <ui:TitleBar Grid.Row="0"
+                 Icon="{ui:ImageIcon '/UmamusumeAss;component/Assets/teio-logo.png'}"
                  Title="{DynamicResource WindowTitle}"
                  CloseWindowByDoubleClickOnIcon="True" />
   </Grid>

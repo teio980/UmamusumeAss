@@ -7,9 +7,9 @@ namespace UmamusumeWpfGui.Tests.Helper;
 
 public sealed class WinAdapterTests
 {
-    // ================================================================
-    // RefreshEmulatorsInfo — process table matching
-    // ================================================================
+
+
+
 
     [Fact]
     public void RefreshEmulatorsInfo_NoProcesses_ReturnsEmptyCandidates()
@@ -42,7 +42,7 @@ public sealed class WinAdapterTests
         [
             new("HD-Player", @"C:\BlueStacks\HD-Player.exe")
         ],
-        existingFiles: []); // no HD-Adb.exe anywhere
+        existingFiles: []);
 
         var result = adapter.RefreshEmulatorsInfo();
         var candidate = Assert.Single(result.Candidates);
@@ -53,7 +53,7 @@ public sealed class WinAdapterTests
     [Fact]
     public void RefreshEmulatorsInfo_HDPlayerWithEngineFallback_UsesAltPath()
     {
-        // Primary HD-Adb.exe missing, fallback Engine\\ProgramFiles\\HD-Adb.exe exists
+
         var adapter = CreateAdapter(processes:
         [
             new("HD-Player", @"C:\BlueStacks\HD-Player.exe")
@@ -123,7 +123,7 @@ public sealed class WinAdapterTests
         [
             new("MuMuPlayer", @"F:\MuMu\emulator\nemushell\MuMuPlayer.exe")
         ]);
-        // Relative: ..\..\..\nx_main\adb.exe from emulator\nemushell -> MuMu\nx_main\adb.exe
+
         var result = adapter.RefreshEmulatorsInfo();
 
         var candidate = Assert.Single(result.Candidates);
@@ -209,7 +209,7 @@ public sealed class WinAdapterTests
     [Fact]
     public void RefreshEmulatorsInfo_DuplicateResolvedPath_Deduplicates()
     {
-        // Two HD-Player processes pointing to the same BlueStacks install
+
         var adapter = CreateAdapter(processes:
         [
             new("HD-Player", @"C:\BlueStacks\HD-Player.exe"),
@@ -240,19 +240,19 @@ public sealed class WinAdapterTests
     {
         var adapter = CreateAdapter(processes:
         [
-            new("HD-Player", null) // inaccessible process
+            new("HD-Player", null)
         ]);
         var result = adapter.RefreshEmulatorsInfo();
 
-        // Process with null main-module path should still be recognized
-        // but may have null AdbPath since we can't derive the directory
+
+
         Assert.Empty(result.Candidates);
         Assert.NotEmpty(result.Diagnostics);
     }
 
-    // ================================================================
-    // GetAdbDevices — exact `adb devices` parsing
-    // ================================================================
+
+
+
 
     [Fact]
     public void GetAdbDevices_EmptyOutput_ReturnsEmptyRecords()
@@ -362,11 +362,11 @@ public sealed class WinAdapterTests
         ]);
         var result = adapter.GetAdbDevices(@"C:\adb\adb.exe");
 
-        // Valid record is still parsed
+
         Assert.Single(result.Records);
         Assert.Equal("emulator-5554", result.Records[0].Serial);
 
-        // Malformed line produces diagnostic
+
         Assert.Contains(result.Diagnostics, d =>
             d.Message.Contains("malformed", StringComparison.OrdinalIgnoreCase) ||
             d.Message.Contains("unexpected", StringComparison.OrdinalIgnoreCase));
@@ -443,14 +443,14 @@ public sealed class WinAdapterTests
         Assert.Equal(2, result.Records.Count);
     }
 
-    // ================================================================
-    // Factory helpers
-    // ================================================================
 
-    /// <summary>
-    /// Creates a WinAdapter with a fake process enumerator and a real
-    /// WinAdapter-internal file-existence check that consults the given set.
-    /// </summary>
+
+
+
+
+
+
+
     private static WinAdapter CreateAdapter(
         ProcessEntry[] processes,
         string[]? existingFiles = null)
@@ -463,9 +463,9 @@ public sealed class WinAdapterTests
             new FakeFileSystem(existingFiles));
     }
 
-    /// <summary>
-    /// Creates a WinAdapter with a fake ADB runner that returns the given outputs.
-    /// </summary>
+
+
+
     private static WinAdapter CreateAdapterWithAdbRunner(
         params (string Stdout, string Stderr, int ExitCode, bool TimedOut, Exception? Error)[] outputs)
     {
@@ -477,9 +477,9 @@ public sealed class WinAdapterTests
             new FakeFileSystem(null));
     }
 
-    // ================================================================
-    // Test fakes
-    // ================================================================
+
+
+
 
     private sealed class FakeProcessEnumerator : IProcessEnumerator
     {
@@ -518,7 +518,7 @@ public sealed class WinAdapterTests
         public bool FileExists(string path)
         {
             if (_existingFiles == null)
-                return true; // default: everything exists
+                return true;
             return _existingFiles.Contains(path, StringComparer.OrdinalIgnoreCase);
         }
     }

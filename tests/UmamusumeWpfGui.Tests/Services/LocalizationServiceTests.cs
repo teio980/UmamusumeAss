@@ -6,14 +6,14 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class LocalizationServiceTests
 {
-    // ================================================================
-    // Helpers
-    // ================================================================
 
-    /// <summary>
-    /// Creates a test-friendly dictionary factory that returns
-    /// in-memory <see cref="ResourceDictionary"/> instances.
-    /// </summary>
+
+
+
+
+
+
+
     private static ResourceDictionary CreateTestDictionary(string culture)
     {
         var dict = new ResourceDictionary();
@@ -64,9 +64,9 @@ public sealed class LocalizationServiceTests
             factory ?? CreateTestDictionary);
     }
 
-    // ================================================================
-    // Default culture
-    // ================================================================
+
+
+
 
     [Fact]
     public void DefaultCulture_IsEnUs()
@@ -77,9 +77,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal("en-US", service.CurrentCulture);
     }
 
-    // ================================================================
-    // Initialize — loads persisted culture
-    // ================================================================
+
+
+
 
     [Fact]
     public void Initialize_LoadsPersistedCulture()
@@ -97,7 +97,7 @@ public sealed class LocalizationServiceTests
     public void Initialize_WithDefaultLanguage_StaysEnUs()
     {
         var (settings, appResources, factory) = CreateFixture();
-        // Default ConnectionSettings has Language = "en-US"
+
         settings.Save(new ConnectionSettings());
 
         var service = CreateService(settings, appResources, factory);
@@ -115,13 +115,13 @@ public sealed class LocalizationServiceTests
         var service = CreateService(settings, appResources, factory);
         service.Initialize();
 
-        // Invalid culture should not be applied; stays default
+
         Assert.Equal("en-US", service.CurrentCulture);
     }
 
-    // ================================================================
-    // SwitchLanguage — valid cultures
-    // ================================================================
+
+
+
 
     [Fact]
     public void SwitchLanguage_ToZhCn_ChangesCulture()
@@ -158,9 +158,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal("en-US", service.CurrentCulture);
     }
 
-    // ================================================================
-    // SwitchLanguage — invalid, null, empty fallback
-    // ================================================================
+
+
+
 
     [Fact]
     public void SwitchLanguage_Null_FallsBackToEnUs()
@@ -195,9 +195,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal("en-US", service.CurrentCulture);
     }
 
-    // ================================================================
-    // SwitchLanguage — same culture is idempotent
-    // ================================================================
+
+
+
 
     [Fact]
     public void SwitchLanguage_SameCulture_DoesNotChange()
@@ -210,9 +210,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal("en-US", service.CurrentCulture);
     }
 
-    // ================================================================
-    // LanguageChanged event
-    // ================================================================
+
+
+
 
     [Fact]
     public void SwitchLanguage_FiresLanguageChanged()
@@ -250,7 +250,7 @@ public sealed class LocalizationServiceTests
 
         service.SwitchLanguage("fr-FR");
 
-        // Falls back to en-US which is already the default, so no change
+
         Assert.Equal(0, callCount);
     }
 
@@ -268,9 +268,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal(0, callCount);
     }
 
-    // ================================================================
-    // GetString
-    // ================================================================
+
+
+
 
     [Fact]
     public void GetString_ReturnsValueFromCurrentDictionary()
@@ -278,8 +278,8 @@ public sealed class LocalizationServiceTests
         var (settings, appResources, factory) = CreateFixture();
         var service = CreateService(settings, appResources, factory);
 
-        // Switch to en-US to load the dictionary (default is en-US but no
-        // dictionary is loaded until SwitchLanguage or Initialize is called).
+
+
         service.SwitchLanguage("zh-CN");
         service.SwitchLanguage("en-US");
         var result = service.GetString("TabLog");
@@ -314,36 +314,36 @@ public sealed class LocalizationServiceTests
     public void GetString_BeforeInitialize_ReturnsKey()
     {
         var (settings, appResources, factory) = CreateFixture();
-        // No dictionary loaded yet — service was just created
+
         var service = CreateService(settings, appResources, factory);
 
         var result = service.GetString("TabLog");
 
-        // No dictionary has been loaded, so key is returned as-is
+
         Assert.Equal("TabLog", result);
     }
 
-    // ================================================================
-    // Resource dictionary replacement preserves theme dictionaries
-    // ================================================================
+
+
+
 
     [Fact]
     public void ReplaceStringDictionary_PreservesNonStringDictionaries()
     {
         var (settings, appResources, factory) = CreateFixture();
 
-        // Add a theme dictionary (simulating Theme.xaml merge).
-        // Use a sentinel key instead of Source to avoid WPF URI resolution in tests.
+
+
         var themeDict = new ResourceDictionary();
         themeDict["__ThemeMarker__"] = "present";
         appResources.MergedDictionaries.Add(themeDict);
 
         var service = CreateService(settings, appResources, factory);
 
-        // Switch language — should replace only the string dictionary
+
         service.SwitchLanguage("zh-CN");
 
-        // Theme dictionary should still be present
+
         Assert.Contains(appResources.MergedDictionaries, d =>
             d.Contains("__ThemeMarker__"));
     }
@@ -354,18 +354,18 @@ public sealed class LocalizationServiceTests
         var (settings, appResources, factory) = CreateFixture();
         var service = CreateService(settings, appResources, factory);
 
-        // First switch adds zh-CN dictionary
+
         service.SwitchLanguage("zh-CN");
 
-        // Verify zh-CN dictionary is present by checking a known key
+
         Assert.Contains(appResources.MergedDictionaries, d =>
             d.Contains("TabLog") &&
             d["TabLog"] as string == "日志");
 
-        // Switch to en-US
+
         service.SwitchLanguage("en-US");
 
-        // Should have exactly one string dictionary (en-US)
+
         var stringDicts = appResources.MergedDictionaries
             .Where(d => d.Contains("TabLog"))
             .ToList();
@@ -374,9 +374,9 @@ public sealed class LocalizationServiceTests
         Assert.Equal("Log", stringDicts[0]["TabLog"] as string);
     }
 
-    // ================================================================
-    // FakeSettingsService
-    // ================================================================
+
+
+
 
     private sealed class FakeSettingsService : ISettingsService
     {

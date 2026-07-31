@@ -23,9 +23,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
             Directory.Delete(_tempDir, recursive: true);
     }
 
-    // ================================================================
-    // Load — defaults when file missing
-    // ================================================================
+
+
+
 
     [Fact]
     public void Load_WhenFileMissing_ReturnsDefaults()
@@ -40,9 +40,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Empty(settings.ConnectAddressHistory);
     }
 
-    // ================================================================
-    // Load — malformed JSON
-    // ================================================================
+
+
+
 
     [Fact]
     public void Load_WhenFileMalformed_ReturnsDefaults()
@@ -66,9 +66,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.True(settings.AutoDetectConnection);
     }
 
-    // ================================================================
-    // Save + Load roundtrip
-    // ================================================================
+
+
+
 
     [Fact]
     public void SaveThenLoad_RoundtripsAllProperties()
@@ -140,9 +140,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Empty(loaded.TaskQueue);
     }
 
-    // ================================================================
-    // File is actually written
-    // ================================================================
+
+
+
 
     [Fact]
     public void Save_WritesJsonFile()
@@ -155,9 +155,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Contains("AutoDetectConnection", content);
     }
 
-    // ================================================================
-    // Recovery — overwrite corrupted file with valid defaults on save
-    // ================================================================
+
+
+
 
     [Fact]
     public void Load_CorruptedThenSave_WritesValidJson()
@@ -165,15 +165,15 @@ public sealed class JsonSettingsServiceTests : IDisposable
         File.WriteAllText(_filePath, "{broken");
         var service = new JsonSettingsService(_filePath);
 
-        // Load from corrupted file returns defaults
+
         var loaded = service.Load();
         Assert.True(loaded.AutoDetectConnection);
 
-        // Save should write valid JSON
+
         loaded.Language = "ja-JP";
         service.Save(loaded);
 
-        // Re-read should get the saved value
+
         var reloaded = service.Load();
         Assert.Equal("ja-JP", reloaded.Language);
     }

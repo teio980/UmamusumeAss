@@ -8,11 +8,11 @@ using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-/// <summary>
-/// MAA-style Start Game pipeline backed by editable JSON tasks. It performs
-/// screenshot/template checks and ADB actions without putting game-specific
-/// coordinates into the task queue or launcher.
-/// </summary>
+
+
+
+
+
 public sealed class AdbStartGamePipeline : IStartGamePipeline
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -180,10 +180,10 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
             if (template is not null)
             {
-                // Use the validated Android raw screencap stream for task
-                // recognition. MuMu can report the PNG command as successful
-                // while returning bytes that WPF cannot decode; raw keeps the
-                // same device-specific path deterministic across retries.
+
+
+
+
                 var screenshot = await CapturePipelineScreenshotAsync(
                     connection,
                     cancellationToken).ConfigureAwait(false);

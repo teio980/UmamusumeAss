@@ -4,11 +4,11 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// JSON-based settings persistence using System.Text.Json.
-/// Stores settings at the specified file path. Missing or malformed files
-/// return safe defaults.
-/// </summary>
+
+
+
+
+
 public sealed class JsonSettingsService : ISettingsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -18,10 +18,10 @@ public sealed class JsonSettingsService : ISettingsService
 
     private readonly string _filePath;
 
-    /// <summary>
-    /// Creates a service with the default path:
-    /// <c>%APPDATA%/UmamusumeAss/connection_settings.json</c>
-    /// </summary>
+
+
+
+
     public JsonSettingsService()
         : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -30,9 +30,9 @@ public sealed class JsonSettingsService : ISettingsService
     {
     }
 
-    /// <summary>
-    /// Creates a service with an explicit file path (test injection).
-    /// </summary>
+
+
+
     public JsonSettingsService(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);

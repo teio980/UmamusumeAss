@@ -1,9 +1,9 @@
 list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
 include(Catch)
 
-# ============================================================================
-# Existing Phase 1–2 tests
-# ============================================================================
+
+
+
 
 add_executable(ConnectionProfileTests
   ConnectionProfileTests.cpp
@@ -31,9 +31,9 @@ target_compile_definitions(ConnectionProfileTests
 
 uma_add_strict_warnings(ConnectionProfileTests)
 
-# ============================================================================
-# Phase 3 — C ABI tests
-# ============================================================================
+
+
+
 
 add_executable(UmaCallerTests
   UmaCallerTests.cpp
@@ -68,9 +68,9 @@ add_dependencies(UmaCallerTests UmaFakeAdb)
 
 uma_add_strict_warnings(UmaCallerTests)
 
-# ============================================================================
-# Phase 3 — C consumer ABI check
-# ============================================================================
+
+
+
 
 add_executable(UmaCallerCConsumer
   UmaCallerCConsumer.c
@@ -86,9 +86,9 @@ target_link_libraries(UmaCallerCConsumer
     UmaAssistantCore
 )
 
-# ============================================================================
-# Phase 3 — Export-name verification
-# ============================================================================
+
+
+
 
 add_library(UmaUnexpectedExportFixture SHARED
   UnexpectedExportFixture.c
@@ -111,18 +111,18 @@ target_compile_definitions(UmaCallerCConsumer
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
-# C consumer gets C-compatible warning flags
+
 if(MSVC)
   target_compile_options(UmaCallerCConsumer PRIVATE
     /W4 /WX /utf-8
   )
 endif()
 
-# ============================================================================
-# Discover Catch2 tests
-# ============================================================================
 
-# Common helper: discover Catch2 tests for a given target
+
+
+
+
 function(uma_discover_catch2_tests TARGET)
   if(NOT MSVC)
     get_filename_component(_uma_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
@@ -152,9 +152,9 @@ set_tests_properties(UmaExportVerificationRejectsUnexpectedExport PROPERTIES
   WILL_FAIL TRUE
 )
 
-# ============================================================================
-# Phase 3 — Same-count wrong-name export fixture
-# ============================================================================
+
+
+
 
 add_library(UmaWrongNameExportFixture SHARED
   WrongNameExportFixture.c

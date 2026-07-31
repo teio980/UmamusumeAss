@@ -24,7 +24,7 @@ static constexpr std::array<char const*, 15> kExpectedExports = {
     "UmaSwipeAsync",
 };
 
-// ── Bounded RVA access helpers ─────────────────────────────────────────────
+
 
 static void const* rva_ptr(void const* base, DWORD image_size, DWORD rva, DWORD size)
 {
@@ -45,11 +45,11 @@ static char const* rva_str(void const* base, DWORD image_size, DWORD rva)
     return start;
 }
 
-// ── Verifier ───────────────────────────────────────────────────────────────
+
 
 static bool verify_exact_export_table(void const* base, DWORD image_size)
 {
-    // DOS header
+
     auto const* dos = static_cast<IMAGE_DOS_HEADER const*>(
         rva_ptr(base, image_size, 0, sizeof(IMAGE_DOS_HEADER)));
     if (!dos || dos->e_magic != IMAGE_DOS_SIGNATURE)
@@ -58,7 +58,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
         return false;
     }
 
-    // NT headers
+
     auto const e_lfanew = static_cast<DWORD>(dos->e_lfanew);
     auto const* nt = static_cast<IMAGE_NT_HEADERS const*>(
         rva_ptr(base, image_size, e_lfanew, sizeof(IMAGE_NT_HEADERS)));
@@ -69,7 +69,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
         return false;
     }
 
-    // Export directory
+
     auto const& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
     if (dir.VirtualAddress == 0 || dir.Size == 0)
     {
@@ -91,7 +91,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
         return false;
     }
 
-    // Count check
+
     if (exports->NumberOfFunctions != kExpectedExports.size()
         || exports->NumberOfNames != kExpectedExports.size())
     {
@@ -106,7 +106,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
     auto const num_functions = exports->NumberOfFunctions;
     auto const num_names = exports->NumberOfNames;
 
-    // Validate address tables fit within the image
+
     auto const* func_rvas = static_cast<DWORD const*>(
         rva_ptr(base, image_size, exports->AddressOfFunctions,
                 num_functions * sizeof(DWORD)));
@@ -123,14 +123,14 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
         return false;
     }
 
-    // Validate each named export
+
     std::array<bool, kExpectedExports.size()> found{};
     std::array<bool, 256> ord_seen{};
     bool valid = true;
 
     for (DWORD i = 0; i < num_names; ++i)
     {
-        // Name string — must be null-terminated within the image
+
         auto const* name = rva_str(base, image_size, name_rvas[i]);
         if (!name)
         {
@@ -140,7 +140,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
             continue;
         }
 
-        // Ordinal — must be in range
+
         WORD const ord = ordinals[i];
         if (ord >= num_functions)
         {
@@ -149,7 +149,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
             continue;
         }
 
-        // Ordinal — must not be duplicated
+
         if (ord_seen[ord])
         {
             std::printf("FAIL: duplicate ordinal %u for name '%s'\n", ord, name);
@@ -167,7 +167,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
             continue;
         }
 
-        // Function RVA — must not be forwarded (point into export directory)
+
         if (func_rva >= dir.VirtualAddress
             && func_rva - dir.VirtualAddress < dir.Size)
         {
@@ -177,7 +177,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
             continue;
         }
 
-        // Match against expected names
+
         bool expected = false;
         for (std::size_t j = 0; j < kExpectedExports.size(); ++j)
         {
@@ -195,7 +195,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
         }
     }
 
-    // Check for missing expected exports
+
     for (std::size_t i = 0; i < found.size(); ++i)
     {
         if (!found[i])
@@ -208,7 +208,7 @@ static bool verify_exact_export_table(void const* base, DWORD image_size)
     return valid;
 }
 
-// ── Entry point (wide path, no DllMain) ────────────────────────────────────
+
 
 int wmain(int argc, wchar_t const* const* argv);
 

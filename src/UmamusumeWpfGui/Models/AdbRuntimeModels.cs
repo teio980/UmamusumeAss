@@ -1,8 +1,8 @@
 namespace UmamusumeWpfGui.Models;
 
-/// <summary>
-/// A device row returned by <c>adb devices -l</c>.
-/// </summary>
+
+
+
 public sealed record AdbDeviceInfo(
     string Serial,
     string State,
@@ -78,11 +78,11 @@ public sealed record AdbDeviceListResult(
         && CommandResult.ExitCode == 0;
 }
 
-/// <summary>
-/// MAA-compatible defaults for the generic ADB input path. The extra swipe
-/// is deliberately opt-in per call, because it is a workaround rather than
-/// the semantic meaning of a swipe.
-/// </summary>
+
+
+
+
+
 public sealed record AdbRuntimeOptions(
     double SwipeDurationMultiplier,
     int ExtraSwipeDistance,

@@ -1,10 +1,10 @@
-//
-// These tests verify the shape of ConnectionErrorCode, ConnectedDevice,
-// ConnectionFailure, ConnectionResult, and the get_error_code accessor.
-//
-// Given:  The connection API contract specified in docs/superpowers.md
-// When:   The compiler attempts to include UmaAssistant/Connection.hpp
-// Then:   The translation unit must compile and every test below must pass.
+
+
+
+
+
+
+
 
 #include <catch2/catch_test_macros.hpp>
 #include "UmaAssistant/Connection.hpp"
@@ -24,9 +24,9 @@ using UmaAssistant::ConnectionFailure;
 using UmaAssistant::ConnectionResult;
 using UmaAssistant::get_error_code;
 
-// ==========================================================================
-// ConnectionErrorCode — all 16 numeric values (Success = 0, errors 1–15)
-// ==========================================================================
+
+
+
 
 TEST_CASE("ConnectionErrorCode::Success is 0", "[ConnectionErrorCode][numeric]") {
     STATIC_REQUIRE(static_cast<int>(ConnectionErrorCode::Success) == 0);
@@ -92,9 +92,9 @@ TEST_CASE("ConnectionErrorCode::DeviceDisconnected is 15", "[ConnectionErrorCode
     STATIC_REQUIRE(static_cast<int>(ConnectionErrorCode::DeviceDisconnected) == 15);
 }
 
-// ==========================================================================
-// ConnectedDevice — struct field types and values
-// ==========================================================================
+
+
+
 
 TEST_CASE("ConnectedDevice::serial is std::string", "[ConnectedDevice][fields]") {
     STATIC_REQUIRE(std::is_same_v<decltype(ConnectedDevice::serial), std::string>);
@@ -143,9 +143,9 @@ TEST_CASE("ConnectedDevice fields hold assigned values", "[ConnectedDevice][valu
     REQUIRE(dev.physical_height == 1080);
 }
 
-// ==========================================================================
-// ConnectionFailure — struct field types and values
-// ==========================================================================
+
+
+
 
 TEST_CASE("ConnectionFailure::error_code is ConnectionErrorCode", "[ConnectionFailure][fields]") {
     STATIC_REQUIRE(std::is_same_v<decltype(ConnectionFailure::error_code), ConnectionErrorCode>);
@@ -170,9 +170,9 @@ TEST_CASE("ConnectionFailure fields hold assigned values", "[ConnectionFailure][
     REQUIRE(fail.message    == "device '127.0.0.1:5555' not found");
 }
 
-// ==========================================================================
-// ConnectionResult — variant<ConnectedDevice, ConnectionFailure>
-// ==========================================================================
+
+
+
 
 TEST_CASE("ConnectionResult is std::variant<ConnectedDevice, ConnectionFailure>",
           "[ConnectionResult][type]") {
@@ -208,9 +208,9 @@ TEST_CASE("ConnectionResult holds ConnectionFailure when constructed from Connec
     REQUIRE_FALSE(std::holds_alternative<ConnectedDevice>(result));
 }
 
-// ==========================================================================
-// get_error_code — accessor that returns the effective error code
-// ==========================================================================
+
+
+
 
 TEST_CASE("get_error_code returns Success for a ConnectedDevice result",
           "[get_error_code][success]") {
@@ -253,14 +253,14 @@ TEST_CASE("get_error_code works with every error code value",
     check(ConnectionErrorCode::DeviceDisconnected);
 }
 
-// ==========================================================================
-// Helpers for ConnectionProfile tests
-// ==========================================================================
+
+
+
 
 namespace {
 namespace fs = std::filesystem;
 
-/// RAII temporary JSON file — keeps the file alive until the end of the test.
+
 struct JsonFile
 {
     fs::path path;
@@ -279,11 +279,11 @@ struct JsonFile
     JsonFile& operator=(JsonFile const&) = delete;
 };
 
-} // anonymous namespace
+}
 
-// ==========================================================================
-// Profile tests — will fail to compile until ConnectionProfile types exist
-// ==========================================================================
+
+
+
 
 #include "Connection/ConnectionProfile.hpp"
 

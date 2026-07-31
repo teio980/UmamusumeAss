@@ -13,9 +13,9 @@
 namespace UmaAssistant {
 namespace {
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
+
+
+
 
 [[nodiscard]] bool has_balanced_brackets(std::string_view s) noexcept
 {
@@ -30,7 +30,7 @@ namespace {
         || s.find(']') != std::string_view::npos;
 }
 
-// Throws ProfileError if any command argument has unbalanced brackets.
+
 void validate_placeholders(nlohmann::json const& commands_obj)
 {
     for (auto const& [cmd_name, args] : commands_obj.items())
@@ -97,11 +97,11 @@ void detect_cycles(
     visited.insert(name);
 }
 
-} // anonymous namespace
+}
 
-// ===========================================================================
-// ConnectionProfile implementation
-// ===========================================================================
+
+
+
 
 ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path)
 {
@@ -120,7 +120,7 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
             "JSON parse error in " + json_path.string() + ": " + e.what());
     }
 
-    // ---- Top-level schema validation ----
+
     if (!root.is_object())
     {
         throw ProfileError("root value must be a JSON object");
@@ -141,7 +141,7 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
 
     auto const& entries = *conn_it;
 
-    // ---- Build a name -> entry index for cycle detection + duplicate check ----
+
     std::unordered_map<std::string, std::size_t> name_index;
     for (std::size_t i = 0; i < entries.size(); ++i)
     {
@@ -175,11 +175,11 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
                 "profile '" + name + "' is missing required 'commands' object");
         }
 
-        // Validate placeholders and command array types
+
         validate_placeholders(*cmd_it);
     }
 
-    // ---- Cycle detection ----
+
     {
         std::unordered_set<std::string> visiting;
         std::unordered_set<std::string> visited;
@@ -189,14 +189,14 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
         }
     }
 
-    // ---- Resolve inheritance ----
-    // Resolve in topological order: process nodes that have all their
-    // dependencies already processed. Since we verified no cycles, a
-    // simple iterative approach works: resolve profiles with no base
-    // first, then profiles whose base is already resolved.
+
+
+
+
+
     ProfileMap resolved;
 
-    // First pass: resolve profiles without a base (or with null base)
+
     for (auto const& [name, idx] : name_index)
     {
         auto const& entry = entries[idx];
@@ -207,8 +207,8 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
         }
     }
 
-    // Subsequent passes: resolve remaining profiles whose base is resolved
-    // Since we have at most a few profiles, a simple N-pass loop is fine.
+
+
     bool changed = true;
     while (changed && resolved.size() < name_index.size())
     {
@@ -222,8 +222,8 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
 
             if (resolved.contains(base))
             {
-                // Start from base, overlay own commands
-                auto merged = resolved[base];           // copy
+
+                auto merged = resolved[base];
                 auto const own = parse_commands(entry["commands"]);
                 for (auto& [cmd, args] : own)
                 {
@@ -235,11 +235,11 @@ ConnectionProfile ConnectionProfile::load(std::filesystem::path const& json_path
         }
     }
 
-    // All profiles should be resolved now (cycles were checked above)
+
     return ConnectionProfile{std::move(resolved)};
 }
 
-// ===========================================================================
+
 
 ConnectionProfile ConnectionProfile::default_profile()
 {
@@ -263,14 +263,14 @@ ConnectionProfile ConnectionProfile::default_profile()
     return ConnectionProfile{std::move(profiles)};
 }
 
-// ===========================================================================
+
 
 ConnectionProfile::ConnectionProfile(ProfileMap profiles)
     : profiles_(std::move(profiles))
 {
 }
 
-// ===========================================================================
+
 
 std::optional<AdbInvocation> ConnectionProfile::expand(
     std::string_view          profile_name,
@@ -294,7 +294,7 @@ std::optional<AdbInvocation> ConnectionProfile::expand(
     {
         std::string result = arg;
 
-        // Replace every occurrence of [AdbSerial] with the actual serial
+
         std::string::size_type pos = 0;
         while ((pos = result.find(placeholder, pos)) != std::string::npos)
         {
@@ -302,7 +302,7 @@ std::optional<AdbInvocation> ConnectionProfile::expand(
             pos += serial_str.size();
         }
 
-        // If any brackets remain, there was an unrecognised placeholder
+
         if (contains_bracket(result))
         {
             return std::nullopt;
@@ -314,9 +314,9 @@ std::optional<AdbInvocation> ConnectionProfile::expand(
     return AdbInvocation{adb_path, std::move(expanded_args)};
 }
 
-// ===========================================================================
-// Private helpers
-// ===========================================================================
+
+
+
 
 ConnectionProfile::CommandMap ConnectionProfile::parse_commands(
     nlohmann::json const& commands_obj)
@@ -335,4 +335,4 @@ ConnectionProfile::CommandMap ConnectionProfile::parse_commands(
     return result;
 }
 
-} // namespace UmaAssistant
+}

@@ -2,22 +2,22 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-  <!-- ============================================================
-       Strings.zh-CN.xaml — Chinese (Simplified, PRC) resources
-       ============================================================ -->
 
-  <!-- Window -->
+
+
+
+
   <sys:String x:Key="WindowTitle">马娘助手</sys:String>
   <sys:String x:Key="AppSubtitle">模拟器连接助手</sys:String>
   <sys:String x:Key="NavigationSearchPlaceholder">搜索</sys:String>
 
-  <!-- Tab bar -->
+
   <sys:String x:Key="TabLog">日志</sys:String>
   <sys:String x:Key="TabSettings">设置</sys:String>
   <sys:String x:Key="NavOverview">概览</sys:String>
   <sys:String x:Key="TabHachimi">Hachimi~</sys:String>
 
-  <!-- MAA 风格长草页面 -->
+
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassScriptLog">Script log</sys:String>
   <sys:String x:Key="GrassScriptQueue">Task queue</sys:String>
@@ -101,7 +101,7 @@
   <sys:String x:Key="GrassExecutionFuture">任务执行功能将在后续版本接入</sys:String>
   <sys:String x:Key="GrassTaskCopyName">{0} 副本</sys:String>
 
-  <!-- Overview panel -->
+
   <sys:String x:Key="OverviewTitle">概览</sys:String>
   <sys:String x:Key="OverviewConnectionStatus">连接状态</sys:String>
   <sys:String x:Key="OverviewDevice">设备</sys:String>
@@ -109,12 +109,12 @@
   <sys:String x:Key="OverviewNoConnection">未连接设备。请在设置中配置连接。</sys:String>
   <sys:String x:Key="OverviewOpenSettings">打开设置</sys:String>
 
-  <!-- Settings navigation -->
+
   <sys:String x:Key="NavConnection">连接</sys:String>
   <sys:String x:Key="NavLanguage">语言</sys:String>
   <sys:String x:Key="NavSystem">系统</sys:String>
 
-  <!-- Connection panel -->
+
   <sys:String x:Key="ConnectionTitle">连接配置</sys:String>
   <sys:String x:Key="AdbPathLabel">ADB 路径</sys:String>
   <sys:String x:Key="SerialLabel">序列号</sys:String>
@@ -138,18 +138,18 @@
   <sys:String x:Key="ResolutionField">分辨率</sys:String>
   <sys:String x:Key="LastVerifiedLabel">上次验证</sys:String>
 
-  <!-- Language panel -->
+
   <sys:String x:Key="LanguageTitle">语言</sys:String>
   <sys:String x:Key="LanguageHint">更改后立即生效。</sys:String>
 
-  <!-- System panel -->
+
   <sys:String x:Key="SystemTitle">系统</sys:String>
   <sys:String x:Key="CoreVersionLabel">核心版本</sys:String>
   <sys:String x:Key="ResourcePathLabel">资源路径</sys:String>
   <sys:String x:Key="CurrentAdbPathLabel">当前 ADB 路径</sys:String>
   <sys:String x:Key="LastDetectedEmulatorLabel">上次检测到的模拟器</sys:String>
 
-  <!-- Connection states -->
+
   <sys:String x:Key="StateIdle">空闲</sys:String>
   <sys:String x:Key="StateDetecting">检测中…</sys:String>
   <sys:String x:Key="StateConnecting">连接中…</sys:String>
@@ -158,19 +158,19 @@
   <sys:String x:Key="StateFailed">失败</sys:String>
   <sys:String x:Key="StateCanceling">取消中…</sys:String>
 
-  <!-- Log view -->
+
   <sys:String x:Key="LogEmptyMessage">暂无日志条目。</sys:String>
   <sys:String x:Key="LogTimestampHeader">时间戳</sys:String>
   <sys:String x:Key="LogTypeHeader">类型</sys:String>
   <sys:String x:Key="LogDetailsHeader">详情</sys:String>
   <sys:String x:Key="CopyAllLogButton">复制全部日志</sys:String>
 
-  <!-- Selection dialog -->
+
   <sys:String x:Key="SelectionDialogTitle">选择设备</sys:String>
   <sys:String x:Key="SelectionDialogConfirm">确定</sys:String>
   <sys:String x:Key="SelectionDialogCancel">取消</sys:String>
 
-  <!-- Control readiness (S2) -->
+
   <sys:String x:Key="ControlReadinessTitle">控制就绪</sys:String>
   <sys:String x:Key="VerifyGameButton">验证游戏</sys:String>
   <sys:String x:Key="CaptureScreenButton">截取屏幕</sys:String>
@@ -178,7 +178,7 @@
   <sys:String x:Key="SwipeTestButton">滑动测试</sys:String>
   <sys:String x:Key="ConfirmActionLabel">确认</sys:String>
 
-  <!-- Startup error -->
+
   <sys:String x:Key="StartupErrorTitle">初始化错误</sys:String>
   <sys:String x:Key="StartupErrorMessage">应用程序无法初始化核心组件。连接功能已禁用。</sys:String>
 

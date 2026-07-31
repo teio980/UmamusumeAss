@@ -38,9 +38,9 @@ namespace {
     std::chrono::milliseconds duration,
     std::stop_token              cancellation)
 {
-    // `sleep_for` makes cancellation appear broken during the ready/boot
-    // windows.  Keep the wait bounded to small slices so a Cancel request is
-    // observed promptly even when the child ADB command already completed.
+
+
+
     return wait_with_cancellation(duration, cancellation);
 }
 
@@ -404,4 +404,4 @@ std::optional<ConnectionFailure> EmulatorConnector::step_get_size(
     return std::nullopt;
 }
 
-} // namespace UmaAssistant
+}

@@ -87,9 +87,9 @@ struct ParsedSize
     }
     auto const last_colon = serial.rfind(':');
     if (last_colon == std::string_view::npos) return false;
-    // IPv6 endpoints must use the bracketed form.  Without this check an
-    // arbitrary serial containing a colon could accidentally be passed to
-    // `adb connect`.
+
+
+
     if (serial.find(':') != last_colon || last_colon == 0) return false;
     if (last_colon == serial.size() - 1) return false;
     auto const host = serial.substr(0, last_colon);
@@ -235,5 +235,5 @@ struct ParsedSize
     return result;
 }
 
-} // namespace detail
-} // namespace UmaAssistant
+}
+}

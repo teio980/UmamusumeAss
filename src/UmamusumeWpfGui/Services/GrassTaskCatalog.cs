@@ -3,10 +3,10 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Application task registry. It stores independent module prototypes; queued
-/// items receive module instances so each task owns its own settings.
-/// </summary>
+
+
+
+
 public sealed class GrassTaskCatalog : IGrassTaskCatalog
 {
     private readonly List<IGrassTaskModule> _modules = [];
@@ -28,10 +28,10 @@ public sealed class GrassTaskCatalog : IGrassTaskCatalog
     }
 }
 
-/// <summary>
-/// Production catalog composition. Register a new module here without adding
-/// task-specific execution code to GrassViewModel.
-/// </summary>
+
+
+
+
 public sealed class DefaultGrassTaskCatalog : IGrassTaskCatalog
 {
     private readonly GrassTaskCatalog _catalog = new();

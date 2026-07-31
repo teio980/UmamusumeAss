@@ -17,25 +17,25 @@ using UmamusumeWpfGui.Views.Dialogs;
 
 namespace UmamusumeWpfGui.ViewModels;
 
-/// <summary>
-/// Sole owner of connection UI behavior: menu navigation, connection draft editing,
-/// connect/cancel lifecycle, emulator discovery, last-verified management, settings
-/// persistence, and language selection.
-///
-/// The ViewModel owns an editable <see cref="ConnectionSettings"/> draft that is
-/// separate from the persisted settings until <see cref="SaveSettings"/> is called,
-/// and separate from the immutable <see cref="LastVerifiedConnection"/> snapshot
-/// stored in <see cref="IConnectionStateService"/>.
-///
-/// Seam properties (<see cref="RequestCandidateSelection"/>,
-/// <see cref="RequestOverwriteConfirmation"/>) allow Task 8's selection dialog
-/// to be wired in without creating a view dependency here.
-/// </summary>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
-    // ────────────────────────────────────────────────────────────────
-    // Dependencies
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private readonly IUmaService _umaService;
     private readonly IConnectionStateService _connectionState;
@@ -46,9 +46,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private readonly IAsyncDelay _asyncDelay;
     private readonly IConnectionHealthMonitor _healthMonitor;
 
-    // ────────────────────────────────────────────────────────────────
-    // Mutable state
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private ConnectionSettings _draft;
     private int _selectedMenuIndex;
@@ -67,15 +67,15 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private bool _disposed;
 
-    // ────────────────────────────────────────────────────────────────
-    // Construction
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Creates the SettingsViewModel, loads draft settings from the persistence
-    /// service, subscribes to connection state changes, and initialises the
-    /// language from the localization service.
-    /// </summary>
+
+
+
+
+
+
+
+
     public SettingsViewModel(
         IUmaService umaService,
         IConnectionStateService connectionState,
@@ -105,7 +105,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _healthMonitor = healthMonitor;
         _healthMonitor.Failed += OnHealthMonitorFailed;
 
-        // Load draft settings from persistence
+
         _draft = _settingsService.Load();
         _draftAdbPath = _draft.AdbPath?.Trim() ?? string.Empty;
         _draftConnectAddress = NormalizeConnectionAddress(_draft.ConnectAddress);
@@ -118,13 +118,13 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draftLanguage = _draft.Language;
         _selectedLanguage = _localizationService.CurrentCulture;
 
-        // Populate history from draft
+
         ConnectAddressHistory = new ObservableCollection<string>(_draft.ConnectAddressHistory);
 
-        // Subscribe to state changes
+
         _connectionState.StateChanged += OnStateChanged;
 
-        // Wire commands
+
         RequestCandidateSelection = ShowCandidateSelectionAsync;
         RequestAddressSelection = ShowAddressSelectionAsync;
 
@@ -153,14 +153,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _ => !_disposed);
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Menu navigation (3 panels: Connection=0, Language=1, System=2)
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Currently selected navigation index. Clamped to [0, 2].
-    /// Changing this updates MenuItems selection state.
-    /// </summary>
+
+
+
+
+
+
+
     public int SelectedMenuIndex
     {
         get => _selectedMenuIndex;
@@ -180,11 +180,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Draft settings (user-editable, not persisted until SaveSettings)
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Draft ADB executable path.</summary>
+
+
+
+
     public string DraftAdbPath
     {
         get => _draftAdbPath;
@@ -198,7 +198,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    /// <summary>Draft ADB connect address (ip:port or serial).</summary>
+
     public string DraftConnectAddress
     {
         get => _draftConnectAddress;
@@ -219,7 +219,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             .Replace(" ", string.Empty, StringComparison.Ordinal)
             .Trim();
 
-    /// <summary>Draft MAA-compatible connection profile used by native ADB commands.</summary>
+
     public string DraftConnectConfig
     {
         get => _draftConnectConfig;
@@ -238,11 +238,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    /// <summary>Profiles available to the connection ComboBox.</summary>
+
     public ObservableCollection<string> ConnectConfigOptions { get; } =
         new(ConnectionSettings.SupportedConnectConfigs);
 
-    /// <summary>Draft auto-detect connection toggle.</summary>
+
     public bool DraftAutoDetect
     {
         get => _draftAutoDetect;
@@ -255,7 +255,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    /// <summary>Draft always-auto-detect toggle.</summary>
+
     public bool DraftAlwaysAutoDetect
     {
         get => _draftAlwaysAutoDetect;
@@ -292,10 +292,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    /// <summary>
-    /// Draft language that will be persisted on save.
-    /// Updated automatically when <see cref="SelectedLanguage"/> changes.
-    /// </summary>
+
+
+
+
     public string DraftLanguage
     {
         get => _draftLanguage;
@@ -308,14 +308,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // State (read-only, from IConnectionStateService)
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Current connection operation state.</summary>
+
+
+
+
     public ConnectionState State => _connectionState.State;
 
-    /// <summary>True when an operation is in progress (Detecting, Connecting, or Canceling).</summary>
+
     public bool IsOperationInProgress =>
         _connectionState.State is ConnectionState.Detecting
             or ConnectionState.Connecting
@@ -335,28 +335,28 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _ => "Unknown",
         };
 
-    // ────────────────────────────────────────────────────────────────
-    // Last verified (read-only, immutable snapshot)
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Immutable last-verified connection record, or null if none.</summary>
+
+
+
+
     public LastVerifiedConnection? LastVerified => _connectionState.LastVerifiedConnection;
 
-    /// <summary>Current control session snapshot, or null if none.</summary>
+
     public ControlSessionSnapshot? ControlSession => _connectionState.ControlSession;
 
-    // ────────────────────────────────────────────────────────────────
-    // Connection history
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Observable history of successfully connected addresses.</summary>
+
+
+
+
     public ObservableCollection<string> ConnectAddressHistory { get; }
 
-    // ────────────────────────────────────────────────────────────────
-    // Language selection
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Currently selected UI language. Changing this switches localization.</summary>
+
+
+
+
     public string SelectedLanguage
     {
         get => _selectedLanguage;
@@ -370,20 +370,20 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
             _localizationService.SwitchLanguage(value);
 
-            // Keep draft language in sync with the effective language
+
             DraftLanguage = _localizationService.CurrentCulture;
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Menu items for navigation
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Navigation menu items. Each entry has <see cref="MenuItemViewModel.LabelKey"/>
-    /// for DynamicResource binding and <see cref="MenuItemViewModel.Index"/> for
-    /// selection tracking.
-    /// </summary>
+
+
+
+
+
+
+
+
     public ObservableCollection<MenuItemViewModel> MenuItems { get; } =
     [
         new("NavConnection", 0),
@@ -391,46 +391,46 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         new("NavSystem", 2),
     ];
 
-    // ────────────────────────────────────────────────────────────────
-    // System info
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Core bridge version string, or empty if unavailable.</summary>
+
+
+
+
     public string CoreVersion => _umaService.CoreVersion ?? string.Empty;
 
-    /// <summary>Loaded application resource directory, or empty if unavailable.</summary>
+
     public string ResourcePath => _umaService.ResourcePath ?? string.Empty;
 
-    /// <summary>Last detected emulator name, or empty if none.</summary>
+
     public string LastDetectedEmulator => _lastDetectedEmulator;
 
-    // ────────────────────────────────────────────────────────────────
-    // Forget command
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Command wrapping <see cref="Forget"/>.</summary>
+
+
+
+
     public ICommand ForgetCommand { get; }
 
-    // ────────────────────────────────────────────────────────────────
-    // Seams for Task 8 (selection dialog, overwrite confirmation)
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Called when auto-detect discovers multiple emulator candidates
-    /// and the user must pick one. Task 8 wires this to a selection dialog.
-    /// When null, the first candidate is used automatically.
-    /// </summary>
+
+
+
+
+
+
+
+
     public Func<IReadOnlyList<DetectedEmulatorInfo>, Task<DetectedEmulatorInfo?>>?
         RequestCandidateSelection { get; set; }
 
     public Func<IReadOnlyList<string>, Task<string?>>? RequestAddressSelection { get; set; }
 
-    /// <summary>
-    /// Called when <see cref="DraftAlwaysAutoDetect"/> is enabled and
-    /// auto-detect would overwrite non-blank manual values.
-    /// Return true to allow overwrite, false to keep manual values.
-    /// When null, the overwrite proceeds without confirmation.
-    /// </summary>
+
+
+
+
+
+
     public Func<Task<bool>>? RequestOverwriteConfirmation { get; set; }
 
     private Task<DetectedEmulatorInfo?> ShowCandidateSelectionAsync(
@@ -494,35 +494,35 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             : null;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Commands
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>Command wrapping <see cref="ConnectAsync"/>; disabled during operations.</summary>
+
+
+
+
     public ICommand ConnectCommand { get; }
 
-    /// <summary>Command wrapping <see cref="Cancel"/>; enabled only during operations.</summary>
+
     public ICommand CancelConnectCommand { get; }
 
-    /// <summary>Command wrapping <see cref="SaveSettings"/>; always enabled unless disposed.</summary>
+
     public ICommand SaveCommand { get; }
 
-    /// <summary>Command wrapping <see cref="AutoDetectEmulatorsAsync"/>; disabled during operations.</summary>
+
     public ICommand DetectAdbConfigCommand { get; }
 
-    /// <summary>Stops health monitoring and marks the current session disconnected.</summary>
+
     public ICommand DisconnectCommand { get; }
 
-    /// <summary>
-    /// Runs the full connect flow: optional auto-detect (if enabled),
-    /// then connect via <see cref="IUmaService.ConnectAsync"/>.
-    /// Guards against overlapping operations.
-    /// </summary>
+
+
+
+
+
     public async Task ConnectAsync()
     {
-        // A queue start can race the health monitor or a previous discovery
-        // pass. Do not silently drop the user's Start request while that
-        // short connection operation is still finishing.
+
+
+
         if (_disposed
             || !await _operationGate.WaitAsync(
                 TimeSpan.FromSeconds(10)).ConfigureAwait(true))
@@ -543,7 +543,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         if (_disposed)
             return;
 
-        // ── Overlap prevention ──────────────────────────────────
+
         var currentState = _connectionState.State;
         if (currentState is not (ConnectionState.Disconnected or ConnectionState.Failed))
             return;
@@ -555,10 +555,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _connectCts = cts;
         var discoverySucceeded = true;
 
-        // Prefer a saved TCP endpoint for reconnects. This lets the native
-        // connector issue adb connect directly after a transient disconnect;
-        // process discovery/autostart remains the fallback when the emulator
-        // is not available yet.
+
+
+
+
         if (!string.IsNullOrWhiteSpace(DraftAdbPath)
             && !string.IsNullOrWhiteSpace(DraftConnectAddress)
             && DraftConnectAddress.Contains(':', StringComparison.Ordinal))
@@ -580,14 +580,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             }
             catch (Exception)
             {
-                // The emulator may be stopped. Discovery/autostart below is
-                // still responsible for bringing it up.
+
+
             }
 
             _connectionState.SetState(ConnectionState.Disconnected);
         }
 
-        // ── Auto-detect phase ───────────────────────────────────
+
         if (DraftAutoDetect)
         {
             bool shouldDetect = DraftAlwaysAutoDetect
@@ -595,8 +595,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
             if (shouldDetect)
             {
-                // When AlwaysAutoDetect is on and user has non-blank values,
-                // request confirmation before overwriting.
+
+
                 if (DraftAlwaysAutoDetect
                     && !string.IsNullOrWhiteSpace(DraftConnectAddress)
                     && RequestOverwriteConfirmation is not null)
@@ -604,8 +604,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                     bool confirmed = await RequestOverwriteConfirmation();
                     if (!confirmed)
                     {
-                        // User declined overwrite — do not run discovery,
-                        // but still proceed to connect with manual values.
+
+
                     }
                     else
                     {
@@ -631,7 +631,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             return;
         }
 
-        // ── Validate before connect ─────────────────────────────
+
         if (string.IsNullOrWhiteSpace(DraftAdbPath))
         {
             SetConnectionDiagnostic("An ADB executable path is required.");
@@ -646,11 +646,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             return;
         }
 
-        // ── Connect phase ───────────────────────────────────────
-        // Discovery may have shown a transient readiness message (for
-        // example, while waiting for MuMu's ADB device to leave `offline`).
-        // Once discovery has succeeded that message must not mask the real
-        // Connecting/Connected state in the status line.
+
+
+
+
+
         ClearConnectionDiagnostic();
         _connectionState.SetState(ConnectionState.Connecting);
 
@@ -700,11 +700,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    /// <summary>
-    /// Cancels the current connect operation (if any).
-    /// Transitions through <see cref="ConnectionState.Canceling"/> before
-    /// requesting cancellation. Safe to call when idle.
-    /// </summary>
+
+
+
+
+
     public void Cancel()
     {
         if (_connectCts is null || _connectCts.IsCancellationRequested)
@@ -715,9 +715,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _connectCts.Cancel();
     }
 
-    /// <summary>
-    /// Ends the managed session without touching the shared ADB server.
-    /// </summary>
+
+
+
     public void Disconnect()
     {
         if (_disposed)
@@ -729,18 +729,18 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         SetConnectionDiagnostic("Disconnected.");
     }
 
-    /// <summary>
-    /// Clears the immutable last-verified snapshot without affecting
-    /// the editable draft or persisted settings.
-    /// </summary>
+
+
+
+
     public void Forget()
     {
         _connectionState.ClearLastVerified();
     }
 
-    /// <summary>
-    /// Persists the current draft settings to the settings service.
-    /// </summary>
+
+
+
     public void SaveSettings()
     {
         _draft.AdbPath = DraftAdbPath;
@@ -753,9 +753,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draft.AutoStartEmulatorWaitSeconds = DraftAutoStartEmulatorWaitSeconds;
         _draft.Language = DraftLanguage;
 
-        // SettingsViewModel keeps an editable draft alive for the page. Merge
-        // the latest Hachimi cache before saving so a Settings-page save does
-        // not overwrite tasks added after this draft was created.
+
+
+
         var latest = _settingsService.Load();
         _draft.TargetPackageIds = latest.TargetPackageIds;
         _draft.TargetActivityName = latest.TargetActivityName;
@@ -764,10 +764,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _settingsService.Save(_draft);
     }
 
-    /// <summary>
-    /// Runs emulator discovery and applies found values to the draft.
-    /// May transition through <see cref="ConnectionState.Detecting"/>.
-    /// </summary>
+
+
+
+
     public async Task AutoDetectEmulatorsAsync()
     {
         if (_disposed || !await _operationGate.WaitAsync(0).ConfigureAwait(true))
@@ -787,15 +787,15 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Private: discovery
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Runs emulator process discovery, filters candidates with ADB paths,
-    /// optionally asks the user to pick when multiple are found, then runs
-    /// adb devices on the selected candidate to find an eligible serial.
-    /// </summary>
+
+
+
+
+
+
+
+
     private async Task<bool> RunDiscoveryAsync(
         bool preferCachedAdb = false,
         bool allowAutoStart = false,
@@ -805,20 +805,20 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         try
         {
-            // A previously verified ADB path is the cheapest and most stable
-            // discovery source. Only fall back to process scanning when the
-            // cached ADB server has no ready device; this also handles emulator
-            // process names that changed between vendor releases.
+
+
+
+
             if (preferCachedAdb
                 && !string.IsNullOrWhiteSpace(DraftAdbPath))
             {
                 var cachedDevices = await _winAdapter.GetAdbDevicesAsync(
                     DraftAdbPath,
                     cancellationToken).ConfigureAwait(true);
-                // Keep the explicitly saved endpoint when it is ready. This
-                // is important for emulators that expose several ADB
-                // endpoints: auto-discovery must not replace a working MuMu
-                // endpoint merely because AlwaysAutoDetect is enabled.
+
+
+
+
                 var cachedDevice = cachedDevices.Records.FirstOrDefault(
                     device => string.Equals(
                         device.State,
@@ -872,7 +872,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return false;
             }
 
-            // Select candidate — ask for user input when multiple, or auto-pick
+
             DetectedEmulatorInfo selected;
             if (candidates.Count == 1)
             {
@@ -891,11 +891,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             }
             else
             {
-                // No seam and multiple candidates — pick the first one
+
                 selected = candidates[0];
             }
 
-            // Apply ADB path
+
             DraftAdbPath = selected.AdbPath!;
             DraftConnectConfig = selected.EmulatorName;
             _lastDetectedEmulator = selected.EmulatorName;
@@ -919,14 +919,14 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 }
             }
 
-            // Starting an emulator is asynchronous.  A running emulator
-            // process is not the same thing as a ready ADB endpoint: MuMu
-            // can take several seconds to publish its device after the
-            // launch command returns.  Waiting only for the process above
-            // caused Connect to probe the fallback ports too early and then
-            // fail, even though `adb devices` became ready moments later.
-            // Honor the configured startup window by polling the selected
-            // ADB server before falling back to endpoint probing.
+
+
+
+
+
+
+
+
             if (autoStartAttempted)
             {
                 var readyDevice = await WaitForAutoStartAdbDeviceAsync(
@@ -1011,15 +1011,15 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         OnPropertyChanged(nameof(StatusText));
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Private: connect success handling
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private void HandleConnectSuccess(ConnectionSucceededEvent success)
     {
         ClearConnectionDiagnostic();
 
-        // Store immutable last-verified snapshot
+
         var verified = new LastVerifiedConnection(
             AdbPath: DraftAdbPath,
             Serial: success.Serial,
@@ -1033,11 +1033,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         _connectionState.UpdateLastVerified(verified);
 
-        // Add address to history (use the serial from the event)
+
         _draft.AddAddressToHistory(success.Serial);
         RefreshHistoryFromDraft();
 
-        // Persist current draft (includes updated AdbPath, ConnectAddress, history)
+
         SaveSettings();
 
         _connectionState.SetState(ConnectionState.Connected);
@@ -1067,9 +1067,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             disconnected ? ConnectionState.Disconnected : ConnectionState.Failed);
     }
 
-    /// <summary>
-    /// Synchronises the observable history collection from the draft's list.
-    /// </summary>
+
+
+
     private void RefreshHistoryFromDraft()
     {
         ConnectAddressHistory.Clear();
@@ -1079,9 +1079,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Private: state change monitoring
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private void OnStateChanged(object? sender, EventArgs e)
     {
@@ -1104,9 +1104,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             rc4.RaiseCanExecuteChanged();
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // INotifyPropertyChanged
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -1115,9 +1115,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // IDisposable
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     public void Dispose()
     {
@@ -1133,9 +1133,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _healthMonitor.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Minimal RelayCommand for WPF ICommand binding
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private sealed class RelayCommand : ICommand
     {

@@ -2,11 +2,11 @@ using System.IO;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Resolves the same ABI priority used by MAA when selecting a minitouch
-/// executable. The locator does not copy or download binaries; the caller
-/// decides which licensed resource directory is supplied.
-/// </summary>
+
+
+
+
+
 public static class MinitouchProgramLocator
 {
     private static readonly string[] AbiPriority =

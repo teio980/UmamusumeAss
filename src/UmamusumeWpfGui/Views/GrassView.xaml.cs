@@ -6,10 +6,10 @@ using System.Windows.Threading;
 
 namespace UmamusumeWpfGui.Views;
 
-/// <summary>
-/// Hachimi task page. Keeps the script log pinned to the newest entry while
-/// the user is already at the bottom, matching the global Log page behavior.
-/// </summary>
+
+
+
+
 public sealed partial class GrassView : UserControl
 {
     private ScrollViewer? _scrollViewer;
@@ -87,9 +87,9 @@ public sealed partial class GrassView : UserControl
             return;
         }
 
-        // Let the ListBox measure the newly-added item before scrolling. A
-        // task can append several entries while navigation is switching; keep
-        // only one pending layout request so the dispatcher cannot be flooded.
+
+
+
         RequestScrollToEnd(DispatcherPriority.Background);
     }
 

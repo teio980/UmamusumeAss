@@ -3,7 +3,7 @@ namespace Umamusume.CoreBridge;
 public interface IUmaService : IAsyncDisposable
 {
     string? CoreVersion { get; }
-    /// <summary>Loaded application resource directory, or <see langword="null"/> before initialization.</summary>
+
     string? ResourcePath => null;
     event Action<ConnectionEvent>? ConnectionEventReceived;
     event Action<BridgeDiagnostic>? DiagnosticReceived;

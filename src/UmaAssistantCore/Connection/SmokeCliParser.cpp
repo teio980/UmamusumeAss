@@ -7,8 +7,8 @@ namespace UmaAssistant {
 
 SmokCliParseResult parse_smoke_args(int argc, char* argv[])
 {
-    // We expect exactly 3 entries: <program> <adb_path> <serial>
-    // (argc includes the program name)
+
+
 
     if (argc < 1)
     {
@@ -17,7 +17,7 @@ SmokCliParseResult parse_smoke_args(int argc, char* argv[])
         };
     }
 
-    // Determine the program name for error messages.
+
     std::string_view const prog = (argv[0] != nullptr && argv[0][0] != '\0')
         ? std::string_view{argv[0]}
         : "uma_connect_smoke";
@@ -52,4 +52,4 @@ SmokCliParseResult parse_smoke_args(int argc, char* argv[])
     return result;
 }
 
-} // namespace UmaAssistant
+}

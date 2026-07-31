@@ -4,16 +4,16 @@ using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views.Dialogs;
 
-/// <summary>
-/// Selection dialog for choosing among multiple detected emulator candidates.
-/// Wires the ViewModel's <see cref="SelectionDialogViewModel.RequestClose"/>
-/// event to close the window with the appropriate result.
-/// </summary>
+
+
+
+
+
 public sealed partial class SelectionDialogView : FluentWindow
 {
-    /// <summary>
-    /// Creates the selection dialog and wires the close handler.
-    /// </summary>
+
+
+
     public SelectionDialogView()
     {
         InitializeComponent();

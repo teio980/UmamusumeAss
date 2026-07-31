@@ -8,19 +8,19 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.ViewModels.Dialogs;
 
-/// <summary>
-/// ViewModel for the multi-instance selection dialog.
-/// Displays detected emulator candidates and lets the user pick one.
-/// Cancel preserves the existing draft; Confirm applies the selection.
-/// </summary>
+
+
+
+
+
 public sealed class SelectionDialogViewModel : INotifyPropertyChanged
 {
     private readonly ObservableCollection<SelectableEmulatorItem> _items;
 
-    /// <summary>
-    /// Creates the selection dialog with the given candidates.
-    /// When only one candidate is provided, it is pre-selected.
-    /// </summary>
+
+
+
+
     public SelectionDialogViewModel(IReadOnlyList<DetectedEmulatorInfo> candidates)
     {
         ArgumentNullException.ThrowIfNull(candidates);
@@ -28,13 +28,13 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
         _items = new ObservableCollection<SelectableEmulatorItem>(
             candidates.Select(c => new SelectableEmulatorItem(c)));
 
-        // Pre-select when only one candidate
+
         if (_items.Count == 1)
         {
             _items[0].IsSelected = true;
         }
 
-        // Subscribe to selection changes
+
         foreach (var item in _items)
         {
             item.PropertyChanged += OnItemPropertyChanged;
@@ -51,41 +51,41 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
         TitleResourceKey = "SelectionDialogTitle";
     }
 
-    /// <summary>
-    /// Resource key for the dialog title, resolved via DynamicResource.
-    /// </summary>
+
+
+
     public string TitleResourceKey { get; }
 
-    /// <summary>
-    /// The list of selectable emulator candidates.
-    /// </summary>
+
+
+
     public ObservableCollection<SelectableEmulatorItem> Items => _items;
 
-    /// <summary>
-    /// Returns the currently selected candidate, or null if none selected.
-    /// </summary>
+
+
+
     public DetectedEmulatorInfo? SelectedCandidate =>
         _items.FirstOrDefault(i => i.IsSelected)?.Candidate;
 
-    /// <summary>
-    /// Raised when the dialog should close. Parameter indicates
-    /// true for Confirm (selection applied) or false for Cancel.
-    /// </summary>
+
+
+
+
     public event Action<bool?>? RequestClose;
 
-    /// <summary>
-    /// Confirms the current selection and closes the dialog.
-    /// </summary>
+
+
+
     public ICommand ConfirmCommand { get; }
 
-    /// <summary>
-    /// Cancels the selection and closes the dialog.
-    /// </summary>
+
+
+
     public ICommand CancelCommand { get; }
 
-    // ────────────────────────────────────────────────────────────────
-    // Event handlers
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -95,7 +95,7 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
         if (sender is not SelectableEmulatorItem changedItem || !changedItem.IsSelected)
             return;
 
-        // Deselect all other items (radio-button semantics)
+
         foreach (var item in _items)
         {
             if (item != changedItem && item.IsSelected)
@@ -109,9 +109,9 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
             rc.RaiseCanExecuteChanged();
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // INotifyPropertyChanged
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -120,14 +120,14 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Wrapper item with selection tracking
-    // ────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Wraps a <see cref="DetectedEmulatorInfo"/> with an observable
-    /// <see cref="IsSelected"/> property for use in selection UI.
-    /// </summary>
+
+
+
+
+
+
+
     public sealed class SelectableEmulatorItem : INotifyPropertyChanged
     {
         private bool _isSelected;
@@ -137,16 +137,16 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
             Candidate = candidate;
         }
 
-        /// <summary>Underlying emulator candidate data.</summary>
+
         public DetectedEmulatorInfo Candidate { get; }
 
-        /// <summary>Display name of the emulator.</summary>
+
         public string EmulatorName => Candidate.EmulatorName;
 
-        /// <summary>ADB executable path, or null if unavailable.</summary>
+
         public string? AdbPath => Candidate.AdbPath;
 
-        /// <summary>Whether this item is currently selected.</summary>
+
         public bool IsSelected
         {
             get => _isSelected;
@@ -162,9 +162,9 @@ public sealed class SelectionDialogViewModel : INotifyPropertyChanged
         public event PropertyChangedEventHandler? PropertyChanged;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Minimal RelayCommand
-    // ────────────────────────────────────────────────────────────────
+
+
+
 
     private sealed class RelayCommand : ICommand
     {

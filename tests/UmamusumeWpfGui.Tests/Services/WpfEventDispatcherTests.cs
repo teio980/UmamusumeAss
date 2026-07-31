@@ -7,9 +7,9 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class WpfEventDispatcherTests
 {
-    // ================================================================
-    // Null guard
-    // ================================================================
+
+
+
 
     [Fact]
     public void Post_NullAction_ThrowsArgumentNullException()
@@ -18,9 +18,9 @@ public sealed class WpfEventDispatcherTests
         Assert.Throws<ArgumentNullException>(() => adapter.Post(null!));
     }
 
-    // ================================================================
-    // Asynchronous dispatcher behavior
-    // ================================================================
+
+
+
 
     [Fact]
     public void Post_Action_InvokesOnDispatcherThread()
@@ -30,19 +30,19 @@ public sealed class WpfEventDispatcherTests
 
         var thread = new Thread(() =>
         {
-            // Create a dispatcher for this thread
+
             var dispatcher = Dispatcher.CurrentDispatcher;
 
             var adapter = new WpfEventDispatcher(dispatcher);
 
-            // Post an action to the dispatcher
+
             adapter.Post(() =>
             {
                 callbackThreadId = Environment.CurrentManagedThreadId;
                 invokedEvent.Set();
             });
 
-            // Pump messages until the frame is told to stop
+
             var frame = new DispatcherFrame();
             adapter.Post(() => frame.Continue = false);
             Dispatcher.PushFrame(frame);
@@ -51,7 +51,7 @@ public sealed class WpfEventDispatcherTests
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
-        // Wait with timeout
+
         Assert.True(invokedEvent.Wait(5000), "Action was not invoked within timeout");
         Assert.NotNull(callbackThreadId);
         Assert.NotEqual(Environment.CurrentManagedThreadId, callbackThreadId.Value);
@@ -101,7 +101,7 @@ public sealed class WpfEventDispatcherTests
 
             var frame = new DispatcherFrame();
 
-            // Background thread posts to the dispatcher
+
             var bg = new Thread(() =>
             {
                 posted.Set();

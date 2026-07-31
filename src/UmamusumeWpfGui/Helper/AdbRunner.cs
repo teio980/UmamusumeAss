@@ -3,26 +3,26 @@ using System.IO;
 
 namespace UmamusumeWpfGui.Helper;
 
-/// <summary>
-/// Real implementation of <see cref="IAdbRunner"/> that executes ADB commands
-/// via <see cref="Process"/> with stdout/stderr capture,
-/// a timeout, and basic exception handling.
-/// </summary>
+
+
+
+
+
 public sealed class AdbRunner : IAdbRunner
 {
     private readonly TimeSpan _timeout;
 
-    /// <summary>
-    /// Creates a runner with the default 15-second timeout for ADB commands.
-    /// </summary>
+
+
+
     public AdbRunner()
         : this(TimeSpan.FromSeconds(15))
     {
     }
 
-    /// <summary>
-    /// Creates a runner with an explicit timeout (testability seam).
-    /// </summary>
+
+
+
     public AdbRunner(TimeSpan timeout)
     {
         _timeout = timeout;
@@ -324,7 +324,7 @@ public sealed class AdbRunner : IAdbRunner
                 return new AdbCommandResult("", "", -1, true, terminationException);
             }
 
-            // Ensure async read completion
+
             stdoutWaitHandle.WaitOne(TimeSpan.FromSeconds(5));
             stderrWaitHandle.WaitOne(TimeSpan.FromSeconds(5));
 
@@ -366,9 +366,9 @@ public sealed class AdbRunner : IAdbRunner
         }
         catch
         {
-            // The original timeout/cancellation is the useful result. The
-            // process has already been terminated, so output drain failures
-            // must not hide it.
+
+
+
         }
     }
 
@@ -474,7 +474,7 @@ public sealed class AdbRunner : IAdbRunner
             }
             catch (ObjectDisposedException)
             {
-                // Already closed by the process.
+
             }
 
             try
@@ -486,11 +486,11 @@ public sealed class AdbRunner : IAdbRunner
             }
             catch (InvalidOperationException)
             {
-                // The process exited between HasExited and Kill.
+
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                // The process is no longer owned by this session.
+
             }
 
             try
@@ -499,7 +499,7 @@ public sealed class AdbRunner : IAdbRunner
             }
             catch
             {
-                // Disposal must stay best-effort for a broken device session.
+
             }
 
             _reader.Dispose();

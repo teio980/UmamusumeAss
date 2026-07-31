@@ -15,8 +15,8 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <!-- Keep the settings section bar outside the content ScrollViewer so it
-         remains visible while the selected settings page is scrolled. -->
+
+
     <ui:NavigationView x:Name="SettingsNavigation"
                        Grid.Row="0"
                        Height="48"
@@ -248,7 +248,7 @@
         </StackPanel>
         </Grid>
 
-        <!-- Kept out of the visual tree's layout contract for old callers. -->
+
         <ItemsControl ItemsSource="{Binding MenuItems}"
                       Visibility="Collapsed" />
       </StackPanel>

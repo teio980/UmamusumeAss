@@ -4,9 +4,9 @@ using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
-/// <summary>
-/// Settings owned by the Start game task module.
-/// </summary>
+
+
+
 public sealed class StartGameTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultPackageId = "com.cygames.umamusume";
@@ -42,10 +42,10 @@ public sealed class StartGameTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>
-    /// Optional fully-qualified Activity or Activity class name. Blank uses
-    /// the package's launcher Activity.
-    /// </summary>
+
+
+
+
     public string ActivityName
     {
         get => _activityName;

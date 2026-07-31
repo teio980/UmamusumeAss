@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 
 namespace UmaAssistant {
 
-/// Optional callback invoked before each connection phase with the phase name.
+
 using PhaseCallback = std::function<void(std::string_view)>;
 
 struct ConnectionRequest
@@ -87,4 +87,4 @@ private:
     ConnectionTimings const  timings_;
 };
 
-} // namespace UmaAssistant
+}

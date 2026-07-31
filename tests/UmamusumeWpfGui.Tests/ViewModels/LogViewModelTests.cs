@@ -8,13 +8,13 @@ namespace UmamusumeWpfGui.Tests.ViewModels;
 
 public sealed class LogViewModelTests
 {
-    // ================================================================
-    // Helpers
-    // ================================================================
 
-    /// <summary>
-    /// Creates a fake UmaService and a LogViewModel wired to it.
-    /// </summary>
+
+
+
+
+
+
     private static (FakeUmaService Service, LogViewModel ViewModel) CreateFixture()
     {
         var service = new FakeUmaService();
@@ -22,9 +22,9 @@ public sealed class LogViewModelTests
         return (service, vm);
     }
 
-    // ================================================================
-    // Initial state
-    // ================================================================
+
+
+
 
     [Fact]
     public void Initial_Entries_IsEmpty()
@@ -33,9 +33,9 @@ public sealed class LogViewModelTests
         Assert.Empty(vm.Entries);
     }
 
-    // ================================================================
-    // Event mapping — ConnectionStarted
-    // ================================================================
+
+
+
 
     [Fact]
     public void OnConnectionStarted_AddsOneEntry()
@@ -67,9 +67,9 @@ public sealed class LogViewModelTests
         Assert.Equal(LogEntryKind.Info, vm.Entries[0].Kind);
     }
 
-    // ================================================================
-    // Event mapping — ConnectionProgress
-    // ================================================================
+
+
+
 
     [Fact]
     public void OnConnectionProgress_AddsOneEntry()
@@ -114,9 +114,9 @@ public sealed class LogViewModelTests
         Assert.Equal(LogEntryKind.Info, vm.Entries[0].Kind);
     }
 
-    // ================================================================
-    // Event mapping — ConnectionSucceeded
-    // ================================================================
+
+
+
 
     [Fact]
     public void OnConnectionSucceeded_AddsOneEntry()
@@ -180,9 +180,9 @@ public sealed class LogViewModelTests
         Assert.Contains("1080", details, StringComparison.Ordinal);
     }
 
-    // ================================================================
-    // Event mapping — ConnectionFailed
-    // ================================================================
+
+
+
 
     [Fact]
     public void OnConnectionFailed_AddsOneEntry()
@@ -232,9 +232,9 @@ public sealed class LogViewModelTests
         Assert.Contains("unauthorized device", vm.Entries[0].Details, StringComparison.Ordinal);
     }
 
-    // ================================================================
-    // Multiple events
-    // ================================================================
+
+
+
 
     [Fact]
     public void MultipleEvents_AllAdded()
@@ -267,23 +267,23 @@ public sealed class LogViewModelTests
         Assert.Equal("ConnectionSucceeded", vm.Entries[2].Type);
     }
 
-    // ================================================================
-    // 500-entry cap
-    // ================================================================
+
+
+
 
     [Fact]
     public void EventCap_At500Entries_DropsOldest()
     {
         var (service, vm) = CreateFixture();
 
-        // Fire 501 events — the 1st should be dropped
+
         for (int i = 0; i < 501; i++)
         {
             service.FireConnectionStarted(operationId: (ulong)i);
         }
 
         Assert.Equal(500, vm.Entries.Count);
-        // The first entry should be the 2nd event (index 1, OperationId=1), not the 1st (index 0)
+
         Assert.Contains("\"OperationId\":1", vm.Entries[0].Details, StringComparison.Ordinal);
     }
 
@@ -313,9 +313,9 @@ public sealed class LogViewModelTests
         Assert.Equal(500, vm.Entries.Count);
     }
 
-    // ================================================================
-    // Timestamp is set on each entry
-    // ================================================================
+
+
+
 
     [Fact]
     public void EachEntry_HasTimestamp()
@@ -328,9 +328,9 @@ public sealed class LogViewModelTests
         Assert.InRange(vm.Entries[0].Timestamp, before, DateTimeOffset.UtcNow);
     }
 
-    // ================================================================
-    // Dispose — cleanup and event leakage
-    // ================================================================
+
+
+
 
     [Fact]
     public void Dispose_UnsubscribesFromService()
@@ -349,7 +349,7 @@ public sealed class LogViewModelTests
         var (_, vm) = CreateFixture();
 
         vm.Dispose();
-        // Second dispose should be idempotent
+
         var exception = Record.Exception(() => vm.Dispose());
         Assert.Null(exception);
     }
@@ -372,21 +372,21 @@ public sealed class LogViewModelTests
         Assert.Empty(vm.Entries);
     }
 
-    // ================================================================
-    // FakeUmaService
-    // ================================================================
 
-    /// <summary>
-    /// A fake IUmaService that can fire ConnectionEventReceived
-    /// for testing LogViewModel subscription behavior.
-    /// </summary>
+
+
+
+
+
+
+
     public sealed class FakeUmaService : IUmaService
     {
         public string? CoreVersion => "1.0.0";
         public string? ResourcePath => null;
 
         public event Action<ConnectionEvent>? ConnectionEventReceived;
-#pragma warning disable CS0067 // DiagnosticReceived is not raised in tests
+#pragma warning disable CS0067
         public event Action<BridgeDiagnostic>? DiagnosticReceived;
 #pragma warning restore CS0067
 

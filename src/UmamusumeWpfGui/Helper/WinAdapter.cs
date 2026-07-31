@@ -2,11 +2,11 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Helper;
 
-/// <summary>
-/// GUI-layer emulator discovery and ADB device listing.
-/// Uses injected process enumerator, ADB runner, and file-system seam
-/// so all discovery behaviors are testable without real emulators.
-/// </summary>
+
+
+
+
+
 public sealed class WinAdapter : IWinAdapter
 {
     private readonly IProcessEnumerator _processEnumerator;
@@ -38,9 +38,9 @@ public sealed class WinAdapter : IWinAdapter
         _asyncDelay = asyncDelay;
     }
 
-    // ================================================================
-    // RefreshEmulatorsInfo
-    // ================================================================
+
+
+
 
     public DiscoveryResult RefreshEmulatorsInfo()
     {
@@ -88,14 +88,14 @@ public sealed class WinAdapter : IWinAdapter
                 }
             }
 
-            // Dedup: skip if we already have a candidate with the same resolved ADB path.
-            // Different processes resolving to the same ADB file yield one entry.
+
+
             if (resolvedAdbPath != null && !seenAdbPaths.Add(resolvedAdbPath))
                 continue;
 
-            // If AdbPath is null (no candidate found), and we already have a
-            // null-ADB-path candidate for a different process name, don't dedup —
-            // those are different emulator installs even without ADB found.
+
+
+
             if (resolvedAdbPath == null && candidates.Any(c => c.AdbPath == null))
                 continue;
 
@@ -105,9 +105,9 @@ public sealed class WinAdapter : IWinAdapter
         return new DiscoveryResult(candidates.AsReadOnly(), diagnostics.AsReadOnly());
     }
 
-    // ================================================================
-    // GetAdbDevices
-    // ================================================================
+
+
+
 
     public AdbDevicesResult GetAdbDevices(string adbPath)
     {
@@ -160,7 +160,7 @@ public sealed class WinAdapter : IWinAdapter
             diagnostics.Add(new DiscoveryDiagnostic(
                 $"'adb devices' exited with non-zero exit code {exitCode}",
                 DiagnosticSeverity.Error));
-            // Fall through: still try to parse any output
+
         }
 
         if (!string.IsNullOrEmpty(stderr))
@@ -188,12 +188,12 @@ public sealed class WinAdapter : IWinAdapter
         new EndpointResolver(_adbRunner, _asyncDelay)
             .ResolveAsync(adbPath, profileName, cancellationToken);
 
-    /// <summary>
-    /// Parses the stdout of <c>adb devices</c> into device records.
-    /// Skips the "List of devices attached" header and blank lines.
-    /// Splits each data line by tab: column 0 is the serial, column 1 is the state.
-    /// Lines without a tab separator are recorded as malformed diagnostics.
-    /// </summary>
+
+
+
+
+
+
     private static List<AdbDeviceRecord> ParseAdbDevicesOutput(
         string stdout, List<DiscoveryDiagnostic> diagnostics)
     {
@@ -205,11 +205,11 @@ public sealed class WinAdapter : IWinAdapter
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            // Skip the known header line
+
             if (line.Equals("List of devices attached", StringComparison.Ordinal))
                 continue;
 
-            // Split by tab: serial \t state
+
             var parts = line.Split('\t', 2, StringSplitOptions.None);
             if (parts.Length < 2 || string.IsNullOrWhiteSpace(parts[1]))
             {

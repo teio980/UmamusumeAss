@@ -5,9 +5,9 @@ namespace UmamusumeWpfGui.Tests.Models;
 
 public sealed class ConnectionSettingsTests
 {
-    // ================================================================
-    // Defaults
-    // ================================================================
+
+
+
 
     [Fact]
     public void Defaults_AdbPathIsEmpty()
@@ -86,9 +86,9 @@ public sealed class ConnectionSettingsTests
         Assert.Empty(s.TargetPackageIds);
     }
 
-    // ================================================================
-    // ConnectConfig — General-only fallback (S1 mode)
-    // ================================================================
+
+
+
 
     [Fact]
     public void ConnectConfig_SetToGeneral_StoresGeneral()
@@ -132,9 +132,9 @@ public sealed class ConnectionSettingsTests
         Assert.Equal("General", s.ConnectConfig);
     }
 
-    // ================================================================
-    // AddAddressToHistory — cap 5, dedup, blank ignored
-    // ================================================================
+
+
+
 
     [Fact]
     public void AddAddressToHistory_BlankAddress_DoesNotAdd()
@@ -177,7 +177,7 @@ public sealed class ConnectionSettingsTests
         s.AddAddressToHistory("addr1");
         s.AddAddressToHistory("addr2");
         s.AddAddressToHistory("addr3");
-        s.AddAddressToHistory("addr1"); // existing — move to front
+        s.AddAddressToHistory("addr1");
         Assert.Equal(["addr1", "addr3", "addr2"], s.ConnectAddressHistory);
         Assert.Equal(3, s.ConnectAddressHistory.Count);
     }
@@ -192,7 +192,7 @@ public sealed class ConnectionSettingsTests
         s.AddAddressToHistory("addr4");
         s.AddAddressToHistory("addr5");
 
-        // 6th addition evicts the last entry (oldest)
+
         s.AddAddressToHistory("addr6");
         Assert.Equal(5, s.ConnectAddressHistory.Count);
         Assert.DoesNotContain("addr1", s.ConnectAddressHistory);
@@ -209,16 +209,16 @@ public sealed class ConnectionSettingsTests
         s.AddAddressToHistory("addr3");
         s.AddAddressToHistory("addr4");
         s.AddAddressToHistory("addr5");
-        // addr1 is oldest — re-adding moves it to front
+
         s.AddAddressToHistory("addr1");
         Assert.Equal(5, s.ConnectAddressHistory.Count);
         Assert.Equal(["addr1", "addr5", "addr4", "addr3", "addr2"],
             s.ConnectAddressHistory);
     }
 
-    // ================================================================
-    // JSON roundtrip via System.Text.Json
-    // ================================================================
+
+
+
 
     [Fact]
     public void JsonRoundtrip_AllPropertiesRoundtrip()

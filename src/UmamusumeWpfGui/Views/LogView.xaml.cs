@@ -9,10 +9,10 @@ using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Views;
 
-/// <summary>
-/// Log view that displays timestamped Core callback events.
-/// Auto-scrolls to the newest entry unless the user has manually scrolled up.
-/// </summary>
+
+
+
+
 public sealed partial class LogView : UserControl
 {
     private ScrollViewer? _scrollViewer;
@@ -21,9 +21,9 @@ public sealed partial class LogView : UserControl
     private bool _scrollRequestPending;
     private int _viewGeneration;
 
-    /// <summary>
-    /// Creates the LogView and wires auto-scroll behavior.
-    /// </summary>
+
+
+
     public LogView()
     {
         InitializeComponent();
@@ -49,7 +49,7 @@ public sealed partial class LogView : UserControl
 
     private void SubscribeToCollection()
     {
-        UnsubscribeFromCollection(); // guard against double-subscribe
+        UnsubscribeFromCollection();
         if (EntriesListBox.ItemsSource is INotifyCollectionChanged collection)
         {
             _subscribedCollection = collection;
@@ -123,7 +123,7 @@ public sealed partial class LogView : UserControl
         if (_scrollViewer is null)
             return;
 
-        // Determine if user is at the bottom (within 1px threshold)
+
         _isAtBottom =
             _scrollViewer.VerticalOffset
             >= _scrollViewer.ScrollableHeight - 1;

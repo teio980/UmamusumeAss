@@ -1,8 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <!-- Application tokens only. WPF-UI owns all active control templates. -->
-  <!-- Legacy contracts are retained for compatibility only. Theme.xaml does
-       not merge this dictionary, so WPF-UI keeps ownership of active styles. -->
+
+
+
   <Style TargetType="TabItem">
     <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
   </Style>

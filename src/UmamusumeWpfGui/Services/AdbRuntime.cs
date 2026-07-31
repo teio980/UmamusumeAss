@@ -9,12 +9,12 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// The common ADB runtime path used by the UI and, later, the task engine.
-/// It follows MAA's device-scoped command shape while keeping every argument
-/// as an individual token so paths, serials, and user input are not manually
-/// concatenated into a shell command.
-/// </summary>
+
+
+
+
+
+
 public sealed class AdbRuntime : IAdbRuntime
 {
     private static readonly Regex ScreenSizeRegex = new(
@@ -352,9 +352,9 @@ public sealed class AdbRuntime : IAdbRuntime
     {
         RequirePackageName(packageName);
 
-        // MAA starts a concrete component with `am start -n`. The game
-        // package can differ between distributions, so resolve its launcher
-        // component when the task has not supplied an explicit Activity.
+
+
+
         var resolved = await RunShellAsync(
             adbPath,
             serial,
@@ -370,8 +370,8 @@ public sealed class AdbRuntime : IAdbRuntime
                 cancellationToken).ConfigureAwait(false);
         }
 
-        // Keep the fallback within ActivityManager as well. This handles
-        // Android images that do not expose `cmd package resolve-activity`.
+
+
         return await RunShellAsync(
             adbPath,
             serial,
@@ -433,8 +433,8 @@ public sealed class AdbRuntime : IAdbRuntime
                 [pidOf]);
         }
 
-        // Some Android images do not ship pidof. The ps fallback mirrors the
-        // compatibility behavior needed across emulator families.
+
+
         var ps = await RunShellAsync(
             adbPath, serial, ["ps", "-A"], cancellationToken).ConfigureAwait(false);
         var running = IsSuccessful(ps)
@@ -688,9 +688,9 @@ public sealed class AdbRuntime : IAdbRuntime
             return direct;
         }
 
-        // MAA has a CapWithShell profile for emulators where exec-out is not
-        // available. Keep this as a binary operation so PNG bytes are never
-        // converted through a text encoding.
+
+
+
         var shellArguments = displayId is int shellDisplayId
             ? new List<string>
             {
@@ -782,9 +782,9 @@ public sealed class AdbRuntime : IAdbRuntime
             _screenshotMethods.TryRemove(cacheKey, out _);
         }
 
-        // MAA probes multiple methods once and then keeps the fastest one.
-        // The NC socket and emulator vendor extras remain separate optional
-        // backends; these four methods cover the portable ADB paths.
+
+
+
         var methods = new[]
         {
             AdbScreenshotMethod.Raw,

@@ -4,9 +4,9 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.ViewModels;
 
-/// <summary>
-/// Generic queue item. Task-specific settings and execution stay on Module.
-/// </summary>
+
+
+
 public sealed class GrassTaskItemViewModel : INotifyPropertyChanged
 {
     private string _name;

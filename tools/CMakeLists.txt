@@ -1,4 +1,4 @@
-# ── Smoke CLI executable (moved from src/UmaAssistantCore) ──────────────────
+
 add_executable(uma_connect_smoke
   connect_smoke.cpp
 )

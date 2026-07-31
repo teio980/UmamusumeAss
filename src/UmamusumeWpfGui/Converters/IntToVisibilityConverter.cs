@@ -5,13 +5,13 @@ using System.Windows.Data;
 
 namespace UmamusumeWpfGui.Converters;
 
-/// <summary>
-/// Converts an integer value to <see cref="Visibility"/>.
-/// Used to show/hide content panels based on <see cref="ViewModels.SettingsViewModel.SelectedMenuIndex"/>.
-///
-/// Use with a <c>ConverterParameter</c> equal to the target index.
-/// <c>Visible</c> when the value matches the parameter; <c>Collapsed</c> otherwise.
-/// </summary>
+
+
+
+
+
+
+
 public sealed class IntToVisibilityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)

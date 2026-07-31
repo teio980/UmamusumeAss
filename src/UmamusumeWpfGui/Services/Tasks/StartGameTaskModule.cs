@@ -6,10 +6,10 @@ using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-/// <summary>
-/// Complete Start game task module. New task types should follow this shape
-/// and keep their settings and execution code in their own module folder.
-/// </summary>
+
+
+
+
 public sealed class StartGameTaskModule : IGrassTaskModule
 {
     private readonly IGameLauncher _gameLauncher;

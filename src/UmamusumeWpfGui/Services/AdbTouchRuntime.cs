@@ -6,11 +6,11 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Installs and starts a Minitouch/MaaTouch binary, then exposes the
-/// line-oriented touch protocol as a safe async session. The protocol is the
-/// same one used by MAA: d/m/u/k/w/c commands with explicit commits.
-/// </summary>
+
+
+
+
+
 public sealed class AdbTouchRuntime : IAdbTouchRuntime
 {
     private readonly IAdbRunner _adbRunner;
@@ -304,8 +304,8 @@ internal sealed class AdbTouchSession : IAdbTouchSession
             x * (double)Properties.MaxX / Math.Max(1, Properties.ScreenWidth));
         var scaledY = (int)Math.Round(
             y * (double)Properties.MaxY / Math.Max(1, Properties.ScreenHeight));
-        // Clamp to the protocol's safe range and preserve MAA's orientation
-        // mapping after scaling from logical screen coordinates.
+
+
         scaledX = Math.Clamp(scaledX, 0, Properties.MaxX);
         scaledY = Math.Clamp(scaledY, 0, Properties.MaxY);
         return Properties.Orientation switch

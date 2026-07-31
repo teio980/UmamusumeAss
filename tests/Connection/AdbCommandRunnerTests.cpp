@@ -1,8 +1,8 @@
-//
-// Tests for AdbCommandRunner — quoting helpers, result mapping via
-// the injected IWin32Process seam, timeout/cancellation/start-failure
-// state transitions.
-//
+
+
+
+
+
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -21,9 +21,9 @@ using UmaAssistant::AdbCommandResult;
 using UmaAssistant::IAdbCommandRunner;
 using UmaAssistant::AdbInvocation;
 
-// ==========================================================================
-// Windows argument quoting
-// ==========================================================================
+
+
+
 
 TEST_CASE("quote_windows_argument wraps simple path in double quotes",
     "[AdbCommandRunner][quote]")
@@ -88,15 +88,15 @@ TEST_CASE("build_windows_command_line quotes arguments with spaces",
 TEST_CASE("build_windows_command_line preserves UTF-8 multi-byte arguments",
     "[AdbCommandRunner][command_line][utf8]")
 {
-    // "接続" encoded as UTF-8 bytes (E6 8E A5 E7 B6 9A).
-    // With proper MultiByteToWideChar conversion, these three bytes per
-    // character should produce the correct UTF-16 surrogates.  With the
-    // naive byte-per-byte cast (the old bug) they come out as L'\x00E6',
-    // L'\x008E', L'\x00A5', L'\x00E7', L'\x00B6', L'\x009A' which do NOT
-    // match L"\u63A5\u7D9A".
+
+
+
+
+
+
     std::string const jp_connect =
-        "\xE6\x8E\xA5"   // 接 U+63A5
-        "\xE7\xB6\x9A";  // 続 U+7D9A
+        "\xE6\x8E\xA5"
+        "\xE7\xB6\x9A";
 
     auto const cmdline = UmaAssistant::build_windows_command_line(
         LR"(C:\adb\adb.exe)",
@@ -105,16 +105,16 @@ TEST_CASE("build_windows_command_line preserves UTF-8 multi-byte arguments",
     REQUIRE(cmdline.find(L"\u63A5\u7D9A") != std::wstring::npos);
 }
 
-// ==========================================================================
-// IWin32Process seam and result mapping
-// ==========================================================================
+
+
+
 
 namespace {
 
-/// Fake process that returns scripted results without starting a real process.
-/// Supports controlling started/timed_out/canceled/exit_code/stdout/stderr
-/// independently so every state branch in AdbCommandRunnerWin32 can be
-/// exercised without a real OS process.
+
+
+
+
 class FakeWin32Process final : public UmaAssistant::IWin32Process
 {
 public:
@@ -134,10 +134,10 @@ public:
     }
 
     UmaAssistant::IWin32Process::Result execute(
-        std::filesystem::path const& /*executable*/,
-        std::wstring const& /*command_line*/,
-        std::stop_token /*cancellation*/,
-        std::chrono::milliseconds /*timeout*/) override
+        std::filesystem::path const&  ,
+        std::wstring const&  ,
+        std::stop_token  ,
+        std::chrono::milliseconds  ) override
     {
         UmaAssistant::IWin32Process::Result r;
         r.exit_code       = result_.exit_code;
@@ -153,11 +153,11 @@ private:
     ScriptedResult result_;
 };
 
-} // anonymous namespace
+}
 
-// -----------------------------------------------------------------------
-// Happy path — process starts, runs, produces separate outputs
-// -----------------------------------------------------------------------
+
+
+
 
 TEST_CASE("AdbCommandRunnerWin32 preserves separate stdout and stderr streams",
     "[AdbCommandRunner][result]")
@@ -191,9 +191,9 @@ TEST_CASE("AdbCommandRunnerWin32 preserves exit code and empty streams",
     REQUIRE(result.standard_error.empty());
 }
 
-// -----------------------------------------------------------------------
-// started = false  (process could not be launched)
-// -----------------------------------------------------------------------
+
+
+
 
 TEST_CASE("AdbCommandRunnerWin32 maps process-started=false to result",
     "[AdbCommandRunner][state][started]")
@@ -209,9 +209,9 @@ TEST_CASE("AdbCommandRunnerWin32 maps process-started=false to result",
     REQUIRE_FALSE(result.canceled);
 }
 
-// -----------------------------------------------------------------------
-// timed_out
-// -----------------------------------------------------------------------
+
+
+
 
 TEST_CASE("AdbCommandRunnerWin32 maps process-timed-out=true to result",
     "[AdbCommandRunner][state][timed_out]")
@@ -227,9 +227,9 @@ TEST_CASE("AdbCommandRunnerWin32 maps process-timed-out=true to result",
     REQUIRE_FALSE(result.canceled);
 }
 
-// -----------------------------------------------------------------------
-// canceled
-// -----------------------------------------------------------------------
+
+
+
 
 TEST_CASE("AdbCommandRunnerWin32 maps process-canceled=true to result",
     "[AdbCommandRunner][state][canceled]")
@@ -245,16 +245,16 @@ TEST_CASE("AdbCommandRunnerWin32 maps process-canceled=true to result",
     REQUIRE_FALSE(result.timed_out);
 }
 
-// -----------------------------------------------------------------------
-// Combined states
-// -----------------------------------------------------------------------
+
+
+
 
 TEST_CASE("AdbCommandRunnerWin32 maps started=false timed_out=false canceled=true",
     "[AdbCommandRunner][state][combined]")
 {
-    // This combination is unlikely in practice but verifies the runner
-    // does not accidentally coerce orthogonal flags.  The process seam
-    // owns the semantics; the runner maps them faithfully.
+
+
+
     FakeWin32Process process{{.exit_code = 0, .standard_output = "", .standard_error = "", .started = false, .canceled = true}};
     UmaAssistant::AdbCommandRunnerWin32 runner{process};
 

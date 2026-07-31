@@ -2,10 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace UmamusumeWpfGui.Models;
 
-/// <summary>
-/// MAA-inspired, editable Start Game task graph. The JSON intentionally uses
-/// familiar pipeline fields so game-specific adaptation stays in resources.
-/// </summary>
+
+
+
+
 public sealed class StartGamePipelineDefinition
 {
     [JsonPropertyName("start")]

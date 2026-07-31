@@ -6,17 +6,17 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Converters;
 
-/// <summary>
-/// Converts <see cref="LogEntryKind"/> to a <see cref="Brush"/> resolved
-/// from application-level resource dictionaries by canonical design key:
-/// <list type="bullet">
-///   <item><description>Info → <c>TextSecondaryBrush</c> (gray, #888888)</description></item>
-///   <item><description>Success → <c>PrimaryBrush</c> (pink, #E91E8C)</description></item>
-///   <item><description>Failure → <c>ErrorBrush</c> (red, #F44336)</description></item>
-/// </list>
-/// Falls back to hardcoded colors when <see cref="Application.Current"/>
-/// is null or the resource key is not found.
-/// </summary>
+
+
+
+
+
+
+
+
+
+
+
 public sealed class LogEntryKindToColorConverter : IValueConverter
 {
     private const string InfoKey = "StatusInfoBrush";
@@ -50,10 +50,10 @@ public sealed class LogEntryKindToColorConverter : IValueConverter
         throw new NotSupportedException();
     }
 
-    /// <summary>
-    /// Resolves a design brush resource by key from <see cref="Application.Current"/>.
-    /// Returns null when the resource or application object is unavailable.
-    /// </summary>
+
+
+
+
     private static Brush? Resolve(string key)
     {
         if (Application.Current is null)

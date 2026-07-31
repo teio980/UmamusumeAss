@@ -64,7 +64,7 @@
         <ColumnDefinition Width="1.2*" />
       </Grid.ColumnDefinitions>
 
-      <!-- Left: queue and bottom actions -->
+
       <Grid Grid.Column="0" Margin="0,0,8,0">
         <Grid.RowDefinitions>
           <RowDefinition Height="*" />
@@ -150,7 +150,7 @@
         </StackPanel>
       </Grid>
 
-      <!-- Middle: selected task settings and bottom mode switch -->
+
       <Grid Grid.Column="1" Margin="8,0">
         <Grid.RowDefinitions>
           <RowDefinition Height="*" />
@@ -220,7 +220,7 @@
         </Border>
       </Grid>
 
-      <!-- Right: queue activity log -->
+
       <Grid Grid.Column="2" Margin="8,0,0,0">
         <Border Padding="14" Style="{StaticResource PanelBorderStyle}">
           <DockPanel>

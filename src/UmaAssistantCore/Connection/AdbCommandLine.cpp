@@ -13,9 +13,9 @@
 
 namespace UmaAssistant {
 
-// ==========================================================================
-// quote_windows_argument
-// ==========================================================================
+
+
+
 
 std::wstring quote_windows_argument(std::wstring_view arg)
 {
@@ -60,9 +60,9 @@ std::wstring quote_windows_argument(std::wstring_view arg)
     return result;
 }
 
-// ==========================================================================
-// build_windows_command_line
-// ==========================================================================
+
+
+
 
 std::wstring build_windows_command_line(
     std::filesystem::path const& executable,
@@ -72,7 +72,7 @@ std::wstring build_windows_command_line(
 
     for (auto const& arg : arguments) {
         cmdline += L' ';
-        // Convert UTF-8 argument to UTF-16 via MultiByteToWideChar.
+
         std::wstring wide_arg;
         if (!arg.empty()) {
             int const needed = ::MultiByteToWideChar(
@@ -91,4 +91,4 @@ std::wstring build_windows_command_line(
     return cmdline;
 }
 
-} // namespace UmaAssistant
+}

@@ -1,16 +1,16 @@
-//
-// connect_smoke — smoke-test CLI for the ADB connection pipeline.
-//
-// Usage:  connect_smoke <adb_path> <serial>
-//
-// Uses resource/connection.json (resolved relative to the executable or the
-// source tree) when present, otherwise the built-in default profile,
-// connects to the device via the General profile, and prints device info
-// on success or a structured error message on failure.
-//
-// Moved from src/UmaAssistantCore/uma_connect_smoke_main.cpp to tools/
-// as part of phase-2-adb-protocol cleanup.  No behaviour change.
-//
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "Connection/AdbCommandRunner.hpp"
 #include "Connection/ConnectionProfile.hpp"
@@ -34,13 +34,13 @@ namespace {
 namespace fs = std::filesystem;
 using namespace UmaAssistant;
 
-// ---------------------------------------------------------------------------
-// resolve_resource_path — find resource/connection.json relative to the
-// executable or the source tree.
-// ---------------------------------------------------------------------------
+
+
+
+
 [[nodiscard]] fs::path resolve_resource_path()
 {
-    // Strategy 1: relative to the executable
+
     wchar_t exe_path[MAX_PATH + 1] = {};
     DWORD const len = ::GetModuleFileNameW(nullptr, exe_path,
                                             static_cast<DWORD>(std::size(exe_path)));
@@ -51,8 +51,8 @@ using namespace UmaAssistant;
         if (fs::exists(candidate)) return candidate;
     }
 
-    // Strategy 2: relative to CMAKE_SOURCE_DIR (build-tree fallback)
-    // This string is baked in at CMake configure time.
+
+
     if (fs::exists(CMAKE_SOURCE_DIR "/resource/connection.json"))
     {
         return CMAKE_SOURCE_DIR "/resource/connection.json";
@@ -61,9 +61,9 @@ using namespace UmaAssistant;
     return {};
 }
 
-// ---------------------------------------------------------------------------
-// print_connected_device — output device info to stdout.
-// ---------------------------------------------------------------------------
+
+
+
 void print_connected_device(ConnectedDevice const& device)
 {
     std::cout << "serial:           " << device.serial          << "\n"
@@ -74,9 +74,9 @@ void print_connected_device(ConnectedDevice const& device)
               << "x" << device.physical_height << "\n";
 }
 
-// ---------------------------------------------------------------------------
-// print_connection_failure — output error info to stderr.
-// ---------------------------------------------------------------------------
+
+
+
 void print_connection_failure(ConnectionFailure const& failure)
 {
     std::cerr << "ERROR [" << failure.phase << "] (code "
@@ -84,13 +84,13 @@ void print_connection_failure(ConnectionFailure const& failure)
               << failure.message << "\n";
 }
 
-} // anonymous namespace
+}
 
-// ===========================================================================
+
 
 int main(int argc, char* argv[])
 {
-    // ---- Parse arguments ----
+
     auto const parse_result = parse_smoke_args(argc, argv);
     if (std::holds_alternative<SmokCliError>(parse_result))
     {
@@ -100,10 +100,10 @@ int main(int argc, char* argv[])
 
     auto const& args = std::get<SmokCliArgs>(parse_result);
 
-    // ---- Resolve resource file (optional) ----
+
     auto const resource_path = resolve_resource_path();
 
-    // ---- Load connection profile ----
+
     ConnectionProfile profile = [&]() -> ConnectionProfile {
         if (resource_path.empty())
         {
@@ -120,11 +120,11 @@ int main(int argc, char* argv[])
         }
     }();
 
-    // ---- Create real runner ----
+
     auto process = create_win32_process();
     AdbCommandRunnerWin32 runner{*process};
 
-    // ---- Connect ----
+
     EmulatorConnector connector{profile, runner};
 
     ConnectionRequest request{
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 
     auto const result = connector.connect(request);
 
-    // ---- Print result ----
+
     if (std::holds_alternative<ConnectedDevice>(result))
     {
         print_connected_device(std::get<ConnectedDevice>(result));

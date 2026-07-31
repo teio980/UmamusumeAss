@@ -4,10 +4,10 @@ using System.Xml.Linq;
 
 namespace UmamusumeWpfGui.Tests.Theme;
 
-/// <summary>
-/// Parses theme XAML files as XML to verify resource definitions.
-/// Avoids WPF XamlReader StaticResource resolution issues at parse time.
-/// </summary>
+
+
+
+
 public sealed class ThemeResourceTests
 {
     private static readonly XNamespace XamlNs =
@@ -30,9 +30,9 @@ public sealed class ThemeResourceTests
         return XDocument.Load(path);
     }
 
-    /// <summary>
-    /// Returns all top-level ResourceDictionary entries from a XAML file.
-    /// </summary>
+
+
+
     private static XElement[] GetResources(string path)
     {
         var doc = LoadXaml(path);
@@ -51,9 +51,9 @@ public sealed class ThemeResourceTests
                ?? e.Attribute("Key")?.Value;
     }
 
-    // ================================================================
-    // Light.xaml — palette brushes
-    // ================================================================
+
+
+
 
     [Fact]
     public void LightXamlContainsAccentPrimaryBrush()
@@ -79,9 +79,9 @@ public sealed class ThemeResourceTests
         Assert.Equal("#B84B58", brush.color, ignoreCase: true);
     }
 
-    // ================================================================
-    // Light.xaml — DESIGN.md brush tokens (Task 1)
-    // ================================================================
+
+
+
 
     private static readonly string[] DesignBrushKeys =
     [
@@ -159,9 +159,9 @@ public sealed class ThemeResourceTests
         Assert.DoesNotContain("WindowBackgroundGradient", keys);
     }
 
-    // ================================================================
-    // Strings.en-US.xaml — Overview resource keys
-    // ================================================================
+
+
+
 
     private static readonly string[] OverviewStringKeys =
     [
@@ -206,7 +206,7 @@ public sealed class ThemeResourceTests
             Assert.Contains(key, keys);
     }
 
-    // ================================================================
+
     [Fact]
     public void ButtonXamlPrimaryButtonUsesAccentBrush()
     {
@@ -259,15 +259,15 @@ public sealed class ThemeResourceTests
         Assert.Contains("AccentHoverBrush", content);
     }
 
-    // ================================================================
-    // TextBox.xaml — CornerRadius = 4
-    // ================================================================
+
+
+
 
     [Fact]
     public void TextBoxXamlHasCornerRadius4()
     {
         var resources = GetResources(Path.Combine(StylesDir, "TextBox.xaml"));
-        var style = GetStyle(resources, null); // implicit (TargetType) style
+        var style = GetStyle(resources, null);
 
         var crSetter = style.setters.FirstOrDefault(
             s => s.property.Contains("CornerRadius"));
@@ -275,15 +275,15 @@ public sealed class ThemeResourceTests
         Assert.Equal("4", crSetter.value);
     }
 
-    // ================================================================
-    // ComboBox.xaml — CornerRadius = 4
-    // ================================================================
+
+
+
 
     [Fact]
     public void ComboBoxXamlHasCornerRadius4()
     {
         var resources = GetResources(Path.Combine(StylesDir, "ComboBox.xaml"));
-        var style = GetStyle(resources, null); // implicit (TargetType) style
+        var style = GetStyle(resources, null);
 
         var crSetter = style.setters.FirstOrDefault(
             s => s.property.Contains("CornerRadius"));
@@ -291,9 +291,9 @@ public sealed class ThemeResourceTests
         Assert.Equal("4", crSetter.value);
     }
 
-    // ================================================================
-    // Style.xaml — Border CornerRadius = 8
-    // ================================================================
+
+
+
 
     [Fact]
     public void StyleXamlBorderHasCornerRadius8()
@@ -351,9 +351,9 @@ public sealed class ThemeResourceTests
         }
     }
 
-    // ================================================================
-    // XML parsing helpers
-    // ================================================================
+
+
+
 
     private static (string color, string? offset) GetSolidColorBrush(
         XElement[] resources, string key)

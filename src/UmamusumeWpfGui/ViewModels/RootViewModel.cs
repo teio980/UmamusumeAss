@@ -1,11 +1,11 @@
 namespace UmamusumeWpfGui.ViewModels;
 
-/// <summary>
-/// Root view model that composes the overview, grass, log and settings pages
-/// for the main window navigation shell.
-/// Ownership of child VMs is transferred to this instance — call Dispose
-/// to clean up children.
-/// </summary>
+
+
+
+
+
+
 public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPropertyChanged
 {
     private readonly OverviewViewModel _overviewViewModel;
@@ -13,13 +13,13 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
     private bool _disposed;
     private int _selectedNavigationIndex = 3;
 
-    /// <summary>
-    /// Creates the RootViewModel with child view models injected via DI.
-    /// </summary>
-    /// <param name="logViewModel">Log tab view model.</param>
-    /// <param name="settingsViewModel">Settings tab view model.</param>
-    /// <param name="grassViewModel">MAA-inspired grass tab view model.</param>
-    /// <exception cref="ArgumentNullException">Thrown when any dependency is null.</exception>
+
+
+
+
+
+
+
     public RootViewModel(
         OverviewViewModel overviewViewModel,
         LogViewModel logViewModel,
@@ -71,21 +71,21 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
 
     public object ActiveContent { get; private set; }
 
-    /// <summary>Log tab view model — displays connection callback events.</summary>
+
     public LogViewModel LogViewModel { get; }
 
-    /// <summary>Overview tab view model.</summary>
+
     public OverviewViewModel OverviewViewModel => _overviewViewModel;
 
-    /// <summary>Settings tab view model — connection config, language, system info.</summary>
+
     public SettingsViewModel SettingsViewModel { get; }
 
-    /// <summary>MAA-inspired grass/task configuration page.</summary>
+
     public GrassViewModel GrassViewModel => _grassViewModel;
 
-    /// <summary>
-    /// Disposes child view models. Idempotent — safe to call multiple times.
-    /// </summary>
+
+
+
     public void Dispose()
     {
         if (_disposed)

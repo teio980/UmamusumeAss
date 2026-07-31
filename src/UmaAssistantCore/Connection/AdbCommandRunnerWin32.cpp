@@ -7,9 +7,9 @@
 
 namespace UmaAssistant {
 
-// ==========================================================================
-// AdbCommandRunnerWin32::run
-// ==========================================================================
+
+
+
 
 AdbCommandResult AdbCommandRunnerWin32::run(
     AdbInvocation const&      invocation,
@@ -32,4 +32,4 @@ AdbCommandResult AdbCommandRunnerWin32::run(
     return result;
 }
 
-} // namespace UmaAssistant
+}

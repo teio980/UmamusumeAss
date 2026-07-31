@@ -7,10 +7,10 @@ public sealed record AdbCommandResult(
     bool TimedOut,
     Exception? Error);
 
-/// <summary>
-/// Result for commands whose stdout is binary data, such as
-/// <c>adb exec-out screencap -p</c>.
-/// </summary>
+
+
+
+
 public sealed record AdbBinaryCommandResult(
     byte[] Stdout,
     string Stderr,
@@ -18,10 +18,10 @@ public sealed record AdbBinaryCommandResult(
     bool TimedOut,
     Exception? Error);
 
-/// <summary>
-/// A long-lived ADB shell used by interactive protocols such as minitouch
-/// and MaaTouch. It is deliberately separate from one-shot command results.
-/// </summary>
+
+
+
+
 public interface IAdbInteractiveSession : IAsyncDisposable
 {
     bool HasExited { get; }
@@ -42,12 +42,12 @@ public sealed record AdbInteractiveSessionStartResult(
     public bool Succeeded => Session is not null && Error is null;
 }
 
-/// <summary>
-/// Abstraction over executing bounded ADB commands without a real ADB installation.
-/// </summary>
+
+
+
 public interface IAdbRunner
 {
-    /// <summary>Runs an ADB command with individual argument tokens.</summary>
+
     AdbCommandResult Run(string adbPath, IReadOnlyList<string> arguments) =>
         arguments.Count == 1 && arguments[0] == "devices"
             ? FromLegacyResult(RunDevices(adbPath))
@@ -59,10 +59,10 @@ public interface IAdbRunner
         CancellationToken cancellationToken = default) =>
         Task.Run(() => Run(adbPath, arguments), cancellationToken);
 
-    /// <summary>
-    /// Runs an ADB command while preserving stdout as bytes. Implementations
-    /// that only support text commands can keep the default unsupported result.
-    /// </summary>
+
+
+
+
     Task<AdbBinaryCommandResult> RunBinaryAsync(
         string adbPath,
         IReadOnlyList<string> arguments,
@@ -82,10 +82,10 @@ public interface IAdbRunner
             null,
             new NotSupportedException("Interactive ADB sessions are not supported.")));
 
-    /// <summary>
-    /// Runs <c>adb devices</c> with the given ADB executable path.
-    /// Returns the raw stdout, stderr, exit code, timeout flag, and any exception.
-    /// </summary>
+
+
+
+
     (string Stdout, string Stderr, int ExitCode, bool TimedOut, Exception? Error) RunDevices(string adbPath);
 
     private static AdbCommandResult FromLegacyResult(

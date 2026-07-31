@@ -5,9 +5,9 @@ namespace UmamusumeWpfGui.Tests.Models;
 
 public sealed class LogEntryTests
 {
-    // ================================================================
-    // Construction defaults
-    // ================================================================
+
+
+
 
     [Fact]
     public void Constructor_SetsTimestampNearUtcNow()
@@ -47,9 +47,9 @@ public sealed class LogEntryTests
         Assert.Equal(LogEntryKind.Success, entry.Kind);
     }
 
-    // ================================================================
-    // Default kind
-    // ================================================================
+
+
+
 
     [Fact]
     public void Kind_DefaultsToInfo()
@@ -60,9 +60,9 @@ public sealed class LogEntryTests
         Assert.Equal(LogEntryKind.Info, entry.Kind);
     }
 
-    // ================================================================
-    // Value equality (record semantics)
-    // ================================================================
+
+
+
 
     [Fact]
     public void LogEntry_IsRecordWithValueEquality()

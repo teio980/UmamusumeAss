@@ -3,14 +3,14 @@ using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
 
-/// <summary>
-/// Device-scoped ADB operations used by the future task engine.
-///
-/// The interface intentionally exposes command results instead of throwing on
-/// normal ADB failures. A missing device, an offline device, and a command
-/// rejection are expected runtime states that the UI/task engine can report
-/// and recover from. Cancellation and invalid arguments still throw.
-/// </summary>
+
+
+
+
+
+
+
+
 public interface IAdbRuntime
 {
     Task<AdbDeviceListResult> ListDevicesAsync(

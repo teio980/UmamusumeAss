@@ -6,11 +6,11 @@ using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views;
 
-/// <summary>
-/// Main application window hosting overview, grass, log and settings pages
-/// through WPF-UI navigation. Child views are composed through Stylet's
-/// View.Model attached property.
-/// </summary>
+
+
+
+
+
 public sealed partial class RootView : FluentWindow
 {
     private readonly DispatcherTimer _navigationDebounceTimer;
@@ -18,9 +18,9 @@ public sealed partial class RootView : FluentWindow
     private int? _pendingNavigationIndex;
     private bool _navigationInputLocked;
 
-    /// <summary>
-    /// Creates the RootView.
-    /// </summary>
+
+
+
     public RootView()
     {
         InitializeComponent();
