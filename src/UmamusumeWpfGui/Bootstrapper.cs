@@ -71,7 +71,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .InSingletonScope();
         builder.Bind<GrassViewModel>().ToSelf().InSingletonScope();
         builder.Bind<OverviewViewModel>().ToSelf();
-        builder.Bind<SettingsViewModel>().ToSelf();
+        builder.Bind<SettingsViewModel>().ToSelf().InSingletonScope();
         builder.Bind<RootViewModel>().ToSelf();
     }
 
