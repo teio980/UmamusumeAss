@@ -86,8 +86,8 @@
   <sys:String x:Key="GrassStopGameLog">Stop game</sys:String>
   <sys:String x:Key="GrassTaskDailyTraining">Daily Training</sys:String>
   <sys:String x:Key="GrassTaskDailyTrainingDescription">Training plan and daily development flow (not connected)</sys:String>
-  <sys:String x:Key="GrassTaskRewardsCollection">Rewards Collection</sys:String>
-  <sys:String x:Key="GrassTaskRewardsCollectionDescription">Collect available rewards (not connected)</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollection">Mailbox Collection</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollectionDescription">Open the mailbox and collect all available presents</sys:String>
   <sys:String x:Key="GrassTaskFriendsShop">Friends &amp; Shop</sys:String>
   <sys:String x:Key="GrassTaskFriendsShopDescription">Friend interactions and shop checks (not connected)</sys:String>
   <sys:String x:Key="GrassTaskStartGame">Start game</sys:String>
@@ -107,6 +107,12 @@
   <sys:String x:Key="GrassTeamRaceStarting">Starting Team Race</sys:String>
   <sys:String x:Key="GrassTeamRaceRunning">Running {0} race(s) from {1}</sys:String>
   <sys:String x:Key="GrassTeamRaceCompleted">Team Race completed: {0} race(s)</sys:String>
+  <sys:String x:Key="GrassMailCollectionSettingsTitle">Mailbox pipeline</sys:String>
+  <sys:String x:Key="GrassMailCollectionDefinitionHint">Path to the mailbox automation definition.</sys:String>
+  <sys:String x:Key="GrassMailCollectionConnectionRequired">Connect a device before collecting mailbox rewards</sys:String>
+  <sys:String x:Key="GrassMailCollectionStarting">Collecting mailbox rewards</sys:String>
+  <sys:String x:Key="GrassMailCollectionRunning">Collecting rewards using {0}</sys:String>
+  <sys:String x:Key="GrassMailCollectionCompleted">Mailbox rewards collected</sys:String>
   <sys:String x:Key="GrassTaskRunning">Running</sys:String>
   <sys:String x:Key="GrassTaskCompleted">Completed</sys:String>
   <sys:String x:Key="GrassTaskError">Error</sys:String>

@@ -62,6 +62,12 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<ITeamRacePipeline>()
             .To<AdbTeamRacePipeline>()
             .InSingletonScope();
+        builder.Bind<IMailCollectionPipeline>()
+            .To<AdbMailCollectionPipeline>()
+            .InSingletonScope();
+        builder.Bind<MailCollectionTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
         builder.Bind<IEmulatorLauncher>()

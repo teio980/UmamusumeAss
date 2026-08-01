@@ -85,8 +85,8 @@
   <sys:String x:Key="GrassStopGameLog">停止游戏</sys:String>
   <sys:String x:Key="GrassTaskDailyTraining">每日训练</sys:String>
   <sys:String x:Key="GrassTaskDailyTrainingDescription">训练计划与日常育成流程（待接入）</sys:String>
-  <sys:String x:Key="GrassTaskRewardsCollection">奖励领取</sys:String>
-  <sys:String x:Key="GrassTaskRewardsCollectionDescription">领取可用奖励（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollection">邮箱领取</sys:String>
+  <sys:String x:Key="GrassTaskRewardsCollectionDescription">打开邮箱并领取全部可用礼物</sys:String>
   <sys:String x:Key="GrassTaskFriendsShop">好友与商店</sys:String>
   <sys:String x:Key="GrassTaskFriendsShopDescription">好友互动及商店检查（待接入）</sys:String>
   <sys:String x:Key="GrassTaskStartGame">开始游戏</sys:String>
@@ -106,6 +106,12 @@
   <sys:String x:Key="GrassTeamRaceStarting">正在启动团队竞技场</sys:String>
   <sys:String x:Key="GrassTeamRaceRunning">正在从 {1} 执行 {0} 场比赛</sys:String>
   <sys:String x:Key="GrassTeamRaceCompleted">团队竞技场完成：{0} 场</sys:String>
+  <sys:String x:Key="GrassMailCollectionSettingsTitle">邮箱领取流程</sys:String>
+  <sys:String x:Key="GrassMailCollectionDefinitionHint">邮箱自动化定义文件路径。</sys:String>
+  <sys:String x:Key="GrassMailCollectionConnectionRequired">请先连接设备再领取邮箱奖励</sys:String>
+  <sys:String x:Key="GrassMailCollectionStarting">正在领取邮箱奖励</sys:String>
+  <sys:String x:Key="GrassMailCollectionRunning">使用 {0} 领取奖励</sys:String>
+  <sys:String x:Key="GrassMailCollectionCompleted">邮箱奖励领取完成</sys:String>
   <sys:String x:Key="GrassTaskRunning">运行中</sys:String>
   <sys:String x:Key="GrassTaskCompleted">已完成</sys:String>
   <sys:String x:Key="GrassTaskError">错误</sys:String>

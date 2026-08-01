@@ -38,12 +38,15 @@ public sealed class DefaultGrassTaskCatalog : IGrassTaskCatalog
 
     public DefaultGrassTaskCatalog(
         StartGameTaskModule startGameTaskModule,
-        TeamRaceTaskModule teamRaceTaskModule)
+        TeamRaceTaskModule teamRaceTaskModule,
+        MailCollectionTaskModule mailCollectionTaskModule)
     {
         ArgumentNullException.ThrowIfNull(startGameTaskModule);
         ArgumentNullException.ThrowIfNull(teamRaceTaskModule);
+        ArgumentNullException.ThrowIfNull(mailCollectionTaskModule);
         _catalog.Register(startGameTaskModule);
         _catalog.Register(teamRaceTaskModule);
+        _catalog.Register(mailCollectionTaskModule);
     }
 
     public IReadOnlyList<IGrassTaskModule> Modules => _catalog.Modules;

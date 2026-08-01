@@ -1,0 +1,48 @@
+{
+  "name": "mail-collection",
+  "schemaVersion": 1,
+  "description": "Return to Home, open the gift box, collect all presents, and close the mailbox.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "steps": {
+    "home": {
+      "template": "templates/start_game/game_home.png",
+      "roi": [250, 1400, 400, 200],
+      "threshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300
+    },
+    "giftBox": {
+      "template": "templates/mail_collection/gift_box.png",
+      "roi": [650, 950, 250, 350],
+      "threshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300
+    },
+    "collectAll": {
+      "template": "templates/mail_collection/collect_all.png",
+      "roi": [300, 1350, 600, 250],
+      "threshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300
+    },
+    "close": {
+      "template": "templates/mail_collection/close.png",
+      "roi": [0, 1300, 900, 300],
+      "threshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300
+    }
+  },
+  "timing": {
+    "navigationMs": 1200,
+    "mailboxLoadMs": 1800,
+    "collectionSettleMs": 1200,
+    "homeTimeoutMs": 5000,
+    "homeRetryTimeoutMs": 2500,
+    "homeVerifyTimeoutMs": 3000,
+    "backAttempts": 3,
+    "backSettleMs": 600,
+    "pollIntervalMs": 300
+  }
+}

@@ -179,6 +179,9 @@
                   <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
                     <taskviews:TeamRaceTaskSettingsView />
                   </DataTemplate>
+                  <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
+                    <taskviews:MailCollectionTaskSettingsView />
+                  </DataTemplate>
                 </ContentControl.Resources>
               </ContentControl>
               <Border Margin="0,20,0,0"
