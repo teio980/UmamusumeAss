@@ -1,0 +1,117 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.DeveloperToolsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+             Loaded="OnLoaded"
+             Unloaded="OnUnloaded">
+  <Grid Margin="42">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <TextBlock Text="{DynamicResource DeveloperToolsTitle}"
+                 FontSize="20"
+                 FontWeight="Medium" />
+      <TextBlock Margin="0,8,0,0"
+                 Text="{DynamicResource DeveloperToolsHint}"
+                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Grid Grid.Row="1" Margin="0,18,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel>
+        <TextBlock Text="{DynamicResource DeveloperToolsConnectionTitle}"
+                   FontWeight="Medium" />
+        <TextBlock Margin="0,6,0,0"
+                   Text="{Binding ConnectionState}" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding DeviceSummaryDisplay}"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <ui:Button Content="{DynamicResource DeveloperToolsConnectButton}"
+                   Command="{Binding ConnectCommand}"
+                   Appearance="Secondary"
+                   Icon="PlugConnected24" />
+        <ui:Button Margin="8,0,0,0"
+                   Content="{DynamicResource CaptureScreenButton}"
+                   Command="{Binding CaptureCommand}"
+                   Appearance="Primary"
+                   Icon="Camera24" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="2" x:Name="PreviewSurface" Margin="0,18,0,12"
+          Background="#18000000"
+          SizeChanged="OnPreviewSurfaceSizeChanged">
+      <Image Source="{Binding ScreenshotImage}"
+             Stretch="Uniform"
+             IsHitTestVisible="False" />
+      <Canvas x:Name="CropOverlay"
+              Background="Transparent"
+              MouseLeftButtonDown="OnCropMouseLeftButtonDown"
+              MouseMove="OnCropMouseMove"
+              MouseLeftButtonUp="OnCropMouseLeftButtonUp">
+        <Rectangle x:Name="CropRectangle"
+                   Stroke="#FF4CC2FF"
+                   StrokeThickness="2"
+                   Fill="#334CC2FF"
+                   Visibility="Collapsed"
+                   IsHitTestVisible="False" />
+      </Canvas>
+      <StackPanel x:Name="EmptyPreview"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False">
+        <TextBlock Text="{DynamicResource DeveloperToolsNoScreenshot}"
+                   HorizontalAlignment="Center"
+                   FontStyle="Italic" />
+        <TextBlock Margin="0,6,0,0"
+                   Text="{DynamicResource DeveloperToolsCropHint}"
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="3">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel>
+        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding CaptureDetailsDisplay}"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding CropRegionTextDisplay}"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+      <WrapPanel Grid.Column="1" VerticalAlignment="Bottom">
+        <ui:Button Content="{DynamicResource DeveloperToolsSaveButton}"
+                   Command="{Binding SaveOriginalCommand}"
+                   Appearance="Secondary"
+                   Icon="Save24" />
+        <ui:Button Margin="8,0,0,0"
+                   Content="{DynamicResource DeveloperToolsSaveCropButton}"
+                   Command="{Binding SaveCroppedCommand}"
+                   Appearance="Secondary"
+                   Icon="Crop24" />
+        <ui:Button Margin="8,0,0,0"
+                   Content="{DynamicResource DeveloperToolsClearCropButton}"
+                   Command="{Binding ClearCropCommand}"
+                   Appearance="Secondary"
+                   Icon="Dismiss24" />
+      </WrapPanel>
+    </Grid>
+  </Grid>
+</UserControl>

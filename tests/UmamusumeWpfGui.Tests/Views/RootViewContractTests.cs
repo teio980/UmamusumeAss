@@ -60,11 +60,12 @@ public sealed class RootViewContractTests
             .ToList();
         var content = string.Join(Environment.NewLine, contentControls);
 
-        Assert.Equal(4, contentControls.Count);
+        Assert.Equal(5, contentControls.Count);
         Assert.Contains("GrassViewModel", content);
         Assert.Contains("OverviewViewModel", content);
         Assert.Contains("LogViewModel", content);
         Assert.Contains("SettingsViewModel", content);
+        Assert.Contains("DeveloperToolsViewModel", content);
         Assert.All(contentControls, control =>
             Assert.Contains("View.Model", control.ToString()));
     }

@@ -10,6 +10,7 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
 {
     private readonly OverviewViewModel _overviewViewModel;
     private readonly GrassViewModel _grassViewModel;
+    private readonly DeveloperToolsViewModel _developerToolsViewModel;
     private bool _disposed;
     private int _selectedNavigationIndex = 3;
 
@@ -24,22 +25,26 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
         OverviewViewModel overviewViewModel,
         LogViewModel logViewModel,
         SettingsViewModel settingsViewModel,
-        GrassViewModel grassViewModel)
+        GrassViewModel grassViewModel,
+        DeveloperToolsViewModel developerToolsViewModel)
     {
         ArgumentNullException.ThrowIfNull(overviewViewModel);
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(grassViewModel);
+        ArgumentNullException.ThrowIfNull(developerToolsViewModel);
 
         _overviewViewModel = overviewViewModel;
         LogViewModel = logViewModel;
         SettingsViewModel = settingsViewModel;
         _grassViewModel = grassViewModel;
+        _developerToolsViewModel = developerToolsViewModel;
         NavigationItems =
         [
             new("TabHachimi", 3),
             new("NavOverview", 0),
             new("TabLog", 1),
+            new("TabDeveloperTools", 4),
             new("TabSettings", 2),
         ];
         ActiveContent = _grassViewModel;
@@ -54,7 +59,7 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
         get => _selectedNavigationIndex;
         set
         {
-            if (value is < 0 or > 3 || _selectedNavigationIndex == value)
+            if (value is < 0 or > 4 || _selectedNavigationIndex == value)
                 return;
             _selectedNavigationIndex = value;
             ActiveContent = value switch
@@ -62,7 +67,8 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
                 0 => _overviewViewModel,
                 1 => LogViewModel,
                 2 => SettingsViewModel,
-                _ => _grassViewModel,
+                3 => _grassViewModel,
+                _ => _developerToolsViewModel,
             };
             PropertyChanged?.Invoke(this, new(nameof(SelectedNavigationIndex)));
             PropertyChanged?.Invoke(this, new(nameof(ActiveContent)));
@@ -84,6 +90,9 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
     public GrassViewModel GrassViewModel => _grassViewModel;
 
 
+    public DeveloperToolsViewModel DeveloperToolsViewModel => _developerToolsViewModel;
+
+
 
 
     public void Dispose()
@@ -96,5 +105,6 @@ public sealed class RootViewModel : IDisposable, System.ComponentModel.INotifyPr
         _grassViewModel.Dispose();
         LogViewModel.Dispose();
         SettingsViewModel.Dispose();
+        _developerToolsViewModel.Dispose();
     }
 }

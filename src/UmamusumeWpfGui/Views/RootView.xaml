@@ -58,6 +58,14 @@
             <ui:SymbolIcon Symbol="DataHistogram24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
+        <ui:NavigationViewItem Tag="4"
+                               Content="{DynamicResource TabDeveloperTools}"
+                               PreviewMouseLeftButtonDown="OnNavigationItemPreviewMouseDown"
+                               Click="OnNavigationItemClick">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="DeveloperTools24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>
 
       <ui:NavigationView.FooterMenuItems>
@@ -101,6 +109,12 @@
                       Visibility="{Binding SelectedNavigationIndex,
                           Converter={StaticResource NavigationIndexToVisibility},
                           ConverterParameter=2}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch" />
+      <ContentControl s:View.Model="{Binding DeveloperToolsViewModel}"
+                      Visibility="{Binding SelectedNavigationIndex,
+                          Converter={StaticResource NavigationIndexToVisibility},
+                          ConverterParameter=4}"
                       HorizontalContentAlignment="Stretch"
                       VerticalContentAlignment="Stretch" />
     </Grid>
