@@ -32,6 +32,13 @@
       "threshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300
+    },
+    "close2": {
+      "template": "templates/mail_collection/close.png",
+      "roi": [0, 1300, 900, 300],
+      "threshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300
     }
   },
   "timing": {

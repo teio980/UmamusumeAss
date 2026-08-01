@@ -1,6 +1,26 @@
 {
-  "start": "CheckGameHome",
+  "start": "StartupMonitor",
   "tasks": {
+    "StartupMonitor": {
+      "algorithm": "StartupMonitor",
+      "action": "StartupMonitor",
+      "monitorTasks": [
+        "CheckDataDownload",
+        "CheckTapToStart",
+        "CheckPromoSkip",
+        "CheckNotices",
+        "CheckGameHome",
+        "CheckStartNoticeSkip"
+      ],
+      "triggerTask": "CheckStartNoticeSkip",
+      "triggerChain": [
+        "CheckLogoSkip"
+      ],
+      "timeoutMs": 30000,
+      "pollIntervalMs": 100,
+      "success": true,
+      "onErrorNext": [ "CheckDataDownload" ]
+    },
     "CheckGameHome": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/game_home.png",
@@ -11,8 +31,7 @@
       "action": "DoNothing",
       "timeoutMs": 1200,
       "pollIntervalMs": 200,
-      "success": true,
-      "onErrorNext": [ "CheckMainPageSkip" ]
+      "success": true
     },
     "CheckLogoSkip": {
       "algorithm": "MatchTemplate",
@@ -25,22 +44,8 @@
       "postDelay": 500,
       "timeoutMs": 3000,
       "pollIntervalMs": 100,
-      "onErrorNext": [ "CheckStartNoticeSkip" ],
-      "next": [ "CheckStartNoticeSkip" ]
-    },
-    "CheckMainPageSkip": {
-      "algorithm": "MatchTemplate",
-      "template": "templates/start_game/mainpage_skip.png",
-      "templThreshold": 0.84,
-      "referenceWidth": 900,
-      "referenceHeight": 1600,
-      "roi": [ 144, 376, 519, 444 ],
-      "action": "ClickSelf",
-      "postDelay": 500,
-      "timeoutMs": 3000,
-      "pollIntervalMs": 100,
-      "onErrorNext": [ "CheckLogoSkip" ],
-      "next": [ "CheckLogoSkip" ]
+      "onErrorNext": [ "CheckDataDownload" ],
+      "next": [ "CheckDataDownload" ]
     },
     "CheckStartNoticeSkip": {
       "algorithm": "MatchTemplate",
@@ -54,7 +59,7 @@
       "timeoutMs": 3000,
       "pollIntervalMs": 100,
       "onErrorNext": [ "CheckDataDownload" ],
-      "next": [ "CheckDataDownload" ]
+      "next": [ "CheckLogoSkip" ]
     },
     "CheckDataDownload": {
       "algorithm": "MatchTemplate",

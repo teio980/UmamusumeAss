@@ -97,6 +97,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                 connection,
                 packageName,
                 current,
+                definition,
                 task,
                 logSink,
                 cancellationToken).ConfigureAwait(false);
@@ -109,7 +110,11 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     next => definition.Tasks.ContainsKey(next));
                 if (!string.IsNullOrWhiteSpace(fallback))
                 {
-                    AddLog(logSink, current, $"Task failed; taking fallback '{fallback}'.", LogEntryKind.Failure);
+                    AddLog(
+                        logSink,
+                        current,
+                        $"Task failed: {taskResult.Message}; taking fallback '{fallback}'.",
+                        LogEntryKind.Failure);
                     current = fallback;
                     continue;
                 }
@@ -145,10 +150,23 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         LastVerifiedConnection connection,
         string packageName,
         string taskName,
+        StartGamePipelineDefinition definition,
         StartGamePipelineTask task,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
+        if (IsStartupMonitorTask(task))
+        {
+            return await ExecuteStartupMonitorAsync(
+                connection,
+                packageName,
+                taskName,
+                definition,
+                task,
+                logSink,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         var template = IsTemplateTask(task)
             ? await LoadTemplateAsync(task.Template, cancellationToken).ConfigureAwait(false)
             : null;
@@ -170,6 +188,8 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             10_000));
         var started = Stopwatch.GetTimestamp();
         var attempts = 0;
+        TemplateMatchResult? lastMatch = null;
+        GrayImage? lastScreen = null;
 
         while (true)
         {
@@ -190,6 +210,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                 screen = screenshot is null ? null : GrayImageCodec.FromScreenshot(screenshot);
                 if (screen is not null)
                 {
+                    lastScreen = screen;
                     match = TemplateMatcher.Find(
                         screen,
                         template,
@@ -197,6 +218,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                         task.TemplateThreshold,
                         task.ReferenceWidth,
                         task.ReferenceHeight);
+                    lastMatch = match;
                 }
             }
 
@@ -240,13 +262,304 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             if (Stopwatch.GetElapsedTime(started) >= timeout
                 || (task.MaxTimes > 0 && attempts >= task.MaxTimes && timeout == TimeSpan.Zero))
             {
+                var diagnostics = template is null
+                    ? string.Empty
+                    : lastMatch is null
+                        ? $"lastScore=none; threshold={task.TemplateThreshold.ToString("0.000", CultureInfo.InvariantCulture)}; screen=none"
+                        : $"lastScore={lastMatch.Score.ToString("0.000", CultureInfo.InvariantCulture)}; "
+                          + $"threshold={task.TemplateThreshold.ToString("0.000", CultureInfo.InvariantCulture)}; "
+                          + $"found={lastMatch.Found}; screen={lastScreen?.Width}x{lastScreen?.Height}";
                 return new PipelineTaskResult(
                     false,
-                    $"Timed out waiting for '{taskName}'.");
+                    $"Timed out waiting for '{taskName}'. {diagnostics}".TrimEnd());
             }
 
             await _asyncDelay.DelayAsync(poll, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async Task<PipelineTaskResult> ExecuteStartupMonitorAsync(
+        LastVerifiedConnection connection,
+        string packageName,
+        string taskName,
+        StartGamePipelineDefinition definition,
+        StartGamePipelineTask monitorTask,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var candidateNames = monitorTask.MonitorTasks
+            .Concat(monitorTask.TriggerChain)
+            .Append(monitorTask.TriggerTask ?? string.Empty)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var candidates = new List<StartupMonitorCandidate>(candidateNames.Length);
+        foreach (var candidateName in candidateNames)
+        {
+            if (!definition.Tasks.TryGetValue(candidateName, out var candidateTask))
+            {
+                return new PipelineTaskResult(
+                    false,
+                    $"Startup monitor task '{candidateName}' is not defined.",
+                    true);
+            }
+
+            var template = await LoadTemplateAsync(
+                candidateTask.Template,
+                cancellationToken).ConfigureAwait(false);
+            if (template is null)
+            {
+                return new PipelineTaskResult(
+                    false,
+                    $"Template for startup monitor task '{candidateName}' was not found or could not be decoded.",
+                    true);
+            }
+
+            candidates.Add(new StartupMonitorCandidate(candidateName, candidateTask, template));
+        }
+
+        var byName = candidates.ToDictionary(
+            candidate => candidate.Name,
+            StringComparer.OrdinalIgnoreCase);
+        var monitorCandidates = monitorTask.MonitorTasks
+            .Where(byName.ContainsKey)
+            .Select(name => byName[name])
+            .ToArray();
+        var triggerCandidate = !string.IsNullOrWhiteSpace(monitorTask.TriggerTask)
+            && byName.TryGetValue(monitorTask.TriggerTask, out var trigger)
+                ? trigger
+                : null;
+        var triggerChain = monitorTask.TriggerChain
+            .Where(byName.ContainsKey)
+            .Select(name => byName[name])
+            .ToArray();
+
+        if (monitorCandidates.Length == 0)
+            return new PipelineTaskResult(false, "Startup monitor has no check tasks.", true);
+
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            monitorTask.TimeoutMilliseconds,
+            0,
+            10 * 60 * 1000));
+        var poll = TimeSpan.FromMilliseconds(Math.Clamp(
+            monitorTask.PollIntervalMilliseconds,
+            50,
+            10_000));
+        var started = Stopwatch.GetTimestamp();
+        var chainIndex = -1;
+        Dictionary<string, TemplateMatchResult>? lastMatches = null;
+        GrayImage? lastScreen = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var screenshot = await CapturePipelineScreenshotAsync(
+                connection,
+                cancellationToken).ConfigureAwait(false);
+            var screen = screenshot is null ? null : GrayImageCodec.FromScreenshot(screenshot);
+            if (screen is not null)
+            {
+                lastScreen = screen;
+                var activeCandidates = chainIndex >= 0
+                    ? monitorCandidates
+                        .Where(candidate => string.Equals(
+                            candidate.Name,
+                            "CheckGameHome",
+                            StringComparison.OrdinalIgnoreCase))
+                        .Concat(triggerChain)
+                        .ToArray()
+                    : monitorCandidates;
+                var matches = await FindStartupMonitorMatchesAsync(
+                    screen,
+                    activeCandidates,
+                    cancellationToken).ConfigureAwait(false);
+                lastMatches = matches;
+
+                var home = FindFoundMatch(matches, "CheckGameHome");
+                if (home is not null)
+                {
+                    AddLog(logSink, "StartupMonitor", "Game home screen detected.", LogEntryKind.Success);
+                    return new PipelineTaskResult(true, "Game home screen detected.");
+                }
+
+                if (chainIndex >= 0 && chainIndex < triggerChain.Length)
+                {
+                    var chainCandidate = triggerChain[chainIndex];
+                    var chainMatch = FindFoundMatch(matches, chainCandidate.Name);
+                    if (chainMatch is not null)
+                    {
+                        var actionResult = await RunMonitorActionAsync(
+                            connection,
+                            chainCandidate,
+                            chainMatch.Value.Match,
+                            screen,
+                            logSink,
+                            cancellationToken).ConfigureAwait(false);
+                        if (!actionResult.Succeeded)
+                            return actionResult;
+
+                        chainIndex++;
+                        if (chainIndex >= triggerChain.Length)
+                        {
+                            chainIndex = -1;
+                            AddLog(
+                                logSink,
+                                taskName,
+                                $"{monitorTask.TriggerTask ?? "Trigger"} follow-up chain completed.");
+                        }
+
+                        continue;
+                    }
+
+                    // Once the trigger has started the chain, wait for the
+                    // current chain item instead of firing another startup action.
+                }
+
+                if (chainIndex < 0)
+                {
+                    // The trigger has priority over the other startup actions.
+                    // This keeps the trigger -> chain sequence together when two
+                    // templates happen to match one screenshot.
+                    if (triggerCandidate is not null)
+                    {
+                        var triggerMatch = FindFoundMatch(matches, triggerCandidate.Name);
+                        if (triggerMatch is not null)
+                        {
+                            var actionResult = await RunMonitorActionAsync(
+                                connection,
+                                triggerCandidate,
+                                triggerMatch.Value.Match,
+                                screen,
+                                logSink,
+                                cancellationToken).ConfigureAwait(false);
+                            if (!actionResult.Succeeded)
+                                return actionResult;
+
+                            chainIndex = triggerChain.Length == 0 ? -1 : 0;
+                            continue;
+                        }
+                    }
+
+                    var independentNames = monitorTask.MonitorTasks
+                        .Where(name => !string.Equals(name, "CheckGameHome", StringComparison.OrdinalIgnoreCase))
+                        .Where(name => !string.Equals(name, monitorTask.TriggerTask, StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+                    var independentMatch = independentNames
+                        .Select(name => FindFoundMatch(matches, name))
+                        .FirstOrDefault(match => match is not null);
+                    if (independentMatch is not null)
+                    {
+                        var candidate = byName[independentMatch.Value.Name];
+                        var actionResult = await RunMonitorActionAsync(
+                            connection,
+                            candidate,
+                            independentMatch.Value.Match,
+                            screen,
+                            logSink,
+                            cancellationToken).ConfigureAwait(false);
+                        if (!actionResult.Succeeded)
+                            return actionResult;
+
+                        continue;
+                    }
+                }
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= timeout)
+            {
+                var matchSummary = lastMatches is null
+                    ? "no decoded screenshot"
+                    : string.Join(
+                        ", ",
+                        lastMatches.Select(pair =>
+                        {
+                            var threshold = byName.TryGetValue(pair.Key, out var candidate)
+                                ? candidate.Task.TemplateThreshold.ToString("0.000", CultureInfo.InvariantCulture)
+                                : "n/a";
+                            return $"{pair.Key}=score {pair.Value.Score.ToString("0.000", CultureInfo.InvariantCulture)} / threshold {threshold}";
+                        }));
+                AddLog(
+                    logSink,
+                    taskName,
+                    $"No startup match; screen={lastScreen?.Width}x{lastScreen?.Height}; {matchSummary}",
+                    LogEntryKind.Failure);
+                return new PipelineTaskResult(
+                    false,
+                    $"Timed out waiting for startup monitor '{taskName}'.");
+            }
+
+            await _asyncDelay.DelayAsync(poll, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Dictionary<string, TemplateMatchResult>> FindStartupMonitorMatchesAsync(
+        GrayImage screen,
+        IReadOnlyList<StartupMonitorCandidate> candidates,
+        CancellationToken cancellationToken)
+    {
+        var matchTasks = candidates.Select(candidate => Task.Run(
+            () => (candidate.Name, Match: TemplateMatcher.Find(
+                screen,
+                candidate.Template,
+                candidate.Task.Roi,
+                candidate.Task.TemplateThreshold,
+                candidate.Task.ReferenceWidth,
+                candidate.Task.ReferenceHeight)),
+            cancellationToken));
+        var results = await Task.WhenAll(matchTasks).ConfigureAwait(false);
+        return results.ToDictionary(result => result.Name, result => result.Match, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static (string Name, TemplateMatchResult Match)? FindFoundMatch(
+        Dictionary<string, TemplateMatchResult> matches,
+        string name)
+    {
+        return matches.TryGetValue(name, out var match) && match.Found
+            ? (name, match)
+            : null;
+    }
+
+    private async Task<PipelineTaskResult> RunMonitorActionAsync(
+        LastVerifiedConnection connection,
+        StartupMonitorCandidate candidate,
+        TemplateMatchResult match,
+        GrayImage screen,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var task = candidate.Task;
+        if (task.PreDelay > 0)
+        {
+            await _asyncDelay.DelayAsync(
+                TimeSpan.FromMilliseconds(task.PreDelay),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var actionResult = await ExecuteActionAsync(
+            connection,
+            task,
+            match,
+            screen,
+            cancellationToken).ConfigureAwait(false);
+        if (actionResult is { Succeeded: false })
+            return actionResult;
+
+        if (task.PostDelay > 0)
+        {
+            await _asyncDelay.DelayAsync(
+                TimeSpan.FromMilliseconds(task.PostDelay),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var score = $" score={match.Score.ToString("0.000", CultureInfo.InvariantCulture)}"
+            + $" threshold={task.TemplateThreshold.ToString("0.000", CultureInfo.InvariantCulture)}";
+        AddLog(
+            logSink,
+            candidate.Name,
+            $"{actionResult?.Message ?? $"Action '{task.Action}' completed."}{score}",
+            LogEntryKind.Success);
+        return actionResult ?? new PipelineTaskResult(true, "Monitor action completed.");
     }
 
     private async Task<PipelineTaskResult?> ExecuteActionAsync(
@@ -449,6 +762,10 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         !string.IsNullOrWhiteSpace(task.Template)
         && !task.Algorithm.Equals("JustReturn", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsStartupMonitorTask(StartGamePipelineTask task) =>
+        task.MonitorTasks.Count > 0
+        || task.Action.Equals("StartupMonitor", StringComparison.OrdinalIgnoreCase);
+
     private static string ResolveStartTask(StartGamePipelineDefinition definition) =>
         !string.IsNullOrWhiteSpace(definition.Start)
             && definition.Tasks.ContainsKey(definition.Start)
@@ -506,4 +823,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         bool Succeeded,
         string Message,
         bool Fatal = false);
+
+    private sealed record StartupMonitorCandidate(
+        string Name,
+        StartGamePipelineTask Task,
+        GrayImage Template);
 }

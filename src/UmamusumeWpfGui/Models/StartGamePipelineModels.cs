@@ -27,6 +27,15 @@ public sealed class StartGamePipelineTask
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 
+    [JsonPropertyName("monitorTasks")]
+    public List<string> MonitorTasks { get; set; } = [];
+
+    [JsonPropertyName("triggerTask")]
+    public string? TriggerTask { get; set; }
+
+    [JsonPropertyName("triggerChain")]
+    public List<string> TriggerChain { get; set; } = [];
+
     [JsonPropertyName("templThreshold")]
     public double TemplateThreshold { get; set; } = 0.85;
 
