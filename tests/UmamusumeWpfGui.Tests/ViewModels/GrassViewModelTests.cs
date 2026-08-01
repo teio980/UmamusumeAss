@@ -215,6 +215,49 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public async Task StopCancelsTheScriptWithoutCallingTaskStopOrClosingTheGame()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var state = new ConnectionStateService();
+        state.UpdateLastVerified(new LastVerifiedConnection(
+            "adb.exe",
+            "emulator-5554",
+            "android-id",
+            "35",
+            1080,
+            1920,
+            1080,
+            1920,
+            DateTimeOffset.UtcNow));
+        state.SetState(ConnectionState.Connected);
+
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(new BlockingGrassTaskModule());
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            catalog,
+            state);
+
+        viewModel.AddTaskCommand.Execute(null);
+        var taskModule = Assert.IsType<BlockingGrassTaskModule>(
+            viewModel.SelectedTask!.Module);
+
+        viewModel.StartCommand.Execute(null);
+        await taskModule.Started.Task;
+
+        Assert.True(viewModel.IsQueueRunning);
+        Assert.True(viewModel.StopCommand.CanExecute(null));
+
+        viewModel.StopCommand.Execute(null);
+        while (viewModel.IsQueueOperationInProgress)
+            await Task.Delay(10);
+
+        Assert.Equal(0, taskModule.StopCallCount);
+        Assert.False(viewModel.IsQueueRunning);
+    }
+
+    [Fact]
     public void LanguageChangedRefreshesTaskPresentation()
     {
         using var log = new LogViewModel(new FakeUmaService());
@@ -369,6 +412,51 @@ public sealed class GrassViewModelTests
             GrassTaskExecutionContext context,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
+    }
+
+    private sealed class BlockingGrassTaskModule : IGrassTaskModule
+    {
+        public TaskCompletionSource<bool> Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int StopCallCount { get; private set; }
+
+        public GrassTaskDefinition Definition { get; } = new(
+            "blocking-task",
+            "BlockingTask",
+            "BlockingTaskDescription",
+            "Blocking task",
+            "A task that waits for cancellation");
+
+        public object Settings { get; } = new();
+
+        public JsonObject ExportSettings() => new();
+
+        public void ImportSettings(JsonObject settings)
+        {
+        }
+
+        public IGrassTaskModule CreateInstance() => new BlockingGrassTaskModule();
+
+        public bool CanExecute(GrassTaskExecutionContext context) =>
+            context.Connection is not null;
+
+        public async Task<GrassTaskExecutionResult> ExecuteAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult(true);
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return new GrassTaskExecutionResult(true, false, "completed");
+        }
+
+        public Task<GrassTaskExecutionResult> StopAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            StopCallCount++;
+            return Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
+        }
     }
 
     private sealed class InMemorySettingsService : ISettingsService

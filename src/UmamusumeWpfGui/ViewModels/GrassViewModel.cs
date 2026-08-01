@@ -189,6 +189,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
     public bool CanStopQueue =>
         _connectionState is not null
+        && IsQueueRunning
         && _runningTask is not null
         && !_stopRequested;
 
@@ -340,11 +341,11 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             return;
 
         var queuedTasks = Tasks.Where(task => task.IsEnabled).ToList();
-        IsQueueOperationInProgress = true;
         _queueOperationCts?.Dispose();
         var operationCts = new CancellationTokenSource();
         _queueOperationCts = operationCts;
         _stopRequested = false;
+        IsQueueOperationInProgress = true;
         ScriptLogs.Clear();
         AddScriptLog(
             Localize("GrassScriptQueue", "Task queue"),
@@ -428,7 +429,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                             "GrassScriptWaitingForConfiguredAdb",
                             "Waiting for the configured ADB endpoint"));
 
-                await _settingsViewModel.ConnectAsync().ConfigureAwait(true);
+                await _settingsViewModel.ConnectAsync(operationCts.Token)
+                    .ConfigureAwait(true);
 
                 if (_connectionState?.LastVerifiedConnection is { } connected)
                 {
@@ -552,28 +554,24 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
     }
 
-    private async Task StopQueueAsync()
+    private Task StopQueueAsync()
     {
         var runningTask = _runningTask;
         var operationCts = _queueOperationCts;
-        if (!CanStopQueue || runningTask is null || operationCts is null)
-            return;
+        if (!CanStopQueue || operationCts is null)
+            return Task.CompletedTask;
 
         _stopRequested = true;
         RaiseQueueCommandStateChanged();
         AddScriptLog(
-            runningTask.Name,
+            runningTask?.Name ?? Localize("GrassScriptQueue", "Task queue"),
             Localize("GrassScriptStopRequested", "Stop requested; canceling the running task"));
         try
         {
             operationCts.Cancel();
-            var result = await runningTask.Module.StopAsync(
-                CurrentContext,
-                CancellationToken.None).ConfigureAwait(true);
-            AddScriptLog(
-                runningTask.Name,
-                result.Message,
-                result.Succeeded ? LogEntryKind.Info : LogEntryKind.Failure);
+            // Stop cancels the script queue only. It must not call a task
+            // module's StopAsync method because that method may stop the game
+            // process itself (for example, via ADB force-stop).
         }
         catch (OperationCanceledException)
         {
@@ -582,7 +580,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         catch (Exception exception)
         {
             AddScriptLog(
-                runningTask.Name,
+                runningTask?.Name ?? Localize("GrassScriptQueue", "Task queue"),
                 exception.Message,
                 LogEntryKind.Failure);
         }
@@ -590,6 +588,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         {
             RaiseQueueCommandStateChanged();
         }
+
+        return Task.CompletedTask;
     }
 
     private void RestoreTaskQueue()
@@ -774,7 +774,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     {
         if (_disposed)
             return;
-        if (!IsConnected)
+        if (!IsConnected && !IsQueueOperationInProgress)
         {
             IsQueueRunning = false;
             _runningTask = null;
