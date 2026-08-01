@@ -171,7 +171,10 @@ public sealed class TeamRaceTaskModule : IGrassTaskModule
     {
         try
         {
-            return Math.Clamp(settings[key]?.GetValue<int>() ?? fallback, 1, 999);
+            return Math.Clamp(
+                settings[key]?.GetValue<int>() ?? fallback,
+                TeamRaceTaskSettingsViewModel.MinimumRaceCount,
+                TeamRaceTaskSettingsViewModel.MaximumRaceCount);
         }
         catch (InvalidOperationException)
         {

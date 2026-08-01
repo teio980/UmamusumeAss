@@ -39,13 +39,14 @@ internal static class TemplateMatcher
         if (bounds.X > maxX || bounds.Y > maxY)
             return new TemplateMatchResult(false, 0, 0, 0, template.Width, template.Height);
 
-        var sampleWidth = Math.Min(16, template.Width);
-        var sampleHeight = Math.Min(16, template.Height);
-
-
-
-
-        var candidateStep = 2;
+        // MAA's default MatchTemplate path is Ccoeff (TM_CCOEFF_NORMED).
+        // Keep the managed matcher bounded, but use enough samples to preserve
+        // button text and borders instead of comparing a whole page snapshot.
+        var sampleWidth = Math.Min(32, template.Width);
+        var sampleHeight = Math.Min(32, template.Height);
+        // Small button crops are cheap enough to scan at pixel precision;
+        // larger state markers use a two-pixel stride to keep polling bounded.
+        var candidateStep = template.Width <= 160 ? 1 : 2;
         var bestScore = double.MinValue;
         var bestX = bounds.X;
         var bestY = bounds.Y;
@@ -88,7 +89,8 @@ internal static class TemplateMatcher
         int sampleWidth,
         int sampleHeight)
     {
-        var error = 0d;
+        var templateValues = new double[sampleWidth * sampleHeight];
+        var screenValues = new double[templateValues.Length];
         var samples = 0;
         for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
         {
@@ -98,14 +100,43 @@ internal static class TemplateMatcher
             for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
             {
                 var templateX = sampleX * template.Width / sampleWidth;
-                error += Math.Abs(
-                    screen.Pixels[screenRow + screenX + templateX]
-                    - template.Pixels[templateRow + templateX]);
+                templateValues[samples] = template.Pixels[templateRow + templateX];
+                screenValues[samples] = screen.Pixels[screenRow + screenX + templateX];
                 samples++;
             }
         }
 
-        return samples == 0 ? 0 : 1d - error / (samples * 255d);
+        if (samples == 0)
+            return 0;
+
+        var templateMean = templateValues.Take(samples).Average();
+        var screenMean = screenValues.Take(samples).Average();
+        var numerator = 0d;
+        var templateVariance = 0d;
+        var screenVariance = 0d;
+        for (var index = 0; index < samples; index++)
+        {
+            var templateDelta = templateValues[index] - templateMean;
+            var screenDelta = screenValues[index] - screenMean;
+            numerator += templateDelta * screenDelta;
+            templateVariance += templateDelta * templateDelta;
+            screenVariance += screenDelta * screenDelta;
+        }
+
+        // Solid-color button edges have almost no variance. Fall back to the
+        // absolute grayscale comparison for those tiny templates.
+        if (templateVariance < 1 || screenVariance < 1)
+        {
+            var error = 0d;
+            for (var index = 0; index < samples; index++)
+                error += Math.Abs(screenValues[index] - templateValues[index]);
+            return 1d - error / (samples * 255d);
+        }
+
+        return Math.Clamp(
+            numerator / Math.Sqrt(templateVariance * screenVariance),
+            -1d,
+            1d);
     }
 
     private static RoiBounds ScaleRoi(

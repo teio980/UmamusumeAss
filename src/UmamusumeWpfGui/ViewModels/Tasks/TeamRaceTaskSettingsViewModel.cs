@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
@@ -6,9 +7,11 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 public sealed class TeamRaceTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultDefinitionPath = "resource/hachimi/team_race.json";
+    public const int MinimumRaceCount = 1;
+    public const int MaximumRaceCount = 5;
 
     private string _definitionPath = DefaultDefinitionPath;
-    private string _raceCountText = "1";
+    private string _raceCountText = "3";
     private bool _stopWhenTicketsEmpty = true;
     private string _status = string.Empty;
 
@@ -20,6 +23,14 @@ public sealed class TeamRaceTaskSettingsViewModel : INotifyPropertyChanged
         set
         {
             var normalized = value?.Trim() ?? string.Empty;
+            if (int.TryParse(normalized, out var parsed))
+            {
+                normalized = Math.Clamp(
+                    parsed,
+                    MinimumRaceCount,
+                    MaximumRaceCount)
+                    .ToString(CultureInfo.InvariantCulture);
+            }
             if (_definitionPath == normalized)
                 return;
             _definitionPath = normalized;
@@ -42,7 +53,7 @@ public sealed class TeamRaceTaskSettingsViewModel : INotifyPropertyChanged
     }
 
     public int RaceCount => int.TryParse(RaceCountText, out var value)
-        ? Math.Clamp(value, 1, 999)
+        ? Math.Clamp(value, MinimumRaceCount, MaximumRaceCount)
         : 0;
 
     public bool StopWhenTicketsEmpty

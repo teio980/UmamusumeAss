@@ -1,15 +1,17 @@
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
 /// <summary>
 /// Executes the Team Trials flow observed in the English 900x1600 client.
-/// The navigation points live in team_race.json so a client layout change does
-/// not require changing the executor itself.
+/// Every interaction is an ROI-scoped template match followed by a click at
+/// the matched rectangle, following MAA's MatchTemplate/ClickSelf model.
 /// </summary>
 public sealed class AdbTeamRacePipeline : ITeamRacePipeline
 {
@@ -61,7 +63,10 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
                 return Fail(logSink, "The Team Race definition could not be loaded.");
             }
 
-            var requestedRaces = Math.Clamp(raceCount, 1, 999);
+            var requestedRaces = Math.Clamp(
+                raceCount,
+                TeamRaceTaskSettingsViewModel.MinimumRaceCount,
+                TeamRaceTaskSettingsViewModel.MaximumRaceCount);
             var completed = 0;
             AddLog(logSink, "Team Race", $"Starting {requestedRaces} race(s).");
 
@@ -105,7 +110,13 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
 
                 if (race + 1 < requestedRaces)
                 {
-                    await TapAsync(connection, definition.Coordinates.ResultNext, linked.Token)
+                    await ClickStepAsync(
+                            connection,
+                            definition,
+                            definition.Steps.ResultNext,
+                            "Next race",
+                            logSink,
+                            linked.Token)
                         .ConfigureAwait(false);
                     await DelayAsync(definition.Timing.BetweenRacesMs, linked.Token)
                         .ConfigureAwait(false);
@@ -165,13 +176,17 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
             "before_team_race",
             cancellationToken).ConfigureAwait(false);
 
-        await TapAsync(connection, definition.Coordinates.RaceTab, cancellationToken).ConfigureAwait(false);
+        await ClickStepAsync(connection, definition, definition.Steps.RaceTab, "Race tab", logSink, cancellationToken)
+            .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.TeamTrials, cancellationToken).ConfigureAwait(false);
+        await ClickStepAsync(connection, definition, definition.Steps.TeamTrials, "Team Trials", logSink, cancellationToken)
+            .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.TeamRace, cancellationToken).ConfigureAwait(false);
+        await ClickStepAsync(connection, definition, definition.Steps.TeamRace, "Team Race", logSink, cancellationToken)
+            .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.Opponent, cancellationToken).ConfigureAwait(false);
+        await ClickStepAsync(connection, definition, definition.Steps.Opponent, "Opponent", logSink, cancellationToken)
+            .ConfigureAwait(false);
         await DelayAsync(definition.Timing.TeamDownloadMs, cancellationToken).ConfigureAwait(false);
 
         AddLog(logSink, "Team Race", "Opened Team Race and selected an opponent.", LogEntryKind.Success);
@@ -183,17 +198,17 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        await TapAsync(connection, definition.Coordinates.MatchupNext, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.MatchupNext, "Matchup next", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
 
         // The first run shows an optional item dialog. Tapping Race is safe on
         // the English client and returns to the matchup screen when no item is
         // selected.
-        await TapAsync(connection, definition.Coordinates.ItemRace, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.ItemRace, "Item dialog Race", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.FirstUma, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.FirstUma, "First Uma", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
         AddLog(logSink, "Team Race", "Selected the first Uma Musume.");
@@ -205,7 +220,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        await TapAsync(connection, definition.Coordinates.ViewRace, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.ViewRace, "View Race", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NextRaceLoadMs, cancellationToken).ConfigureAwait(false);
         AddLog(logSink, "Team Race", "Loaded the next race and selected its Uma Musume.");
@@ -219,47 +234,44 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         CancellationToken cancellationToken)
     {
         // Detail page -> playback settings dialog.
-        await TapAsync(connection, definition.Coordinates.DetailRace, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.DetailRace, "Race detail", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.PlaybackOk, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.PlaybackOk, "Playback OK", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.PlaybackLoadMs, cancellationToken).ConfigureAwait(false);
 
         // Participant list -> actual playback.
-        await TapAsync(connection, definition.Coordinates.PlaybackStart, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.PlaybackStart, "Playback Race", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
 
         // Skip the presentation when the control is available, then enable 2x
         // playback. Both taps are harmless if the client has already advanced.
-        await TapAsync(connection, definition.Coordinates.PlaybackSkip, cancellationToken)
+        await TryClickStepAsync(connection, definition, definition.Steps.PlaybackSkip, "Playback skip", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.SkipSettleMs, cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.PlaybackSpeed, cancellationToken)
+        await TryClickStepAsync(connection, definition, definition.Steps.PlaybackSpeed, "Playback speed", logSink, cancellationToken)
             .ConfigureAwait(false);
 
-        var resultTemplate = await LoadTemplateAsync(
-            definition.Templates.RaceResult,
-            definitionPath: definition.BaseDirectory,
-            cancellationToken).ConfigureAwait(false);
-        var found = await WaitForTemplateAsync(
-            connection,
-            resultTemplate,
-            definition.Timing.RaceTimeoutMs,
-            definition.Timing.PollIntervalMs,
-            cancellationToken).ConfigureAwait(false);
-        if (!found)
+        var resultStep = definition.Steps.RaceResult with
+        {
+            Template = definition.Templates.RaceResult,
+            TimeoutMs = definition.Timing.RaceTimeoutMs,
+        };
+        var resultMatch = await WaitForStepAsync(
+                connection,
+                definition,
+                resultStep,
+                $"Race {raceNumber} result",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (resultMatch is null)
         {
             throw new InvalidOperationException($"Timed out waiting for the result of race {raceNumber}.");
         }
 
-        await SaveScreenshotAsync(
-            connection,
-            definition.DebugDirectory,
-            $"race_{raceNumber}_result",
-            cancellationToken).ConfigureAwait(false);
-        await TapAsync(connection, definition.Coordinates.ResultClose, cancellationToken)
+        await ClickStepAsync(connection, definition, definition.Steps.ResultClose, "Result close", logSink, cancellationToken)
             .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
         AddLog(logSink, "Team Race", $"Race {raceNumber} finished.", LogEntryKind.Success);
@@ -273,56 +285,131 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(definition.Templates.RandomShop)
-            || definition.Coordinates.RandomShop is not { Length: >= 2 })
+            || definition.Steps.RandomShop is null)
         {
             return;
         }
 
-        var template = await LoadTemplateAsync(
-            definition.Templates.RandomShop,
-            definition.BaseDirectory,
-            cancellationToken).ConfigureAwait(false);
-        if (!await WaitForTemplateAsync(
+        var shopStep = definition.Steps.RandomShop with
+        {
+            Template = definition.Templates.RandomShop,
+            TimeoutMs = definition.Timing.ShopProbeMs,
+        };
+        if (!await TryClickStepAsync(
                 connection,
-                template,
-                definition.Timing.ShopProbeMs,
-                definition.Timing.PollIntervalMs,
+                definition,
+                shopStep,
+                "Random shop",
+                logSink,
                 cancellationToken).ConfigureAwait(false))
         {
             return;
         }
 
-        await TapAsync(connection, definition.Coordinates.RandomShop, cancellationToken)
-            .ConfigureAwait(false);
         await DelayAsync(definition.Timing.NavigationMs, cancellationToken).ConfigureAwait(false);
         await SaveScreenshotAsync(
             connection,
             definitionPath,
             "random_shop",
             cancellationToken).ConfigureAwait(false);
-        if (definition.Coordinates.RandomShopClose is { Length: >= 2 })
+        if (definition.Steps.RandomShopClose is not null)
         {
-            await TapAsync(connection, definition.Coordinates.RandomShopClose, cancellationToken)
+            await ClickStepAsync(
+                    connection,
+                    definition,
+                    definition.Steps.RandomShopClose,
+                    "Random shop close",
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
         AddLog(logSink, "Team Race", "Random shop detected and opened.", LogEntryKind.Success);
     }
 
-    private async Task<bool> WaitForTemplateAsync(
+    private async Task ClickStepAsync(
         LastVerifiedConnection connection,
-        GrayImage? template,
-        int timeoutMs,
-        int pollIntervalMs,
+        TeamRaceDefinition definition,
+        TeamRaceStepDefinition step,
+        string stepName,
+        IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        if (template is null)
+        var match = await WaitForStepAsync(
+                connection,
+                definition,
+                step,
+                stepName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (match is null)
         {
+            throw new InvalidOperationException($"Timed out waiting for Team Race button '{stepName}'.");
+        }
+
+        await TapMatchAsync(connection, match, stepName, cancellationToken).ConfigureAwait(false);
+        AddLog(
+            logSink,
+            "Team Race",
+            $"Clicked {stepName} by template at ({match.CenterX},{match.CenterY}), score={match.Score:0.000}.",
+            LogEntryKind.Success);
+    }
+
+    private async Task<bool> TryClickStepAsync(
+        LastVerifiedConnection connection,
+        TeamRaceDefinition definition,
+        TeamRaceStepDefinition step,
+        string stepName,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var match = await WaitForStepAsync(
+                connection,
+                definition,
+                step,
+                stepName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (match is null)
+        {
+            AddLog(logSink, "Team Race", $"Optional button '{stepName}' was not visible.");
             return false;
         }
 
+        await TapMatchAsync(connection, match, stepName, cancellationToken).ConfigureAwait(false);
+        AddLog(
+            logSink,
+            "Team Race",
+            $"Clicked optional {stepName} by template at ({match.CenterX},{match.CenterY}), score={match.Score:0.000}.",
+            LogEntryKind.Success);
+        return true;
+    }
+
+    private async Task<TemplateMatchResult?> WaitForStepAsync(
+        LastVerifiedConnection connection,
+        TeamRaceDefinition definition,
+        TeamRaceStepDefinition step,
+        string stepName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(step.Template))
+            throw new InvalidOperationException($"Team Race button '{stepName}' has no template.");
+
+        var template = await LoadTemplateAsync(
+                step.Template,
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (template is null)
+            throw new InvalidOperationException($"The template for Team Race button '{stepName}' could not be loaded.");
+
+        var timeoutMs = Math.Clamp(step.TimeoutMs, 0, 10 * 60 * 1000);
+        var pollIntervalMs = Math.Clamp(
+            step.PollIntervalMs > 0 ? step.PollIntervalMs : definition.Timing.PollIntervalMs,
+            50,
+            10_000);
         var started = Stopwatch.GetTimestamp();
-        while (Stopwatch.GetElapsedTime(started) < TimeSpan.FromMilliseconds(Math.Max(0, timeoutMs)))
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var screenshot = await CaptureScreenshotAsync(connection, cancellationToken).ConfigureAwait(false);
@@ -332,23 +419,39 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
                 var match = TemplateMatcher.Find(
                     screen,
                     template,
-                    roi: null,
-                    threshold: 0.80,
-                    referenceWidth: screen.Width,
-                    referenceHeight: screen.Height);
+                    step.Roi,
+                    step.Threshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight);
                 if (match.Found)
-                {
-                    return true;
-                }
+                    return match;
             }
+
+            if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromMilliseconds(timeoutMs))
+                return null;
 
             await DelayAsync(pollIntervalMs, cancellationToken).ConfigureAwait(false);
         }
-
-        return false;
     }
 
-    private async Task<GrayImage?> LoadTemplateAsync(
+    private async Task TapMatchAsync(
+        LastVerifiedConnection connection,
+        TemplateMatchResult match,
+        string stepName,
+        CancellationToken cancellationToken)
+    {
+        var result = await _adbRuntime.TapAsync(
+                connection.AdbPath,
+                connection.Serial,
+                match.CenterX,
+                match.CenterY,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
+            throw new InvalidOperationException($"ADB template click failed for '{stepName}': {result.Stderr}");
+    }
+
+    private static async Task<GrayImage?> LoadTemplateAsync(
         string? templatePath,
         string definitionPath,
         CancellationToken cancellationToken)
@@ -398,37 +501,10 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
             .ConfigureAwait(false);
     }
 
-    private async Task TapAsync(
-        LastVerifiedConnection connection,
-        int[] point,
-        CancellationToken cancellationToken)
-    {
-        if (point is not { Length: >= 2 })
-        {
-            throw new InvalidOperationException("A Team Race tap point is missing.");
-        }
-
-        var x = Scale(point[0], connection.Width, 900);
-        var y = Scale(point[1], connection.Height, 1600);
-        var result = await _adbRuntime.TapAsync(
-            connection.AdbPath,
-            connection.Serial,
-            x,
-            y,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"ADB tap failed: {result.Stderr}");
-        }
-    }
-
     private Task DelayAsync(int milliseconds, CancellationToken cancellationToken) =>
         _asyncDelay.DelayAsync(
             TimeSpan.FromMilliseconds(Math.Max(0, milliseconds)),
             cancellationToken);
-
-    private static int Scale(int value, int actual, int reference) =>
-        (int)Math.Round(value * (double)Math.Max(1, actual) / Math.Max(1, reference));
 
     private static async Task<TeamRaceDefinition?> LoadDefinitionAsync(
         string definitionPath,
@@ -479,11 +555,17 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
 
     private sealed class TeamRaceDefinition
     {
+        [JsonPropertyName("referenceWidth")]
+        public int ReferenceWidth { get; set; } = 900;
+
+        [JsonPropertyName("referenceHeight")]
+        public int ReferenceHeight { get; set; } = 1600;
+
         [JsonPropertyName("templates")]
         public TeamRaceTemplates Templates { get; set; } = new();
 
-        [JsonPropertyName("coordinates")]
-        public TeamRaceCoordinates Coordinates { get; set; } = new();
+        [JsonPropertyName("steps")]
+        public TeamRaceSteps Steps { get; set; } = new();
 
         [JsonPropertyName("timing")]
         public TeamRaceTiming Timing { get; set; } = new();
@@ -501,25 +583,35 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         public string? RandomShop { get; set; }
     }
 
-    private sealed class TeamRaceCoordinates
+    private sealed class TeamRaceSteps
     {
-        public int[] RaceTab { get; set; } = [675, 1535];
-        public int[] TeamTrials { get; set; } = [270, 1060];
-        public int[] TeamRace { get; set; } = [450, 1035];
-        public int[] Opponent { get; set; } = [450, 780];
-        public int[] MatchupNext { get; set; } = [450, 1350];
-        public int[] ItemRace { get; set; } = [650, 1135];
-        public int[] FirstUma { get; set; } = [110, 880];
-        public int[] ViewRace { get; set; } = [330, 1470];
-        public int[] DetailRace { get; set; } = [450, 1470];
-        public int[] PlaybackOk { get; set; } = [650, 1040];
-        public int[] PlaybackStart { get; set; } = [450, 1470];
-        public int[] PlaybackSkip { get; set; } = [700, 1535];
-        public int[] PlaybackSpeed { get; set; } = [335, 1535];
-        public int[] ResultClose { get; set; } = [450, 1150];
-        public int[] ResultNext { get; set; } = [450, 1470];
-        public int[]? RandomShop { get; set; }
-        public int[]? RandomShopClose { get; set; }
+        public TeamRaceStepDefinition RaceTab { get; set; } = new();
+        public TeamRaceStepDefinition TeamTrials { get; set; } = new();
+        public TeamRaceStepDefinition TeamRace { get; set; } = new();
+        public TeamRaceStepDefinition Opponent { get; set; } = new();
+        public TeamRaceStepDefinition MatchupNext { get; set; } = new();
+        public TeamRaceStepDefinition ItemRace { get; set; } = new();
+        public TeamRaceStepDefinition FirstUma { get; set; } = new();
+        public TeamRaceStepDefinition ViewRace { get; set; } = new();
+        public TeamRaceStepDefinition DetailRace { get; set; } = new();
+        public TeamRaceStepDefinition PlaybackOk { get; set; } = new();
+        public TeamRaceStepDefinition PlaybackStart { get; set; } = new();
+        public TeamRaceStepDefinition PlaybackSkip { get; set; } = new();
+        public TeamRaceStepDefinition PlaybackSpeed { get; set; } = new();
+        public TeamRaceStepDefinition RaceResult { get; set; } = new();
+        public TeamRaceStepDefinition ResultClose { get; set; } = new();
+        public TeamRaceStepDefinition ResultNext { get; set; } = new();
+        public TeamRaceStepDefinition? RandomShop { get; set; }
+        public TeamRaceStepDefinition? RandomShopClose { get; set; }
+    }
+
+    private sealed record TeamRaceStepDefinition
+    {
+        public string? Template { get; init; }
+        public int[]? Roi { get; init; }
+        public double Threshold { get; init; } = 0.86;
+        public int TimeoutMs { get; init; } = 20_000;
+        public int PollIntervalMs { get; init; }
     }
 
     private sealed class TeamRaceTiming
