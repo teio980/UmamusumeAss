@@ -12,7 +12,49 @@
       "timeoutMs": 1200,
       "pollIntervalMs": 200,
       "success": true,
-      "onErrorNext": [ "CheckDataDownload" ]
+      "onErrorNext": [ "CheckMainPageSkip" ]
+    },
+    "CheckLogoSkip": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/start_game/logo_skip.png",
+      "templThreshold": 0.86,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 56, 612, 794, 249 ],
+      "action": "ClickSelf",
+      "postDelay": 500,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 100,
+      "onErrorNext": [ "CheckStartNoticeSkip" ],
+      "next": [ "CheckStartNoticeSkip" ]
+    },
+    "CheckMainPageSkip": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/start_game/mainpage_skip.png",
+      "templThreshold": 0.84,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 144, 376, 519, 444 ],
+      "action": "ClickSelf",
+      "postDelay": 500,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 100,
+      "onErrorNext": [ "CheckLogoSkip" ],
+      "next": [ "CheckLogoSkip" ]
+    },
+    "CheckStartNoticeSkip": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/start_game/startnotice_skip.png",
+      "templThreshold": 0.84,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 68, 444, 764, 369 ],
+      "action": "ClickSelf",
+      "postDelay": 500,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 100,
+      "onErrorNext": [ "CheckDataDownload" ],
+      "next": [ "CheckDataDownload" ]
     },
     "CheckDataDownload": {
       "algorithm": "MatchTemplate",
