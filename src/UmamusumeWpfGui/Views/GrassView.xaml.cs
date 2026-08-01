@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -17,18 +18,26 @@ namespace UmamusumeWpfGui.Views;
 
 public sealed partial class GrassView : UserControl
 {
+    private const double TaskRowDragStartThreshold = 4d;
+    private const double TaskRowAutoScrollEdge = 36d;
+    private const double TaskRowAutoScrollStep = 18d;
+    private const double TaskDropIndicatorHeight = 3d;
     private static readonly TimeSpan TaskLongPressDuration = TimeSpan.FromMilliseconds(450);
 
     private ScrollViewer? _scrollViewer;
+    private ScrollViewer? _taskListScrollViewer;
     private INotifyCollectionChanged? _subscribedCollection;
     private bool _isAtBottom = true;
     private bool _scrollRequestPending;
     private int _viewGeneration;
     private readonly DispatcherTimer _taskLongPressTimer;
     private GrassTaskItemViewModel? _pendingDragTask;
+    private ListBoxItem? _taskDragSourceContainer;
     private Point _taskDragStartPoint;
     private bool _taskLongPressReady;
     private bool _taskDragInProgress;
+    private int _taskDragSourceIndex = -1;
+    private int _taskInsertionIndex = -1;
 
     public GrassView()
     {
@@ -55,6 +64,7 @@ public sealed partial class GrassView : UserControl
         _viewGeneration++;
         _scrollRequestPending = false;
         LocateScrollViewer();
+        LocateTaskListScrollViewer();
         SubscribeToCollection();
         AttachTaskSelectionPicker();
         RequestScrollToEnd(DispatcherPriority.Loaded);
@@ -67,31 +77,36 @@ public sealed partial class GrassView : UserControl
         ResetTaskDragState();
         UnsubscribeFromCollection();
         UnsubscribeFromScrollViewer();
+        _taskListScrollViewer = null;
     }
 
-    private void OnTaskQueuePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void OnTaskRowPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         ResetTaskDragState();
 
         if (DataContext is not GrassViewModel viewModel
-            || !viewModel.CanReorderTasks)
+            || !viewModel.CanReorderTasks
+            || sender is not ListBoxItem container
+            || container.DataContext is not GrassTaskItemViewModel task
+            || IsInteractiveTaskRowDragSource(e.OriginalSource as DependencyObject, container))
         {
             return;
         }
 
-        var task = GetTaskItem(e.OriginalSource as DependencyObject);
-        if (task is null)
-            return;
-
         _pendingDragTask = task;
-        _taskDragStartPoint = e.GetPosition(TaskQueueListBox);
+        _taskDragSourceContainer = container;
+        _taskDragStartPoint = e.GetPosition(container);
         _taskLongPressTimer.Start();
     }
 
-    private void OnTaskQueuePreviewMouseMove(object sender, MouseEventArgs e)
+    private void OnTaskRowPreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (_pendingDragTask is null || _taskDragInProgress)
+        if (_pendingDragTask is null
+            || sender is not ListBoxItem container
+            || !ReferenceEquals(container, _taskDragSourceContainer))
+        {
             return;
+        }
 
         if (e.LeftButton != MouseButtonState.Pressed)
         {
@@ -99,37 +114,61 @@ public sealed partial class GrassView : UserControl
             return;
         }
 
-        var point = e.GetPosition(TaskQueueListBox);
+        var sourcePoint = e.GetPosition(container);
         if (!_taskLongPressReady)
         {
-            if (HasPassedTaskDragThreshold(point))
+            if (HasPassedTaskDragThreshold(sourcePoint))
                 ResetTaskDragState();
             return;
         }
 
-        if (!HasPassedTaskDragThreshold(point))
+        if (!_taskDragInProgress
+            && !HasPassedTaskDragThreshold(sourcePoint))
+        {
+            return;
+        }
+
+        if (!_taskDragInProgress && !BeginTaskRowDrag())
             return;
 
-        var task = _pendingDragTask;
-        _taskLongPressTimer.Stop();
-        _taskDragInProgress = true;
-        try
-        {
-            DragDrop.DoDragDrop(
-                TaskQueueListBox,
-                task,
-                DragDropEffects.Move);
-        }
-        finally
-        {
-            ResetTaskDragState();
-        }
-
+        UpdateTaskRowDrag(e);
         e.Handled = true;
     }
 
-    private void OnTaskQueuePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+    private void OnTaskRowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_taskDragInProgress
+            || DataContext is not GrassViewModel viewModel
+            || _pendingDragTask is not GrassTaskItemViewModel sourceTask)
+        {
+            ResetTaskDragState();
+            return;
+        }
+
+        var sourceIndex = _taskDragSourceIndex;
+        var insertionIndex = _taskInsertionIndex;
+        var shouldMove = viewModel.CanReorderTasks
+            && IsPointerInsideTaskList(e)
+            && sourceIndex >= 0
+            && sourceIndex < viewModel.Tasks.Count
+            && insertionIndex >= 0;
+
         ResetTaskDragState();
+        e.Handled = true;
+
+        if (!shouldMove)
+            return;
+
+        var targetIndex = insertionIndex > sourceIndex
+            ? insertionIndex - 1
+            : insertionIndex;
+        targetIndex = Math.Clamp(targetIndex, 0, viewModel.Tasks.Count - 1);
+        if (targetIndex == sourceIndex)
+            return;
+
+        viewModel.SelectedTask = sourceTask;
+        viewModel.MoveTask(sourceTask, targetIndex);
+    }
 
     private void OnTaskLongPressTimerTick(object? sender, EventArgs e)
     {
@@ -141,74 +180,246 @@ public sealed partial class GrassView : UserControl
         }
     }
 
-    private void OnTaskQueueDragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = CanAcceptTaskDrop(e) ? DragDropEffects.Move : DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private void OnTaskQueueDrop(object sender, DragEventArgs e)
+    private bool BeginTaskRowDrag()
     {
         if (DataContext is not GrassViewModel viewModel
-            || !CanAcceptTaskDrop(e)
-            || e.Data.GetData(typeof(GrassTaskItemViewModel)) is not GrassTaskItemViewModel draggedTask)
+            || !viewModel.CanReorderTasks
+            || _pendingDragTask is null
+            || _taskDragSourceContainer is null)
         {
-            e.Handled = true;
-            return;
+            return false;
         }
 
-        var sourceIndex = viewModel.Tasks.IndexOf(draggedTask);
+        var sourceIndex = viewModel.Tasks.IndexOf(_pendingDragTask);
         if (sourceIndex < 0)
         {
-            e.Handled = true;
+            ResetTaskDragState();
+            return false;
+        }
+
+        _taskDragInProgress = true;
+        _taskDragSourceIndex = sourceIndex;
+        _taskInsertionIndex = sourceIndex;
+        _taskLongPressTimer.Stop();
+        _taskDragSourceContainer.Opacity = 0;
+        Mouse.Capture(_taskDragSourceContainer, CaptureMode.SubTree);
+        ShowTaskDragPreview();
+        return true;
+    }
+
+    private void UpdateTaskRowDrag(MouseEventArgs e)
+    {
+        if (!_taskDragInProgress)
+            return;
+
+        AutoScrollTaskList(e);
+        UpdateTaskDragPreview(e);
+
+        if (!TryResolveTaskInsertion(
+                e,
+                out var insertionIndex,
+                out var indicatorLeft,
+                out var indicatorTop,
+                out var indicatorWidth))
+        {
+            _taskInsertionIndex = -1;
+            HideTaskDropIndicator();
             return;
         }
 
-        var targetContainer = ItemsControl.ContainerFromElement(
-            TaskQueueListBox,
-            e.OriginalSource as DependencyObject) as ListBoxItem;
-        var targetTask = targetContainer?.DataContext as GrassTaskItemViewModel;
-        var targetIndex = targetTask is null
-            ? viewModel.Tasks.Count - 1
-            : viewModel.Tasks.IndexOf(targetTask);
-
-        if (targetContainer is not null
-            && e.GetPosition(targetContainer).Y > targetContainer.ActualHeight / 2)
-        {
-            targetIndex++;
-        }
-
-        if (sourceIndex < targetIndex)
-            targetIndex--;
-
-        viewModel.MoveTask(draggedTask, targetIndex);
-        e.Handled = true;
+        _taskInsertionIndex = insertionIndex;
+        UpdateTaskDropIndicator(indicatorLeft, indicatorTop, indicatorWidth);
     }
 
-    private bool CanAcceptTaskDrop(DragEventArgs e) =>
-        DataContext is GrassViewModel viewModel
-        && viewModel.CanReorderTasks
-        && e.Data.GetDataPresent(typeof(GrassTaskItemViewModel));
+    private bool TryResolveTaskInsertion(
+        MouseEventArgs e,
+        out int insertionIndex,
+        out double indicatorLeft,
+        out double indicatorTop,
+        out double indicatorWidth)
+    {
+        insertionIndex = -1;
+        indicatorLeft = 0;
+        indicatorTop = 0;
+        indicatorWidth = 0;
+
+        var rows = GetVisibleTaskRows()
+            .Select(row => new
+            {
+                Row = row,
+                Index = row.DataContext is GrassTaskItemViewModel task
+                    && DataContext is GrassViewModel viewModel
+                    ? viewModel.Tasks.IndexOf(task)
+                    : -1,
+            })
+            .Where(item => item.Index >= 0)
+            .OrderBy(item => item.Index)
+            .ToArray();
+        if (rows.Length == 0)
+            return false;
+
+        var pointerY = e.GetPosition(TaskQueueListBox).Y;
+        var selectedRow = rows[^1];
+        insertionIndex = selectedRow.Index + 1;
+
+        foreach (var row in rows)
+        {
+            var rowPoint = row.Row.TransformToAncestor(TaskQueueListBox).Transform(new Point());
+            var centerY = rowPoint.Y + row.Row.ActualHeight / 2;
+            if (pointerY < centerY)
+            {
+                selectedRow = row;
+                insertionIndex = row.Index;
+                break;
+            }
+        }
+
+        var indicatorPoint = selectedRow.Row
+            .TransformToAncestor(TaskQueueOverlay)
+            .Transform(new Point());
+        indicatorLeft = indicatorPoint.X;
+        indicatorTop = insertionIndex <= selectedRow.Index
+            ? indicatorPoint.Y
+            : indicatorPoint.Y + selectedRow.Row.ActualHeight;
+        indicatorWidth = selectedRow.Row.ActualWidth;
+        insertionIndex = Math.Clamp(
+            insertionIndex,
+            0,
+            DataContext is GrassViewModel vm ? vm.Tasks.Count : 0);
+        return true;
+    }
+
+    private IEnumerable<ListBoxItem> GetVisibleTaskRows()
+    {
+        for (var index = 0; index < TaskQueueListBox.Items.Count; index++)
+        {
+            if (TaskQueueListBox.ItemContainerGenerator.ContainerFromIndex(index) is ListBoxItem row
+                && row.IsVisible
+                && row.ActualWidth > 0
+                && row.ActualHeight > 0)
+            {
+                yield return row;
+            }
+        }
+    }
+
+    private void AutoScrollTaskList(MouseEventArgs e)
+    {
+        if (_taskListScrollViewer is null
+            || _taskListScrollViewer.ViewportHeight <= 0)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(_taskListScrollViewer);
+        var delta = 0d;
+        if (position.Y < TaskRowAutoScrollEdge)
+            delta = -TaskRowAutoScrollStep;
+        else if (position.Y > _taskListScrollViewer.ActualHeight - TaskRowAutoScrollEdge)
+            delta = TaskRowAutoScrollStep;
+
+        var nextOffset = Math.Clamp(
+            _taskListScrollViewer.VerticalOffset + delta,
+            0,
+            _taskListScrollViewer.ScrollableHeight);
+        if (Math.Abs(nextOffset - _taskListScrollViewer.VerticalOffset) > 0.01)
+            _taskListScrollViewer.ScrollToVerticalOffset(nextOffset);
+    }
+
+    private void ShowTaskDragPreview()
+    {
+        if (_taskDragSourceContainer is null || _pendingDragTask is null)
+            return;
+
+        TaskDragPreview.DataContext = _pendingDragTask;
+        TaskDragPreview.Width = _taskDragSourceContainer.ActualWidth;
+        TaskDragPreview.Height = _taskDragSourceContainer.ActualHeight;
+        TaskDragPreview.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateTaskDragPreview(MouseEventArgs e)
+    {
+        var position = e.GetPosition(TaskQueueOverlay);
+        Canvas.SetLeft(TaskDragPreview, position.X - _taskDragStartPoint.X);
+        Canvas.SetTop(TaskDragPreview, position.Y - _taskDragStartPoint.Y);
+    }
+
+    private void UpdateTaskDropIndicator(double left, double top, double width)
+    {
+        TaskDropIndicator.Width = Math.Max(0, width);
+        TaskDropIndicator.Height = TaskDropIndicatorHeight;
+        Canvas.SetLeft(TaskDropIndicator, left);
+        Canvas.SetTop(TaskDropIndicator, top - TaskDropIndicatorHeight / 2);
+        TaskDropIndicator.Visibility = Visibility.Visible;
+    }
+
+    private void HideTaskDropIndicator() =>
+        TaskDropIndicator.Visibility = Visibility.Collapsed;
+
+    private void HideTaskDragPreview()
+    {
+        TaskDragPreview.Visibility = Visibility.Collapsed;
+        TaskDragPreview.DataContext = null;
+    }
+
+    private bool IsPointerInsideTaskList(MouseEventArgs e)
+    {
+        var point = e.GetPosition(TaskQueueListBox);
+        return point.X >= 0
+            && point.Y >= 0
+            && point.X <= TaskQueueListBox.ActualWidth
+            && point.Y <= TaskQueueListBox.ActualHeight;
+    }
 
     private bool HasPassedTaskDragThreshold(Point point) =>
-        Math.Abs(point.X - _taskDragStartPoint.X) >= SystemParameters.MinimumHorizontalDragDistance
-        || Math.Abs(point.Y - _taskDragStartPoint.Y) >= SystemParameters.MinimumVerticalDragDistance;
+        Math.Abs(point.X - _taskDragStartPoint.X) >= TaskRowDragStartThreshold
+        || Math.Abs(point.Y - _taskDragStartPoint.Y) >= TaskRowDragStartThreshold;
 
-    private GrassTaskItemViewModel? GetTaskItem(DependencyObject? source)
+    private static bool IsInteractiveTaskRowDragSource(
+        DependencyObject? source,
+        ListBoxItem rowControl)
     {
-        if (source is null)
-            return null;
+        var current = source;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, rowControl))
+                return false;
 
-        var container = ItemsControl.ContainerFromElement(TaskQueueListBox, source) as ListBoxItem;
-        return container?.DataContext as GrassTaskItemViewModel;
+            if (current is ButtonBase
+                || current is TextBoxBase
+                || current is Slider
+                || current is ComboBox)
+            {
+                return true;
+            }
+
+            current = current switch
+            {
+                FrameworkContentElement contentElement => contentElement.Parent,
+                _ => VisualTreeHelper.GetParent(current),
+            };
+        }
+
+        return false;
     }
 
     private void ResetTaskDragState()
     {
+        if (_taskDragSourceContainer is not null)
+            _taskDragSourceContainer.Opacity = 1;
+
+        HideTaskDropIndicator();
+        HideTaskDragPreview();
+        if (_taskDragInProgress && ReferenceEquals(Mouse.Captured, _taskDragSourceContainer))
+            Mouse.Capture(null);
+
         _taskLongPressTimer.Stop();
         _pendingDragTask = null;
+        _taskDragSourceContainer = null;
         _taskLongPressReady = false;
         _taskDragInProgress = false;
+        _taskDragSourceIndex = -1;
+        _taskInsertionIndex = -1;
     }
 
     private void SubscribeToCollection()
@@ -236,6 +447,11 @@ public sealed partial class GrassView : UserControl
         _scrollViewer = FindVisualChild<ScrollViewer>(ScriptLogListBox);
         if (_scrollViewer is not null)
             _scrollViewer.ScrollChanged += OnScrollChanged;
+    }
+
+    private void LocateTaskListScrollViewer()
+    {
+        _taskListScrollViewer = FindVisualChild<ScrollViewer>(TaskQueueListBox);
     }
 
     private void UnsubscribeFromScrollViewer()

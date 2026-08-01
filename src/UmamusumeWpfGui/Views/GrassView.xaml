@@ -19,6 +19,12 @@
       <Setter Property="Margin" Value="0,2" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <EventSetter Event="PreviewMouseLeftButtonDown"
+                   Handler="OnTaskRowPreviewMouseLeftButtonDown" />
+      <EventSetter Event="PreviewMouseMove"
+                   Handler="OnTaskRowPreviewMouseMove" />
+      <EventSetter Event="PreviewMouseLeftButtonUp"
+                   Handler="OnTaskRowPreviewMouseLeftButtonUp" />
       <Style.Triggers>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
@@ -84,20 +90,50 @@
                        FontSize="11"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
-            <ListBox x:Name="TaskQueueListBox"
-                     ItemsSource="{Binding Tasks}"
-                     SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
-                     ItemContainerStyle="{StaticResource TaskListItemStyle}"
-                     AllowDrop="True"
-                     PreviewMouseLeftButtonDown="OnTaskQueuePreviewMouseLeftButtonDown"
-                     PreviewMouseMove="OnTaskQueuePreviewMouseMove"
-                     PreviewMouseLeftButtonUp="OnTaskQueuePreviewMouseLeftButtonUp"
-                     DragOver="OnTaskQueueDragOver"
-                     Drop="OnTaskQueueDrop"
-                     BorderThickness="0"
-                     Background="Transparent">
-              <ListBox.ItemTemplate>
-                <DataTemplate DataType="{x:Type vm:GrassTaskItemViewModel}">
+            <Grid>
+              <ListBox x:Name="TaskQueueListBox"
+                       ItemsSource="{Binding Tasks}"
+                       SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+                       ItemContainerStyle="{StaticResource TaskListItemStyle}"
+                       BorderThickness="0"
+                       Background="Transparent">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="{x:Type vm:GrassTaskItemViewModel}">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+                        <TextBlock Margin="0,2,0,0"
+                                   Text="{Binding Status}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                      </StackPanel>
+                      <CheckBox Grid.Column="1"
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <Canvas x:Name="TaskQueueOverlay"
+                      Panel.ZIndex="10"
+                      IsHitTestVisible="False">
+                <Border x:Name="TaskDropIndicator"
+                        Height="3"
+                        Background="{DynamicResource AccentPrimaryBrush}"
+                        CornerRadius="2"
+                        Visibility="Collapsed" />
+                <Border x:Name="TaskDragPreview"
+                        Padding="10,8"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource BorderDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Opacity="0.96"
+                        Visibility="Collapsed">
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="*" />
@@ -112,11 +148,12 @@
                     </StackPanel>
                     <CheckBox Grid.Column="1"
                               VerticalAlignment="Center"
-                              IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                              IsChecked="{Binding IsEnabled}"
+                              Focusable="False" />
                   </Grid>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+                </Border>
+              </Canvas>
+            </Grid>
           </DockPanel>
         </Border>
 
