@@ -63,7 +63,7 @@
                                PreviewMouseLeftButtonDown="OnNavigationItemPreviewMouseDown"
                                Click="OnNavigationItemClick">
           <ui:NavigationViewItem.Icon>
-            <ui:SymbolIcon Symbol="DeveloperTools24" />
+            <ui:SymbolIcon Symbol="AppsListDetail24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>

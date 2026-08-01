@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "OUT_DIR=src\UmamusumeWpfGui\bin\Release\net10.0-windows10.0.17763.0"
+set "OUT_DIR=src\UmamusumeWpfGui\bin\Release\net10.0-windows10.0.17763.0\win-x64"
 set "NATIVE_STAGED=build\native-staging\UmamusumeCore.dll"
 
 tasklist /FI "IMAGENAME eq UmamusumeAss.exe" | find /I "UmamusumeAss.exe" >nul
@@ -25,8 +25,8 @@ echo [3/4] Installing to native-staging...
 cmake --install build\release --prefix build\native-staging --config Release
 if errorlevel 1 goto :err_install
 if not exist "%NATIVE_STAGED%" goto :err_install
-echo [4/4] Building UmamusumeAss.exe...
-dotnet build src\UmamusumeWpfGui\UmamusumeWpfGui.csproj -c Release --nologo
+echo [4/4] Publishing self-contained UmamusumeAss.exe...
+dotnet publish src\UmamusumeWpfGui\UmamusumeWpfGui.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o "%OUT_DIR%" --nologo
 if errorlevel 1 goto :err_dotnet_build
 if not exist "%OUT_DIR%\UmamusumeAss.exe" goto :err_dotnet_build
 copy /y "%NATIVE_STAGED%" "%OUT_DIR%\UmamusumeCore.dll"
@@ -57,7 +57,7 @@ goto :end_err
 :err_install
 echo [ERROR] Install step failed.
 goto :end_err
-:err_dotnet_build+
+:err_dotnet_build
 echo [ERROR] Managed code build failed.
 goto :end_err
 :err_copy_native

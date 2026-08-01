@@ -518,27 +518,37 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
 
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
 
 
 
-        if (_disposed
-            || !await _operationGate.WaitAsync(
-                TimeSpan.FromSeconds(10)).ConfigureAwait(true))
+        if (_disposed)
             return;
 
+        var operationAcquired = false;
         try
         {
-            await ConnectCoreAsync().ConfigureAwait(true);
+            operationAcquired = await _operationGate.WaitAsync(
+                TimeSpan.FromSeconds(10),
+                cancellationToken).ConfigureAwait(true);
+            if (!operationAcquired)
+                return;
+
+            await ConnectCoreAsync(cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // A Grass queue stop can cancel while waiting for Settings' gate.
         }
         finally
         {
-            _operationGate.Release();
+            if (operationAcquired)
+                _operationGate.Release();
         }
     }
 
-    private async Task ConnectCoreAsync()
+    private async Task ConnectCoreAsync(CancellationToken cancellationToken = default)
     {
         if (_disposed)
             return;
@@ -551,7 +561,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         ClearConnectionDiagnostic();
         await _healthMonitor.StopAsync();
 
-        using var cts = new CancellationTokenSource();
+        using var cts = cancellationToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : new CancellationTokenSource();
         _connectCts = cts;
         var discoverySucceeded = true;
 
