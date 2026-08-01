@@ -100,7 +100,7 @@
   <sys:String x:Key="GrassTaskSelectionCancel">Cancel</sys:String>
   <sys:String x:Key="GrassTeamRaceSettingsTitle">Team Race pipeline</sys:String>
   <sys:String x:Key="GrassTeamRaceDefinitionHint">Path to the JSON state machine. The game executor is intentionally left as an extension seam.</sys:String>
-  <sys:String x:Key="GrassTeamRaceCountHint">Maximum number of races to attempt in this task instance.</sys:String>
+  <sys:String x:Key="GrassTeamRaceCountHint">Number of races to run (1–5).</sys:String>
   <sys:String x:Key="GrassTeamRaceStopWhenTicketsEmpty">Stop when no tickets are available</sys:String>
   <sys:String x:Key="GrassTeamRaceConnectionRequired">Connect a device and configure a valid Team Race definition first</sys:String>
   <sys:String x:Key="GrassTeamRaceExecutorMissing">Team Race JSON is ready, but its executor has not been implemented yet</sys:String>
@@ -199,4 +199,14 @@
   <sys:String x:Key="StartupErrorTitle">Initialization Error</sys:String>
   <sys:String x:Key="StartupErrorMessage">The application could not initialize the core component. Connection features are disabled.</sys:String>
 
+  <sys:String x:Key="TabDeveloperTools">Developer Tools</sys:String>
+  <sys:String x:Key="DeveloperToolsTitle">Developer Tools</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">Capture the connected emulator screen, inspect its dimensions, and save a precisely cropped PNG.</sys:String>
+  <sys:String x:Key="DeveloperToolsConnectionTitle">Emulator connection</sys:String>
+  <sys:String x:Key="DeveloperToolsConnectButton">Connect</sys:String>
+  <sys:String x:Key="DeveloperToolsNoScreenshot">No screenshot captured</sys:String>
+  <sys:String x:Key="DeveloperToolsCropHint">Drag over the preview to select a crop region.</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveButton">Save PNG</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveCropButton">Save crop</sys:String>
+  <sys:String x:Key="DeveloperToolsClearCropButton">Clear crop</sys:String>
 </ResourceDictionary>

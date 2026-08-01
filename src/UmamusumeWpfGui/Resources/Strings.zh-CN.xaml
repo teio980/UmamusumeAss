@@ -99,7 +99,7 @@
   <sys:String x:Key="GrassTaskSelectionCancel">取消</sys:String>
   <sys:String x:Key="GrassTeamRaceSettingsTitle">团队竞技场脚本</sys:String>
   <sys:String x:Key="GrassTeamRaceDefinitionHint">状态机 JSON 路径。具体游戏执行器会作为独立扩展接入。</sys:String>
-  <sys:String x:Key="GrassTeamRaceCountHint">本次任务最多尝试的比赛场数。</sys:String>
+  <sys:String x:Key="GrassTeamRaceCountHint">本次比赛场数（最少 1 场，最多 5 场）。</sys:String>
   <sys:String x:Key="GrassTeamRaceStopWhenTicketsEmpty">没有门票时停止</sys:String>
   <sys:String x:Key="GrassTeamRaceConnectionRequired">请先连接设备并配置有效的团队竞技场 JSON</sys:String>
   <sys:String x:Key="GrassTeamRaceExecutorMissing">团队竞技场 JSON 已准备好，但执行器尚未实现</sys:String>
@@ -200,4 +200,14 @@
 
   <sys:String x:Key="GrassGameActivityHint">可选 Activity。留空会自动解析应用入口；固定 MAA 组件时可填写 package/activity。</sys:String>
 
+  <sys:String x:Key="TabDeveloperTools">开发者工具</sys:String>
+  <sys:String x:Key="DeveloperToolsTitle">开发者工具</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">截图已连接的模拟器，查看分辨率，并将选中的区域保存为 PNG。</sys:String>
+  <sys:String x:Key="DeveloperToolsConnectionTitle">模拟器连接</sys:String>
+  <sys:String x:Key="DeveloperToolsConnectButton">连接</sys:String>
+  <sys:String x:Key="DeveloperToolsNoScreenshot">尚未截图</sys:String>
+  <sys:String x:Key="DeveloperToolsCropHint">在预览图上拖拽选择裁剪区域。</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveButton">保存 PNG</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveCropButton">保存裁剪图</sys:String>
+  <sys:String x:Key="DeveloperToolsClearCropButton">清除裁剪</sys:String>
 </ResourceDictionary>
