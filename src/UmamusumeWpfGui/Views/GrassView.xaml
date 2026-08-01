@@ -19,12 +19,6 @@
       <Setter Property="Margin" Value="0,2" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <EventSetter Event="PreviewMouseLeftButtonDown"
-                   Handler="OnTaskRowPreviewMouseLeftButtonDown" />
-      <EventSetter Event="PreviewMouseMove"
-                   Handler="OnTaskRowPreviewMouseMove" />
-      <EventSetter Event="PreviewMouseLeftButtonUp"
-                   Handler="OnTaskRowPreviewMouseLeftButtonUp" />
       <Style.Triggers>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
