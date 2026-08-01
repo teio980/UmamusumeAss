@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "OUT_DIR=src\UmamusumeWpfGui\bin\Release\net10.0-windows10.0.17763.0\win-x64"
+set "OUT_DIR=src\UmamusumeWpfGui\bin\Release\net10.0-windows10.0.17763.0"
 set "NATIVE_STAGED=build\native-staging\UmamusumeCore.dll"
 
 tasklist /FI "IMAGENAME eq UmamusumeAss.exe" | find /I "UmamusumeAss.exe" >nul
