@@ -193,6 +193,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         && _runningTask is not null
         && !_stopRequested;
 
+    public bool CanReorderTasks =>
+        !IsQueueOperationInProgress
+        && !IsQueueRunning;
+
 
 
 
@@ -792,6 +796,27 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             stop.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanStartQueue));
         OnPropertyChanged(nameof(CanStopQueue));
+        OnPropertyChanged(nameof(CanReorderTasks));
+    }
+
+    public bool MoveTask(GrassTaskItemViewModel task, int targetIndex)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        if (!CanReorderTasks)
+            return false;
+
+        var sourceIndex = Tasks.IndexOf(task);
+        if (sourceIndex < 0 || Tasks.Count < 2)
+            return false;
+
+        targetIndex = Math.Clamp(targetIndex, 0, Tasks.Count - 1);
+        if (sourceIndex == targetIndex)
+            return false;
+
+        Tasks.Move(sourceIndex, targetIndex);
+        SaveTaskQueueCache();
+        RaiseQueueCommandStateChanged();
+        return true;
     }
 
     private void RefreshLocalizedText()

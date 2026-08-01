@@ -78,9 +78,22 @@
                        Margin="4,2,4,8"
                        Text="{DynamicResource GrassTaskQueue}"
                        FontWeight="SemiBold" />
-            <ListBox ItemsSource="{Binding Tasks}"
+            <TextBlock DockPanel.Dock="Bottom"
+                       Margin="4,8,4,2"
+                       Text="{DynamicResource GrassTaskReorderHint}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+            <ListBox x:Name="TaskQueueListBox"
+                     ItemsSource="{Binding Tasks}"
                      SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
                      ItemContainerStyle="{StaticResource TaskListItemStyle}"
+                     AllowDrop="True"
+                     PreviewMouseLeftButtonDown="OnTaskQueuePreviewMouseLeftButtonDown"
+                     PreviewMouseMove="OnTaskQueuePreviewMouseMove"
+                     PreviewMouseLeftButtonUp="OnTaskQueuePreviewMouseLeftButtonUp"
+                     DragOver="OnTaskQueueDragOver"
+                     Drop="OnTaskQueueDrop"
                      BorderThickness="0"
                      Background="Transparent">
               <ListBox.ItemTemplate>

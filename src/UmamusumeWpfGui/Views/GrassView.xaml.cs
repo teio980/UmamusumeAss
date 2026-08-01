@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using UmamusumeWpfGui.Services.Tasks;
@@ -16,15 +17,29 @@ namespace UmamusumeWpfGui.Views;
 
 public sealed partial class GrassView : UserControl
 {
+    private static readonly TimeSpan TaskLongPressDuration = TimeSpan.FromMilliseconds(450);
+
     private ScrollViewer? _scrollViewer;
     private INotifyCollectionChanged? _subscribedCollection;
     private bool _isAtBottom = true;
     private bool _scrollRequestPending;
     private int _viewGeneration;
+    private readonly DispatcherTimer _taskLongPressTimer;
+    private GrassTaskItemViewModel? _pendingDragTask;
+    private Point _taskDragStartPoint;
+    private bool _taskLongPressReady;
+    private bool _taskDragInProgress;
 
     public GrassView()
     {
         InitializeComponent();
+        _taskLongPressTimer = new DispatcherTimer(
+            DispatcherPriority.Input,
+            Dispatcher)
+        {
+            Interval = TaskLongPressDuration,
+        };
+        _taskLongPressTimer.Tick += OnTaskLongPressTimerTick;
         DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -49,8 +64,151 @@ public sealed partial class GrassView : UserControl
     {
         _viewGeneration++;
         _scrollRequestPending = false;
+        ResetTaskDragState();
         UnsubscribeFromCollection();
         UnsubscribeFromScrollViewer();
+    }
+
+    private void OnTaskQueuePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ResetTaskDragState();
+
+        if (DataContext is not GrassViewModel viewModel
+            || !viewModel.CanReorderTasks)
+        {
+            return;
+        }
+
+        var task = GetTaskItem(e.OriginalSource as DependencyObject);
+        if (task is null)
+            return;
+
+        _pendingDragTask = task;
+        _taskDragStartPoint = e.GetPosition(TaskQueueListBox);
+        _taskLongPressTimer.Start();
+    }
+
+    private void OnTaskQueuePreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_pendingDragTask is null || _taskDragInProgress)
+            return;
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            ResetTaskDragState();
+            return;
+        }
+
+        var point = e.GetPosition(TaskQueueListBox);
+        if (!_taskLongPressReady)
+        {
+            if (HasPassedTaskDragThreshold(point))
+                ResetTaskDragState();
+            return;
+        }
+
+        if (!HasPassedTaskDragThreshold(point))
+            return;
+
+        var task = _pendingDragTask;
+        _taskLongPressTimer.Stop();
+        _taskDragInProgress = true;
+        try
+        {
+            DragDrop.DoDragDrop(
+                TaskQueueListBox,
+                task,
+                DragDropEffects.Move);
+        }
+        finally
+        {
+            ResetTaskDragState();
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnTaskQueuePreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+        ResetTaskDragState();
+
+    private void OnTaskLongPressTimerTick(object? sender, EventArgs e)
+    {
+        _taskLongPressTimer.Stop();
+        if (_pendingDragTask is not null
+            && Mouse.LeftButton == MouseButtonState.Pressed)
+        {
+            _taskLongPressReady = true;
+        }
+    }
+
+    private void OnTaskQueueDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = CanAcceptTaskDrop(e) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnTaskQueueDrop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not GrassViewModel viewModel
+            || !CanAcceptTaskDrop(e)
+            || e.Data.GetData(typeof(GrassTaskItemViewModel)) is not GrassTaskItemViewModel draggedTask)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var sourceIndex = viewModel.Tasks.IndexOf(draggedTask);
+        if (sourceIndex < 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var targetContainer = ItemsControl.ContainerFromElement(
+            TaskQueueListBox,
+            e.OriginalSource as DependencyObject) as ListBoxItem;
+        var targetTask = targetContainer?.DataContext as GrassTaskItemViewModel;
+        var targetIndex = targetTask is null
+            ? viewModel.Tasks.Count - 1
+            : viewModel.Tasks.IndexOf(targetTask);
+
+        if (targetContainer is not null
+            && e.GetPosition(targetContainer).Y > targetContainer.ActualHeight / 2)
+        {
+            targetIndex++;
+        }
+
+        if (sourceIndex < targetIndex)
+            targetIndex--;
+
+        viewModel.MoveTask(draggedTask, targetIndex);
+        e.Handled = true;
+    }
+
+    private bool CanAcceptTaskDrop(DragEventArgs e) =>
+        DataContext is GrassViewModel viewModel
+        && viewModel.CanReorderTasks
+        && e.Data.GetDataPresent(typeof(GrassTaskItemViewModel));
+
+    private bool HasPassedTaskDragThreshold(Point point) =>
+        Math.Abs(point.X - _taskDragStartPoint.X) >= SystemParameters.MinimumHorizontalDragDistance
+        || Math.Abs(point.Y - _taskDragStartPoint.Y) >= SystemParameters.MinimumVerticalDragDistance;
+
+    private GrassTaskItemViewModel? GetTaskItem(DependencyObject? source)
+    {
+        if (source is null)
+            return null;
+
+        var container = ItemsControl.ContainerFromElement(TaskQueueListBox, source) as ListBoxItem;
+        return container?.DataContext as GrassTaskItemViewModel;
+    }
+
+    private void ResetTaskDragState()
+    {
+        _taskLongPressTimer.Stop();
+        _pendingDragTask = null;
+        _taskLongPressReady = false;
+        _taskDragInProgress = false;
     }
 
     private void SubscribeToCollection()
