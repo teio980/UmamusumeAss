@@ -52,22 +52,60 @@
 
     <Grid Grid.Row="2" x:Name="PreviewSurface" Margin="0,18,0,12"
           Background="#18000000"
+          ClipToBounds="True"
           SizeChanged="OnPreviewSurfaceSizeChanged">
-      <Image Source="{Binding ScreenshotImage}"
-             Stretch="Uniform"
-             IsHitTestVisible="False" />
+      <Grid x:Name="PreviewPanContent">
+        <Grid.RenderTransform>
+          <TranslateTransform x:Name="PreviewTranslateTransform" />
+        </Grid.RenderTransform>
+        <Grid x:Name="PreviewContent"
+              RenderTransformOrigin="0.5,0.5">
+          <Grid.RenderTransform>
+            <ScaleTransform x:Name="PreviewScaleTransform"
+                            ScaleX="1"
+                            ScaleY="1" />
+          </Grid.RenderTransform>
+          <Image Source="{Binding ScreenshotImage}"
+                 Stretch="Uniform"
+                 IsHitTestVisible="False" />
+          <Canvas x:Name="CropVisualOverlay"
+                  IsHitTestVisible="False">
+            <Rectangle x:Name="CropRectangle"
+                       Stroke="#FF4CC2FF"
+                       StrokeThickness="2"
+                       Fill="#334CC2FF"
+                       Visibility="Collapsed" />
+          </Canvas>
+        </Grid>
+      </Grid>
       <Canvas x:Name="CropOverlay"
               Background="Transparent"
               MouseLeftButtonDown="OnCropMouseLeftButtonDown"
               MouseMove="OnCropMouseMove"
-              MouseLeftButtonUp="OnCropMouseLeftButtonUp">
-        <Rectangle x:Name="CropRectangle"
-                   Stroke="#FF4CC2FF"
+              MouseLeftButtonUp="OnCropMouseLeftButtonUp"
+              MouseDown="OnPanMouseMiddleButtonDown"
+              MouseUp="OnPanMouseMiddleButtonUp"
+              MouseLeave="OnCropMouseLeave"
+              MouseWheel="OnPreviewMouseWheel">
+        <Rectangle x:Name="SelectionRectangle"
+                   Stroke="#FFFFB84D"
                    StrokeThickness="2"
-                   Fill="#334CC2FF"
+                   Fill="#33FFB84D"
                    Visibility="Collapsed"
                    IsHitTestVisible="False" />
       </Canvas>
+      <Border x:Name="PreviewCoordinateBadge"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Margin="10"
+              Padding="8,4"
+              Background="#CC202020"
+              CornerRadius="4"
+              IsHitTestVisible="False"
+              Visibility="Collapsed">
+        <TextBlock x:Name="PreviewCoordinateText"
+                   Foreground="White" />
+      </Border>
       <StackPanel x:Name="EmptyPreview"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center"

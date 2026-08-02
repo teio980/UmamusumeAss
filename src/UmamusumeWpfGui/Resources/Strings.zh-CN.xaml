@@ -209,11 +209,11 @@
 
   <sys:String x:Key="TabDeveloperTools">开发者工具</sys:String>
   <sys:String x:Key="DeveloperToolsTitle">开发者工具</sys:String>
-  <sys:String x:Key="DeveloperToolsHint">截图已连接的模拟器，查看分辨率，并将选中的区域保存为 PNG。</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">截图已连接的模拟器，查看分辨率，并将选中的区域保存为 PNG。预览图上滚动鼠标滚轮可放大或缩小，按住鼠标中键拖动可平移图片。</sys:String>
   <sys:String x:Key="DeveloperToolsConnectionTitle">模拟器连接</sys:String>
   <sys:String x:Key="DeveloperToolsConnectButton">连接</sys:String>
   <sys:String x:Key="DeveloperToolsNoScreenshot">尚未截图</sys:String>
-  <sys:String x:Key="DeveloperToolsCropHint">在预览图上拖拽选择裁剪区域。</sys:String>
+  <sys:String x:Key="DeveloperToolsCropHint">按住鼠标左键拖拽选择裁剪区域；按住鼠标中键拖动平移图片。</sys:String>
   <sys:String x:Key="DeveloperToolsSaveButton">保存 PNG</sys:String>
   <sys:String x:Key="DeveloperToolsSaveCropButton">保存裁剪图</sys:String>
   <sys:String x:Key="DeveloperToolsClearCropButton">清除裁剪</sys:String>

@@ -1,14 +1,26 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Shapes;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Views;
 
 public sealed partial class DeveloperToolsView : UserControl
 {
+    private const double MinPreviewScale = 0.5;
+    private const double MaxPreviewScale = 4.0;
+    private const double PreviewScaleStep = 1.1;
+
     private bool _isSelecting;
+    private bool _isPanning;
     private Point _selectionStart;
+    private Point _panStart;
+    private Vector _panStartTranslation;
+    private Point _lastPreviewPointer;
+    private bool _hasPreviewPointer;
+    private double _previewScale = 1.0;
+    private Vector _previewTranslation;
     private DeveloperToolsViewModel? _viewModel;
 
     public DeveloperToolsView()
@@ -28,6 +40,7 @@ public sealed partial class DeveloperToolsView : UserControl
         UnsubscribeFromViewModel();
         CropOverlay.ReleaseMouseCapture();
         _isSelecting = false;
+        _isPanning = false;
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -65,12 +78,62 @@ public sealed partial class DeveloperToolsView : UserControl
             or nameof(DeveloperToolsViewModel.CropRegion)
             or nameof(DeveloperToolsViewModel.HasScreenshot))
         {
-            Dispatcher.BeginInvoke(UpdatePreviewState);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (e.PropertyName == nameof(DeveloperToolsViewModel.ScreenshotImage))
+                {
+                    SetPreviewScale(1.0);
+                    SetPreviewTranslation(new Vector());
+                }
+
+                UpdatePreviewState();
+            });
         }
     }
 
     private void OnPreviewSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateCropRectangle();
+
+    private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_viewModel?.HasScreenshot != true || e.Delta == 0)
+        {
+            return;
+        }
+
+        SetPreviewScale(_previewScale * (e.Delta > 0
+            ? PreviewScaleStep
+            : 1.0 / PreviewScaleStep));
+        UpdatePreviewCoordinate(e.GetPosition(CropOverlay));
+        e.Handled = true;
+    }
+
+    private void OnPanMouseMiddleButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle
+            || _viewModel is not { HasScreenshot: true })
+        {
+            return;
+        }
+
+        _isPanning = true;
+        _panStart = e.GetPosition(CropOverlay);
+        _panStartTranslation = _previewTranslation;
+        CropOverlay.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void OnPanMouseMiddleButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle || !_isPanning)
+        {
+            return;
+        }
+
+        _isPanning = false;
+        CropOverlay.ReleaseMouseCapture();
+        e.Handled = true;
+    }
 
     private void OnCropMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -82,18 +145,34 @@ public sealed partial class DeveloperToolsView : UserControl
         _isSelecting = true;
         _selectionStart = e.GetPosition(CropOverlay);
         CropOverlay.CaptureMouse();
-        SetSelectionRectangle(_selectionStart, _selectionStart);
+        SetRectangle(SelectionRectangle, _selectionStart, _selectionStart);
         e.Handled = true;
     }
 
     private void OnCropMouseMove(object sender, MouseEventArgs e)
     {
+        var current = e.GetPosition(CropOverlay);
+        UpdatePreviewCoordinate(current);
+
+        if (_isPanning && e.MiddleButton == MouseButtonState.Pressed)
+        {
+            SetPreviewTranslation(_panStartTranslation + current - _panStart);
+            e.Handled = true;
+            return;
+        }
+
         if (!_isSelecting || e.LeftButton != MouseButtonState.Pressed)
         {
             return;
         }
 
-        SetSelectionRectangle(_selectionStart, e.GetPosition(CropOverlay));
+        SetRectangle(SelectionRectangle, _selectionStart, e.GetPosition(CropOverlay));
+    }
+
+    private void OnCropMouseLeave(object sender, MouseEventArgs e)
+    {
+        _hasPreviewPointer = false;
+        PreviewCoordinateBadge.Visibility = Visibility.Collapsed;
     }
 
     private void OnCropMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -115,6 +194,7 @@ public sealed partial class DeveloperToolsView : UserControl
             _viewModel?.SetCropRegion(null);
         }
 
+        SelectionRectangle.Visibility = Visibility.Collapsed;
         UpdateCropRectangle();
         e.Handled = true;
     }
@@ -127,17 +207,62 @@ public sealed partial class DeveloperToolsView : UserControl
         UpdateCropRectangle();
     }
 
-    private void SetSelectionRectangle(Point start, Point end)
+    private void SetPreviewScale(double scale)
+    {
+        _previewScale = Math.Clamp(scale, MinPreviewScale, MaxPreviewScale);
+        PreviewScaleTransform.ScaleX = _previewScale;
+        PreviewScaleTransform.ScaleY = _previewScale;
+        UpdateCropRectangle();
+    }
+
+    private void SetPreviewTranslation(Vector translation)
+    {
+        _previewTranslation = translation;
+        PreviewTranslateTransform.X = translation.X;
+        PreviewTranslateTransform.Y = translation.Y;
+        UpdateCropRectangle();
+        if (_hasPreviewPointer)
+        {
+            UpdatePreviewCoordinate(_lastPreviewPointer);
+        }
+    }
+
+    private void UpdatePreviewCoordinate(Point point)
+    {
+        _lastPreviewPointer = point;
+        _hasPreviewPointer = true;
+        if (_viewModel?.ScreenshotImage is not { } image
+            || !TryGetImageLayout(out var imageRect, out var scale)
+            || !imageRect.Contains(ToPreviewContentPoint(point)))
+        {
+            PreviewCoordinateBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var contentPoint = ToPreviewContentPoint(point);
+        var x = Math.Clamp(
+            (int)Math.Floor((contentPoint.X - imageRect.Left) / scale),
+            0,
+            image.PixelWidth - 1);
+        var y = Math.Clamp(
+            (int)Math.Floor((contentPoint.Y - imageRect.Top) / scale),
+            0,
+            image.PixelHeight - 1);
+        PreviewCoordinateText.Text = $"X: {x}, Y: {y}";
+        PreviewCoordinateBadge.Visibility = Visibility.Visible;
+    }
+
+    private static void SetRectangle(Rectangle rectangle, Point start, Point end)
     {
         var left = Math.Min(start.X, end.X);
         var top = Math.Min(start.Y, end.Y);
         var width = Math.Abs(end.X - start.X);
         var height = Math.Abs(end.Y - start.Y);
-        CropRectangle.SetCurrentValue(Canvas.LeftProperty, left);
-        CropRectangle.SetCurrentValue(Canvas.TopProperty, top);
-        CropRectangle.Width = width;
-        CropRectangle.Height = height;
-        CropRectangle.Visibility = Visibility.Visible;
+        rectangle.SetCurrentValue(Canvas.LeftProperty, left);
+        rectangle.SetCurrentValue(Canvas.TopProperty, top);
+        rectangle.Width = width;
+        rectangle.Height = height;
+        rectangle.Visibility = Visibility.Visible;
     }
 
     private void UpdateCropRectangle()
@@ -148,7 +273,8 @@ public sealed partial class DeveloperToolsView : UserControl
             return;
         }
 
-        SetSelectionRectangle(
+        SetRectangle(
+            CropRectangle,
             new Point(imageRect.Left + region.X * scale, imageRect.Top + region.Y * scale),
             new Point(
                 imageRect.Left + (region.X + region.Width) * scale,
@@ -164,7 +290,9 @@ public sealed partial class DeveloperToolsView : UserControl
             return false;
         }
 
-        var selection = new Rect(start, end);
+        var selection = new Rect(
+            ToPreviewContentPoint(start),
+            ToPreviewContentPoint(end));
         selection.Intersect(imageRect);
         if (selection.Width < 2 || selection.Height < 2 || scale <= 0)
         {
@@ -183,25 +311,36 @@ public sealed partial class DeveloperToolsView : UserControl
         return region.Width > 0 && region.Height > 0;
     }
 
+    private Point ToPreviewContentPoint(Point point)
+    {
+        var center = new Point(
+            PreviewSurface.ActualWidth / 2,
+            PreviewSurface.ActualHeight / 2);
+        var translatedPoint = point - _previewTranslation;
+        return new Point(
+            center.X + (translatedPoint.X - center.X) / _previewScale,
+            center.Y + (translatedPoint.Y - center.Y) / _previewScale);
+    }
+
     private bool TryGetImageLayout(out Rect imageRect, out double scale)
     {
         imageRect = default;
         scale = 0;
         if (_viewModel?.ScreenshotImage is not { } image
-            || CropOverlay.ActualWidth <= 0
-            || CropOverlay.ActualHeight <= 0)
+            || PreviewContent.ActualWidth <= 0
+            || PreviewContent.ActualHeight <= 0)
         {
             return false;
         }
 
         scale = Math.Min(
-            CropOverlay.ActualWidth / image.PixelWidth,
-            CropOverlay.ActualHeight / image.PixelHeight);
+            PreviewContent.ActualWidth / image.PixelWidth,
+            PreviewContent.ActualHeight / image.PixelHeight);
         var width = image.PixelWidth * scale;
         var height = image.PixelHeight * scale;
         imageRect = new Rect(
-            (CropOverlay.ActualWidth - width) / 2,
-            (CropOverlay.ActualHeight - height) / 2,
+            (PreviewContent.ActualWidth - width) / 2,
+            (PreviewContent.ActualHeight - height) / 2,
             width,
             height);
         return scale > 0;

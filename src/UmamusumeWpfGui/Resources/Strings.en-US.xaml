@@ -208,11 +208,11 @@
 
   <sys:String x:Key="TabDeveloperTools">Developer Tools</sys:String>
   <sys:String x:Key="DeveloperToolsTitle">Developer Tools</sys:String>
-  <sys:String x:Key="DeveloperToolsHint">Capture the connected emulator screen, inspect its dimensions, and save a precisely cropped PNG.</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">Capture the connected emulator screen, inspect its dimensions, and save a precisely cropped PNG. Use the mouse wheel over the preview to zoom in or out, then hold the middle mouse button and drag to pan.</sys:String>
   <sys:String x:Key="DeveloperToolsConnectionTitle">Emulator connection</sys:String>
   <sys:String x:Key="DeveloperToolsConnectButton">Connect</sys:String>
   <sys:String x:Key="DeveloperToolsNoScreenshot">No screenshot captured</sys:String>
-  <sys:String x:Key="DeveloperToolsCropHint">Drag over the preview to select a crop region.</sys:String>
+  <sys:String x:Key="DeveloperToolsCropHint">Drag with the left mouse button to select a crop region; hold the middle mouse button to pan.</sys:String>
   <sys:String x:Key="DeveloperToolsSaveButton">Save PNG</sys:String>
   <sys:String x:Key="DeveloperToolsSaveCropButton">Save crop</sys:String>
   <sys:String x:Key="DeveloperToolsClearCropButton">Clear crop</sys:String>
