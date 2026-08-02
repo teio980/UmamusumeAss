@@ -9,101 +9,114 @@
     "randomShop": ""
   },
   "tasks": {
+    "home": {
+      "template": "templates/start_game/game_home.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "next": ["raceTab"]
+    },
     "raceTab": {
       "template": "templates/team_race/race_tab.png",
       "roi": [560, 1480, 280, 120],
-      "templThreshold": 0.88,
-      "timeoutMs": 12000
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1200,
+      "next": ["teamTrials"]
     },
     "teamTrials": {
       "template": "templates/team_race/team_trials.png",
       "roi": [80, 980, 420, 300],
       "templThreshold": 0.86,
-      "timeoutMs": 12000
+      "timeoutMs": 12000,
+      "postDelay": 1200,
+      "next": ["teamRace"]
     },
     "teamRace": {
       "template": "templates/team_race/team_race.png",
       "roi": [140, 900, 620, 300],
       "templThreshold": 0.86,
-      "timeoutMs": 15000
+      "timeoutMs": 15000,
+      "postDelay": 1200,
+      "next": ["opponent"]
     },
     "opponent": {
       "template": "templates/team_race/opponent_card.png",
       "roi": [0, 270, 900, 380],
       "templThreshold": 0.92,
-      "timeoutMs": 20000
+      "timeoutMs": 20000,
+      "postDelay": 10000,
+      "next": ["matchupNext"]
     },
     "matchupNext": {
       "template": "templates/team_race/matchup_next.png",
       "roi": [150, 1240, 600, 230],
       "templThreshold": 0.88,
-      "timeoutMs": 20000
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["itemRace"]
     },
     "itemRace": {
       "template": "templates/team_race/item_race.png",
       "roi": [400, 1000, 450, 250],
       "templThreshold": 0.88,
-      "timeoutMs": 15000
+      "timeoutMs": 15000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["quickmode"],
+      "onErrorNext": ["quickmode"]
     },
-    "firstUma": {
-      "template": "templates/team_race/first_uma.png",
-      "roi": [30, 800, 250, 230],
+    "quickmode": {
+      "template": "templates/team_race/quick_mode_on.png",
+      "roi": [320, 1320, 240, 45],
+      "templThreshold": 0.88,
+      "timeoutMs": 15000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["seeallresult"],
+      "onErrorNext": ["seeallresult"]
+    },
+    "seeallresult": {
+      "template": "templates/team_race/see_all_result.png",
+      "roi": [280, 1400, 340, 140],
       "templThreshold": 0.86,
-      "timeoutMs": 20000
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["whiteskip"]
     },
-    "viewRace": {
-      "template": "templates/team_race/view_race.png",
-      "roi": [160, 1360, 420, 230],
-      "templThreshold": 0.84,
-      "timeoutMs": 30000
-    },
-    "detailRace": {
-      "template": "templates/team_race/detail_race.png",
-      "roi": [200, 1370, 500, 220],
-      "templThreshold": 0.88,
-      "timeoutMs": 30000
-    },
-    "playbackOk": {
-      "template": "templates/team_race/playback_ok.png",
-      "roi": [400, 900, 450, 250],
-      "templThreshold": 0.88,
-      "timeoutMs": 30000
-    },
-    "playbackStart": {
-      "template": "templates/team_race/playback_start.png",
-      "roi": [200, 1320, 500, 250],
-      "templThreshold": 0.88,
-      "timeoutMs": 30000
-    },
-    "playbackSkip": {
-      "template": "templates/team_race/playback_skip.png",
-      "roi": [620, 1450, 140, 150],
-      "templThreshold": 0.88,
-      "timeoutMs": 1800
-    },
-    "playbackSpeed": {
-      "template": "templates/team_race/playback_speed.png",
-      "roi": [200, 1420, 350, 170],
-      "templThreshold": 0.84,
-      "timeoutMs": 1800
-    },
-    "raceResult": {
-      "template": "templates/team_race/race_result.png",
-      "roi": [100, 250, 700, 350],
+    "whiteskip": {
+      "template": "templates/team_race/whiteskip.png",
+      "roi": [790, 1440, 60, 35],
       "templThreshold": 0.86,
-      "timeoutMs": 60000
-    },
-    "resultClose": {
-      "template": "templates/team_race/result_close.png",
-      "roi": [200, 1030, 500, 250],
-      "templThreshold": 0.88,
-      "timeoutMs": 15000
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "maxTimes": 5,
+      "next": ["resultNext"]
     },
     "resultNext": {
       "template": "templates/team_race/result_next.png",
       "roi": [200, 1370, 500, 180],
       "templThreshold": 0.88,
-      "timeoutMs": 20000
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["newhighscore"]
+    },
+    "newhighscore": {
+      "template": "templates/team_race/new_high_score.png",
+      "roi": [150, 500, 150, 60],
+      "templThreshold": 0.86,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["viewRace"],
+      "onErrorNext": ["viewRace"],
+      "exceededNext": ["complete"]
+    },
+    "complete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
     }
   },
   "timing": {
