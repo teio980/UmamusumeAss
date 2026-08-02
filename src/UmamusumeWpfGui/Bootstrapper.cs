@@ -46,6 +46,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbRuntime>();
         builder.Bind<IAdbTouchRuntime>()
             .To<AdbTouchRuntime>();
+        builder.Bind<IVisualPipelineRuntime>()
+            .To<AdbVisualPipelineRuntime>()
+            .InSingletonScope();
         builder.Bind<IAdbConnectionSessionFactory>()
             .To<AdbConnectionSessionFactory>();
         builder.Bind<IGameLauncher>()

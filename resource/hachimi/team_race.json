@@ -1,6 +1,6 @@
 {
   "name": "team-race",
-  "schemaVersion": 3,
+  "schemaVersion": 1,
   "description": "MAA-style Team Trials pipeline: match a small button template inside an ROI, then click the matched rectangle.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
@@ -8,101 +8,101 @@
     "raceResult": "templates/team_race/race_result.png",
     "randomShop": ""
   },
-  "steps": {
+  "tasks": {
     "raceTab": {
       "template": "templates/team_race/buttons/race_tab.png",
       "roi": [560, 1480, 280, 120],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 12000
     },
     "teamTrials": {
       "template": "templates/team_race/buttons/team_trials.png",
       "roi": [80, 980, 420, 300],
-      "threshold": 0.86,
+      "templThreshold": 0.86,
       "timeoutMs": 12000
     },
     "teamRace": {
       "template": "templates/team_race/buttons/team_race.png",
       "roi": [140, 900, 620, 300],
-      "threshold": 0.86,
+      "templThreshold": 0.86,
       "timeoutMs": 15000
     },
     "opponent": {
       "template": "templates/team_race/buttons/opponent_card.png",
       "roi": [0, 270, 900, 380],
-      "threshold": 0.92,
+      "templThreshold": 0.92,
       "timeoutMs": 20000
     },
     "matchupNext": {
       "template": "templates/team_race/buttons/matchup_next.png",
       "roi": [150, 1240, 600, 230],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 20000
     },
     "itemRace": {
       "template": "templates/team_race/buttons/item_race.png",
       "roi": [400, 1000, 450, 250],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 15000
     },
     "firstUma": {
       "template": "templates/team_race/buttons/first_uma.png",
       "roi": [30, 800, 250, 230],
-      "threshold": 0.86,
+      "templThreshold": 0.86,
       "timeoutMs": 20000
     },
     "viewRace": {
       "template": "templates/team_race/buttons/view_race.png",
       "roi": [160, 1360, 420, 230],
-      "threshold": 0.84,
+      "templThreshold": 0.84,
       "timeoutMs": 30000
     },
     "detailRace": {
       "template": "templates/team_race/buttons/detail_race.png",
       "roi": [200, 1370, 500, 220],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 30000
     },
     "playbackOk": {
       "template": "templates/team_race/buttons/playback_ok.png",
       "roi": [400, 900, 450, 250],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 30000
     },
     "playbackStart": {
       "template": "templates/team_race/buttons/playback_start.png",
       "roi": [200, 1320, 500, 250],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 30000
     },
     "playbackSkip": {
       "template": "templates/team_race/buttons/playback_skip.png",
       "roi": [620, 1450, 140, 150],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 1800
     },
     "playbackSpeed": {
       "template": "templates/team_race/buttons/playback_speed.png",
       "roi": [200, 1420, 350, 170],
-      "threshold": 0.84,
+      "templThreshold": 0.84,
       "timeoutMs": 1800
     },
     "raceResult": {
       "template": "templates/team_race/race_result.png",
       "roi": [100, 250, 700, 350],
-      "threshold": 0.86,
+      "templThreshold": 0.86,
       "timeoutMs": 60000
     },
     "resultClose": {
       "template": "templates/team_race/buttons/result_close.png",
       "roi": [200, 1030, 500, 250],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 15000
     },
     "resultNext": {
       "template": "templates/team_race/buttons/result_next.png",
       "roi": [200, 1370, 500, 180],
-      "threshold": 0.88,
+      "templThreshold": 0.88,
       "timeoutMs": 20000
     }
   },
