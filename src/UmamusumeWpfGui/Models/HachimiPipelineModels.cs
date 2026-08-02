@@ -86,6 +86,32 @@ public sealed class HachimiPipelineTask
 
     [JsonPropertyName("pollIntervalMs")]
     public int PollIntervalMilliseconds { get; set; }
+
+    // MAA-style state-machine transitions. They are optional so the existing
+    // task JSON remains valid and can be extended without changing its shape.
+    [JsonPropertyName("next")]
+    public List<string> Next { get; set; } = [];
+
+    [JsonPropertyName("onErrorNext")]
+    public List<string> OnErrorNext { get; set; } = [];
+
+    [JsonPropertyName("exceededNext")]
+    public List<string> ExceededNext { get; set; } = [];
+
+    [JsonPropertyName("sub")]
+    public List<string> Sub { get; set; } = [];
+
+    [JsonPropertyName("maxTimes")]
+    public int MaxTimes { get; set; }
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; } = true;
+
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("countAs")]
+    public string? CountAs { get; set; }
 }
 
 public sealed class HachimiPipelineTemplates

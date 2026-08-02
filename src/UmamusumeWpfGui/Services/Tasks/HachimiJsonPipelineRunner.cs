@@ -1,0 +1,416 @@
+using UmamusumeWpfGui.Models;
+
+namespace UmamusumeWpfGui.Services.Tasks;
+
+/// <summary>
+/// Generic MAA-style executor for ordinary Hachimi JSON definitions.
+/// Task names and transitions come from JSON; this class only implements the
+/// reusable recognition, action, delay and state-machine mechanics.
+/// </summary>
+public sealed class HachimiJsonPipelineRunner
+{
+    private readonly IAdbRuntime _adbRuntime;
+    private readonly IVisualPipelineRuntime _visualRuntime;
+
+    public HachimiJsonPipelineRunner(
+        IAdbRuntime adbRuntime,
+        IVisualPipelineRuntime visualRuntime)
+    {
+        ArgumentNullException.ThrowIfNull(adbRuntime);
+        ArgumentNullException.ThrowIfNull(visualRuntime);
+        _adbRuntime = adbRuntime;
+        _visualRuntime = visualRuntime;
+    }
+
+    public async Task<HachimiPipelineRunResult> RunAsync(
+        LastVerifiedConnection connection,
+        string definitionPath,
+        string entryTask,
+        HachimiPipelineRunOptions? options = null,
+        IGrassTaskLogSink? logSink = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentException.ThrowIfNullOrWhiteSpace(definitionPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entryTask);
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(
+                definitionPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (definition is null)
+        {
+            return new HachimiPipelineRunResult(
+                false,
+                "The Hachimi pipeline definition could not be loaded.",
+                0,
+                null);
+        }
+
+        var state = new RunState(options ?? new HachimiPipelineRunOptions());
+        return await RunGraphAsync(
+                connection,
+                definition,
+                entryTask,
+                state,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<HachimiPipelineRunResult> RunGraphAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string entryTask,
+        RunState state,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var current = entryTask;
+        var guardLimit = Math.Max(100, definition.Tasks.Count * 40);
+
+        for (var step = 0; step < guardLimit; step++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!definition.TryGetTask(current, out var task) || task is null)
+            {
+                return Fail(
+                    logSink,
+                    $"Pipeline transition points to undefined task '{current}'.",
+                    state.CompletedUnits,
+                    current);
+            }
+
+            var taskCount = state.GetTaskCount(current);
+            if (HasExceededLimit(current, task, taskCount, state.Options))
+            {
+                AddLog(
+                    logSink,
+                    $"Task '{current}' reached maxTimes; following exceededNext.");
+                var exceeded = FirstExisting(definition, task.ExceededNext);
+                if (exceeded is null)
+                {
+                    return task.Required
+                        ? Fail(
+                            logSink,
+                            $"Required task '{current}' exceeded maxTimes without exceededNext.",
+                            state.CompletedUnits,
+                            current)
+                        : Succeed(state, current);
+                }
+
+                current = exceeded;
+                continue;
+            }
+
+            state.IncrementTaskCount(current);
+            AddLog(logSink, $"Running JSON task '{current}'.");
+
+            var execution = await ExecuteTaskAsync(
+                    connection,
+                    definition,
+                    current,
+                    task,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!execution.Succeeded)
+            {
+                var errorNext = FirstExisting(definition, task.OnErrorNext);
+                if (errorNext is not null)
+                {
+                    AddLog(
+                        logSink,
+                        $"Task '{current}' failed; following onErrorNext '{errorNext}'.",
+                        LogEntryKind.Info);
+                    current = errorNext;
+                    continue;
+                }
+
+                if (!task.Required)
+                {
+                    AddLog(
+                        logSink,
+                        $"Optional task '{current}' was not completed; continuing.",
+                        LogEntryKind.Info);
+                    current = FirstExisting(definition, task.Next)
+                        ?? string.Empty;
+                    if (string.IsNullOrEmpty(current))
+                        return Succeed(state, execution.LastTask ?? current);
+                    continue;
+                }
+
+                return Fail(
+                    logSink,
+                    execution.Message,
+                    state.CompletedUnits,
+                    current);
+            }
+
+            if (!string.IsNullOrWhiteSpace(task.CountAs))
+                state.CompletedUnits++;
+
+            if (task.Success)
+                return Succeed(state, current);
+
+            current = FirstExisting(definition, task.Next) ?? string.Empty;
+            if (string.IsNullOrEmpty(current))
+                return Succeed(state, execution.LastTask ?? entryTask);
+        }
+
+        return Fail(
+            logSink,
+            $"Pipeline exceeded the transition guard ({guardLimit} steps). Check JSON next/maxTimes transitions.",
+            state.CompletedUnits,
+            current);
+    }
+
+    private async Task<TaskExecutionResult> ExecuteTaskAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        if (task.PreDelay > 0)
+        {
+            await _visualRuntime.DelayAsync(task.PreDelay, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var subTask in task.Sub)
+        {
+            if (!definition.TryGetTask(subTask, out _))
+            {
+                return TaskExecutionResult.Failed(
+                    $"Task '{taskName}' references undefined sub task '{subTask}'.");
+            }
+
+            var subResult = await RunGraphAsync(
+                    connection,
+                    definition,
+                    subTask,
+                    new RunState(new HachimiPipelineRunOptions()),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!subResult.Succeeded)
+                return TaskExecutionResult.Failed(subResult.Message);
+        }
+
+        TemplateMatchResult? match = null;
+        var action = Normalize(task.Action);
+        var algorithm = Normalize(task.Algorithm);
+
+        if (!string.IsNullOrWhiteSpace(task.Template))
+        {
+            match = await _visualRuntime.WaitForMatchAsync(
+                    connection,
+                    task.Template,
+                    task.Roi,
+                    task.TemplateThreshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    task.TimeoutMilliseconds,
+                    task.PollIntervalMilliseconds > 0
+                        ? task.PollIntervalMilliseconds
+                        : definition.Timing.PollIntervalMilliseconds,
+                    taskName,
+                    definition.BaseDirectory,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (match is null)
+            {
+                return TaskExecutionResult.Failed(
+                    $"Timed out waiting for JSON task '{taskName}' (threshold {task.TemplateThreshold:0.000}).");
+            }
+        }
+
+        switch (action)
+        {
+            case "clickself":
+                if (match is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses ClickSelf but has no template match.");
+                }
+
+                await _visualRuntime.TapMatchAsync(
+                        connection,
+                        match,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                AddLog(
+                    logSink,
+                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), score {match.Score:0.000}.",
+                    LogEntryKind.Success);
+                break;
+
+            case "back":
+                var back = await _adbRuntime.BackAsync(
+                        connection.AdbPath,
+                        connection.Serial,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (back.Error is not null || back.TimedOut || back.ExitCode != 0)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"ADB Back failed for JSON task '{taskName}': {back.Stderr}");
+                }
+
+                break;
+
+            case "wait":
+                break;
+
+            case "donothing":
+            case "screenshot":
+            case "capturescreenshot":
+                break;
+
+            case "stop":
+                return TaskExecutionResult.Failed(
+                    $"JSON task '{taskName}' requested pipeline stop.");
+
+            case "":
+                if (algorithm is "justreturn" or "wait")
+                    break;
+                return TaskExecutionResult.Failed(
+                    $"JSON task '{taskName}' has no action.");
+
+            default:
+                return TaskExecutionResult.Failed(
+                    $"JSON task '{taskName}' uses unsupported action '{task.Action}'.");
+        }
+
+        if (task.WaitMilliseconds > 0)
+        {
+            await _visualRuntime.DelayAsync(task.WaitMilliseconds, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (task.PostDelay > 0)
+        {
+            await _visualRuntime.DelayAsync(task.PostDelay, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return TaskExecutionResult.Completed(taskName);
+    }
+
+    private static bool HasExceededLimit(
+        string taskName,
+        HachimiPipelineTask task,
+        int taskCount,
+        HachimiPipelineRunOptions options)
+    {
+        if (options.MaxTimesOverrides is not null
+            && options.MaxTimesOverrides.TryGetValue(taskName, out var overrideLimit))
+        {
+            return taskCount >= Math.Max(0, overrideLimit);
+        }
+
+        return task.MaxTimes > 0 && taskCount >= task.MaxTimes;
+    }
+
+    private static string? FirstExisting(
+        HachimiPipelineDefinition definition,
+        IEnumerable<string>? candidates)
+    {
+        if (candidates is null)
+            return null;
+
+        foreach (var candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate)
+                && definition.TryGetTask(candidate, out _))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string Normalize(string? value) =>
+        value?.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Trim()
+            .ToLowerInvariant()
+        ?? string.Empty;
+
+    private static HachimiPipelineRunResult Succeed(
+        RunState state,
+        string? lastTask) =>
+        new(
+            true,
+            $"JSON pipeline completed ({state.CompletedUnits} counted unit(s)).",
+            state.CompletedUnits,
+            lastTask);
+
+    private static HachimiPipelineRunResult Fail(
+        IGrassTaskLogSink? logSink,
+        string message,
+        int completedUnits,
+        string? lastTask)
+    {
+        AddLog(logSink, message, LogEntryKind.Failure);
+        return new HachimiPipelineRunResult(false, message, completedUnits, lastTask);
+    }
+
+    private static void AddLog(
+        IGrassTaskLogSink? logSink,
+        string details,
+        LogEntryKind kind = LogEntryKind.Info) =>
+        logSink?.Add("JSON Pipeline", details, kind);
+
+    private sealed class RunState
+    {
+        private readonly Dictionary<string, int> _taskCounts =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public RunState(HachimiPipelineRunOptions options) => Options = options;
+
+        public HachimiPipelineRunOptions Options { get; }
+
+        public int CompletedUnits { get; set; }
+
+        public int GetTaskCount(string taskName) =>
+            _taskCounts.TryGetValue(taskName, out var count) ? count : 0;
+
+        public void IncrementTaskCount(string taskName) =>
+            _taskCounts[taskName] = GetTaskCount(taskName) + 1;
+    }
+
+    private sealed record TaskExecutionResult(
+        bool Succeeded,
+        string Message,
+        string? LastTask)
+    {
+        public static TaskExecutionResult Completed(string taskName) =>
+            new(true, string.Empty, taskName);
+
+        public static TaskExecutionResult Failed(string message) =>
+            new(false, message, null);
+    }
+}
+
+public sealed class HachimiPipelineRunOptions
+{
+    /// <summary>
+    /// Runtime limits supplied by a caller, such as raceCount - 1 for the
+    /// JSON result-next loop. A present value of zero means do not execute the
+    /// task and follow its exceededNext transition immediately.
+    /// </summary>
+    public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }
+}
+
+public sealed record HachimiPipelineRunResult(
+    bool Succeeded,
+    string Message,
+    int CompletedUnits,
+    string? LastTask);

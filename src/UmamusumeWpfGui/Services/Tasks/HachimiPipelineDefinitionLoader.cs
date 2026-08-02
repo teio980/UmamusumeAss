@@ -41,6 +41,14 @@ public static class HachimiPipelineDefinitionLoader
                     $"Unsupported Hachimi pipeline schema version {definition.SchemaVersion}.");
             }
 
+            // System.Text.Json creates a regular dictionary when deserializing
+            // the JSON object. Rebuild it with MAA-like case-insensitive task
+            // lookup so JSON task names and transition references cannot fail
+            // merely because one side uses PascalCase and the other camelCase.
+            definition.Tasks = new Dictionary<string, HachimiPipelineTask>(
+                definition.Tasks,
+                StringComparer.OrdinalIgnoreCase);
+
             definition.BaseDirectory =
                 Path.GetDirectoryName(definitionPath) ?? AppContext.BaseDirectory;
             return definition;

@@ -49,6 +49,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<IVisualPipelineRuntime>()
             .To<AdbVisualPipelineRuntime>()
             .InSingletonScope();
+        builder.Bind<HachimiJsonPipelineRunner>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<IAdbConnectionSessionFactory>()
             .To<AdbConnectionSessionFactory>();
         builder.Bind<IGameLauncher>()
