@@ -334,9 +334,20 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             .Where(byName.ContainsKey)
             .Select(name => byName[name])
             .ToArray();
+        var successCandidates = monitorCandidates
+            .Where(candidate => candidate.Task.Success)
+            .ToArray();
+        var successCandidateNames = successCandidates
+            .Select(candidate => candidate.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (monitorCandidates.Length == 0)
             return new PipelineTaskResult(false, "Startup monitor has no check tasks.", true);
+        if (successCandidates.Length == 0)
+            return new PipelineTaskResult(
+                false,
+                "Startup monitor has no success task.",
+                true);
 
         var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
             monitorTask.TimeoutMilliseconds,
@@ -362,11 +373,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             {
                 lastScreen = screen;
                 var activeCandidates = chainIndex >= 0
-                    ? monitorCandidates
-                        .Where(candidate => string.Equals(
-                            candidate.Name,
-                            "CheckGameHome",
-                            StringComparison.OrdinalIgnoreCase))
+                    ? successCandidates
                         .Concat(triggerChain)
                         .ToArray()
                     : monitorCandidates;
@@ -376,11 +383,13 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     cancellationToken).ConfigureAwait(false);
                 lastMatches = matches;
 
-                var home = FindFoundMatch(matches, "CheckGameHome");
-                if (home is not null)
+                var successMatch = successCandidates
+                    .Select(candidate => FindFoundMatch(matches, candidate.Name))
+                    .FirstOrDefault(match => match is not null);
+                if (successMatch is not null)
                 {
-                    AddLog(logSink, "StartupMonitor", "Game home screen detected.", LogEntryKind.Success);
-                    return new PipelineTaskResult(true, "Game home screen detected.");
+                    AddLog(logSink, "StartupMonitor", "Startup success task detected.", LogEntryKind.Success);
+                    return new PipelineTaskResult(true, "Startup success task detected.");
                 }
 
                 if (chainIndex >= 0 && chainIndex < triggerChain.Length)
@@ -442,7 +451,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     }
 
                     var independentNames = monitorTask.MonitorTasks
-                        .Where(name => !string.Equals(name, "CheckGameHome", StringComparison.OrdinalIgnoreCase))
+                        .Where(name => !successCandidateNames.Contains(name))
                         .Where(name => !string.Equals(name, monitorTask.TriggerTask, StringComparison.OrdinalIgnoreCase))
                         .ToArray();
                     var independentMatch = independentNames
