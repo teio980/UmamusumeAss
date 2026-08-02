@@ -10,28 +10,71 @@
       "roi": [250, 1400, 400, 200],
       "templThreshold": 0.86,
       "timeoutMs": 5000,
-      "pollIntervalMs": 300
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["giftBox"],
+      "onErrorNext": ["back"]
     },
     "giftBox": {
       "template": "templates/mail_collection/gift_box.png",
       "roi": [650, 950, 250, 350],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
-      "pollIntervalMs": 300
+      "pollIntervalMs": 300,
+      "postDelay": 1800,
+      "next": ["collectAll"]
     },
     "collectAll": {
       "template": "templates/mail_collection/collect_all.png",
       "roi": [300, 1350, 600, 250],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
-      "pollIntervalMs": 300
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["close"]
     },
     "close": {
       "template": "templates/mail_collection/close.png",
       "roi": [0, 1300, 900, 300],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
-      "pollIntervalMs": 300
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "maxTimes": 1,
+      "next": ["closeOptional"]
+    },
+    "closeOptional": {
+      "template": "templates/mail_collection/close.png",
+      "roi": [0, 1300, 900, 300],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["homeVerify"],
+      "onErrorNext": ["homeVerify"]
+    },
+    "homeVerify": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/start_game/game_home.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 300,
+      "success": true
+    },
+    "back": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 600,
+      "maxTimes": 3,
+      "next": ["home"],
+      "exceededNext": ["stop"]
+    },
+    "stop": {
+      "algorithm": "JustReturn",
+      "action": "Stop"
     }
   },
   "timing": {
