@@ -68,7 +68,7 @@ Each entry in `tasks` is a named visual task. A typical task is:
 {
   "algorithm": "MatchTemplate",
   "action": "ClickSelf",
-  "template": "templates/team_race/buttons/race_tab.png",
+  "template": "templates/team_race/race_tab.png",
   "templThreshold": 0.88,
   "roi": [560, 1480, 280, 120],
   "timeoutMs": 12000,
