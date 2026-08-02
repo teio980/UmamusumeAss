@@ -108,7 +108,20 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
                     connection,
                     definition,
                     definition.GetTask("Close"),
-                    "Close",
+                    "Close (1/2)",
+                    logSink,
+                    linked.Token)
+                .ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(
+                    definition.Timing.NavigationMilliseconds,
+                    linked.Token)
+                .ConfigureAwait(false);
+
+            await ClickTemplateTaskAsync(
+                    connection,
+                    definition,
+                    definition.GetTask("Close"),
+                    "Close (2/2)",
                     logSink,
                     linked.Token)
                 .ConfigureAwait(false);
