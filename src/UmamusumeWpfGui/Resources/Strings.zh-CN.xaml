@@ -89,11 +89,13 @@
   <sys:String x:Key="GrassTaskRewardsCollection">邮箱领取</sys:String>
   <sys:String x:Key="GrassTaskRewardsCollectionDescription">打开邮箱并领取全部可用礼物</sys:String>
   <sys:String x:Key="GrassTaskFriendsShop">好友与商店</sys:String>
-  <sys:String x:Key="GrassTaskFriendsShopDescription">好友互动及商店检查（待接入）</sys:String>
+  <sys:String x:Key="GrassTaskFriendsShopDescription">检查商店并购买已设置的商品</sys:String>
   <sys:String x:Key="GrassTaskStartGame">开始游戏</sys:String>
   <sys:String x:Key="GrassTaskStartGameDescription">启动配置的 Android 游戏</sys:String>
   <sys:String x:Key="GrassTaskTeamRace">团队竞技场</sys:String>
   <sys:String x:Key="GrassTaskTeamRaceDescription">执行团队竞技场状态机</sys:String>
+  <sys:String x:Key="GrassTaskDailyRace">Daily Race 日常赛</sys:String>
+  <sys:String x:Key="GrassTaskDailyRaceDescription">刷 Monies 或 Support Points 的日常赛</sys:String>
   <sys:String x:Key="GrassTaskSelectionTitle">选择任务类型</sys:String>
   <sys:String x:Key="GrassTaskSelectionHint">选择要加入队列的任务。</sys:String>
   <sys:String x:Key="GrassTaskSelectionConfirm">添加任务</sys:String>
@@ -107,6 +109,14 @@
   <sys:String x:Key="GrassTeamRaceStarting">正在启动团队竞技场</sys:String>
   <sys:String x:Key="GrassTeamRaceRunning">正在从 {1} 执行 {0} 场比赛</sys:String>
   <sys:String x:Key="GrassTeamRaceCompleted">团队竞技场完成：{0} 场</sys:String>
+  <sys:String x:Key="GrassDailyRaceSettingsTitle">Daily Race 日常赛脚本</sys:String>
+  <sys:String x:Key="GrassDailyRaceDefinitionHint">Daily Race 状态机 JSON 路径。</sys:String>
+  <sys:String x:Key="GrassDailyRaceModeLabel">奖励类型</sys:String>
+  <sys:String x:Key="GrassDailyRaceCountHint">本次比赛场数（最少 1 场，最多 6 场，每日票数上限）。</sys:String>
+  <sys:String x:Key="GrassDailyRaceConnectionRequired">请先连接设备并配置有效的 Daily Race JSON</sys:String>
+  <sys:String x:Key="GrassDailyRaceStarting">正在启动 Daily Race</sys:String>
+  <sys:String x:Key="GrassDailyRaceRunning">正在从 {2} 执行 {0} {1} 场日常赛</sys:String>
+  <sys:String x:Key="GrassDailyRaceCompleted">Daily Race 完成：{0} 场</sys:String>
   <sys:String x:Key="GrassMailCollectionSettingsTitle">邮箱领取流程</sys:String>
   <sys:String x:Key="GrassMailCollectionDefinitionHint">邮箱自动化定义文件路径。</sys:String>
   <sys:String x:Key="GrassMailCollectionConnectionRequired">请先连接设备再领取邮箱奖励</sys:String>
@@ -217,4 +227,13 @@
   <sys:String x:Key="DeveloperToolsSaveButton">保存 PNG</sys:String>
   <sys:String x:Key="DeveloperToolsSaveCropButton">保存裁剪图</sys:String>
   <sys:String x:Key="DeveloperToolsClearCropButton">清除裁剪</sys:String>
+  <sys:String x:Key="GrassShopSettingsTitle">商店购买设置</sys:String>
+  <sys:String x:Key="GrassShopDefinitionHint">普通 Hachimi 任务完成后，出现商店时自动检查。</sys:String>
+  <sys:String x:Key="GrassShopSelectAll">购买全部商店商品</sys:String>
+  <sys:String x:Key="GrassShopBuyStarPieces">购买碎片（商店第 1、2 格）</sys:String>
+  <sys:String x:Key="GrassShopBuyAlarmClock">购买 Alarm Clock（第 3 格）</sys:String>
+  <sys:String x:Key="GrassShopBuyPleasingParfait">购买 Pleasing Parfait（第 4 格）</sys:String>
+  <sys:String x:Key="GrassShopBuyShoes">购买鞋子（第 5 格）</sys:String>
+  <sys:String x:Key="GrassShopBuySupportPoints">购买 Support Points（第 6 格）</sys:String>
+  <sys:String x:Key="GrassShopBuyFlags">购买旗子（第 7 格）</sys:String>
 </ResourceDictionary>

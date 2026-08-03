@@ -223,8 +223,14 @@
                   <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
                     <taskviews:TeamRaceTaskSettingsView />
                   </DataTemplate>
+                  <DataTemplate DataType="{x:Type tasksettings:DailyRaceTaskSettingsViewModel}">
+                    <taskviews:DailyRaceTaskSettingsView />
+                  </DataTemplate>
                   <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
                     <taskviews:MailCollectionTaskSettingsView />
+                  </DataTemplate>
+                  <DataTemplate DataType="{x:Type tasksettings:ShopTaskSettingsViewModel}">
+                    <taskviews:ShopTaskSettingsView />
                   </DataTemplate>
                 </ContentControl.Resources>
               </ContentControl>

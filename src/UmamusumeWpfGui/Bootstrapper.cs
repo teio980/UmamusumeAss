@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Windows;
 using Stylet;
 using StyletIoC;
@@ -9,6 +8,7 @@ using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
+using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui;
 
@@ -65,13 +65,28 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<TeamRaceTaskModule>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<DailyRaceTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<ShopTaskSettingsViewModel>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<IShopPipeline>()
+            .To<AdbShopPipeline>()
+            .InSingletonScope();
         builder.Bind<ITeamRacePipeline>()
             .To<AdbTeamRacePipeline>()
+            .InSingletonScope();
+        builder.Bind<IDailyRacePipeline>()
+            .To<AdbDailyRacePipeline>()
             .InSingletonScope();
         builder.Bind<IMailCollectionPipeline>()
             .To<AdbMailCollectionPipeline>()
             .InSingletonScope();
         builder.Bind<MailCollectionTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<ShopTaskModule>()
             .ToSelf()
             .InSingletonScope();
         builder.Bind<IFileSystem>()
@@ -103,9 +118,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
 
         var umaService = Container.Get<IUmaService>();
 
-        var appBaseDir = Path.GetDirectoryName(
-            Assembly.GetExecutingAssembly().Location)
-            ?? AppContext.BaseDirectory;
+        var appBaseDir = AppContext.BaseDirectory;
 
         var appDataDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
