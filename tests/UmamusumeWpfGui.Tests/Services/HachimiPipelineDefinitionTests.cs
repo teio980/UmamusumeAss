@@ -27,6 +27,23 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Team_race_can_call_the_shared_shop_pipeline()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        var trigger = definition!.GetTask("runRandomShop");
+        Assert.Equal("RunPipeline", trigger.Action);
+        Assert.Equal("shop.json", trigger.Pipeline);
+        Assert.Equal("shopProbe", trigger.Entry);
+        Assert.Contains("MiddleNext", trigger.Next);
+        Assert.Contains("MiddleNext", trigger.OnErrorNext);
+    }
+
+    [Fact]
     public void Start_game_keeps_its_special_monitor_and_trigger_chain_definition()
     {
         var root = FindSolutionRoot();

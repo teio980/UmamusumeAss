@@ -1,4 +1,6 @@
+using System.IO;
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
@@ -11,15 +13,19 @@ public sealed class HachimiJsonPipelineRunner
 {
     private readonly IAdbRuntime _adbRuntime;
     private readonly IVisualPipelineRuntime _visualRuntime;
+    private readonly ShopTaskSettingsViewModel _shopSettings;
 
     public HachimiJsonPipelineRunner(
         IAdbRuntime adbRuntime,
-        IVisualPipelineRuntime visualRuntime)
+        IVisualPipelineRuntime visualRuntime,
+        ShopTaskSettingsViewModel shopSettings)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(visualRuntime);
+        ArgumentNullException.ThrowIfNull(shopSettings);
         _adbRuntime = adbRuntime;
         _visualRuntime = visualRuntime;
+        _shopSettings = shopSettings;
     }
 
     public async Task<HachimiPipelineRunResult> RunAsync(
@@ -112,6 +118,7 @@ public sealed class HachimiJsonPipelineRunner
                     definition,
                     current,
                     task,
+                    state.Options,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -171,6 +178,7 @@ public sealed class HachimiJsonPipelineRunner
         HachimiPipelineDefinition definition,
         string taskName,
         HachimiPipelineTask task,
+        HachimiPipelineRunOptions runOptions,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -268,6 +276,20 @@ public sealed class HachimiJsonPipelineRunner
                 AddLog(logSink, $"Swiped for '{taskName}'.", LogEntryKind.Success);
                 break;
 
+            case "runpipeline":
+                var nestedResult = await RunNestedPipelineAsync(
+                        connection,
+                        definition,
+                        taskName,
+                        task,
+                        runOptions,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!nestedResult.Succeeded)
+                    return nestedResult;
+                break;
+
             case "back":
                 var back = await _adbRuntime.BackAsync(
                         connection.AdbPath,
@@ -319,6 +341,73 @@ public sealed class HachimiJsonPipelineRunner
 
         return TaskExecutionResult.Completed(taskName);
     }
+
+    private async Task<TaskExecutionResult> RunNestedPipelineAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition parentDefinition,
+        string taskName,
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions parentOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(task.Pipeline))
+        {
+            return TaskExecutionResult.Failed(
+                $"JSON task '{taskName}' uses RunPipeline but has no pipeline path.");
+        }
+
+        var requestedPipeline = task.Pipeline.Trim();
+
+        if (parentOptions.PipelineDepth >= HachimiPipelineRunOptions.MaximumPipelineDepth)
+        {
+            return TaskExecutionResult.Failed(
+                $"JSON task '{taskName}' exceeded the nested pipeline depth limit.");
+        }
+
+        var nestedPath = Path.IsPathRooted(requestedPipeline)
+            ? requestedPipeline
+            : Path.GetFullPath(Path.Combine(parentDefinition.BaseDirectory, requestedPipeline));
+        var nestedEntry = task.Entry?.Trim() is { Length: > 0 } entry
+            ? entry
+            : "home";
+        var nestedOptions = new HachimiPipelineRunOptions
+        {
+            PipelineDepth = parentOptions.PipelineDepth + 1,
+            MaxTimesOverrides = IsShopPipeline(nestedPath)
+                ? _shopSettings.ToOptions().ToMaxTimesOverrides()
+                : null,
+        };
+
+        AddLog(
+            logSink,
+            $"Calling nested JSON pipeline '{nestedPath}' from '{taskName}'.");
+        var result = await RunAsync(
+                connection,
+                nestedPath,
+                nestedEntry,
+                nestedOptions,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            return TaskExecutionResult.Failed(
+                $"Nested pipeline '{nestedPath}' failed: {result.Message}");
+        }
+
+        AddLog(
+            logSink,
+            $"Nested JSON pipeline '{nestedPath}' completed.",
+            LogEntryKind.Success);
+        return TaskExecutionResult.Completed(taskName);
+    }
+
+    private static bool IsShopPipeline(string path) =>
+        string.Equals(
+            Path.GetFileName(path),
+            "shop.json",
+            StringComparison.OrdinalIgnoreCase);
 
     private static bool HasExceededLimit(
         string taskName,
@@ -419,12 +508,16 @@ public sealed class HachimiJsonPipelineRunner
 
 public sealed class HachimiPipelineRunOptions
 {
+    public const int MaximumPipelineDepth = 4;
+
     /// <summary>
     /// Runtime limits supplied by a caller, such as raceCount - 1 for the
     /// JSON race-again loop. A present value of zero means do not execute the
     /// task and follow its exceededNext transition immediately.
     /// </summary>
     public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }
+
+    public int PipelineDepth { get; init; }
 }
 
 public sealed record HachimiPipelineRunResult(

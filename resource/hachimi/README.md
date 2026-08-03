@@ -96,8 +96,26 @@ Each entry in `tasks` is a named visual task. A typical task is:
 - `pollIntervalMs` controls the interval between screenshots; the pipeline
   timing value is used when this field is omitted or zero.
 - `algorithm` and `action` document the MAA-style intent. The current ordinary
-  executor implements template matching followed by tapping; new action types
-  must be added to the shared runtime before they can be used.
+  executor implements template matching followed by tapping. `RunPipeline`
+  is the reusable nested-flow action: its `pipeline` path is relative to the
+  current definition, its optional `entry` names the child entry task, and
+  the child returns to the parent's `next` transition after it completes.
+  New action types must be added to the shared runtime before they can be used.
+
+For example, a task can probe the shared shop flow without copying its steps:
+
+```json
+{
+  "action": "RunPipeline",
+  "pipeline": "shop.json",
+  "entry": "shopProbe",
+  "next": ["continueParentFlow"],
+  "onErrorNext": ["continueParentFlow"]
+}
+```
+
+The shop pipeline reuses the configured Shop task purchase options and returns
+success when the shop is absent, so the parent task can continue normally.
 
 `timing` contains business-flow waits rather than visual-match settings. Mail
 uses values such as `mailboxLoadMs` and `collectionSettleMs`; Team Race uses
