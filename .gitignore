@@ -8,6 +8,8 @@ MaaAssistantArknights/
 build/
 bin/
 obj/
+publish/
+dist/
 [Bb]uild/
 [Bb]in/
 [Dd]ebug/
