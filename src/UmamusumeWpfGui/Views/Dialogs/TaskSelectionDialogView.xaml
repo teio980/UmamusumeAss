@@ -23,14 +23,23 @@
                  ShowMaximize="False"
                  ShowMinimize="False" />
 
-    <StackPanel Grid.Row="1" Margin="32,24,32,16">
+    <Grid Grid.Row="1" Margin="32,24,32,16">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
       <TextBlock Text="{DynamicResource GrassTaskSelectionHint}"
+                 Grid.Row="0"
                  Margin="0,0,0,16"
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
       <ListBox ItemsSource="{Binding Items}"
+               Grid.Row="1"
                SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
                Background="Transparent"
-               BorderThickness="0">
+               BorderThickness="0"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
             <Setter Property="Padding" Value="12,10" />
@@ -55,7 +64,7 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
-    </StackPanel>
+    </Grid>
 
     <StackPanel Grid.Row="2"
                 Margin="32,0,32,24"
