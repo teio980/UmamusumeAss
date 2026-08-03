@@ -1,7 +1,7 @@
 {
   "name": "team-race",
   "schemaVersion": 1,
-  "description": "Team Trials pipeline: match a small button template inside an ROI, then click the matched rectangle.",
+  "description": "Team Trials pipeline: repeat Race Again until the requested count, then click Next to exit.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {
@@ -79,7 +79,7 @@
     },
     "seeallresult": {
       "template": "templates/team_race/see_all_result.png",
-      "roi": [280, 1400, 340, 140],
+      "roi": [250, 1460, 370, 90],
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
@@ -87,31 +87,69 @@
     },
     "whiteskip": {
       "template": "templates/team_race/whiteskip.png",
-      "roi": [790, 1440, 60, 35],
+      "roi": [790, 1434, 60, 47],
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
-      "maxTimes": 5,
-      "next": ["resultNext"]
+      "maxTimes": 2,
+      "next": ["next"]
     },
-    "resultNext": {
+    "next": {
       "template": "templates/team_race/result_next.png",
-      "roi": [200, 1370, 500, 180],
-      "templThreshold": 0.88,
+      "roi": [740, 1425, 160, 65],
+      "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
       "next": ["newhighscore"]
     },
     "newhighscore": {
       "template": "templates/team_race/new_high_score.png",
-      "roi": [150, 500, 150, 60],
+      "roi": [150, 494, 150, 72],
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
       "required": false,
-      "next": ["viewRace"],
-      "onErrorNext": ["viewRace"],
-      "exceededNext": ["complete"]
+      "next": ["MiddleNext"],
+      "onErrorNext": ["MiddleNext"]
+    },
+    "MiddleNext": {
+      "template": "templates/team_race/final_next.png",
+      "roi": [769, 1439, 102, 37],
+      "templThreshold": 0.86,
+      "required": false,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["nexttwo"],
+      "onErrorNext": ["nexttwo"]
+    },
+    "nexttwo": {
+      "template": "templates/team_race/result_next.png",
+      "roi": [740, 1425, 160, 65],
+      "templThreshold": 0.80,
+      "required": false,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["raceagain"],
+      "onErrorNext": ["raceagain"]
+    },
+    "raceagain": {
+      "template": "templates/team_race/race_again.png",
+      "roi": [40, 1370, 400, 180],
+      "templThreshold": 0.82,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "countAs": "race",
+      "next": ["opponent"],
+      "exceededNext": ["finalNext"]
+    },
+    "finalNext": {
+      "template": "templates/team_race/final_next.png",
+      "roi": [450, 1370, 400, 180],
+      "templThreshold": 0.88,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "countAs": "race",
+      "next": ["complete"]
     },
     "complete": {
       "algorithm": "JustReturn",
