@@ -8,6 +8,7 @@ public interface IDailyRacePipeline
         LastVerifiedConnection connection,
         string definitionPath,
         string mode,
+        string difficulty,
         int raceCount,
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default);

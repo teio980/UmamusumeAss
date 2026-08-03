@@ -30,10 +30,12 @@ template and close-button template are configured.
 `daily_race.json` follows the captured game path Race > Daily Program > Daily
 Races. The task settings choose either the Monies event (Moonlight Sho) or the
 Support Points event (Jupiter Cup) and clamp the requested count to 1–6. The
-shared graph selects the Very Hard card, confirms the default runner, leaves
-items unselected, accepts the portrait playback prompt when it appears, waits
-for the race result, and handles both Race Again and the optional Daily Sale
-cancel dialog before returning to the Daily Race page.
+shared graph selects the configured difficulty card (Very Hard, Hard, Normal,
+or Easy), confirms the default runner, leaves items unselected, accepts the
+portrait playback prompt when it appears, waits for the race result, and
+handles both Race Again and the optional Daily Sale cancel dialog before
+returning to the Daily Race page. Monies and Support Points share one
+difficulty-row template; the settings-driven ROI selects the requested row.
 
 Daily Race templates belong under `templates/daily_race/`; they were captured
 from the configured 900x1600 MuMu device and cropped to stable cards/buttons.

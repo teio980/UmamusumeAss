@@ -30,4 +30,16 @@ public sealed class DailyRaceTaskSettingsViewModelTests
         settings.Mode = "unknown";
         Assert.Equal(DailyRaceTaskSettingsViewModel.MoniesMode, settings.Mode);
     }
+
+    [Fact]
+    public void Difficulty_normalizes_to_one_of_the_daily_race_rows()
+    {
+        var settings = new DailyRaceTaskSettingsViewModel();
+
+        settings.Difficulty = "easy";
+        Assert.Equal(DailyRaceTaskSettingsViewModel.EasyDifficulty, settings.Difficulty);
+
+        settings.Difficulty = "unknown";
+        Assert.Equal(DailyRaceTaskSettingsViewModel.VeryHardDifficulty, settings.Difficulty);
+    }
 }

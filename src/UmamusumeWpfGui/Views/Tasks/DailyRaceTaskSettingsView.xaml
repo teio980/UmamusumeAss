@@ -29,6 +29,16 @@
                 SelectedValue="{Binding Mode, UpdateSourceTrigger=PropertyChanged}" />
 
       <TextBlock Margin="0,14,0,0"
+                 Text="{DynamicResource GrassDailyRaceDifficultyLabel}" />
+      <ComboBox Width="220"
+                Margin="0,6,0,0"
+                HorizontalAlignment="Left"
+                ItemsSource="{Binding Difficulties}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding Difficulty, UpdateSourceTrigger=PropertyChanged}" />
+
+      <TextBlock Margin="0,14,0,0"
                  Text="{DynamicResource GrassDailyRaceCountHint}"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource TextSecondaryBrush}" />

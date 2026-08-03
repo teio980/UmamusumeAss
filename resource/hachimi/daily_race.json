@@ -9,7 +9,7 @@
     "home": {
       "template": "templates/start_game/game_home.png",
       "roi": [250, 1400, 400, 200],
-      "templThreshold": 0.86,
+      "templThreshold": 0.8,
       "timeoutMs": 5000,
       "postDelay": 1200,
       "next": ["raceTab"]
@@ -33,7 +33,7 @@
     "dailyRaces": {
       "template": "templates/daily_race/daily_races_button.png",
       "roi": [40, 980, 480, 400],
-      "templThreshold": 0.84,
+      "templThreshold": 0.8,
       "timeoutMs": 12000,
       "postDelay": 1800,
       "next": ["moniesMode"]
@@ -44,7 +44,7 @@
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "postDelay": 1800,
-      "next": ["moniesDifficulty"],
+      "next": ["moniesDifficultyScroll"],
       "exceededNext": ["supportPointMode"]
     },
     "supportPointMode": {
@@ -53,19 +53,33 @@
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "postDelay": 1800,
-      "next": ["supportPointDifficulty"]
+      "next": ["supportPointDifficultyScroll"]
+    },
+    "moniesDifficultyScroll": {
+      "action": "Swipe",
+      "swipe": [780, 1260, 780, 760, 500],
+      "postDelay": 800,
+      "next": ["moniesDifficulty"],
+      "exceededNext": ["moniesDifficulty"]
+    },
+    "supportPointDifficultyScroll": {
+      "action": "Swipe",
+      "swipe": [780, 1260, 780, 760, 500],
+      "postDelay": 800,
+      "next": ["supportPointDifficulty"],
+      "exceededNext": ["supportPointDifficulty"]
     },
     "moniesDifficulty": {
-      "template": "templates/daily_race/monies_difficulty.png",
-      "roi": [0, 760, 620, 360],
+      "template": "templates/daily_race/difficulty_common.png",
+      "roi": [520, 800, 360, 145],
       "templThreshold": 0.84,
       "timeoutMs": 15000,
       "postDelay": 2200,
       "next": ["raceStart"]
     },
     "supportPointDifficulty": {
-      "template": "templates/daily_race/supportpoint_difficulty.png",
-      "roi": [0, 760, 620, 360],
+      "template": "templates/daily_race/difficulty_common.png",
+      "roi": [520, 800, 360, 145],
       "templThreshold": 0.84,
       "timeoutMs": 15000,
       "postDelay": 2200,

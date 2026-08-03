@@ -19,6 +19,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         LastVerifiedConnection connection,
         string definitionPath,
         string mode,
+        string difficulty,
         int raceCount,
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default)
@@ -43,6 +44,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         try
         {
             var normalizedMode = DailyRaceTaskSettingsViewModel.NormalizeMode(mode);
+            var normalizedDifficulty = DailyRaceTaskSettingsViewModel.NormalizeDifficulty(difficulty);
             var requestedRaces = Math.Clamp(
                 raceCount,
                 DailyRaceTaskSettingsViewModel.MinimumRaceCount,
@@ -50,6 +52,14 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
             var overrides = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
                 ["rewardRaceAgain"] = requestedRaces - 1,
+                ["moniesDifficultyScroll"] = string.Equals(
+                    normalizedDifficulty,
+                    DailyRaceTaskSettingsViewModel.EasyDifficulty,
+                    StringComparison.OrdinalIgnoreCase) ? 1 : 0,
+                ["supportPointDifficultyScroll"] = string.Equals(
+                    normalizedDifficulty,
+                    DailyRaceTaskSettingsViewModel.EasyDifficulty,
+                    StringComparison.OrdinalIgnoreCase) ? 1 : 0,
             };
 
             if (string.Equals(
@@ -72,6 +82,11 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                     new HachimiPipelineRunOptions
                     {
                         MaxTimesOverrides = overrides,
+                        RoiOverrides = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["moniesDifficulty"] = GetDifficultyRoi(normalizedDifficulty),
+                            ["supportPointDifficulty"] = GetDifficultyRoi(normalizedDifficulty),
+                        },
                     },
                     logSink,
                     linked.Token)
@@ -132,4 +147,13 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         string details,
         LogEntryKind kind = LogEntryKind.Info) =>
         logSink?.Add("Daily Race", details, kind);
+
+    private static int[] GetDifficultyRoi(string difficulty) =>
+        DailyRaceTaskSettingsViewModel.NormalizeDifficulty(difficulty) switch
+        {
+            DailyRaceTaskSettingsViewModel.HardDifficulty => [520, 975, 360, 145],
+            DailyRaceTaskSettingsViewModel.NormalDifficulty => [520, 1145, 360, 145],
+            DailyRaceTaskSettingsViewModel.EasyDifficulty => [520, 1060, 360, 170],
+            _ => [520, 800, 360, 145],
+        };
 }

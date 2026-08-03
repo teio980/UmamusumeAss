@@ -112,6 +112,7 @@
   <sys:String x:Key="GrassDailyRaceSettingsTitle">Daily Race 日常赛脚本</sys:String>
   <sys:String x:Key="GrassDailyRaceDefinitionHint">Daily Race 状态机 JSON 路径。</sys:String>
   <sys:String x:Key="GrassDailyRaceModeLabel">奖励类型</sys:String>
+  <sys:String x:Key="GrassDailyRaceDifficultyLabel">比赛难度</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">本次比赛场数（最少 1 场，最多 6 场，每日票数上限）。</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">请先连接设备并配置有效的 Daily Race JSON</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">正在启动 Daily Race</sys:String>

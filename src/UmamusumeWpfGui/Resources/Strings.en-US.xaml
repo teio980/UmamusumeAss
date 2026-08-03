@@ -113,6 +113,7 @@
   <sys:String x:Key="GrassDailyRaceSettingsTitle">Daily Race pipeline</sys:String>
   <sys:String x:Key="GrassDailyRaceDefinitionHint">Path to the Daily Race JSON state machine.</sys:String>
   <sys:String x:Key="GrassDailyRaceModeLabel">Reward mode</sys:String>
+  <sys:String x:Key="GrassDailyRaceDifficultyLabel">Difficulty</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">Number of races to run (1–6, the daily ticket limit).</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">Connect a device and configure a valid Daily Race definition first</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">Starting Daily Race</sys:String>

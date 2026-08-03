@@ -214,10 +214,17 @@ public sealed class HachimiJsonPipelineRunner
 
         if (!string.IsNullOrWhiteSpace(task.Template))
         {
+            var roi = task.Roi;
+            if (runOptions.RoiOverrides is not null
+                && runOptions.RoiOverrides.TryGetValue(taskName, out var roiOverride))
+            {
+                roi = roiOverride;
+            }
+
             match = await _visualRuntime.WaitForMatchAsync(
                     connection,
                     task.Template,
-                    task.Roi,
+                    roi,
                     task.TemplateThreshold,
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
@@ -516,6 +523,12 @@ public sealed class HachimiPipelineRunOptions
     /// task and follow its exceededNext transition immediately.
     /// </summary>
     public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime ROI adjustments supplied by a caller for settings-driven rows.
+    /// The task definition keeps the default ROI for backwards compatibility.
+    /// </summary>
+    public IReadOnlyDictionary<string, int[]>? RoiOverrides { get; init; }
 
     public int PipelineDepth { get; init; }
 }

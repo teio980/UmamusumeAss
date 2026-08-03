@@ -41,6 +41,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
     {
         ["definitionPath"] = Settings.DefinitionPath,
         ["mode"] = Settings.Mode,
+        ["difficulty"] = Settings.Difficulty,
         ["raceCount"] = Settings.RaceCount,
     };
 
@@ -49,6 +50,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
         ArgumentNullException.ThrowIfNull(settings);
         Settings.DefinitionPath = ReadString(settings, "definitionPath") ?? Settings.DefinitionPath;
         Settings.Mode = ReadString(settings, "mode") ?? Settings.Mode;
+        Settings.Difficulty = ReadString(settings, "difficulty") ?? Settings.Difficulty;
         Settings.RaceCountText = ReadInt(
                 settings,
                 "raceCount",
@@ -65,6 +67,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
         context.Connection is not null
         && !string.IsNullOrWhiteSpace(Settings.DefinitionPath)
         && Settings.IsModeValid
+        && Settings.IsDifficultyValid
         && Settings.RaceCount > 0;
 
     public async Task<GrassTaskExecutionResult> ExecuteAsync(
@@ -95,6 +98,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
                 connection,
                 Settings.DefinitionPath,
                 Settings.Mode,
+                Settings.Difficulty,
                 Settings.RaceCount,
                 context.LogSink,
                 cancellationToken)
