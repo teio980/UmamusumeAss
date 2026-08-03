@@ -237,10 +237,14 @@ public sealed class HachimiJsonPipelineRunner
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            if (match is null)
+            if (match is null || !match.Found)
             {
+                var bestScore = match is null
+                    ? "none"
+                    : match.Score.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
                 return TaskExecutionResult.Failed(
-                    $"Timed out waiting for JSON task '{taskName}' (threshold {task.TemplateThreshold:0.000}).");
+                    $"Timed out waiting for JSON task '{taskName}' "
+                    + $"(best score {bestScore} / threshold {task.TemplateThreshold:0.000}).");
             }
         }
 
@@ -261,7 +265,8 @@ public sealed class HachimiJsonPipelineRunner
                     .ConfigureAwait(false);
                 AddLog(
                     logSink,
-                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), score {match.Score:0.000}.",
+                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), "
+                    + $"score {match.Score:0.000} / threshold {task.TemplateThreshold:0.000}.",
                     LogEntryKind.Success);
                 break;
 
@@ -312,6 +317,14 @@ public sealed class HachimiJsonPipelineRunner
                 break;
 
             case "wait":
+                if (match is not null)
+                {
+                    AddLog(
+                        logSink,
+                        $"Matched '{taskName}': score {match.Score:0.000} "
+                        + $"/ threshold {task.TemplateThreshold:0.000}.",
+                        LogEntryKind.Success);
+                }
                 break;
 
             case "donothing":

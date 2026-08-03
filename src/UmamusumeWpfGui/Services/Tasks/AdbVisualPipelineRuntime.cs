@@ -83,6 +83,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             50,
             10_000));
         var started = Stopwatch.GetTimestamp();
+        TemplateMatchResult? bestMatch = null;
 
         while (true)
         {
@@ -98,12 +99,14 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     threshold,
                     referenceWidth,
                     referenceHeight);
+                if (bestMatch is null || match.Score > bestMatch.Score)
+                    bestMatch = match;
                 if (match.Found)
                     return match;
             }
 
             if (Stopwatch.GetElapsedTime(started) >= timeout)
-                return null;
+                return bestMatch;
 
             await DelayAsync((int)poll.TotalMilliseconds, cancellationToken)
                 .ConfigureAwait(false);

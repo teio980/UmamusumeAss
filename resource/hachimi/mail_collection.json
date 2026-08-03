@@ -30,7 +30,7 @@
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
-      "postDelay": 1200,
+      "postDelay": 750,
       "next": ["close"]
     },
     "close": {

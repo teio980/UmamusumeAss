@@ -300,9 +300,10 @@
                 <DataTemplate DataType="{x:Type m:LogEntry}">
                   <StackPanel Margin="0,4">
                     <TextBlock Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}"
-                               FontSize="11"
+                               FontSize="10"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                     <TextBlock Text="{Binding Type}"
+                               FontSize="11"
                                FontWeight="Medium" />
                     <Expander Margin="0,2,0,0"
                               HorizontalAlignment="Stretch"
@@ -312,12 +313,16 @@
                       <Expander.HeaderTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding}"
-                                     TextWrapping="NoWrap"
+                                     FontSize="10.5"
+                                     LineHeight="15"
+                                     MaxHeight="60"
+                                     TextWrapping="Wrap"
                                      TextTrimming="CharacterEllipsis"
                                      Foreground="{DynamicResource TextSecondaryBrush}" />
                         </DataTemplate>
                       </Expander.HeaderTemplate>
                       <TextBlock Text="{Binding Details}"
+                                 FontSize="10.5"
                                  TextWrapping="Wrap"
                                  Foreground="{DynamicResource TextSecondaryBrush}" />
                     </Expander>
