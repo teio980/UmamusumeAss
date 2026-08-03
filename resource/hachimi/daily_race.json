@@ -1,0 +1,201 @@
+{
+  "name": "daily-race",
+  "schemaVersion": 1,
+  "description": "Daily Race pipeline: enter Race > Daily Program > Daily Races, select Monies or Support Points, then repeat the selected Very Hard race for the configured count.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "home": {
+      "template": "templates/start_game/game_home.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "next": ["raceTab"]
+    },
+    "raceTab": {
+      "template": "templates/team_race/race_tab.png",
+      "roi": [560, 1480, 280, 120],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1200,
+      "next": ["dailyProgram"]
+    },
+    "dailyProgram": {
+      "template": "templates/daily_race/daily_program_button.png",
+      "roi": [60, 1150, 430, 350],
+      "templThreshold": 0.84,
+      "timeoutMs": 12000,
+      "postDelay": 1500,
+      "next": ["dailyRaces"]
+    },
+    "dailyRaces": {
+      "template": "templates/daily_race/daily_races_button.png",
+      "roi": [40, 980, 480, 400],
+      "templThreshold": 0.84,
+      "timeoutMs": 12000,
+      "postDelay": 1800,
+      "next": ["moniesMode"]
+    },
+    "moniesMode": {
+      "template": "templates/daily_race/monies_card.png",
+      "roi": [250, 740, 650, 280],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1800,
+      "next": ["moniesDifficulty"],
+      "exceededNext": ["supportPointMode"]
+    },
+    "supportPointMode": {
+      "template": "templates/daily_race/supportpoint_card.png",
+      "roi": [250, 920, 650, 280],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1800,
+      "next": ["supportPointDifficulty"]
+    },
+    "moniesDifficulty": {
+      "template": "templates/daily_race/monies_difficulty.png",
+      "roi": [0, 760, 620, 360],
+      "templThreshold": 0.84,
+      "timeoutMs": 15000,
+      "postDelay": 2200,
+      "next": ["raceStart"]
+    },
+    "supportPointDifficulty": {
+      "template": "templates/daily_race/supportpoint_difficulty.png",
+      "roi": [0, 760, 620, 360],
+      "templThreshold": 0.84,
+      "timeoutMs": 15000,
+      "postDelay": 2200,
+      "next": ["raceStart"]
+    },
+    "raceStart": {
+      "template": "templates/daily_race/race_start.png",
+      "roi": [400, 1370, 470, 230],
+      "templThreshold": 0.84,
+      "timeoutMs": 20000,
+      "postDelay": 1800,
+      "next": ["runnerConfirm"]
+    },
+    "runnerConfirm": {
+      "template": "templates/daily_race/runner_confirm.png",
+      "roi": [220, 1240, 500, 260],
+      "templThreshold": 0.84,
+      "timeoutMs": 25000,
+      "postDelay": 1800,
+      "next": ["previewNext"]
+    },
+    "previewNext": {
+      "template": "templates/team_race/result_next.png",
+      "roi": [100, 1350, 700, 220],
+      "templThreshold": 0.84,
+      "timeoutMs": 30000,
+      "postDelay": 1200,
+      "next": ["itemsReady"]
+    },
+    "itemsReady": {
+      "algorithm": "MatchTemplate",
+      "action": "Wait",
+      "template": "templates/daily_race/items_title.png",
+      "roi": [0, 300, 900, 650],
+      "templThreshold": 0.84,
+      "timeoutMs": 12000,
+      "postDelay": 500,
+      "next": ["itemsRace"]
+    },
+    "itemsRace": {
+      "template": "templates/daily_race/items_race.png",
+      "roi": [400, 1020, 480, 280],
+      "templThreshold": 0.84,
+      "timeoutMs": 12000,
+      "postDelay": 1800,
+      "next": ["preRace"]
+    },
+    "preRace": {
+      "template": "templates/daily_race/race_start.png",
+      "roi": [400, 1370, 470, 230],
+      "templThreshold": 0.84,
+      "timeoutMs": 30000,
+      "postDelay": 1800,
+      "next": ["playbackOk"]
+    },
+    "playbackOk": {
+      "template": "templates/daily_race/playback_ok.png",
+      "roi": [400, 930, 480, 260],
+      "templThreshold": 0.84,
+      "timeoutMs": 8000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["racePlaybackResult"],
+      "onErrorNext": ["racePlaybackResult"]
+    },
+    "racePlaybackResult": {
+      "template": "templates/daily_race/race_start.png",
+      "roi": [100, 1320, 700, 280],
+      "templThreshold": 0.84,
+      "timeoutMs": 120000,
+      "postDelay": 1800,
+      "next": ["finalNext"]
+    },
+    "finalNext": {
+      "template": "templates/team_race/result_next.png",
+      "roi": [100, 1350, 700, 220],
+      "templThreshold": 0.84,
+      "timeoutMs": 120000,
+      "postDelay": 1200,
+      "countAs": "race",
+      "next": ["dailySaleCancel"]
+    },
+    "dailySaleCancel": {
+      "template": "templates/daily_race/items_cancel.png",
+      "roi": [0, 820, 450, 500],
+      "templThreshold": 0.82,
+      "timeoutMs": 3000,
+      "postDelay": 1000,
+      "required": false,
+      "next": ["rewardRaceAgain"],
+      "onErrorNext": ["rewardRaceAgain"]
+    },
+    "rewardRaceAgain": {
+      "template": "templates/team_race/race_again.png",
+      "roi": [0, 1350, 450, 250],
+      "templThreshold": 0.82,
+      "timeoutMs": 10000,
+      "postDelay": 1800,
+      "next": ["repeatRunnerProbe"],
+      "exceededNext": ["rewardNext"]
+    },
+    "repeatRunnerProbe": {
+      "template": "templates/daily_race/runner_confirm.png",
+      "roi": [220, 1240, 500, 260],
+      "templThreshold": 0.84,
+      "timeoutMs": 5000,
+      "postDelay": 1800,
+      "required": false,
+      "next": ["previewNext"],
+      "onErrorNext": ["raceStart"]
+    },
+    "rewardNext": {
+      "template": "templates/team_race/result_next.png",
+      "roi": [450, 1350, 450, 220],
+      "templThreshold": 0.82,
+      "timeoutMs": 10000,
+      "postDelay": 1200,
+      "next": ["complete"]
+    },
+    "complete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
+    }
+  },
+  "timing": {
+    "navigationMs": 1500,
+    "pollIntervalMs": 500,
+    "raceTimeoutMs": 120000,
+    "playbackLoadMs": 10000,
+    "betweenRacesMs": 1800
+  }
+}

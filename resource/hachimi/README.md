@@ -25,6 +25,19 @@ marker, and repeats the same routine for the configured count. The UI accepts
 The optional random-shop branch is enabled only when a client-specific shop
 template and close-button template are configured.
 
+## Daily Race flow
+
+`daily_race.json` follows the captured game path Race > Daily Program > Daily
+Races. The task settings choose either the Monies event (Moonlight Sho) or the
+Support Points event (Jupiter Cup) and clamp the requested count to 1–6. The
+shared graph selects the Very Hard card, confirms the default runner, leaves
+items unselected, accepts the portrait playback prompt when it appears, waits
+for the race result, and handles both Race Again and the optional Daily Sale
+cancel dialog before returning to the Daily Race page.
+
+Daily Race templates belong under `templates/daily_race/`; they were captured
+from the configured 900x1600 MuMu device and cropped to stable cards/buttons.
+
 ## Pipeline schema
 
 `mail_collection.json` and `team_race.json` use the shared ordinary-pipeline

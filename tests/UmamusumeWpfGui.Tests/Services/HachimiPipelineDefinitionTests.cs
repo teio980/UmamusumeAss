@@ -9,6 +9,7 @@ public sealed class HachimiPipelineDefinitionTests
     [Theory]
     [InlineData("mail_collection.json", "Home")]
     [InlineData("team_race.json", "RaceTab")]
+    [InlineData("daily_race.json", "DailyProgram")]
     public async Task Ordinary_pipeline_definitions_load_with_the_shared_schema(
         string fileName,
         string expectedTask)

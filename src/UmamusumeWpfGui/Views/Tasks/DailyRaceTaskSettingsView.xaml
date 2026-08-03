@@ -1,0 +1,45 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.DailyRaceTaskSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <Border Padding="12"
+          Background="{DynamicResource SurfaceRaisedBrush}"
+          BorderBrush="{DynamicResource BorderSubtleBrush}"
+          BorderThickness="1"
+          CornerRadius="6">
+    <StackPanel>
+      <TextBlock Text="{DynamicResource GrassDailyRaceSettingsTitle}"
+                 FontWeight="Medium" />
+      <TextBlock Margin="0,6,0,0"
+                 Text="{DynamicResource GrassDailyRaceDefinitionHint}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <ui:TextBox Margin="0,10,0,0"
+                  Text="{Binding DefinitionPath, UpdateSourceTrigger=PropertyChanged}" />
+
+      <TextBlock Margin="0,14,0,0"
+                 Text="{DynamicResource GrassDailyRaceModeLabel}" />
+      <ComboBox Width="220"
+                Margin="0,6,0,0"
+                HorizontalAlignment="Left"
+                ItemsSource="{Binding Modes}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding Mode, UpdateSourceTrigger=PropertyChanged}" />
+
+      <TextBlock Margin="0,14,0,0"
+                 Text="{DynamicResource GrassDailyRaceCountHint}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <ui:TextBox Width="120"
+                  Margin="0,6,0,0"
+                  HorizontalAlignment="Left"
+                  Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,8,0,0"
+                 Text="{Binding Status}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+    </StackPanel>
+  </Border>
+</UserControl>
