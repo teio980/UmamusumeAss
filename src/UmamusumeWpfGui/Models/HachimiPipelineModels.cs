@@ -60,6 +60,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("action")]
     public string Action { get; set; } = "ClickSelf";
 
+    [JsonPropertyName("swipe")]
+    public int[]? Swipe { get; set; }
+
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 

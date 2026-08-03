@@ -250,6 +250,24 @@ public sealed class HachimiJsonPipelineRunner
                     LogEntryKind.Success);
                 break;
 
+            case "swipe":
+                if (task.Swipe is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses Swipe but has no swipe coordinates.");
+                }
+
+                await _visualRuntime.SwipeAsync(
+                        connection,
+                        task.Swipe,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                AddLog(logSink, $"Swiped for '{taskName}'.", LogEntryKind.Success);
+                break;
+
             case "back":
                 var back = await _adbRuntime.BackAsync(
                         connection.AdbPath,
@@ -403,7 +421,7 @@ public sealed class HachimiPipelineRunOptions
 {
     /// <summary>
     /// Runtime limits supplied by a caller, such as raceCount - 1 for the
-    /// JSON result-next loop. A present value of zero means do not execute the
+    /// JSON race-again loop. A present value of zero means do not execute the
     /// task and follow its exceededNext transition immediately.
     /// </summary>
     public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }

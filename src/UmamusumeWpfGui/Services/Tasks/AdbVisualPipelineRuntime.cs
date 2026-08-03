@@ -132,6 +132,46 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         }
     }
 
+    public async Task SwipeAsync(
+        LastVerifiedConnection connection,
+        int[] coordinates,
+        int referenceWidth,
+        int referenceHeight,
+        string taskName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (coordinates is null || coordinates.Length < 5)
+        {
+            throw new InvalidOperationException(
+                $"JSON swipe task '{taskName}' requires [startX,startY,endX,endY,durationMs].");
+        }
+
+        var width = Math.Max(1, referenceWidth);
+        var height = Math.Max(1, referenceHeight);
+        var startX = ScaleCoordinate(coordinates[0], width, connection.Width);
+        var startY = ScaleCoordinate(coordinates[1], height, connection.Height);
+        var endX = ScaleCoordinate(coordinates[2], width, connection.Width);
+        var endY = ScaleCoordinate(coordinates[3], height, connection.Height);
+        var duration = Math.Clamp(coordinates[4], 100, 3_000);
+
+        var result = await _adbRuntime.SwipeAsync(
+                connection.AdbPath,
+                connection.Serial,
+                startX,
+                startY,
+                endX,
+                endY,
+                duration,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"ADB swipe failed for '{taskName}': {result.Stderr}");
+        }
+    }
+
     public async Task SaveScreenshotAsync(
         LastVerifiedConnection connection,
         string definitionPath,
@@ -178,4 +218,10 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             ? new AdbScreenshotResult(AdbScreenshotMethod.Raw, [], TimeSpan.Zero, decoded)
             : null;
     }
+
+    private static int ScaleCoordinate(int value, int reference, int actual) =>
+        Math.Clamp(
+            (int)Math.Round(value * (double)Math.Max(1, actual) / reference),
+            0,
+            Math.Max(0, actual - 1));
 }

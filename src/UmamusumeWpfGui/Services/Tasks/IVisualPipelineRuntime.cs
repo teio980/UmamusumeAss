@@ -36,6 +36,14 @@ public interface IVisualPipelineRuntime
         string taskName,
         CancellationToken cancellationToken = default);
 
+    Task SwipeAsync(
+        LastVerifiedConnection connection,
+        int[] coordinates,
+        int referenceWidth,
+        int referenceHeight,
+        string taskName,
+        CancellationToken cancellationToken = default);
+
     Task SaveScreenshotAsync(
         LastVerifiedConnection connection,
         string definitionPath,
