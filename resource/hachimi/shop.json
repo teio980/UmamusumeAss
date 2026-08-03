@@ -1,0 +1,145 @@
+{
+  "name": "shop",
+  "schemaVersion": 1,
+  "description": "Optional shop probe and configured purchase flow.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "shopProbe": {
+      "template": "templates/shop/shop_title.png",
+      "roi": [0, 0, 400, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 1200,
+      "postDelay": 450,
+      "required": false,
+      "next": ["shopSelectAll"],
+      "onErrorNext": ["shopComplete"]
+    },
+    "shopSelectAll": {
+      "template": "templates/shop/select_all.png",
+      "roi": [620, 1120, 280, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "postDelay": 500,
+      "next": ["shopConfirm"],
+      "exceededNext": ["shopBuy1"]
+    },
+    "shopBuy1": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 500, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopBuy2"],
+      "exceededNext": ["shopBuy2"]
+    },
+    "shopBuy2": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 720, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopBuy3"],
+      "exceededNext": ["shopBuy3"]
+    },
+    "shopBuy3": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 930, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopScrollMiddle"],
+      "exceededNext": ["shopScrollMiddle"]
+    },
+    "shopScrollMiddle": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1160, 450, 700, 450],
+      "postDelay": 700,
+      "next": ["shopBuy4"]
+    },
+    "shopBuy4": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopBuy5"],
+      "exceededNext": ["shopBuy5"]
+    },
+    "shopBuy5": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopScrollBottom"],
+      "exceededNext": ["shopScrollBottom"]
+    },
+    "shopScrollBottom": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1160, 450, 700, 450],
+      "postDelay": 700,
+      "next": ["shopBuy6"]
+    },
+    "shopBuy6": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopBuy7"],
+      "exceededNext": ["shopBuy7"]
+    },
+    "shopBuy7": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "next": ["shopConfirm"],
+      "exceededNext": ["shopConfirm"]
+    },
+    "shopConfirm": {
+      "template": "templates/shop/confirm_enabled.png",
+      "roi": [250, 1250, 430, 240],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopExchangeConfirm"],
+      "onErrorNext": ["shopComplete"]
+    },
+    "shopExchangeConfirm": {
+      "template": "templates/shop/exchange_confirm.png",
+      "roi": [430, 1380, 450, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 10000,
+      "postDelay": 400,
+      "next": ["shopExchangeComplete"]
+    },
+    "shopExchangeComplete": {
+      "template": "templates/shop/exchange_complete.png",
+      "roi": [0, 0, 900, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 10000,
+      "postDelay": 400,
+      "next": ["shopClose"]
+    },
+    "shopClose": {
+      "template": "templates/shop/exchange_close.png",
+      "roi": [250, 1380, 450, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "next": ["shopComplete"]
+    },
+    "shopComplete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
+    }
+  }
+}
