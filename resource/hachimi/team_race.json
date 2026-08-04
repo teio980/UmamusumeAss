@@ -116,7 +116,7 @@
     },
     "newhighscore": {
       "template": "templates/team_race/new_high_score.png",
-      "roi": [150, 494, 150, 72],
+      "roi": [120, 490, 240, 130],
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
