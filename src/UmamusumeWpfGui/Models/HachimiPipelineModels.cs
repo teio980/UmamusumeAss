@@ -110,6 +110,12 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("sub")]
     public List<string> Sub { get; set; } = [];
 
+    [JsonPropertyName("monitorTasks")]
+    public List<string> MonitorTasks { get; set; } = [];
+
+    [JsonPropertyName("successTask")]
+    public string? SuccessTask { get; set; }
+
     [JsonPropertyName("maxTimes")]
     public int MaxTimes { get; set; }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.ViewModels.Tasks;
@@ -212,6 +213,35 @@ public sealed class HachimiJsonPipelineRunner
         var action = Normalize(task.Action);
         var algorithm = Normalize(task.Algorithm);
 
+        if (algorithm is "parallelmonitor" or "raceresultmonitor")
+        {
+            var monitorResult = await ExecuteParallelMonitorAsync(
+                    connection,
+                    definition,
+                    taskName,
+                    task,
+                    runOptions,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (monitorResult.Succeeded)
+            {
+                if (task.WaitMilliseconds > 0)
+                {
+                    await _visualRuntime.DelayAsync(task.WaitMilliseconds, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                if (task.PostDelay > 0)
+                {
+                    await _visualRuntime.DelayAsync(task.PostDelay, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+
+            return monitorResult;
+        }
+
         if (!string.IsNullOrWhiteSpace(task.Template))
         {
             var roi = task.Roi;
@@ -360,6 +390,260 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         return TaskExecutionResult.Completed(taskName);
+    }
+
+    private async Task<TaskExecutionResult> ExecuteParallelMonitorAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask monitorTask,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var monitorNames = monitorTask.MonitorTasks
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var successName = monitorTask.SuccessTask?.Trim();
+        if (string.IsNullOrWhiteSpace(successName))
+        {
+            return TaskExecutionResult.Failed(
+                $"Parallel monitor '{taskName}' has no successTask.");
+        }
+
+        var candidateNames = monitorNames
+            .Append(successName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var candidates = new List<ParallelMonitorCandidate>(candidateNames.Length);
+        foreach (var candidateName in candidateNames)
+        {
+            if (!definition.TryGetTask(candidateName, out var candidateTask)
+                || candidateTask is null)
+            {
+                return TaskExecutionResult.Failed(
+                    $"Parallel monitor task '{candidateName}' is not defined.");
+            }
+
+            var template = await _visualRuntime.LoadTemplateAsync(
+                    candidateTask.Template,
+                    definition.BaseDirectory,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (template is null)
+            {
+                return TaskExecutionResult.Failed(
+                    $"Template for parallel monitor task '{candidateName}' "
+                    + "was not found or could not be decoded.");
+            }
+
+            candidates.Add(new ParallelMonitorCandidate(candidateName, candidateTask, template));
+        }
+
+        var byName = candidates.ToDictionary(
+            candidate => candidate.Name,
+            StringComparer.OrdinalIgnoreCase);
+        var monitorCandidates = monitorNames
+            .Where(byName.ContainsKey)
+            .Select(name => byName[name])
+            .ToArray();
+        var successCandidate = byName[successName];
+        if (monitorCandidates.Length == 0)
+        {
+            return TaskExecutionResult.Failed(
+                $"Parallel monitor '{taskName}' has no monitorTasks.");
+        }
+
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            monitorTask.TimeoutMilliseconds,
+            0,
+            10 * 60 * 1000));
+        var poll = TimeSpan.FromMilliseconds(Math.Clamp(
+            monitorTask.PollIntervalMilliseconds > 0
+                ? monitorTask.PollIntervalMilliseconds
+                : definition.Timing.PollIntervalMilliseconds,
+            50,
+            10_000));
+        var started = Stopwatch.GetTimestamp();
+        Dictionary<string, TemplateMatchResult>? lastMatches = null;
+        GrayImage? lastScreen = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var screen = await _visualRuntime.CaptureGrayAsync(
+                    connection,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (screen is not null)
+            {
+                lastScreen = screen;
+                var matches = await FindParallelMonitorMatchesAsync(
+                        screen,
+                        candidates,
+                        definition,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                lastMatches = matches;
+
+                // The stop condition always wins over a stale button match in
+                // the same screenshot.
+                if (matches.TryGetValue(successCandidate.Name, out var successMatch)
+                    && successMatch.Found)
+                {
+                    AddLog(
+                        logSink,
+                        $"{taskName}: success task '{successCandidate.Name}' detected; leaving parallel monitor.",
+                        LogEntryKind.Success);
+                    return TaskExecutionResult.Completed(taskName);
+                }
+
+                foreach (var candidate in monitorCandidates)
+                {
+                    if (!matches.TryGetValue(candidate.Name, out var match)
+                        || !match.Found)
+                    {
+                        continue;
+                    }
+
+                    var actionResult = await ExecuteParallelMonitorActionAsync(
+                            connection,
+                            definition,
+                            candidate,
+                            match,
+                            runOptions,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!actionResult.Succeeded)
+                    {
+                        if (candidate.Task.Required)
+                            return actionResult;
+
+                        AddLog(
+                            logSink,
+                            $"{taskName}: optional monitor task '{candidate.Name}' failed; continuing to monitor.",
+                            LogEntryKind.Info);
+                    }
+                    else
+                    {
+                        AddLog(
+                            logSink,
+                            $"{taskName}: parallel monitor action '{candidate.Name}' completed.",
+                            LogEntryKind.Success);
+                    }
+
+                    // Execute at most one action from a screenshot, then take
+                    // a fresh screenshot after the UI has settled.
+                    break;
+                }
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= timeout)
+            {
+                var matchSummary = lastMatches is null
+                    ? "no decoded screenshot"
+                    : string.Join(
+                        ", ",
+                        lastMatches.Select(pair =>
+                            $"{pair.Key}={pair.Value.Score:0.000}"));
+                return TaskExecutionResult.Failed(
+                    $"Timed out waiting for parallel monitor '{taskName}' "
+                    + $"(screen={lastScreen?.Width}x{lastScreen?.Height}; {matchSummary}).");
+            }
+
+            await _visualRuntime.DelayAsync(
+                    (int)poll.TotalMilliseconds,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Dictionary<string, TemplateMatchResult>> FindParallelMonitorMatchesAsync(
+        GrayImage screen,
+        IReadOnlyList<ParallelMonitorCandidate> candidates,
+        HachimiPipelineDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        var matchTasks = candidates.Select(candidate => Task.Run(
+            () => (candidate.Name, Match: TemplateMatcher.Find(
+                screen,
+                candidate.Template,
+                candidate.Task.Roi,
+                candidate.Task.TemplateThreshold,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight)),
+            cancellationToken));
+        var results = await Task.WhenAll(matchTasks).ConfigureAwait(false);
+        return results.ToDictionary(
+            result => result.Name,
+            result => result.Match,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<TaskExecutionResult> ExecuteParallelMonitorActionAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        ParallelMonitorCandidate candidate,
+        TemplateMatchResult match,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var task = candidate.Task;
+        if (task.PreDelay > 0)
+        {
+            await _visualRuntime.DelayAsync(task.PreDelay, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        TaskExecutionResult actionResult;
+        switch (Normalize(task.Action))
+        {
+            case "clickself":
+                await _visualRuntime.TapMatchAsync(
+                        connection,
+                        match,
+                        candidate.Name,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                actionResult = TaskExecutionResult.Completed(candidate.Name);
+                break;
+
+            case "runpipeline":
+                actionResult = await RunNestedPipelineAsync(
+                        connection,
+                        definition,
+                        candidate.Name,
+                        task,
+                        runOptions,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+
+            default:
+                return TaskExecutionResult.Failed(
+                    $"Parallel monitor task '{candidate.Name}' uses unsupported action '{task.Action}'.");
+        }
+
+        if (!actionResult.Succeeded)
+            return actionResult;
+
+        if (task.WaitMilliseconds > 0)
+        {
+            await _visualRuntime.DelayAsync(task.WaitMilliseconds, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (task.PostDelay > 0)
+        {
+            await _visualRuntime.DelayAsync(task.PostDelay, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return actionResult;
     }
 
     private async Task<TaskExecutionResult> RunNestedPipelineAsync(
@@ -512,6 +796,11 @@ public sealed class HachimiJsonPipelineRunner
         public void IncrementTaskCount(string taskName) =>
             _taskCounts[taskName] = GetTaskCount(taskName) + 1;
     }
+
+    private sealed record ParallelMonitorCandidate(
+        string Name,
+        HachimiPipelineTask Task,
+        GrayImage Template);
 
     private sealed record TaskExecutionResult(
         bool Succeeded,
