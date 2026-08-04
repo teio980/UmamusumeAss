@@ -44,6 +44,32 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Team_race_uses_a_parallel_result_monitor_until_race_again()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        var next = definition!.GetTask("next");
+        var whiteskip = definition.GetTask("whiteskip");
+        var monitor = definition.GetTask("resultMonitor");
+
+        Assert.Contains("resultMonitor", next.Next);
+        Assert.Contains("resultMonitor", whiteskip.Next);
+        Assert.Equal("ParallelMonitor", monitor.Algorithm);
+        Assert.Equal(
+            ["next", "newhighscore", "runRandomShop", "MiddleNext", "nexttwo", "noticesClose"],
+            monitor.MonitorTasks);
+        Assert.Equal("raceagain", monitor.SuccessTask);
+        Assert.Equal("templates/shop/shop_title.png", definition.GetTask("runRandomShop").Template);
+        Assert.Equal(
+            "templates/start_game/notices_close.png",
+            definition.GetTask("noticesClose").Template);
+    }
+
+    [Fact]
     public void Start_game_keeps_its_special_monitor_and_trigger_chain_definition()
     {
         var root = FindSolutionRoot();

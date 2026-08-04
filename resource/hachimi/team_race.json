@@ -102,17 +102,17 @@
       "roi": [770, 1400, 111, 100],
       "templThreshold": 0.8,
       "timeoutMs": 20000,
-      "postDelay": 1200,
+      "postDelay": 800,
       "maxTimes": 10,
-      "next": ["next"]
+      "next": ["resultMonitor"]
     },
     "next": {
       "template": "templates/team_race/result_next.png",
-      "roi": [740, 1425, 160, 65],
+      "roi": [200, 1300, 500, 250],
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
-      "next": ["newhighscore"]
+      "next": ["resultMonitor"]
     },
     "newhighscore": {
       "template": "templates/team_race/new_high_score.png",
@@ -125,6 +125,9 @@
       "onErrorNext": ["runRandomShop"]
     },
     "runRandomShop": {
+      "template": "templates/shop/shop_title.png",
+      "roi": [0, 0, 400, 180],
+      "templThreshold": 0.86,
       "action": "RunPipeline",
       "pipeline": "shop.json",
       "entry": "shopProbe",
@@ -134,7 +137,7 @@
     },
     "MiddleNext": {
       "template": "templates/team_race/final_next.png",
-      "roi": [769, 1439, 102, 37],
+      "roi": [350, 1430, 250, 150],
       "templThreshold": 0.86,
       "required": false,
       "timeoutMs": 20000,
@@ -144,18 +147,36 @@
     },
     "nexttwo": {
       "template": "templates/team_race/result_next.png",
-      "roi": [740, 1425, 160, 65],
+      "roi": [200, 1300, 500, 250],
       "templThreshold": 0.80,
       "required": false,
       "timeoutMs": 20000,
       "postDelay": 1200,
+      "next": ["noticesClose"],
+      "onErrorNext": ["noticesClose"]
+    },
+    "noticesClose": {
+      "template": "templates/start_game/notices_close.png",
+      "roi": [240, 940, 450, 220],
+      "templThreshold": 0.82,
+      "required": false,
+      "timeoutMs": 5000,
+      "postDelay": 800,
       "next": ["raceagain"],
       "onErrorNext": ["raceagain"]
     },
+    "resultMonitor": {
+      "algorithm": "ParallelMonitor",
+      "monitorTasks": ["next", "newhighscore", "runRandomShop", "MiddleNext", "nexttwo", "noticesClose"],
+      "successTask": "raceagain",
+      "timeoutMs": 60000,
+      "pollIntervalMs": 300,
+      "next": ["raceagain"]
+    },
     "raceagain": {
       "template": "templates/team_race/race_again.png",
-      "roi": [40, 1370, 400, 180],
-      "templThreshold": 0.82,
+      "roi": [0, 1380, 450, 220],
+      "templThreshold": 0.8,
       "timeoutMs": 20000,
       "postDelay": 1200,
       "countAs": "race",
