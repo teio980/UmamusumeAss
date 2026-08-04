@@ -6,10 +6,19 @@
   "referenceHeight": 1600,
   "tasks": {
     "home": {
-      "template": "templates/start_game/game_home.png",
+      "template": "templates/start_game/game_home_selected.png",
       "roi": [250, 1400, 400, 200],
       "templThreshold": 0.8,
-      "timeoutMs": 5000,
+      "timeoutMs": 2500,
+      "postDelay": 1200,
+      "next": ["raceTab"],
+      "onErrorNext": ["homeAlt"]
+    },
+    "homeAlt": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.8,
+      "timeoutMs": 2500,
       "postDelay": 1200,
       "next": ["raceTab"]
     },
@@ -35,7 +44,16 @@
       "templThreshold": 0.86,
       "timeoutMs": 15000,
       "postDelay": 1200,
-      "next": ["opponent"]
+      "next": ["opponent"],
+      "onErrorNext": ["teamRaceRetry"]
+    },
+    "teamRaceRetry": {
+      "template": "templates/team_race/matchup_next.png",
+      "roi": [150, 1240, 600, 230],
+      "templThreshold": 0.88,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "next": ["teamRace"]
     },
     "opponent": {
       "template": "templates/team_race/opponent_card.png",
@@ -73,19 +91,19 @@
     },
     "seeallresult": {
       "template": "templates/team_race/see_all_result.png",
-      "roi": [250, 1460, 370, 90],
-      "templThreshold": 0.86,
+      "roi": [260, 1400, 360, 160],
+      "templThreshold": 0.8,
       "timeoutMs": 20000,
       "postDelay": 1200,
       "next": ["whiteskip"]
     },
     "whiteskip": {
       "template": "templates/team_race/whiteskip.png",
-      "roi": [790, 1434, 60, 47],
-      "templThreshold": 0.86,
+      "roi": [770, 1400, 111, 100],
+      "templThreshold": 0.8,
       "timeoutMs": 20000,
       "postDelay": 1200,
-      "maxTimes": 2,
+      "maxTimes": 10,
       "next": ["next"]
     },
     "next": {

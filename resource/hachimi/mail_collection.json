@@ -6,10 +6,20 @@
   "referenceHeight": 1600,
   "tasks": {
     "home": {
-      "template": "templates/start_game/game_home.png",
+      "template": "templates/start_game/game_home_selected.png",
       "roi": [250, 1400, 400, 200],
       "templThreshold": 0.86,
-      "timeoutMs": 5000,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["giftBox"],
+      "onErrorNext": ["homeAlt"]
+    },
+    "homeAlt": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
       "pollIntervalMs": 300,
       "postDelay": 1200,
       "next": ["giftBox"],
@@ -57,7 +67,7 @@
     "homeVerify": {
       "algorithm": "MatchTemplate",
       "action": "DoNothing",
-      "template": "templates/start_game/game_home.png",
+      "template": "templates/start_game/game_home_selected.png",
       "roi": [250, 1400, 400, 200],
       "templThreshold": 0.86,
       "timeoutMs": 3000,

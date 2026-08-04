@@ -10,6 +10,7 @@
         "CheckPromoSkip",
         "CheckNotices",
         "CheckGameHome",
+        "CheckHomeTabOnOtherPage",
         "CheckStartNoticeSkip"
       ],
       "triggerTask": "CheckStartNoticeSkip",
@@ -23,7 +24,7 @@
     },
     "CheckGameHome": {
       "algorithm": "MatchTemplate",
-      "template": "templates/start_game/game_home.png",
+      "template": "templates/start_game/game_home_selected.png",
       "templThreshold": 0.86,
       "referenceWidth": 900,
       "referenceHeight": 1600,
@@ -32,6 +33,19 @@
       "timeoutMs": 1200,
       "pollIntervalMs": 200,
       "success": true
+    },
+    "CheckHomeTabOnOtherPage": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/start_game/game_home_unselected.png",
+      "templThreshold": 0.86,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 250, 1400, 400, 200 ],
+      "action": "ClickSelf",
+      "postDelay": 1200,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "success": false
     },
     "CheckLogoSkip": {
       "algorithm": "MatchTemplate",

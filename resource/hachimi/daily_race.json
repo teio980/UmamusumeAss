@@ -7,10 +7,19 @@
   "templates": {},
   "tasks": {
     "home": {
-      "template": "templates/start_game/game_home.png",
+      "template": "templates/start_game/game_home_selected.png",
       "roi": [250, 1400, 400, 200],
       "templThreshold": 0.8,
-      "timeoutMs": 5000,
+      "timeoutMs": 2500,
+      "postDelay": 1200,
+      "next": ["raceTab"],
+      "onErrorNext": ["homeAlt"]
+    },
+    "homeAlt": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.8,
+      "timeoutMs": 2500,
       "postDelay": 1200,
       "next": ["raceTab"]
     },

@@ -106,6 +106,21 @@
         <TextBlock x:Name="PreviewCoordinateText"
                    Foreground="White" />
       </Border>
+      <Border x:Name="PreviewRoiBadge"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Top"
+              Margin="10"
+              Padding="8,4"
+              Background="#CC202020"
+              BorderBrush="#FFFFB84D"
+              BorderThickness="1"
+              CornerRadius="4"
+              IsHitTestVisible="False"
+              Visibility="Collapsed">
+        <TextBlock x:Name="PreviewRoiText"
+                   Foreground="White"
+                   FontFamily="Consolas" />
+      </Border>
       <StackPanel x:Name="EmptyPreview"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center"

@@ -205,6 +205,7 @@ public sealed partial class DeveloperToolsView : UserControl
             ? Visibility.Collapsed
             : Visibility.Visible;
         UpdateCropRectangle();
+        UpdateRoiBadge();
     }
 
     private void SetPreviewScale(double scale)
@@ -279,6 +280,18 @@ public sealed partial class DeveloperToolsView : UserControl
             new Point(
                 imageRect.Left + (region.X + region.Width) * scale,
                 imageRect.Top + (region.Y + region.Height) * scale));
+    }
+
+    private void UpdateRoiBadge()
+    {
+        if (_viewModel?.CropRegion is not { } region)
+        {
+            PreviewRoiBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PreviewRoiText.Text = $"ROI: [{region.X}, {region.Y}, {region.Width}, {region.Height}]";
+        PreviewRoiBadge.Visibility = Visibility.Visible;
     }
 
     private bool TryGetCropRegion(Point start, Point end, out Int32Rect region)
