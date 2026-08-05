@@ -77,6 +77,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _settingsService = settingsService;
         _settingsViewModel = settingsViewModel;
         _adbRuntime = adbRuntime;
+        HachimiShopSettings = new HachimiShopSettingsViewModel(settingsService);
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
@@ -108,6 +109,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
 
     public ObservableCollection<LogEntry> Logs => ScriptLogs;
+
+    public HachimiShopSettingsViewModel HachimiShopSettings { get; }
 
     public GrassTaskItemViewModel? SelectedTask
     {
@@ -219,6 +222,26 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
     public bool IsAdvancedSettings
     {
+        get => IsGlobalSettings;
+        set
+        {
+            IsGlobalSettings = value;
+        }
+    }
+
+    public bool IsGeneralSettings
+    {
+        get => IsTaskSettings;
+        set
+        {
+            if (value == IsGeneralSettings)
+                return;
+            IsGlobalSettings = !value;
+        }
+    }
+
+    public bool IsGlobalSettings
+    {
         get => _isAdvancedSettings;
         set
         {
@@ -226,19 +249,16 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 return;
             _isAdvancedSettings = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsTaskSettings));
+            OnPropertyChanged(nameof(IsAdvancedSettings));
             OnPropertyChanged(nameof(IsGeneralSettings));
         }
     }
 
-    public bool IsGeneralSettings
+    public bool IsTaskSettings
     {
-        get => !IsAdvancedSettings;
-        set
-        {
-            if (value == IsGeneralSettings)
-                return;
-            IsAdvancedSettings = !value;
-        }
+        get => !IsGlobalSettings;
+        set => IsGlobalSettings = !value;
     }
 
     public ICommand AddTaskCommand { get; }
@@ -601,6 +621,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         if (_settingsService is null)
             return;
 
+        MigrateLegacyShopTask();
+
         foreach (var cachedTask in _settingsService.Load().TaskQueue)
         {
             var prototype = _taskCatalog.Modules.FirstOrDefault(module =>
@@ -633,6 +655,29 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
+    }
+
+    private void MigrateLegacyShopTask()
+    {
+        var service = _settingsService;
+        if (service is null)
+            return;
+
+        var settings = service.Load();
+
+        var legacyShop = settings.TaskQueue.FirstOrDefault(task =>
+            string.Equals(task.TaskId, "shop", StringComparison.Ordinal));
+        if (legacyShop is null)
+            return;
+
+        if (HachimiShopSettings.IsDefault)
+            HachimiShopSettings.ImportLegacySettings(legacyShop.Settings ?? new());
+
+        settings = service.Load();
+        settings.TaskQueue = settings.TaskQueue
+            .Where(task => !string.Equals(task.TaskId, "shop", StringComparison.Ordinal))
+            .ToList();
+        service.Save(settings);
     }
 
     private void SaveTaskQueueCache()

@@ -5,9 +5,11 @@
              xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
              xmlns:tasksettings="clr-namespace:UmamusumeWpfGui.ViewModels.Tasks"
              xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
+             xmlns:views="clr-namespace:UmamusumeWpfGui.Views"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     <Style x:Key="PanelBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
@@ -206,61 +208,69 @@
             <StackPanel>
               <TextBlock Text="{DynamicResource GrassSettings}"
                          FontWeight="SemiBold" />
-              <TextBlock Margin="0,18,0,0"
-                         Text="{Binding SelectedTaskTitle}"
-                         FontSize="18"
-                         FontWeight="SemiBold" />
-              <TextBlock Margin="0,6,0,0"
-                         Text="{Binding SelectedTaskDescription}"
-                         TextWrapping="Wrap"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
-              <ContentControl Margin="0,20,0,0"
-                              Content="{Binding SelectedTask.Settings}">
+              <StackPanel Margin="0,18,0,0"
+                          Visibility="{Binding IsTaskSettings, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding SelectedTaskTitle}"
+                           FontSize="18"
+                           FontWeight="SemiBold" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="{Binding SelectedTaskDescription}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                <ContentControl Margin="0,20,0,0"
+                                Content="{Binding SelectedTask.Settings}">
+                  <ContentControl.Resources>
+                    <DataTemplate DataType="{x:Type tasksettings:StartGameTaskSettingsViewModel}">
+                      <taskviews:StartGameTaskSettingsView />
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
+                      <taskviews:TeamRaceTaskSettingsView />
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type tasksettings:DailyRaceTaskSettingsViewModel}">
+                      <taskviews:DailyRaceTaskSettingsView />
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
+                      <taskviews:MailCollectionTaskSettingsView />
+                    </DataTemplate>
+                  </ContentControl.Resources>
+                </ContentControl>
+                <Border Margin="0,20,0,0"
+                        Padding="12"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6">
+                  <StackPanel>
+                    <TextBlock Text="{DynamicResource GrassPlaceholderTitle}"
+                               FontWeight="Medium" />
+                    <TextBlock Margin="0,6,0,0"
+                               Text="{DynamicResource GrassPlaceholderMessage}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+              <ContentControl Margin="0,18,0,0"
+                              Content="{Binding HachimiShopSettings}"
+                              Visibility="{Binding IsGlobalSettings, Converter={StaticResource BoolToVisibility}}">
                 <ContentControl.Resources>
-                  <DataTemplate DataType="{x:Type tasksettings:StartGameTaskSettingsViewModel}">
-                    <taskviews:StartGameTaskSettingsView />
-                  </DataTemplate>
-                  <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
-                    <taskviews:TeamRaceTaskSettingsView />
-                  </DataTemplate>
-                  <DataTemplate DataType="{x:Type tasksettings:DailyRaceTaskSettingsViewModel}">
-                    <taskviews:DailyRaceTaskSettingsView />
-                  </DataTemplate>
-                  <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
-                    <taskviews:MailCollectionTaskSettingsView />
-                  </DataTemplate>
-                  <DataTemplate DataType="{x:Type tasksettings:ShopTaskSettingsViewModel}">
-                    <taskviews:ShopTaskSettingsView />
+                  <DataTemplate DataType="{x:Type vm:HachimiShopSettingsViewModel}">
+                    <views:HachimiShopSettingsView />
                   </DataTemplate>
                 </ContentControl.Resources>
               </ContentControl>
-              <Border Margin="0,20,0,0"
-                      Padding="12"
-                      Background="{DynamicResource SurfaceRaisedBrush}"
-                      BorderBrush="{DynamicResource BorderSubtleBrush}"
-                      BorderThickness="1"
-                      CornerRadius="6">
-                <StackPanel>
-                  <TextBlock Text="{DynamicResource GrassPlaceholderTitle}"
-                             FontWeight="Medium" />
-                  <TextBlock Margin="0,6,0,0"
-                             Text="{DynamicResource GrassPlaceholderMessage}"
-                             TextWrapping="Wrap"
-                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                </StackPanel>
-              </Border>
             </StackPanel>
           </ScrollViewer>
         </Border>
 
         <StackPanel Grid.Row="1" Margin="0,10,0,0" Orientation="Horizontal">
-          <RadioButton Content="{DynamicResource GrassGeneralSettings}"
+          <RadioButton Content="{DynamicResource GrassTaskSettings}"
                        GroupName="GrassSettingsMode"
-                       IsChecked="{Binding IsGeneralSettings, Mode=TwoWay}" />
+                       IsChecked="{Binding IsTaskSettings, Mode=TwoWay}" />
           <RadioButton Margin="14,0,0,0"
-                       Content="{DynamicResource GrassAdvancedSettings}"
+                       Content="{DynamicResource GrassGlobalSettings}"
                        GroupName="GrassSettingsMode"
-                       IsChecked="{Binding IsAdvancedSettings, Mode=TwoWay}" />
+                       IsChecked="{Binding IsGlobalSettings, Mode=TwoWay}" />
         </StackPanel>
 
         <Border Grid.Row="2"

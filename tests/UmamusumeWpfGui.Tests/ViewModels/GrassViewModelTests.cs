@@ -152,6 +152,33 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public void LegacyShopTaskMovesToGlobalHachimiSettings()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var settings = new InMemorySettingsService();
+        settings.Load().TaskQueue.Add(new GrassTaskCacheItem
+        {
+            TaskId = "shop",
+            IsEnabled = true,
+            Settings = new JsonObject
+            {
+                ["buyShoes"] = true,
+            },
+        });
+
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            GrassTaskCatalog.CreateEmpty(),
+            null,
+            settings);
+
+        Assert.Empty(viewModel.Tasks);
+        Assert.Empty(settings.Load().TaskQueue);
+        Assert.True(settings.Load().Hachimi.Shop.BuyShoes);
+    }
+
+    [Fact]
     public async Task StartGamePassesConfiguredPackageToLauncherWhenConnected()
     {
         using var log = new LogViewModel(new FakeUmaService());

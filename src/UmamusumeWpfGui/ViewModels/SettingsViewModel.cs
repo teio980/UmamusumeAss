@@ -772,6 +772,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draft.TargetPackageIds = latest.TargetPackageIds;
         _draft.TargetActivityName = latest.TargetActivityName;
         _draft.TaskQueue = latest.TaskQueue;
+        _draft.Hachimi = latest.Hachimi;
 
         _settingsService.Save(_draft);
     }

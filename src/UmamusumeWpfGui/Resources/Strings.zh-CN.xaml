@@ -52,7 +52,10 @@
   <sys:String x:Key="GrassScriptCompleted">Task queue completed</sys:String>
   <sys:String x:Key="GrassTaskQueue">任务队列</sys:String>
   <sys:String x:Key="GrassTaskReorderHint">长按任务后上下拖动，可调整队列顺序。</sys:String>
-  <sys:String x:Key="GrassSettings">任务设置</sys:String>
+  <sys:String x:Key="GrassSettings">设置</sys:String>
+  <sys:String x:Key="GrassTaskSettings">任务设置</sys:String>
+  <sys:String x:Key="GrassGlobalSettings">Hachimi 全局设置</sys:String>
+  <sys:String x:Key="GrassHachimiGlobalSettingsTitle">Hachimi 全局设置</sys:String>
   <sys:String x:Key="GrassLogs">活动日志</sys:String>
   <sys:String x:Key="GrassAddTask">添加</sys:String>
   <sys:String x:Key="GrassCopyTask">复制</sys:String>
@@ -230,6 +233,8 @@
   <sys:String x:Key="DeveloperToolsClearCropButton">清除裁剪</sys:String>
   <sys:String x:Key="GrassShopSettingsTitle">商店购买设置</sys:String>
   <sys:String x:Key="GrassShopDefinitionHint">普通 Hachimi 任务完成后，出现商店时自动检查。</sys:String>
+  <sys:String x:Key="GrassShopEnabled">在支持的任务中处理随机商店</sys:String>
+  <sys:String x:Key="GrassShopDefinitionPathLabel">商店流程定义</sys:String>
   <sys:String x:Key="GrassShopSelectAll">购买全部商店商品</sys:String>
   <sys:String x:Key="GrassShopBuyStarPieces">购买碎片（商店第 1、2 格）</sys:String>
   <sys:String x:Key="GrassShopBuyAlarmClock">购买 Alarm Clock（第 3 格）</sys:String>

@@ -72,6 +72,16 @@ public sealed class ConnectionSettings
     public string Language { get; set; } = "en-US";
 
 
+    private HachimiSettings _hachimi = new();
+
+
+    public HachimiSettings Hachimi
+    {
+        get => _hachimi;
+        set => _hachimi = value ?? new HachimiSettings();
+    }
+
+
     public List<string> ConnectAddressHistory { get; set; } = [];
 
 

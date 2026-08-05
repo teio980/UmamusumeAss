@@ -37,6 +37,7 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.True(settings.AutoDetectConnection);
         Assert.Equal("General", settings.ConnectConfig);
         Assert.Equal("en-US", settings.Language);
+        Assert.True(settings.Hachimi.Shop.Enabled);
         Assert.Empty(settings.ConnectAddressHistory);
     }
 
@@ -111,6 +112,9 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Equal(original.ConnectAddressHistory, loaded.ConnectAddressHistory);
         Assert.Equal(original.TargetPackageIds, loaded.TargetPackageIds);
         Assert.Equal(original.TargetActivityName, loaded.TargetActivityName);
+        Assert.Equal(
+            original.Hachimi.Shop.DefinitionPath,
+            loaded.Hachimi.Shop.DefinitionPath);
         var cachedTask = Assert.Single(loaded.TaskQueue);
         Assert.Equal("start-game", cachedTask.TaskId);
         Assert.False(cachedTask.IsEnabled);

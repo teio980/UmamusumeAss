@@ -116,8 +116,9 @@ For example, a task can probe the shared shop flow without copying its steps:
 }
 ```
 
-The shop pipeline reuses the configured Shop task purchase options and returns
-success when the shop is absent, so the parent task can continue normally.
+The shop pipeline reuses the Hachimi page's global shop purchase options and
+returns success when the shop is absent, so the parent task can continue
+normally. Shop configuration is not a task-queue item.
 
 `timing` contains business-flow waits rather than visual-match settings. Mail
 uses values such as `mailboxLoadMs` and `collectionSettleMs`; Team Race uses

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using UmamusumeWpfGui.Models;
-using UmamusumeWpfGui.ViewModels.Tasks;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
@@ -14,19 +14,19 @@ public sealed class HachimiJsonPipelineRunner
 {
     private readonly IAdbRuntime _adbRuntime;
     private readonly IVisualPipelineRuntime _visualRuntime;
-    private readonly ShopTaskSettingsViewModel _shopSettings;
+    private readonly ISettingsService _settingsService;
 
     public HachimiJsonPipelineRunner(
         IAdbRuntime adbRuntime,
         IVisualPipelineRuntime visualRuntime,
-        ShopTaskSettingsViewModel shopSettings)
+        ISettingsService settingsService)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(visualRuntime);
-        ArgumentNullException.ThrowIfNull(shopSettings);
+        ArgumentNullException.ThrowIfNull(settingsService);
         _adbRuntime = adbRuntime;
         _visualRuntime = visualRuntime;
-        _shopSettings = shopSettings;
+        _settingsService = settingsService;
     }
 
     public async Task<HachimiPipelineRunResult> RunAsync(
@@ -662,6 +662,14 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         var requestedPipeline = task.Pipeline.Trim();
+        var isShopPipeline = IsShopPipeline(requestedPipeline);
+        if (isShopPipeline)
+        {
+            requestedPipeline = ResolveConfiguredShopPath(
+                _settingsService.Load().Hachimi.Shop.DefinitionPath,
+                parentDefinition.BaseDirectory,
+                requestedPipeline);
+        }
 
         if (parentOptions.PipelineDepth >= HachimiPipelineRunOptions.MaximumPipelineDepth)
         {
@@ -678,8 +686,8 @@ public sealed class HachimiJsonPipelineRunner
         var nestedOptions = new HachimiPipelineRunOptions
         {
             PipelineDepth = parentOptions.PipelineDepth + 1,
-            MaxTimesOverrides = IsShopPipeline(nestedPath)
-                ? _shopSettings.ToOptions().ToMaxTimesOverrides()
+            MaxTimesOverrides = isShopPipeline
+                ? CreateShopOverrides(_settingsService.Load().Hachimi.Shop)
                 : null,
         };
 
@@ -712,6 +720,44 @@ public sealed class HachimiJsonPipelineRunner
             Path.GetFileName(path),
             "shop.json",
             StringComparison.OrdinalIgnoreCase);
+
+    private static IReadOnlyDictionary<string, int> CreateShopOverrides(
+        HachimiShopSettings settings)
+    {
+        if (!settings.Enabled)
+        {
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["shopProbe"] = 0,
+            };
+        }
+
+        return settings.ToOptions().ToMaxTimesOverrides();
+    }
+
+    private static string ResolveConfiguredShopPath(
+        string configuredPath,
+        string parentBaseDirectory,
+        string fallbackPath)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return fallbackPath;
+
+        if (Path.IsPathRooted(configuredPath))
+            return configuredPath;
+
+        var appRelativePath = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, configuredPath));
+        if (File.Exists(appRelativePath))
+            return appRelativePath;
+
+        var parentRelativePath = Path.GetFullPath(
+            Path.Combine(parentBaseDirectory, configuredPath));
+        if (File.Exists(parentRelativePath))
+            return parentRelativePath;
+
+        return fallbackPath;
+    }
 
     private static bool HasExceededLimit(
         string taskName,

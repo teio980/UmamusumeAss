@@ -21,7 +21,10 @@
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
   <sys:String x:Key="GrassTaskReorderHint">Long-press a task, then drag it up or down to reorder.</sys:String>
-  <sys:String x:Key="GrassSettings">Task settings</sys:String>
+  <sys:String x:Key="GrassSettings">Settings</sys:String>
+  <sys:String x:Key="GrassTaskSettings">Task settings</sys:String>
+  <sys:String x:Key="GrassGlobalSettings">Hachimi global settings</sys:String>
+  <sys:String x:Key="GrassHachimiGlobalSettingsTitle">Hachimi global settings</sys:String>
   <sys:String x:Key="GrassLogs">Script log</sys:String>
   <sys:String x:Key="GrassScriptLog">Script log</sys:String>
   <sys:String x:Key="GrassAddTask">Add</sys:String>
@@ -123,6 +126,8 @@
   <sys:String x:Key="GrassMailCollectionDefinitionHint">Path to the mailbox automation definition.</sys:String>
   <sys:String x:Key="GrassShopSettingsTitle">Shop purchase settings</sys:String>
   <sys:String x:Key="GrassShopDefinitionHint">The shop is checked automatically after ordinary Hachimi tasks when it appears.</sys:String>
+  <sys:String x:Key="GrassShopEnabled">Handle random shops during supported tasks</sys:String>
+  <sys:String x:Key="GrassShopDefinitionPathLabel">Shop pipeline definition</sys:String>
   <sys:String x:Key="GrassShopSelectAll">Select all shop items</sys:String>
   <sys:String x:Key="GrassShopBuyStarPieces">Buy star pieces (shop slots 1-2)</sys:String>
   <sys:String x:Key="GrassShopBuyAlarmClock">Buy Alarm Clock (slot 3)</sys:String>

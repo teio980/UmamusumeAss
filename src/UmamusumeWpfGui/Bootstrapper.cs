@@ -68,12 +68,6 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<DailyRaceTaskModule>()
             .ToSelf()
             .InSingletonScope();
-        builder.Bind<ShopTaskSettingsViewModel>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<IShopPipeline>()
-            .To<AdbShopPipeline>()
-            .InSingletonScope();
         builder.Bind<ITeamRacePipeline>()
             .To<AdbTeamRacePipeline>()
             .InSingletonScope();
@@ -84,9 +78,6 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbMailCollectionPipeline>()
             .InSingletonScope();
         builder.Bind<MailCollectionTaskModule>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<ShopTaskModule>()
             .ToSelf()
             .InSingletonScope();
         builder.Bind<IFileSystem>()
