@@ -99,6 +99,8 @@
   <sys:String x:Key="GrassTaskTeamRaceDescription">执行团队竞技场状态机</sys:String>
   <sys:String x:Key="GrassTaskDailyRace">Daily Race 日常赛</sys:String>
   <sys:String x:Key="GrassTaskDailyRaceDescription">刷 Monies 或 Support Points 的日常赛</sys:String>
+  <sys:String x:Key="GrassTaskMissionCollection">任务领取</sys:String>
+  <sys:String x:Key="GrassTaskMissionCollectionDescription">领取 Daily、Main、Titles、Special 四个任务分页中的可用奖励</sys:String>
   <sys:String x:Key="GrassTaskSelectionTitle">选择任务类型</sys:String>
   <sys:String x:Key="GrassTaskSelectionHint">选择要加入队列的任务。</sys:String>
   <sys:String x:Key="GrassTaskSelectionConfirm">添加任务</sys:String>
@@ -127,6 +129,12 @@
   <sys:String x:Key="GrassMailCollectionStarting">正在领取邮箱奖励</sys:String>
   <sys:String x:Key="GrassMailCollectionRunning">使用 {0} 领取奖励</sys:String>
   <sys:String x:Key="GrassMailCollectionCompleted">邮箱奖励领取完成</sys:String>
+  <sys:String x:Key="GrassMissionCollectionSettingsTitle">任务领取流程</sys:String>
+  <sys:String x:Key="GrassMissionCollectionDefinitionHint">Special Missions 自动化定义文件路径。</sys:String>
+  <sys:String x:Key="GrassMissionCollectionConnectionRequired">请先连接设备再领取任务奖励</sys:String>
+  <sys:String x:Key="GrassMissionCollectionStarting">正在领取任务奖励</sys:String>
+  <sys:String x:Key="GrassMissionCollectionRunning">使用 {0} 领取任务奖励</sys:String>
+  <sys:String x:Key="GrassMissionCollectionCompleted">任务奖励领取完成</sys:String>
   <sys:String x:Key="GrassTaskRunning">运行中</sys:String>
   <sys:String x:Key="GrassTaskCompleted">已完成</sys:String>
   <sys:String x:Key="GrassTaskError">错误</sys:String>

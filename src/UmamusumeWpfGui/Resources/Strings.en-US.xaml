@@ -100,6 +100,8 @@
   <sys:String x:Key="GrassTaskTeamRaceDescription">Run the Team Race state machine</sys:String>
   <sys:String x:Key="GrassTaskDailyRace">Daily Race</sys:String>
   <sys:String x:Key="GrassTaskDailyRaceDescription">Run Daily Race for Monies or Support Points</sys:String>
+  <sys:String x:Key="GrassTaskMissionCollection">Mission collection</sys:String>
+  <sys:String x:Key="GrassTaskMissionCollectionDescription">Collect available rewards from all mission tabs</sys:String>
   <sys:String x:Key="GrassTaskSelectionTitle">Select task type</sys:String>
   <sys:String x:Key="GrassTaskSelectionHint">Choose the task to add to the queue.</sys:String>
   <sys:String x:Key="GrassTaskSelectionConfirm">Add task</sys:String>
@@ -139,6 +141,12 @@
   <sys:String x:Key="GrassMailCollectionStarting">Collecting mailbox rewards</sys:String>
   <sys:String x:Key="GrassMailCollectionRunning">Collecting rewards using {0}</sys:String>
   <sys:String x:Key="GrassMailCollectionCompleted">Mailbox rewards collected</sys:String>
+  <sys:String x:Key="GrassMissionCollectionSettingsTitle">Mission collection pipeline</sys:String>
+  <sys:String x:Key="GrassMissionCollectionDefinitionHint">Path to the Special Missions automation definition.</sys:String>
+  <sys:String x:Key="GrassMissionCollectionConnectionRequired">Connect a device before collecting missions</sys:String>
+  <sys:String x:Key="GrassMissionCollectionStarting">Collecting mission rewards</sys:String>
+  <sys:String x:Key="GrassMissionCollectionRunning">Collecting mission rewards using {0}</sys:String>
+  <sys:String x:Key="GrassMissionCollectionCompleted">Mission rewards collected</sys:String>
   <sys:String x:Key="GrassTaskRunning">Running</sys:String>
   <sys:String x:Key="GrassTaskCompleted">Completed</sys:String>
   <sys:String x:Key="GrassTaskError">Error</sys:String>

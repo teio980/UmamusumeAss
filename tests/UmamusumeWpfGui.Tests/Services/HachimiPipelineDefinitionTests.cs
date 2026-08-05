@@ -10,6 +10,7 @@ public sealed class HachimiPipelineDefinitionTests
     [InlineData("mail_collection.json", "Home")]
     [InlineData("team_race.json", "RaceTab")]
     [InlineData("daily_race.json", "DailyProgram")]
+    [InlineData("mission_collection.json", "missionIcon")]
     public async Task Ordinary_pipeline_definitions_load_with_the_shared_schema(
         string fileName,
         string expectedTask)
@@ -41,6 +42,23 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopProbe", trigger.Entry);
         Assert.Contains("MiddleNext", trigger.Next);
         Assert.Contains("MiddleNext", trigger.OnErrorNext);
+    }
+
+    [Fact]
+    public async Task Mission_collection_checks_each_tab_and_returns_home()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "mission_collection.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        Assert.Equal("templates/mission_collection/mission_icon.png", definition!.GetTask("missionIcon").Template);
+        Assert.Equal("mainTab", definition.GetTask("dailyRed").OnErrorNext.Single());
+        Assert.Equal("titlesTab", definition.GetTask("mainRed").OnErrorNext.Single());
+        Assert.Equal("specialTab", definition.GetTask("titlesRed").OnErrorNext.Single());
+        Assert.Equal("returnHome", definition.GetTask("specialRed").OnErrorNext.Single());
+        Assert.True(definition.GetTask("homeVerify").Success);
     }
 
     [Fact]

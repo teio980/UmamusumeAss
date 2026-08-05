@@ -80,6 +80,12 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<MailCollectionTaskModule>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<IMissionCollectionPipeline>()
+            .To<AdbMissionCollectionPipeline>()
+            .InSingletonScope();
+        builder.Bind<MissionCollectionTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<IFileSystem>()
             .To<FileSystem>();
         builder.Bind<IEmulatorLauncher>()

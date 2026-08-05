@@ -1,0 +1,236 @@
+{
+  "name": "mission-collection",
+  "schemaVersion": 1,
+  "description": "Open Special Missions, collect all available rewards from every mission tab, and return to Home.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "tasks": {
+    "home": {
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
+      "postDelay": 800,
+      "next": ["missionIcon"],
+      "onErrorNext": ["back"]
+    },
+    "missionIcon": {
+      "template": "templates/mission_collection/mission_icon.png",
+      "roi": [700, 950, 200, 200],
+      "templThreshold": 0.84,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 1500,
+      "next": ["dailySelected"]
+    },
+    "dailySelected": {
+      "template": "templates/mission_collection/daily_tab_selected.png",
+      "roi": [0, 570, 235, 75],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
+      "postDelay": 500,
+      "next": ["dailyRed"],
+      "onErrorNext": ["dailyUnselected"]
+    },
+    "dailyUnselected": {
+      "template": "templates/mission_collection/daily_tab_unselected.png",
+      "roi": [0, 570, 235, 75],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
+      "postDelay": 500,
+      "next": ["dailyRed"],
+      "onErrorNext": ["stop"]
+    },
+    "dailyRed": {
+      "action": "DoNothing",
+      "template": "templates/mission_collection/red_dot.png",
+      "roi": [130, 550, 105, 80],
+      "templThreshold": 0.90,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 300,
+      "required": false,
+      "next": ["dailyCollectAll"],
+      "onErrorNext": ["mainTab"]
+    },
+    "dailyCollectAll": {
+      "template": "templates/mission_collection/collect_all.png",
+      "roi": [250, 1260, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["dailyClose"]
+    },
+    "dailyClose": {
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [250, 1380, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["mainTab"]
+    },
+    "mainTab": {
+      "template": "templates/mission_collection/main_tab.png",
+      "roi": [220, 570, 230, 80],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 300,
+      "postDelay": 500,
+      "next": ["mainRed"],
+      "onErrorNext": ["stop"]
+    },
+    "mainRed": {
+      "action": "DoNothing",
+      "template": "templates/mission_collection/red_dot.png",
+      "roi": [345, 550, 105, 80],
+      "templThreshold": 0.90,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 300,
+      "required": false,
+      "next": ["mainCollectAll"],
+      "onErrorNext": ["titlesTab"]
+    },
+    "mainCollectAll": {
+      "template": "templates/mission_collection/collect_all.png",
+      "roi": [250, 1260, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["mainClose"]
+    },
+    "mainClose": {
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [250, 1380, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["titlesTab"]
+    },
+    "titlesTab": {
+      "template": "templates/mission_collection/titles_tab.png",
+      "roi": [435, 570, 230, 80],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 300,
+      "postDelay": 500,
+      "next": ["titlesRed"],
+      "onErrorNext": ["stop"]
+    },
+    "titlesRed": {
+      "action": "DoNothing",
+      "template": "templates/mission_collection/red_dot.png",
+      "roi": [560, 550, 105, 80],
+      "templThreshold": 0.90,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 300,
+      "required": false,
+      "next": ["titlesCollectAll"],
+      "onErrorNext": ["specialTab"]
+    },
+    "titlesCollectAll": {
+      "template": "templates/mission_collection/collect_all.png",
+      "roi": [250, 1260, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["titlesClose"]
+    },
+    "titlesClose": {
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [250, 1380, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["specialTab"]
+    },
+    "specialTab": {
+      "template": "templates/mission_collection/special_tab.png",
+      "roi": [650, 570, 250, 80],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 300,
+      "postDelay": 500,
+      "next": ["specialRed"],
+      "onErrorNext": ["stop"]
+    },
+    "specialRed": {
+      "action": "DoNothing",
+      "template": "templates/mission_collection/red_dot.png",
+      "roi": [775, 550, 105, 80],
+      "templThreshold": 0.90,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 300,
+      "required": false,
+      "next": ["specialCollectAll"],
+      "onErrorNext": ["returnHome"]
+    },
+    "specialCollectAll": {
+      "template": "templates/mission_collection/collect_all.png",
+      "roi": [250, 1260, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["specialClose"]
+    },
+    "specialClose": {
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [250, 1380, 450, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 900,
+      "next": ["returnHome"]
+    },
+    "returnHome": {
+      "template": "templates/mission_collection/home_tab_unselected.png",
+      "roi": [300, 1400, 300, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 300,
+      "postDelay": 1500,
+      "next": ["homeVerify"],
+      "onErrorNext": ["back"]
+    },
+    "homeVerify": {
+      "action": "DoNothing",
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
+      "success": true
+    },
+    "back": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 600,
+      "maxTimes": 3,
+      "next": ["home"],
+      "exceededNext": ["stop"]
+    },
+    "stop": {
+      "algorithm": "JustReturn",
+      "action": "Stop"
+    }
+  },
+  "timing": {
+    "navigationMs": 1500,
+    "mailboxLoadMs": 1800,
+    "collectionSettleMs": 1200,
+    "homeTimeoutMs": 5000,
+    "homeRetryTimeoutMs": 2500,
+    "homeVerifyTimeoutMs": 5000,
+    "backAttempts": 3,
+    "backSettleMs": 600,
+    "pollIntervalMs": 300
+  }
+}
