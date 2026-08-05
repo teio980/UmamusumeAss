@@ -1,7 +1,7 @@
 {
   "name": "daily-race",
   "schemaVersion": 1,
-  "description": "Daily Race pipeline: enter Race > Daily Program > Daily Races, select Monies or Support Points, then repeat the selected Very Hard race for the configured count.",
+  "description": "Daily Race pipeline: enter Race > Daily Program > Daily Races, select a difficulty, ensure Multi-Race is on, then repeat the selected race for the configured count.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {},
@@ -84,7 +84,7 @@
       "templThreshold": 0.84,
       "timeoutMs": 15000,
       "postDelay": 2200,
-      "next": ["raceStart"]
+      "next": ["multiRaceOnProbe"]
     },
     "supportPointDifficulty": {
       "template": "templates/daily_race/difficulty_common.png",
@@ -92,6 +92,34 @@
       "templThreshold": 0.84,
       "timeoutMs": 15000,
       "postDelay": 2200,
+      "next": ["multiRaceOnProbe"]
+    },
+    "multiRaceOnProbe": {
+      "action": "Wait",
+      "template": "templates/daily_race/multi_race_on.png",
+      "roi": [300, 1300, 320, 140],
+      "templThreshold": 0.82,
+      "timeoutMs": 8000,
+      "postDelay": 500,
+      "required": false,
+      "next": ["raceStart"],
+      "onErrorNext": ["multiRaceOff"]
+    },
+    "multiRaceOff": {
+      "template": "templates/daily_race/multi_race_off.png",
+      "roi": [300, 1300, 320, 140],
+      "templThreshold": 0.82,
+      "timeoutMs": 8000,
+      "postDelay": 700,
+      "next": ["multiRaceOnVerify"]
+    },
+    "multiRaceOnVerify": {
+      "action": "Wait",
+      "template": "templates/daily_race/multi_race_on.png",
+      "roi": [300, 1300, 320, 140],
+      "templThreshold": 0.82,
+      "timeoutMs": 8000,
+      "postDelay": 500,
       "next": ["raceStart"]
     },
     "raceStart": {
@@ -187,18 +215,8 @@
       "templThreshold": 0.82,
       "timeoutMs": 10000,
       "postDelay": 1800,
-      "next": ["repeatRunnerProbe"],
-      "exceededNext": ["rewardNext"]
-    },
-    "repeatRunnerProbe": {
-      "template": "templates/daily_race/runner_confirm.png",
-      "roi": [220, 1240, 500, 260],
-      "templThreshold": 0.84,
-      "timeoutMs": 5000,
-      "postDelay": 1800,
-      "required": false,
       "next": ["previewNext"],
-      "onErrorNext": ["raceStart"]
+      "exceededNext": ["rewardNext"]
     },
     "rewardNext": {
       "template": "templates/team_race/result_next.png",
