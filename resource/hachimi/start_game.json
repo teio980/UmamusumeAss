@@ -124,7 +124,7 @@
       "templThreshold": 0.84,
       "referenceWidth": 900,
       "referenceHeight": 1600,
-      "roi": [ 0, 0, 500, 120 ],
+      "roi": [ 100, 700, 700, 200 ],
       "action": "TapToStart",
       "specificRect": [ 0, 0, 900, 1600 ],
       "postDelay": 1500,
