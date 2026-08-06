@@ -48,21 +48,30 @@ Write-Host "Output directory: $OutputDir"
 Write-Host ""
 
 
-Write-Host "--- Step 1/6: CMake configure (release preset) ---"
-$proc = Start-Process -FilePath "cmake" -ArgumentList "--preset", "release" `
+Write-Host "--- Step 1/6: CMake configure (Release) ---"
+$proc = Start-Process -FilePath "cmake" -ArgumentList @(
+    "-S", ".",
+    "-B", $BuildDir,
+    "-G", "Visual Studio 17 2022",
+    "-A", "x64",
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+) `
     -WorkingDirectory $SolutionRoot -NoNewWindow -Wait -PassThru
 if ($proc.ExitCode -ne 0) {
-    throw "cmake --preset release failed with exit code $($proc.ExitCode)"
+    throw "cmake Release configure failed with exit code $($proc.ExitCode)"
 }
 Write-Host "OK"
 Write-Host ""
 
 
-Write-Host "--- Step 2/6: CMake build (release preset) ---"
-$proc = Start-Process -FilePath "cmake" -ArgumentList "--build", "--preset", "release" `
+Write-Host "--- Step 2/6: CMake build (Release) ---"
+$proc = Start-Process -FilePath "cmake" -ArgumentList @(
+    "--build", $BuildDir,
+    "--config", "Release"
+) `
     -WorkingDirectory $SolutionRoot -NoNewWindow -Wait -PassThru
 if ($proc.ExitCode -ne 0) {
-    throw "cmake --build --preset release failed with exit code $($proc.ExitCode)"
+    throw "cmake Release build failed with exit code $($proc.ExitCode)"
 }
 Write-Host "OK"
 Write-Host ""
