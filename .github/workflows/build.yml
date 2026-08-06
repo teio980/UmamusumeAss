@@ -31,14 +31,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Cache CMake dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/release/_deps
-          key: ${{ runner.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json') }}
-
       - name: Configure CMake (Release)
-        run: cmake --preset release --log-level=VERBOSE
+        run: cmake --preset release
         shell: pwsh
 
       - name: Build (Release)
