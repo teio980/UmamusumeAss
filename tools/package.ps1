@@ -163,7 +163,7 @@ if (-not (Test-Path -LiteralPath $ZipPath)) {
 }
 
 $zipSize = (Get-Item -LiteralPath $ZipPath).Length
-Write-Host "OK — $ZipPath ($zipSize bytes)"
+Write-Host "OK - $ZipPath ($zipSize bytes)"
 Write-Host ""
 
 
@@ -187,9 +187,9 @@ try {
     }
     if ($vcEntries) {
         $found = ($vcEntries | ForEach-Object { $_.FullName }) -join ", "
-        throw "VC++ redistributable DLLs found in archive — /MT static linking is not effective: $found"
+        throw "VC++ redistributable DLLs found in archive - /MT static linking is not effective: $found"
     }
-    Write-Host "OK — no VC++ redistributable DLLs detected"
+    Write-Host "OK - no VC++ redistributable DLLs detected"
 }
 finally {
     $zipCheck.Dispose()
