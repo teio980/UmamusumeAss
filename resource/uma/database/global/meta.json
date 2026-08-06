@@ -26,8 +26,8 @@
                    "support_detail_pages":  199
                },
     "notes":  [
-                  "This is a Global-version community snapshot, not an official Cygames API.",
-                  "Image URLs are retained as references; image files are not downloaded.",
-                  "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
-              ]
+                        "This is a Global-version community snapshot, not an official Cygames API.",
+                        "Original 512x512 RGBA character images are downloaded without crop or resize to assets/images/global/trainees; see manifest.json.",
+                        "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
+                    ]
 }
