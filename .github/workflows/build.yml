@@ -77,8 +77,12 @@ jobs:
         run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~Theme|FullyQualifiedName~Models|FullyQualifiedName~Helper|FullyQualifiedName~Converters"
         shell: pwsh
 
-      - name: Run Package Layout Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
+      - name: Verify Package Script Test
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_Exists"
+        shell: pwsh
+
+      - name: Verify Package Layout Test
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_ProducesValidZipWithCorrectLayout"
         shell: pwsh
 
       - name: Package Portable ZIP
