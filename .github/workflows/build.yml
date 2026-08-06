@@ -69,8 +69,16 @@ jobs:
         run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~HachimiPipelineDefinitionTests|FullyQualifiedName~JsonSettingsServiceTests|FullyQualifiedName~LocalizationServiceTests"
         shell: pwsh
 
-      - name: Run WPF Template and Dispatcher Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~StartGameTemplateMatcherTests|FullyQualifiedName~TeamRaceTemplateMatcherTests|FullyQualifiedName~WpfEventDispatcherTests"
+      - name: Run WPF Start Game Template Tests
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~StartGameTemplateMatcherTests"
+        shell: pwsh
+
+      - name: Run WPF Team Race Template Tests
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~TeamRaceTemplateMatcherTests"
+        shell: pwsh
+
+      - name: Run WPF Dispatcher Tests
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~WpfEventDispatcherTests"
         shell: pwsh
 
       - name: Run WPF Resource and Model Tests
