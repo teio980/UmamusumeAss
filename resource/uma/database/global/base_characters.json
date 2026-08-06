@@ -1,0 +1,541 @@
+﻿[
+    {
+        "base_character_id":  1001,
+        "name_en":  "Special Week",
+        "name_jp":  "スペシャルウィーク",
+        "trainee_ids":  [
+                            100101,
+                            100102
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1002,
+        "name_en":  "Silence Suzuka",
+        "name_jp":  "サイレンススズカ",
+        "trainee_ids":  [
+                            100201
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1003,
+        "name_en":  "Tokai Teio",
+        "name_jp":  "トウカイテイオー",
+        "trainee_ids":  [
+                            100301,
+                            100302
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1004,
+        "name_en":  "Maruzensky",
+        "name_jp":  "マルゼンスキー",
+        "trainee_ids":  [
+                            100401,
+                            100402
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1005,
+        "name_en":  "Fuji Kiseki",
+        "name_jp":  "フジキセキ",
+        "trainee_ids":  [
+                            100501
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1006,
+        "name_en":  "Oguri Cap",
+        "name_jp":  "オグリキャップ",
+        "trainee_ids":  [
+                            100601,
+                            100602
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1007,
+        "name_en":  "Gold Ship",
+        "name_jp":  "ゴールドシップ",
+        "trainee_ids":  [
+                            100701
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1008,
+        "name_en":  "Vodka",
+        "name_jp":  "ウオッカ",
+        "trainee_ids":  [
+                            100801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1009,
+        "name_en":  "Daiwa Scarlet",
+        "name_jp":  "ダイワスカーレット",
+        "trainee_ids":  [
+                            100901
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1010,
+        "name_en":  "Taiki Shuttle",
+        "name_jp":  "タイキシャトル",
+        "trainee_ids":  [
+                            101001
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1011,
+        "name_en":  "Grass Wonder",
+        "name_jp":  "グラスワンダー",
+        "trainee_ids":  [
+                            101101,
+                            101102
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1012,
+        "name_en":  "Hishi Amazon",
+        "name_jp":  "ヒシアマゾン",
+        "trainee_ids":  [
+                            101201
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1013,
+        "name_en":  "Mejiro McQueen",
+        "name_jp":  "メジロマックイーン",
+        "trainee_ids":  [
+                            101301,
+                            101302
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1014,
+        "name_en":  "El Condor Pasa",
+        "name_jp":  "エルコンドルパサー",
+        "trainee_ids":  [
+                            101401,
+                            101402
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1015,
+        "name_en":  "T.M. Opera O",
+        "name_jp":  "テイエムオペラオー",
+        "trainee_ids":  [
+                            101501,
+                            101502
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1016,
+        "name_en":  "Narita Brian",
+        "name_jp":  "ナリタブライアン",
+        "trainee_ids":  [
+                            101601
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1017,
+        "name_en":  "Symboli Rudolf",
+        "name_jp":  "シンボリルドルフ",
+        "trainee_ids":  [
+                            101701,
+                            101702
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1018,
+        "name_en":  "Air Groove",
+        "name_jp":  "エアグルーヴ",
+        "trainee_ids":  [
+                            101801,
+                            101802
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1019,
+        "name_en":  "Agnes Digital",
+        "name_jp":  "アグネスデジタル",
+        "trainee_ids":  [
+                            101901
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1020,
+        "name_en":  "Seiun Sky",
+        "name_jp":  "セイウンスカイ",
+        "trainee_ids":  [
+                            102001
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1021,
+        "name_en":  "Tamamo Cross",
+        "name_jp":  "タマモクロス",
+        "trainee_ids":  [
+                            102101
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1022,
+        "name_en":  "Fine Motion",
+        "name_jp":  "ファインモーション",
+        "trainee_ids":  [
+                            102201
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1023,
+        "name_en":  "Biwa Hayahide",
+        "name_jp":  "ビワハヤヒデ",
+        "trainee_ids":  [
+                            102301,
+                            102302
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1024,
+        "name_en":  "Mayano Top Gun",
+        "name_jp":  "マヤノトップガン",
+        "trainee_ids":  [
+                            102401,
+                            102402
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1025,
+        "name_en":  "Manhattan Cafe",
+        "name_jp":  "マンハッタンカフェ",
+        "trainee_ids":  [
+                            102501
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1026,
+        "name_en":  "Mihono Bourbon",
+        "name_jp":  "ミホノブルボン",
+        "trainee_ids":  [
+                            102601,
+                            102602
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1027,
+        "name_en":  "Mejiro Ryan",
+        "name_jp":  "メジロライアン",
+        "trainee_ids":  [
+                            102701
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1028,
+        "name_en":  "Hishi Akebono",
+        "name_jp":  "ヒシアケボノ",
+        "trainee_ids":  [
+                            102801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1030,
+        "name_en":  "Rice Shower",
+        "name_jp":  "ライスシャワー",
+        "trainee_ids":  [
+                            103001,
+                            103002
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1032,
+        "name_en":  "Agnes Tachyon",
+        "name_jp":  "アグネスタキオン",
+        "trainee_ids":  [
+                            103201
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1033,
+        "name_en":  "Admire Vega",
+        "name_jp":  "アドマイヤベガ",
+        "trainee_ids":  [
+                            103301
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1035,
+        "name_en":  "Winning Ticket",
+        "name_jp":  "ウイニングチケット",
+        "trainee_ids":  [
+                            103501
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1037,
+        "name_en":  "Eishin Flash",
+        "name_jp":  "エイシンフラッシュ",
+        "trainee_ids":  [
+                            103701,
+                            103702
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1038,
+        "name_en":  "Curren Chan",
+        "name_jp":  "カレンチャン",
+        "trainee_ids":  [
+                            103801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1039,
+        "name_en":  "Kawakami Princess",
+        "name_jp":  "カワカミプリンセス",
+        "trainee_ids":  [
+                            103901
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1040,
+        "name_en":  "Gold City",
+        "name_jp":  "ゴールドシチー",
+        "trainee_ids":  [
+                            104001,
+                            104002
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1041,
+        "name_en":  "Sakura Bakushin O",
+        "name_jp":  "サクラバクシンオー",
+        "trainee_ids":  [
+                            104101
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1045,
+        "name_en":  "Super Creek",
+        "name_jp":  "スーパークリーク",
+        "trainee_ids":  [
+                            104501,
+                            104502
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1046,
+        "name_en":  "Smart Falcon",
+        "name_jp":  "スマートファルコン",
+        "trainee_ids":  [
+                            104601
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1048,
+        "name_en":  "Tosen Jordan",
+        "name_jp":  "トーセンジョーダン",
+        "trainee_ids":  [
+                            104801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1050,
+        "name_en":  "Narita Taishin",
+        "name_jp":  "ナリタタイシン",
+        "trainee_ids":  [
+                            105001
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1052,
+        "name_en":  "Haru Urara",
+        "name_jp":  "ハルウララ",
+        "trainee_ids":  [
+                            105201,
+                            105202
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1056,
+        "name_en":  "Matikanefukukitaru",
+        "name_jp":  "マチカネフクキタル",
+        "trainee_ids":  [
+                            105601,
+                            105602
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1058,
+        "name_en":  "Meisho Doto",
+        "name_jp":  "メイショウドトウ",
+        "trainee_ids":  [
+                            105801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1059,
+        "name_en":  "Mejiro Dober",
+        "name_jp":  "メジロドーベル",
+        "trainee_ids":  [
+                            105901
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1060,
+        "name_en":  "Nice Nature",
+        "name_jp":  "ナイスネイチャ",
+        "trainee_ids":  [
+                            106001
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1061,
+        "name_en":  "King Halo",
+        "name_jp":  "キングヘイロー",
+        "trainee_ids":  [
+                            106101
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1062,
+        "name_en":  "Matikanetannhauser",
+        "name_jp":  "マチカネタンホイザ",
+        "trainee_ids":  [
+                            106201
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1067,
+        "name_en":  "Satono Diamond",
+        "name_jp":  "サトノダイヤモンド",
+        "trainee_ids":  [
+                            106701
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1068,
+        "name_en":  "Kitasan Black",
+        "name_jp":  "キタサンブラック",
+        "trainee_ids":  [
+                            106801
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1069,
+        "name_en":  "Sakura Chiyono O",
+        "name_jp":  "サクラチヨノオー",
+        "trainee_ids":  [
+                            106901
+                        ],
+        "region":  "global",
+        "available":  true
+    },
+    {
+        "base_character_id":  1071,
+        "name_en":  "Mejiro Ardan",
+        "name_jp":  "メジロアルダン",
+        "trainee_ids":  [
+                            107101
+                        ],
+        "region":  "global",
+        "available":  true
+    }
+]

@@ -27,6 +27,9 @@ public sealed class HachimiPipelineDefinition
     [JsonPropertyName("templates")]
     public HachimiPipelineTemplates Templates { get; set; } = new();
 
+    [JsonPropertyName("uma")]
+    public UmaTaskSelection? Uma { get; set; }
+
     [JsonPropertyName("tasks")]
     public Dictionary<string, HachimiPipelineTask> Tasks { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);

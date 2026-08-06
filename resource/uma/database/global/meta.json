@@ -1,0 +1,33 @@
+﻿{
+    "source_name":  "Umamusume.run Global Database",
+    "source_url":  "https://www.umamusume.run",
+    "source_type":  "unofficial-community-site",
+    "region":  "global",
+    "crawled_at_utc":  "2026-08-06T13:06:53.6788463Z",
+    "index_pages":  [
+                        {
+                            "name":  "trainees",
+                            "url":  "https://www.umamusume.run/database/characters",
+                            "status":  200,
+                            "html_bytes":  201474
+                        },
+                        {
+                            "name":  "support_cards",
+                            "url":  "https://www.umamusume.run/database/support-cards",
+                            "status":  200,
+                            "html_bytes":  411229
+                        }
+                    ],
+    "counts":  {
+                   "base_characters":  52,
+                   "trainees":  71,
+                   "support_cards":  199,
+                   "trainee_detail_pages":  71,
+                   "support_detail_pages":  199
+               },
+    "notes":  [
+                  "This is a Global-version community snapshot, not an official Cygames API.",
+                  "Image URLs are retained as references; image files are not downloaded.",
+                  "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
+              ]
+}

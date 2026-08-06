@@ -25,6 +25,10 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<UmaService>()
             .InSingletonScope();
 
+        builder.Bind<IUmaDatabaseService>()
+            .To<UmaDatabaseService>()
+            .InSingletonScope();
+
         builder.Bind<IEventDispatcher>()
             .To<WpfEventDispatcher>()
             .InSingletonScope();
@@ -114,6 +118,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         base.Configure();
 
         var umaService = Container.Get<IUmaService>();
+        var umaDatabase = Container.Get<IUmaDatabaseService>();
 
         var appBaseDir = AppContext.BaseDirectory;
 
@@ -121,14 +126,21 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "UmamusumeAss");
 
-        _ = InitializeUmaServiceAsync(umaService, appBaseDir, appDataDir);
+        _ = InitializeUmaServicesAsync(
+            umaService,
+            umaDatabase,
+            appBaseDir,
+            appDataDir);
 
         var localization = Container.Get<ILocalizationService>();
         localization.Initialize();
     }
 
-    private static async Task InitializeUmaServiceAsync(
-        IUmaService umaService, string appBaseDir, string appDataDir)
+    private static async Task InitializeUmaServicesAsync(
+        IUmaService umaService,
+        IUmaDatabaseService umaDatabase,
+        string appBaseDir,
+        string appDataDir)
     {
         try
         {
@@ -138,6 +150,18 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         {
             Debug.WriteLine(
                 $"Failed to initialize UmaService: {ex.Message}");
+        }
+
+        try
+        {
+            var resourceRoot = umaService.ResourcePath
+                ?? Path.Combine(appBaseDir, "resource");
+            await umaDatabase.LoadAsync(resourceRoot);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(
+                $"Failed to load Uma database: {ex.Message}");
         }
     }
 
