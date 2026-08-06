@@ -20,7 +20,9 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # The project targets the Visual Studio 17 2022 CMake generator.
+    # Keep the runner pinned so windows-latest image migrations cannot remove it.
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
