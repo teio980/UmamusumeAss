@@ -82,7 +82,15 @@ jobs:
         shell: pwsh
 
       - name: Verify Package Layout Test
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_ProducesValidZipWithCorrectLayout"
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "package-layout-test.log"
+          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_ProducesValidZipWithCorrectLayout" 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $details = (Get-Content -LiteralPath $log -Raw).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Package layout test output::$details"
+            exit $exitCode
+          }
         shell: pwsh
 
       - name: Package Portable ZIP
