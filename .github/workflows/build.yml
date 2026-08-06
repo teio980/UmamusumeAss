@@ -41,56 +41,12 @@ jobs:
         run: cmake --build build/release --config Release
         shell: pwsh
 
-      - name: Run Native and Managed CTest (Release)
-        run: ctest --test-dir build/release -C Release --output-on-failure -E "^WpfGuiTests$"
+      - name: Run CTest (Release)
+        run: ctest --test-dir build/release -C Release --output-on-failure
         shell: pwsh
 
-      - name: Run WPF Bootstrapper and View Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~AppBootstrapperTests|FullyQualifiedName~BootstrapperRegistrationTests|FullyQualifiedName~Views"
-        shell: pwsh
-
-      - name: Run WPF ViewModel Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~ViewModels"
-        shell: pwsh
-
-      - name: Run WPF Connection and ADB Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~ConnectionHealthMonitorTests|FullyQualifiedName~ConnectionStateServiceTests|FullyQualifiedName~AdbRuntimeTests"
-        shell: pwsh
-
-      - name: Run WPF Pipeline and Settings Service Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~HachimiPipelineDefinitionTests|FullyQualifiedName~JsonSettingsServiceTests|FullyQualifiedName~LocalizationServiceTests"
-        shell: pwsh
-
-      - name: Run WPF Start Game Template Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~StartGameTemplateMatcherTests"
-        shell: pwsh
-
-      - name: Run WPF Team Race Template Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~TeamRaceTemplateMatcherTests"
-        shell: pwsh
-
-      - name: Run WPF Dispatcher Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~WpfEventDispatcherTests"
-        shell: pwsh
-
-      - name: Run WPF Resource and Model Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~Theme|FullyQualifiedName~Models|FullyQualifiedName~Helper|FullyQualifiedName~Converters"
-        shell: pwsh
-
-      - name: Verify Package Script Test
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_Exists"
-        shell: pwsh
-
-      - name: Verify Package Layout Test
-        run: |
-          $log = Join-Path $env:RUNNER_TEMP "package-layout-test.log"
-          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName~PackageScript_ProducesValidZipWithCorrectLayout" 2>&1 | Tee-Object -FilePath $log
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-            $details = (Get-Content -LiteralPath $log -Raw).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
-            Write-Output "::error title=Package layout test output::$details"
-            exit $exitCode
-          }
+      - name: Run Package Layout Tests
+        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
         shell: pwsh
 
       - name: Package Portable ZIP
