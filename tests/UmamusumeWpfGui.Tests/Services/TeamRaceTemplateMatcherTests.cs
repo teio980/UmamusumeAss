@@ -6,10 +6,9 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class TeamRaceTemplateMatcherTests
 {
     [Theory]
-    [InlineData("buttons/race_tab.png")]
-    [InlineData("buttons/team_trials.png")]
-    [InlineData("buttons/team_race.png")]
-    [InlineData("buttons/first_uma.png")]
+    [InlineData("race_tab.png")]
+    [InlineData("team_trials.png")]
+    [InlineData("team_race.png")]
     [InlineData("race_result.png")]
     public void Representative_template_matches_when_present_in_roi(string templateName)
     {

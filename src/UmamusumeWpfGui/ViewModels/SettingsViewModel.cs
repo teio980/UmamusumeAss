@@ -573,7 +573,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
         if (!string.IsNullOrWhiteSpace(DraftAdbPath)
             && !string.IsNullOrWhiteSpace(DraftConnectAddress)
-            && DraftConnectAddress.Contains(':', StringComparison.Ordinal))
+            && DraftConnectAddress.Contains(':', StringComparison.Ordinal)
+            && !DraftAlwaysAutoDetect)
         {
             _connectionState.SetState(ConnectionState.Connecting);
             try

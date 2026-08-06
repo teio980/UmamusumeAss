@@ -29,9 +29,8 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
   Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.15.2
-  GIT_SHALLOW    TRUE
+  URL      https://github.com/catchorg/Catch2/archive/refs/tags/v3.15.2.tar.gz
+  URL_HASH SHA256=acfae120892c2b67a74142d36d060c0caa96f1c3aaa8aabd96e19961163d0420
 )
 set(CATCH_BUILD_TESTING     OFF CACHE BOOL "" FORCE)
 set(CATCH_INSTALL_DOCS      OFF CACHE BOOL "" FORCE)

@@ -142,6 +142,7 @@ void run_connect(
                 && device->height == device->physical_height
             ? "physical"
             : "override";
+        mark_terminal(handle, operation_id);
         emit(
             handle,
             UMA_MSG_CONNECTION_SUCCEEDED,
@@ -160,10 +161,9 @@ void run_connect(
     }
     else
     {
+        mark_terminal(handle, operation_id);
         emit_failure(handle, operation_id, std::get<ConnectionFailure>(result));
     }
-
-    mark_terminal(handle, operation_id);
 }
 
 }

@@ -704,6 +704,7 @@ TEST_CASE("connect success but device never becomes ready reports DeviceNotReady
         success("List of devices attached\n"),
         success("List of devices attached\n"),
         success("List of devices attached\n"),
+        success("List of devices attached\n"),
     }};
 
     ConnectionTimings fast_ready_poll{

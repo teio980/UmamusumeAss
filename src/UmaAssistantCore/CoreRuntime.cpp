@@ -38,6 +38,16 @@ bool CoreRuntime::load_resource(std::string const& base_path)
 
     auto const decoded_base = path_from_utf8(base_path);
     if (!decoded_base) return false;
+
+    std::error_code path_error;
+    if (!std::filesystem::is_directory(*decoded_base, path_error))
+    {
+        std::lock_guard lock(mutex_);
+        profile_.reset();
+        resource_loaded_ = false;
+        return false;
+    }
+
     auto const json_path = *decoded_base / "resource" / "connection.json";
 
 
