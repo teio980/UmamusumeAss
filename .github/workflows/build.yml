@@ -41,8 +41,16 @@ jobs:
         run: cmake --build build/release --config Release
         shell: pwsh
 
-      - name: Run CTest (Release)
-        run: ctest --test-dir build/release -C Release --output-on-failure
+      - name: Run Native CTest (Release)
+        run: ctest --test-dir build/release -C Release --output-on-failure -E "^(ManagedBridgeTests|WpfGuiTests)$"
+        shell: pwsh
+
+      - name: Run Managed Bridge CTest (Release)
+        run: ctest --test-dir build/release -C Release --output-on-failure -R "^ManagedBridgeTests$"
+        shell: pwsh
+
+      - name: Run WPF GUI CTest (Release)
+        run: ctest --test-dir build/release -C Release --output-on-failure -R "^WpfGuiTests$"
         shell: pwsh
 
       - name: Run Package Layout Tests
