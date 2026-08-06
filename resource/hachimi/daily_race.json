@@ -128,6 +128,73 @@
       "templThreshold": 0.84,
       "timeoutMs": 20000,
       "postDelay": 1800,
+      "next": ["runnerSelectionReady"]
+    },
+    "runnerSelectionReady": {
+      "action": "Wait",
+      "template": "templates/daily_race/runner_confirm.png",
+      "roi": [220, 1240, 500, 260],
+      "templThreshold": 0.84,
+      "timeoutMs": 25000,
+      "postDelay": 400,
+      "next": ["runnerSortOpen"]
+    },
+    "runnerSortOpen": {
+      "action": "ClickRect",
+      "specificRect": [500, 1185, 260, 125],
+      "postDelay": 600,
+      "next": ["runnerSortMenuReady"]
+    },
+    "runnerSortMenuReady": {
+      "action": "Wait",
+      "template": "templates/daily_race/runner_display_settings.png",
+      "roi": [0, 0, 900, 800],
+      "templThreshold": 0.78,
+      "timeoutMs": 8000,
+      "postDelay": 300,
+      "next": ["runnerRatingSelect"]
+    },
+    "runnerRatingSelect": {
+      "action": "ClickRect",
+      "specificRect": [20, 275, 220, 145],
+      "postDelay": 250,
+      "next": ["runnerSortDialogConfirm"]
+    },
+    "runnerSortDialogConfirm": {
+      "action": "ClickRect",
+      "specificRect": [460, 1400, 380, 130],
+      "postDelay": 900,
+      "next": ["runnerDesc"]
+    },
+    "runnerDesc": {
+      "action": "Wait",
+      "template": "templates/daily_race/runner_sort_desc.png",
+      "roi": [725, 1180, 175, 115],
+      "templThreshold": 0.86,
+      "timeoutMs": 3000,
+      "postDelay": 300,
+      "next": ["runnerSelectHighest"],
+      "onErrorNext": ["runnerSetDesc"]
+    },
+    "runnerSetDesc": {
+      "action": "ClickRect",
+      "specificRect": [725, 1180, 175, 115],
+      "postDelay": 600,
+      "next": ["runnerDescVerify"]
+    },
+    "runnerDescVerify": {
+      "action": "Wait",
+      "template": "templates/daily_race/runner_sort_desc.png",
+      "roi": [725, 1180, 175, 115],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "postDelay": 300,
+      "next": ["runnerSelectHighest"]
+    },
+    "runnerSelectHighest": {
+      "action": "ClickRect",
+      "specificRect": [20, 800, 180, 220],
+      "postDelay": 700,
       "next": ["runnerConfirm"]
     },
     "runnerConfirm": {

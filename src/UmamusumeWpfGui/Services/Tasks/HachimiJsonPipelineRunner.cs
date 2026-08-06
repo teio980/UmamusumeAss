@@ -280,6 +280,38 @@ public sealed class HachimiJsonPipelineRunner
 
         switch (action)
         {
+            case "clickrect":
+                var rectCenter = ResolveRectCenter(
+                    task.SpecificRect,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    connection.Width,
+                    connection.Height);
+                if (rectCenter is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses ClickRect but has no valid specificRect.");
+                }
+
+                var rectTap = await _adbRuntime.TapAsync(
+                        connection.AdbPath,
+                        connection.Serial,
+                        rectCenter.Value.X,
+                        rectCenter.Value.Y,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                if (rectTap.Error is not null || rectTap.TimedOut || rectTap.ExitCode != 0)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"ADB ClickRect failed for '{taskName}': {rectTap.Stderr}");
+                }
+
+                AddLog(
+                    logSink,
+                    $"Clicked rect '{taskName}' at ({rectCenter.Value.X},{rectCenter.Value.Y}).",
+                    LogEntryKind.Success);
+                break;
+
             case "clickself":
                 if (match is null)
                 {
@@ -799,6 +831,27 @@ public sealed class HachimiJsonPipelineRunner
             .Trim()
             .ToLowerInvariant()
         ?? string.Empty;
+
+    private static (int X, int Y)? ResolveRectCenter(
+        int[]? rect,
+        int referenceWidth,
+        int referenceHeight,
+        int actualWidth,
+        int actualHeight)
+    {
+        if (rect is null || rect.Length < 4)
+            return null;
+
+        var width = Math.Max(1, referenceWidth);
+        var height = Math.Max(1, referenceHeight);
+        var centerX = rect[0] + rect[2] / 2.0;
+        var centerY = rect[1] + rect[3] / 2.0;
+        var x = (int)Math.Round(centerX * Math.Max(1, actualWidth) / width);
+        var y = (int)Math.Round(centerY * Math.Max(1, actualHeight) / height);
+        return (
+            Math.Clamp(x, 0, Math.Max(0, actualWidth - 1)),
+            Math.Clamp(y, 0, Math.Max(0, actualHeight - 1)));
+    }
 
     private static HachimiPipelineRunResult Succeed(
         RunState state,
