@@ -44,12 +44,77 @@
                   Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
       <TextBlock Margin="0,14,0,0"
                  Text="{DynamicResource GrassDailyRaceTraineeLabel}" />
-      <ComboBox Width="300"
-                Margin="0,6,0,0"
-                HorizontalAlignment="Left"
-                ItemsSource="{Binding TraineeOptions}"
-                DisplayMemberPath="Label"
-                SelectedItem="{Binding SelectedTrainee, UpdateSourceTrigger=PropertyChanged}" />
+      <Grid Width="360"
+            Margin="0,6,0,0"
+            HorizontalAlignment="Left">
+        <ToggleButton x:Name="TraineeDropDownButton"
+                      Height="32"
+                      Background="{DynamicResource SurfaceRaisedBrush}"
+                      BorderBrush="{DynamicResource BorderSubtleBrush}"
+                      BorderThickness="1"
+                      IsChecked="{Binding IsTraineeDropDownOpen, Mode=TwoWay}">
+          <Grid>
+            <ContentPresenter Margin="10,0,36,0"
+                              VerticalAlignment="Center"
+                              Content="{Binding SelectedTrainee.Label}" />
+            <Path Width="10"
+                  Height="6"
+                  Margin="0,0,12,0"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
+                  Data="M 0,0 L 5,5 L 10,0 Z"
+                  Fill="{DynamicResource TextSecondaryBrush}" />
+          </Grid>
+        </ToggleButton>
+        <Popup x:Name="TraineePopup"
+               AllowsTransparency="True"
+               DataContext="{Binding PlacementTarget.DataContext,
+                   RelativeSource={RelativeSource Self}}"
+               IsOpen="{Binding IsTraineeDropDownOpen, Mode=TwoWay}"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=TraineeDropDownButton}"
+               StaysOpen="False">
+          <Border Width="360"
+                  MaxHeight="430"
+                  Padding="8"
+                  Background="{DynamicResource SurfaceRaisedBrush}"
+                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                  BorderThickness="1"
+                  CornerRadius="4">
+            <StackPanel>
+              <ui:TextBox Margin="0,0,0,8"
+                          Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                          PlaceholderText="{DynamicResource GrassDailyRaceTraineeSearchPlaceholder}" />
+              <ListBox x:Name="TraineeList"
+                       MaxHeight="350"
+                       BorderThickness="0"
+                       ItemsSource="{Binding FilteredTraineeOptions}"
+                       SelectedItem="{Binding SelectedTrainee, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       PreviewMouseLeftButtonUp="TraineeList_PreviewMouseLeftButtonUp">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel MinHeight="60"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                      <Border Width="52"
+                              Height="52"
+                              Margin="0,2,10,2"
+                              Background="{DynamicResource SurfaceRaisedBrush}"
+                              CornerRadius="4">
+                        <Image Source="{Binding Thumbnail}"
+                               Stretch="Uniform" />
+                      </Border>
+                      <TextBlock VerticalAlignment="Center"
+                                 Text="{Binding Label}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </StackPanel>
+          </Border>
+        </Popup>
+      </Grid>
       <TextBlock Margin="0,8,0,0"
                  Text="{Binding Status}"
                  TextWrapping="Wrap"

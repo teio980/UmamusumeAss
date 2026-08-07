@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
@@ -23,8 +25,11 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
     private string _difficulty = VeryHardDifficulty;
     private string _raceCountText = "1";
     private string _status = string.Empty;
+    private string _traineeSearchText = string.Empty;
+    private bool _isTraineeDropDownOpen;
     private int? _traineeId;
     private readonly IUmaDatabaseService? _umaDatabase;
+    private readonly List<DailyRaceTraineeOption> _allTraineeOptions = [];
 
     public DailyRaceTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
@@ -52,6 +57,34 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
 
     public ObservableCollection<DailyRaceTraineeOption> TraineeOptions { get; } = [];
 
+    public ObservableCollection<DailyRaceTraineeOption> FilteredTraineeOptions { get; } = [];
+
+    public string TraineeSearchText
+    {
+        get => _traineeSearchText;
+        set
+        {
+            var normalized = value ?? string.Empty;
+            if (_traineeSearchText == normalized)
+                return;
+            _traineeSearchText = normalized;
+            OnPropertyChanged();
+            ApplyTraineeSearch();
+        }
+    }
+
+    public bool IsTraineeDropDownOpen
+    {
+        get => _isTraineeDropDownOpen;
+        set
+        {
+            if (_isTraineeDropDownOpen == value)
+                return;
+            _isTraineeDropDownOpen = value;
+            OnPropertyChanged();
+        }
+    }
+
     public int? TraineeId
     {
         get => _traineeId;
@@ -77,7 +110,10 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
     {
         var selectedId = TraineeId;
         TraineeOptions.Clear();
-        TraineeOptions.Add(new(null, "Automatic (highest rating)"));
+        _allTraineeOptions.Clear();
+        var automatic = new DailyRaceTraineeOption(null, "Automatic (highest rating)");
+        _allTraineeOptions.Add(automatic);
+        TraineeOptions.Add(automatic);
 
         if (_umaDatabase is not null)
         {
@@ -87,19 +123,36 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
                          .ThenBy(item => item.TraineeId))
             {
                 var label = string.IsNullOrWhiteSpace(trainee.NameEn)
-                    ? trainee.TraineeId.ToString(CultureInfo.InvariantCulture)
-                    : $"{trainee.NameEn} ({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)})";
-                TraineeOptions.Add(new(trainee.TraineeId, label));
+                    ? "Unknown runner"
+                    : trainee.NameEn;
+                BitmapSource? thumbnail = null;
+                var imagePath = _umaDatabase.GetTraineeImagePath(trainee.TraineeId);
+                if (File.Exists(imagePath))
+                {
+                    try
+                    {
+                        thumbnail = UmaImageCodec.Load(imagePath, maxDimension: 72);
+                    }
+                    catch (Exception)
+                    {
+                        // Keep the runner selectable even if one optional
+                        // thumbnail is missing or cannot be decoded.
+                    }
+                }
+
+                var option = new DailyRaceTraineeOption(trainee.TraineeId, label, thumbnail);
+                _allTraineeOptions.Add(option);
+                TraineeOptions.Add(option);
             }
         }
 
         if (selectedId is not null
-            && !TraineeOptions.Any(item => item.TraineeId == selectedId))
+            && !_allTraineeOptions.Any(item => item.TraineeId == selectedId))
         {
             TraineeId = null;
         }
 
-        OnPropertyChanged(nameof(SelectedTrainee));
+        ApplyTraineeSearch();
     }
 
     public string DefinitionPath
@@ -201,10 +254,31 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     private void OnDatabaseLoaded(object? sender, EventArgs e) => RefreshTrainees();
+
+    private void ApplyTraineeSearch()
+    {
+        var query = TraineeSearchText.Trim();
+        FilteredTraineeOptions.Clear();
+        foreach (var option in _allTraineeOptions)
+        {
+            if (option.TraineeId is null
+                || string.IsNullOrWhiteSpace(query)
+                || option.TraineeId == TraineeId
+                || option.Label.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredTraineeOptions.Add(option);
+            }
+        }
+
+        OnPropertyChanged(nameof(SelectedTrainee));
+    }
 }
 
 public sealed record DailyRaceModeOption(string Value, string Label);
 
 public sealed record DailyRaceDifficultyOption(string Value, string Label);
 
-public sealed record DailyRaceTraineeOption(int? TraineeId, string Label);
+public sealed record DailyRaceTraineeOption(
+    int? TraineeId,
+    string Label,
+    BitmapSource? Thumbnail = null);

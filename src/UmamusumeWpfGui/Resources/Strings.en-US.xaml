@@ -127,6 +127,7 @@
   <sys:String x:Key="GrassDailyRaceCountLabel">Race count</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">Number of races to run (1–6, the daily ticket limit).</sys:String>
   <sys:String x:Key="GrassDailyRaceTraineeLabel">Runner</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeSearchPlaceholder">Search runner by name</sys:String>
   <sys:String x:Key="GrassDailyRaceTraineeHint">Automatic uses the highest-rated runner. Selecting a runner filters by its aptitude data, scrolls the list, and selects the matching runner.</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">Connect a device and configure a valid Daily Race definition first</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">Starting Daily Race</sys:String>

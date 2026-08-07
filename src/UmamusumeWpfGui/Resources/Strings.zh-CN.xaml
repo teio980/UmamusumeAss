@@ -125,6 +125,7 @@
   <sys:String x:Key="GrassDailyRaceCountLabel">比赛场数</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">本次比赛场数（最少 1 场，最多 6 场，每日票数上限）。</sys:String>
   <sys:String x:Key="GrassDailyRaceTraineeLabel">选择出赛马娘</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeSearchPlaceholder">按名字搜索马娘</sys:String>
   <sys:String x:Key="GrassDailyRaceTraineeHint">自动：选择 Rating 最高的马娘。指定马娘后，系统会根据马娘适性筛选、滚动列表并选择对应马娘。</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">请先连接设备并配置有效的 Daily Race JSON</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">正在启动 Daily Race</sys:String>
