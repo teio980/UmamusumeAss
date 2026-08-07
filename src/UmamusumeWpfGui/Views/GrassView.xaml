@@ -201,7 +201,6 @@
         <Grid.RowDefinitions>
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Border Grid.Row="0" Padding="18" Style="{StaticResource PanelBorderStyle}">
           <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -213,11 +212,7 @@
                 <TextBlock Text="{Binding SelectedTaskTitle}"
                            FontSize="18"
                            FontWeight="SemiBold" />
-                <TextBlock Margin="0,6,0,0"
-                           Text="{Binding SelectedTaskDescription}"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                <ContentControl Margin="0,20,0,0"
+                <ContentControl Margin="0,14,0,0"
                                 Content="{Binding SelectedTask.Settings}">
                   <ContentControl.Resources>
                     <DataTemplate DataType="{x:Type tasksettings:StartGameTaskSettingsViewModel}">
@@ -237,21 +232,6 @@
                     </DataTemplate>
                   </ContentControl.Resources>
                 </ContentControl>
-                <Border Margin="0,20,0,0"
-                        Padding="12"
-                        Background="{DynamicResource SurfaceRaisedBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6">
-                  <StackPanel>
-                    <TextBlock Text="{DynamicResource GrassPlaceholderTitle}"
-                               FontWeight="Medium" />
-                    <TextBlock Margin="0,6,0,0"
-                               Text="{DynamicResource GrassPlaceholderMessage}"
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                  </StackPanel>
-                </Border>
               </StackPanel>
               <ContentControl Margin="0,18,0,0"
                               Content="{Binding HachimiShopSettings}"
@@ -276,17 +256,6 @@
                        IsChecked="{Binding IsGlobalSettings, Mode=TwoWay}" />
         </StackPanel>
 
-        <Border Grid.Row="2"
-                Margin="0,10,0,0"
-                Padding="10"
-                Background="{DynamicResource SurfaceRaisedBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-          <TextBlock Text="{DynamicResource GrassTodayHint}"
-                     TextWrapping="Wrap"
-                     Foreground="{DynamicResource TextSecondaryBrush}" />
-        </Border>
       </Grid>
 
 

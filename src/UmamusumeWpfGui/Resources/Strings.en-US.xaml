@@ -73,7 +73,9 @@
   <sys:String x:Key="GrassStartGame">Start game</sys:String>
   <sys:String x:Key="GrassStopGame">Stop game</sys:String>
   <sys:String x:Key="GrassGameLaunchTitle">Game launch</sys:String>
+  <sys:String x:Key="GrassGamePackageLabel">Package ID</sys:String>
   <sys:String x:Key="GrassGamePackageHint">Enter the Android package ID. The connected device must be ready.</sys:String>
+  <sys:String x:Key="GrassGameActivityLabel">Activity</sys:String>
   <sys:String x:Key="GrassGameActivityHint">Optional Activity. Leave blank to resolve the package launcher automatically; use package/activity for a fixed MAA-style component.</sys:String>
   <sys:String x:Key="GrassGameStarting">Starting game</sys:String>
   <sys:String x:Key="GrassGameStopping">Stopping game</sys:String>
@@ -107,7 +109,9 @@
   <sys:String x:Key="GrassTaskSelectionConfirm">Add task</sys:String>
   <sys:String x:Key="GrassTaskSelectionCancel">Cancel</sys:String>
   <sys:String x:Key="GrassTeamRaceSettingsTitle">Team Race pipeline</sys:String>
+  <sys:String x:Key="GrassTeamRaceDefinitionLabel">Definition</sys:String>
   <sys:String x:Key="GrassTeamRaceDefinitionHint">Path to the JSON state machine. The game executor is intentionally left as an extension seam.</sys:String>
+  <sys:String x:Key="GrassTeamRaceCountLabel">Race count</sys:String>
   <sys:String x:Key="GrassTeamRaceCountHint">Number of races to run (1–5).</sys:String>
   <sys:String x:Key="GrassTeamRaceStopWhenTicketsEmpty">Stop when no tickets are available</sys:String>
   <sys:String x:Key="GrassTeamRaceConnectionRequired">Connect a device and configure a valid Team Race definition first</sys:String>
@@ -116,15 +120,18 @@
   <sys:String x:Key="GrassTeamRaceRunning">Running {0} race(s) from {1}</sys:String>
   <sys:String x:Key="GrassTeamRaceCompleted">Team Race completed: {0} race(s)</sys:String>
   <sys:String x:Key="GrassDailyRaceSettingsTitle">Daily Race pipeline</sys:String>
+  <sys:String x:Key="GrassDailyRaceDefinitionLabel">Definition</sys:String>
   <sys:String x:Key="GrassDailyRaceDefinitionHint">Path to the Daily Race JSON state machine.</sys:String>
   <sys:String x:Key="GrassDailyRaceModeLabel">Reward mode</sys:String>
   <sys:String x:Key="GrassDailyRaceDifficultyLabel">Difficulty</sys:String>
+  <sys:String x:Key="GrassDailyRaceCountLabel">Race count</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">Number of races to run (1–6, the daily ticket limit).</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">Connect a device and configure a valid Daily Race definition first</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">Starting Daily Race</sys:String>
   <sys:String x:Key="GrassDailyRaceRunning">Running {0} {1} race(s) from {2}</sys:String>
   <sys:String x:Key="GrassDailyRaceCompleted">Daily Race completed: {0} race(s)</sys:String>
   <sys:String x:Key="GrassMailCollectionSettingsTitle">Mailbox pipeline</sys:String>
+  <sys:String x:Key="GrassMailCollectionDefinitionLabel">Definition</sys:String>
   <sys:String x:Key="GrassMailCollectionDefinitionHint">Path to the mailbox automation definition.</sys:String>
   <sys:String x:Key="GrassShopSettingsTitle">Shop purchase settings</sys:String>
   <sys:String x:Key="GrassShopDefinitionHint">The shop is checked automatically after ordinary Hachimi tasks when it appears.</sys:String>
@@ -142,6 +149,7 @@
   <sys:String x:Key="GrassMailCollectionRunning">Collecting rewards using {0}</sys:String>
   <sys:String x:Key="GrassMailCollectionCompleted">Mailbox rewards collected</sys:String>
   <sys:String x:Key="GrassMissionCollectionSettingsTitle">Mission collection pipeline</sys:String>
+  <sys:String x:Key="GrassMissionCollectionDefinitionLabel">Definition</sys:String>
   <sys:String x:Key="GrassMissionCollectionDefinitionHint">Path to the Special Missions automation definition.</sys:String>
   <sys:String x:Key="GrassMissionCollectionConnectionRequired">Connect a device before collecting missions</sys:String>
   <sys:String x:Key="GrassMissionCollectionStarting">Collecting mission rewards</sys:String>

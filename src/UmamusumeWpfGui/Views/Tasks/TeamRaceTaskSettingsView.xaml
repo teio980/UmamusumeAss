@@ -11,16 +11,12 @@
     <StackPanel>
       <TextBlock Text="{DynamicResource GrassTeamRaceSettingsTitle}"
                  FontWeight="Medium" />
-      <TextBlock Margin="0,6,0,0"
-                 Text="{DynamicResource GrassTeamRaceDefinitionHint}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
-      <ui:TextBox Margin="0,10,0,0"
+      <TextBlock Margin="0,12,0,0"
+                 Text="{DynamicResource GrassTeamRaceDefinitionLabel}" />
+      <ui:TextBox Margin="0,6,0,0"
                   Text="{Binding DefinitionPath, UpdateSourceTrigger=PropertyChanged}" />
       <TextBlock Margin="0,12,0,0"
-                 Text="{DynamicResource GrassTeamRaceCountHint}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
+                 Text="{DynamicResource GrassTeamRaceCountLabel}" />
       <ui:TextBox Width="120"
                   Margin="0,6,0,0"
                   HorizontalAlignment="Left"

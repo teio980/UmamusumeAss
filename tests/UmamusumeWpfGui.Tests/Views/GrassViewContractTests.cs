@@ -27,7 +27,9 @@ public sealed class GrassViewContractTests
         Assert.Contains("GrassGlobalSettings", content);
         Assert.Contains("HachimiShopSettingsViewModel", content);
         Assert.DoesNotContain("ShopTaskSettingsViewModel", content);
-        Assert.Contains("GrassTodayHint", content);
+        Assert.DoesNotContain("GrassTodayHint", content);
+        Assert.DoesNotContain("SelectedTaskDescription", content);
+        Assert.DoesNotContain("GrassPlaceholderMessage", content);
     }
 
     [Fact]

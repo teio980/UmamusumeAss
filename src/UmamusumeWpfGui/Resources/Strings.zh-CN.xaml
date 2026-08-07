@@ -73,6 +73,7 @@
   <sys:String x:Key="GrassStartGame">开始游戏</sys:String>
   <sys:String x:Key="GrassStopGame">停止游戏</sys:String>
   <sys:String x:Key="GrassGameLaunchTitle">游戏启动</sys:String>
+  <sys:String x:Key="GrassGamePackageLabel">包名</sys:String>
   <sys:String x:Key="GrassGamePackageHint">输入 Android 包名，连接设备必须处于就绪状态。</sys:String>
   <sys:String x:Key="GrassGameStarting">正在启动游戏</sys:String>
   <sys:String x:Key="GrassGameStopping">正在停止游戏</sys:String>
@@ -106,7 +107,9 @@
   <sys:String x:Key="GrassTaskSelectionConfirm">添加任务</sys:String>
   <sys:String x:Key="GrassTaskSelectionCancel">取消</sys:String>
   <sys:String x:Key="GrassTeamRaceSettingsTitle">团队竞技场脚本</sys:String>
+  <sys:String x:Key="GrassTeamRaceDefinitionLabel">定义文件</sys:String>
   <sys:String x:Key="GrassTeamRaceDefinitionHint">状态机 JSON 路径。具体游戏执行器会作为独立扩展接入。</sys:String>
+  <sys:String x:Key="GrassTeamRaceCountLabel">比赛场数</sys:String>
   <sys:String x:Key="GrassTeamRaceCountHint">本次比赛场数（最少 1 场，最多 5 场）。</sys:String>
   <sys:String x:Key="GrassTeamRaceStopWhenTicketsEmpty">没有门票时停止</sys:String>
   <sys:String x:Key="GrassTeamRaceConnectionRequired">请先连接设备并配置有效的团队竞技场 JSON</sys:String>
@@ -115,21 +118,25 @@
   <sys:String x:Key="GrassTeamRaceRunning">正在从 {1} 执行 {0} 场比赛</sys:String>
   <sys:String x:Key="GrassTeamRaceCompleted">团队竞技场完成：{0} 场</sys:String>
   <sys:String x:Key="GrassDailyRaceSettingsTitle">Daily Race 日常赛脚本</sys:String>
+  <sys:String x:Key="GrassDailyRaceDefinitionLabel">定义文件</sys:String>
   <sys:String x:Key="GrassDailyRaceDefinitionHint">Daily Race 状态机 JSON 路径。</sys:String>
   <sys:String x:Key="GrassDailyRaceModeLabel">奖励类型</sys:String>
   <sys:String x:Key="GrassDailyRaceDifficultyLabel">比赛难度</sys:String>
+  <sys:String x:Key="GrassDailyRaceCountLabel">比赛场数</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">本次比赛场数（最少 1 场，最多 6 场，每日票数上限）。</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">请先连接设备并配置有效的 Daily Race JSON</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">正在启动 Daily Race</sys:String>
   <sys:String x:Key="GrassDailyRaceRunning">正在从 {2} 执行 {0} {1} 场日常赛</sys:String>
   <sys:String x:Key="GrassDailyRaceCompleted">Daily Race 完成：{0} 场</sys:String>
   <sys:String x:Key="GrassMailCollectionSettingsTitle">邮箱领取流程</sys:String>
+  <sys:String x:Key="GrassMailCollectionDefinitionLabel">定义文件</sys:String>
   <sys:String x:Key="GrassMailCollectionDefinitionHint">邮箱自动化定义文件路径。</sys:String>
   <sys:String x:Key="GrassMailCollectionConnectionRequired">请先连接设备再领取邮箱奖励</sys:String>
   <sys:String x:Key="GrassMailCollectionStarting">正在领取邮箱奖励</sys:String>
   <sys:String x:Key="GrassMailCollectionRunning">使用 {0} 领取奖励</sys:String>
   <sys:String x:Key="GrassMailCollectionCompleted">邮箱奖励领取完成</sys:String>
   <sys:String x:Key="GrassMissionCollectionSettingsTitle">任务领取流程</sys:String>
+  <sys:String x:Key="GrassMissionCollectionDefinitionLabel">定义文件</sys:String>
   <sys:String x:Key="GrassMissionCollectionDefinitionHint">Special Missions 自动化定义文件路径。</sys:String>
   <sys:String x:Key="GrassMissionCollectionConnectionRequired">请先连接设备再领取任务奖励</sys:String>
   <sys:String x:Key="GrassMissionCollectionStarting">正在领取任务奖励</sys:String>
@@ -227,6 +234,7 @@
   <sys:String x:Key="StartupErrorTitle">初始化错误</sys:String>
   <sys:String x:Key="StartupErrorMessage">应用程序无法初始化核心组件。连接功能已禁用。</sys:String>
 
+  <sys:String x:Key="GrassGameActivityLabel">Activity</sys:String>
   <sys:String x:Key="GrassGameActivityHint">可选 Activity。留空会自动解析应用入口；固定 MAA 组件时可填写 package/activity。</sys:String>
 
   <sys:String x:Key="TabDeveloperTools">开发者工具</sys:String>
