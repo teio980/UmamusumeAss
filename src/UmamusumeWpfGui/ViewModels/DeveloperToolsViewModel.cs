@@ -1,4 +1,7 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
@@ -14,26 +17,36 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private readonly IAdbRuntime _adbRuntime;
     private readonly IConnectionStateService _connectionState;
     private readonly SettingsViewModel _settingsViewModel;
+    private readonly IUmaDatabaseService _umaDatabase;
+    private readonly ObservableCollection<DeveloperToolsImageItem> _existingImages = [];
     private AdbScreenshotResult? _screenshot;
     private BitmapSource? _screenshotImage;
     private Int32Rect? _cropRegion;
+    private DeveloperToolsImageItem? _selectedUmaImage;
+    private string? _activeImagePath;
     private string _statusText = "Ready.";
     private string _captureDetails = string.Empty;
     private bool _isBusy;
+    private bool _isLoadingImages;
+    private bool _isSavingImage;
     private bool _disposed;
 
     public DeveloperToolsViewModel(
         IAdbRuntime adbRuntime,
         IConnectionStateService connectionState,
-        SettingsViewModel settingsViewModel)
+        SettingsViewModel settingsViewModel,
+        IUmaDatabaseService umaDatabase)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(connectionState);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
+        ArgumentNullException.ThrowIfNull(umaDatabase);
 
         _adbRuntime = adbRuntime;
         _connectionState = connectionState;
         _settingsViewModel = settingsViewModel;
+        _umaDatabase = umaDatabase;
+        ExistingImages = new ReadOnlyObservableCollection<DeveloperToolsImageItem>(_existingImages);
         _connectionState.StateChanged += OnConnectionStateChanged;
 
         ConnectCommand = new RelayCommand(
@@ -51,6 +64,19 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         ClearCropCommand = new RelayCommand(
             _ => SetCropRegion(null),
             _ => !_disposed && HasCropRegion);
+        RefreshExistingImagesCommand = new RelayCommand(
+            _ => _ = RefreshExistingImagesAsync(),
+            _ => !_disposed && !_isLoadingImages);
+        SaveSelectedImageCommand = new RelayCommand(
+            _ => _ = SaveSelectedImageAsync(),
+            _ => !_disposed
+                && HasSelectedImage
+                && HasCropRegion
+                && !_isBusy
+                && !_isLoadingImages
+                && !_isSavingImage);
+
+        _ = RefreshExistingImagesAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -60,6 +86,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public ICommand SaveOriginalCommand { get; }
     public ICommand SaveCroppedCommand { get; }
     public ICommand ClearCropCommand { get; }
+    public ICommand RefreshExistingImagesCommand { get; }
+    public ICommand SaveSelectedImageCommand { get; }
 
     public ConnectionState ConnectionState => _connectionState.State;
 
@@ -80,6 +108,34 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     public bool HasCropRegion => _cropRegion is { Width: > 0, Height: > 0 };
 
+    public bool HasSelectedImage => _selectedUmaImage is not null
+        && !string.IsNullOrWhiteSpace(_activeImagePath);
+
+    public bool IsLoadingImages => _isLoadingImages;
+
+    public ReadOnlyObservableCollection<DeveloperToolsImageItem> ExistingImages { get; }
+
+    public DeveloperToolsImageItem? SelectedUmaImage
+    {
+        get => _selectedUmaImage;
+        set
+        {
+            if (ReferenceEquals(_selectedUmaImage, value))
+            {
+                return;
+            }
+
+            _selectedUmaImage = value;
+            OnPropertyChanged();
+            LoadExistingImage(value);
+        }
+    }
+
+    public string ExistingImageCountDisplay =>
+        $"{_existingImages.Count} image(s)";
+
+    public string SelectedImagePathDisplay => _activeImagePath ?? string.Empty;
+
     public BitmapSource? ScreenshotImage => _screenshotImage;
 
     public Int32Rect? CropRegion => _cropRegion;
@@ -92,10 +148,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         ? $"{region.X}, {region.Y} | {region.Width} x {region.Height}"
         : "No crop selected";
 
-    public string CaptureDetailsDisplay => _screenshot is { } screenshot
-        && _screenshotImage is { } image
-        ? $"{image.PixelWidth} x {image.PixelHeight} | {screenshot.Method} | {screenshot.Duration.TotalMilliseconds:0} ms"
-        : string.Empty;
+    public string CaptureDetailsDisplay => _screenshotImage is not { } image
+        ? string.Empty
+        : _screenshot is { } screenshot
+            ? $"{image.PixelWidth} x {image.PixelHeight} | {screenshot.Method} | {screenshot.Duration.TotalMilliseconds:0} ms"
+            : $"{image.PixelWidth} x {image.PixelHeight} | existing image";
 
     public string StatusText => _statusText;
 
@@ -171,6 +228,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _screenshot = capture.Screenshot;
             _screenshotImage = bitmap;
             _cropRegion = null;
+            _activeImagePath = null;
+            SelectedUmaImage = null;
             _captureDetails =
                 $"{bitmap.PixelWidth} × {bitmap.PixelHeight} · {capture.Screenshot.Method} · "
                 + $"{capture.Screenshot.Duration.TotalMilliseconds:0} ms";
@@ -221,6 +280,74 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         OnPropertyChanged(nameof(CropRegionText));
         OnPropertyChanged(nameof(HasCropRegion));
         RaiseCommandStates();
+    }
+
+    public async Task RefreshExistingImagesAsync()
+    {
+        if (_disposed || _isLoadingImages)
+        {
+            return;
+        }
+
+        _isLoadingImages = true;
+        OnPropertyChanged(nameof(IsLoadingImages));
+        RaiseCommandStates();
+
+        var selectedId = _selectedUmaImage?.TraineeId;
+        try
+        {
+            var records = _umaDatabase.Trainees
+                .ToDictionary(record => record.TraineeId);
+            var directory = _umaDatabase.GetTraineeImageDirectory();
+            var candidates = await Task.Run(() =>
+            {
+                if (!Directory.Exists(directory))
+                {
+                    return Array.Empty<DeveloperToolsImageItem>();
+                }
+
+                return Directory.EnumerateFiles(directory)
+                    .Where(IsSupportedImagePath)
+                    .Select(path => CreateImageItem(path, records))
+                    .Where(item => item is not null)
+                    .Select(item => item!)
+                    .OrderBy(item => item.TraineeId)
+                    .ToArray();
+            }).ConfigureAwait(true);
+
+            _existingImages.Clear();
+            foreach (var item in candidates)
+            {
+                _existingImages.Add(item);
+            }
+
+            OnPropertyChanged(nameof(ExistingImageCountDisplay));
+            var selected = selectedId is { } id
+                ? _existingImages.FirstOrDefault(item => item.TraineeId == id)
+                : null;
+            SelectedUmaImage = selected;
+            if (selected is null && _screenshot is null)
+            {
+                _screenshotImage = null;
+                _activeImagePath = null;
+                _cropRegion = null;
+                NotifyScreenshotPropertiesChanged();
+            }
+
+            SetStatus(candidates.Length == 0
+                ? "No existing Uma images were found."
+                : $"Loaded {candidates.Length} existing Uma image(s).");
+        }
+        catch (Exception exception)
+        {
+            SetStatus($"Could not load existing Uma images: {exception.Message}");
+        }
+        finally
+        {
+            _isLoadingImages = false;
+            OnPropertyChanged(nameof(IsLoadingImages));
+            RaiseCommandStates();
+        }
     }
 
     public void Dispose()
@@ -282,6 +409,143 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         catch (Exception exception)
         {
             SetStatus($"Could not save crop: {exception.Message}");
+        }
+    }
+
+    private async Task SaveSelectedImageAsync()
+    {
+        if (_screenshotImage is null
+            || !HasCropRegion
+            || _cropRegion is not { } region
+            || string.IsNullOrWhiteSpace(_activeImagePath)
+            || !File.Exists(_activeImagePath))
+        {
+            return;
+        }
+
+        if (_isSavingImage)
+        {
+            return;
+        }
+
+        var sourcePath = _activeImagePath!;
+        var backupPath = CreateBackupPath(sourcePath);
+        var temporaryPath = sourcePath + $".{Guid.NewGuid():N}.tmp";
+        _isSavingImage = true;
+        RaiseCommandStates();
+        try
+        {
+            var cropped = new CroppedBitmap(_screenshotImage, region);
+            cropped.Freeze();
+            File.Copy(sourcePath, backupPath);
+            UmaImageCodec.Save(cropped, temporaryPath + Path.GetExtension(sourcePath));
+            File.Move(
+                temporaryPath + Path.GetExtension(sourcePath),
+                sourcePath,
+                overwrite: true);
+
+            await RefreshExistingImagesAsync().ConfigureAwait(true);
+            SetCropRegion(null);
+            SetStatus($"Saved cropped image to {sourcePath}. Backup: {backupPath}");
+        }
+        catch (Exception exception)
+        {
+            SetStatus($"Could not replace image: {exception.Message}");
+        }
+        finally
+        {
+            TryDelete(temporaryPath);
+            TryDelete(temporaryPath + Path.GetExtension(sourcePath));
+            _isSavingImage = false;
+            RaiseCommandStates();
+        }
+    }
+
+    private void LoadExistingImage(DeveloperToolsImageItem? item)
+    {
+        if (item is null)
+        {
+            _activeImagePath = null;
+            if (_screenshot is null)
+            {
+                _screenshotImage = null;
+                _cropRegion = null;
+                NotifyScreenshotPropertiesChanged();
+            }
+
+            OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(SelectedImagePathDisplay));
+            RaiseCommandStates();
+            return;
+        }
+
+        try
+        {
+            _screenshot = null;
+            _screenshotImage = UmaImageCodec.Load(item.Path);
+            _activeImagePath = item.Path;
+            _cropRegion = null;
+            _captureDetails = $"{_screenshotImage.PixelWidth} x {_screenshotImage.PixelHeight} | existing image";
+            SetStatus($"Loaded {item.DisplayName}. Drag on the preview to select a crop region.");
+            NotifyScreenshotPropertiesChanged();
+            OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(SelectedImagePathDisplay));
+        }
+        catch (Exception exception)
+        {
+            _activeImagePath = null;
+            _screenshotImage = null;
+            _cropRegion = null;
+            SetStatus($"Could not load {item.DisplayName}: {exception.Message}");
+            NotifyScreenshotPropertiesChanged();
+            OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(SelectedImagePathDisplay));
+        }
+    }
+
+    private static DeveloperToolsImageItem? CreateImageItem(
+        string path,
+        Dictionary<int, UmaTraineeRecord> records)
+    {
+        if (!int.TryParse(Path.GetFileNameWithoutExtension(path), out var traineeId))
+        {
+            return null;
+        }
+
+        var name = records.TryGetValue(traineeId, out var record)
+            ? record.NameEn
+            : traineeId.ToString(CultureInfo.InvariantCulture);
+        var thumbnail = UmaImageCodec.Load(path, maxDimension: 96);
+        return new DeveloperToolsImageItem(traineeId, name, path, thumbnail);
+    }
+
+    private static bool IsSupportedImagePath(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".webp" or ".png" or ".jpg" or ".jpeg";
+
+    private static string CreateBackupPath(string sourcePath)
+    {
+        var directory = Path.Combine(
+            Path.GetDirectoryName(sourcePath) ?? AppContext.BaseDirectory,
+            "backup");
+        Directory.CreateDirectory(directory);
+        var stem = Path.GetFileNameWithoutExtension(sourcePath);
+        var extension = Path.GetExtension(sourcePath);
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var candidate = Path.Combine(directory, $"{stem}_{timestamp}{extension}");
+        var suffix = 1;
+        while (File.Exists(candidate))
+        {
+            candidate = Path.Combine(directory, $"{stem}_{timestamp}_{suffix++}{extension}");
+        }
+
+        return candidate;
+    }
+
+    private static void TryDelete(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
         }
     }
 
@@ -348,6 +612,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         OnPropertyChanged(nameof(CropRegionTextDisplay));
         OnPropertyChanged(nameof(HasCropRegion));
         OnPropertyChanged(nameof(CaptureDetails));
+        OnPropertyChanged(nameof(HasSelectedImage));
+        OnPropertyChanged(nameof(SelectedImagePathDisplay));
         RaiseCommandStates();
     }
 
@@ -376,6 +642,16 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         if (ClearCropCommand is RelayCommand clearCrop)
         {
             clearCrop.RaiseCanExecuteChanged();
+        }
+
+        if (RefreshExistingImagesCommand is RelayCommand refreshImages)
+        {
+            refreshImages.RaiseCanExecuteChanged();
+        }
+
+        if (SaveSelectedImageCommand is RelayCommand saveSelectedImage)
+        {
+            saveSelectedImage.RaiseCanExecuteChanged();
         }
     }
 

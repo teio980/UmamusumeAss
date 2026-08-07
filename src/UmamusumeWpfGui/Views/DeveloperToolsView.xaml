@@ -5,13 +5,17 @@
              Foreground="{DynamicResource TextFillColorPrimaryBrush}"
              Loaded="OnLoaded"
              Unloaded="OnUnloaded">
-  <Grid Margin="42">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                PanningMode="VerticalOnly">
+    <Grid Margin="42">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
 
     <StackPanel Grid.Row="0">
       <TextBlock Text="{DynamicResource DeveloperToolsTitle}"
@@ -25,8 +29,8 @@
 
     <Grid Grid.Row="1" Margin="0,18,0,0">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <StackPanel>
         <TextBlock Text="{DynamicResource DeveloperToolsConnectionTitle}"
@@ -50,7 +54,69 @@
       </StackPanel>
     </Grid>
 
-    <Grid Grid.Row="2" x:Name="PreviewSurface" Margin="0,18,0,12"
+    <Grid Grid.Row="2" Margin="0,18,0,0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="118" />
+      </Grid.RowDefinitions>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Text="{DynamicResource DeveloperToolsExistingImagesTitle}"
+                     FontWeight="Medium" />
+          <TextBlock Margin="0,4,0,0"
+                     Text="{DynamicResource DeveloperToolsExistingImagesHint}"
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+          <TextBlock Margin="0,0,12,0"
+                     VerticalAlignment="Center"
+                     Text="{Binding ExistingImageCountDisplay}"
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+          <ui:Button Content="{DynamicResource DeveloperToolsRefreshImagesButton}"
+                     Command="{Binding RefreshExistingImagesCommand}"
+                     Appearance="Secondary"
+                     Icon="ArrowClockwise24" />
+        </StackPanel>
+      </Grid>
+      <ListBox Grid.Row="1"
+               Margin="0,8,0,0"
+               ItemsSource="{Binding ExistingImages}"
+               SelectedItem="{Binding SelectedUmaImage, Mode=TwoWay}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Width="112"
+                        Margin="4"
+                        ToolTip="{Binding Path}">
+              <Image Width="72"
+                     Height="72"
+                     HorizontalAlignment="Center"
+                     Source="{Binding Thumbnail}"
+                     Stretch="Uniform" />
+              <TextBlock Margin="0,4,0,0"
+                         HorizontalAlignment="Center"
+                         Text="{Binding DisplayName}"
+                         TextAlignment="Center"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+
+    <Grid Grid.Row="3" x:Name="PreviewSurface" MinHeight="600" Margin="0,18,0,12"
           Background="#18000000"
           ClipToBounds="True"
           SizeChanged="OnPreviewSurfaceSizeChanged">
@@ -135,7 +201,7 @@
       </StackPanel>
     </Grid>
 
-    <Grid Grid.Row="3">
+      <Grid Grid.Row="4">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
@@ -164,7 +230,13 @@
                    Command="{Binding ClearCropCommand}"
                    Appearance="Secondary"
                    Icon="Dismiss24" />
+        <ui:Button Margin="8,0,0,0"
+                   Content="{DynamicResource DeveloperToolsSaveReplaceButton}"
+                   Command="{Binding SaveSelectedImageCommand}"
+                   Appearance="Primary"
+                   Icon="SaveArrowForward24" />
       </WrapPanel>
+      </Grid>
     </Grid>
-  </Grid>
+  </ScrollViewer>
 </UserControl>

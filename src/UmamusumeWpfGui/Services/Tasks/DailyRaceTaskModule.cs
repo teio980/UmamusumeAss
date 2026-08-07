@@ -11,19 +11,23 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
     private readonly ISettingsService _settingsService;
     private readonly ILocalizationService _localizationService;
     private readonly IDailyRacePipeline _pipeline;
+    private readonly IUmaDatabaseService _umaDatabase;
 
     public DailyRaceTaskModule(
         ISettingsService settingsService,
         ILocalizationService localizationService,
-        IDailyRacePipeline pipeline)
+        IDailyRacePipeline pipeline,
+        IUmaDatabaseService umaDatabase)
     {
         ArgumentNullException.ThrowIfNull(settingsService);
         ArgumentNullException.ThrowIfNull(localizationService);
         ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(umaDatabase);
         _settingsService = settingsService;
         _localizationService = localizationService;
         _pipeline = pipeline;
-        Settings = new DailyRaceTaskSettingsViewModel();
+        _umaDatabase = umaDatabase;
+        Settings = new DailyRaceTaskSettingsViewModel(_umaDatabase);
     }
 
     public GrassTaskDefinition Definition { get; } = new(
@@ -43,6 +47,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
         ["mode"] = Settings.Mode,
         ["difficulty"] = Settings.Difficulty,
         ["raceCount"] = Settings.RaceCount,
+        ["traineeId"] = Settings.TraineeId,
     };
 
     public void ImportSettings(JsonObject settings)
@@ -56,12 +61,14 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
                 "raceCount",
                 Settings.RaceCount)
             .ToString(CultureInfo.InvariantCulture);
+        Settings.TraineeId = ReadNullableInt(settings, "traineeId");
     }
 
     public IGrassTaskModule CreateInstance() => new DailyRaceTaskModule(
         _settingsService,
         _localizationService,
-        _pipeline);
+        _pipeline,
+        _umaDatabase);
 
     public bool CanExecute(GrassTaskExecutionContext context) =>
         context.Connection is not null
@@ -94,12 +101,13 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
                 Settings.RaceCount,
                 Settings.DefinitionPath));
 
-        var result = await _pipeline.RunAsync(
+        var result = await _pipeline.RunWithTraineeAsync(
                 connection,
                 Settings.DefinitionPath,
                 Settings.Mode,
                 Settings.Difficulty,
                 Settings.RaceCount,
+                Settings.TraineeId,
                 context.LogSink,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -159,5 +167,16 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
         }
         catch (InvalidOperationException) { return fallback; }
         catch (FormatException) { return fallback; }
+    }
+
+    private static int? ReadNullableInt(JsonObject settings, string key)
+    {
+        try
+        {
+            var value = settings[key];
+            return value is null ? null : Math.Max(1, value.GetValue<int>());
+        }
+        catch (InvalidOperationException) { return null; }
+        catch (FormatException) { return null; }
     }
 }

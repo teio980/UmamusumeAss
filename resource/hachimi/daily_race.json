@@ -192,8 +192,7 @@
       "next": ["runnerSelectHighest"]
     },
     "runnerSelectHighest": {
-      "action": "ClickRect",
-      "specificRect": [20, 800, 180, 220],
+      "action": "SelectDailyRaceRunner",
       "postDelay": 700,
       "next": ["runnerConfirm"]
     },

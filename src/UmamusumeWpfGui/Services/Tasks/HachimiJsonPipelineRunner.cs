@@ -280,6 +280,30 @@ public sealed class HachimiJsonPipelineRunner
 
         switch (action)
         {
+            case "selectdailyracerunner":
+                if (runOptions.CustomActionExecutor is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' requires a custom action executor.");
+                }
+
+                var customResult = await runOptions.CustomActionExecutor(
+                        connection,
+                        definition,
+                        taskName,
+                        task,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!customResult.Succeeded)
+                    return TaskExecutionResult.Failed(customResult.Message);
+                if (!string.IsNullOrWhiteSpace(customResult.Message))
+                {
+                    AddLog(logSink, customResult.Message, LogEntryKind.Success);
+                }
+
+                break;
+
             case "clickrect":
                 var rectCenter = ResolveRectCenter(
                     task.SpecificRect,
@@ -931,7 +955,23 @@ public sealed class HachimiPipelineRunOptions
     /// </summary>
     public IReadOnlyDictionary<string, int[]>? RoiOverrides { get; init; }
 
+    public Func<
+        LastVerifiedConnection,
+        HachimiPipelineDefinition,
+        string,
+        HachimiPipelineTask,
+        IGrassTaskLogSink?,
+        CancellationToken,
+        Task<HachimiCustomActionResult>>? CustomActionExecutor { get; init; }
+
     public int PipelineDepth { get; init; }
+}
+
+public sealed record HachimiCustomActionResult(bool Succeeded, string Message)
+{
+    public static HachimiCustomActionResult Success(string message) => new(true, message);
+
+    public static HachimiCustomActionResult Failure(string message) => new(false, message);
 }
 
 public sealed record HachimiPipelineRunResult(

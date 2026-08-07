@@ -4,6 +4,8 @@ namespace UmamusumeWpfGui.Services;
 
 public interface IUmaDatabaseService
 {
+    event EventHandler? DatabaseLoaded;
+
     bool IsLoaded { get; }
 
     string? Region { get; }
@@ -27,6 +29,10 @@ public interface IUmaDatabaseService
     IReadOnlyList<UmaSupportCardRecord> GetSupportCardsForCharacter(int baseCharacterId);
 
     string GetTraineeTemplateDirectory(int traineeId);
+
+    string GetTraineeImageDirectory();
+
+    string GetTraineeImagePath(int traineeId);
 
     string GetSupportCardTemplateDirectory(int supportCardId);
 }

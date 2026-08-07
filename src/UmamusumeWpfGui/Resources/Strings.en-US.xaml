@@ -126,6 +126,8 @@
   <sys:String x:Key="GrassDailyRaceDifficultyLabel">Difficulty</sys:String>
   <sys:String x:Key="GrassDailyRaceCountLabel">Race count</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">Number of races to run (1–6, the daily ticket limit).</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeLabel">Runner</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeHint">Automatic uses the highest-rated runner. Selecting a runner filters by its aptitude data, scrolls the list, and selects the matching runner.</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">Connect a device and configure a valid Daily Race definition first</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">Starting Daily Race</sys:String>
   <sys:String x:Key="GrassDailyRaceRunning">Running {0} {1} race(s) from {2}</sys:String>
@@ -249,12 +251,16 @@
 
   <sys:String x:Key="TabDeveloperTools">Developer Tools</sys:String>
   <sys:String x:Key="DeveloperToolsTitle">Developer Tools</sys:String>
-  <sys:String x:Key="DeveloperToolsHint">Capture the connected emulator screen, inspect its dimensions, and save a precisely cropped PNG. Use the mouse wheel over the preview to zoom in or out, then hold the middle mouse button and drag to pan.</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">Capture the connected emulator screen or select an existing Uma image, then crop it in the preview. Replacing an existing image automatically backs up the original in the image folder's backup subfolder.</sys:String>
   <sys:String x:Key="DeveloperToolsConnectionTitle">Emulator connection</sys:String>
   <sys:String x:Key="DeveloperToolsConnectButton">Connect</sys:String>
+  <sys:String x:Key="DeveloperToolsExistingImagesTitle">Existing Uma images</sys:String>
+  <sys:String x:Key="DeveloperToolsExistingImagesHint">Select an image to load it into the crop preview.</sys:String>
+  <sys:String x:Key="DeveloperToolsRefreshImagesButton">Refresh images</sys:String>
   <sys:String x:Key="DeveloperToolsNoScreenshot">No screenshot captured</sys:String>
   <sys:String x:Key="DeveloperToolsCropHint">Drag with the left mouse button to select a crop region; hold the middle mouse button to pan.</sys:String>
   <sys:String x:Key="DeveloperToolsSaveButton">Save PNG</sys:String>
   <sys:String x:Key="DeveloperToolsSaveCropButton">Save crop</sys:String>
   <sys:String x:Key="DeveloperToolsClearCropButton">Clear crop</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveReplaceButton">Replace selected image</sys:String>
 </ResourceDictionary>

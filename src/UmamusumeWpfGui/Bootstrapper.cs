@@ -56,6 +56,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<HachimiJsonPipelineRunner>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<DailyRaceRunnerSelector>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<IAdbConnectionSessionFactory>()
             .To<AdbConnectionSessionFactory>();
         builder.Bind<IGameLauncher>()

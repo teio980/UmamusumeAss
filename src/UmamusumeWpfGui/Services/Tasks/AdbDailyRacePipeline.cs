@@ -6,21 +6,45 @@ namespace UmamusumeWpfGui.Services.Tasks;
 public sealed class AdbDailyRacePipeline : IDailyRacePipeline
 {
     private readonly HachimiJsonPipelineRunner _runner;
+    private readonly DailyRaceRunnerSelector _runnerSelector;
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
 
-    public AdbDailyRacePipeline(HachimiJsonPipelineRunner runner)
+    public AdbDailyRacePipeline(
+        HachimiJsonPipelineRunner runner,
+        DailyRaceRunnerSelector runnerSelector)
     {
         ArgumentNullException.ThrowIfNull(runner);
+        ArgumentNullException.ThrowIfNull(runnerSelector);
         _runner = runner;
+        _runnerSelector = runnerSelector;
     }
 
-    public async Task<DailyRacePipelineResult> RunAsync(
+    public Task<DailyRacePipelineResult> RunAsync(
         LastVerifiedConnection connection,
         string definitionPath,
         string mode,
         string difficulty,
         int raceCount,
+        IGrassTaskLogSink? logSink = null,
+        CancellationToken cancellationToken = default) =>
+        RunWithTraineeAsync(
+            connection,
+            definitionPath,
+            mode,
+            difficulty,
+            raceCount,
+            null,
+            logSink,
+            cancellationToken);
+
+    public async Task<DailyRacePipelineResult> RunWithTraineeAsync(
+        LastVerifiedConnection connection,
+        string definitionPath,
+        string mode,
+        string difficulty,
+        int raceCount,
+        int? traineeId = null,
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default)
     {
@@ -87,6 +111,22 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                             ["moniesDifficulty"] = GetDifficultyRoi(normalizedDifficulty),
                             ["supportPointDifficulty"] = GetDifficultyRoi(normalizedDifficulty),
                         },
+                        CustomActionExecutor = async (
+                                actionConnection,
+                                definition,
+                                taskName,
+                                task,
+                                actionLogSink,
+                                actionCancellationToken) =>
+                            await _runnerSelector.SelectAsync(
+                                    actionConnection,
+                                    definition,
+                                    taskName,
+                                    task,
+                                    traineeId,
+                                    actionLogSink,
+                                    actionCancellationToken)
+                                .ConfigureAwait(false),
                     },
                     logSink,
                     linked.Token)

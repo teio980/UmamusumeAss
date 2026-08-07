@@ -20,6 +20,8 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     private string? _resourceRoot;
     private string? _region;
 
+    public event EventHandler? DatabaseLoaded;
+
     public bool IsLoaded
     {
         get
@@ -92,6 +94,8 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             _trainees = traineeIndex;
             _supportCards = supportCardIndex;
         }
+
+        DatabaseLoaded?.Invoke(this, EventArgs.Empty);
     }
 
     public bool TryGetTrainee(int traineeId, out UmaTraineeRecord? trainee)
@@ -152,8 +156,31 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     public string GetTraineeTemplateDirectory(int traineeId) =>
         GetTemplateDirectory("trainees", traineeId);
 
+    public string GetTraineeImageDirectory() =>
+        GetImageDirectory("trainees");
+
+    public string GetTraineeImagePath(int traineeId) =>
+        Path.Combine(
+            GetTraineeImageDirectory(),
+            traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
+
     public string GetSupportCardTemplateDirectory(int supportCardId) =>
         GetTemplateDirectory("support_cards", supportCardId);
+
+    private string GetImageDirectory(string category)
+    {
+        lock (_sync)
+        {
+            var resourceRoot = _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
+            return Path.Combine(
+                resourceRoot,
+                "uma",
+                "assets",
+                "images",
+                "global",
+                category);
+        }
+    }
 
     private string GetTemplateDirectory(string category, int id)
     {

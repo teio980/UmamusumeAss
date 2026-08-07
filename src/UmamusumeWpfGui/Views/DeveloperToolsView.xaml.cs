@@ -96,7 +96,11 @@ public sealed partial class DeveloperToolsView : UserControl
 
     private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (_viewModel?.HasScreenshot != true || e.Delta == 0)
+        var point = e.GetPosition(CropOverlay);
+        if (_viewModel?.HasScreenshot != true
+            || e.Delta == 0
+            || !TryGetImageLayout(out var imageRect, out _)
+            || !imageRect.Contains(ToPreviewContentPoint(point)))
         {
             return;
         }
@@ -104,7 +108,7 @@ public sealed partial class DeveloperToolsView : UserControl
         SetPreviewScale(_previewScale * (e.Delta > 0
             ? PreviewScaleStep
             : 1.0 / PreviewScaleStep));
-        UpdatePreviewCoordinate(e.GetPosition(CropOverlay));
+        UpdatePreviewCoordinate(point);
         e.Handled = true;
     }
 

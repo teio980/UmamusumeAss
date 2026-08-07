@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Collections.ObjectModel;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
@@ -21,6 +23,16 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
     private string _difficulty = VeryHardDifficulty;
     private string _raceCountText = "1";
     private string _status = string.Empty;
+    private int? _traineeId;
+    private readonly IUmaDatabaseService? _umaDatabase;
+
+    public DailyRaceTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
+    {
+        _umaDatabase = umaDatabase;
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
+        RefreshTrainees();
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -37,6 +49,58 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
         new(NormalDifficulty, "Normal"),
         new(EasyDifficulty, "Easy"),
     ];
+
+    public ObservableCollection<DailyRaceTraineeOption> TraineeOptions { get; } = [];
+
+    public int? TraineeId
+    {
+        get => _traineeId;
+        set
+        {
+            var normalized = value is > 0 ? value : null;
+            if (_traineeId == normalized)
+                return;
+            _traineeId = normalized;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedTrainee));
+        }
+    }
+
+    public DailyRaceTraineeOption? SelectedTrainee
+    {
+        get => TraineeOptions.FirstOrDefault(item => item.TraineeId == TraineeId)
+            ?? TraineeOptions.FirstOrDefault();
+        set => TraineeId = value?.TraineeId;
+    }
+
+    public void RefreshTrainees()
+    {
+        var selectedId = TraineeId;
+        TraineeOptions.Clear();
+        TraineeOptions.Add(new(null, "Automatic (highest rating)"));
+
+        if (_umaDatabase is not null)
+        {
+            foreach (var trainee in _umaDatabase.Trainees
+                         .Where(item => item.Available)
+                         .OrderBy(item => item.NameEn, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(item => item.TraineeId))
+            {
+                var label = string.IsNullOrWhiteSpace(trainee.NameEn)
+                    ? trainee.TraineeId.ToString(CultureInfo.InvariantCulture)
+                    : $"{trainee.NameEn} ({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)})";
+                TraineeOptions.Add(new(trainee.TraineeId, label));
+            }
+        }
+
+        if (selectedId is not null
+            && !TraineeOptions.Any(item => item.TraineeId == selectedId))
+        {
+            TraineeId = null;
+        }
+
+        OnPropertyChanged(nameof(SelectedTrainee));
+    }
 
     public string DefinitionPath
     {
@@ -135,8 +199,12 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private void OnDatabaseLoaded(object? sender, EventArgs e) => RefreshTrainees();
 }
 
 public sealed record DailyRaceModeOption(string Value, string Label);
 
 public sealed record DailyRaceDifficultyOption(string Value, string Label);
+
+public sealed record DailyRaceTraineeOption(int? TraineeId, string Label);

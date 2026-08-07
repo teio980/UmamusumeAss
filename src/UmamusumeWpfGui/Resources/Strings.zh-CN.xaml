@@ -124,6 +124,8 @@
   <sys:String x:Key="GrassDailyRaceDifficultyLabel">比赛难度</sys:String>
   <sys:String x:Key="GrassDailyRaceCountLabel">比赛场数</sys:String>
   <sys:String x:Key="GrassDailyRaceCountHint">本次比赛场数（最少 1 场，最多 6 场，每日票数上限）。</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeLabel">选择出赛马娘</sys:String>
+  <sys:String x:Key="GrassDailyRaceTraineeHint">自动：选择 Rating 最高的马娘。指定马娘后，系统会根据马娘适性筛选、滚动列表并选择对应马娘。</sys:String>
   <sys:String x:Key="GrassDailyRaceConnectionRequired">请先连接设备并配置有效的 Daily Race JSON</sys:String>
   <sys:String x:Key="GrassDailyRaceStarting">正在启动 Daily Race</sys:String>
   <sys:String x:Key="GrassDailyRaceRunning">正在从 {2} 执行 {0} {1} 场日常赛</sys:String>
@@ -239,14 +241,18 @@
 
   <sys:String x:Key="TabDeveloperTools">开发者工具</sys:String>
   <sys:String x:Key="DeveloperToolsTitle">开发者工具</sys:String>
-  <sys:String x:Key="DeveloperToolsHint">截图已连接的模拟器，查看分辨率，并将选中的区域保存为 PNG。预览图上滚动鼠标滚轮可放大或缩小，按住鼠标中键拖动可平移图片。</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">可以截图已连接的模拟器，也可以选择已有马娘图片，在预览中手动裁剪。替换已有图片前会自动将原图备份到图片目录的 backup 子目录。</sys:String>
   <sys:String x:Key="DeveloperToolsConnectionTitle">模拟器连接</sys:String>
   <sys:String x:Key="DeveloperToolsConnectButton">连接</sys:String>
+  <sys:String x:Key="DeveloperToolsExistingImagesTitle">已有马娘图片</sys:String>
+  <sys:String x:Key="DeveloperToolsExistingImagesHint">选择图片后，在下方预览中拖拽选择裁剪区域。</sys:String>
+  <sys:String x:Key="DeveloperToolsRefreshImagesButton">刷新图片</sys:String>
   <sys:String x:Key="DeveloperToolsNoScreenshot">尚未截图</sys:String>
   <sys:String x:Key="DeveloperToolsCropHint">按住鼠标左键拖拽选择裁剪区域；按住鼠标中键拖动平移图片。</sys:String>
   <sys:String x:Key="DeveloperToolsSaveButton">保存 PNG</sys:String>
   <sys:String x:Key="DeveloperToolsSaveCropButton">保存裁剪图</sys:String>
   <sys:String x:Key="DeveloperToolsClearCropButton">清除裁剪</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveReplaceButton">替换所选图片</sys:String>
   <sys:String x:Key="GrassShopSettingsTitle">商店购买设置</sys:String>
   <sys:String x:Key="GrassShopDefinitionHint">普通 Hachimi 任务完成后，出现商店时自动检查。</sys:String>
   <sys:String x:Key="GrassShopEnabled">在支持的任务中处理随机商店</sys:String>

@@ -13,6 +13,16 @@ public interface IDailyRacePipeline
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default);
 
+    Task<DailyRacePipelineResult> RunWithTraineeAsync(
+        LastVerifiedConnection connection,
+        string definitionPath,
+        string mode,
+        string difficulty,
+        int raceCount,
+        int? traineeId,
+        IGrassTaskLogSink? logSink = null,
+        CancellationToken cancellationToken = default);
+
     Task<DailyRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
