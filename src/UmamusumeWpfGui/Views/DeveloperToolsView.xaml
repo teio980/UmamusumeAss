@@ -2,9 +2,16 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
              Foreground="{DynamicResource TextFillColorPrimaryBrush}"
              Loaded="OnLoaded"
              Unloaded="OnUnloaded">
+  <UserControl.Resources>
+    <c:NullToVisibilityConverter x:Key="NoScreenshotVisibility"
+                                 Invert="True" />
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <c:InverseBooleanToVisibilityConverter x:Key="NotBoolToVisibility" />
+  </UserControl.Resources>
   <ScrollViewer VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Disabled"
                 PanningMode="VerticalOnly">
@@ -288,6 +295,597 @@
                            Appearance="Primary"
                            Icon="SaveArrowForward24" />
               </WrapPanel>
+            </Grid>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{DynamicResource DeveloperToolsPipelineTab}">
+          <Grid Margin="0,18,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{DynamicResource DeveloperToolsPipelineTitle}"
+                           FontWeight="Medium" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{DynamicResource DeveloperToolsPipelineHint}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,10,0,0"
+                           Text="{DynamicResource DeveloperToolsPipelineResourceLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ComboBox Margin="0,4,0,0"
+                          ItemsSource="{Binding PipelineResourceOptions}"
+                          DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedPipelineResource, Mode=TwoWay}" />
+                <ComboBox Margin="0,10,0,0"
+                          ItemsSource="{Binding PipelineFiles}"
+                          SelectedItem="{Binding SelectedPipelineFile, Mode=TwoWay}"
+                          ToolTip="{DynamicResource DeveloperToolsPipelineFileHint}" />
+              </StackPanel>
+              <WrapPanel Grid.Column="1"
+                         VerticalAlignment="Bottom">
+                <ui:Button Content="{DynamicResource DeveloperToolsPipelineLoadButton}"
+                           Command="{Binding LoadPipelineCommand}"
+                           Appearance="Primary"
+                           Icon="FolderOpen24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineNewButton}"
+                           Command="{Binding NewPipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="Add24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineRefreshButton}"
+                           Command="{Binding RefreshPipelineFilesCommand}"
+                           Appearance="Secondary"
+                           Icon="ArrowClockwise24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineUndoButton}"
+                           Command="{Binding UndoPipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="ArrowUndo24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineRedoButton}"
+                           Command="{Binding RedoPipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="ArrowRedo24" />
+              </WrapPanel>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  Margin="0,14,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="110" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="{DynamicResource DeveloperToolsPipelineNameLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBox Margin="0,4,10,0"
+                         Text="{Binding PipelineName, UpdateSourceTrigger=PropertyChanged}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Text="{DynamicResource DeveloperToolsPipelineDescriptionLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBox Margin="0,4,10,0"
+                         Text="{Binding PipelineDescription, UpdateSourceTrigger=PropertyChanged}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="{DynamicResource DeveloperToolsPipelineWidthLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBox Margin="0,4,10,0"
+                         Text="{Binding PipelineReferenceWidthText, UpdateSourceTrigger=PropertyChanged}" />
+              </StackPanel>
+              <StackPanel Grid.Column="3">
+                <TextBlock Text="{DynamicResource DeveloperToolsPipelineHeightLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBox Margin="0,4,0,0"
+                         Text="{Binding PipelineReferenceHeightText, UpdateSourceTrigger=PropertyChanged}" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="2"
+                  Margin="0,14,0,0"
+                  MinHeight="600">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="235" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0"
+                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                      BorderThickness="1"
+                      Padding="8"
+                      Height="600"
+                      VerticalAlignment="Top">
+                <DockPanel>
+                  <WrapPanel DockPanel.Dock="Bottom"
+                             Margin="0,8,0,0">
+                    <ui:Button Content="{DynamicResource DeveloperToolsPipelineAddTaskButton}"
+                               Command="{Binding AddPipelineTaskCommand}"
+                               Appearance="Secondary"
+                               Icon="Add24" />
+                    <ui:Button Margin="8,0,0,0"
+                               Content="{DynamicResource DeveloperToolsPipelineRemoveTaskButton}"
+                               Command="{Binding RemovePipelineTaskCommand}"
+                               Appearance="Secondary"
+                               Icon="Delete24" />
+                  </WrapPanel>
+                  <ListBox ItemsSource="{Binding PipelineTasks}"
+                           SelectedItem="{Binding SelectedPipelineTask, Mode=TwoWay}"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="2">
+                          <TextBlock Text="{Binding Name}"
+                                     FontWeight="Medium" />
+                          <TextBlock Text="{Binding Action}"
+                                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </DockPanel>
+              </Border>
+
+              <ScrollViewer Grid.Column="2"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                  <TextBlock Text="{DynamicResource DeveloperToolsPipelineTaskTitle}"
+                             FontWeight="Medium" />
+                  <TextBlock Margin="0,4,0,12"
+                             Text="{Binding SelectedPipelineTask.Name, StringFormat={}{0}}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                  <Grid IsEnabled="{Binding HasPipelineTask}">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="130" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="130" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineAlgorithmLabel}" />
+                    <TextBox Grid.Row="0"
+                             Grid.Column="1"
+                             Margin="6,0,16,6"
+                             Text="{Binding SelectedPipelineTask.Algorithm, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="2"
+                               Text="{DynamicResource DeveloperToolsPipelineActionLabel}" />
+                    <TextBox Grid.Row="0"
+                             Grid.Column="3"
+                             Margin="6,0,0,6"
+                             Text="{Binding SelectedPipelineTask.Action, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineTemplateLabel}" />
+                    <TextBox Grid.Row="1"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="2"
+                             Margin="6,0,0,6"
+                             Text="{Binding SelectedPipelineTask.Template, UpdateSourceTrigger=PropertyChanged}" />
+                    <ui:Button Grid.Row="1"
+                               Grid.Column="3"
+                               Margin="6,0,0,6"
+                               Content="{DynamicResource DeveloperToolsPipelineEditTemplateButton}"
+                               Command="{Binding EditPipelineTemplateCommand}"
+                               Appearance="Secondary"
+                               Icon="Edit24" />
+
+                    <TextBlock Grid.Row="2"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineRoiLabel}" />
+                    <TextBox Grid.Row="2"
+                             Grid.Column="1"
+                             Margin="6,0,6,6"
+                             Text="{Binding SelectedPipelineTask.RoiText, UpdateSourceTrigger=PropertyChanged}" />
+                    <ui:Button Grid.Row="2"
+                               Grid.Column="2"
+                               Margin="0,0,6,6"
+                               Content="{DynamicResource DeveloperToolsPipelineUseRoiButton}"
+                               Command="{Binding DataContext.UseScreenshotRoiCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Appearance="Secondary"
+                               Icon="Crop24" />
+                    <StackPanel Grid.Row="2"
+                                Grid.Column="3">
+                      <ui:Button Margin="0,0,0,6"
+                                 Content="{DynamicResource DeveloperToolsPipelineTemplateButton}"
+                                 Command="{Binding DataContext.SavePipelineTemplateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 Visibility="{Binding DataContext.IsEditingPipelineTemplate, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource NotBoolToVisibility}}"
+                                 Appearance="Secondary"
+                                 Icon="Save24" />
+                      <ui:Button Margin="0,0,0,6"
+                                 Content="{DynamicResource DeveloperToolsPipelineSaveEditedTemplateButton}"
+                                 Command="{Binding DataContext.SavePipelineTemplateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 Visibility="{Binding DataContext.IsEditingPipelineTemplate, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}"
+                                 Appearance="Primary"
+                                 Icon="Save24" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineSpecificRectLabel}" />
+                    <TextBox Grid.Row="3"
+                             Grid.Column="1"
+                             Margin="6,0,16,6"
+                             Text="{Binding SelectedPipelineTask.SpecificRect, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="3"
+                               Grid.Column="2"
+                               Text="{DynamicResource DeveloperToolsPipelineThresholdLabel}" />
+                    <TextBox Grid.Row="3"
+                             Grid.Column="3"
+                             Margin="6,0,0,6"
+                             Text="{Binding SelectedPipelineTask.TemplateThresholdText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="4"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineSwipeLabel}" />
+                    <TextBox Grid.Row="4"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             Margin="6,0,0,6"
+                             Text="{Binding SelectedPipelineTask.SwipeText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="5"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineDelayLabel}" />
+                    <StackPanel Grid.Row="5"
+                                Grid.Column="1"
+                                Orientation="Horizontal">
+                      <TextBox Width="72"
+                               Margin="6,0,6,6"
+                               ToolTip="preDelayMs"
+                               Text="{Binding SelectedPipelineTask.PreDelayText, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="72"
+                               Margin="0,0,6,6"
+                               ToolTip="postDelayMs"
+                               Text="{Binding SelectedPipelineTask.PostDelayText, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="72"
+                               Margin="0,0,0,6"
+                               ToolTip="waitMs"
+                               Text="{Binding SelectedPipelineTask.WaitMillisecondsText, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="5"
+                               Grid.Column="2"
+                               Text="{DynamicResource DeveloperToolsPipelineTimeoutLabel}" />
+                    <StackPanel Grid.Row="5"
+                                Grid.Column="3"
+                                Orientation="Horizontal">
+                      <TextBox Width="82"
+                               Margin="6,0,6,6"
+                               ToolTip="timeoutMs"
+                               Text="{Binding SelectedPipelineTask.TimeoutMillisecondsText, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="82"
+                               Margin="0,0,0,6"
+                               ToolTip="pollIntervalMs"
+                               Text="{Binding SelectedPipelineTask.PollIntervalMillisecondsText, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="6"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineNextLabel}" />
+                    <TextBox Grid.Row="6"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             Height="48"
+                             Margin="6,0,0,6"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Text="{Binding SelectedPipelineTask.NextText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="7"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineOnErrorLabel}" />
+                    <TextBox Grid.Row="7"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             Height="48"
+                             Margin="6,0,0,6"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Text="{Binding SelectedPipelineTask.OnErrorNextText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="8"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineAdvancedLabel}" />
+                    <Grid Grid.Row="8"
+                          Grid.Column="1"
+                          Grid.ColumnSpan="3">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <TextBox Grid.Column="0"
+                               Margin="6,0,6,6"
+                               ToolTip="onErrorNext / exceededNext"
+                               Text="{Binding SelectedPipelineTask.ExceededNextText, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Column="1"
+                               Margin="0,0,6,6"
+                               ToolTip="pipeline"
+                               Text="{Binding SelectedPipelineTask.Pipeline, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Column="2"
+                               Margin="0,0,0,6"
+                               ToolTip="entry"
+                               Text="{Binding SelectedPipelineTask.Entry, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Column="3"
+                               Margin="6,0,0,6"
+                               ToolTip="successTask"
+                               Text="{Binding SelectedPipelineTask.SuccessTask, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="9"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineMonitorLabel}" />
+                    <TextBox Grid.Row="9"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             Height="48"
+                             Margin="6,0,0,6"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Text="{Binding SelectedPipelineTask.MonitorTasksText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="10"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineMaxTimesLabel}" />
+                    <StackPanel Grid.Row="10"
+                                Grid.Column="1"
+                                Orientation="Horizontal">
+                      <TextBox Width="100"
+                               Margin="6,0,10,6"
+                               Text="{Binding SelectedPipelineTask.MaxTimesText, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="150"
+                               Margin="0,0,0,6"
+                               ToolTip="countAs"
+                               Text="{Binding SelectedPipelineTask.CountAs, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <CheckBox Grid.Row="10"
+                              Grid.Column="2"
+                              Margin="6,0,6,6"
+                              Content="{DynamicResource DeveloperToolsPipelineRequiredLabel}"
+                              IsChecked="{Binding SelectedPipelineTask.Required}" />
+                    <CheckBox Grid.Row="10"
+                              Grid.Column="3"
+                              Margin="0,0,0,6"
+                              Content="{DynamicResource DeveloperToolsPipelineSuccessLabel}"
+                              IsChecked="{Binding SelectedPipelineTask.Success}" />
+
+                    <TextBlock Grid.Row="11"
+                               Grid.Column="0"
+                               Grid.ColumnSpan="4"
+                               Text="{DynamicResource DeveloperToolsPipelineFieldHint}"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                  </Grid>
+
+                  <Expander Margin="0,12,0,0"
+                            Header="{DynamicResource DeveloperToolsPipelineTimingTitle}"
+                            IsExpanded="False">
+                    <UniformGrid Columns="4"
+                                 Margin="0,8,0,0">
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="navigationMs" /><TextBox Text="{Binding PipelineTiming.NavigationMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="mailboxLoadMs" /><TextBox Text="{Binding PipelineTiming.MailboxLoadMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="collectionSettleMs" /><TextBox Text="{Binding PipelineTiming.CollectionSettleMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,0,8"><TextBlock Text="homeTimeoutMs" /><TextBox Text="{Binding PipelineTiming.HomeTimeoutMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="homeRetryTimeoutMs" /><TextBox Text="{Binding PipelineTiming.HomeRetryTimeoutMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="homeVerifyTimeoutMs" /><TextBox Text="{Binding PipelineTiming.HomeVerifyTimeoutMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="backAttempts" /><TextBox Text="{Binding PipelineTiming.BackAttempts, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,0,8"><TextBlock Text="backSettleMs" /><TextBox Text="{Binding PipelineTiming.BackSettleMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="pollIntervalMs" /><TextBox Text="{Binding PipelineTiming.PollIntervalMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="teamDownloadMs" /><TextBox Text="{Binding PipelineTiming.TeamDownloadMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="nextRaceLoadMs" /><TextBox Text="{Binding PipelineTiming.NextRaceLoadMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,0,8"><TextBlock Text="playbackLoadMs" /><TextBox Text="{Binding PipelineTiming.PlaybackLoadMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="skipSettleMs" /><TextBox Text="{Binding PipelineTiming.SkipSettleMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="raceTimeoutMs" /><TextBox Text="{Binding PipelineTiming.RaceTimeoutMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,8,8"><TextBlock Text="shopProbeMs" /><TextBox Text="{Binding PipelineTiming.ShopProbeMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,0,8"><TextBlock Text="betweenRacesMs" /><TextBox Text="{Binding PipelineTiming.BetweenRacesMs, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    </UniformGrid>
+                  </Expander>
+
+                  <Expander Margin="0,12,0,0"
+                            Header="{DynamicResource DeveloperToolsPipelinePreviewTitle}"
+                            IsExpanded="True">
+                    <StackPanel Margin="0,8,0,0">
+                      <TextBox Height="150"
+                               FontFamily="Consolas"
+                               IsReadOnly="True"
+                               AcceptsReturn="True"
+                               HorizontalScrollBarVisibility="Auto"
+                               VerticalScrollBarVisibility="Auto"
+                               Text="{Binding PipelineGraphText, Mode=OneWay}" />
+                      <TextBlock Margin="0,8,0,4"
+                                 Text="{DynamicResource DeveloperToolsPipelineSimulationTitle}"
+                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                      <TextBox Height="110"
+                               FontFamily="Consolas"
+                               IsReadOnly="True"
+                               AcceptsReturn="True"
+                               HorizontalScrollBarVisibility="Auto"
+                               VerticalScrollBarVisibility="Auto"
+                               Text="{Binding PipelineSimulationText, Mode=OneWay}" />
+                    </StackPanel>
+                  </Expander>
+
+                  <Expander Margin="0,12,0,0"
+                            Header="{DynamicResource DeveloperToolsPipelineTestTitle}"
+                            IsExpanded="True">
+                    <StackPanel Margin="0,8,0,0">
+                      <TextBlock Text="{DynamicResource DeveloperToolsPipelineTestHint}"
+                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                 TextWrapping="Wrap" />
+                      <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="130" />
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource DeveloperToolsPipelineEntryLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  Margin="6,0,8,0"
+                                  ItemsSource="{Binding PipelineTasks}"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Name"
+                                  SelectedValue="{Binding PipelineEntryTaskName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <ui:Button Grid.Column="2"
+                                   Margin="0,0,8,0"
+                                   Content="{DynamicResource DeveloperToolsPipelineRunButton}"
+                                   Command="{Binding RunPipelineCommand}"
+                                   Appearance="Primary"
+                                   Icon="Play24" />
+                        <ui:Button Grid.Column="3"
+                                   Content="{DynamicResource DeveloperToolsPipelineStopButton}"
+                                   Command="{Binding StopPipelineCommand}"
+                                   Appearance="Secondary"
+                                   Icon="Dismiss24" />
+                      </Grid>
+                      <TextBlock Margin="0,8,0,0"
+                                 Text="{Binding PipelineRunStatusText}"
+                                 TextWrapping="Wrap" />
+                      <ListBox Margin="0,8,0,0"
+                               Height="180"
+                               ItemsSource="{Binding PipelineRunLogs}"
+                               ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate>
+                            <TextBlock TextWrapping="Wrap">
+                              <Run Text="[" />
+                              <Run Text="{Binding Type}" />
+                              <Run Text="] " />
+                              <Run Text="{Binding Details}" />
+                            </TextBlock>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+
+            <Grid Grid.Row="3"
+                  Margin="0,14,0,0">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="270" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <WrapPanel Grid.Row="0">
+                <ui:Button Content="{DynamicResource CaptureScreenButton}"
+                           Command="{Binding CaptureCommand}"
+                           Appearance="Secondary"
+                           Icon="Camera24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineUseRoiButton}"
+                           Command="{Binding UseScreenshotRoiCommand}"
+                           Appearance="Secondary"
+                           Icon="Crop24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineValidateButton}"
+                           Command="{Binding ValidatePipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="Checkmark24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelinePreviewButton}"
+                           Command="{Binding PreviewPipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="Flow24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineSimulateButton}"
+                           Command="{Binding SimulatePipelineCommand}"
+                           Appearance="Secondary"
+                           Icon="Play24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsPipelineSaveButton}"
+                           Command="{Binding SavePipelineCommand}"
+                           Appearance="Primary"
+                           Icon="Save24" />
+              </WrapPanel>
+              <Border Grid.Row="1"
+                      Margin="0,10,0,10"
+                      Background="#18000000"
+                      ClipToBounds="True">
+                <Grid x:Name="PipelineRoiSurface"
+                      SizeChanged="OnPipelineRoiSurfaceSizeChanged">
+                  <Image Source="{Binding ScreenshotImage}"
+                         Stretch="Uniform"
+                         IsHitTestVisible="False" />
+                  <Canvas x:Name="PipelineRoiOverlay"
+                          Background="Transparent"
+                          MouseLeftButtonDown="OnPipelineRoiMouseLeftButtonDown"
+                          MouseMove="OnPipelineRoiMouseMove"
+                          MouseLeftButtonUp="OnPipelineRoiMouseLeftButtonUp"
+                          MouseLeave="OnPipelineRoiMouseLeave">
+                    <Rectangle x:Name="PipelineSelectionRectangle"
+                               Stroke="#FFFFB84D"
+                               StrokeThickness="2"
+                               Fill="#33FFB84D"
+                               Visibility="Collapsed"
+                               IsHitTestVisible="False" />
+                    <Rectangle x:Name="PipelineRoiRectangle"
+                               Stroke="#FF4CC2FF"
+                               StrokeThickness="2"
+                               Fill="#334CC2FF"
+                               Visibility="Collapsed"
+                               IsHitTestVisible="False" />
+                  </Canvas>
+                  <TextBlock HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Text="{DynamicResource DeveloperToolsNoScreenshot}"
+                             IsHitTestVisible="False"
+                             Visibility="{Binding ScreenshotImage, Converter={StaticResource NoScreenshotVisibility}}" />
+                  <Border HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="10"
+                          Padding="8,4"
+                          Background="#CC202020"
+                          CornerRadius="4"
+                          IsHitTestVisible="False">
+                    <TextBlock Foreground="White"
+                               FontFamily="Consolas"
+                               Text="{Binding PipelineRoiText}" />
+                  </Border>
+                </Grid>
+              </Border>
+              <TextBlock Grid.Row="2"
+                         Text="{Binding PipelineStatusText}"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </Grid>
           </Grid>
         </TabItem>

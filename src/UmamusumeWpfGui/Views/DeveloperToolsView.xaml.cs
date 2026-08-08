@@ -13,6 +13,8 @@ public sealed partial class DeveloperToolsView : UserControl
     private const double PreviewScaleStep = 1.1;
 
     private bool _isSelecting;
+    private bool _isPipelineSelecting;
+    private Point _pipelineSelectionStart;
     private bool _isPanning;
     private Point _selectionStart;
     private Point _panStart;
@@ -39,8 +41,10 @@ public sealed partial class DeveloperToolsView : UserControl
     {
         UnsubscribeFromViewModel();
         CropOverlay.ReleaseMouseCapture();
+        PipelineRoiOverlay.ReleaseMouseCapture();
         _isSelecting = false;
         _isPanning = false;
+        _isPipelineSelecting = false;
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -76,7 +80,10 @@ public sealed partial class DeveloperToolsView : UserControl
     {
         if (e.PropertyName is nameof(DeveloperToolsViewModel.ScreenshotImage)
             or nameof(DeveloperToolsViewModel.CropRegion)
-            or nameof(DeveloperToolsViewModel.HasScreenshot))
+            or nameof(DeveloperToolsViewModel.HasScreenshot)
+            or nameof(DeveloperToolsViewModel.SelectedPipelineTask)
+            or nameof(DeveloperToolsViewModel.PipelineRoiText)
+            or nameof(DeveloperToolsViewModel.IsEditingPipelineTemplate))
         {
             Dispatcher.BeginInvoke(() =>
             {
@@ -87,9 +94,190 @@ public sealed partial class DeveloperToolsView : UserControl
                 }
 
                 UpdatePreviewState();
+                UpdatePipelineRoiRectangle();
             });
         }
     }
+
+    private void OnPipelineRoiSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdatePipelineRoiRectangle();
+
+    private void OnPipelineRoiMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel is not { HasScreenshot: true })
+            return;
+
+        _isPipelineSelecting = true;
+        _pipelineSelectionStart = e.GetPosition(PipelineRoiOverlay);
+        PipelineRoiOverlay.CaptureMouse();
+        SetRectangle(PipelineSelectionRectangle, _pipelineSelectionStart, _pipelineSelectionStart);
+        e.Handled = true;
+    }
+
+    private void OnPipelineRoiMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isPipelineSelecting || e.LeftButton != MouseButtonState.Pressed)
+            return;
+
+        SetRectangle(
+            PipelineSelectionRectangle,
+            _pipelineSelectionStart,
+            e.GetPosition(PipelineRoiOverlay));
+    }
+
+    private void OnPipelineRoiMouseLeave(object sender, MouseEventArgs e)
+    {
+        // Keep the selected crop visible after the pointer leaves the surface.
+        // The rectangle is synchronized from the view model in
+        // UpdatePipelineRoiRectangle instead of being treated as a hover adornment.
+    }
+
+    private void OnPipelineRoiMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isPipelineSelecting)
+            return;
+
+        var end = e.GetPosition(PipelineRoiOverlay);
+        _isPipelineSelecting = false;
+        PipelineRoiOverlay.ReleaseMouseCapture();
+        if (TryGetPipelineImageRegion(_pipelineSelectionStart, end, out var region))
+        {
+            _viewModel?.SetPipelineRoiFromSelection(region);
+        }
+        else
+        {
+            _viewModel?.SetPipelineRoiFromSelection(null);
+        }
+
+        UpdatePipelineRoiRectangle();
+        e.Handled = true;
+    }
+
+    private void UpdatePipelineRoiRectangle()
+    {
+        if (_viewModel?.ScreenshotImage is not { } image
+            || !TryGetPipelineImageLayout(out var imageRect, out var scale))
+        {
+            PipelineSelectionRectangle.Visibility = Visibility.Collapsed;
+            PipelineRoiRectangle.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (_viewModel.IsEditingPipelineTemplate)
+        {
+            PipelineRoiRectangle.Visibility = Visibility.Collapsed;
+            if (_viewModel.CropRegion is { } crop)
+            {
+                SetRectangle(
+                    PipelineSelectionRectangle,
+                    new Point(imageRect.Left + crop.X * scale, imageRect.Top + crop.Y * scale),
+                    new Point(
+                        imageRect.Left + (crop.X + crop.Width) * scale,
+                        imageRect.Top + (crop.Y + crop.Height) * scale));
+            }
+            else
+            {
+                PipelineSelectionRectangle.Visibility = Visibility.Collapsed;
+            }
+
+            return;
+        }
+
+        PipelineSelectionRectangle.Visibility = Visibility.Collapsed;
+        if (_viewModel.SelectedPipelineTask is not { } task
+            || !TryParseRect(task.RoiText, out var roi))
+        {
+            PipelineRoiRectangle.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var referenceWidth = ParsePositive(_viewModel.PipelineReferenceWidthText, image.PixelWidth);
+        var referenceHeight = ParsePositive(_viewModel.PipelineReferenceHeightText, image.PixelHeight);
+        var left = imageRect.Left + roi.X * imageRect.Width / referenceWidth;
+        var top = imageRect.Top + roi.Y * imageRect.Height / referenceHeight;
+        var right = imageRect.Left + (roi.X + roi.Width) * imageRect.Width / referenceWidth;
+        var bottom = imageRect.Top + (roi.Y + roi.Height) * imageRect.Height / referenceHeight;
+        SetRectangle(PipelineRoiRectangle, new Point(left, top), new Point(right, bottom));
+    }
+
+    private bool TryGetPipelineImageRegion(Point start, Point end, out Int32Rect region)
+    {
+        region = default;
+        if (_viewModel?.ScreenshotImage is not { } image
+            || !TryGetPipelineImageLayout(out var imageRect, out var scale)
+            || scale <= 0)
+        {
+            return false;
+        }
+
+        var selection = new Rect(start, end);
+        selection.Intersect(imageRect);
+        if (selection.Width < 2 || selection.Height < 2)
+            return false;
+
+        var x = (int)Math.Floor((selection.Left - imageRect.Left) / scale);
+        var y = (int)Math.Floor((selection.Top - imageRect.Top) / scale);
+        var right = (int)Math.Ceiling((selection.Right - imageRect.Left) / scale);
+        var bottom = (int)Math.Ceiling((selection.Bottom - imageRect.Top) / scale);
+        x = Math.Clamp(x, 0, image.PixelWidth);
+        y = Math.Clamp(y, 0, image.PixelHeight);
+        right = Math.Clamp(right, x, image.PixelWidth);
+        bottom = Math.Clamp(bottom, y, image.PixelHeight);
+        region = new Int32Rect(x, y, right - x, bottom - y);
+        return region.Width > 0 && region.Height > 0;
+    }
+
+    private bool TryGetPipelineImageLayout(out Rect imageRect, out double scale)
+    {
+        imageRect = default;
+        scale = 0;
+        if (_viewModel?.ScreenshotImage is not { } image
+            || PipelineRoiSurface.ActualWidth <= 0
+            || PipelineRoiSurface.ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        scale = Math.Min(
+            PipelineRoiSurface.ActualWidth / image.PixelWidth,
+            PipelineRoiSurface.ActualHeight / image.PixelHeight);
+        var width = image.PixelWidth * scale;
+        var height = image.PixelHeight * scale;
+        imageRect = new Rect(
+            (PipelineRoiSurface.ActualWidth - width) / 2,
+            (PipelineRoiSurface.ActualHeight - height) / 2,
+            width,
+            height);
+        return scale > 0;
+    }
+
+    private static bool TryParseRect(string? value, out Int32Rect region)
+    {
+        region = default;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var parts = value
+            .Replace("[", string.Empty, StringComparison.Ordinal)
+            .Replace("]", string.Empty, StringComparison.Ordinal)
+            .Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 4
+            || !int.TryParse(parts[0], out var x)
+            || !int.TryParse(parts[1], out var y)
+            || !int.TryParse(parts[2], out var width)
+            || !int.TryParse(parts[3], out var height)
+            || width <= 0
+            || height <= 0)
+        {
+            return false;
+        }
+
+        region = new Int32Rect(x, y, width, height);
+        return true;
+    }
+
+    private static int ParsePositive(string? value, int fallback) =>
+        int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
 
     private void OnPreviewSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateCropRectangle();
