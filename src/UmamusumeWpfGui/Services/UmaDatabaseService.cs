@@ -172,47 +172,85 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             GetTraineeReferenceImageDirectory(),
             traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
 
+    public string GetMaintenanceTraineeReferenceImageDirectory() =>
+        Path.Combine(GetMaintenanceUmaResourceDirectory(), "system_reference");
+
+    public string GetMaintenanceTraineeReferenceImagePath(int traineeId) =>
+        Path.Combine(
+            GetMaintenanceTraineeReferenceImageDirectory(),
+            traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
+
     public string GetSupportCardTemplateDirectory(int supportCardId) =>
         GetTemplateDirectory("support_cards", supportCardId);
 
     private string GetUmaResourceDirectory()
     {
+        return Path.Combine(GetResourceRoot(), "uma");
+    }
+
+    private string GetMaintenanceUmaResourceDirectory()
+    {
+        var resourceRoot = GetResourceRoot();
+        return Path.Combine(ResolveMaintenanceResourceRoot(resourceRoot), "uma");
+    }
+
+    private string GetResourceRoot()
+    {
         lock (_sync)
         {
-            var resourceRoot = _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
-            return Path.Combine(resourceRoot, "uma");
+            return _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
         }
     }
 
     private string GetImageDirectory(string category)
     {
-        lock (_sync)
-        {
-            var resourceRoot = _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
-            return Path.Combine(
-                resourceRoot,
-                "uma",
-                "assets",
-                "images",
-                "global",
-                category);
-        }
+        return Path.Combine(
+            GetResourceRoot(),
+            "uma",
+            "assets",
+            "images",
+            "global",
+            category);
     }
 
     private string GetTemplateDirectory(string category, int id)
     {
-        lock (_sync)
+        return Path.Combine(
+            GetResourceRoot(),
+            "uma",
+            "assets",
+            "templates",
+            "global",
+            category,
+            id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static string ResolveMaintenanceResourceRoot(string runtimeResourceRoot)
+    {
+        var runtimeBaseDirectory = Directory.GetParent(runtimeResourceRoot)?.FullName
+            ?? runtimeResourceRoot;
+        for (var directory = new DirectoryInfo(runtimeBaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
         {
-            var resourceRoot = _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
-            return Path.Combine(
-                resourceRoot,
+            var sourceResourceRoot = Path.Combine(directory.FullName, "resource");
+            var sourceDatabaseDirectory = Path.Combine(
+                sourceResourceRoot,
                 "uma",
-                "assets",
-                "templates",
-                "global",
-                category,
-                id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                "database",
+                "global");
+            var sourceProjectDirectory = Path.Combine(
+                directory.FullName,
+                "src",
+                "UmamusumeWpfGui");
+            if (Directory.Exists(sourceDatabaseDirectory)
+                && Directory.Exists(sourceProjectDirectory))
+            {
+                return sourceResourceRoot;
+            }
         }
+
+        return runtimeResourceRoot;
     }
 
     private static async Task<T?> ReadJsonAsync<T>(

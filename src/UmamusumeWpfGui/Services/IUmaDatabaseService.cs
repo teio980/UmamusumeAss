@@ -38,5 +38,9 @@ public interface IUmaDatabaseService
 
     string GetTraineeReferenceImagePath(int traineeId);
 
+    string GetMaintenanceTraineeReferenceImageDirectory();
+
+    string GetMaintenanceTraineeReferenceImagePath(int traineeId);
+
     string GetSupportCardTemplateDirectory(int supportCardId);
 }

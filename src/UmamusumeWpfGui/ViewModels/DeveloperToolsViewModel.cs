@@ -137,7 +137,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public string SelectedImagePathDisplay => _activeImagePath ?? string.Empty;
 
     public string SelectedReferenceImagePathDisplay => _selectedUmaImage is { } image
-        ? _umaDatabase.GetTraineeReferenceImagePath(image.TraineeId)
+        ? _umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId)
         : string.Empty;
 
     public BitmapSource? ScreenshotImage => _screenshotImage;
@@ -434,8 +434,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             return;
         }
 
-        var sourcePath = _activeImagePath!;
-        var referencePath = _umaDatabase.GetTraineeReferenceImagePath(
+        var referencePath = _umaDatabase.GetMaintenanceTraineeReferenceImagePath(
             _selectedUmaImage!.TraineeId);
         var hasExistingReference = File.Exists(referencePath);
         var backupPath = hasExistingReference
