@@ -2,7 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using UmamusumeWpfGui.ViewModels;
-using Wpf.Ui.Controls;
 
 namespace UmamusumeWpfGui.Views;
 
@@ -28,23 +27,16 @@ public sealed partial class SettingsView : UserControl
 
 
 
-    private void OnSettingsNavigationItemClick(object sender, RoutedEventArgs e)
+    private void OnSettingsTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is not NavigationViewItem item
+        if (e.Source != SettingsTabs
             || DataContext is not SettingsViewModel vm
-            || !int.TryParse(item.Tag?.ToString(), out var index))
+            || SettingsTabs.SelectedIndex < 0)
         {
             return;
         }
 
-        vm.SelectedMenuIndex = index;
-        foreach (var menuItem in SettingsNavigation.MenuItems)
-        {
-            if (menuItem is NavigationViewItem navigationItem)
-            {
-                navigationItem.IsActive = ReferenceEquals(navigationItem, item);
-            }
-        }
+        vm.SelectedMenuIndex = SettingsTabs.SelectedIndex;
     }
 
 

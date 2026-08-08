@@ -6,60 +6,17 @@
              Foreground="{DynamicResource TextFillColorPrimaryBrush}">
   <UserControl.Resources>
     <c:NullToVisibilityConverter x:Key="NotNullToVisibility" />
-    <c:IntToVisibilityConverter x:Key="MenuIndexToVisibility" />
   </UserControl.Resources>
 
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-    </Grid.RowDefinitions>
-
-
-
-    <ui:NavigationView x:Name="SettingsNavigation"
-                       Grid.Row="0"
-                       Height="48"
-                       Margin="42,0,42,0"
-                       PaneDisplayMode="Top"
-                       IsBackButtonVisible="Collapsed"
-                       IsPaneToggleVisible="False"
-                       IsTopSeparatorVisible="False">
-        <ui:NavigationView.MenuItems>
-          <ui:NavigationViewItem Tag="0"
-                                 Content="{DynamicResource NavConnection}"
-                                 IsActive="True"
-                                 Click="OnSettingsNavigationItemClick">
-            <ui:NavigationViewItem.Icon>
-              <ui:SymbolIcon Symbol="PlugConnected24" />
-            </ui:NavigationViewItem.Icon>
-          </ui:NavigationViewItem>
-          <ui:NavigationViewItem Tag="1"
-                                 Content="{DynamicResource NavLanguage}"
-                                 Click="OnSettingsNavigationItemClick">
-            <ui:NavigationViewItem.Icon>
-              <ui:SymbolIcon Symbol="Translate24" />
-            </ui:NavigationViewItem.Icon>
-          </ui:NavigationViewItem>
-          <ui:NavigationViewItem Tag="2"
-                                 Content="{DynamicResource NavSystem}"
-                                 Click="OnSettingsNavigationItemClick">
-            <ui:NavigationViewItem.Icon>
-              <ui:SymbolIcon Symbol="Settings24" />
-            </ui:NavigationViewItem.Icon>
-          </ui:NavigationViewItem>
-        </ui:NavigationView.MenuItems>
-    </ui:NavigationView>
-
-    <ScrollViewer Grid.Row="1"
-                  HorizontalScrollBarVisibility="Disabled"
-                  VerticalScrollBarVisibility="Auto">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="42,0,42,42"
                   VerticalAlignment="Top">
-        <Grid>
-        <StackPanel Visibility="{Binding SelectedMenuIndex,
-            Converter={StaticResource MenuIndexToVisibility},
-            ConverterParameter=0}">
+        <TabControl x:Name="SettingsTabs"
+                    SelectedIndex="{Binding SelectedMenuIndex, Mode=TwoWay}"
+                    SelectionChanged="OnSettingsTabSelectionChanged">
+          <TabItem Header="{DynamicResource NavConnection}">
+            <StackPanel Margin="0,18,0,0">
           <TextBlock Text="{DynamicResource ConnectionTitle}"
                      FontSize="20"
                      FontWeight="Medium" />
@@ -209,11 +166,11 @@
                          Appearance="Secondary" />
             </WrapPanel>
           </StackPanel>
-        </StackPanel>
+            </StackPanel>
+          </TabItem>
 
-        <StackPanel Visibility="{Binding SelectedMenuIndex,
-            Converter={StaticResource MenuIndexToVisibility},
-            ConverterParameter=1}">
+          <TabItem Header="{DynamicResource NavLanguage}">
+            <StackPanel Margin="0,18,0,0">
           <TextBlock Text="{DynamicResource LanguageTitle}"
                      FontSize="20"
                      FontWeight="Medium" />
@@ -229,11 +186,11 @@
           </ComboBox>
           <TextBlock Margin="0,12,0,0"
                      Text="{DynamicResource LanguageHint}" />
-        </StackPanel>
+            </StackPanel>
+          </TabItem>
 
-        <StackPanel Visibility="{Binding SelectedMenuIndex,
-            Converter={StaticResource MenuIndexToVisibility},
-            ConverterParameter=2}">
+          <TabItem Header="{DynamicResource NavSystem}">
+            <StackPanel Margin="0,18,0,0">
           <TextBlock Text="{DynamicResource SystemTitle}"
                      FontSize="20"
                      FontWeight="Medium" />
@@ -245,13 +202,13 @@
                      Text="{Binding DraftAdbPath}" />
           <TextBlock Margin="0,8,0,0"
                      Text="{Binding LastDetectedEmulator}" />
-        </StackPanel>
-        </Grid>
+            </StackPanel>
+          </TabItem>
+        </TabControl>
 
 
         <ItemsControl ItemsSource="{Binding MenuItems}"
                       Visibility="Collapsed" />
       </StackPanel>
     </ScrollViewer>
-  </Grid>
 </UserControl>
