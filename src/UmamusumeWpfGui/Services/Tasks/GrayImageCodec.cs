@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
@@ -46,6 +47,48 @@ internal static class GrayImageCodec
         {
             return null;
         }
+    }
+
+    public static GrayImage? Crop(GrayImage image, Int32Rect region)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        if (image.Width <= 0
+            || image.Height <= 0
+            || image.Pixels.Length < checked(image.Width * image.Height))
+        {
+            return null;
+        }
+
+        var x = Math.Clamp(region.X, 0, image.Width);
+        var y = Math.Clamp(region.Y, 0, image.Height);
+        var right = Math.Clamp(
+            (long)region.X + region.Width,
+            0,
+            image.Width);
+        var bottom = Math.Clamp(
+            (long)region.Y + region.Height,
+            0,
+            image.Height);
+        var width = (int)Math.Max(0, right - x);
+        var height = (int)Math.Max(0, bottom - y);
+        if (width == 0 || height == 0)
+        {
+            return null;
+        }
+
+        var pixels = new byte[checked(width * height)];
+        for (var row = 0; row < height; row++)
+        {
+            Buffer.BlockCopy(
+                image.Pixels,
+                checked((y + row) * image.Width + x),
+                pixels,
+                row * width,
+                width);
+        }
+
+        return new GrayImage(width, height, pixels);
     }
 
     public static void SaveScreenshot(AdbScreenshotResult screenshot, string path)

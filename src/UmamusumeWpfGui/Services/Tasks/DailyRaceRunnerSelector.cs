@@ -19,7 +19,7 @@ public sealed class DailyRaceRunnerSelector
     private const int DefaultReferenceWidth = 900;
     private const int DefaultReferenceHeight = 1600;
     private const int MaximumScrolls = 16;
-    private const double MinimumImageMatchScore = 0.38;
+    public const double MinimumImageMatchScore = 0.38;
 
     private static readonly int[] RunnerSwipe = [760, 1150, 760, 850, 550];
 
@@ -83,6 +83,30 @@ public sealed class DailyRaceRunnerSelector
         ArgumentNullException.ThrowIfNull(umaDatabase);
         _visualRuntime = visualRuntime;
         _umaDatabase = umaDatabase;
+    }
+
+    /// <summary>
+    /// Runs the same runner-card matcher used by Daily Race without touching
+    /// the emulator. Developer Tools uses this to make its diagnostic result
+    /// match the real automation path.
+    /// </summary>
+    public static async Task<TemplateMatchResult?> FindBestMatchAsync(
+        GrayImage screen,
+        string imagePath,
+        LastVerifiedConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var template = await LoadRunnerTemplateAsync(imagePath, cancellationToken)
+            .ConfigureAwait(false);
+        if (template is null)
+            return null;
+
+        var best = FindBestRunnerCell(screen, template, connection);
+        return CreateRunnerCellMatch(best, screen, connection);
     }
 
     public async Task<HachimiCustomActionResult> SelectAsync(
@@ -266,7 +290,7 @@ public sealed class DailyRaceRunnerSelector
         var width = Math.Max(1, ScaleCoordinate(best.Cell.Width, screen.Width, connection.Width));
         var height = Math.Max(1, ScaleCoordinate(best.Cell.Height, screen.Height, connection.Height));
         return new TemplateMatchResult(
-            true,
+            best.Score >= MinimumImageMatchScore,
             best.Score,
             x,
             y,
@@ -371,6 +395,39 @@ public sealed class DailyRaceRunnerSelector
                     if (maxX < minX || maxY < minY)
                         return null;
 
+                    var pixelCount = checked(image.Width * image.Height);
+                    var opaquePixelCount = 0;
+                    for (var index = 0; index < pixelCount; index++)
+                    {
+                        if (rgba[index * 4 + 3] >= 240)
+                            opaquePixelCount++;
+                    }
+
+                    // system_reference images are usually crops captured from
+                    // the emulator. Keep their aspect ratio and search for
+                    // the crop inside each runner card instead of stretching
+                    // it as if it were a transparent full-body asset.
+                    if (opaquePixelCount >= pixelCount * 0.98)
+                    {
+                        var screenshotPixels = new byte[pixelCount];
+                        var screenshotMask = new byte[pixelCount];
+                        for (var index = 0; index < pixelCount; index++)
+                        {
+                            var offset = index * 4;
+                            screenshotPixels[index] = (byte)((rgba[offset] * 299
+                                + rgba[offset + 1] * 587
+                                + rgba[offset + 2] * 114) / 1000);
+                            screenshotMask[index] = 255;
+                        }
+
+                        return new RunnerTemplate(
+                            image.Width,
+                            image.Height,
+                            screenshotPixels,
+                            screenshotMask,
+                            UsesScreenshotCrop: true);
+                    }
+
                     var cropHeight = Math.Max(1, (int)Math.Round((maxY - minY + 1) * 0.78));
                     using var crop = image.Clone(context => context.Crop(
                         new Rectangle(minX, minY, maxX - minX + 1, cropHeight)));
@@ -393,7 +450,12 @@ public sealed class DailyRaceRunnerSelector
                         mask[index] = resized[offset + 3];
                     }
 
-                    return new RunnerTemplate(crop.Width, crop.Height, pixels, mask);
+                    return new RunnerTemplate(
+                        crop.Width,
+                        crop.Height,
+                        pixels,
+                        mask,
+                        UsesScreenshotCrop: false);
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -425,6 +487,9 @@ public sealed class DailyRaceRunnerSelector
         RunnerCell cell,
         LastVerifiedConnection connection)
     {
+        if (template.UsesScreenshotCrop)
+            return CompareScreenshotCrop(screen, template, cell, connection);
+
         var x = ScaleCoordinate(cell.X + 8, screen.Width, connection.Width);
         var y = ScaleCoordinate(cell.Y + 8, screen.Height, connection.Height);
         var width = Math.Max(1, ScaleCoordinate(cell.Width - 16, screen.Width, connection.Width));
@@ -464,6 +529,118 @@ public sealed class DailyRaceRunnerSelector
             numerator += templateDelta * screenDelta;
             templateVariance += templateDelta * templateDelta;
             screenVariance += screenDelta * screenDelta;
+        }
+
+        if (templateVariance < 1 || screenVariance < 1)
+            return 0;
+        return Math.Clamp(
+            numerator / Math.Sqrt(templateVariance * screenVariance),
+            -1d,
+            1d);
+    }
+
+    private static double CompareScreenshotCrop(
+        GrayImage screen,
+        RunnerTemplate template,
+        RunnerCell cell,
+        LastVerifiedConnection connection)
+    {
+        var cellX = ScaleCoordinate(cell.X + 8, screen.Width, connection.Width);
+        var cellY = ScaleCoordinate(cell.Y + 8, screen.Height, connection.Height);
+        var cellWidth = Math.Max(1, ScaleCoordinate(cell.Width - 16, screen.Width, connection.Width));
+        var cellHeight = Math.Max(1, ScaleCoordinate(cell.Height - 16, screen.Height, connection.Height));
+        if (cellX < 0 || cellY < 0 || cellX + cellWidth > screen.Width || cellY + cellHeight > screen.Height)
+            return 0;
+
+        var scaleX = screen.Width / (double)DefaultReferenceWidth;
+        var scaleY = screen.Height / (double)DefaultReferenceHeight;
+        var scale = Math.Min(scaleX, scaleY);
+        var targetWidth = Math.Max(1, (int)Math.Round(template.Width * scale));
+        var targetHeight = Math.Max(1, (int)Math.Round(template.Height * scale));
+        var fitScale = Math.Min(
+            1d,
+            Math.Min(
+                cellWidth / (double)Math.Max(1, targetWidth),
+                cellHeight / (double)Math.Max(1, targetHeight)));
+        targetWidth = Math.Max(1, (int)Math.Round(targetWidth * fitScale));
+        targetHeight = Math.Max(1, (int)Math.Round(targetHeight * fitScale));
+        if (targetWidth > cellWidth || targetHeight > cellHeight)
+            return 0;
+
+        var sampleWidth = Math.Min(32, template.Width);
+        var sampleHeight = Math.Min(32, template.Height);
+        var candidateStep = 3;
+        var maxX = cellX + cellWidth - targetWidth;
+        var maxY = cellY + cellHeight - targetHeight;
+        var bestScore = double.MinValue;
+        for (var y = cellY; y <= maxY; y += candidateStep)
+        {
+            for (var x = cellX; x <= maxX; x += candidateStep)
+            {
+                var score = CompareScreenshotCropAt(
+                    screen,
+                    template,
+                    x,
+                    y,
+                    targetWidth,
+                    targetHeight,
+                    sampleWidth,
+                    sampleHeight);
+                if (score > bestScore)
+                    bestScore = score;
+            }
+        }
+
+        return Math.Max(0, bestScore);
+    }
+
+    private static double CompareScreenshotCropAt(
+        GrayImage screen,
+        RunnerTemplate template,
+        int screenX,
+        int screenY,
+        int targetWidth,
+        int targetHeight,
+        int sampleWidth,
+        int sampleHeight)
+    {
+        var sampleCount = sampleWidth * sampleHeight;
+        var templateTotal = 0d;
+        var screenTotal = 0d;
+        for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+        {
+            var templateY = sampleY * template.Height / sampleHeight;
+            var screenYAt = screenY + sampleY * targetHeight / sampleHeight;
+            for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
+            {
+                var templateX = sampleX * template.Width / sampleWidth;
+                var screenXAt = screenX + sampleX * targetWidth / sampleWidth;
+                templateTotal += template.Pixels[templateY * template.Width + templateX];
+                screenTotal += screen.Pixels[screenYAt * screen.Width + screenXAt];
+            }
+        }
+
+        var templateMean = templateTotal / sampleCount;
+        var screenMean = screenTotal / sampleCount;
+        var numerator = 0d;
+        var templateVariance = 0d;
+        var screenVariance = 0d;
+        for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+        {
+            var templateY = sampleY * template.Height / sampleHeight;
+            var screenYAt = screenY + sampleY * targetHeight / sampleHeight;
+            for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
+            {
+                var templateX = sampleX * template.Width / sampleWidth;
+                var screenXAt = screenX + sampleX * targetWidth / sampleWidth;
+                var templateDelta = template.Pixels[templateY * template.Width + templateX]
+                    - templateMean;
+                var screenDelta = screen.Pixels[screenYAt * screen.Width + screenXAt]
+                    - screenMean;
+                numerator += templateDelta * screenDelta;
+                templateVariance += templateDelta * templateDelta;
+                screenVariance += screenDelta * screenDelta;
+            }
         }
 
         if (templateVariance < 1 || screenVariance < 1)
@@ -575,7 +752,8 @@ public sealed class DailyRaceRunnerSelector
         int Width,
         int Height,
         byte[] Pixels,
-        byte[] Mask);
+        byte[] Mask,
+        bool UsesScreenshotCrop);
 
     private readonly record struct RunnerCell(int X, int Y, int Width, int Height)
     {
