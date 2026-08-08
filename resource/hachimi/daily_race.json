@@ -1,320 +1,1003 @@
 {
   "name": "daily-race",
   "schemaVersion": 1,
-  "description": "Daily Race pipeline: enter Race > Daily Program > Daily Races, select a difficulty, ensure Multi-Race is on, then repeat the selected race for the configured count.",
+  "description": "Daily Race pipeline: enter Race \u003E Daily Program \u003E Daily Races, select a difficulty, ensure Multi-Race is on, then repeat the selected race for the configured count.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
     "home": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/start_game/game_home_selected.png",
-      "roi": [250, 1400, 400, 200],
       "templThreshold": 0.8,
-      "timeoutMs": 2500,
+      "roi": [
+        250,
+        1400,
+        400,
+        200
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "next": ["raceTab"],
-      "onErrorNext": ["homeAlt"]
+      "waitMs": 0,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceTab"
+      ],
+      "onErrorNext": [
+        "homeAlt"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "homeAlt": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/start_game/game_home_unselected.png",
-      "roi": [250, 1400, 400, 200],
       "templThreshold": 0.8,
-      "timeoutMs": 2500,
+      "roi": [
+        250,
+        1400,
+        400,
+        200
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "next": ["raceTab"]
+      "waitMs": 0,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceTab"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "raceTab": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/team_race/race_tab.png",
-      "roi": [560, 1480, 280, 120],
       "templThreshold": 0.86,
-      "timeoutMs": 12000,
+      "roi": [
+        560,
+        1480,
+        280,
+        120
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "next": ["dailyProgram"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "dailyProgram"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "dailyProgram": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/daily_program_button.png",
-      "roi": [60, 1150, 430, 350],
       "templThreshold": 0.84,
-      "timeoutMs": 12000,
+      "roi": [
+        60,
+        1150,
+        430,
+        350
+      ],
+      "preDelay": 0,
       "postDelay": 1500,
-      "next": ["dailyRaces"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "dailyRaces"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "dailyRaces": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/daily_races_button.png",
-      "roi": [40, 980, 480, 400],
       "templThreshold": 0.8,
-      "timeoutMs": 12000,
+      "roi": [
+        40,
+        980,
+        480,
+        400
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["moniesMode"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "moniesMode"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "moniesMode": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/monies_card.png",
-      "roi": [250, 740, 650, 280],
       "templThreshold": 0.86,
-      "timeoutMs": 12000,
+      "roi": [
+        250,
+        740,
+        650,
+        280
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["moniesDifficultyScroll"],
-      "exceededNext": ["supportPointMode"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "moniesDifficultyScroll"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "supportPointMode"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "supportPointMode": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/supportpoint_card.png",
-      "roi": [250, 920, 650, 280],
       "templThreshold": 0.86,
-      "timeoutMs": 12000,
+      "roi": [
+        250,
+        920,
+        650,
+        280
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["supportPointDifficultyScroll"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "supportPointDifficultyScroll"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "moniesDifficultyScroll": {
+      "algorithm": "MatchTemplate",
       "action": "Swipe",
-      "swipe": [780, 1260, 780, 760, 500],
+      "swipe": [
+        780,
+        1260,
+        780,
+        760,
+        500
+      ],
+      "templThreshold": 0.86,
+      "preDelay": 0,
       "postDelay": 800,
-      "next": ["moniesDifficulty"],
-      "exceededNext": ["moniesDifficulty"]
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [
+        "moniesDifficulty"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "moniesDifficulty"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "supportPointDifficultyScroll": {
+      "algorithm": "MatchTemplate",
       "action": "Swipe",
-      "swipe": [780, 1260, 780, 760, 500],
+      "swipe": [
+        780,
+        1260,
+        780,
+        760,
+        500
+      ],
+      "templThreshold": 0.86,
+      "preDelay": 0,
       "postDelay": 800,
-      "next": ["supportPointDifficulty"],
-      "exceededNext": ["supportPointDifficulty"]
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [
+        "supportPointDifficulty"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "supportPointDifficulty"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "moniesDifficulty": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/difficulty_common.png",
-      "roi": [520, 800, 360, 145],
       "templThreshold": 0.84,
-      "timeoutMs": 15000,
+      "roi": [
+        520,
+        800,
+        360,
+        145
+      ],
+      "preDelay": 0,
       "postDelay": 2200,
-      "next": ["multiRaceOnProbe"]
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceOnProbe"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "supportPointDifficulty": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/difficulty_common.png",
-      "roi": [520, 800, 360, 145],
       "templThreshold": 0.84,
-      "timeoutMs": 15000,
+      "roi": [
+        520,
+        800,
+        360,
+        145
+      ],
+      "preDelay": 0,
       "postDelay": 2200,
-      "next": ["multiRaceOnProbe"]
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceOnProbe"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "multiRaceOnProbe": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/multi_race_on.png",
-      "roi": [300, 1300, 320, 140],
       "templThreshold": 0.82,
-      "timeoutMs": 8000,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
       "postDelay": 500,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceStart"
+      ],
+      "onErrorNext": [
+        "multiRaceOff"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
       "required": false,
-      "next": ["raceStart"],
-      "onErrorNext": ["multiRaceOff"]
+      "success": false
     },
     "multiRaceOff": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/multi_race_off.png",
-      "roi": [300, 1300, 320, 140],
       "templThreshold": 0.82,
-      "timeoutMs": 8000,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
       "postDelay": 700,
-      "next": ["multiRaceOnVerify"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceOnVerify"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "multiRaceOnVerify": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/multi_race_on.png",
-      "roi": [300, 1300, 320, 140],
       "templThreshold": 0.82,
-      "timeoutMs": 8000,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
       "postDelay": 500,
-      "next": ["raceStart"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceStart"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "raceStart": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/race_start.png",
-      "roi": [400, 1370, 470, 230],
       "templThreshold": 0.84,
-      "timeoutMs": 20000,
+      "roi": [
+        400,
+        1370,
+        470,
+        230
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["runnerSelectionReady"]
+      "waitMs": 0,
+      "timeoutMs": 20000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSelectionReady"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSelectionReady": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/runner_confirm.png",
-      "roi": [220, 1240, 500, 260],
       "templThreshold": 0.84,
-      "timeoutMs": 25000,
+      "roi": [
+        220,
+        1240,
+        500,
+        260
+      ],
+      "preDelay": 0,
       "postDelay": 400,
-      "next": ["runnerSortOpen"]
+      "waitMs": 0,
+      "timeoutMs": 25000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSortOpen"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSortOpen": {
+      "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/daily_race/runner_display_button.png",
-      "roi": [430, 1120, 470, 250],
       "templThreshold": 0.8,
-      "timeoutMs": 8000,
+      "roi": [
+        430,
+        1120,
+        470,
+        250
+      ],
+      "preDelay": 0,
       "postDelay": 600,
-      "next": ["runnerSortMenuReady"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSortMenuReady"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSortMenuReady": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/runner_display_settings.png",
-      "roi": [0, 0, 900, 800],
       "templThreshold": 0.78,
-      "timeoutMs": 8000,
+      "roi": [
+        0,
+        0,
+        900,
+        800
+      ],
+      "preDelay": 0,
       "postDelay": 300,
-      "next": ["runnerRatingSelect"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerRatingSelect"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerRatingSelect": {
+      "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/daily_race/runner_rating_option.png",
-      "roi": [20, 250, 300, 180],
       "templThreshold": 0.8,
-      "timeoutMs": 8000,
+      "roi": [
+        20,
+        250,
+        300,
+        180
+      ],
+      "preDelay": 0,
       "postDelay": 250,
-      "next": ["runnerSortDialogConfirm"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSortDialogConfirm"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSortDialogConfirm": {
+      "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/daily_race/runner_sort_dialog_confirm.png",
-      "roi": [430, 1350, 450, 220],
       "templThreshold": 0.8,
-      "timeoutMs": 8000,
+      "roi": [
+        430,
+        1350,
+        450,
+        220
+      ],
+      "preDelay": 0,
       "postDelay": 900,
-      "next": ["runnerDesc"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerDesc"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerDesc": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/runner_sort_desc.png",
-      "roi": [725, 1180, 175, 115],
       "templThreshold": 0.86,
-      "timeoutMs": 3000,
+      "roi": [
+        725,
+        1180,
+        175,
+        115
+      ],
+      "preDelay": 0,
       "postDelay": 300,
-      "next": ["runnerSelectHighest"],
-      "onErrorNext": ["runnerSetDesc"]
+      "waitMs": 0,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSelectHighest"
+      ],
+      "onErrorNext": [
+        "runnerSetDesc"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSetDesc": {
+      "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/daily_race/runner_sort_asc.png",
-      "roi": [700, 1120, 200, 180],
       "templThreshold": 0.8,
-      "timeoutMs": 8000,
+      "roi": [
+        700,
+        1120,
+        200,
+        180
+      ],
+      "preDelay": 0,
       "postDelay": 600,
-      "next": ["runnerDescVerify"]
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerDescVerify"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerDescVerify": {
+      "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/runner_sort_desc.png",
-      "roi": [725, 1180, 175, 115],
       "templThreshold": 0.86,
-      "timeoutMs": 5000,
+      "roi": [
+        725,
+        1180,
+        175,
+        115
+      ],
+      "preDelay": 0,
       "postDelay": 300,
-      "next": ["runnerSelectHighest"]
+      "waitMs": 0,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerSelectHighest"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerSelectHighest": {
+      "algorithm": "MatchTemplate",
       "action": "SelectDailyRaceRunner",
+      "templThreshold": 0.86,
+      "preDelay": 0,
       "postDelay": 700,
-      "next": ["runnerConfirm"]
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [
+        "runnerConfirm"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "runnerConfirm": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/runner_confirm.png",
-      "roi": [220, 1240, 500, 260],
       "templThreshold": 0.84,
-      "timeoutMs": 25000,
+      "roi": [
+        220,
+        1240,
+        500,
+        260
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["previewNext"]
+      "waitMs": 0,
+      "timeoutMs": 25000,
+      "pollIntervalMs": 0,
+      "next": [
+        "previewNext"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "previewNext": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/team_race/result_next.png",
-      "roi": [100, 1350, 700, 220],
       "templThreshold": 0.84,
-      "timeoutMs": 30000,
+      "roi": [
+        100,
+        1350,
+        700,
+        220
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "next": ["itemsReady"]
+      "waitMs": 0,
+      "timeoutMs": 30000,
+      "pollIntervalMs": 0,
+      "next": [
+        "itemsReady"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "itemsReady": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
       "template": "templates/daily_race/items_title.png",
-      "roi": [0, 300, 900, 650],
       "templThreshold": 0.84,
-      "timeoutMs": 12000,
+      "roi": [
+        0,
+        300,
+        900,
+        650
+      ],
+      "preDelay": 0,
       "postDelay": 500,
-      "next": ["itemsRace"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "itemsRace"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "itemsRace": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/items_race.png",
-      "roi": [400, 1020, 480, 280],
       "templThreshold": 0.84,
-      "timeoutMs": 12000,
+      "roi": [
+        400,
+        1020,
+        480,
+        280
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["preRace"]
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 0,
+      "next": [
+        "preRace"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "preRace": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/race_start.png",
-      "roi": [400, 1370, 470, 230],
       "templThreshold": 0.84,
-      "timeoutMs": 30000,
+      "roi": [
+        400,
+        1370,
+        470,
+        230
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["playbackOk"]
+      "waitMs": 0,
+      "timeoutMs": 30000,
+      "pollIntervalMs": 0,
+      "next": [
+        "playbackOk"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "playbackOk": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/playback_ok.png",
-      "roi": [400, 930, 480, 260],
       "templThreshold": 0.84,
-      "timeoutMs": 8000,
+      "roi": [
+        400,
+        930,
+        480,
+        260
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "racePlaybackResult"
+      ],
+      "onErrorNext": [
+        "racePlaybackResult"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
       "required": false,
-      "next": ["racePlaybackResult"],
-      "onErrorNext": ["racePlaybackResult"]
+      "success": false
     },
     "racePlaybackResult": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/race_start.png",
-      "roi": [100, 1320, 700, 280],
       "templThreshold": 0.84,
-      "timeoutMs": 120000,
+      "roi": [
+        100,
+        1320,
+        700,
+        280
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["finalNext"]
+      "waitMs": 0,
+      "timeoutMs": 120000,
+      "pollIntervalMs": 0,
+      "next": [
+        "finalNext"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "finalNext": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/team_race/result_next.png",
-      "roi": [100, 1350, 700, 220],
       "templThreshold": 0.84,
-      "timeoutMs": 120000,
+      "roi": [
+        100,
+        1350,
+        700,
+        220
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "countAs": "race",
-      "next": ["dailySaleCancel"]
+      "waitMs": 0,
+      "timeoutMs": 120000,
+      "pollIntervalMs": 0,
+      "next": [
+        "dailySaleCancel"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false,
+      "countAs": "race"
     },
     "dailySaleCancel": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/daily_race/items_cancel.png",
-      "roi": [0, 820, 450, 500],
       "templThreshold": 0.82,
-      "timeoutMs": 3000,
+      "roi": [
+        0,
+        820,
+        450,
+        500
+      ],
+      "preDelay": 0,
       "postDelay": 1000,
+      "waitMs": 0,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 0,
+      "next": [
+        "rewardRaceAgain"
+      ],
+      "onErrorNext": [
+        "rewardRaceAgain"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
       "required": false,
-      "next": ["rewardRaceAgain"],
-      "onErrorNext": ["rewardRaceAgain"]
+      "success": false
     },
     "rewardRaceAgain": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/team_race/race_again.png",
-      "roi": [0, 1350, 450, 250],
       "templThreshold": 0.82,
-      "timeoutMs": 10000,
+      "roi": [
+        0,
+        1350,
+        450,
+        250
+      ],
+      "preDelay": 0,
       "postDelay": 1800,
-      "next": ["previewNext"],
-      "exceededNext": ["rewardNext"]
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [
+        "previewNext"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "rewardNext"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "rewardNext": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
       "template": "templates/team_race/result_next.png",
-      "roi": [450, 1350, 450, 220],
       "templThreshold": 0.82,
-      "timeoutMs": 10000,
+      "roi": [
+        450,
+        1350,
+        450,
+        220
+      ],
+      "preDelay": 0,
       "postDelay": 1200,
-      "next": ["complete"]
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [
+        "complete"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
     },
     "complete": {
       "algorithm": "JustReturn",
       "action": "DoNothing",
+      "templThreshold": 0.86,
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "pollIntervalMs": 0,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
       "success": true
     }
   },
   "timing": {
     "navigationMs": 1500,
+    "mailboxLoadMs": 1800,
+    "collectionSettleMs": 1200,
+    "homeTimeoutMs": 5000,
+    "homeRetryTimeoutMs": 2500,
+    "homeVerifyTimeoutMs": 3000,
+    "backAttempts": 3,
+    "backSettleMs": 600,
     "pollIntervalMs": 500,
-    "raceTimeoutMs": 120000,
+    "teamDownloadMs": 10000,
+    "nextRaceLoadMs": 10000,
     "playbackLoadMs": 10000,
+    "skipSettleMs": 2500,
+    "raceTimeoutMs": 120000,
+    "shopProbeMs": 1500,
     "betweenRacesMs": 1800
   }
 }
