@@ -202,7 +202,7 @@
                                     ScaleX="1"
                                     ScaleY="1" />
                   </Grid.RenderTransform>
-                  <Image Source="{Binding ScreenshotImage}"
+                  <Image Source="{Binding UmaImagePreviewImage}"
                          Stretch="Uniform"
                          IsHitTestVisible="False" />
                   <Canvas x:Name="CropVisualOverlay"
@@ -230,6 +230,12 @@
                            Fill="#33FFB84D"
                            Visibility="Collapsed"
                            IsHitTestVisible="False" />
+                <Rectangle x:Name="ImageMatchBestRectangle"
+                           Stroke="#FF62D96B"
+                           StrokeThickness="3"
+                           Fill="#2262D96B"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False" />
               </Canvas>
               <Border x:Name="PreviewCoordinateBadge"
                       HorizontalAlignment="Left"
@@ -255,6 +261,21 @@
                       IsHitTestVisible="False"
                       Visibility="Collapsed">
                 <TextBlock x:Name="PreviewRoiText"
+                           Foreground="White"
+                           FontFamily="Consolas" />
+              </Border>
+              <Border x:Name="PreviewMatchBadge"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Bottom"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      BorderBrush="#FF62D96B"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="PreviewMatchText"
                            Foreground="White"
                            FontFamily="Consolas" />
               </Border>
@@ -287,10 +308,24 @@
                 <TextBlock Margin="0,4,0,0"
                            Text="{Binding CropRegionTextDisplay}"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{Binding ImageMatchTestStatus}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
               </StackPanel>
               <WrapPanel Grid.Column="1"
                          VerticalAlignment="Bottom">
+                <ui:Button Content="{DynamicResource DeveloperToolsTestImageButton}"
+                           Command="{Binding TestImageMatchCommand}"
+                           Appearance="Secondary"
+                           Icon="Search24" />
+                <ui:Button Content="{DynamicResource DeveloperToolsTestReferenceButton}"
+                           Margin="8,0,0,0"
+                           Command="{Binding TestReferenceImageCommand}"
+                           Appearance="Secondary"
+                           Icon="Search24" />
                 <ui:Button Content="{DynamicResource DeveloperToolsSaveReferenceButton}"
+                           Margin="8,0,0,0"
                            Command="{Binding SaveSelectedImageCommand}"
                            Appearance="Primary"
                            Icon="SaveArrowForward24" />

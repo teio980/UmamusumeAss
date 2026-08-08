@@ -268,6 +268,8 @@
   <sys:String x:Key="DeveloperToolsCaptureTab">截图</sys:String>
   <sys:String x:Key="DeveloperToolsUmaImageTab">马娘图片</sys:String>
   <sys:String x:Key="DeveloperToolsUmaImageHint">请先在“截图”页签中截图，再回到这里选择完整的原始马娘图片、框选马娘并保存为系统识别参考图；已有参考图会先备份。</sys:String>
+  <sys:String x:Key="DeveloperToolsTestImageButton">测试当前页面识别</sys:String>
+  <sys:String x:Key="DeveloperToolsTestReferenceButton">测试系统参考图</sys:String>
   <sys:String x:Key="DeveloperToolsSaveReferenceButton">保存系统参考图</sys:String>
   <sys:String x:Key="DeveloperToolsOriginalPathLabel">用户图片：</sys:String>
   <sys:String x:Key="DeveloperToolsReferencePathLabel">系统参考图：</sys:String>

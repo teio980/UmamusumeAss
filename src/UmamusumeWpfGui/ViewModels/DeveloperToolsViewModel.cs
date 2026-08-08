@@ -17,6 +17,8 @@ namespace UmamusumeWpfGui.ViewModels;
 
 public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
+    private const double ImageMatchTestThreshold = 0.86;
+
     private static readonly JsonSerializerOptions PipelineJsonOptions = new()
     {
         WriteIndented = true,
@@ -45,6 +47,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private bool _isBusy;
     private bool _isLoadingImages;
     private bool _isSavingImage;
+    private string _imageMatchTestStatus = "No image detection test has been run.";
+    private BitmapSource? _imageMatchTestImage;
+    private TemplateMatchResult? _imageMatchTestMatch;
     private bool _isPipelineBusy;
     private bool _isPipelineRunning;
     private bool _disposed;
@@ -124,6 +129,22 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 && !_isBusy
                 && !_isLoadingImages
                 && !_isSavingImage);
+        TestImageMatchCommand = new RelayCommand(
+            _ => _ = TestCurrentImageMatchAsync(),
+            _ => !_disposed
+                && !_isBusy
+                && !_isPipelineRunning
+                && !_isLoadingImages
+                && !_isSavingImage
+                && HasCropRegion);
+        TestReferenceImageCommand = new RelayCommand(
+            _ => _ = TestSelectedReferenceMatchAsync(),
+            _ => !_disposed
+                && !_isBusy
+                && !_isPipelineRunning
+                && !_isLoadingImages
+                && !_isSavingImage
+                && HasRunnerReferenceImage);
 
         RefreshPipelineFilesCommand = new RelayCommand(
             _ => RefreshPipelineFiles(),
@@ -209,6 +230,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public ICommand ClearCropCommand { get; }
     public ICommand RefreshExistingImagesCommand { get; }
     public ICommand SaveSelectedImageCommand { get; }
+    public ICommand TestImageMatchCommand { get; }
+    public ICommand TestReferenceImageCommand { get; }
     public ICommand RefreshPipelineFilesCommand { get; }
     public ICommand LoadPipelineCommand { get; }
     public ICommand NewPipelineCommand { get; }
@@ -249,6 +272,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public bool HasSelectedImage => _selectedUmaImage is not null
         && !string.IsNullOrWhiteSpace(_activeImagePath);
 
+    private bool HasRunnerReferenceImage =>
+        _selectedUmaImage is { } image
+        && File.Exists(_umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId));
+
     public bool IsLoadingImages => _isLoadingImages;
 
     public ReadOnlyObservableCollection<DeveloperToolsImageItem> ExistingImages { get; }
@@ -280,6 +307,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     public BitmapSource? ScreenshotImage => _screenshotImage;
 
+    public BitmapSource? UmaImagePreviewImage => _imageMatchTestImage ?? _screenshotImage;
+
+    public TemplateMatchResult? ImageMatchTestMatch => _imageMatchTestMatch;
+
     public Int32Rect? CropRegion => _cropRegion;
 
     public string CropRegionText => _cropRegion is { } region
@@ -299,6 +330,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public string StatusText => _statusText;
 
     public string CaptureDetails => _captureDetails;
+
+    public string ImageMatchTestStatus => _imageMatchTestStatus;
 
     public ReadOnlyObservableCollection<string> PipelineFiles { get; }
 
@@ -1717,6 +1750,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _screenshot = capture.Screenshot;
             _screenshotImage = bitmap;
             _cropRegion = null;
+            ClearImageMatchPreview();
+            SetImageMatchTestStatus("No image detection test has been run.");
             if (_selectedUmaImage is null)
             {
                 _activeImagePath = null;
@@ -1734,6 +1769,192 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         catch (Exception exception)
         {
             SetStatus($"Screenshot capture failed: {exception.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    public async Task TestCurrentImageMatchAsync()
+    {
+        if (_disposed
+            || _isBusy
+            || _isPipelineRunning
+            || _isLoadingImages
+            || _isSavingImage
+            || !HasCropRegion
+            || _cropRegion is not { } region)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        ClearImageMatchPreview();
+        try
+        {
+            var templateSource = GetImageMatchTemplateSource();
+            var template = templateSource is null
+                ? null
+                : GrayImageCodec.Crop(templateSource, region);
+            if (template is null)
+            {
+                SetImageMatchTestStatus(
+                    "The selected crop could not be converted into a template.");
+                return;
+            }
+
+            await _settingsViewModel.ConnectAsync().ConfigureAwait(true);
+            var connection = LastVerifiedConnection;
+            if (ConnectionState != ConnectionState.Connected || connection is null)
+            {
+                SetImageMatchTestStatus(
+                    "Test blocked: connect the emulator in Settings first.");
+                return;
+            }
+
+            SetImageMatchTestStatus("Testing the selected crop on the current emulator page...");
+            var capture = await _adbRuntime.CaptureBestScreenshotAsync(
+                connection.AdbPath,
+                connection.Serial).ConfigureAwait(true);
+            if (!capture.Succeeded || capture.Screenshot is null)
+            {
+                SetImageMatchTestStatus(DescribeCaptureFailure(capture));
+                return;
+            }
+
+            var screen = GrayImageCodec.FromScreenshot(capture.Screenshot);
+            if (screen is null)
+            {
+                SetImageMatchTestStatus(
+                    "The emulator returned an unsupported screenshot format.");
+                return;
+            }
+
+            var match = await Task.Run(() => TemplateMatcher.Find(
+                screen,
+                template,
+                roi: null,
+                threshold: ImageMatchTestThreshold,
+                referenceWidth: screen.Width,
+                referenceHeight: screen.Height)).ConfigureAwait(true);
+            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
+            _imageMatchTestMatch = match;
+            OnPropertyChanged(nameof(UmaImagePreviewImage));
+            OnPropertyChanged(nameof(ImageMatchTestMatch));
+            var score = match.Score.ToString("0.000", CultureInfo.InvariantCulture);
+            var threshold = ImageMatchTestThreshold.ToString("0.000", CultureInfo.InvariantCulture);
+            SetImageMatchTestStatus(match.Found
+                ? $"Detected on the current page. Score: {score} / threshold {threshold}; "
+                  + $"position: ({match.X}, {match.Y}); template: {template.Width} x {template.Height}."
+                : $"Not detected on the current page. Best score: {score} / threshold {threshold}; "
+                  + $"best position: ({match.X}, {match.Y}); template: {template.Width} x {template.Height}.");
+            SetStatus(match.Found
+                ? "The current emulator page detected the selected crop."
+                : "The current emulator page did not detect the selected crop.");
+        }
+        catch (OperationCanceledException)
+        {
+            SetImageMatchTestStatus("Image detection test canceled.");
+        }
+        catch (Exception exception)
+        {
+            SetImageMatchTestStatus($"Image detection test failed: {exception.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    public async Task TestSelectedReferenceMatchAsync()
+    {
+        if (_disposed
+            || _isBusy
+            || _isPipelineRunning
+            || _isLoadingImages
+            || _isSavingImage
+            || !HasRunnerReferenceImage)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        ClearImageMatchPreview();
+        try
+        {
+            var referencePath = GetSelectedRunnerReferencePath();
+            if (referencePath is null)
+            {
+                SetImageMatchTestStatus(
+                    "The selected Uma image has no system reference image.");
+                return;
+            }
+
+            await _settingsViewModel.ConnectAsync().ConfigureAwait(true);
+            var connection = LastVerifiedConnection;
+            if (ConnectionState != ConnectionState.Connected || connection is null)
+            {
+                SetImageMatchTestStatus(
+                    "Test blocked: connect the emulator in Settings first.");
+                return;
+            }
+
+            SetImageMatchTestStatus(
+                $"Testing {Path.GetFileName(referencePath)} on the current emulator page "
+                + "with the Daily Race runner matcher...");
+            var capture = await _adbRuntime.CaptureBestScreenshotAsync(
+                connection.AdbPath,
+                connection.Serial).ConfigureAwait(true);
+            if (!capture.Succeeded || capture.Screenshot is null)
+            {
+                SetImageMatchTestStatus(DescribeCaptureFailure(capture));
+                return;
+            }
+
+            var screen = GrayImageCodec.FromScreenshot(capture.Screenshot);
+            if (screen is null)
+            {
+                SetImageMatchTestStatus(
+                    "The emulator returned an unsupported screenshot format.");
+                return;
+            }
+
+            var match = await DailyRaceRunnerSelector.FindBestMatchAsync(
+                    screen,
+                    referencePath,
+                    connection)
+                .ConfigureAwait(true);
+            if (match is null)
+            {
+                SetImageMatchTestStatus(
+                    $"Could not decode the reference image {Path.GetFileName(referencePath)}.");
+                return;
+            }
+
+            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
+            _imageMatchTestMatch = match;
+            OnPropertyChanged(nameof(UmaImagePreviewImage));
+            OnPropertyChanged(nameof(ImageMatchTestMatch));
+            var score = match.Score.ToString("0.000", CultureInfo.InvariantCulture);
+            var threshold = DailyRaceRunnerSelector.MinimumImageMatchScore
+                .ToString("0.000", CultureInfo.InvariantCulture);
+            SetImageMatchTestStatus(match.Found
+                ? $"Detected on the current page. Score: {score} / threshold {threshold}; "
+                  + $"runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}."
+                : $"Not detected on the current page. Best score: {score} / threshold {threshold}; "
+                  + $"best runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}.");
+            SetStatus(match.Found
+                ? "The current emulator page detected the selected system reference."
+                : "The current emulator page did not detect the selected system reference.");
+        }
+        catch (OperationCanceledException)
+        {
+            SetImageMatchTestStatus("Image detection test canceled.");
+        }
+        catch (Exception exception)
+        {
+            SetImageMatchTestStatus($"Image detection test failed: {exception.Message}");
         }
         finally
         {
@@ -1770,6 +1991,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         OnPropertyChanged(nameof(CropRegion));
         OnPropertyChanged(nameof(CropRegionText));
         OnPropertyChanged(nameof(HasCropRegion));
+        ClearImageMatchPreview();
+        SetImageMatchTestStatus("No image detection test has been run.");
         RaiseCommandStates();
         RaisePipelineCommandStates();
     }
@@ -1965,6 +2188,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private void LoadExistingImage(DeveloperToolsImageItem? item)
     {
+        ClearImageMatchPreview();
         if (item is null)
         {
             _activeImagePath = null;
@@ -2021,6 +2245,27 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
         }
+    }
+
+    private GrayImage? GetImageMatchTemplateSource()
+    {
+        if (_screenshot is { } screenshot)
+        {
+            return GrayImageCodec.FromScreenshot(screenshot);
+        }
+
+        return string.IsNullOrWhiteSpace(_activeImagePath)
+            ? null
+            : GrayImageCodec.FromFile(_activeImagePath);
+    }
+
+    private string? GetSelectedRunnerReferencePath()
+    {
+        if (_selectedUmaImage is not { } image)
+            return null;
+
+        var path = _umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId);
+        return File.Exists(path) ? path : null;
     }
 
     private static DeveloperToolsImageItem? CreateImageItem(
@@ -2125,6 +2370,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private void NotifyScreenshotPropertiesChanged()
     {
         OnPropertyChanged(nameof(ScreenshotImage));
+        OnPropertyChanged(nameof(UmaImagePreviewImage));
         OnPropertyChanged(nameof(HasScreenshot));
         OnPropertyChanged(nameof(CaptureDetailsDisplay));
         OnPropertyChanged(nameof(CropRegion));
@@ -2174,6 +2420,35 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             saveSelectedImage.RaiseCanExecuteChanged();
         }
+
+        if (TestImageMatchCommand is RelayCommand testImageMatch)
+        {
+            testImageMatch.RaiseCanExecuteChanged();
+        }
+
+        if (TestReferenceImageCommand is RelayCommand testReferenceImage)
+        {
+            testReferenceImage.RaiseCanExecuteChanged();
+        }
+    }
+
+    private void SetImageMatchTestStatus(string status)
+    {
+        _imageMatchTestStatus = status;
+        OnPropertyChanged(nameof(ImageMatchTestStatus));
+    }
+
+    private void ClearImageMatchPreview()
+    {
+        if (_imageMatchTestImage is null && _imageMatchTestMatch is null)
+        {
+            return;
+        }
+
+        _imageMatchTestImage = null;
+        _imageMatchTestMatch = null;
+        OnPropertyChanged(nameof(UmaImagePreviewImage));
+        OnPropertyChanged(nameof(ImageMatchTestMatch));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

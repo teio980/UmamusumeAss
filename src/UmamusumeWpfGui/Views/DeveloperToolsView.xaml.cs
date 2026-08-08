@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Shapes;
 using UmamusumeWpfGui.ViewModels;
 
@@ -79,6 +80,8 @@ public sealed partial class DeveloperToolsView : UserControl
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(DeveloperToolsViewModel.ScreenshotImage)
+            or nameof(DeveloperToolsViewModel.UmaImagePreviewImage)
+            or nameof(DeveloperToolsViewModel.ImageMatchTestMatch)
             or nameof(DeveloperToolsViewModel.CropRegion)
             or nameof(DeveloperToolsViewModel.HasScreenshot)
             or nameof(DeveloperToolsViewModel.SelectedPipelineTask)
@@ -94,6 +97,7 @@ public sealed partial class DeveloperToolsView : UserControl
                 }
 
                 UpdatePreviewState();
+                UpdateImageMatchRectangle();
                 UpdatePipelineRoiRectangle();
             });
         }
@@ -279,8 +283,42 @@ public sealed partial class DeveloperToolsView : UserControl
     private static int ParsePositive(string? value, int fallback) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
 
-    private void OnPreviewSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
+    private void OnPreviewSurfaceSizeChanged(object sender, SizeChangedEventArgs e)
+    {
         UpdateCropRectangle();
+        UpdateImageMatchRectangle();
+    }
+
+    private void UpdateImageMatchRectangle()
+    {
+        if (_viewModel?.ImageMatchTestMatch is not { } match
+            || !TryGetImageLayout(out var imageRect, out var scale))
+        {
+            ImageMatchBestRectangle.Visibility = Visibility.Collapsed;
+            PreviewMatchBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SetRectangle(
+            ImageMatchBestRectangle,
+            new Point(imageRect.Left + match.X * scale, imageRect.Top + match.Y * scale),
+            new Point(
+                imageRect.Left + (match.X + match.Width) * scale,
+                imageRect.Top + (match.Y + match.Height) * scale));
+        var accent = match.Found
+            ? Color.FromRgb(0x62, 0xD9, 0x6B)
+            : Color.FromRgb(0xFF, 0xB8, 0x4D);
+        ImageMatchBestRectangle.Stroke = new SolidColorBrush(accent);
+        ImageMatchBestRectangle.Fill = new SolidColorBrush(Color.FromArgb(
+            0x22,
+            accent.R,
+            accent.G,
+            accent.B));
+        PreviewMatchBadge.BorderBrush = new SolidColorBrush(accent);
+        PreviewMatchText.Text =
+            $"Best: ({match.X}, {match.Y}) | score {match.Score:0.000}";
+        PreviewMatchBadge.Visibility = Visibility.Visible;
+    }
 
     private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -288,7 +326,7 @@ public sealed partial class DeveloperToolsView : UserControl
         if (_viewModel?.HasScreenshot != true
             || e.Delta == 0
             || !TryGetImageLayout(out var imageRect, out _)
-            || !imageRect.Contains(ToPreviewContentPoint(point)))
+            || !imageRect.Contains(point))
         {
             return;
         }
@@ -397,6 +435,7 @@ public sealed partial class DeveloperToolsView : UserControl
             ? Visibility.Collapsed
             : Visibility.Visible;
         UpdateCropRectangle();
+        UpdateImageMatchRectangle();
         UpdateRoiBadge();
     }
 
@@ -406,6 +445,7 @@ public sealed partial class DeveloperToolsView : UserControl
         PreviewScaleTransform.ScaleX = _previewScale;
         PreviewScaleTransform.ScaleY = _previewScale;
         UpdateCropRectangle();
+        UpdateImageMatchRectangle();
     }
 
     private void SetPreviewTranslation(Vector translation)
@@ -414,6 +454,7 @@ public sealed partial class DeveloperToolsView : UserControl
         PreviewTranslateTransform.X = translation.X;
         PreviewTranslateTransform.Y = translation.Y;
         UpdateCropRectangle();
+        UpdateImageMatchRectangle();
         if (_hasPreviewPointer)
         {
             UpdatePreviewCoordinate(_lastPreviewPointer);
@@ -424,21 +465,20 @@ public sealed partial class DeveloperToolsView : UserControl
     {
         _lastPreviewPointer = point;
         _hasPreviewPointer = true;
-        if (_viewModel?.ScreenshotImage is not { } image
+        if (_viewModel?.UmaImagePreviewImage is not { } image
             || !TryGetImageLayout(out var imageRect, out var scale)
-            || !imageRect.Contains(ToPreviewContentPoint(point)))
+            || !imageRect.Contains(point))
         {
             PreviewCoordinateBadge.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var contentPoint = ToPreviewContentPoint(point);
         var x = Math.Clamp(
-            (int)Math.Floor((contentPoint.X - imageRect.Left) / scale),
+            (int)Math.Floor((point.X - imageRect.Left) / scale),
             0,
             image.PixelWidth - 1);
         var y = Math.Clamp(
-            (int)Math.Floor((contentPoint.Y - imageRect.Top) / scale),
+            (int)Math.Floor((point.Y - imageRect.Top) / scale),
             0,
             image.PixelHeight - 1);
         PreviewCoordinateText.Text = $"X: {x}, Y: {y}";
@@ -489,15 +529,13 @@ public sealed partial class DeveloperToolsView : UserControl
     private bool TryGetCropRegion(Point start, Point end, out Int32Rect region)
     {
         region = default;
-        if (_viewModel?.ScreenshotImage is not { } image
+        if (_viewModel?.UmaImagePreviewImage is not { } image
             || !TryGetImageLayout(out var imageRect, out var scale))
         {
             return false;
         }
 
-        var selection = new Rect(
-            ToPreviewContentPoint(start),
-            ToPreviewContentPoint(end));
+        var selection = new Rect(start, end);
         selection.Intersect(imageRect);
         if (selection.Width < 2 || selection.Height < 2 || scale <= 0)
         {
@@ -516,38 +554,43 @@ public sealed partial class DeveloperToolsView : UserControl
         return region.Width > 0 && region.Height > 0;
     }
 
-    private Point ToPreviewContentPoint(Point point)
-    {
-        var center = new Point(
-            PreviewSurface.ActualWidth / 2,
-            PreviewSurface.ActualHeight / 2);
-        var translatedPoint = point - _previewTranslation;
-        return new Point(
-            center.X + (translatedPoint.X - center.X) / _previewScale,
-            center.Y + (translatedPoint.Y - center.Y) / _previewScale);
-    }
-
     private bool TryGetImageLayout(out Rect imageRect, out double scale)
     {
         imageRect = default;
         scale = 0;
-        if (_viewModel?.ScreenshotImage is not { } image
+        if (_viewModel?.UmaImagePreviewImage is not { } image
             || PreviewContent.ActualWidth <= 0
             || PreviewContent.ActualHeight <= 0)
         {
             return false;
         }
 
-        scale = Math.Min(
+        var localScale = Math.Min(
             PreviewContent.ActualWidth / image.PixelWidth,
             PreviewContent.ActualHeight / image.PixelHeight);
-        var width = image.PixelWidth * scale;
-        var height = image.PixelHeight * scale;
+        var localWidth = image.PixelWidth * localScale;
+        var localHeight = image.PixelHeight * localScale;
+        var localImageRect = new Rect(
+            (PreviewContent.ActualWidth - localWidth) / 2,
+            (PreviewContent.ActualHeight - localHeight) / 2,
+            localWidth,
+            localHeight);
+
+        var transform = PreviewContent.TransformToVisual(CropOverlay);
+        var topLeft = transform.Transform(localImageRect.TopLeft);
+        var topRight = transform.Transform(localImageRect.TopRight);
+        var bottomLeft = transform.Transform(localImageRect.BottomLeft);
+        var bottomRight = transform.Transform(localImageRect.BottomRight);
         imageRect = new Rect(
-            (PreviewContent.ActualWidth - width) / 2,
-            (PreviewContent.ActualHeight - height) / 2,
-            width,
-            height);
+            new Point(
+                new[] { topLeft.X, topRight.X, bottomLeft.X, bottomRight.X }.Min(),
+                new[] { topLeft.Y, topRight.Y, bottomLeft.Y, bottomRight.Y }.Min()),
+            new Point(
+                new[] { topLeft.X, topRight.X, bottomLeft.X, bottomRight.X }.Max(),
+                new[] { topLeft.Y, topRight.Y, bottomLeft.Y, bottomRight.Y }.Max()));
+        scale = Math.Min(
+            imageRect.Width / image.PixelWidth,
+            imageRect.Height / image.PixelHeight);
         return scale > 0;
     }
 }
