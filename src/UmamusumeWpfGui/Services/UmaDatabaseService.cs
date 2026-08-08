@@ -165,7 +165,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
 
     public string GetTraineeReferenceImageDirectory() =>
-        Path.Combine(GetTraineeImageDirectory(), "reference");
+        Path.Combine(GetUmaResourceDirectory(), "system_reference");
 
     public string GetTraineeReferenceImagePath(int traineeId) =>
         Path.Combine(
@@ -174,6 +174,15 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
 
     public string GetSupportCardTemplateDirectory(int supportCardId) =>
         GetTemplateDirectory("support_cards", supportCardId);
+
+    private string GetUmaResourceDirectory()
+    {
+        lock (_sync)
+        {
+            var resourceRoot = _resourceRoot ?? Path.Combine(AppContext.BaseDirectory, "resource");
+            return Path.Combine(resourceRoot, "uma");
+        }
+    }
 
     private string GetImageDirectory(string category)
     {
