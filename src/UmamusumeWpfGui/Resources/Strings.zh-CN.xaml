@@ -242,7 +242,7 @@
 
   <sys:String x:Key="TabDeveloperTools">开发者工具</sys:String>
   <sys:String x:Key="DeveloperToolsTitle">开发者工具</sys:String>
-  <sys:String x:Key="DeveloperToolsHint">可以截图已连接的模拟器，也可以选择已有马娘图片，在预览中手动裁剪。替换已有图片前会自动将原图备份到图片目录的 backup 子目录。</sys:String>
+  <sys:String x:Key="DeveloperToolsHint">在一个页签中截图，在另一个页签中制作马娘识别参考图。用户看到的马娘图片保持完整，开发者裁剪后的图片会单独保存给系统识别使用。</sys:String>
   <sys:String x:Key="DeveloperToolsConnectionTitle">模拟器连接</sys:String>
   <sys:String x:Key="DeveloperToolsConnectButton">连接</sys:String>
   <sys:String x:Key="DeveloperToolsExistingImagesTitle">已有马娘图片</sys:String>
@@ -265,4 +265,10 @@
   <sys:String x:Key="GrassShopBuyShoes">购买鞋子（第 5 格）</sys:String>
   <sys:String x:Key="GrassShopBuySupportPoints">购买 Support Points（第 6 格）</sys:String>
   <sys:String x:Key="GrassShopBuyFlags">购买旗子（第 7 格）</sys:String>
+  <sys:String x:Key="DeveloperToolsCaptureTab">截图</sys:String>
+  <sys:String x:Key="DeveloperToolsUmaImageTab">马娘图片</sys:String>
+  <sys:String x:Key="DeveloperToolsUmaImageHint">用户看到的马娘图片保持完整。请先在“截图”页签中截图并裁剪，再回到这里保存为单独的系统识别参考图；已有参考图会先备份。</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveReferenceButton">保存系统参考图</sys:String>
+  <sys:String x:Key="DeveloperToolsOriginalPathLabel">用户图片：</sys:String>
+  <sys:String x:Key="DeveloperToolsReferencePathLabel">系统参考图：</sys:String>
 </ResourceDictionary>

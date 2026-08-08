@@ -8,16 +8,7 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Disabled"
                 PanningMode="VerticalOnly">
-    <Grid Margin="42">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="*" />
-        <RowDefinition Height="Auto" />
-      </Grid.RowDefinitions>
-
-    <StackPanel Grid.Row="0">
+    <StackPanel Margin="42">
       <TextBlock Text="{DynamicResource DeveloperToolsTitle}"
                  FontSize="20"
                  FontWeight="Medium" />
@@ -25,218 +16,282 @@
                  Text="{DynamicResource DeveloperToolsHint}"
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextWrapping="Wrap" />
-    </StackPanel>
 
-    <Grid Grid.Row="1" Margin="0,18,0,0">
-      <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="*" />
-      <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
-      <StackPanel>
-        <TextBlock Text="{DynamicResource DeveloperToolsConnectionTitle}"
-                   FontWeight="Medium" />
-        <TextBlock Margin="0,6,0,0"
-                   Text="{Binding ConnectionState}" />
-        <TextBlock Margin="0,4,0,0"
-                   Text="{Binding DeviceSummaryDisplay}"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-      </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal">
-        <ui:Button Content="{DynamicResource DeveloperToolsConnectButton}"
-                   Command="{Binding ConnectCommand}"
-                   Appearance="Secondary"
-                   Icon="PlugConnected24" />
-        <ui:Button Margin="8,0,0,0"
-                   Content="{DynamicResource CaptureScreenButton}"
-                   Command="{Binding CaptureCommand}"
-                   Appearance="Primary"
-                   Icon="Camera24" />
-      </StackPanel>
-    </Grid>
+      <TabControl Margin="0,18,0,0">
+        <TabItem Header="{DynamicResource DeveloperToolsCaptureTab}">
+          <Grid Margin="0,18,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="600" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-    <Grid Grid.Row="2" Margin="0,18,0,0">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="118" />
-      </Grid.RowDefinitions>
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <StackPanel>
-          <TextBlock Text="{DynamicResource DeveloperToolsExistingImagesTitle}"
-                     FontWeight="Medium" />
-          <TextBlock Margin="0,4,0,0"
-                     Text="{DynamicResource DeveloperToolsExistingImagesHint}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
-        <StackPanel Grid.Column="1"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal">
-          <TextBlock Margin="0,0,12,0"
-                     VerticalAlignment="Center"
-                     Text="{Binding ExistingImageCountDisplay}"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-          <ui:Button Content="{DynamicResource DeveloperToolsRefreshImagesButton}"
-                     Command="{Binding RefreshExistingImagesCommand}"
-                     Appearance="Secondary"
-                     Icon="ArrowClockwise24" />
-        </StackPanel>
-      </Grid>
-      <ListBox Grid.Row="1"
-               Margin="0,8,0,0"
-               ItemsSource="{Binding ExistingImages}"
-               SelectedItem="{Binding SelectedUmaImage, Mode=TwoWay}"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-               ScrollViewer.VerticalScrollBarVisibility="Auto">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <StackPanel Width="112"
-                        Margin="4"
-                        ToolTip="{Binding Path}">
-              <Image Width="72"
-                     Height="72"
-                     HorizontalAlignment="Center"
-                     Source="{Binding Thumbnail}"
-                     Stretch="Uniform" />
+            <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{DynamicResource DeveloperToolsConnectionTitle}"
+                           FontWeight="Medium" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="{Binding ConnectionState}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{Binding DeviceSummaryDisplay}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1"
+                          VerticalAlignment="Bottom"
+                          Orientation="Horizontal">
+                <ui:Button Content="{DynamicResource DeveloperToolsConnectButton}"
+                           Command="{Binding ConnectCommand}"
+                           Appearance="Secondary"
+                           Icon="PlugConnected24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource CaptureScreenButton}"
+                           Command="{Binding CaptureCommand}"
+                           Appearance="Primary"
+                           Icon="Camera24" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  x:Name="PreviewSurface"
+                  MinHeight="600"
+                  Margin="0,18,0,12"
+                  Background="#18000000"
+                  ClipToBounds="True"
+                  SizeChanged="OnPreviewSurfaceSizeChanged">
+              <Grid x:Name="PreviewPanContent">
+                <Grid.RenderTransform>
+                  <TranslateTransform x:Name="PreviewTranslateTransform" />
+                </Grid.RenderTransform>
+                <Grid x:Name="PreviewContent"
+                      RenderTransformOrigin="0.5,0.5">
+                  <Grid.RenderTransform>
+                    <ScaleTransform x:Name="PreviewScaleTransform"
+                                    ScaleX="1"
+                                    ScaleY="1" />
+                  </Grid.RenderTransform>
+                  <Image Source="{Binding ScreenshotImage}"
+                         Stretch="Uniform"
+                         IsHitTestVisible="False" />
+                  <Canvas x:Name="CropVisualOverlay"
+                          IsHitTestVisible="False">
+                    <Rectangle x:Name="CropRectangle"
+                               Stroke="#FF4CC2FF"
+                               StrokeThickness="2"
+                               Fill="#334CC2FF"
+                               Visibility="Collapsed" />
+                  </Canvas>
+                </Grid>
+              </Grid>
+              <Canvas x:Name="CropOverlay"
+                      Background="Transparent"
+                      MouseLeftButtonDown="OnCropMouseLeftButtonDown"
+                      MouseMove="OnCropMouseMove"
+                      MouseLeftButtonUp="OnCropMouseLeftButtonUp"
+                      MouseDown="OnPanMouseMiddleButtonDown"
+                      MouseUp="OnPanMouseMiddleButtonUp"
+                      MouseLeave="OnCropMouseLeave"
+                      MouseWheel="OnPreviewMouseWheel">
+                <Rectangle x:Name="SelectionRectangle"
+                           Stroke="#FFFFB84D"
+                           StrokeThickness="2"
+                           Fill="#33FFB84D"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False" />
+              </Canvas>
+              <Border x:Name="PreviewCoordinateBadge"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="PreviewCoordinateText"
+                           Foreground="White" />
+              </Border>
+              <Border x:Name="PreviewRoiBadge"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      BorderBrush="#FFFFB84D"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="PreviewRoiText"
+                           Foreground="White"
+                           FontFamily="Consolas" />
+              </Border>
+              <StackPanel x:Name="EmptyPreview"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          IsHitTestVisible="False">
+                <TextBlock Text="{DynamicResource DeveloperToolsNoScreenshot}"
+                           HorizontalAlignment="Center"
+                           FontStyle="Italic" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="{DynamicResource DeveloperToolsCropHint}"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="2">
+              <TextBlock Text="{Binding StatusText}"
+                         TextWrapping="Wrap" />
               <TextBlock Margin="0,4,0,0"
-                         HorizontalAlignment="Center"
-                         Text="{Binding DisplayName}"
-                         TextAlignment="Center"
-                         TextTrimming="CharacterEllipsis" />
+                         Text="{Binding CaptureDetailsDisplay}"
+                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              <TextBlock Margin="0,4,0,0"
+                         Text="{Binding CropRegionTextDisplay}"
+                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              <WrapPanel Margin="0,10,0,0">
+                <ui:Button Content="{DynamicResource DeveloperToolsSaveButton}"
+                           Command="{Binding SaveOriginalCommand}"
+                           Appearance="Secondary"
+                           Icon="Save24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsSaveCropButton}"
+                           Command="{Binding SaveCroppedCommand}"
+                           Appearance="Secondary"
+                           Icon="Crop24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsClearCropButton}"
+                           Command="{Binding ClearCropCommand}"
+                           Appearance="Secondary"
+                           Icon="Dismiss24" />
+              </WrapPanel>
             </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </Grid>
+          </Grid>
+        </TabItem>
 
-    <Grid Grid.Row="3" x:Name="PreviewSurface" MinHeight="600" Margin="0,18,0,12"
-          Background="#18000000"
-          ClipToBounds="True"
-          SizeChanged="OnPreviewSurfaceSizeChanged">
-      <Grid x:Name="PreviewPanContent">
-        <Grid.RenderTransform>
-          <TranslateTransform x:Name="PreviewTranslateTransform" />
-        </Grid.RenderTransform>
-        <Grid x:Name="PreviewContent"
-              RenderTransformOrigin="0.5,0.5">
-          <Grid.RenderTransform>
-            <ScaleTransform x:Name="PreviewScaleTransform"
-                            ScaleX="1"
-                            ScaleY="1" />
-          </Grid.RenderTransform>
-          <Image Source="{Binding ScreenshotImage}"
-                 Stretch="Uniform"
-                 IsHitTestVisible="False" />
-          <Canvas x:Name="CropVisualOverlay"
-                  IsHitTestVisible="False">
-            <Rectangle x:Name="CropRectangle"
-                       Stroke="#FF4CC2FF"
-                       StrokeThickness="2"
-                       Fill="#334CC2FF"
-                       Visibility="Collapsed" />
-          </Canvas>
-        </Grid>
-      </Grid>
-      <Canvas x:Name="CropOverlay"
-              Background="Transparent"
-              MouseLeftButtonDown="OnCropMouseLeftButtonDown"
-              MouseMove="OnCropMouseMove"
-              MouseLeftButtonUp="OnCropMouseLeftButtonUp"
-              MouseDown="OnPanMouseMiddleButtonDown"
-              MouseUp="OnPanMouseMiddleButtonUp"
-              MouseLeave="OnCropMouseLeave"
-              MouseWheel="OnPreviewMouseWheel">
-        <Rectangle x:Name="SelectionRectangle"
-                   Stroke="#FFFFB84D"
-                   StrokeThickness="2"
-                   Fill="#33FFB84D"
-                   Visibility="Collapsed"
-                   IsHitTestVisible="False" />
-      </Canvas>
-      <Border x:Name="PreviewCoordinateBadge"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Top"
-              Margin="10"
-              Padding="8,4"
-              Background="#CC202020"
-              CornerRadius="4"
-              IsHitTestVisible="False"
-              Visibility="Collapsed">
-        <TextBlock x:Name="PreviewCoordinateText"
-                   Foreground="White" />
-      </Border>
-      <Border x:Name="PreviewRoiBadge"
-              HorizontalAlignment="Right"
-              VerticalAlignment="Top"
-              Margin="10"
-              Padding="8,4"
-              Background="#CC202020"
-              BorderBrush="#FFFFB84D"
-              BorderThickness="1"
-              CornerRadius="4"
-              IsHitTestVisible="False"
-              Visibility="Collapsed">
-        <TextBlock x:Name="PreviewRoiText"
-                   Foreground="White"
-                   FontFamily="Consolas" />
-      </Border>
-      <StackPanel x:Name="EmptyPreview"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center"
-                  IsHitTestVisible="False">
-        <TextBlock Text="{DynamicResource DeveloperToolsNoScreenshot}"
-                   HorizontalAlignment="Center"
-                   FontStyle="Italic" />
-        <TextBlock Margin="0,6,0,0"
-                   Text="{DynamicResource DeveloperToolsCropHint}"
-                   HorizontalAlignment="Center"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-      </StackPanel>
-    </Grid>
+        <TabItem Header="{DynamicResource DeveloperToolsUmaImageTab}">
+          <Grid Margin="0,18,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="118" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-      <Grid Grid.Row="4">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
-      <StackPanel>
-        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
-        <TextBlock Margin="0,4,0,0"
-                   Text="{Binding CaptureDetailsDisplay}"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        <TextBlock Margin="0,4,0,0"
-                   Text="{Binding CropRegionTextDisplay}"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-      </StackPanel>
-      <WrapPanel Grid.Column="1" VerticalAlignment="Bottom">
-        <ui:Button Content="{DynamicResource DeveloperToolsSaveButton}"
-                   Command="{Binding SaveOriginalCommand}"
-                   Appearance="Secondary"
-                   Icon="Save24" />
-        <ui:Button Margin="8,0,0,0"
-                   Content="{DynamicResource DeveloperToolsSaveCropButton}"
-                   Command="{Binding SaveCroppedCommand}"
-                   Appearance="Secondary"
-                   Icon="Crop24" />
-        <ui:Button Margin="8,0,0,0"
-                   Content="{DynamicResource DeveloperToolsClearCropButton}"
-                   Command="{Binding ClearCropCommand}"
-                   Appearance="Secondary"
-                   Icon="Dismiss24" />
-        <ui:Button Margin="8,0,0,0"
-                   Content="{DynamicResource DeveloperToolsSaveReplaceButton}"
-                   Command="{Binding SaveSelectedImageCommand}"
-                   Appearance="Primary"
-                   Icon="SaveArrowForward24" />
-      </WrapPanel>
-      </Grid>
-    </Grid>
+            <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{DynamicResource DeveloperToolsExistingImagesTitle}"
+                           FontWeight="Medium" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{DynamicResource DeveloperToolsUmaImageHint}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <StackPanel Margin="0,8,0,0"
+                            Orientation="Horizontal">
+                  <TextBlock Text="{DynamicResource DeveloperToolsOriginalPathLabel}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                  <TextBlock Margin="6,0,0,0"
+                             Text="{Binding SelectedImagePathDisplay}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Margin="0,2,0,0"
+                            Orientation="Horizontal">
+                  <TextBlock Text="{DynamicResource DeveloperToolsReferencePathLabel}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                  <TextBlock Margin="6,0,0,0"
+                             Text="{Binding SelectedReferenceImagePathDisplay}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </StackPanel>
+              <WrapPanel Grid.Column="1"
+                         VerticalAlignment="Bottom">
+                <TextBlock Margin="0,0,12,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding ExistingImageCountDisplay}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ui:Button Content="{DynamicResource DeveloperToolsRefreshImagesButton}"
+                           Command="{Binding RefreshExistingImagesCommand}"
+                           Appearance="Secondary"
+                           Icon="ArrowClockwise24" />
+              </WrapPanel>
+            </Grid>
+
+            <ListBox Grid.Row="1"
+                     Margin="0,8,0,0"
+                     ItemsSource="{Binding ExistingImages}"
+                     SelectedItem="{Binding SelectedUmaImage, Mode=TwoWay}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Width="112"
+                              Margin="4"
+                              ToolTip="{Binding Path}">
+                    <Image Width="72"
+                           Height="72"
+                           HorizontalAlignment="Center"
+                           Source="{Binding Thumbnail}"
+                           Stretch="Uniform" />
+                    <TextBlock Margin="0,4,0,0"
+                               HorizontalAlignment="Center"
+                               Text="{Binding DisplayName}"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border Grid.Row="2"
+                    MinHeight="600"
+                    Margin="0,18,0,12"
+                    Background="#18000000"
+                    ClipToBounds="True">
+              <Image Source="{Binding ScreenshotImage}"
+                     Stretch="Uniform" />
+            </Border>
+
+            <Grid Grid.Row="3">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{Binding StatusText}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{Binding CaptureDetailsDisplay}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{Binding CropRegionTextDisplay}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              </StackPanel>
+              <WrapPanel Grid.Column="1"
+                         VerticalAlignment="Bottom">
+                <ui:Button Content="{DynamicResource DeveloperToolsSaveReferenceButton}"
+                           Command="{Binding SaveSelectedImageCommand}"
+                           Appearance="Primary"
+                           Icon="SaveArrowForward24" />
+              </WrapPanel>
+            </Grid>
+          </Grid>
+        </TabItem>
+      </TabControl>
+    </StackPanel>
   </ScrollViewer>
 </UserControl>

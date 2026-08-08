@@ -136,6 +136,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     public string SelectedImagePathDisplay => _activeImagePath ?? string.Empty;
 
+    public string SelectedReferenceImagePathDisplay => _selectedUmaImage is { } image
+        ? _umaDatabase.GetTraineeReferenceImagePath(image.TraineeId)
+        : string.Empty;
+
     public BitmapSource? ScreenshotImage => _screenshotImage;
 
     public Int32Rect? CropRegion => _cropRegion;
@@ -228,8 +232,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _screenshot = capture.Screenshot;
             _screenshotImage = bitmap;
             _cropRegion = null;
-            _activeImagePath = null;
-            SelectedUmaImage = null;
+            if (_selectedUmaImage is null)
+            {
+                _activeImagePath = null;
+            }
             _captureDetails =
                 $"{bitmap.PixelWidth} × {bitmap.PixelHeight} · {capture.Screenshot.Method} · "
                 + $"{capture.Screenshot.Duration.TotalMilliseconds:0} ms";
@@ -429,24 +435,34 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         }
 
         var sourcePath = _activeImagePath!;
-        var backupPath = CreateBackupPath(sourcePath);
-        var temporaryPath = sourcePath + $".{Guid.NewGuid():N}.tmp";
+        var referencePath = _umaDatabase.GetTraineeReferenceImagePath(
+            _selectedUmaImage!.TraineeId);
+        var backupPath = CreateBackupPath(referencePath);
+        var temporaryPath = referencePath + $".{Guid.NewGuid():N}.tmp";
         _isSavingImage = true;
         RaiseCommandStates();
         try
         {
             var cropped = new CroppedBitmap(_screenshotImage, region);
             cropped.Freeze();
-            File.Copy(sourcePath, backupPath);
-            UmaImageCodec.Save(cropped, temporaryPath + Path.GetExtension(sourcePath));
-            File.Move(
-                temporaryPath + Path.GetExtension(sourcePath),
-                sourcePath,
-                overwrite: true);
+            if (File.Exists(referencePath))
+            {
+                File.Copy(referencePath, backupPath);
+            }
+            else
+            {
+                // The unmodified full image is the effective reference until
+                // the first developer crop is saved.
+                File.Copy(sourcePath, backupPath);
+            }
+
+            UmaImageCodec.Save(cropped, temporaryPath);
+            File.Move(temporaryPath, referencePath, overwrite: true);
 
             await RefreshExistingImagesAsync().ConfigureAwait(true);
             SetCropRegion(null);
-            SetStatus($"Saved cropped image to {sourcePath}. Backup: {backupPath}");
+            OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
+            SetStatus($"Saved system reference image to {referencePath}. Backup: {backupPath}");
         }
         catch (Exception exception)
         {
@@ -455,7 +471,6 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         finally
         {
             TryDelete(temporaryPath);
-            TryDelete(temporaryPath + Path.GetExtension(sourcePath));
             _isSavingImage = false;
             RaiseCommandStates();
         }
@@ -475,21 +490,38 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
             OnPropertyChanged(nameof(HasSelectedImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
+            OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
             RaiseCommandStates();
             return;
         }
 
         try
         {
-            _screenshot = null;
-            _screenshotImage = UmaImageCodec.Load(item.Path);
+            var hasCapturedScreenshot = _screenshot is not null;
+            if (!hasCapturedScreenshot)
+            {
+                _screenshotImage = UmaImageCodec.Load(item.Path);
+            }
+
             _activeImagePath = item.Path;
-            _cropRegion = null;
-            _captureDetails = $"{_screenshotImage.PixelWidth} x {_screenshotImage.PixelHeight} | existing image";
-            SetStatus($"Loaded {item.DisplayName}. Drag on the preview to select a crop region.");
+            if (!hasCapturedScreenshot)
+            {
+                _cropRegion = null;
+            }
+            if (_screenshotImage is not null)
+            {
+                _captureDetails = hasCapturedScreenshot
+                    ? _captureDetails
+                    : $"{_screenshotImage.PixelWidth} x {_screenshotImage.PixelHeight} | existing image";
+            }
+
+            SetStatus(hasCapturedScreenshot
+                ? $"Loaded {item.DisplayName} as the target. The captured screenshot is ready to crop."
+                : $"Loaded {item.DisplayName}. Drag on the preview to select a crop region.");
             NotifyScreenshotPropertiesChanged();
             OnPropertyChanged(nameof(HasSelectedImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
+            OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
         }
         catch (Exception exception)
         {
@@ -500,6 +532,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             NotifyScreenshotPropertiesChanged();
             OnPropertyChanged(nameof(HasSelectedImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
+            OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
         }
     }
 

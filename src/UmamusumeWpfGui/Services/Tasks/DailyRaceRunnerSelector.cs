@@ -112,7 +112,10 @@ public sealed class DailyRaceRunnerSelector
                 + "was not found in the Uma database.");
         }
 
-        var imagePath = _umaDatabase.GetTraineeImagePath(trainee.TraineeId);
+        var referenceImagePath = _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId);
+        var imagePath = File.Exists(referenceImagePath)
+            ? referenceImagePath
+            : _umaDatabase.GetTraineeImagePath(trainee.TraineeId);
         if (!File.Exists(imagePath))
         {
             return HachimiCustomActionResult.Failure(

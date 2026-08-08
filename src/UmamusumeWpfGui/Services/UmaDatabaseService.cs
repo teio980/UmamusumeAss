@@ -164,6 +164,14 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             GetTraineeImageDirectory(),
             traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
 
+    public string GetTraineeReferenceImageDirectory() =>
+        Path.Combine(GetTraineeImageDirectory(), "reference");
+
+    public string GetTraineeReferenceImagePath(int traineeId) =>
+        Path.Combine(
+            GetTraineeReferenceImageDirectory(),
+            traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
+
     public string GetSupportCardTemplateDirectory(int supportCardId) =>
         GetTemplateDirectory("support_cards", supportCardId);
 
