@@ -140,8 +140,11 @@
       "next": ["runnerSortOpen"]
     },
     "runnerSortOpen": {
-      "action": "ClickRect",
-      "specificRect": [500, 1185, 260, 125],
+      "action": "ClickSelf",
+      "template": "templates/daily_race/runner_display_button.png",
+      "roi": [430, 1120, 470, 250],
+      "templThreshold": 0.8,
+      "timeoutMs": 8000,
       "postDelay": 600,
       "next": ["runnerSortMenuReady"]
     },
@@ -155,14 +158,20 @@
       "next": ["runnerRatingSelect"]
     },
     "runnerRatingSelect": {
-      "action": "ClickRect",
-      "specificRect": [20, 275, 220, 145],
+      "action": "ClickSelf",
+      "template": "templates/daily_race/runner_rating_option.png",
+      "roi": [20, 250, 300, 180],
+      "templThreshold": 0.8,
+      "timeoutMs": 8000,
       "postDelay": 250,
       "next": ["runnerSortDialogConfirm"]
     },
     "runnerSortDialogConfirm": {
-      "action": "ClickRect",
-      "specificRect": [460, 1400, 380, 130],
+      "action": "ClickSelf",
+      "template": "templates/daily_race/runner_sort_dialog_confirm.png",
+      "roi": [430, 1350, 450, 220],
+      "templThreshold": 0.8,
+      "timeoutMs": 8000,
       "postDelay": 900,
       "next": ["runnerDesc"]
     },
@@ -177,8 +186,11 @@
       "onErrorNext": ["runnerSetDesc"]
     },
     "runnerSetDesc": {
-      "action": "ClickRect",
-      "specificRect": [725, 1180, 175, 115],
+      "action": "ClickSelf",
+      "template": "templates/daily_race/runner_sort_asc.png",
+      "roi": [700, 1120, 200, 180],
+      "templThreshold": 0.8,
+      "timeoutMs": 8000,
       "postDelay": 600,
       "next": ["runnerDescVerify"]
     },

@@ -1,7 +1,5 @@
 using System.IO;
 using System.Globalization;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -23,11 +21,37 @@ public sealed class DailyRaceRunnerSelector
     private const int MaximumScrolls = 16;
     private const double MinimumImageMatchScore = 0.38;
 
-    private static readonly int[] SortButtonRect = [500, 1185, 260, 125];
-    private static readonly int[] FilterTabRect = [440, 105, 440, 70];
-    private static readonly int[] SettingsConfirmRect = [460, 1400, 380, 130];
-    private static readonly int[] HighestRunnerRect = [20, 800, 180, 220];
     private static readonly int[] RunnerSwipe = [760, 1150, 760, 850, 550];
+
+    private static readonly Dictionary<string, string> FilterTemplatePaths =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Turf"] = "templates/daily_race/runner_filter_turf.png",
+            ["Dirt"] = "templates/daily_race/runner_filter_dirt.png",
+            ["Sprint"] = "templates/daily_race/runner_filter_sprint.png",
+            ["Mile"] = "templates/daily_race/runner_filter_mile.png",
+            ["Medium"] = "templates/daily_race/runner_filter_medium.png",
+            ["Long"] = "templates/daily_race/runner_filter_long.png",
+            ["Front"] = "templates/daily_race/runner_filter_front.png",
+            ["Pace"] = "templates/daily_race/runner_filter_pace.png",
+            ["Late"] = "templates/daily_race/runner_filter_late.png",
+            ["End"] = "templates/daily_race/runner_filter_end.png",
+        };
+
+    private static readonly Dictionary<string, int[]> FilterTemplateRois =
+        new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Turf"] = [20, 280, 280, 180],
+            ["Dirt"] = [300, 280, 300, 180],
+            ["Sprint"] = [20, 440, 280, 180],
+            ["Mile"] = [300, 440, 280, 180],
+            ["Medium"] = [580, 440, 300, 180],
+            ["Long"] = [20, 550, 280, 180],
+            ["Front"] = [20, 700, 280, 180],
+            ["Pace"] = [300, 700, 280, 180],
+            ["Late"] = [580, 700, 300, 180],
+            ["End"] = [20, 790, 280, 180],
+        };
 
     private static readonly RunnerCell[] RunnerCells =
     [
@@ -48,19 +72,15 @@ public sealed class DailyRaceRunnerSelector
         new(720, 1215, 160, 190),
     ];
 
-    private readonly IAdbRuntime _adbRuntime;
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
 
     public DailyRaceRunnerSelector(
-        IAdbRuntime adbRuntime,
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase)
     {
-        ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(visualRuntime);
         ArgumentNullException.ThrowIfNull(umaDatabase);
-        _adbRuntime = adbRuntime;
         _visualRuntime = visualRuntime;
         _umaDatabase = umaDatabase;
     }
@@ -80,18 +100,8 @@ public sealed class DailyRaceRunnerSelector
 
         if (traineeId is null)
         {
-            var defaultTap = await TapRectAsync(
-                    connection,
-                    definition,
-                    HighestRunnerRect,
-                    taskName,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return defaultTap
-                ? HachimiCustomActionResult.Success(
-                    "No runner was specified; selected the highest-rated runner.")
-                : HachimiCustomActionResult.Failure(
-                    "Could not select the highest-rated Daily Race runner.");
+            return HachimiCustomActionResult.Success(
+                "No runner was specified; kept the runner selected after Rating sort.");
         }
 
         if (!_umaDatabase.TryGetTrainee(traineeId.Value, out var trainee)
@@ -110,10 +120,12 @@ public sealed class DailyRaceRunnerSelector
                 + "is missing, so the runner cannot be located visually.");
         }
 
-        if (!await TapRectAsync(
+        if (!await TapTemplateAsync(
                 connection,
                 definition,
-                SortButtonRect,
+                "templates/daily_race/runner_display_button.png",
+                [400, 1100, 500, 250],
+                0.80,
                 "runnerFilterOpen",
                 cancellationToken).ConfigureAwait(false))
         {
@@ -141,10 +153,12 @@ public sealed class DailyRaceRunnerSelector
                 "The Daily Race runner display settings did not appear.");
         }
 
-        if (!await TapRectAsync(
+        if (!await TapTemplateAsync(
                 connection,
                 definition,
-                FilterTabRect,
+                "templates/daily_race/runner_filter_tab.png",
+                [0, 100, 900, 250],
+                0.80,
                 "runnerFilterTab",
                 cancellationToken).ConfigureAwait(false))
         {
@@ -163,10 +177,12 @@ public sealed class DailyRaceRunnerSelector
         if (!filterResult.Succeeded)
             return filterResult;
 
-        if (!await TapRectAsync(
+        if (!await TapTemplateAsync(
                 connection,
                 definition,
-                SettingsConfirmRect,
+                "templates/daily_race/runner_filter_confirm.png",
+                [300, 1300, 550, 250],
+                0.80,
                 "runnerFilterConfirm",
                 cancellationToken).ConfigureAwait(false))
         {
@@ -195,14 +211,17 @@ public sealed class DailyRaceRunnerSelector
                 var best = FindBestRunnerCell(screen, template, connection);
                 if (best.Score >= MinimumImageMatchScore)
                 {
-                    var tapped = await TapRectAsync(
-                            connection,
-                            definition,
-                            best.Cell.ToArray(),
-                            "runnerSelection",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (!tapped)
+                    var match = CreateRunnerCellMatch(best, screen, connection);
+                    try
+                    {
+                        await _visualRuntime.TapMatchAsync(
+                                connection,
+                                match,
+                                "runnerSelection",
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (InvalidOperationException)
                     {
                         return HachimiCustomActionResult.Failure(
                             $"Found {trainee.NameEn}, but the runner card could not be selected.");
@@ -234,6 +253,24 @@ public sealed class DailyRaceRunnerSelector
             + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling.");
     }
 
+    private static TemplateMatchResult CreateRunnerCellMatch(
+        RunnerCellMatch best,
+        GrayImage screen,
+        LastVerifiedConnection connection)
+    {
+        var x = ScaleCoordinate(best.Cell.X, screen.Width, connection.Width);
+        var y = ScaleCoordinate(best.Cell.Y, screen.Height, connection.Height);
+        var width = Math.Max(1, ScaleCoordinate(best.Cell.Width, screen.Width, connection.Width));
+        var height = Math.Max(1, ScaleCoordinate(best.Cell.Height, screen.Height, connection.Height));
+        return new TemplateMatchResult(
+            true,
+            best.Score,
+            x,
+            y,
+            width,
+            height);
+    }
+
     private async Task<HachimiCustomActionResult> ApplyAptitudeFiltersAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
@@ -242,49 +279,47 @@ public sealed class DailyRaceRunnerSelector
         CancellationToken cancellationToken)
     {
         var desiredLabels = GetDesiredFilterLabels(trainee).ToArray();
-        var hierarchy = await ReadUiHierarchyAsync(connection, cancellationToken)
-            .ConfigureAwait(false);
         var clicked = 0;
 
-        if (hierarchy is not null)
+        foreach (var label in desiredLabels)
         {
-            foreach (var label in desiredLabels)
-            {
-                var node = hierarchy.FirstOrDefault(item => item.Matches(label));
-                if (node is null)
-                    continue;
+            if (!FilterTemplatePaths.TryGetValue(label, out var templatePath))
+                continue;
 
-                if (await TapAsync(
-                        connection,
-                        ScalePoint(node.CenterX, node.CenterY, definition, connection),
-                        "runnerFilterOption",
-                        cancellationToken).ConfigureAwait(false))
-                {
-                    clicked++;
-                }
-            }
-        }
+            var match = await _visualRuntime.WaitForMatchAsync(
+                    connection,
+                    templatePath,
+                    FilterTemplateRois[label],
+                    0.78,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    8_000,
+                    250,
+                    "runnerFilterOption",
+                    definition.BaseDirectory,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (match is not { Found: true })
+                continue;
 
-        if (clicked == 0)
-        {
-            // Unity builds do not always expose their labels through
-            // UIAutomator. These are the stable reference positions used by
-            // the current display-settings layout; the dynamic path above is
-            // preferred whenever the game exposes accessible text.
-            foreach (var label in desiredLabels)
+            try
             {
-                if (!FallbackFilterRects.TryGetValue(label, out var rect))
-                    continue;
-                if (await TapRectAsync(
+                await _visualRuntime.TapMatchAsync(
                         connection,
-                        definition,
-                        rect,
+                        match,
                         "runnerFilterOption",
-                        cancellationToken).ConfigureAwait(false))
-                {
-                    clicked++;
-                }
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                clicked++;
             }
+            catch (InvalidOperationException)
+            {
+                // Keep trying the remaining aptitude templates so one failed
+                // ADB tap does not hide which filter option was unavailable.
+            }
+
+            await _visualRuntime.DelayAsync(150, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (clicked == 0)
@@ -299,75 +334,6 @@ public sealed class DailyRaceRunnerSelector
             + $"for {trainee.NameEn}.",
             LogEntryKind.Info);
         return HachimiCustomActionResult.Success(string.Empty);
-    }
-
-    private async Task<UiNodeLabel[]?> ReadUiHierarchyAsync(
-        LastVerifiedConnection connection,
-        CancellationToken cancellationToken)
-    {
-        var dump = await _adbRuntime.ShellAsync(
-                connection.AdbPath,
-                connection.Serial,
-                ["uiautomator", "dump", "/sdcard/umamusume-ass-window.xml"],
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (dump.Error is not null || dump.TimedOut || dump.ExitCode != 0)
-            return null;
-
-        var xml = await _adbRuntime.ShellAsync(
-                connection.AdbPath,
-                connection.Serial,
-                ["cat", "/sdcard/umamusume-ass-window.xml"],
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (xml.Error is not null || xml.TimedOut || xml.ExitCode != 0)
-            return null;
-
-        try
-        {
-            return XDocument.Parse(xml.Stdout)
-                .Descendants("node")
-                .Select(ParseUiNode)
-                .Where(item => item is not null)
-                .Cast<UiNodeLabel>()
-                .ToArray();
-        }
-        catch (System.Xml.XmlException)
-        {
-            return null;
-        }
-    }
-
-    private static UiNodeLabel? ParseUiNode(XElement node)
-    {
-        var labels = new[]
-        {
-            node.Attribute("text")?.Value,
-            node.Attribute("content-desc")?.Value,
-        }
-        .Where(item => !string.IsNullOrWhiteSpace(item))
-        .Select(item => item!.Trim())
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToArray();
-        if (labels.Length == 0)
-            return null;
-
-        var bounds = node.Attribute("bounds")?.Value;
-        if (bounds is null)
-            return null;
-        var match = Regex.Match(
-            bounds,
-            @"\[(?<x1>\d+),(?<y1>\d+)\]\[(?<x2>\d+),(?<y2>\d+)\]");
-        if (!match.Success
-            || !int.TryParse(match.Groups["x1"].Value, out var x1)
-            || !int.TryParse(match.Groups["y1"].Value, out var y1)
-            || !int.TryParse(match.Groups["x2"].Value, out var x2)
-            || !int.TryParse(match.Groups["y2"].Value, out var y2))
-        {
-            return null;
-        }
-
-        return new UiNodeLabel((x1 + x2) / 2, (y1 + y2) / 2, labels);
     }
 
     private static async Task<RunnerTemplate?> LoadRunnerTemplateAsync(
@@ -505,55 +471,46 @@ public sealed class DailyRaceRunnerSelector
             1d);
     }
 
-    private async Task<bool> TapRectAsync(
+    private async Task<bool> TapTemplateAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        int[] rect,
+        string templatePath,
+        int[] roi,
+        double threshold,
         string actionName,
         CancellationToken cancellationToken)
     {
-        if (rect.Length < 4)
-            return false;
-        var x = ScaleCoordinate(
-            rect[0] + rect[2] / 2,
-            connection.Width,
-            definition.ReferenceWidth);
-        var y = ScaleCoordinate(
-            rect[1] + rect[3] / 2,
-            connection.Height,
-            definition.ReferenceHeight);
-        return await TapAsync(
+        var match = await _visualRuntime.WaitForMatchAsync(
                 connection,
-                (x, y),
+                templatePath,
+                roi,
+                threshold,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
+                8_000,
+                250,
                 actionName,
+                definition.BaseDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
-    }
+        if (match is not { Found: true })
+            return false;
 
-    private async Task<bool> TapAsync(
-        LastVerifiedConnection connection,
-        (int X, int Y) point,
-        string actionName,
-        CancellationToken cancellationToken)
-    {
-        var result = await _adbRuntime.TapAsync(
-                connection.AdbPath,
-                connection.Serial,
-                point.X,
-                point.Y,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return result.Error is null && !result.TimedOut && result.ExitCode == 0;
+        try
+        {
+            await _visualRuntime.TapMatchAsync(
+                    connection,
+                    match,
+                    actionName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
-
-    private static (int X, int Y) ScalePoint(
-        int x,
-        int y,
-        HachimiPipelineDefinition definition,
-        LastVerifiedConnection connection) =>
-        (
-            ScaleCoordinate(x, connection.Width, definition.ReferenceWidth),
-            ScaleCoordinate(y, connection.Height, definition.ReferenceHeight));
 
     private static int ScaleCoordinate(int value, int actual, int reference) =>
         (int)Math.Round(value * (double)Math.Max(1, actual) / Math.Max(1, reference));
@@ -611,21 +568,6 @@ public sealed class DailyRaceRunnerSelector
         _ => 0,
     };
 
-    private static readonly Dictionary<string, int[]> FallbackFilterRects =
-        new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Turf"] = [20, 260, 220, 110],
-            ["Dirt"] = [460, 260, 220, 110],
-            ["Sprint"] = [20, 480, 220, 110],
-            ["Mile"] = [460, 480, 220, 110],
-            ["Medium"] = [20, 620, 220, 110],
-            ["Long"] = [460, 620, 220, 110],
-            ["Front"] = [20, 840, 220, 110],
-            ["Pace"] = [460, 840, 220, 110],
-            ["Late"] = [20, 980, 220, 110],
-            ["End"] = [460, 980, 220, 110],
-        };
-
     private sealed record RunnerTemplate(
         int Width,
         int Height,
@@ -639,10 +581,4 @@ public sealed class DailyRaceRunnerSelector
 
     private readonly record struct RunnerCellMatch(RunnerCell Cell, double Score);
 
-    private sealed record UiNodeLabel(int CenterX, int CenterY, string[] Labels)
-    {
-        public bool Matches(string expected) => Labels.Any(label =>
-            string.Equals(label, expected, StringComparison.OrdinalIgnoreCase)
-            || label.Contains(expected, StringComparison.OrdinalIgnoreCase));
-    }
 }
