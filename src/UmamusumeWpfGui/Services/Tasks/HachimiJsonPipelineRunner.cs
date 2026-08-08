@@ -54,6 +54,37 @@ public sealed class HachimiJsonPipelineRunner
                 null);
         }
 
+        return await RunAsync(
+                connection,
+                definition,
+                entryTask,
+                options,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Executes an in-memory definition. The Developer page uses this overload
+    /// so unsaved editor changes can be tested without writing a temporary JSON
+    /// file or changing the user's resource directory.
+    /// </summary>
+    public async Task<HachimiPipelineRunResult> RunAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string entryTask,
+        HachimiPipelineRunOptions? options = null,
+        IGrassTaskLogSink? logSink = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entryTask);
+
+        definition.Tasks = new Dictionary<string, HachimiPipelineTask>(
+            definition.Tasks,
+            StringComparer.OrdinalIgnoreCase);
+
         var state = new RunState(options ?? new HachimiPipelineRunOptions());
         return await RunGraphAsync(
                 connection,
