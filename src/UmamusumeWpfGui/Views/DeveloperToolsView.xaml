@@ -55,94 +55,14 @@
               </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="1"
-                  x:Name="PreviewSurface"
-                  MinHeight="600"
-                  Margin="0,18,0,12"
-                  Background="#18000000"
-                  ClipToBounds="True"
-                  SizeChanged="OnPreviewSurfaceSizeChanged">
-              <Grid x:Name="PreviewPanContent">
-                <Grid.RenderTransform>
-                  <TranslateTransform x:Name="PreviewTranslateTransform" />
-                </Grid.RenderTransform>
-                <Grid x:Name="PreviewContent"
-                      RenderTransformOrigin="0.5,0.5">
-                  <Grid.RenderTransform>
-                    <ScaleTransform x:Name="PreviewScaleTransform"
-                                    ScaleX="1"
-                                    ScaleY="1" />
-                  </Grid.RenderTransform>
-                  <Image Source="{Binding ScreenshotImage}"
-                         Stretch="Uniform"
-                         IsHitTestVisible="False" />
-                  <Canvas x:Name="CropVisualOverlay"
-                          IsHitTestVisible="False">
-                    <Rectangle x:Name="CropRectangle"
-                               Stroke="#FF4CC2FF"
-                               StrokeThickness="2"
-                               Fill="#334CC2FF"
-                               Visibility="Collapsed" />
-                  </Canvas>
-                </Grid>
-              </Grid>
-              <Canvas x:Name="CropOverlay"
-                      Background="Transparent"
-                      MouseLeftButtonDown="OnCropMouseLeftButtonDown"
-                      MouseMove="OnCropMouseMove"
-                      MouseLeftButtonUp="OnCropMouseLeftButtonUp"
-                      MouseDown="OnPanMouseMiddleButtonDown"
-                      MouseUp="OnPanMouseMiddleButtonUp"
-                      MouseLeave="OnCropMouseLeave"
-                      MouseWheel="OnPreviewMouseWheel">
-                <Rectangle x:Name="SelectionRectangle"
-                           Stroke="#FFFFB84D"
-                           StrokeThickness="2"
-                           Fill="#33FFB84D"
-                           Visibility="Collapsed"
-                           IsHitTestVisible="False" />
-              </Canvas>
-              <Border x:Name="PreviewCoordinateBadge"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Top"
-                      Margin="10"
-                      Padding="8,4"
-                      Background="#CC202020"
-                      CornerRadius="4"
-                      IsHitTestVisible="False"
-                      Visibility="Collapsed">
-                <TextBlock x:Name="PreviewCoordinateText"
-                           Foreground="White" />
-              </Border>
-              <Border x:Name="PreviewRoiBadge"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Top"
-                      Margin="10"
-                      Padding="8,4"
-                      Background="#CC202020"
-                      BorderBrush="#FFFFB84D"
-                      BorderThickness="1"
-                      CornerRadius="4"
-                      IsHitTestVisible="False"
-                      Visibility="Collapsed">
-                <TextBlock x:Name="PreviewRoiText"
-                           Foreground="White"
-                           FontFamily="Consolas" />
-              </Border>
-              <StackPanel x:Name="EmptyPreview"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          IsHitTestVisible="False">
-                <TextBlock Text="{DynamicResource DeveloperToolsNoScreenshot}"
-                           HorizontalAlignment="Center"
-                           FontStyle="Italic" />
-                <TextBlock Margin="0,6,0,0"
-                           Text="{DynamicResource DeveloperToolsCropHint}"
-                           HorizontalAlignment="Center"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </Grid>
+            <Border Grid.Row="1"
+                    MinHeight="600"
+                    Margin="0,18,0,12"
+                    Background="#18000000"
+                    ClipToBounds="True">
+              <Image Source="{Binding ScreenshotImage}"
+                     Stretch="Uniform" />
+            </Border>
 
             <StackPanel Grid.Row="2">
               <TextBlock Text="{Binding StatusText}"
@@ -257,14 +177,94 @@
               </ListBox.ItemTemplate>
             </ListBox>
 
-            <Border Grid.Row="2"
-                    MinHeight="600"
-                    Margin="0,18,0,12"
-                    Background="#18000000"
-                    ClipToBounds="True">
-              <Image Source="{Binding ScreenshotImage}"
-                     Stretch="Uniform" />
-            </Border>
+            <Grid Grid.Row="2"
+                  x:Name="PreviewSurface"
+                  MinHeight="600"
+                  Margin="0,18,0,12"
+                  Background="#18000000"
+                  ClipToBounds="True"
+                  SizeChanged="OnPreviewSurfaceSizeChanged">
+              <Grid x:Name="PreviewPanContent">
+                <Grid.RenderTransform>
+                  <TranslateTransform x:Name="PreviewTranslateTransform" />
+                </Grid.RenderTransform>
+                <Grid x:Name="PreviewContent"
+                      RenderTransformOrigin="0.5,0.5">
+                  <Grid.RenderTransform>
+                    <ScaleTransform x:Name="PreviewScaleTransform"
+                                    ScaleX="1"
+                                    ScaleY="1" />
+                  </Grid.RenderTransform>
+                  <Image Source="{Binding ScreenshotImage}"
+                         Stretch="Uniform"
+                         IsHitTestVisible="False" />
+                  <Canvas x:Name="CropVisualOverlay"
+                          IsHitTestVisible="False">
+                    <Rectangle x:Name="CropRectangle"
+                               Stroke="#FF4CC2FF"
+                               StrokeThickness="2"
+                               Fill="#334CC2FF"
+                               Visibility="Collapsed" />
+                  </Canvas>
+                </Grid>
+              </Grid>
+              <Canvas x:Name="CropOverlay"
+                      Background="Transparent"
+                      MouseLeftButtonDown="OnCropMouseLeftButtonDown"
+                      MouseMove="OnCropMouseMove"
+                      MouseLeftButtonUp="OnCropMouseLeftButtonUp"
+                      MouseDown="OnPanMouseMiddleButtonDown"
+                      MouseUp="OnPanMouseMiddleButtonUp"
+                      MouseLeave="OnCropMouseLeave"
+                      MouseWheel="OnPreviewMouseWheel">
+                <Rectangle x:Name="SelectionRectangle"
+                           Stroke="#FFFFB84D"
+                           StrokeThickness="2"
+                           Fill="#33FFB84D"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False" />
+              </Canvas>
+              <Border x:Name="PreviewCoordinateBadge"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="PreviewCoordinateText"
+                           Foreground="White" />
+              </Border>
+              <Border x:Name="PreviewRoiBadge"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      BorderBrush="#FFFFB84D"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="PreviewRoiText"
+                           Foreground="White"
+                           FontFamily="Consolas" />
+              </Border>
+              <StackPanel x:Name="EmptyPreview"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          IsHitTestVisible="False">
+                <TextBlock Text="{DynamicResource DeveloperToolsNoScreenshot}"
+                           HorizontalAlignment="Center"
+                           FontStyle="Italic" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="{DynamicResource DeveloperToolsCropHint}"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
 
             <Grid Grid.Row="3">
               <Grid.ColumnDefinitions>

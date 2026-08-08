@@ -437,7 +437,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         var sourcePath = _activeImagePath!;
         var referencePath = _umaDatabase.GetTraineeReferenceImagePath(
             _selectedUmaImage!.TraineeId);
-        var backupPath = CreateBackupPath(referencePath);
+        var hasExistingReference = File.Exists(referencePath);
+        var backupPath = hasExistingReference
+            ? CreateBackupPath(referencePath)
+            : null;
         var temporaryPath = referencePath + $".{Guid.NewGuid():N}.tmp";
         _isSavingImage = true;
         RaiseCommandStates();
@@ -445,15 +448,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             var cropped = new CroppedBitmap(_screenshotImage, region);
             cropped.Freeze();
-            if (File.Exists(referencePath))
+            if (hasExistingReference)
             {
-                File.Copy(referencePath, backupPath);
-            }
-            else
-            {
-                // The unmodified full image is the effective reference until
-                // the first developer crop is saved.
-                File.Copy(sourcePath, backupPath);
+                File.Copy(referencePath, backupPath!);
             }
 
             UmaImageCodec.Save(cropped, temporaryPath);
@@ -462,7 +459,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             await RefreshExistingImagesAsync().ConfigureAwait(true);
             SetCropRegion(null);
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
-            SetStatus($"Saved system reference image to {referencePath}. Backup: {backupPath}");
+            SetStatus(hasExistingReference
+                ? $"Saved system reference image to {referencePath}. Backup: {backupPath}"
+                : $"Saved new system reference image to {referencePath}");
         }
         catch (Exception exception)
         {

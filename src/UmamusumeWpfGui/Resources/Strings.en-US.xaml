@@ -266,7 +266,7 @@
   <sys:String x:Key="DeveloperToolsSaveReplaceButton">Replace selected image</sys:String>
   <sys:String x:Key="DeveloperToolsCaptureTab">Capture screen</sys:String>
   <sys:String x:Key="DeveloperToolsUmaImageTab">Uma images</sys:String>
-  <sys:String x:Key="DeveloperToolsUmaImageHint">Select the original full image as the user-facing image. Capture and crop in the Capture screen tab, then save the crop here as a separate system reference. Existing references are backed up.</sys:String>
+  <sys:String x:Key="DeveloperToolsUmaImageHint">Capture a screen in the Capture screen tab, then select the original full image here, frame the runner, and save it as a separate system reference. Existing references are backed up.</sys:String>
   <sys:String x:Key="DeveloperToolsSaveReferenceButton">Save system reference</sys:String>
   <sys:String x:Key="DeveloperToolsOriginalPathLabel">User image:</sys:String>
   <sys:String x:Key="DeveloperToolsReferencePathLabel">System reference:</sys:String>
