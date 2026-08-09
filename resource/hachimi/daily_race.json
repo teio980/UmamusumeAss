@@ -1,7 +1,7 @@
 {
   "name": "daily-race",
   "schemaVersion": 1,
-  "description": "Daily Race pipeline: enter Race \u003E Daily Program \u003E Daily Races, select a difficulty, ensure Multi-Race is on, then repeat the selected race for the configured count.",
+  "description": "Daily Race pipeline: enter Race \u003E Daily Program \u003E Daily Races, select a difficulty, disable Multi-Race, select the configured runner, skip playback, then repeat for the configured count.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {},
@@ -274,7 +274,7 @@
       "timeoutMs": 15000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOnProbe"
+        "multiRaceOffProbe"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -301,7 +301,7 @@
       "timeoutMs": 15000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOnProbe"
+        "multiRaceOffProbe"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -311,10 +311,10 @@
       "required": true,
       "success": false
     },
-    "multiRaceOnProbe": {
+    "multiRaceOffProbe": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_on.png",
+      "template": "templates/daily_race/multi_race_off.png",
       "templThreshold": 0.82,
       "roi": [
         300,
@@ -331,7 +331,7 @@
         "raceStart"
       ],
       "onErrorNext": [
-        "multiRaceOff"
+        "disableMultiRace"
       ],
       "exceededNext": [],
       "sub": [],
@@ -340,10 +340,10 @@
       "required": false,
       "success": false
     },
-    "multiRaceOff": {
+    "disableMultiRace": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
-      "template": "templates/daily_race/multi_race_off.png",
+      "template": "templates/daily_race/multi_race_on.png",
       "templThreshold": 0.82,
       "roi": [
         300,
@@ -357,7 +357,7 @@
       "timeoutMs": 8000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOnVerify"
+        "multiRaceOffVerify"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -367,10 +367,10 @@
       "required": true,
       "success": false
     },
-    "multiRaceOnVerify": {
+    "multiRaceOffVerify": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_on.png",
+      "template": "templates/daily_race/multi_race_off.png",
       "templThreshold": 0.82,
       "roi": [
         300,
@@ -544,89 +544,6 @@
       "postDelay": 900,
       "waitMs": 0,
       "timeoutMs": 8000,
-      "pollIntervalMs": 0,
-      "next": [
-        "runnerDesc"
-      ],
-      "onErrorNext": [],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
-    },
-    "runnerDesc": {
-      "algorithm": "MatchTemplate",
-      "action": "Wait",
-      "template": "templates/daily_race/runner_sort_desc.png",
-      "templThreshold": 0.86,
-      "roi": [
-        725,
-        1180,
-        175,
-        115
-      ],
-      "preDelay": 0,
-      "postDelay": 300,
-      "waitMs": 0,
-      "timeoutMs": 3000,
-      "pollIntervalMs": 0,
-      "next": [
-        "runnerSelectHighest"
-      ],
-      "onErrorNext": [
-        "runnerSetDesc"
-      ],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
-    },
-    "runnerSetDesc": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/daily_race/runner_sort_asc.png",
-      "templThreshold": 0.8,
-      "roi": [
-        700,
-        1120,
-        200,
-        180
-      ],
-      "preDelay": 0,
-      "postDelay": 600,
-      "waitMs": 0,
-      "timeoutMs": 8000,
-      "pollIntervalMs": 0,
-      "next": [
-        "runnerDescVerify"
-      ],
-      "onErrorNext": [],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
-    },
-    "runnerDescVerify": {
-      "algorithm": "MatchTemplate",
-      "action": "Wait",
-      "template": "templates/daily_race/runner_sort_desc.png",
-      "templThreshold": 0.86,
-      "roi": [
-        725,
-        1180,
-        175,
-        115
-      ],
-      "preDelay": 0,
-      "postDelay": 300,
-      "waitMs": 0,
-      "timeoutMs": 5000,
       "pollIntervalMs": 0,
       "next": [
         "runnerSelectHighest"
@@ -810,6 +727,35 @@
       "waitMs": 0,
       "timeoutMs": 8000,
       "pollIntervalMs": 0,
+      "next": [
+        "raceSkip"
+      ],
+      "onErrorNext": [
+        "raceSkip"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
+      "success": false
+    },
+    "raceSkip": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/team_race/whiteskip.png",
+      "templThreshold": 0.78,
+      "roi": [
+        720,
+        1360,
+        180,
+        200
+      ],
+      "preDelay": 0,
+      "postDelay": 1200,
+      "waitMs": 0,
+      "timeoutMs": 20000,
+      "pollIntervalMs": 250,
       "next": [
         "racePlaybackResult"
       ],

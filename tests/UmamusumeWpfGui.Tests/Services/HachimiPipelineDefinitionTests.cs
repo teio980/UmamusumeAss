@@ -88,6 +88,33 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Daily_race_disables_multi_race_and_skips_normal_playback()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "daily_race.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        var offProbe = definition!.GetTask("multiRaceOffProbe");
+        var disable = definition.GetTask("disableMultiRace");
+        var offVerify = definition.GetTask("multiRaceOffVerify");
+        var sortConfirm = definition.GetTask("runnerSortDialogConfirm");
+        var playbackOk = definition.GetTask("playbackOk");
+        var raceSkip = definition.GetTask("raceSkip");
+
+        Assert.Equal("templates/daily_race/multi_race_off.png", offProbe.Template);
+        Assert.Contains("disableMultiRace", offProbe.OnErrorNext);
+        Assert.Equal("templates/daily_race/multi_race_on.png", disable.Template);
+        Assert.Equal("templates/daily_race/multi_race_off.png", offVerify.Template);
+        Assert.Equal("runnerSelectHighest", sortConfirm.Next.Single());
+        Assert.Equal("raceSkip", playbackOk.Next.Single());
+        Assert.Equal("templates/team_race/whiteskip.png", raceSkip.Template);
+        Assert.Equal("racePlaybackResult", raceSkip.Next.Single());
+        Assert.Equal("racePlaybackResult", raceSkip.OnErrorNext.Single());
+    }
+
+    [Fact]
     public void Start_game_keeps_its_special_monitor_and_trigger_chain_definition()
     {
         var root = FindSolutionRoot();
