@@ -1937,7 +1937,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             OnPropertyChanged(nameof(UmaImagePreviewImage));
             OnPropertyChanged(nameof(ImageMatchTestMatch));
             var score = match.Score.ToString("0.000", CultureInfo.InvariantCulture);
-            var threshold = DailyRaceRunnerSelector.MinimumImageMatchScore
+            var threshold = DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore
                 .ToString("0.000", CultureInfo.InvariantCulture);
             SetImageMatchTestStatus(match.Found
                 ? $"Detected on the current page. Score: {score} / threshold {threshold}; "

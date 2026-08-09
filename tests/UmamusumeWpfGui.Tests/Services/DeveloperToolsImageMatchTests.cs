@@ -126,4 +126,116 @@ public sealed class DeveloperToolsImageMatchTests
                 File.Delete(referencePath);
         }
     }
+
+    [Fact]
+    public async Task Daily_race_matcher_distinguishes_100601_runner_from_an_unrelated_page()
+    {
+        var root = FindSolutionRoot();
+        var runnerScreenPath = Path.Combine(root, "debug", "live-umamusume.png");
+        var unrelatedScreenPath = Path.Combine(root, "debug", "daily_race_current.png");
+        var referencePath = Path.Combine(
+            root,
+            "resource",
+            "uma",
+            "system_reference",
+            "100601.webp");
+
+        // These captures are local diagnostic artifacts and intentionally not
+        // checked into source control. The synthetic test above still runs in CI.
+        if (!File.Exists(runnerScreenPath) || !File.Exists(unrelatedScreenPath))
+            return;
+
+        var runnerScreen = GrayImageCodec.FromFile(runnerScreenPath);
+        var unrelatedScreen = GrayImageCodec.FromFile(unrelatedScreenPath);
+
+        Assert.NotNull(runnerScreen);
+        Assert.NotNull(unrelatedScreen);
+        Assert.True(File.Exists(referencePath), $"Missing reference image: {referencePath}");
+
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator",
+            "android",
+            "test",
+            runnerScreen!.Width,
+            runnerScreen.Height,
+            runnerScreen.Width,
+            runnerScreen.Height,
+            DateTimeOffset.UtcNow);
+        var runnerResult = await DailyRaceRunnerSelector.FindBestMatchAsync(
+            runnerScreen,
+            referencePath,
+            connection);
+        var unrelatedResult = await DailyRaceRunnerSelector.FindBestMatchAsync(
+            unrelatedScreen!,
+            referencePath,
+            connection);
+
+        Assert.NotNull(runnerResult);
+        Assert.NotNull(unrelatedResult);
+        Assert.True(
+            runnerResult!.Found,
+            $"Runner score was {runnerResult.Score:0.000} at ({runnerResult.X}, {runnerResult.Y}).");
+        Assert.False(
+            unrelatedResult!.Found,
+            $"Unrelated page produced a false positive at score {unrelatedResult.Score:0.000}.");
+        Assert.True(
+            runnerResult.Score >= unrelatedResult.Score + 0.20,
+            $"Runner score {runnerResult.Score:0.000} was not sufficiently separated from "
+            + $"unrelated score {unrelatedResult.Score:0.000}.");
+    }
+
+    [Fact]
+    public void Daily_race_sort_direction_templates_are_distinguishable_in_local_capture()
+    {
+        var root = FindSolutionRoot();
+        var screenPath = Path.Combine(root, "debug", "live3-stage2.png");
+        if (!File.Exists(screenPath))
+            return;
+
+        var screen = GrayImageCodec.FromFile(screenPath);
+        var descending = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "templates",
+            "daily_race",
+            "runner_sort_desc.png"));
+        var ascending = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "templates",
+            "daily_race",
+            "runner_sort_asc.png"));
+        Assert.NotNull(screen);
+        Assert.NotNull(descending);
+        Assert.NotNull(ascending);
+
+        var roi = new[] { 700, 1120, 200, 180 };
+        var descendingResult = TemplateMatcher.Find(
+            screen!, descending!, roi, 0, 900, 1600);
+        var ascendingResult = TemplateMatcher.Find(
+            screen, ascending!, roi, 0, 900, 1600);
+        Console.WriteLine(
+            $"Descending score {descendingResult.Score:0.000}; "
+            + $"ascending score {ascendingResult.Score:0.000}.");
+
+        Assert.True(
+            descendingResult.Score > ascendingResult.Score,
+            $"Descending {descendingResult.Score:0.000}; ascending {ascendingResult.Score:0.000}.");
+    }
+
+    private static string FindSolutionRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
+                return directory.FullName;
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate the repository root.");
+    }
 }

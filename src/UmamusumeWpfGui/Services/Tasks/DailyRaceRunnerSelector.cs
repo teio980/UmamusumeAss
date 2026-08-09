@@ -19,7 +19,19 @@ public sealed class DailyRaceRunnerSelector
     private const int DefaultReferenceWidth = 900;
     private const int DefaultReferenceHeight = 1600;
     private const int MaximumScrolls = 16;
+    private const double MinimumSelectedPortraitScore = 0.42;
     public const double MinimumImageMatchScore = 0.38;
+    public const double MinimumSystemReferenceMatchScore = 0.60;
+
+    // A system reference is normally cropped from a full-size emulator
+    // screenshot, while the same Uma is rendered much smaller inside a
+    // runner card. Search a small range of relative sizes so the reference
+    // can still match the card portrait instead of assuming a 1:1 crop.
+    private static readonly double[] ScreenshotCropScaleCandidates =
+        [0.56, 0.52, 0.60, 0.48, 0.64, 0.72, 0.84, 1.00];
+
+    private static readonly double[] SelectedPortraitScaleCandidates =
+        [1.40, 1.20, 1.60, 1.00, 1.80, 2.00];
 
     private static readonly int[] RunnerSwipe = [760, 1150, 760, 850, 550];
 
@@ -65,11 +77,6 @@ public sealed class DailyRaceRunnerSelector
         new(370, 1010, 160, 190),
         new(545, 1010, 160, 190),
         new(720, 1010, 160, 190),
-        new(20, 1215, 160, 190),
-        new(195, 1215, 160, 190),
-        new(370, 1215, 160, 190),
-        new(545, 1215, 160, 190),
-        new(720, 1215, 160, 190),
     ];
 
     private readonly IVisualPipelineRuntime _visualRuntime;
@@ -122,10 +129,25 @@ public sealed class DailyRaceRunnerSelector
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(task);
 
+        if (!await EnsureDescendingSortAsync(
+                connection,
+                definition,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return HachimiCustomActionResult.Failure(
+                "Could not verify Rating descending order on the runner list.");
+        }
+
         if (traineeId is null)
         {
+            await TapReferenceRectAsync(
+                    connection,
+                    [20, 800, 160, 190],
+                    "runnerSelectHighest",
+                    cancellationToken)
+                .ConfigureAwait(false);
             return HachimiCustomActionResult.Success(
-                "No runner was specified; kept the runner selected after Rating sort.");
+                "No runner was specified; selected the first runner after Rating descending sort.");
         }
 
         if (!_umaDatabase.TryGetTrainee(traineeId.Value, out var trainee)
@@ -137,14 +159,12 @@ public sealed class DailyRaceRunnerSelector
         }
 
         var referenceImagePath = _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId);
-        var imagePath = File.Exists(referenceImagePath)
-            ? referenceImagePath
-            : _umaDatabase.GetTraineeImagePath(trainee.TraineeId);
-        if (!File.Exists(imagePath))
+        if (!File.Exists(referenceImagePath))
         {
             return HachimiCustomActionResult.Failure(
-                $"The image for {trainee.NameEn} ({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
-                + "is missing, so the runner cannot be located visually.");
+                $"The system reference for {trainee.NameEn} "
+                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) is missing. "
+                + "Create it in Developer Tools before selecting this runner.");
         }
 
         if (!await TapTemplateAsync(
@@ -194,6 +214,14 @@ public sealed class DailyRaceRunnerSelector
         }
 
         await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
+        await TapReferenceRectAsync(
+                connection,
+                [620, 1280, 260, 110],
+                "runnerFilterReset",
+                cancellationToken)
+            .ConfigureAwait(false);
+        await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
+
         var filterResult = await ApplyAptitudeFiltersAsync(
                 connection,
                 definition,
@@ -218,7 +246,7 @@ public sealed class DailyRaceRunnerSelector
         }
 
         await _visualRuntime.DelayAsync(700, cancellationToken).ConfigureAwait(false);
-        var template = await LoadRunnerTemplateAsync(imagePath, cancellationToken)
+        var template = await LoadRunnerTemplateAsync(referenceImagePath, cancellationToken)
             .ConfigureAwait(false);
         if (template is null)
         {
@@ -236,7 +264,7 @@ public sealed class DailyRaceRunnerSelector
             if (screen is not null)
             {
                 var best = FindBestRunnerCell(screen, template, connection);
-                if (best.Score >= MinimumImageMatchScore)
+                if (best.Score >= best.RequiredScore)
                 {
                     var match = CreateRunnerCellMatch(best, screen, connection);
                     try
@@ -254,10 +282,26 @@ public sealed class DailyRaceRunnerSelector
                             $"Found {trainee.NameEn}, but the runner card could not be selected.");
                     }
 
+                    await _visualRuntime.DelayAsync(500, cancellationToken)
+                        .ConfigureAwait(false);
+                    var selectedPortraitScore = await FindSelectedPortraitScoreAsync(
+                            connection,
+                            template,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (selectedPortraitScore < MinimumSelectedPortraitScore)
+                    {
+                        return HachimiCustomActionResult.Failure(
+                            $"Tapped a card for {trainee.NameEn}, but the selected runner detail "
+                            + $"could not be verified (score {selectedPortraitScore:0.000} / "
+                            + $"threshold {MinimumSelectedPortraitScore:0.000}).");
+                    }
+
                     return HachimiCustomActionResult.Success(
                         $"Filtered and selected {trainee.NameEn} "
                         + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
-                        + $"at image score {best.Score:0.000}.");
+                        + $"at card score {best.Score:0.000}; "
+                        + $"selected portrait score {selectedPortraitScore:0.000}.");
                 }
             }
 
@@ -285,12 +329,20 @@ public sealed class DailyRaceRunnerSelector
         GrayImage screen,
         LastVerifiedConnection connection)
     {
-        var x = ScaleCoordinate(best.Cell.X, screen.Width, connection.Width);
-        var y = ScaleCoordinate(best.Cell.Y, screen.Height, connection.Height);
-        var width = Math.Max(1, ScaleCoordinate(best.Cell.Width, screen.Width, connection.Width));
-        var height = Math.Max(1, ScaleCoordinate(best.Cell.Height, screen.Height, connection.Height));
+        var screenX = ScaleCoordinate(best.Cell.X, screen.Width, DefaultReferenceWidth);
+        var screenY = ScaleCoordinate(best.Cell.Y, screen.Height, DefaultReferenceHeight);
+        var screenCellWidth = Math.Max(
+            1,
+            ScaleCoordinate(best.Cell.Width, screen.Width, DefaultReferenceWidth));
+        var screenCellHeight = Math.Max(
+            1,
+            ScaleCoordinate(best.Cell.Height, screen.Height, DefaultReferenceHeight));
+        var x = ScaleCoordinate(screenX, connection.Width, screen.Width);
+        var y = ScaleCoordinate(screenY, connection.Height, screen.Height);
+        var width = Math.Max(1, ScaleCoordinate(screenCellWidth, connection.Width, screen.Width));
+        var height = Math.Max(1, ScaleCoordinate(screenCellHeight, connection.Height, screen.Height));
         return new TemplateMatchResult(
-            best.Score >= MinimumImageMatchScore,
+            best.Score >= best.RequiredScore,
             best.Score,
             x,
             y,
@@ -307,6 +359,7 @@ public sealed class DailyRaceRunnerSelector
     {
         var desiredLabels = GetDesiredFilterLabels(trainee).ToArray();
         var clicked = 0;
+        var missingLabels = new List<string>();
 
         foreach (var label in desiredLabels)
         {
@@ -327,7 +380,10 @@ public sealed class DailyRaceRunnerSelector
                     cancellationToken)
                 .ConfigureAwait(false);
             if (match is not { Found: true })
+            {
+                missingLabels.Add(label);
                 continue;
+            }
 
             try
             {
@@ -341,18 +397,19 @@ public sealed class DailyRaceRunnerSelector
             }
             catch (InvalidOperationException)
             {
-                // Keep trying the remaining aptitude templates so one failed
-                // ADB tap does not hide which filter option was unavailable.
+                missingLabels.Add(label);
             }
 
             await _visualRuntime.DelayAsync(150, cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        if (clicked == 0)
+        if (clicked == 0 || missingLabels.Count > 0)
         {
             return HachimiCustomActionResult.Failure(
-                "The runner filter options could not be located on the device.");
+                "The runner filter could not be applied completely. Missing option(s): "
+                + string.Join(", ", missingLabels.Distinct(StringComparer.OrdinalIgnoreCase))
+                + ".");
         }
 
         logSink?.Add(
@@ -361,6 +418,137 @@ public sealed class DailyRaceRunnerSelector
             + $"for {trainee.NameEn}.",
             LogEntryKind.Info);
         return HachimiCustomActionResult.Success(string.Empty);
+    }
+
+    private async Task<bool> EnsureDescendingSortAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        var roi = new[] { 700, 1120, 200, 180 };
+        var descending = await _visualRuntime.WaitForMatchAsync(
+                connection,
+                "templates/daily_race/runner_sort_desc.png",
+                roi,
+                0.80,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
+                5_000,
+                250,
+                "runnerDesc",
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (descending is { Found: true })
+            return true;
+
+        var ascending = await _visualRuntime.WaitForMatchAsync(
+                connection,
+                "templates/daily_race/runner_sort_asc.png",
+                roi,
+                0.80,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
+                8_000,
+                250,
+                "runnerAsc",
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (ascending is not { Found: true })
+            return false;
+
+        await _visualRuntime.TapMatchAsync(
+                connection,
+                ascending,
+                "runnerSetDesc",
+                cancellationToken)
+            .ConfigureAwait(false);
+        await _visualRuntime.DelayAsync(600, cancellationToken).ConfigureAwait(false);
+        var verified = await _visualRuntime.WaitForMatchAsync(
+                connection,
+                "templates/daily_race/runner_sort_desc.png",
+                roi,
+                0.80,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
+                8_000,
+                250,
+                "runnerDescVerify",
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return verified is { Found: true };
+    }
+
+    private async Task TapReferenceRectAsync(
+        LastVerifiedConnection connection,
+        int[] referenceRect,
+        string actionName,
+        CancellationToken cancellationToken)
+    {
+        var x = ScaleCoordinate(referenceRect[0], connection.Width, DefaultReferenceWidth);
+        var y = ScaleCoordinate(referenceRect[1], connection.Height, DefaultReferenceHeight);
+        var width = Math.Max(
+            1,
+            ScaleCoordinate(referenceRect[2], connection.Width, DefaultReferenceWidth));
+        var height = Math.Max(
+            1,
+            ScaleCoordinate(referenceRect[3], connection.Height, DefaultReferenceHeight));
+        await _visualRuntime.TapMatchAsync(
+                connection,
+                new TemplateMatchResult(true, 1d, x, y, width, height),
+                actionName,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<double> FindSelectedPortraitScoreAsync(
+        LastVerifiedConnection connection,
+        RunnerTemplate template,
+        CancellationToken cancellationToken)
+    {
+        if (!template.UsesScreenshotCrop)
+            return 0;
+
+        var screen = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+            .ConfigureAwait(false);
+        if (screen is null)
+            return 0;
+
+        var regionX = ScaleCoordinate(20, screen.Width, DefaultReferenceWidth);
+        var regionY = ScaleCoordinate(180, screen.Height, DefaultReferenceHeight);
+        var regionWidth = ScaleCoordinate(410, screen.Width, DefaultReferenceWidth);
+        var regionHeight = ScaleCoordinate(470, screen.Height, DefaultReferenceHeight);
+        var referenceScale = Math.Min(
+            screen.Width / (double)DefaultReferenceWidth,
+            screen.Height / (double)DefaultReferenceHeight);
+        var bestScore = double.MinValue;
+        foreach (var scale in SelectedPortraitScaleCandidates)
+        {
+            var targetWidth = Math.Max(
+                1,
+                (int)Math.Round(template.Width * referenceScale * scale));
+            var targetHeight = Math.Max(
+                1,
+                (int)Math.Round(template.Height * referenceScale * scale));
+            if (targetWidth > regionWidth || targetHeight > regionHeight)
+                continue;
+
+            bestScore = Math.Max(
+                bestScore,
+                FindBestScreenshotCropScaleScore(
+                    screen,
+                    template,
+                    regionX,
+                    regionY,
+                    regionWidth,
+                    regionHeight,
+                    targetWidth,
+                    targetHeight));
+        }
+
+        return Math.Max(0, bestScore);
     }
 
     private static async Task<RunnerTemplate?> LoadRunnerTemplateAsync(
@@ -468,6 +656,9 @@ public sealed class DailyRaceRunnerSelector
     {
         var bestScore = double.MinValue;
         var bestCell = RunnerCells[0];
+        var requiredScore = template.UsesScreenshotCrop
+            ? MinimumSystemReferenceMatchScore
+            : MinimumImageMatchScore;
         foreach (var cell in RunnerCells)
         {
             var score = CompareCell(screen, template, cell, connection);
@@ -476,9 +667,10 @@ public sealed class DailyRaceRunnerSelector
                 bestScore = score;
                 bestCell = cell;
             }
+
         }
 
-        return new RunnerCellMatch(bestCell, Math.Max(0, bestScore));
+        return new RunnerCellMatch(bestCell, Math.Max(0, bestScore), requiredScore);
     }
 
     private static double CompareCell(
@@ -490,10 +682,14 @@ public sealed class DailyRaceRunnerSelector
         if (template.UsesScreenshotCrop)
             return CompareScreenshotCrop(screen, template, cell, connection);
 
-        var x = ScaleCoordinate(cell.X + 8, screen.Width, connection.Width);
-        var y = ScaleCoordinate(cell.Y + 8, screen.Height, connection.Height);
-        var width = Math.Max(1, ScaleCoordinate(cell.Width - 16, screen.Width, connection.Width));
-        var height = Math.Max(1, ScaleCoordinate(cell.Height - 16, screen.Height, connection.Height));
+        var x = ScaleCoordinate(cell.X + 8, screen.Width, DefaultReferenceWidth);
+        var y = ScaleCoordinate(cell.Y + 8, screen.Height, DefaultReferenceHeight);
+        var width = Math.Max(
+            1,
+            ScaleCoordinate(cell.Width - 16, screen.Width, DefaultReferenceWidth));
+        var height = Math.Max(
+            1,
+            ScaleCoordinate(cell.Height - 16, screen.Height, DefaultReferenceHeight));
         if (x < 0 || y < 0 || x + width > screen.Width || y + height > screen.Height)
             return 0;
 
@@ -545,34 +741,74 @@ public sealed class DailyRaceRunnerSelector
         RunnerCell cell,
         LastVerifiedConnection connection)
     {
-        var cellX = ScaleCoordinate(cell.X + 8, screen.Width, connection.Width);
-        var cellY = ScaleCoordinate(cell.Y + 8, screen.Height, connection.Height);
-        var cellWidth = Math.Max(1, ScaleCoordinate(cell.Width - 16, screen.Width, connection.Width));
-        var cellHeight = Math.Max(1, ScaleCoordinate(cell.Height - 16, screen.Height, connection.Height));
+        var cellX = ScaleCoordinate(cell.X + 8, screen.Width, DefaultReferenceWidth);
+        var cellY = ScaleCoordinate(cell.Y + 8, screen.Height, DefaultReferenceHeight);
+        var cellWidth = Math.Max(
+            1,
+            ScaleCoordinate(cell.Width - 16, screen.Width, DefaultReferenceWidth));
+        var cellHeight = Math.Max(
+            1,
+            ScaleCoordinate(cell.Height - 16, screen.Height, DefaultReferenceHeight));
         if (cellX < 0 || cellY < 0 || cellX + cellWidth > screen.Width || cellY + cellHeight > screen.Height)
             return 0;
 
         var scaleX = screen.Width / (double)DefaultReferenceWidth;
         var scaleY = screen.Height / (double)DefaultReferenceHeight;
-        var scale = Math.Min(scaleX, scaleY);
-        var targetWidth = Math.Max(1, (int)Math.Round(template.Width * scale));
-        var targetHeight = Math.Max(1, (int)Math.Round(template.Height * scale));
+        var referenceScale = Math.Min(scaleX, scaleY);
+        var targetWidth = Math.Max(1, (int)Math.Round(template.Width * referenceScale));
+        var targetHeight = Math.Max(1, (int)Math.Round(template.Height * referenceScale));
         var fitScale = Math.Min(
             1d,
             Math.Min(
                 cellWidth / (double)Math.Max(1, targetWidth),
                 cellHeight / (double)Math.Max(1, targetHeight)));
-        targetWidth = Math.Max(1, (int)Math.Round(targetWidth * fitScale));
-        targetHeight = Math.Max(1, (int)Math.Round(targetHeight * fitScale));
-        if (targetWidth > cellWidth || targetHeight > cellHeight)
-            return 0;
+        var bestScore = double.MinValue;
+        foreach (var relativeScale in ScreenshotCropScaleCandidates)
+        {
+            var candidateScale = fitScale * relativeScale;
+            var candidateWidth = Math.Max(
+                1,
+                (int)Math.Round(template.Width * referenceScale * candidateScale));
+            var candidateHeight = Math.Max(
+                1,
+                (int)Math.Round(template.Height * referenceScale * candidateScale));
+            if (candidateWidth > cellWidth || candidateHeight > cellHeight)
+                continue;
 
-        var sampleWidth = Math.Min(32, template.Width);
-        var sampleHeight = Math.Min(32, template.Height);
-        var candidateStep = 3;
+            bestScore = Math.Max(
+                bestScore,
+                FindBestScreenshotCropScaleScore(
+                    screen,
+                    template,
+                    cellX,
+                    cellY,
+                    cellWidth,
+                    cellHeight,
+                    candidateWidth,
+                    candidateHeight));
+        }
+
+        return Math.Max(0, bestScore);
+    }
+
+    private static double FindBestScreenshotCropScaleScore(
+        GrayImage screen,
+        RunnerTemplate template,
+        int cellX,
+        int cellY,
+        int cellWidth,
+        int cellHeight,
+        int targetWidth,
+        int targetHeight)
+    {
+        var sampleWidth = Math.Min(16, template.Width);
+        var sampleHeight = Math.Min(16, template.Height);
+        var candidateStep = 4;
         var maxX = cellX + cellWidth - targetWidth;
         var maxY = cellY + cellHeight - targetHeight;
         var bestScore = double.MinValue;
+        var bestX = cellX;
+        var bestY = cellY;
         for (var y = cellY; y <= maxY; y += candidateStep)
         {
             for (var x = cellX; x <= maxX; x += candidateStep)
@@ -587,11 +823,39 @@ public sealed class DailyRaceRunnerSelector
                     sampleWidth,
                     sampleHeight);
                 if (score > bestScore)
+                {
                     bestScore = score;
+                    bestX = x;
+                    bestY = y;
+                }
             }
         }
 
-        return Math.Max(0, bestScore);
+        // The portrait is small enough that a four-pixel miss can noticeably
+        // depress NCC. Refine around the coarse winner one pixel at a time.
+        var refineMinX = Math.Max(cellX, bestX - candidateStep + 1);
+        var refineMaxX = Math.Min(maxX, bestX + candidateStep - 1);
+        var refineMinY = Math.Max(cellY, bestY - candidateStep + 1);
+        var refineMaxY = Math.Min(maxY, bestY + candidateStep - 1);
+        for (var y = refineMinY; y <= refineMaxY; y++)
+        {
+            for (var x = refineMinX; x <= refineMaxX; x++)
+            {
+                bestScore = Math.Max(
+                    bestScore,
+                    CompareScreenshotCropAt(
+                        screen,
+                        template,
+                        x,
+                        y,
+                        targetWidth,
+                        targetHeight,
+                        sampleWidth,
+                        sampleHeight));
+            }
+        }
+
+        return bestScore;
     }
 
     private static double CompareScreenshotCropAt(
@@ -605,8 +869,8 @@ public sealed class DailyRaceRunnerSelector
         int sampleHeight)
     {
         var sampleCount = sampleWidth * sampleHeight;
-        var templateTotal = 0d;
-        var screenTotal = 0d;
+        Span<double> templateSamples = stackalloc double[sampleCount];
+        Span<double> screenSamples = stackalloc double[sampleCount];
         for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
         {
             var templateY = sampleY * template.Height / sampleHeight;
@@ -615,32 +879,77 @@ public sealed class DailyRaceRunnerSelector
             {
                 var templateX = sampleX * template.Width / sampleWidth;
                 var screenXAt = screenX + sampleX * targetWidth / sampleWidth;
-                templateTotal += template.Pixels[templateY * template.Width + templateX];
-                screenTotal += screen.Pixels[screenYAt * screen.Width + screenXAt];
+                var sampleIndex = sampleY * sampleWidth + sampleX;
+                templateSamples[sampleIndex] =
+                    template.Pixels[templateY * template.Width + templateX];
+                screenSamples[sampleIndex] =
+                    screen.Pixels[screenYAt * screen.Width + screenXAt];
             }
         }
 
-        var templateMean = templateTotal / sampleCount;
-        var screenMean = screenTotal / sampleCount;
+        var intensityScore = PearsonCorrelation(templateSamples, screenSamples);
+        if (sampleWidth < 3 || sampleHeight < 3)
+            return intensityScore;
+
+        var gradientCount = (sampleWidth - 2) * (sampleHeight - 2);
+        Span<double> templateGradientX = stackalloc double[gradientCount];
+        Span<double> templateGradientY = stackalloc double[gradientCount];
+        Span<double> screenGradientX = stackalloc double[gradientCount];
+        Span<double> screenGradientY = stackalloc double[gradientCount];
+        var gradientIndex = 0;
+        for (var sampleY = 1; sampleY < sampleHeight - 1; sampleY++)
+        {
+            for (var sampleX = 1; sampleX < sampleWidth - 1; sampleX++)
+            {
+                var center = sampleY * sampleWidth + sampleX;
+                templateGradientX[gradientIndex] =
+                    templateSamples[center + 1] - templateSamples[center - 1];
+                templateGradientY[gradientIndex] =
+                    templateSamples[center + sampleWidth] - templateSamples[center - sampleWidth];
+                screenGradientX[gradientIndex] =
+                    screenSamples[center + 1] - screenSamples[center - 1];
+                screenGradientY[gradientIndex] =
+                    screenSamples[center + sampleWidth] - screenSamples[center - sampleWidth];
+                gradientIndex++;
+            }
+        }
+
+        var edgeScore = (
+            PearsonCorrelation(templateGradientX, screenGradientX)
+            + PearsonCorrelation(templateGradientY, screenGradientY)) / 2d;
+        return Math.Clamp(
+            intensityScore * 0.75d + edgeScore * 0.25d,
+            -1d,
+            1d);
+    }
+
+    private static double PearsonCorrelation(
+        ReadOnlySpan<double> templateValues,
+        ReadOnlySpan<double> screenValues)
+    {
+        if (templateValues.Length == 0 || templateValues.Length != screenValues.Length)
+            return 0;
+
+        var templateTotal = 0d;
+        var screenTotal = 0d;
+        for (var index = 0; index < templateValues.Length; index++)
+        {
+            templateTotal += templateValues[index];
+            screenTotal += screenValues[index];
+        }
+
+        var templateMean = templateTotal / templateValues.Length;
+        var screenMean = screenTotal / screenValues.Length;
         var numerator = 0d;
         var templateVariance = 0d;
         var screenVariance = 0d;
-        for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+        for (var index = 0; index < templateValues.Length; index++)
         {
-            var templateY = sampleY * template.Height / sampleHeight;
-            var screenYAt = screenY + sampleY * targetHeight / sampleHeight;
-            for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
-            {
-                var templateX = sampleX * template.Width / sampleWidth;
-                var screenXAt = screenX + sampleX * targetWidth / sampleWidth;
-                var templateDelta = template.Pixels[templateY * template.Width + templateX]
-                    - templateMean;
-                var screenDelta = screen.Pixels[screenYAt * screen.Width + screenXAt]
-                    - screenMean;
-                numerator += templateDelta * screenDelta;
-                templateVariance += templateDelta * templateDelta;
-                screenVariance += screenDelta * screenDelta;
-            }
+            var templateDelta = templateValues[index] - templateMean;
+            var screenDelta = screenValues[index] - screenMean;
+            numerator += templateDelta * screenDelta;
+            templateVariance += templateDelta * templateDelta;
+            screenVariance += screenDelta * screenDelta;
         }
 
         if (templateVariance < 1 || screenVariance < 1)
@@ -760,6 +1069,9 @@ public sealed class DailyRaceRunnerSelector
         public int[] ToArray() => [X, Y, Width, Height];
     }
 
-    private readonly record struct RunnerCellMatch(RunnerCell Cell, double Score);
+    private readonly record struct RunnerCellMatch(
+        RunnerCell Cell,
+        double Score,
+        double RequiredScore);
 
 }
