@@ -118,7 +118,8 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
         if (_umaDatabase is not null)
         {
             foreach (var trainee in _umaDatabase.Trainees
-                         .Where(item => item.Available)
+                         .Where(item => item.Available
+                             && File.Exists(_umaDatabase.GetTraineeReferenceImagePath(item.TraineeId)))
                          .OrderBy(item => item.NameEn, StringComparer.OrdinalIgnoreCase)
                          .ThenBy(item => item.TraineeId))
             {
