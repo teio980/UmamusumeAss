@@ -64,6 +64,65 @@ public sealed class LiveDailyRacePipelineTests
         Assert.Equal(1, result.RacesCompleted);
     }
 
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task Resume_daily_race_from_playback_roster_when_explicitly_enabled()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_DAILY_RACE_RESUME"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var root = FindSolutionRoot();
+        var adbPath = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_ADB")
+            ?? @"C:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe";
+        var serial = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_SERIAL")
+            ?? "127.0.0.1:16384";
+        var delay = new AsyncDelay();
+        var adbRuntime = new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(30)), delay);
+        var visualRuntime = new AdbVisualPipelineRuntime(adbRuntime, delay);
+        var settingsPath = Path.Combine(
+            Path.GetTempPath(),
+            $"umamusume-live-resume-settings-{Guid.NewGuid():N}.json");
+        var runner = new HachimiJsonPipelineRunner(
+            adbRuntime,
+            visualRuntime,
+            new JsonSettingsService(settingsPath));
+        var connection = new LastVerifiedConnection(
+            adbPath,
+            serial,
+            "live-test",
+            "android",
+            900,
+            1600,
+            900,
+            1600,
+            DateTimeOffset.UtcNow);
+
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        var entry = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_DAILY_RACE_ENTRY")
+            ?? "racePlaybackResult";
+        var result = await runner.RunAsync(
+            connection,
+            Path.Combine(root, "resource", "hachimi", "daily_race.json"),
+            entry,
+            new HachimiPipelineRunOptions
+            {
+                MaxTimesOverrides = new Dictionary<string, int>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    ["rewardRaceAgain"] = 0,
+                },
+            },
+            cancellationToken: cancellation.Token);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(1, result.CompletedUnits);
+    }
+
     private static string FindSolutionRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

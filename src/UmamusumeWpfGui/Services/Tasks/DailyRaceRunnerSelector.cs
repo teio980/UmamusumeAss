@@ -200,18 +200,16 @@ public sealed class DailyRaceRunnerSelector
                 "The Daily Race runner display settings did not appear.");
         }
 
-        if (!await TapTemplateAsync(
+        // The tab label is small anti-aliased text and proved noticeably less
+        // stable than the surrounding fixed dialog layout on real devices.
+        // Tap the center of the right-hand tab, then let the concrete aptitude
+        // option matches below verify that the Filter pane actually opened.
+        await TapReferenceRectAsync(
                 connection,
-                definition,
-                "templates/daily_race/runner_filter_tab.png",
-                [0, 100, 900, 250],
-                0.80,
+                [450, 120, 430, 100],
                 "runnerFilterTab",
-                cancellationToken).ConfigureAwait(false))
-        {
-            return HachimiCustomActionResult.Failure(
-                "Could not open the Daily Race runner filter tab.");
-        }
+                cancellationToken)
+            .ConfigureAwait(false);
 
         await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
         await TapReferenceRectAsync(

@@ -226,6 +226,99 @@ public sealed class DeveloperToolsImageMatchTests
             $"Descending {descendingResult.Score:0.000}; ascending {ascendingResult.Score:0.000}.");
     }
 
+    [Fact]
+    public void Daily_race_skip_template_matches_inside_the_live_button_roi()
+    {
+        var root = FindSolutionRoot();
+        var screenPath = Path.Combine(root, "debug", "daily_race_skip_actual.png");
+        if (!File.Exists(screenPath))
+            return;
+
+        var screen = GrayImageCodec.FromFile(screenPath);
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "templates",
+            "team_race",
+            "whiteskip.png"));
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.Find(
+            screen!,
+            template!,
+            [620, 1360, 180, 240],
+            0.78,
+            900,
+            1600);
+        Console.WriteLine(
+            $"Daily Race Skip score {result.Score:0.000} at ({result.X}, {result.Y}).");
+
+        Assert.True(result.Found, $"Skip score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 670, 740);
+        Assert.InRange(result.CenterY, 1460, 1560);
+    }
+
+    [Fact]
+    public void Daily_race_fixed_layout_buttons_are_page_gated_in_live_captures()
+    {
+        var root = FindSolutionRoot();
+        var debug = Path.Combine(root, "debug");
+        var photoModePath = Path.Combine(debug, "repeat_after_false_pass.png");
+        var cases = new[]
+        {
+            ("pre-race", Path.Combine(root, "resource", "hachimi", "templates", "daily_race", "pre_race.png"),
+                "pre_race_start_button.png", new[] { 400, 1370, 350, 200 }, 0.82),
+            ("playback roster", Path.Combine(debug, "daily_race_multirace_after_loading.png"),
+                "playback_race_button.png", new[] { 200, 1370, 500, 200 }, 0.82),
+            ("result", Path.Combine(debug, "daily_race_multirace_result_screen.png"),
+                "result_next_button.png", new[] { 200, 1370, 500, 200 }, 0.82),
+            ("Moonlight result", Path.Combine(debug, "moonlight_result_current.png"),
+                "result_next_moonlight_button.png", new[] { 200, 1370, 500, 200 }, 0.82),
+            ("view results", Path.Combine(debug, "before_resume_preview.png"),
+                "view_results_button.png", new[] { 150, 1300, 350, 300 }, 0.82),
+            ("view result tap", Path.Combine(debug, "after_view_result_resume_failure.png"),
+                "view_result_tap.png", new[] { 250, 1150, 400, 300 }, 0.82),
+            ("daily sale shop", Path.Combine(debug, "cleanup_reward.png"),
+                "daily_sale_shop_button.png", new[] { 430, 930, 430, 260 }, 0.82),
+            ("reward", Path.Combine(debug, "daily_race_multirace_after_result_next.png"),
+                "reward_next_button.png", new[] { 400, 1350, 450, 230 }, 0.80),
+            ("daily-race return", Path.Combine(debug, "final_daily_race_state.png"),
+                "daily_races_header.png", new[] { 0, 0, 450, 120 }, 0.82),
+        };
+        if (!File.Exists(photoModePath) || cases.Any(item => !File.Exists(item.Item2)))
+            return;
+
+        var photoMode = GrayImageCodec.FromFile(photoModePath);
+        Assert.NotNull(photoMode);
+        foreach (var (name, sourcePath, templateName, roi, threshold) in cases)
+        {
+            var source = GrayImageCodec.FromFile(sourcePath);
+            var template = GrayImageCodec.FromFile(Path.Combine(
+                root,
+                "resource",
+                "hachimi",
+                "templates",
+                "daily_race",
+                templateName));
+            Assert.NotNull(source);
+            Assert.NotNull(template);
+
+            var expected = TemplateMatcher.Find(source!, template!, roi, threshold, 900, 1600);
+            var photoFalsePositive = TemplateMatcher.Find(
+                photoMode!, template, roi, threshold, 900, 1600);
+            Console.WriteLine(
+                $"{name}: expected {expected.Score:0.000}; "
+                + $"photo mode {photoFalsePositive.Score:0.000}.");
+
+            Assert.True(expected.Found, $"{name} score was {expected.Score:0.000}.");
+            Assert.False(
+                photoFalsePositive.Found,
+                $"{name} matched Photo mode at {photoFalsePositive.Score:0.000}.");
+        }
+    }
+
     private static string FindSolutionRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
