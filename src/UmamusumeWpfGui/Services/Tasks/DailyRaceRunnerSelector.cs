@@ -117,8 +117,8 @@ public sealed class DailyRaceRunnerSelector
 
     /// <summary>
     /// Runs the runner-card matcher against all available visual variants for
-    /// one trainee. A screenshot crop, race-outfit source image, and uniform
-    /// source image can all be supplied; the highest-scoring variant wins.
+    /// one trainee. A screenshot crop, race-outfit source image, and live
+    /// outfit source image can all be supplied; the highest-scoring variant wins.
     /// </summary>
     public static async Task<TemplateMatchResult?> FindBestMatchAsync(
         GrayImage screen,
@@ -1052,10 +1052,10 @@ public sealed class DailyRaceRunnerSelector
             _umaDatabase.GetTraineeImagePath(trainee.TraineeId));
         AddExistingTemplatePath(
             paths,
-            _umaDatabase.GetTraineeUniformCroppedImagePath(trainee.BaseCharacterId));
+            _umaDatabase.GetTraineeLiveOutfitReferenceImagePath(trainee.BaseCharacterId));
         AddExistingTemplatePath(
             paths,
-            _umaDatabase.GetTraineeUniformImagePath(trainee.BaseCharacterId));
+            _umaDatabase.GetTraineeLiveOutfitImagePath(trainee.BaseCharacterId));
         return paths;
     }
 

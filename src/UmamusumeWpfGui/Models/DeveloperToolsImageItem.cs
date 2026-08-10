@@ -5,7 +5,7 @@ namespace UmamusumeWpfGui.Models;
 public enum DeveloperToolsImageKind
 {
     RaceOutfit,
-    SchoolUniform,
+    LiveOutfit,
 }
 
 public sealed class DeveloperToolsImageItem
@@ -38,15 +38,15 @@ public sealed class DeveloperToolsImageItem
 
     public DeveloperToolsImageKind Kind { get; }
 
-    public bool IsSchoolUniform => Kind == DeveloperToolsImageKind.SchoolUniform;
+    public bool IsLiveOutfit => Kind == DeveloperToolsImageKind.LiveOutfit;
 
-    public string VariantDisplayName => IsSchoolUniform ? "School uniform" : "Race outfit";
+    public string VariantDisplayName => IsLiveOutfit ? "Live outfit" : "Race outfit";
 
-    public string Key => IsSchoolUniform
-        ? $"uniform:{BaseCharacterId}"
+    public string Key => IsLiveOutfit
+        ? $"live:{BaseCharacterId}"
         : $"race:{TraineeId}";
 
-    public string DisplayName => IsSchoolUniform
+    public string DisplayName => IsLiveOutfit
         ? $"{Name} ({BaseCharacterId}) · {VariantDisplayName}"
         : $"{Name} ({TraineeId}) · {VariantDisplayName}";
 }

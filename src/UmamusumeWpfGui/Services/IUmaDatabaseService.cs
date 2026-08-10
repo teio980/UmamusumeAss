@@ -34,13 +34,11 @@ public interface IUmaDatabaseService
 
     string GetTraineeImagePath(int traineeId);
 
-    string GetTraineeUniformImageDirectory();
+    string GetTraineeLiveOutfitImageDirectory();
 
-    string GetTraineeUniformImagePath(int baseCharacterId);
+    string GetTraineeLiveOutfitImagePath(int baseCharacterId);
 
-    string GetTraineeUniformCroppedImageDirectory();
-
-    string GetTraineeUniformCroppedImagePath(int baseCharacterId);
+    string GetTraineeLiveOutfitReferenceImagePath(int baseCharacterId);
 
     string GetTraineeReferenceImageDirectory();
 

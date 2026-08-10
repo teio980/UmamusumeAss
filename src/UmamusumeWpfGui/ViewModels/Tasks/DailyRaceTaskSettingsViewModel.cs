@@ -161,8 +161,8 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
         File.Exists(_umaDatabase!.GetMaintenanceTraineeReferenceImagePath(trainee.TraineeId))
         || File.Exists(_umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId))
         || File.Exists(_umaDatabase.GetTraineeImagePath(trainee.TraineeId))
-        || File.Exists(_umaDatabase.GetTraineeUniformCroppedImagePath(trainee.BaseCharacterId))
-        || File.Exists(_umaDatabase.GetTraineeUniformImagePath(trainee.BaseCharacterId));
+        || File.Exists(_umaDatabase.GetTraineeLiveOutfitReferenceImagePath(trainee.BaseCharacterId))
+        || File.Exists(_umaDatabase.GetTraineeLiveOutfitImagePath(trainee.BaseCharacterId));
 
     public string DefinitionPath
     {
