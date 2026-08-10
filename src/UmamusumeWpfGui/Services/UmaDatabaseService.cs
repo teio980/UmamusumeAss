@@ -164,6 +164,22 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             GetTraineeImageDirectory(),
             traineeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
 
+    public string GetTraineeUniformImageDirectory() =>
+        GetImageDirectory("uniforms");
+
+    public string GetTraineeUniformImagePath(int baseCharacterId) =>
+        Path.Combine(
+            GetTraineeUniformImageDirectory(),
+            baseCharacterId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".png");
+
+    public string GetTraineeUniformCroppedImageDirectory() =>
+        Path.Combine(GetTraineeUniformImageDirectory(), "cropped");
+
+    public string GetTraineeUniformCroppedImagePath(int baseCharacterId) =>
+        Path.Combine(
+            GetTraineeUniformCroppedImageDirectory(),
+            baseCharacterId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".png");
+
     public string GetTraineeReferenceImageDirectory() =>
         Path.Combine(GetUmaResourceDirectory(), "system_reference");
 

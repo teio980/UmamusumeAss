@@ -34,6 +34,14 @@ public interface IUmaDatabaseService
 
     string GetTraineeImagePath(int traineeId);
 
+    string GetTraineeUniformImageDirectory();
+
+    string GetTraineeUniformImagePath(int baseCharacterId);
+
+    string GetTraineeUniformCroppedImageDirectory();
+
+    string GetTraineeUniformCroppedImagePath(int baseCharacterId);
+
     string GetTraineeReferenceImageDirectory();
 
     string GetTraineeReferenceImagePath(int traineeId);

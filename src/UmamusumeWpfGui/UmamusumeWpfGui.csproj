@@ -42,6 +42,10 @@
              Link="resource\uma\assets\images\global\trainees\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\resource\uma\assets\images\global\uniforms\**\*"
+             Link="resource\uma\assets\images\global\uniforms\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\resource\uma\system_reference\**\*"
              Link="resource\uma\system_reference\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
