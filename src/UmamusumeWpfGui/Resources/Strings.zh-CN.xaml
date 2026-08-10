@@ -271,8 +271,10 @@
   <sys:String x:Key="DeveloperToolsTestImageButton">测试当前页面识别</sys:String>
   <sys:String x:Key="DeveloperToolsTestReferenceButton">测试系统参考图</sys:String>
   <sys:String x:Key="DeveloperToolsSaveReferenceButton">保存系统参考图</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveSelectedImageButton">保存所选裁剪图</sys:String>
   <sys:String x:Key="DeveloperToolsOriginalPathLabel">用户图片：</sys:String>
   <sys:String x:Key="DeveloperToolsReferencePathLabel">系统参考图：</sys:String>
+  <sys:String x:Key="DeveloperToolsImageSavePathLabel">保存位置：</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTab">JSON流程编辑器</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTitle">普通JSON流程编辑器</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineHint">无需手写JSON即可编辑受支持的Hachimi普通流程。截图后拖拽区域，编辑器会自动换算为参考坐标ROI。</sys:String>

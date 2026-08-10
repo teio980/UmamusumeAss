@@ -270,8 +270,10 @@
   <sys:String x:Key="DeveloperToolsTestImageButton">Test current page</sys:String>
   <sys:String x:Key="DeveloperToolsTestReferenceButton">Test system reference</sys:String>
   <sys:String x:Key="DeveloperToolsSaveReferenceButton">Save system reference</sys:String>
+  <sys:String x:Key="DeveloperToolsSaveSelectedImageButton">Save selected crop</sys:String>
   <sys:String x:Key="DeveloperToolsOriginalPathLabel">User image:</sys:String>
   <sys:String x:Key="DeveloperToolsReferencePathLabel">System reference:</sys:String>
+  <sys:String x:Key="DeveloperToolsImageSavePathLabel">Save path:</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTab">JSON flow editor</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTitle">Ordinary JSON flow editor</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineHint">Edit the supported ordinary Hachimi schema without hand-writing JSON. Capture a screen, drag a region, and the editor converts it into a reference-coordinate ROI.</sys:String>

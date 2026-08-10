@@ -274,7 +274,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private bool HasRunnerReferenceImage =>
         _selectedUmaImage is { } image
-        && File.Exists(_umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId));
+        && GetSelectedRunnerTemplatePaths().Count > 0;
 
     public bool IsLoadingImages => _isLoadingImages;
 
@@ -302,7 +302,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public string SelectedImagePathDisplay => _activeImagePath ?? string.Empty;
 
     public string SelectedReferenceImagePathDisplay => _selectedUmaImage is { } image
-        ? _umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId)
+        ? image.IsSchoolUniform
+            ? _umaDatabase.GetTraineeUniformCroppedImagePath(image.BaseCharacterId)
+            : image.TraineeId is { } traineeId
+                ? _umaDatabase.GetMaintenanceTraineeReferenceImagePath(traineeId)
+                : string.Empty
         : string.Empty;
 
     public BitmapSource? ScreenshotImage => _screenshotImage;
@@ -1883,11 +1887,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         ClearImageMatchPreview();
         try
         {
-            var referencePath = GetSelectedRunnerReferencePath();
-            if (referencePath is null)
+            var templatePaths = GetSelectedRunnerTemplatePaths();
+            if (templatePaths.Count == 0)
             {
                 SetImageMatchTestStatus(
-                    "The selected Uma image has no system reference image.");
+                    "The selected Uma image has no runner image template.");
                 return;
             }
 
@@ -1901,7 +1905,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             SetImageMatchTestStatus(
-                $"Testing {Path.GetFileName(referencePath)} on the current emulator page "
+                $"Testing {templatePaths.Count} runner image template(s) on the current emulator page "
                 + "with the Daily Race runner matcher...");
             var capture = await _adbRuntime.CaptureBestScreenshotAsync(
                 connection.AdbPath,
@@ -1922,13 +1926,13 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
             var match = await DailyRaceRunnerSelector.FindBestMatchAsync(
                     screen,
-                    referencePath,
+                    templatePaths,
                     connection)
                 .ConfigureAwait(true);
             if (match is null)
             {
                 SetImageMatchTestStatus(
-                    $"Could not decode the reference image {Path.GetFileName(referencePath)}.");
+                    "Could not decode any runner image template.");
                 return;
             }
 
@@ -1937,12 +1941,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             OnPropertyChanged(nameof(UmaImagePreviewImage));
             OnPropertyChanged(nameof(ImageMatchTestMatch));
             var score = match.Score.ToString("0.000", CultureInfo.InvariantCulture);
-            var threshold = DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore
+            var systemThreshold = DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore
+                .ToString("0.000", CultureInfo.InvariantCulture);
+            var sourceThreshold = DailyRaceRunnerSelector.MinimumImageMatchScore
                 .ToString("0.000", CultureInfo.InvariantCulture);
             SetImageMatchTestStatus(match.Found
-                ? $"Detected on the current page. Score: {score} / threshold {threshold}; "
+                ? $"Detected on the current page. Score: {score} / threshold {sourceThreshold}-{systemThreshold}; "
                   + $"runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}."
-                : $"Not detected on the current page. Best score: {score} / threshold {threshold}; "
+                : $"Not detected on the current page. Best score: {score} / threshold {sourceThreshold}-{systemThreshold}; "
                   + $"best runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}.");
             SetStatus(match.Found
                 ? "The current emulator page detected the selected system reference."
@@ -2008,25 +2014,42 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         OnPropertyChanged(nameof(IsLoadingImages));
         RaiseCommandStates();
 
-        var selectedId = _selectedUmaImage?.TraineeId;
+        var selectedKey = _selectedUmaImage?.Key;
         try
         {
             var records = _umaDatabase.Trainees
                 .ToDictionary(record => record.TraineeId);
-            var directory = _umaDatabase.GetTraineeImageDirectory();
+            var baseRecords = _umaDatabase.BaseCharacters
+                .ToDictionary(record => record.BaseCharacterId);
+            var traineeDirectory = _umaDatabase.GetTraineeImageDirectory();
+            var uniformDirectory = _umaDatabase.GetTraineeUniformImageDirectory();
             var candidates = await Task.Run(() =>
             {
-                if (!Directory.Exists(directory))
+                var items = new List<DeveloperToolsImageItem>();
+                if (Directory.Exists(traineeDirectory))
                 {
-                    return Array.Empty<DeveloperToolsImageItem>();
+                    items.AddRange(
+                        Directory.EnumerateFiles(traineeDirectory)
+                            .Where(IsSupportedImagePath)
+                            .Select(path => CreateRaceOutfitImageItem(path, records))
+                            .Where(item => item is not null)
+                            .Select(item => item!));
                 }
 
-                return Directory.EnumerateFiles(directory)
-                    .Where(IsSupportedImagePath)
-                    .Select(path => CreateImageItem(path, records))
-                    .Where(item => item is not null)
-                    .Select(item => item!)
-                    .OrderBy(item => item.TraineeId)
+                if (Directory.Exists(uniformDirectory))
+                {
+                    items.AddRange(
+                        Directory.EnumerateFiles(uniformDirectory)
+                            .Where(IsSupportedImagePath)
+                            .Select(path => CreateUniformImageItem(path, baseRecords))
+                            .Where(item => item is not null)
+                            .Select(item => item!));
+                }
+
+                return items
+                    .OrderBy(item => item.BaseCharacterId)
+                    .ThenBy(item => item.IsSchoolUniform ? 1 : 0)
+                    .ThenBy(item => item.TraineeId)
                     .ToArray();
             }).ConfigureAwait(true);
 
@@ -2037,8 +2060,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             OnPropertyChanged(nameof(ExistingImageCountDisplay));
-            var selected = selectedId is { } id
-                ? _existingImages.FirstOrDefault(item => item.TraineeId == id)
+            var selected = selectedKey is { } key
+                ? _existingImages.FirstOrDefault(item => item.Key == key)
                 : null;
             SelectedUmaImage = selected;
             if (selected is null && _screenshot is null)
@@ -2051,7 +2074,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
             SetStatus(candidates.Length == 0
                 ? "No existing Uma images were found."
-                : $"Loaded {candidates.Length} existing Uma image(s).");
+                : $"Loaded {candidates.Length} Uma image template(s), including race outfits and school uniforms.");
         }
         catch (Exception exception)
         {
@@ -2132,7 +2155,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private async Task SaveSelectedImageAsync()
     {
-        if (_screenshotImage is null
+        if (_selectedUmaImage is not { } selectedImage
+            || _screenshotImage is null
             || !HasCropRegion
             || _cropRegion is not { } region
             || string.IsNullOrWhiteSpace(_activeImagePath)
@@ -2146,8 +2170,17 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             return;
         }
 
-        var referencePath = _umaDatabase.GetMaintenanceTraineeReferenceImagePath(
-            _selectedUmaImage!.TraineeId);
+        var referencePath = selectedImage.IsSchoolUniform
+            ? _umaDatabase.GetTraineeUniformCroppedImagePath(selectedImage.BaseCharacterId)
+            : selectedImage.TraineeId is { } traineeId
+                ? _umaDatabase.GetMaintenanceTraineeReferenceImagePath(traineeId)
+                : string.Empty;
+        if (string.IsNullOrWhiteSpace(referencePath))
+            return;
+
+        var targetDescription = selectedImage.IsSchoolUniform
+            ? "school uniform crop"
+            : "system reference image";
         var hasExistingReference = File.Exists(referencePath);
         var backupPath = hasExistingReference
             ? CreateBackupPath(referencePath)
@@ -2171,8 +2204,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             SetCropRegion(null);
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
             SetStatus(hasExistingReference
-                ? $"Saved system reference image to {referencePath}. Backup: {backupPath}"
-                : $"Saved new system reference image to {referencePath}");
+                ? $"Saved {targetDescription} to {referencePath}. Backup: {backupPath}"
+                : $"Saved new {targetDescription} to {referencePath}");
         }
         catch (Exception exception)
         {
@@ -2208,10 +2241,18 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
         try
         {
-            var hasCapturedScreenshot = _screenshot is not null;
+            // A uniform item is cropped from its downloaded transparent source
+            // image. Race-outfit items keep the existing screenshot-first
+            // workflow so they can still produce a system reference crop.
+            var hasCapturedScreenshot = _screenshot is not null
+                && !item.IsSchoolUniform;
             if (!hasCapturedScreenshot)
             {
                 _screenshotImage = UmaImageCodec.Load(item.Path);
+            }
+            else if (_screenshot is { } screenshot)
+            {
+                _screenshotImage = ScreenshotBitmapCodec.ToBitmapSource(screenshot);
             }
 
             _activeImagePath = item.Path;
@@ -2249,6 +2290,12 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private GrayImage? GetImageMatchTemplateSource()
     {
+        if (_selectedUmaImage?.IsSchoolUniform == true
+            && !string.IsNullOrWhiteSpace(_activeImagePath))
+        {
+            return GrayImageCodec.FromFile(_activeImagePath);
+        }
+
         if (_screenshot is { } screenshot)
         {
             return GrayImageCodec.FromScreenshot(screenshot);
@@ -2259,16 +2306,60 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             : GrayImageCodec.FromFile(_activeImagePath);
     }
 
-    private string? GetSelectedRunnerReferencePath()
+    private List<string> GetSelectedRunnerTemplatePaths()
     {
-        if (_selectedUmaImage is not { } image)
-            return null;
+        if (_selectedUmaImage is not { } selectedImage)
+            return [];
 
-        var path = _umaDatabase.GetMaintenanceTraineeReferenceImagePath(image.TraineeId);
-        return File.Exists(path) ? path : null;
+        UmaTraineeRecord? trainee = null;
+        if (selectedImage.TraineeId is { } traineeId)
+        {
+            _umaDatabase.TryGetTrainee(traineeId, out trainee);
+        }
+        else
+        {
+            trainee = _umaDatabase.Trainees
+                .Where(item => item.BaseCharacterId == selectedImage.BaseCharacterId)
+                .OrderByDescending(item => item.Available)
+                .ThenBy(item => item.TraineeId)
+                .FirstOrDefault();
+        }
+
+        var paths = new List<string>(capacity: 6);
+        if (trainee is not null)
+        {
+            AddExistingRunnerTemplate(
+                paths,
+                _umaDatabase.GetMaintenanceTraineeReferenceImagePath(trainee.TraineeId));
+            AddExistingRunnerTemplate(
+                paths,
+                _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId));
+            AddExistingRunnerTemplate(
+                paths,
+                _umaDatabase.GetTraineeImagePath(trainee.TraineeId));
+        }
+
+        AddExistingRunnerTemplate(
+            paths,
+            _umaDatabase.GetTraineeUniformCroppedImagePath(selectedImage.BaseCharacterId));
+        AddExistingRunnerTemplate(
+            paths,
+            _umaDatabase.GetTraineeUniformImagePath(selectedImage.BaseCharacterId));
+        return paths;
     }
 
-    private static DeveloperToolsImageItem? CreateImageItem(
+    private static void AddExistingRunnerTemplate(
+        List<string> paths,
+        string path)
+    {
+        if (File.Exists(path)
+            && !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            paths.Add(path);
+        }
+    }
+
+    private static DeveloperToolsImageItem? CreateRaceOutfitImageItem(
         string path,
         Dictionary<int, UmaTraineeRecord> records)
     {
@@ -2277,11 +2368,37 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             return null;
         }
 
-        var name = records.TryGetValue(traineeId, out var record)
-            ? record.NameEn
-            : traineeId.ToString(CultureInfo.InvariantCulture);
+        if (!records.TryGetValue(traineeId, out var record))
+            return null;
+
         var thumbnail = UmaImageCodec.Load(path, maxDimension: 96);
-        return new DeveloperToolsImageItem(traineeId, name, path, thumbnail);
+        return new DeveloperToolsImageItem(
+            traineeId,
+            record.BaseCharacterId,
+            record.NameEn,
+            path,
+            thumbnail,
+            DeveloperToolsImageKind.RaceOutfit);
+    }
+
+    private static DeveloperToolsImageItem? CreateUniformImageItem(
+        string path,
+        Dictionary<int, UmaBaseCharacterRecord> records)
+    {
+        if (!int.TryParse(Path.GetFileNameWithoutExtension(path), out var baseCharacterId)
+            || !records.TryGetValue(baseCharacterId, out var record))
+        {
+            return null;
+        }
+
+        var thumbnail = UmaImageCodec.Load(path, maxDimension: 96);
+        return new DeveloperToolsImageItem(
+            null,
+            baseCharacterId,
+            record.NameEn,
+            path,
+            thumbnail,
+            DeveloperToolsImageKind.SchoolUniform);
     }
 
     private static bool IsSupportedImagePath(string path) =>

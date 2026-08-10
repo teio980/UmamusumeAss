@@ -132,7 +132,7 @@
                 </StackPanel>
                 <StackPanel Margin="0,2,0,0"
                             Orientation="Horizontal">
-                  <TextBlock Text="{DynamicResource DeveloperToolsReferencePathLabel}"
+                  <TextBlock Text="{DynamicResource DeveloperToolsImageSavePathLabel}"
                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                   <TextBlock Margin="6,0,0,0"
                              Text="{Binding SelectedReferenceImagePathDisplay}"
@@ -324,7 +324,7 @@
                            Command="{Binding TestReferenceImageCommand}"
                            Appearance="Secondary"
                            Icon="Search24" />
-                <ui:Button Content="{DynamicResource DeveloperToolsSaveReferenceButton}"
+                <ui:Button Content="{DynamicResource DeveloperToolsSaveSelectedImageButton}"
                            Margin="8,0,0,0"
                            Command="{Binding SaveSelectedImageCommand}"
                            Appearance="Primary"
