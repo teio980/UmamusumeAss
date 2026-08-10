@@ -1,0 +1,429 @@
+{
+  "format": "uma-game-chara-stand-live-outfit-v1",
+  "source": "https://umamusu.wiki",
+  "game_outfit_id": "000101",
+  "description": "In-game 512x512 standing chara-stand assets for the default live outfit; original PNG files, no crop or resize.",
+  "count": 52,
+  "downloaded": 52,
+  "skipped": 0,
+  "failed": 0,
+  "missing": 0,
+  "images": [
+    {
+      "base_character_id": 1001,
+      "name_en": "Special Week",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/06/Game_Asset_chara_stand_1001_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1001.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1002,
+      "name_en": "Silence Suzuka",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/f/f8/Game_Asset_chara_stand_1002_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1002.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1003,
+      "name_en": "Tokai Teio",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/a/aa/Game_Asset_chara_stand_1003_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1003.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1004,
+      "name_en": "Maruzensky",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/e3/Game_Asset_chara_stand_1004_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1004.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1005,
+      "name_en": "Fuji Kiseki",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/7/70/Game_Asset_chara_stand_1005_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1005.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1006,
+      "name_en": "Oguri Cap",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/d/d4/Game_Asset_chara_stand_1006_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1006.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1007,
+      "name_en": "Gold Ship",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/2/2f/Game_Asset_chara_stand_1007_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1007.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1008,
+      "name_en": "Vodka",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/b/b1/Game_Asset_chara_stand_1008_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1008.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1009,
+      "name_en": "Daiwa Scarlet",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/0a/Game_Asset_chara_stand_1009_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1009.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1010,
+      "name_en": "Taiki Shuttle",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/0c/Game_Asset_chara_stand_1010_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1010.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1011,
+      "name_en": "Grass Wonder",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/6/6b/Game_Asset_chara_stand_1011_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1011.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1012,
+      "name_en": "Hishi Amazon",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/0e/Game_Asset_chara_stand_1012_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1012.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1013,
+      "name_en": "Mejiro McQueen",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/d/d0/Game_Asset_chara_stand_1013_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1013.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1014,
+      "name_en": "El Condor Pasa",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/3/3b/Game_Asset_chara_stand_1014_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1014.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1015,
+      "name_en": "T.M. Opera O",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/e1/Game_Asset_chara_stand_1015_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1015.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1016,
+      "name_en": "Narita Brian",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/3/32/Game_Asset_chara_stand_1016_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1016.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1017,
+      "name_en": "Symboli Rudolf",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/d/d6/Game_Asset_chara_stand_1017_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1017.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1018,
+      "name_en": "Air Groove",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/6/65/Game_Asset_chara_stand_1018_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1018.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1019,
+      "name_en": "Agnes Digital",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/1/16/Game_Asset_chara_stand_1019_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1019.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1020,
+      "name_en": "Seiun Sky",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/7/72/Game_Asset_chara_stand_1020_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1020.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1021,
+      "name_en": "Tamamo Cross",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/2/22/Game_Asset_chara_stand_1021_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1021.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1022,
+      "name_en": "Fine Motion",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/5/51/Game_Asset_chara_stand_1022_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1022.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1023,
+      "name_en": "Biwa Hayahide",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/b/b4/Game_Asset_chara_stand_1023_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1023.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1024,
+      "name_en": "Mayano Top Gun",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/3/3a/Game_Asset_chara_stand_1024_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1024.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1025,
+      "name_en": "Manhattan Cafe",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/6/68/Game_Asset_chara_stand_1025_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1025.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1026,
+      "name_en": "Mihono Bourbon",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/ee/Game_Asset_chara_stand_1026_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1026.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1027,
+      "name_en": "Mejiro Ryan",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/02/Game_Asset_chara_stand_1027_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1027.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1028,
+      "name_en": "Hishi Akebono",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/d/d7/Game_Asset_chara_stand_1028_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1028.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1030,
+      "name_en": "Rice Shower",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/a/a7/Game_Asset_chara_stand_1030_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1030.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1032,
+      "name_en": "Agnes Tachyon",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/e3/Game_Asset_chara_stand_1032_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1032.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1033,
+      "name_en": "Admire Vega",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/7/7f/Game_Asset_chara_stand_1033_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1033.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1035,
+      "name_en": "Winning Ticket",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/a/a1/Game_Asset_chara_stand_1035_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1035.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1037,
+      "name_en": "Eishin Flash",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/1/1d/Game_Asset_chara_stand_1037_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1037.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1038,
+      "name_en": "Curren Chan",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/7/72/Game_Asset_chara_stand_1038_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1038.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1039,
+      "name_en": "Kawakami Princess",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/5/55/Game_Asset_chara_stand_1039_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1039.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1040,
+      "name_en": "Gold City",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/04/Game_Asset_chara_stand_1040_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1040.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1041,
+      "name_en": "Sakura Bakushin O",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/3/3c/Game_Asset_chara_stand_1041_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1041.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1045,
+      "name_en": "Super Creek",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/5/57/Game_Asset_chara_stand_1045_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1045.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1046,
+      "name_en": "Smart Falcon",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/f/fc/Game_Asset_chara_stand_1046_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1046.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1048,
+      "name_en": "Tosen Jordan",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/ea/Game_Asset_chara_stand_1048_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1048.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1050,
+      "name_en": "Narita Taishin",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/0/09/Game_Asset_chara_stand_1050_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1050.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1052,
+      "name_en": "Haru Urara",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/d/d6/Game_Asset_chara_stand_1052_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1052.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1056,
+      "name_en": "Matikanefukukitaru",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/5/53/Game_Asset_chara_stand_1056_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1056.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1058,
+      "name_en": "Meisho Doto",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/6/6a/Game_Asset_chara_stand_1058_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1058.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1059,
+      "name_en": "Mejiro Dober",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/2/20/Game_Asset_chara_stand_1059_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1059.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1060,
+      "name_en": "Nice Nature",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/9/99/Game_Asset_chara_stand_1060_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1060.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1061,
+      "name_en": "King Halo",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/9/98/Game_Asset_chara_stand_1061_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1061.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1062,
+      "name_en": "Matikanetannhauser",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/f/f7/Game_Asset_chara_stand_1062_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1062.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1067,
+      "name_en": "Satono Diamond",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/1/18/Game_Asset_chara_stand_1067_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1067.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1068,
+      "name_en": "Kitasan Black",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/e/ed/Game_Asset_chara_stand_1068_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1068.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1069,
+      "name_en": "Sakura Chiyono O",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/3/36/Game_Asset_chara_stand_1069_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1069.png",
+      "status": "downloaded"
+    },
+    {
+      "base_character_id": 1071,
+      "name_en": "Mejiro Ardan",
+      "game_outfit_id": "000101",
+      "source_url": "https://umamusu.wiki/w/images/f/f3/Game_Asset_chara_stand_1071_000101.png",
+      "path": "C:/Users/Owner/Documents/teiocode/UmamusumeAss/UmamusumeAss/resource/uma/assets/images/global/live_outfits/1071.png",
+      "status": "downloaded"
+    }
+  ]
+}

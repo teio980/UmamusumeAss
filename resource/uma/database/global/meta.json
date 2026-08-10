@@ -28,7 +28,7 @@
     "notes":  [
                         "This is a Global-version community snapshot, not an official Cygames API.",
                         "Original 512x512 RGBA character images are downloaded without crop or resize to assets/images/global/trainees; see manifest.json.",
-                        "Original official Tracen Academy uniform PNGs are downloaded without crop or resize to assets/images/global/uniforms; see its manifest.json.",
+                        "Original in-game 512x512 standing live-outfit chara-stand PNGs (outfit 000101) are downloaded without crop or resize to assets/images/global/live_outfits; see its manifest.json.",
                         "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
                     ]
 }

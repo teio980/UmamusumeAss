@@ -48,3 +48,7 @@ Thumbs.db
 
 # WPF build temp projects
 *_wpftmp.csproj
+
+# Python
+__pycache__/
+*.pyc
