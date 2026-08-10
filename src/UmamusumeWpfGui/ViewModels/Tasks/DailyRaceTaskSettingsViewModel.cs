@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Media.Imaging;
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
@@ -119,7 +120,7 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
         {
             foreach (var trainee in _umaDatabase.Trainees
                          .Where(item => item.Available
-                             && File.Exists(_umaDatabase.GetTraineeReferenceImagePath(item.TraineeId)))
+                             && HasRunnerTemplate(item))
                          .OrderBy(item => item.NameEn, StringComparer.OrdinalIgnoreCase)
                          .ThenBy(item => item.TraineeId))
             {
@@ -155,6 +156,13 @@ public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
 
         ApplyTraineeSearch();
     }
+
+    private bool HasRunnerTemplate(UmaTraineeRecord trainee) =>
+        File.Exists(_umaDatabase!.GetMaintenanceTraineeReferenceImagePath(trainee.TraineeId))
+        || File.Exists(_umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId))
+        || File.Exists(_umaDatabase.GetTraineeImagePath(trainee.TraineeId))
+        || File.Exists(_umaDatabase.GetTraineeUniformCroppedImagePath(trainee.BaseCharacterId))
+        || File.Exists(_umaDatabase.GetTraineeUniformImagePath(trainee.BaseCharacterId));
 
     public string DefinitionPath
     {
