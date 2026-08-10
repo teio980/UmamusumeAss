@@ -128,6 +128,89 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public async Task Daily_race_matcher_uses_the_best_of_multiple_runner_templates()
+    {
+        const int templateWidth = 20;
+        const int templateHeight = 20;
+        var matchingPixels = new byte[templateWidth * templateHeight];
+        var unrelatedPixels = new byte[matchingPixels.Length];
+        for (var y = 0; y < templateHeight; y++)
+        {
+            for (var x = 0; x < templateWidth; x++)
+            {
+                var index = y * templateWidth + x;
+                var value = (byte)((x * 13 + y * 17) % 256);
+                matchingPixels[index] = value;
+                unrelatedPixels[index] = (byte)(255 - value);
+            }
+        }
+
+        var matchingPath = Path.Combine(
+            Path.GetTempPath(),
+            $"umamusume-matching-template-{Guid.NewGuid():N}.png");
+        var unrelatedPath = Path.Combine(
+            Path.GetTempPath(),
+            $"umamusume-unrelated-template-{Guid.NewGuid():N}.png");
+        try
+        {
+            SaveOpaqueGrayscalePng(
+                matchingPath,
+                templateWidth,
+                templateHeight,
+                matchingPixels);
+            SaveOpaqueGrayscalePng(
+                unrelatedPath,
+                templateWidth,
+                templateHeight,
+                unrelatedPixels);
+
+            const int screenWidth = 900;
+            const int screenHeight = 1600;
+            const int matchX = 28;
+            const int matchY = 808;
+            var screenPixels = Enumerable.Repeat(
+                    (byte)20,
+                    screenWidth * screenHeight)
+                .ToArray();
+            for (var y = 0; y < templateHeight; y++)
+            {
+                for (var x = 0; x < templateWidth; x++)
+                {
+                    screenPixels[(matchY + y) * screenWidth + matchX + x] =
+                        matchingPixels[y * templateWidth + x];
+                }
+            }
+
+            var connection = new LastVerifiedConnection(
+                "adb",
+                "emulator",
+                "android",
+                "test",
+                screenWidth,
+                screenHeight,
+                screenWidth,
+                screenHeight,
+                DateTimeOffset.UtcNow);
+            var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
+                new GrayImage(screenWidth, screenHeight, screenPixels),
+                [unrelatedPath, matchingPath],
+                connection);
+
+            Assert.NotNull(result);
+            Assert.True(result!.Found, $"Best template score was {result.Score:0.000}.");
+            Assert.Equal(20, result.X);
+            Assert.Equal(800, result.Y);
+        }
+        finally
+        {
+            if (File.Exists(matchingPath))
+                File.Delete(matchingPath);
+            if (File.Exists(unrelatedPath))
+                File.Delete(unrelatedPath);
+        }
+    }
+
+    [Fact]
     public async Task Daily_race_matcher_distinguishes_100601_runner_from_an_unrelated_page()
     {
         var root = FindSolutionRoot();
@@ -330,5 +413,37 @@ public sealed class DeveloperToolsImageMatchTests
         }
 
         throw new InvalidOperationException("Could not locate the repository root.");
+    }
+
+    private static void SaveOpaqueGrayscalePng(
+        string path,
+        int width,
+        int height,
+        byte[] pixels)
+    {
+        var bgra = new byte[checked(width * height * 4)];
+        for (var index = 0; index < pixels.Length; index++)
+        {
+            var offset = index * 4;
+            bgra[offset] = pixels[index];
+            bgra[offset + 1] = pixels[index];
+            bgra[offset + 2] = pixels[index];
+            bgra[offset + 3] = 255;
+        }
+
+        var bitmap = BitmapSource.Create(
+            width,
+            height,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            bgra,
+            width * 4);
+        bitmap.Freeze();
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var output = File.Create(path);
+        encoder.Save(output);
     }
 }

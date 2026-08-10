@@ -107,12 +107,35 @@ public sealed class DailyRaceRunnerSelector
         ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
         ArgumentNullException.ThrowIfNull(connection);
 
-        var template = await LoadRunnerTemplateAsync(imagePath, cancellationToken)
+        return await FindBestMatchAsync(
+                screen,
+                [imagePath],
+                connection,
+                cancellationToken)
             .ConfigureAwait(false);
-        if (template is null)
+    }
+
+    /// <summary>
+    /// Runs the runner-card matcher against all available visual variants for
+    /// one trainee. A screenshot crop, race-outfit source image, and uniform
+    /// source image can all be supplied; the highest-scoring variant wins.
+    /// </summary>
+    public static async Task<TemplateMatchResult?> FindBestMatchAsync(
+        GrayImage screen,
+        IReadOnlyList<string> imagePaths,
+        LastVerifiedConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(imagePaths);
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var templates = await LoadRunnerTemplatesAsync(imagePaths, cancellationToken)
+            .ConfigureAwait(false);
+        if (templates.Count == 0)
             return null;
 
-        var best = FindBestRunnerCell(screen, template, connection);
+        var best = FindBestRunnerCell(screen, templates, connection);
         return CreateRunnerCellMatch(best, screen, connection);
     }
 
@@ -158,13 +181,13 @@ public sealed class DailyRaceRunnerSelector
                 + "was not found in the Uma database.");
         }
 
-        var referenceImagePath = _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId);
-        if (!File.Exists(referenceImagePath))
+        var templatePaths = GetRunnerTemplatePaths(trainee);
+        if (templatePaths.Count == 0)
         {
             return HachimiCustomActionResult.Failure(
-                $"The system reference for {trainee.NameEn} "
-                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) is missing. "
-                + "Create it in Developer Tools before selecting this runner.");
+                $"No runner image template is available for {trainee.NameEn} "
+                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}). "
+                + "Add a system reference or download the Uma image assets first.");
         }
 
         if (!await TapTemplateAsync(
@@ -244,12 +267,12 @@ public sealed class DailyRaceRunnerSelector
         }
 
         await _visualRuntime.DelayAsync(700, cancellationToken).ConfigureAwait(false);
-        var template = await LoadRunnerTemplateAsync(referenceImagePath, cancellationToken)
+        var templates = await LoadRunnerTemplatesAsync(templatePaths, cancellationToken)
             .ConfigureAwait(false);
-        if (template is null)
+        if (templates.Count == 0)
         {
             return HachimiCustomActionResult.Failure(
-                $"Could not decode the image for {trainee.NameEn}.");
+                $"Could not decode any image template for {trainee.NameEn}.");
         }
 
         for (var scroll = 0; scroll <= MaximumScrolls; scroll++)
@@ -261,7 +284,7 @@ public sealed class DailyRaceRunnerSelector
                 .ConfigureAwait(false);
             if (screen is not null)
             {
-                var best = FindBestRunnerCell(screen, template, connection);
+                var best = FindBestRunnerCell(screen, templates, connection);
                 if (best.Score >= best.RequiredScore)
                 {
                     var match = CreateRunnerCellMatch(best, screen, connection);
@@ -284,7 +307,7 @@ public sealed class DailyRaceRunnerSelector
                         .ConfigureAwait(false);
                     var selectedPortraitScore = await FindSelectedPortraitScoreAsync(
                             connection,
-                            template,
+                            templates,
                             cancellationToken)
                         .ConfigureAwait(false);
                     if (selectedPortraitScore < MinimumSelectedPortraitScore)
@@ -503,11 +526,17 @@ public sealed class DailyRaceRunnerSelector
 
     private async Task<double> FindSelectedPortraitScoreAsync(
         LastVerifiedConnection connection,
-        RunnerTemplate template,
+        IReadOnlyList<RunnerTemplate> templates,
         CancellationToken cancellationToken)
     {
-        if (!template.UsesScreenshotCrop)
-            return 0;
+        var screenshotTemplates = templates
+            .Where(template => template.UsesScreenshotCrop)
+            .ToArray();
+        // Source assets do not contain the exact selected-detail crop. The
+        // card match has already verified those assets, so skip this optional
+        // second check when no emulator screenshot reference is available.
+        if (screenshotTemplates.Length == 0)
+            return MinimumSelectedPortraitScore;
 
         var screen = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
             .ConfigureAwait(false);
@@ -522,28 +551,31 @@ public sealed class DailyRaceRunnerSelector
             screen.Width / (double)DefaultReferenceWidth,
             screen.Height / (double)DefaultReferenceHeight);
         var bestScore = double.MinValue;
-        foreach (var scale in SelectedPortraitScaleCandidates)
+        foreach (var template in screenshotTemplates)
         {
-            var targetWidth = Math.Max(
-                1,
-                (int)Math.Round(template.Width * referenceScale * scale));
-            var targetHeight = Math.Max(
-                1,
-                (int)Math.Round(template.Height * referenceScale * scale));
-            if (targetWidth > regionWidth || targetHeight > regionHeight)
-                continue;
+            foreach (var scale in SelectedPortraitScaleCandidates)
+            {
+                var targetWidth = Math.Max(
+                    1,
+                    (int)Math.Round(template.Width * referenceScale * scale));
+                var targetHeight = Math.Max(
+                    1,
+                    (int)Math.Round(template.Height * referenceScale * scale));
+                if (targetWidth > regionWidth || targetHeight > regionHeight)
+                    continue;
 
-            bestScore = Math.Max(
-                bestScore,
-                FindBestScreenshotCropScaleScore(
-                    screen,
-                    template,
-                    regionX,
-                    regionY,
-                    regionWidth,
-                    regionHeight,
-                    targetWidth,
-                    targetHeight));
+                bestScore = Math.Max(
+                    bestScore,
+                    FindBestScreenshotCropScaleScore(
+                        screen,
+                        template,
+                        regionX,
+                        regionY,
+                        regionWidth,
+                        regionHeight,
+                        targetWidth,
+                        targetHeight));
+            }
         }
 
         return Math.Max(0, bestScore);
@@ -649,23 +681,27 @@ public sealed class DailyRaceRunnerSelector
 
     private static RunnerCellMatch FindBestRunnerCell(
         GrayImage screen,
-        RunnerTemplate template,
+        IReadOnlyList<RunnerTemplate> templates,
         LastVerifiedConnection connection)
     {
         var bestScore = double.MinValue;
         var bestCell = RunnerCells[0];
-        var requiredScore = template.UsesScreenshotCrop
-            ? MinimumSystemReferenceMatchScore
-            : MinimumImageMatchScore;
-        foreach (var cell in RunnerCells)
+        var requiredScore = MinimumImageMatchScore;
+        foreach (var template in templates)
         {
-            var score = CompareCell(screen, template, cell, connection);
-            if (score > bestScore)
+            var templateRequiredScore = template.UsesScreenshotCrop
+                ? MinimumSystemReferenceMatchScore
+                : MinimumImageMatchScore;
+            foreach (var cell in RunnerCells)
             {
-                bestScore = score;
-                bestCell = cell;
+                var score = CompareCell(screen, template, cell, connection);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCell = cell;
+                    requiredScore = templateRequiredScore;
+                }
             }
-
         }
 
         return new RunnerCellMatch(bestCell, Math.Max(0, bestScore), requiredScore);
@@ -1001,6 +1037,57 @@ public sealed class DailyRaceRunnerSelector
 
     private static int ScaleCoordinate(int value, int actual, int reference) =>
         (int)Math.Round(value * (double)Math.Max(1, actual) / Math.Max(1, reference));
+
+    private List<string> GetRunnerTemplatePaths(UmaTraineeRecord trainee)
+    {
+        var paths = new List<string>(capacity: 4);
+        AddExistingTemplatePath(
+            paths,
+            _umaDatabase.GetMaintenanceTraineeReferenceImagePath(trainee.TraineeId));
+        AddExistingTemplatePath(
+            paths,
+            _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId));
+        AddExistingTemplatePath(
+            paths,
+            _umaDatabase.GetTraineeImagePath(trainee.TraineeId));
+        AddExistingTemplatePath(
+            paths,
+            _umaDatabase.GetTraineeUniformCroppedImagePath(trainee.BaseCharacterId));
+        AddExistingTemplatePath(
+            paths,
+            _umaDatabase.GetTraineeUniformImagePath(trainee.BaseCharacterId));
+        return paths;
+    }
+
+    private static void AddExistingTemplatePath(
+        List<string> paths,
+        string path)
+    {
+        if (File.Exists(path)
+            && !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            paths.Add(path);
+        }
+    }
+
+    private static async Task<IReadOnlyList<RunnerTemplate>> LoadRunnerTemplatesAsync(
+        IReadOnlyList<string> imagePaths,
+        CancellationToken cancellationToken)
+    {
+        var templates = new List<RunnerTemplate>(imagePaths.Count);
+        foreach (var imagePath in imagePaths)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+                continue;
+
+            var template = await LoadRunnerTemplateAsync(imagePath, cancellationToken)
+                .ConfigureAwait(false);
+            if (template is not null)
+                templates.Add(template);
+        }
+
+        return templates;
+    }
 
     private static IEnumerable<string> GetDesiredFilterLabels(UmaTraineeRecord trainee)
     {
