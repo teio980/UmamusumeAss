@@ -734,10 +734,10 @@
       "template": "templates/daily_race/multi_race_ticket_dialog.png",
       "templThreshold": 0.80,
       "roi": [
-        0,
-        0,
-        900,
-        1600
+        280,
+        480,
+        340,
+        65
       ],
       "preDelay": 0,
       "postDelay": 300,
@@ -761,10 +761,10 @@
       "template": "templates/daily_race/multi_race_ticket_minus.png",
       "templThreshold": 0.80,
       "roi": [
-        0,
-        0,
-        900,
-        1600
+        180,
+        740,
+        135,
+        140
       ],
       "preDelay": 0,
       "postDelay": 250,
@@ -792,10 +792,10 @@
       "template": "templates/daily_race/multi_race_ticket_plus.png",
       "templThreshold": 0.80,
       "roi": [
-        0,
-        0,
-        900,
-        1600
+        590,
+        740,
+        135,
+        140
       ],
       "preDelay": 0,
       "postDelay": 250,
@@ -821,10 +821,10 @@
       "template": "templates/daily_race/multi_race_ticket_confirm.png",
       "templThreshold": 0.80,
       "roi": [
-        0,
-        0,
-        900,
-        1600
+        450,
+        970,
+        390,
+        100
       ],
       "preDelay": 0,
       "postDelay": 1800,
@@ -832,7 +832,7 @@
       "timeoutMs": 12000,
       "pollIntervalMs": 150,
       "next": [
-        "previewNext"
+        "multiRaceComplete"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -840,6 +840,138 @@
       "monitorTasks": [],
       "maxTimes": 0,
       "required": true,
+      "success": false
+    },
+    "multiRaceComplete": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/multi_race_complete.png",
+      "templThreshold": 0.82,
+      "roi": [
+        250,
+        1400,
+        400,
+        170
+      ],
+      "preDelay": 0,
+      "postDelay": 1500,
+      "waitMs": 0,
+      "timeoutMs": 120000,
+      "pollIntervalMs": 250,
+      "next": [
+        "multiRaceSaleProbe"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceSaleProbe": {
+      "algorithm": "MatchTemplate",
+      "action": "Wait",
+      "template": "templates/daily_race/items_cancel.png",
+      "templThreshold": 0.82,
+      "roi": [
+        0,
+        820,
+        450,
+        500
+      ],
+      "preDelay": 0,
+      "postDelay": 300,
+      "waitMs": 0,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 250,
+      "next": [
+        "multiRaceSaleShopButton"
+      ],
+      "onErrorNext": [
+        "verifyDailyRaceReturn"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
+      "success": false
+    },
+    "multiRaceSaleShopButton": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/daily_sale_shop_button.png",
+      "templThreshold": 0.82,
+      "roi": [
+        430,
+        930,
+        430,
+        260
+      ],
+      "preDelay": 0,
+      "postDelay": 1000,
+      "waitMs": 0,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 250,
+      "next": [
+        "runMultiRaceSaleShop"
+      ],
+      "onErrorNext": [
+        "multiRaceSaleCancel"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
+      "success": false
+    },
+    "runMultiRaceSaleShop": {
+      "algorithm": "JustReturn",
+      "action": "RunPipeline",
+      "pipeline": "shop.json",
+      "entry": "shopProbe",
+      "next": [
+        "multiRaceSaleCancel"
+      ],
+      "onErrorNext": [
+        "multiRaceSaleCancel"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
+      "success": false
+    },
+    "multiRaceSaleCancel": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/items_cancel.png",
+      "templThreshold": 0.82,
+      "roi": [
+        0,
+        820,
+        450,
+        500
+      ],
+      "preDelay": 0,
+      "postDelay": 1000,
+      "waitMs": 0,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 250,
+      "next": [
+        "verifyDailyRaceReturn"
+      ],
+      "onErrorNext": [
+        "verifyDailyRaceReturn"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
       "success": false
     },
     "itemsViewResult": {
