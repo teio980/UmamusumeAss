@@ -143,7 +143,13 @@ public sealed class HachimiJsonPipelineRunner
             }
 
             state.IncrementTaskCount(current);
-            AddLog(logSink, $"Running JSON task '{current}'.");
+            AddTaskLog(
+                logSink,
+                current,
+                $"Run #{taskCount + 1}: algorithm={task.Algorithm}, action={task.Action}, "
+                + $"template={task.Template ?? "none"}, roi={FormatArray(task.Roi)}, "
+                + $"threshold={task.TemplateThreshold:0.000}, timeout={task.TimeoutMilliseconds}ms, "
+                + $"preDelay={task.PreDelay}ms, wait={task.WaitMilliseconds}ms, postDelay={task.PostDelay}ms.");
 
             var execution = await ExecuteTaskAsync(
                     connection,
@@ -276,11 +282,21 @@ public sealed class HachimiJsonPipelineRunner
         if (!string.IsNullOrWhiteSpace(task.Template))
         {
             var roi = task.Roi;
+            var pollInterval = task.PollIntervalMilliseconds > 0
+                ? task.PollIntervalMilliseconds
+                : definition.Timing.PollIntervalMilliseconds;
             if (runOptions.RoiOverrides is not null
                 && runOptions.RoiOverrides.TryGetValue(taskName, out var roiOverride))
             {
                 roi = roiOverride;
             }
+
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Waiting for template '{task.Template}' in ROI {FormatArray(roi)} "
+                + $"(threshold {task.TemplateThreshold:0.000}, timeout {task.TimeoutMilliseconds}ms, "
+                + $"poll {pollInterval}ms).");
 
             match = await _visualRuntime.WaitForMatchAsync(
                     connection,
@@ -290,9 +306,7 @@ public sealed class HachimiJsonPipelineRunner
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
                     task.TimeoutMilliseconds,
-                    task.PollIntervalMilliseconds > 0
-                        ? task.PollIntervalMilliseconds
-                        : definition.Timing.PollIntervalMilliseconds,
+                    pollInterval,
                     taskName,
                     definition.BaseDirectory,
                     cancellationToken)
@@ -307,6 +321,13 @@ public sealed class HachimiJsonPipelineRunner
                     $"Timed out waiting for JSON task '{taskName}' "
                     + $"(best score {bestScore} / threshold {task.TemplateThreshold:0.000}).");
             }
+
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Template matched: score {match.Score:0.000}, center ({match.CenterX},{match.CenterY}), "
+                + $"size {match.Width}x{match.Height}.",
+                LogEntryKind.Success);
         }
 
         switch (action)
@@ -330,7 +351,7 @@ public sealed class HachimiJsonPipelineRunner
                     return TaskExecutionResult.Failed(customResult.Message);
                 if (!string.IsNullOrWhiteSpace(customResult.Message))
                 {
-                    AddLog(logSink, customResult.Message, LogEntryKind.Success);
+                    AddTaskLog(logSink, taskName, customResult.Message, LogEntryKind.Success);
                 }
 
                 break;
@@ -361,8 +382,9 @@ public sealed class HachimiJsonPipelineRunner
                         $"ADB ClickRect failed for '{taskName}': {rectTap.Stderr}");
                 }
 
-                AddLog(
+                AddTaskLog(
                     logSink,
+                    taskName,
                     $"Clicked rect '{taskName}' at ({rectCenter.Value.X},{rectCenter.Value.Y}).",
                     LogEntryKind.Success);
                 break;
@@ -380,8 +402,9 @@ public sealed class HachimiJsonPipelineRunner
                         taskName,
                         cancellationToken)
                     .ConfigureAwait(false);
-                AddLog(
+                AddTaskLog(
                     logSink,
+                    taskName,
                     $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), "
                     + $"score {match.Score:0.000} / threshold {task.TemplateThreshold:0.000}.",
                     LogEntryKind.Success);
@@ -402,7 +425,11 @@ public sealed class HachimiJsonPipelineRunner
                         taskName,
                         cancellationToken)
                     .ConfigureAwait(false);
-                AddLog(logSink, $"Swiped for '{taskName}'.", LogEntryKind.Success);
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Swiped [{FormatArray(task.Swipe)}] for '{taskName}'.",
+                    LogEntryKind.Success);
                 break;
 
             case "runpipeline":
@@ -431,13 +458,15 @@ public sealed class HachimiJsonPipelineRunner
                         $"ADB Back failed for JSON task '{taskName}': {back.Stderr}");
                 }
 
+                AddTaskLog(logSink, taskName, "Pressed Android Back.", LogEntryKind.Success);
                 break;
 
             case "wait":
                 if (match is not null)
                 {
-                    AddLog(
+                    AddTaskLog(
                         logSink,
+                        taskName,
                         $"Matched '{taskName}': score {match.Score:0.000} "
                         + $"/ threshold {task.TemplateThreshold:0.000}.",
                         LogEntryKind.Success);
@@ -447,6 +476,11 @@ public sealed class HachimiJsonPipelineRunner
             case "donothing":
             case "screenshot":
             case "capturescreenshot":
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Completed action '{task.Action}'.",
+                    LogEntryKind.Success);
                 break;
 
             case "stop":
@@ -552,6 +586,12 @@ public sealed class HachimiJsonPipelineRunner
                 : definition.Timing.PollIntervalMilliseconds,
             50,
             10_000));
+        AddTaskLog(
+            logSink,
+            taskName,
+            $"Parallel monitor: candidates=[{string.Join(", ", candidateNames)}], "
+            + $"success='{successCandidate.Name}', timeout={timeout.TotalMilliseconds:0}ms, "
+            + $"poll={poll.TotalMilliseconds:0}ms.");
         var started = Stopwatch.GetTimestamp();
         Dictionary<string, TemplateMatchResult>? lastMatches = null;
         GrayImage? lastScreen = null;
@@ -579,8 +619,9 @@ public sealed class HachimiJsonPipelineRunner
                 if (matches.TryGetValue(successCandidate.Name, out var successMatch)
                     && successMatch.Found)
                 {
-                    AddLog(
+                    AddTaskLog(
                         logSink,
+                        taskName,
                         $"{taskName}: success task '{successCandidate.Name}' detected; leaving parallel monitor.",
                         LogEntryKind.Success);
                     return TaskExecutionResult.Completed(taskName);
@@ -608,15 +649,17 @@ public sealed class HachimiJsonPipelineRunner
                         if (candidate.Task.Required)
                             return actionResult;
 
-                        AddLog(
+                        AddTaskLog(
                             logSink,
+                            taskName,
                             $"{taskName}: optional monitor task '{candidate.Name}' failed; continuing to monitor.",
                             LogEntryKind.Info);
                     }
                     else
                     {
-                        AddLog(
+                        AddTaskLog(
                             logSink,
+                            taskName,
                             $"{taskName}: parallel monitor action '{candidate.Name}' completed.",
                             LogEntryKind.Success);
                     }
@@ -933,6 +976,18 @@ public sealed class HachimiJsonPipelineRunner
         LogEntryKind kind = LogEntryKind.Info) =>
         logSink?.Add("JSON Pipeline", details, kind);
 
+    private static void AddTaskLog(
+        IGrassTaskLogSink? logSink,
+        string taskName,
+        string details,
+        LogEntryKind kind = LogEntryKind.Info) =>
+        logSink?.Add(taskName, details, kind);
+
+    private static string FormatArray(int[]? values) =>
+        values is { Length: > 0 }
+            ? $"[{string.Join(",", values)}]"
+            : "none";
+
     private sealed class RunState
     {
         private readonly Dictionary<string, int> _taskCounts =
@@ -975,7 +1030,7 @@ public sealed class HachimiPipelineRunOptions
 
     /// <summary>
     /// Runtime limits supplied by a caller, such as raceCount - 1 for the
-    /// JSON race-again loop. A present value of zero means do not execute the
+    /// JSON multi-race ticket-plus loop. A present value of zero means do not execute the
     /// task and follow its exceededNext transition immediately.
     /// </summary>
     public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }
