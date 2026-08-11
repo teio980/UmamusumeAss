@@ -35,15 +35,17 @@ or Easy), disables Multi-Race for a one-race request and enables it for a
 multi-race request, confirms the configured runner, normalizes the ticket count
 with the minus/plus controls when needed, leaves items unselected, accepts the
 portrait playback prompt when it appears, waits for the result, and handles the
-optional Daily Sale dialog before returning to the Daily Race page.
+optional Daily Sale dialog before returning to the Daily Race page. Multi-Race
+uses its own result-page `Complete` button and does not enter the normal
+playback/result-next chain.
 Monies and Support Points share one difficulty-row template; the settings-driven
 ROI selects the requested row.
 
 The ticket dialog currently uses placeholder templates under
 `templates/daily_race/`: `multi_race_ticket_dialog.png`,
 `multi_race_ticket_minus.png`, `multi_race_ticket_plus.png`, and
-`multi_race_ticket_confirm.png`. Capture these from the target device before
-running the updated flow.
+`multi_race_ticket_confirm.png`, and `multi_race_complete.png`. These were
+captured from the target device's 900×1600 screen.
 
 Daily Race templates belong under `templates/daily_race/`; they were captured
 from the configured 900x1600 MuMu device and cropped to stable cards/buttons.
