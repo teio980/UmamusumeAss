@@ -21,7 +21,7 @@ public sealed class DailyRaceRunnerSelector
     private const int MaximumScrolls = 16;
     private const double MinimumSelectedPortraitScore = 0.42;
     public const double MinimumImageMatchScore = 0.38;
-    public const double MinimumSystemReferenceMatchScore = 0.60;
+    public const double MinimumSystemReferenceMatchScore = 0.50;
 
     // A system reference is normally cropped from a full-size emulator
     // screenshot, while the same Uma is rendered much smaller inside a
@@ -34,6 +34,7 @@ public sealed class DailyRaceRunnerSelector
         [1.40, 1.20, 1.60, 1.00, 1.80, 2.00];
 
     private static readonly int[] RunnerSwipe = [760, 1150, 760, 850, 550];
+    private static readonly int[] RunnerReverseSwipe = [760, 850, 760, 1150, 550];
 
     private static readonly Dictionary<string, string> FilterTemplatePaths =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -275,9 +276,12 @@ public sealed class DailyRaceRunnerSelector
                 $"Could not decode any image template for {trainee.NameEn}.");
         }
 
+        RunnerCandidate? bestCandidate = null;
+        var lastScroll = 0;
         for (var scroll = 0; scroll <= MaximumScrolls; scroll++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            lastScroll = scroll;
             var screen = await _visualRuntime.CaptureGrayAsync(
                     connection,
                     cancellationToken)
@@ -285,44 +289,11 @@ public sealed class DailyRaceRunnerSelector
             if (screen is not null)
             {
                 var best = FindBestRunnerCell(screen, templates, connection);
-                if (best.Score >= best.RequiredScore)
+                if (best.Score >= best.RequiredScore
+                    && (bestCandidate is null
+                        || best.Score > bestCandidate.Value.Match.Score))
                 {
-                    var match = CreateRunnerCellMatch(best, screen, connection);
-                    try
-                    {
-                        await _visualRuntime.TapMatchAsync(
-                                connection,
-                                match,
-                                "runnerSelection",
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        return HachimiCustomActionResult.Failure(
-                            $"Found {trainee.NameEn}, but the runner card could not be selected.");
-                    }
-
-                    await _visualRuntime.DelayAsync(500, cancellationToken)
-                        .ConfigureAwait(false);
-                    var selectedPortraitScore = await FindSelectedPortraitScoreAsync(
-                            connection,
-                            templates,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (selectedPortraitScore < MinimumSelectedPortraitScore)
-                    {
-                        return HachimiCustomActionResult.Failure(
-                            $"Tapped a card for {trainee.NameEn}, but the selected runner detail "
-                            + $"could not be verified (score {selectedPortraitScore:0.000} / "
-                            + $"threshold {MinimumSelectedPortraitScore:0.000}).");
-                    }
-
-                    return HachimiCustomActionResult.Success(
-                        $"Filtered and selected {trainee.NameEn} "
-                        + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
-                        + $"at card score {best.Score:0.000}; "
-                        + $"selected portrait score {selectedPortraitScore:0.000}.");
+                    bestCandidate = new RunnerCandidate(scroll, best);
                 }
             }
 
@@ -340,9 +311,119 @@ public sealed class DailyRaceRunnerSelector
             await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
         }
 
-        return HachimiCustomActionResult.Failure(
-            $"Filtered the runner list, but could not find {trainee.NameEn} "
-            + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling.");
+        if (bestCandidate is null)
+        {
+            return HachimiCustomActionResult.Failure(
+                $"Filtered the runner list, but could not find {trainee.NameEn} "
+                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling.");
+        }
+
+        // The list may contain the same trainee on several scroll positions.
+        // We scan all of them first, then return to the position with the
+        // highest score before tapping, instead of accepting the first hit.
+        await RestoreRunnerListPositionAsync(
+                connection,
+                definition,
+                lastScroll,
+                bestCandidate.Value.Scroll,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var selectedScreen = await _visualRuntime.CaptureGrayAsync(
+                connection,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (selectedScreen is null)
+        {
+            return HachimiCustomActionResult.Failure(
+                $"Found {trainee.NameEn}, but could not capture the runner list "
+                + "again before selecting the highest-scoring card.");
+        }
+
+        var selectedBest = FindBestRunnerCell(selectedScreen, templates, connection);
+        if (selectedBest.Score < selectedBest.RequiredScore)
+        {
+            return HachimiCustomActionResult.Failure(
+                $"Found {trainee.NameEn}, but the highest-scoring runner card "
+                + "could not be restored for selection.");
+        }
+
+        var match = CreateRunnerCellMatch(selectedBest, selectedScreen, connection);
+        try
+        {
+            await _visualRuntime.TapMatchAsync(
+                    connection,
+                    match,
+                    "runnerSelection",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            return HachimiCustomActionResult.Failure(
+                $"Found {trainee.NameEn}, but the runner card could not be selected.");
+        }
+
+        await _visualRuntime.DelayAsync(500, cancellationToken)
+            .ConfigureAwait(false);
+        var selectedPortraitScore = await FindSelectedPortraitScoreAsync(
+                connection,
+                templates,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (selectedPortraitScore < MinimumSelectedPortraitScore)
+        {
+            return HachimiCustomActionResult.Failure(
+                $"Tapped a card for {trainee.NameEn}, but the selected runner detail "
+                + $"could not be verified (score {selectedPortraitScore:0.000} / "
+                + $"threshold {MinimumSelectedPortraitScore:0.000}).");
+        }
+
+        return HachimiCustomActionResult.Success(
+            $"Filtered and selected {trainee.NameEn} "
+            + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
+            + $"at highest card score {bestCandidate.Value.Match.Score:0.000}; "
+            + $"selected portrait score {selectedPortraitScore:0.000}.");
+    }
+
+    private async Task RestoreRunnerListPositionAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        int currentScroll,
+        int targetScroll,
+        CancellationToken cancellationToken)
+    {
+        if (currentScroll == targetScroll)
+            return;
+
+        // Return to the top first. This also handles lists shorter than the
+        // maximum scroll count, where several of the original swipes may have
+        // been clamped at the bottom.
+        for (var index = 0; index < currentScroll; index++)
+        {
+            await _visualRuntime.SwipeAsync(
+                    connection,
+                    RunnerReverseSwipe,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    "runnerListScrollBack",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
+        }
+
+        for (var index = 0; index < targetScroll; index++)
+        {
+            await _visualRuntime.SwipeAsync(
+                    connection,
+                    RunnerSwipe,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    "runnerListScrollToBest",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static TemplateMatchResult CreateRunnerCellMatch(
@@ -1158,5 +1239,9 @@ public sealed class DailyRaceRunnerSelector
         RunnerCell Cell,
         double Score,
         double RequiredScore);
+
+    private readonly record struct RunnerCandidate(
+        int Scroll,
+        RunnerCellMatch Match);
 
 }
