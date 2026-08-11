@@ -88,7 +88,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Daily_race_disables_multi_race_and_skips_normal_playback()
+    public async Task Daily_race_enables_multi_race_and_configures_ticket_count()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "daily_race.json");
@@ -96,9 +96,15 @@ public sealed class HachimiPipelineDefinitionTests
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
         Assert.NotNull(definition);
-        var offProbe = definition!.GetTask("multiRaceOffProbe");
-        var disable = definition.GetTask("disableMultiRace");
-        var offVerify = definition.GetTask("multiRaceOffVerify");
+        var onProbe = definition!.GetTask("multiRaceOnProbe");
+        var modeGate = definition.GetTask("multiRaceModeGate");
+        var enable = definition.GetTask("enableMultiRace");
+        var onVerify = definition.GetTask("multiRaceOnVerify");
+        var ticketDialog = definition.GetTask("multiRaceTicketDialog");
+        var ticketGate = definition.GetTask("multiRaceTicketGate");
+        var ticketMinus = definition.GetTask("multiRaceTicketMinus");
+        var ticketPlus = definition.GetTask("multiRaceTicketPlus");
+        var ticketConfirm = definition.GetTask("multiRaceTicketConfirm");
         var sortConfirm = definition.GetTask("runnerSortDialogConfirm");
         var runnerConfirm = definition.GetTask("runnerConfirm");
         var itemsViewResult = definition.GetTask("itemsViewResult");
@@ -116,12 +122,28 @@ public sealed class HachimiPipelineDefinitionTests
         var rewardNext = definition.GetTask("rewardNext");
         var verifyReturn = definition.GetTask("verifyDailyRaceReturn");
 
-        Assert.Equal("templates/daily_race/multi_race_off.png", offProbe.Template);
-        Assert.Contains("disableMultiRace", offProbe.OnErrorNext);
-        Assert.Equal("templates/daily_race/multi_race_on.png", disable.Template);
-        Assert.Equal("templates/daily_race/multi_race_off.png", offVerify.Template);
+        Assert.Equal("templates/daily_race/multi_race_on.png", onProbe.Template);
+        Assert.Contains("enableMultiRace", onProbe.OnErrorNext);
+        Assert.Equal("multiRaceOnProbe", modeGate.Next.Single());
+        Assert.Equal("multiRaceOffProbe", modeGate.ExceededNext.Single());
+        Assert.Equal("templates/daily_race/multi_race_off.png", enable.Template);
+        Assert.Equal("templates/daily_race/multi_race_on.png", onVerify.Template);
         Assert.Equal("runnerSelectHighest", sortConfirm.Next.Single());
-        Assert.Equal("previewNext", runnerConfirm.Next.Single());
+        Assert.Equal("multiRaceTicketGate", runnerConfirm.Next.Single());
+        Assert.Equal("multiRaceTicketDialog", ticketGate.Next.Single());
+        Assert.Equal("previewNext", ticketGate.ExceededNext.Single());
+        Assert.Equal("templates/daily_race/multi_race_ticket_dialog.png", ticketDialog.Template);
+        Assert.Equal("multiRaceTicketMinus", ticketDialog.Next.Single());
+        Assert.Equal("templates/daily_race/multi_race_ticket_minus.png", ticketMinus.Template);
+        Assert.Equal("multiRaceTicketPlus", ticketMinus.Next.Single());
+        Assert.Equal("multiRaceTicketPlus", ticketMinus.OnErrorNext.Single());
+        Assert.Equal("multiRaceTicketPlus", ticketMinus.ExceededNext.Single());
+        Assert.Equal(6, ticketMinus.MaxTimes);
+        Assert.Equal("templates/daily_race/multi_race_ticket_plus.png", ticketPlus.Template);
+        Assert.Equal("multiRaceTicketPlus", ticketPlus.Next.Single());
+        Assert.Equal("multiRaceTicketConfirm", ticketPlus.ExceededNext.Single());
+        Assert.Equal("templates/daily_race/multi_race_ticket_confirm.png", ticketConfirm.Template);
+        Assert.Equal("previewNext", ticketConfirm.Next.Single());
         Assert.Equal("itemsViewResult", itemsRace.Next.Single());
         Assert.False(itemsViewResult.Required);
         Assert.Equal("ClickSelf", itemsViewResult.Action);
@@ -154,7 +176,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("dailySaleProbe", finalNext.Next.Single());
         Assert.Equal("templates/daily_race/items_cancel.png", dailySaleProbe.Template);
         Assert.Equal("dailySaleShopButton", dailySaleProbe.Next.Single());
-        Assert.Equal("rewardRaceAgain", dailySaleProbe.OnErrorNext.Single());
+        Assert.Equal("rewardNext", dailySaleProbe.OnErrorNext.Single());
         Assert.Equal("ClickSelf", dailySaleShopButton.Action);
         Assert.Equal("templates/daily_race/daily_sale_shop_button.png", dailySaleShopButton.Template);
         Assert.Equal("runDailySaleShop", dailySaleShopButton.Next.Single());
@@ -162,7 +184,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("RunPipeline", runDailySaleShop.Action);
         Assert.Equal("shop.json", runDailySaleShop.Pipeline);
         Assert.Equal("shopProbe", runDailySaleShop.Entry);
-        Assert.Equal("rewardRaceAgain", runDailySaleShop.Next.Single());
+        Assert.Equal("rewardNext", runDailySaleShop.Next.Single());
         Assert.Equal("ClickSelf", rewardNext.Action);
         Assert.Equal("templates/daily_race/reward_next_button.png", rewardNext.Template);
         Assert.Equal("verifyDailyRaceReturn", rewardNext.Next.Single());

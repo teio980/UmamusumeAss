@@ -31,11 +31,19 @@ template and close-button template are configured.
 Races. The task settings choose either the Monies event (Moonlight Sho) or the
 Support Points event (Jupiter Cup) and clamp the requested count to 1–6. The
 shared graph selects the configured difficulty card (Very Hard, Hard, Normal,
-or Easy), confirms the default runner, leaves items unselected, accepts the
-portrait playback prompt when it appears, waits for the race result, and
-handles both Race Again and the optional Daily Sale cancel dialog before
-returning to the Daily Race page. Monies and Support Points share one
-difficulty-row template; the settings-driven ROI selects the requested row.
+or Easy), disables Multi-Race for a one-race request and enables it for a
+multi-race request, confirms the configured runner, normalizes the ticket count
+with the minus/plus controls when needed, leaves items unselected, accepts the
+portrait playback prompt when it appears, waits for the result, and handles the
+optional Daily Sale dialog before returning to the Daily Race page.
+Monies and Support Points share one difficulty-row template; the settings-driven
+ROI selects the requested row.
+
+The ticket dialog currently uses placeholder templates under
+`templates/daily_race/`: `multi_race_ticket_dialog.png`,
+`multi_race_ticket_minus.png`, `multi_race_ticket_plus.png`, and
+`multi_race_ticket_confirm.png`. Capture these from the target device before
+running the updated flow.
 
 Daily Race templates belong under `templates/daily_race/`; they were captured
 from the configured 900x1600 MuMu device and cropped to stable cards/buttons.

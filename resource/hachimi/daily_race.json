@@ -1,7 +1,7 @@
 {
   "name": "daily-race",
   "schemaVersion": 1,
-  "description": "Daily Race pipeline: enter Race \u003E Daily Program \u003E Daily Races, select a difficulty, disable Multi-Race, select the configured runner, prefer the result-page View Result path when available, otherwise continue with Result Next, skip playback, then repeat for the configured count.",
+  "description": "Daily Race pipeline: enter Race \u003E Daily Program \u003E Daily Races, select a difficulty, disable Multi-Race for one race or enable it for multiple races, select the configured runner, set the requested ticket count, prefer the result-page View Result path when available, otherwise continue with Result Next, then skip playback.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {},
@@ -274,7 +274,7 @@
       "timeoutMs": 15000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOffProbe"
+        "multiRaceModeGate"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -301,7 +301,7 @@
       "timeoutMs": 15000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOffProbe"
+        "multiRaceModeGate"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -311,10 +311,31 @@
       "required": true,
       "success": false
     },
-    "multiRaceOffProbe": {
+    "multiRaceModeGate": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceOnProbe"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "multiRaceOffProbe"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceOnProbe": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_off.png",
+      "template": "templates/daily_race/multi_race_on.png",
       "templThreshold": 0.74,
       "roi": [
         300,
@@ -331,7 +352,7 @@
         "raceStart"
       ],
       "onErrorNext": [
-        "disableMultiRace"
+        "enableMultiRace"
       ],
       "exceededNext": [],
       "sub": [],
@@ -340,10 +361,10 @@
       "required": false,
       "success": false
     },
-    "disableMultiRace": {
+    "enableMultiRace": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
-      "template": "templates/daily_race/multi_race_on.png",
+      "template": "templates/daily_race/multi_race_off.png",
       "templThreshold": 0.74,
       "roi": [
         300,
@@ -357,7 +378,7 @@
       "timeoutMs": 8000,
       "pollIntervalMs": 0,
       "next": [
-        "multiRaceOffVerify"
+        "multiRaceOnVerify"
       ],
       "onErrorNext": [],
       "exceededNext": [],
@@ -367,10 +388,10 @@
       "required": true,
       "success": false
     },
-    "multiRaceOffVerify": {
+    "multiRaceOnVerify": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_off.png",
+      "template": "templates/daily_race/multi_race_on.png",
       "templThreshold": 0.74,
       "roi": [
         300,
@@ -592,6 +613,224 @@
       "waitMs": 0,
       "timeoutMs": 25000,
       "pollIntervalMs": 0,
+      "next": [
+        "multiRaceTicketGate"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceOffProbe": {
+      "algorithm": "MatchTemplate",
+      "action": "Wait",
+      "template": "templates/daily_race/multi_race_off.png",
+      "templThreshold": 0.74,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 500,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceStart"
+      ],
+      "onErrorNext": [
+        "disableMultiRace"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": false,
+      "success": false
+    },
+    "disableMultiRace": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/multi_race_on.png",
+      "templThreshold": 0.74,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 700,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceOffVerify"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceOffVerify": {
+      "algorithm": "MatchTemplate",
+      "action": "Wait",
+      "template": "templates/daily_race/multi_race_off.png",
+      "templThreshold": 0.74,
+      "roi": [
+        300,
+        1300,
+        320,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 500,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 0,
+      "next": [
+        "raceStart"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceTicketGate": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [
+        "multiRaceTicketDialog"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "previewNext"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceTicketDialog": {
+      "algorithm": "MatchTemplate",
+      "action": "Wait",
+      "template": "templates/daily_race/multi_race_ticket_dialog.png",
+      "templThreshold": 0.80,
+      "roi": [
+        0,
+        0,
+        900,
+        1600
+      ],
+      "preDelay": 0,
+      "postDelay": 300,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [
+        "multiRaceTicketMinus"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceTicketMinus": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/multi_race_ticket_minus.png",
+      "templThreshold": 0.80,
+      "roi": [
+        0,
+        0,
+        900,
+        1600
+      ],
+      "preDelay": 0,
+      "postDelay": 250,
+      "waitMs": 0,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 150,
+      "next": [
+        "multiRaceTicketMinus"
+      ],
+      "onErrorNext": [
+        "multiRaceTicketPlus"
+      ],
+      "exceededNext": [
+        "multiRaceTicketPlus"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 6,
+      "required": false,
+      "success": false
+    },
+    "multiRaceTicketPlus": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/multi_race_ticket_plus.png",
+      "templThreshold": 0.80,
+      "roi": [
+        0,
+        0,
+        900,
+        1600
+      ],
+      "preDelay": 0,
+      "postDelay": 250,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 150,
+      "next": [
+        "multiRaceTicketPlus"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [
+        "multiRaceTicketConfirm"
+      ],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceTicketConfirm": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/daily_race/multi_race_ticket_confirm.png",
+      "templThreshold": 0.80,
+      "roi": [
+        0,
+        0,
+        900,
+        1600
+      ],
+      "preDelay": 0,
+      "postDelay": 1800,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 150,
       "next": [
         "previewNext"
       ],
@@ -931,45 +1170,16 @@
       "timeoutMs": 3000,
       "pollIntervalMs": 0,
       "next": [
-        "rewardRaceAgain"
+        "rewardNext"
       ],
       "onErrorNext": [
-        "rewardRaceAgain"
+        "rewardNext"
       ],
       "exceededNext": [],
       "sub": [],
       "monitorTasks": [],
       "maxTimes": 0,
       "required": false,
-      "success": false
-    },
-    "rewardRaceAgain": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/team_race/race_again.png",
-      "templThreshold": 0.82,
-      "roi": [
-        0,
-        1350,
-        450,
-        250
-      ],
-      "preDelay": 0,
-      "postDelay": 1800,
-      "waitMs": 0,
-      "timeoutMs": 10000,
-      "pollIntervalMs": 0,
-      "next": [
-        "previewNext"
-      ],
-      "onErrorNext": [],
-      "exceededNext": [
-        "rewardNext"
-      ],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
       "success": false
     },
     "rewardNext": {
@@ -1019,7 +1229,7 @@
         "dailySaleShopButton"
       ],
       "onErrorNext": [
-        "rewardRaceAgain"
+        "rewardNext"
       ],
       "exceededNext": [],
       "sub": [],
@@ -1063,10 +1273,10 @@
       "pipeline": "shop.json",
       "entry": "shopProbe",
       "next": [
-        "rewardRaceAgain"
+        "rewardNext"
       ],
       "onErrorNext": [
-        "rewardRaceAgain"
+        "rewardNext"
       ],
       "exceededNext": [],
       "sub": [],

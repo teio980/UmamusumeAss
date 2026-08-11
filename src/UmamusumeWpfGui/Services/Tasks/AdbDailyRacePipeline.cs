@@ -75,7 +75,9 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                 DailyRaceTaskSettingsViewModel.MaximumRaceCount);
             var overrides = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
-                ["rewardRaceAgain"] = requestedRaces - 1,
+                ["multiRaceModeGate"] = requestedRaces - 1,
+                ["multiRaceTicketGate"] = requestedRaces - 1,
+                ["multiRaceTicketPlus"] = requestedRaces - 1,
                 ["moniesDifficultyScroll"] = string.Equals(
                     normalizedDifficulty,
                     DailyRaceTaskSettingsViewModel.EasyDifficulty,

@@ -114,7 +114,7 @@ public sealed class LiveDailyRacePipelineTests
                 MaxTimesOverrides = new Dictionary<string, int>(
                     StringComparer.OrdinalIgnoreCase)
                 {
-                    ["rewardRaceAgain"] = 0,
+                    ["multiRaceTicketPlus"] = 0,
                 },
             },
             cancellationToken: cancellation.Token);
