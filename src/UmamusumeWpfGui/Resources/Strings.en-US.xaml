@@ -26,6 +26,9 @@
   <sys:String x:Key="GrassGlobalSettings">Hachimi global settings</sys:String>
   <sys:String x:Key="GrassHachimiGlobalSettingsTitle">Hachimi global settings</sys:String>
   <sys:String x:Key="GrassLogs">Script log</sys:String>
+  <sys:String x:Key="GrassLogTimelineHint">Live task timeline</sys:String>
+  <sys:String x:Key="GrassCopyLog">Copy</sys:String>
+  <sys:String x:Key="GrassClearLog">Clear</sys:String>
   <sys:String x:Key="GrassScriptLog">Script log</sys:String>
   <sys:String x:Key="GrassAddTask">Add</sys:String>
   <sys:String x:Key="GrassCopyTask">Copy</sys:String>

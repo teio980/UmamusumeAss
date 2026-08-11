@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -501,6 +502,27 @@ public sealed partial class GrassView : UserControl
 
         _isAtBottom = _scrollViewer.VerticalOffset
             >= _scrollViewer.ScrollableHeight - 1;
+    }
+
+    private void OnCopyScriptLogClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GrassViewModel viewModel
+            || viewModel.ScriptLogs.Count == 0)
+        {
+            return;
+        }
+
+        var text = string.Join(
+            Environment.NewLine,
+            viewModel.ScriptLogs.Select(entry =>
+                $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Kind}\t{entry.Type}\t{entry.Details}"));
+        Clipboard.SetText(text);
+    }
+
+    private void OnClearScriptLogClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is GrassViewModel viewModel)
+            viewModel.ScriptLogs.Clear();
     }
 
     private void AttachTaskSelectionPicker()

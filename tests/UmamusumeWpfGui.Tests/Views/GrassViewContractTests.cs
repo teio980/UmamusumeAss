@@ -13,14 +13,17 @@ public sealed class GrassViewContractTests
     {
         var content = File.ReadAllText(GrassViewPath);
 
+        Assert.Contains("Width=\"0.95*\"", content);
         Assert.Contains("Width=\"1.05*\"", content);
-        Assert.Contains("Width=\"1.15*\"", content);
-        Assert.Contains("Width=\"1.2*\"", content);
+        Assert.Contains("Width=\"1.6*\"", content);
         Assert.Contains("GrassTaskQueue", content);
         Assert.Contains("GrassSettings", content);
         Assert.Contains("GrassLogs", content);
         Assert.Contains("ScriptLogs", content);
         Assert.Contains("ScriptLogListBox", content);
+        Assert.Contains("GrassCopyLog", content);
+        Assert.Contains("GrassClearLog", content);
+        Assert.Contains("LogColorConverter", content);
         Assert.DoesNotContain("ItemsSource=\"{Binding Logs}\"", content);
         Assert.Contains("GrassAddTask", content);
         Assert.Contains("GrassTaskSettings", content);

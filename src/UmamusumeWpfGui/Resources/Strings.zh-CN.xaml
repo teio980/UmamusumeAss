@@ -57,6 +57,9 @@
   <sys:String x:Key="GrassGlobalSettings">Hachimi 全局设置</sys:String>
   <sys:String x:Key="GrassHachimiGlobalSettingsTitle">Hachimi 全局设置</sys:String>
   <sys:String x:Key="GrassLogs">活动日志</sys:String>
+  <sys:String x:Key="GrassLogTimelineHint">实时显示任务执行时间线</sys:String>
+  <sys:String x:Key="GrassCopyLog">复制</sys:String>
+  <sys:String x:Key="GrassClearLog">清空</sys:String>
   <sys:String x:Key="GrassAddTask">添加</sys:String>
   <sys:String x:Key="GrassCopyTask">复制</sys:String>
   <sys:String x:Key="GrassDeleteTask">删除</sys:String>
