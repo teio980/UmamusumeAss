@@ -18,6 +18,10 @@ namespace UmamusumeWpfGui.ViewModels;
 public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
     private const double ImageMatchTestThreshold = 0.86;
+    private const double SystemReferenceMatchThreshold =
+        DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore;
+    private static readonly double[] SystemReferenceScaleCandidates =
+        [0.32, 0.40, 0.46, 0.50, 0.54, 0.58, 0.62, 0.66, 0.70, 0.74, 0.78, 0.84, 1.00];
 
     private static readonly JsonSerializerOptions PipelineJsonOptions = new()
     {
@@ -273,9 +277,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public bool HasSelectedImage => _selectedUmaImage is not null
         && !string.IsNullOrWhiteSpace(_activeImagePath);
 
-    private bool HasRunnerReferenceImage =>
-        _selectedUmaImage is { } image
-        && GetSelectedRunnerTemplatePaths().Count > 0;
+    // The reference path is resolved when the test starts so a stale database
+    // path cannot leave the button permanently disabled.
+    public bool HasRunnerReferenceImage =>
+        _selectedUmaImage is not null;
 
     public bool IsLoadingImages => _isLoadingImages;
 
@@ -1888,11 +1893,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         ClearImageMatchPreview();
         try
         {
-            var templatePaths = GetSelectedRunnerTemplatePaths();
-            if (templatePaths.Count == 0)
+            var referencePath = GetSelectedSystemReferencePath();
+            if (referencePath is null)
             {
                 SetImageMatchTestStatus(
-                    "The selected Uma image has no runner image template.");
+                    "The selected Uma image has no system reference image.");
                 return;
             }
 
@@ -1906,8 +1911,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             SetImageMatchTestStatus(
-                $"Testing {templatePaths.Count} runner image template(s) on the current emulator page "
-                + "with the Daily Race runner matcher...");
+                $"Testing {Path.GetFileName(referencePath)} across the current emulator page...");
             var capture = await _adbRuntime.CaptureBestScreenshotAsync(
                 connection.AdbPath,
                 connection.Serial).ConfigureAwait(true);
@@ -1925,32 +1929,39 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 return;
             }
 
-            var match = await DailyRaceRunnerSelector.FindBestMatchAsync(
-                    screen,
-                    templatePaths,
-                    connection)
-                .ConfigureAwait(true);
-            if (match is null)
+            var referenceTemplate = GrayImageCodec.FromFile(referencePath);
+            if (referenceTemplate is null)
             {
                 SetImageMatchTestStatus(
-                    "Could not decode any runner image template.");
+                    $"Could not decode the reference image {Path.GetFileName(referencePath)}.");
                 return;
             }
+
+            var match = await Task.Run(() =>
+                TemplateMatcher.FindScaled(
+                    screen,
+                    referenceTemplate,
+                    roi: null,
+                    threshold: SystemReferenceMatchThreshold,
+                    referenceWidth: screen.Width,
+                    referenceHeight: screen.Height,
+                    SystemReferenceScaleCandidates))
+                .ConfigureAwait(true);
 
             _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
             _imageMatchTestMatch = match;
             OnPropertyChanged(nameof(UmaImagePreviewImage));
             OnPropertyChanged(nameof(ImageMatchTestMatch));
             var score = match.Score.ToString("0.000", CultureInfo.InvariantCulture);
-            var systemThreshold = DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore
-                .ToString("0.000", CultureInfo.InvariantCulture);
-            var sourceThreshold = DailyRaceRunnerSelector.MinimumImageMatchScore
+            var threshold = SystemReferenceMatchThreshold
                 .ToString("0.000", CultureInfo.InvariantCulture);
             SetImageMatchTestStatus(match.Found
-                ? $"Detected on the current page. Score: {score} / threshold {sourceThreshold}-{systemThreshold}; "
-                  + $"runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}."
-                : $"Not detected on the current page. Best score: {score} / threshold {sourceThreshold}-{systemThreshold}; "
-                  + $"best runner card: ({match.X}, {match.Y}) {match.Width} x {match.Height}.");
+                ? $"Detected on the current page. Score: {score} / threshold {threshold}; "
+                  + $"position: ({match.X}, {match.Y}); "
+                  + $"reference: {referenceTemplate.Width} x {referenceTemplate.Height}."
+                : $"Not detected on the current page. Best score: {score} / threshold {threshold}; "
+                  + $"best position: ({match.X}, {match.Y}); "
+                  + $"reference: {referenceTemplate.Width} x {referenceTemplate.Height}.");
             SetStatus(match.Found
                 ? "The current emulator page detected the selected system reference."
                 : "The current emulator page did not detect the selected system reference.");
@@ -2235,6 +2246,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(HasRunnerReferenceImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
             RaiseCommandStates();
@@ -2274,8 +2286,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 : $"Loaded {item.DisplayName}. Drag on the preview to select a crop region.");
             NotifyScreenshotPropertiesChanged();
             OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(HasRunnerReferenceImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
+            RaiseCommandStates();
         }
         catch (Exception exception)
         {
@@ -2285,8 +2299,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             SetStatus($"Could not load {item.DisplayName}: {exception.Message}");
             NotifyScreenshotPropertiesChanged();
             OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(HasRunnerReferenceImage));
             OnPropertyChanged(nameof(SelectedImagePathDisplay));
             OnPropertyChanged(nameof(SelectedReferenceImagePathDisplay));
+            RaiseCommandStates();
         }
     }
 
@@ -2308,57 +2324,37 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             : GrayImageCodec.FromFile(_activeImagePath);
     }
 
-    private List<string> GetSelectedRunnerTemplatePaths()
+    private string? GetSelectedSystemReferencePath()
     {
         if (_selectedUmaImage is not { } selectedImage)
-            return [];
+            return null;
 
-        UmaTraineeRecord? trainee = null;
-        if (selectedImage.TraineeId is { } traineeId)
+        if (selectedImage.IsLiveOutfit)
         {
-            _umaDatabase.TryGetTrainee(traineeId, out trainee);
-        }
-        else
-        {
-            trainee = _umaDatabase.Trainees
-                .Where(item => item.BaseCharacterId == selectedImage.BaseCharacterId)
-                .OrderByDescending(item => item.Available)
-                .ThenBy(item => item.TraineeId)
-                .FirstOrDefault();
-        }
-
-        var paths = new List<string>(capacity: 6);
-        if (trainee is not null)
-        {
-            AddExistingRunnerTemplate(
-                paths,
-                _umaDatabase.GetMaintenanceTraineeReferenceImagePath(trainee.TraineeId));
-            AddExistingRunnerTemplate(
-                paths,
-                _umaDatabase.GetTraineeReferenceImagePath(trainee.TraineeId));
-            AddExistingRunnerTemplate(
-                paths,
-                _umaDatabase.GetTraineeImagePath(trainee.TraineeId));
+            var liveFileName = selectedImage.BaseCharacterId.ToString(
+                CultureInfo.InvariantCulture) + "_live.webp";
+            var liveCandidates = new[]
+            {
+                _umaDatabase.GetTraineeLiveOutfitReferenceImagePath(selectedImage.BaseCharacterId),
+                Path.Combine(AppContext.BaseDirectory, "resource", "uma", "system_reference", liveFileName),
+                Path.Combine(Directory.GetCurrentDirectory(), "resource", "uma", "system_reference", liveFileName),
+            };
+            return liveCandidates.FirstOrDefault(File.Exists);
         }
 
-        AddExistingRunnerTemplate(
-            paths,
-            _umaDatabase.GetTraineeLiveOutfitReferenceImagePath(selectedImage.BaseCharacterId));
-        AddExistingRunnerTemplate(
-            paths,
-            _umaDatabase.GetTraineeLiveOutfitImagePath(selectedImage.BaseCharacterId));
-        return paths;
-    }
+        if (selectedImage.TraineeId is not { } traineeId)
+            return null;
 
-    private static void AddExistingRunnerTemplate(
-        List<string> paths,
-        string path)
-    {
-        if (File.Exists(path)
-            && !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        var fileName = traineeId.ToString(CultureInfo.InvariantCulture) + ".webp";
+        var candidates = new[]
         {
-            paths.Add(path);
-        }
+            _umaDatabase.GetMaintenanceTraineeReferenceImagePath(traineeId),
+            _umaDatabase.GetTraineeReferenceImagePath(traineeId),
+            Path.Combine(AppContext.BaseDirectory, "resource", "uma", "system_reference", fileName),
+            Path.Combine(Directory.GetCurrentDirectory(), "resource", "uma", "system_reference", fileName),
+            Path.Combine(AppContext.BaseDirectory, "resource", "uma", "maintenance", "system_reference", fileName),
+        };
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     private static DeveloperToolsImageItem? CreateRaceOutfitImageItem(

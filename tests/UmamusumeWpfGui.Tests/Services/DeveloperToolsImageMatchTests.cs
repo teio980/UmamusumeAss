@@ -41,6 +41,56 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public void Current_page_contains_a_scaled_system_reference_template()
+    {
+        const int templateWidth = 8;
+        const int templateHeight = 8;
+        const int screenWidth = 32;
+        const int screenHeight = 24;
+        const int matchX = 10;
+        const int matchY = 8;
+        const int targetWidth = 4;
+        const int targetHeight = 4;
+
+        var templatePixels = new byte[templateWidth * templateHeight];
+        for (var y = 0; y < templateHeight; y++)
+        {
+            for (var x = 0; x < templateWidth; x++)
+                templatePixels[y * templateWidth + x] = (byte)((x * 23 + y * 31) % 256);
+        }
+
+        var screenPixels = Enumerable.Repeat(
+                (byte)20,
+                screenWidth * screenHeight)
+            .ToArray();
+        for (var y = 0; y < targetHeight; y++)
+        {
+            for (var x = 0; x < targetWidth; x++)
+            {
+                var templateX = x * templateWidth / targetWidth;
+                var templateY = y * templateHeight / targetHeight;
+                screenPixels[(matchY + y) * screenWidth + matchX + x] =
+                    templatePixels[templateY * templateWidth + templateX];
+            }
+        }
+
+        var result = TemplateMatcher.FindScaled(
+            new GrayImage(screenWidth, screenHeight, screenPixels),
+            new GrayImage(templateWidth, templateHeight, templatePixels),
+            roi: null,
+            threshold: 0.86,
+            referenceWidth: screenWidth,
+            referenceHeight: screenHeight,
+            scaleCandidates: [0.50]);
+
+        Assert.True(result.Found, $"Scaled template score was {result.Score:0.000}.");
+        Assert.Equal(matchX, result.X);
+        Assert.Equal(matchY, result.Y);
+        Assert.Equal(targetWidth, result.Width);
+        Assert.Equal(targetHeight, result.Height);
+    }
+
+    [Fact]
     public async Task Daily_race_matcher_finds_an_opaque_system_reference_inside_a_runner_card()
     {
         const int templateWidth = 20;
