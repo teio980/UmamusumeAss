@@ -28,6 +28,31 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Mail_collection_clicks_close_after_collecting_all()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "mail_collection.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        var collectAll = definition!.GetTask("collectAll");
+        var rewardClose = definition.GetTask("rewardClose");
+        var close = definition.GetTask("close");
+
+        Assert.Equal("rewardClose", collectAll.Next.Single(), ignoreCase: true);
+        Assert.Equal("ClickSelf", rewardClose.Action, ignoreCase: true);
+        Assert.Equal("templates/mission_collection/reward_close.png", rewardClose.Template);
+        Assert.Equal("closeOptional", rewardClose.Next.Single(), ignoreCase: true);
+        Assert.Equal("close", rewardClose.OnErrorNext.Single(), ignoreCase: true);
+        Assert.Equal("ClickSelf", close.Action, ignoreCase: true);
+        Assert.Equal("templates/mail_collection/close.png", close.Template);
+        Assert.NotNull(close.Roi);
+        Assert.Equal([0, 0, 900, 1600], close.Roi!);
+        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", close.Template!)));
+    }
+
+    [Fact]
     public async Task Team_race_can_call_the_shared_shop_pipeline()
     {
         var root = FindSolutionRoot();

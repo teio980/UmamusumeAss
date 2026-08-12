@@ -41,11 +41,23 @@
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
       "postDelay": 750,
-      "next": ["close"]
+      "next": ["rewardClose"]
+    },
+    "rewardClose": {
+      "action": "ClickSelf",
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [0, 1300, 900, 300],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["closeOptional"],
+      "onErrorNext": ["close"]
     },
     "close": {
+      "action": "ClickSelf",
       "template": "templates/mail_collection/close.png",
-      "roi": [0, 1300, 900, 300],
+      "roi": [0, 0, 900, 1600],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
@@ -54,8 +66,9 @@
       "next": ["closeOptional"]
     },
     "closeOptional": {
+      "action": "ClickSelf",
       "template": "templates/mail_collection/close.png",
-      "roi": [0, 1300, 900, 300],
+      "roi": [0, 0, 900, 1600],
       "templThreshold": 0.86,
       "timeoutMs": 2500,
       "pollIntervalMs": 300,
