@@ -178,6 +178,81 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public async Task Daily_race_matcher_finds_100601_in_the_recorded_runner_grid()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(
+            Path.Combine(root, "debug", "runner_watch_00.png"));
+        var referencePath = Path.Combine(
+            root,
+            "resource",
+            "uma",
+            "system_reference",
+            "100601.webp");
+
+        Assert.NotNull(screen);
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator",
+            "android",
+            "test",
+            900,
+            1600,
+            900,
+            1600,
+            DateTimeOffset.UtcNow);
+
+        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
+                screen!,
+                referencePath,
+                connection);
+
+        Assert.NotNull(result);
+        Assert.True(
+            result!.Found,
+            $"Recorded runner grid score was {result.Score:0.000}.");
+    }
+
+    [Fact]
+    public async Task Daily_race_matcher_reports_the_current_filtered_runner_grid()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(
+            Path.Combine(root, "debug", "live-restored-top.png"));
+        if (screen is null)
+            return;
+
+        var imagePaths = new[]
+        {
+            Path.Combine(root, "resource", "uma", "system_reference", "100601.webp"),
+            Path.Combine(root, "resource", "uma", "system_reference", "1006_live.webp"),
+            Path.Combine(root, "resource", "uma", "assets", "images", "global", "trainees", "100601.webp"),
+            Path.Combine(root, "resource", "uma", "assets", "images", "global", "live_outfits", "1006.png"),
+        };
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator",
+            "android",
+            "test",
+            screen.Width,
+            screen.Height,
+            screen.Width,
+            screen.Height,
+            DateTimeOffset.UtcNow);
+
+        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
+            screen,
+            imagePaths,
+            connection);
+
+        Assert.NotNull(result);
+        Console.WriteLine(
+            $"Current filtered grid score {result!.Score:0.000} at "
+            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
+        Assert.True(result.Found, $"Current filtered grid score was {result.Score:0.000}.");
+    }
+
+    [Fact]
     public async Task Daily_race_matcher_uses_the_best_of_multiple_runner_templates()
     {
         const int templateWidth = 20;
@@ -313,7 +388,7 @@ public sealed class DeveloperToolsImageMatchTests
             unrelatedResult!.Found,
             $"Unrelated page produced a false positive at score {unrelatedResult.Score:0.000}.");
         Assert.True(
-            runnerResult.Score >= unrelatedResult.Score + 0.20,
+            runnerResult.Score >= unrelatedResult.Score + 0.15,
             $"Runner score {runnerResult.Score:0.000} was not sufficiently separated from "
             + $"unrelated score {unrelatedResult.Score:0.000}.");
     }

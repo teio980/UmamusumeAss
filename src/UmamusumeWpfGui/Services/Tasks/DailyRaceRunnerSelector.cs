@@ -1,5 +1,6 @@
 using System.IO;
 using System.Globalization;
+using System.Diagnostics;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -19,8 +20,17 @@ public sealed class DailyRaceRunnerSelector
     private const int DefaultReferenceWidth = 900;
     private const int DefaultReferenceHeight = 1600;
     private const int MaximumScrolls = 16;
-    private const double MinimumSelectedPortraitScore = 0.42;
-    public const double MinimumImageMatchScore = 0.38;
+    // The post-selection detail check must not be weaker than the card
+    // matcher. A 0.42 floor allowed a wrong card to look "verified" after
+    // the tap even when its portrait was only a loose visual resemblance.
+    private const double MinimumSelectedPortraitScore = 0.50;
+    private const double MinimumSortDirectionScore = 0.30;
+    private const double MinimumSortDirectionMargin = 0.04;
+    // A generic source image is compared against a small card portrait, so
+    // low positive NCC values are common even on unrelated cards. Keep the
+    // same 0.50 floor as system references instead of accepting the old 0.38
+    // false-positive range.
+    public const double MinimumImageMatchScore = 0.50;
     public const double MinimumSystemReferenceMatchScore = 0.50;
 
     // A system reference is normally cropped from a full-size emulator
@@ -28,7 +38,14 @@ public sealed class DailyRaceRunnerSelector
     // runner card. Search a small range of relative sizes so the reference
     // can still match the card portrait instead of assuming a 1:1 crop.
     private static readonly double[] ScreenshotCropScaleCandidates =
-        [0.56, 0.52, 0.60, 0.48, 0.64, 0.72, 0.84, 1.00];
+        [0.32, 0.40, 0.48, 0.56, 0.64, 0.72, 0.84, 1.00];
+
+    // Keep the fast card scan lightweight, then use the exact scale set used
+    // by Developer Tools for the few strongest card candidates.
+    private static readonly double[] PreciseScreenshotCropScaleCandidates =
+        [0.32, 0.40, 0.46, 0.50, 0.54, 0.58, 0.62, 0.66, 0.70, 0.74, 0.78, 0.84, 1.00];
+
+    private const int PreciseCandidateCount = 3;
 
     private static readonly double[] SelectedPortraitScaleCandidates =
         [1.40, 1.20, 1.60, 1.00, 1.80, 2.00];
@@ -276,7 +293,15 @@ public sealed class DailyRaceRunnerSelector
                 $"Could not decode any image template for {trainee.NameEn}.");
         }
 
+        // SelectDailyRaceRunner is a custom action, so the generic JSON
+        // runner does not apply templThreshold for us. Honour the value from
+        // runnerSelectHighest instead of silently falling back to the old
+        // 0.50 system-reference floor.
+        var configuredThreshold = double.IsFinite(task.TemplateThreshold)
+            ? Math.Clamp(task.TemplateThreshold, 0d, 1d)
+            : MinimumSystemReferenceMatchScore;
         RunnerCandidate? bestCandidate = null;
+        var bestObservedScore = 0d;
         var lastScroll = 0;
         for (var scroll = 0; scroll <= MaximumScrolls; scroll++)
         {
@@ -288,7 +313,12 @@ public sealed class DailyRaceRunnerSelector
                 .ConfigureAwait(false);
             if (screen is not null)
             {
-                var best = FindBestRunnerCell(screen, templates, connection);
+                var best = FindBestRunnerCell(
+                    screen,
+                    templates,
+                    connection,
+                    configuredThreshold);
+                bestObservedScore = Math.Max(bestObservedScore, best.Score);
                 if (best.Score >= best.RequiredScore
                     && (bestCandidate is null
                         || best.Score > bestCandidate.Value.Match.Score))
@@ -315,12 +345,15 @@ public sealed class DailyRaceRunnerSelector
         {
             return HachimiCustomActionResult.Failure(
                 $"Filtered the runner list, but could not find {trainee.NameEn} "
-                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling.");
+                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling "
+                + $"(best score {bestObservedScore:0.000} / threshold "
+                + $"{configuredThreshold:0.000}).");
         }
 
-        // The list may contain the same trainee on several scroll positions.
-        // We scan all of them first, then return to the position with the
-        // highest score before tapping, instead of accepting the first hit.
+        // Scan all visible pages and keep the strongest candidate. A loose
+        // threshold can be passed by a similar portrait on an earlier page;
+        // choosing the first match made that false positive win before the
+        // better candidate was ever inspected.
         await RestoreRunnerListPositionAsync(
                 connection,
                 definition,
@@ -340,7 +373,11 @@ public sealed class DailyRaceRunnerSelector
                 + "again before selecting the highest-scoring card.");
         }
 
-        var selectedBest = FindBestRunnerCell(selectedScreen, templates, connection);
+        var selectedBest = FindBestRunnerCell(
+            selectedScreen,
+            templates,
+            connection,
+            configuredThreshold);
         if (selectedBest.Score < selectedBest.RequiredScore)
         {
             return HachimiCustomActionResult.Failure(
@@ -528,36 +565,28 @@ public sealed class DailyRaceRunnerSelector
         CancellationToken cancellationToken)
     {
         var roi = new[] { 700, 1120, 200, 180 };
-        var descending = await _visualRuntime.WaitForMatchAsync(
+        var descending = await WaitForSortDirectionAsync(
                 connection,
-                "templates/daily_race/runner_sort_desc.png",
+                definition,
                 roi,
-                0.80,
-                definition.ReferenceWidth,
-                definition.ReferenceHeight,
+                descending: true,
                 5_000,
-                250,
                 "runnerDesc",
-                definition.BaseDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (descending is { Found: true })
+        if (descending is not null)
             return true;
 
-        var ascending = await _visualRuntime.WaitForMatchAsync(
+        var ascending = await WaitForSortDirectionAsync(
                 connection,
-                "templates/daily_race/runner_sort_asc.png",
+                definition,
                 roi,
-                0.80,
-                definition.ReferenceWidth,
-                definition.ReferenceHeight,
+                descending: false,
                 8_000,
-                250,
                 "runnerAsc",
-                definition.BaseDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (ascending is not { Found: true })
+        if (ascending is null)
             return false;
 
         await _visualRuntime.TapMatchAsync(
@@ -567,20 +596,83 @@ public sealed class DailyRaceRunnerSelector
                 cancellationToken)
             .ConfigureAwait(false);
         await _visualRuntime.DelayAsync(600, cancellationToken).ConfigureAwait(false);
-        var verified = await _visualRuntime.WaitForMatchAsync(
+        var verified = await WaitForSortDirectionAsync(
                 connection,
-                "templates/daily_race/runner_sort_desc.png",
+                definition,
                 roi,
-                0.80,
-                definition.ReferenceWidth,
-                definition.ReferenceHeight,
+                descending: true,
                 8_000,
-                250,
                 "runnerDescVerify",
+                cancellationToken)
+            .ConfigureAwait(false);
+        return verified is not null;
+    }
+
+    private async Task<TemplateMatchResult?> WaitForSortDirectionAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        int[] roi,
+        bool descending,
+        int timeoutMilliseconds,
+        string taskName,
+        CancellationToken cancellationToken)
+    {
+        var descendingTemplate = await _visualRuntime.LoadTemplateAsync(
+                "templates/daily_race/runner_sort_desc.png",
                 definition.BaseDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
-        return verified is { Found: true };
+        var ascendingTemplate = await _visualRuntime.LoadTemplateAsync(
+                "templates/daily_race/runner_sort_asc.png",
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (descendingTemplate is null || ascendingTemplate is null)
+            return null;
+
+        var started = Stopwatch.GetTimestamp();
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            timeoutMilliseconds,
+            0,
+            10 * 60 * 1000));
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var screen = await _visualRuntime.CaptureGrayAsync(
+                    connection,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (screen is not null)
+            {
+                var descendingMatch = TemplateMatcher.Find(
+                    screen,
+                    descendingTemplate,
+                    roi,
+                    0,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight);
+                var ascendingMatch = TemplateMatcher.Find(
+                    screen,
+                    ascendingTemplate,
+                    roi,
+                    0,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight);
+                var desired = descending ? descendingMatch : ascendingMatch;
+                var other = descending ? ascendingMatch : descendingMatch;
+                if (desired.Score >= MinimumSortDirectionScore
+                    && desired.Score >= other.Score + MinimumSortDirectionMargin)
+                {
+                    return desired with { Found = true };
+                }
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= timeout)
+                return null;
+
+            await _visualRuntime.DelayAsync(250, cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task TapReferenceRectAsync(
@@ -724,7 +816,11 @@ public sealed class DailyRaceRunnerSelector
                             image.Height,
                             screenshotPixels,
                             screenshotMask,
-                            UsesScreenshotCrop: true);
+                            UsesScreenshotCrop: true,
+                            SourceImage: new GrayImage(
+                                image.Width,
+                                image.Height,
+                                screenshotPixels));
                     }
 
                     var cropHeight = Math.Max(1, (int)Math.Round((maxY - minY + 1) * 0.78));
@@ -754,7 +850,8 @@ public sealed class DailyRaceRunnerSelector
                         crop.Height,
                         pixels,
                         mask,
-                        UsesScreenshotCrop: false);
+                        UsesScreenshotCrop: false,
+                        SourceImage: null);
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -763,25 +860,59 @@ public sealed class DailyRaceRunnerSelector
     private static RunnerCellMatch FindBestRunnerCell(
         GrayImage screen,
         IReadOnlyList<RunnerTemplate> templates,
-        LastVerifiedConnection connection)
+        LastVerifiedConnection connection,
+        double? configuredThreshold = null)
     {
         var bestScore = double.MinValue;
         var bestCell = RunnerCells[0];
         var requiredScore = MinimumImageMatchScore;
+        var candidates = new List<RunnerCellCandidate>(
+            templates.Count * RunnerCells.Length);
         foreach (var template in templates)
         {
             var templateRequiredScore = template.UsesScreenshotCrop
                 ? MinimumSystemReferenceMatchScore
                 : MinimumImageMatchScore;
+            if (configuredThreshold is { } threshold)
+                templateRequiredScore = Math.Max(
+                    templateRequiredScore,
+                    Math.Clamp(threshold, 0d, 1d));
             foreach (var cell in RunnerCells)
             {
                 var score = CompareCell(screen, template, cell, connection);
+                candidates.Add(new RunnerCellCandidate(
+                    template,
+                    cell,
+                    score,
+                    templateRequiredScore));
                 if (score > bestScore)
                 {
                     bestScore = score;
                     bestCell = cell;
                     requiredScore = templateRequiredScore;
                 }
+            }
+        }
+
+        // The coarse pass is only for locating likely cards. Re-score the
+        // strongest screenshot-reference candidates with the same precision
+        // settings as Developer Tools before deciding which card to tap.
+        foreach (var candidate in candidates
+                     .Where(item => item.Template.UsesScreenshotCrop)
+                     .OrderByDescending(item => item.Score)
+                     .Take(PreciseCandidateCount))
+        {
+            var score = CompareCell(
+                screen,
+                candidate.Template,
+                candidate.Cell,
+                connection,
+                precise: true);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestCell = candidate.Cell;
+                requiredScore = candidate.RequiredScore;
             }
         }
 
@@ -792,11 +923,9 @@ public sealed class DailyRaceRunnerSelector
         GrayImage screen,
         RunnerTemplate template,
         RunnerCell cell,
-        LastVerifiedConnection connection)
+        LastVerifiedConnection connection,
+        bool precise = false)
     {
-        if (template.UsesScreenshotCrop)
-            return CompareScreenshotCrop(screen, template, cell, connection);
-
         var x = ScaleCoordinate(cell.X + 8, screen.Width, DefaultReferenceWidth);
         var y = ScaleCoordinate(cell.Y + 8, screen.Height, DefaultReferenceHeight);
         var width = Math.Max(
@@ -807,6 +936,39 @@ public sealed class DailyRaceRunnerSelector
             ScaleCoordinate(cell.Height - 16, screen.Height, DefaultReferenceHeight));
         if (x < 0 || y < 0 || x + width > screen.Width || y + height > screen.Height)
             return 0;
+
+        if (template.UsesScreenshotCrop)
+        {
+            if (template.SourceImage is not { } sourceImage)
+                return CompareScreenshotCrop(screen, template, cell, connection);
+
+            // The lower part of a runner card contains the rank badge and
+            // rating number. A screenshot reference is meant to identify the
+            // portrait, so allowing the matcher to search that whole area can
+            // produce a plausible score from UI decorations instead of the
+            // runner. Keep the search in the upper card/portrait region while
+            // preserving the card bounds used for the tap.
+            var portraitHeight = Math.Max(1, (int)Math.Round(height * 0.78d));
+
+            // Use the same multi-scale NCC + edge scoring as Developer Tools,
+            // but keep the search constrained to this runner card. The old
+            // screenshot-crop scorer used a smaller fixed sample and missed
+            // face crops when the card rendered them below the 0.48 scale.
+            return TemplateMatcher.FindScaled(
+                    screen,
+                    sourceImage,
+                    [x, y, width, portraitHeight],
+                    threshold: 0,
+                    referenceWidth: screen.Width,
+                    referenceHeight: screen.Height,
+                    precise
+                        ? PreciseScreenshotCropScaleCandidates
+                        : ScreenshotCropScaleCandidates,
+                    candidateStep: precise ? 4 : 8,
+                    sampleWidth: precise ? 16 : 8,
+                    sampleHeight: precise ? 16 : 8)
+                .Score;
+        }
 
         var templateValues = new List<double>(template.Width * template.Height / 2);
         var screenValues = new List<double>(templateValues.Capacity);
@@ -1228,7 +1390,8 @@ public sealed class DailyRaceRunnerSelector
         int Height,
         byte[] Pixels,
         byte[] Mask,
-        bool UsesScreenshotCrop);
+        bool UsesScreenshotCrop,
+        GrayImage? SourceImage);
 
     private readonly record struct RunnerCell(int X, int Y, int Width, int Height)
     {
@@ -1236,6 +1399,12 @@ public sealed class DailyRaceRunnerSelector
     }
 
     private readonly record struct RunnerCellMatch(
+        RunnerCell Cell,
+        double Score,
+        double RequiredScore);
+
+    private readonly record struct RunnerCellCandidate(
+        RunnerTemplate Template,
         RunnerCell Cell,
         double Score,
         double RequiredScore);

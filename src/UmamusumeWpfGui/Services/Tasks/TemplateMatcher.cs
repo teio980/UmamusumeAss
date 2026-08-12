@@ -21,7 +21,10 @@ internal static class TemplateMatcher
         double threshold,
         int referenceWidth,
         int referenceHeight,
-        IReadOnlyList<double> scaleCandidates)
+        IReadOnlyList<double> scaleCandidates,
+        int candidateStep = 4,
+        int sampleWidth = 16,
+        int sampleHeight = 16)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(template);
@@ -72,7 +75,10 @@ internal static class TemplateMatcher
                 template,
                 bounds,
                 targetWidth,
-                targetHeight);
+                targetHeight,
+                candidateStep,
+                sampleWidth,
+                sampleHeight);
             if (match.Score > bestScore)
             {
                 bestScore = match.Score;
@@ -483,7 +489,10 @@ internal static class TemplateMatcher
         GrayImage template,
         RoiBounds bounds,
         int targetWidth,
-        int targetHeight)
+        int targetHeight,
+        int candidateStep,
+        int sampleWidth,
+        int sampleHeight)
     {
         var maxX = Math.Min(
             screen.Width - targetWidth,
@@ -494,9 +503,27 @@ internal static class TemplateMatcher
         if (bounds.X > maxX || bounds.Y > maxY)
             return new TemplateMatchResult(false, double.MinValue, 0, 0, targetWidth, targetHeight);
 
-        var sampleWidth = Math.Min(16, template.Width);
-        var sampleHeight = Math.Min(16, template.Height);
-        const int candidateStep = 4;
+        // Do not sample more points than the rendered target contains. When
+        // a small target (for example 4x4) was compared with a larger
+        // template, several samples landed on the same screen pixel while
+        // still advancing through different template pixels. That made an
+        // exact nearest-neighbour match correlate as 0.000.
+        sampleWidth = Math.Clamp(
+            sampleWidth,
+            1,
+            Math.Min(32, Math.Min(template.Width, targetWidth)));
+        sampleHeight = Math.Clamp(
+            sampleHeight,
+            1,
+            Math.Min(32, Math.Min(template.Height, targetHeight)));
+        candidateStep = Math.Clamp(candidateStep, 1, 32);
+        // Small scaled references are sensitive to a one-pixel placement
+        // error. Use a denser coarse pass for them so the refinement window
+        // cannot skip the actual match entirely.
+        var smallestTargetDimension = Math.Min(targetWidth, targetHeight);
+        candidateStep = Math.Min(
+            candidateStep,
+            Math.Max(1, smallestTargetDimension / 2));
         var bestScore = double.MinValue;
         var bestX = bounds.X;
         var bestY = bounds.Y;

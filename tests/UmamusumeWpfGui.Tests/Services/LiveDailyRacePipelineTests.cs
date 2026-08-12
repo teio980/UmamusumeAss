@@ -10,6 +10,57 @@ public sealed class LiveDailyRacePipelineTests
 {
     [Fact]
     [Trait("Category", "Live")]
+    public async Task Select_100601_on_the_current_runner_page_when_explicitly_enabled()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_DAILY_RACE_SELECTOR"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var root = FindSolutionRoot();
+        var adbPath = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_ADB")
+            ?? @"C:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe";
+        var serial = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_SERIAL")
+            ?? "127.0.0.1:16384";
+        var delay = new AsyncDelay();
+        var adbRuntime = new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(30)), delay);
+        var visualRuntime = new AdbVisualPipelineRuntime(adbRuntime, delay);
+        var database = new UmaDatabaseService();
+        await database.LoadAsync(Path.Combine(root, "resource"));
+        var selector = new DailyRaceRunnerSelector(visualRuntime, database);
+        var definitionPath = Path.Combine(root, "resource", "hachimi", "daily_race.json");
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(definitionPath);
+        Assert.NotNull(definition);
+
+        var connection = new LastVerifiedConnection(
+            adbPath,
+            serial,
+            "live-selector-test",
+            "android",
+            900,
+            1600,
+            900,
+            1600,
+            DateTimeOffset.UtcNow);
+
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        var result = await selector.SelectAsync(
+            connection,
+            definition!,
+            "runnerSelectHighest",
+            definition!.GetTask("runnerSelectHighest"),
+            100601,
+            logSink: null,
+            cancellation.Token);
+
+        Assert.True(result.Succeeded, result.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Live")]
     public async Task Run_one_daily_race_with_100601_when_explicitly_enabled()
     {
         if (!string.Equals(
