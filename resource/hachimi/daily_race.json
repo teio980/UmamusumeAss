@@ -859,6 +859,31 @@
       "timeoutMs": 120000,
       "pollIntervalMs": 250,
       "next": [
+        "multiRaceResultsClose"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "multiRaceResultsClose": {
+      "algorithm": "JustReturn",
+      "action": "ClickRect",
+      "specificRect": [
+        270,
+        1425,
+        360,
+        110
+      ],
+      "preDelay": 0,
+      "postDelay": 1200,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [
         "multiRaceSaleProbe"
       ],
       "onErrorNext": [],
@@ -933,10 +958,10 @@
       "pipeline": "shop.json",
       "entry": "shopProbe",
       "next": [
-        "multiRaceSaleCancel"
+        "verifyDailyRaceReturn"
       ],
       "onErrorNext": [
-        "multiRaceSaleCancel"
+        "verifyDailyRaceReturn"
       ],
       "exceededNext": [],
       "sub": [],
