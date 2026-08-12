@@ -335,13 +335,13 @@
     "multiRaceOnProbe": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_on.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_on_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 500,
@@ -364,13 +364,13 @@
     "enableMultiRace": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
-      "template": "templates/daily_race/multi_race_off.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_off_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 700,
@@ -391,13 +391,13 @@
     "multiRaceOnVerify": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_on.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_on_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 500,
@@ -627,13 +627,13 @@
     "multiRaceOffProbe": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_off.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_off_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 500,
@@ -656,13 +656,13 @@
     "disableMultiRace": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
-      "template": "templates/daily_race/multi_race_on.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_on_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 700,
@@ -683,13 +683,13 @@
     "multiRaceOffVerify": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/daily_race/multi_race_off.png",
-      "templThreshold": 0.74,
+      "template": "templates/daily_race/multi_race_off_text.png",
+      "templThreshold": 0.70,
       "roi": [
-        300,
-        1300,
-        320,
-        140
+        470,
+        1330,
+        120,
+        100
       ],
       "preDelay": 0,
       "postDelay": 500,

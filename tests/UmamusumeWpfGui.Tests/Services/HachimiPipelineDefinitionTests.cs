@@ -100,6 +100,9 @@ public sealed class HachimiPipelineDefinitionTests
         var modeGate = definition.GetTask("multiRaceModeGate");
         var enable = definition.GetTask("enableMultiRace");
         var onVerify = definition.GetTask("multiRaceOnVerify");
+        var offProbe = definition.GetTask("multiRaceOffProbe");
+        var disable = definition.GetTask("disableMultiRace");
+        var offVerify = definition.GetTask("multiRaceOffVerify");
         var ticketDialog = definition.GetTask("multiRaceTicketDialog");
         var ticketGate = definition.GetTask("multiRaceTicketGate");
         var ticketMinus = definition.GetTask("multiRaceTicketMinus");
@@ -127,12 +130,15 @@ public sealed class HachimiPipelineDefinitionTests
         var rewardNext = definition.GetTask("rewardNext");
         var verifyReturn = definition.GetTask("verifyDailyRaceReturn");
 
-        Assert.Equal("templates/daily_race/multi_race_on.png", onProbe.Template);
+        Assert.Equal("templates/daily_race/multi_race_on_text.png", onProbe.Template);
         Assert.Contains("enableMultiRace", onProbe.OnErrorNext);
         Assert.Equal("multiRaceOnProbe", modeGate.Next.Single());
         Assert.Equal("multiRaceOffProbe", modeGate.ExceededNext.Single());
-        Assert.Equal("templates/daily_race/multi_race_off.png", enable.Template);
-        Assert.Equal("templates/daily_race/multi_race_on.png", onVerify.Template);
+        Assert.Equal("templates/daily_race/multi_race_off_text.png", enable.Template);
+        Assert.Equal("templates/daily_race/multi_race_on_text.png", onVerify.Template);
+        Assert.Equal("templates/daily_race/multi_race_off_text.png", offProbe.Template);
+        Assert.Equal("templates/daily_race/multi_race_on_text.png", disable.Template);
+        Assert.Equal("templates/daily_race/multi_race_off_text.png", offVerify.Template);
         Assert.Equal("runnerSelectHighest", sortConfirm.Next.Single());
         Assert.Equal("multiRaceTicketGate", runnerConfirm.Next.Single());
         Assert.Equal("multiRaceTicketDialog", ticketGate.Next.Single());

@@ -49,6 +49,9 @@ captured from the target device's 900×1600 screen.
 
 Daily Race templates belong under `templates/daily_race/`; they were captured
 from the configured 900x1600 MuMu device and cropped to stable cards/buttons.
+The Multi-Race state checks use the smaller `multi_race_on_text.png` and
+`multi_race_off_text.png` templates so the detector matches only the state word,
+not the animated button background.
 
 ## Pipeline schema
 
