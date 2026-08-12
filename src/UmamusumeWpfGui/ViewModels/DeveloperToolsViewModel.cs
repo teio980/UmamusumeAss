@@ -2477,10 +2477,23 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private void OnUmaDatabaseLoaded(object? sender, EventArgs e)
     {
-        if (!_disposed)
+        if (_disposed)
+        {
+            return;
+        }
+
+        // UmaDatabaseService loads its JSON with ConfigureAwait(false), so
+        // DatabaseLoaded can be raised on a thread-pool thread. Refreshing the
+        // WPF-bound image collection and command states must happen on the UI
+        // dispatcher or the buttons can remain disabled after the list loads.
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
         {
             _ = RefreshExistingImagesAsync();
+            return;
         }
+
+        _ = dispatcher.InvokeAsync(async () => await RefreshExistingImagesAsync());
     }
 
     private void SetStatus(string status)
