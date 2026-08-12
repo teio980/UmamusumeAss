@@ -53,7 +53,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Team_race_can_call_the_shared_shop_pipeline()
+    public async Task Team_race_can_call_the_shared_shop_pipeline_after_a_shop_probe()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
@@ -62,11 +62,26 @@ public sealed class HachimiPipelineDefinitionTests
 
         Assert.NotNull(definition);
         var trigger = definition!.GetTask("runRandomShop");
+        var probe = definition.GetTask("teamShopProbe");
         Assert.Equal("RunPipeline", trigger.Action);
+        Assert.Equal("JustReturn", trigger.Algorithm);
         Assert.Equal("shop.json", trigger.Pipeline);
         Assert.Equal("shopProbe", trigger.Entry);
         Assert.Contains("MiddleNext", trigger.Next);
         Assert.Contains("MiddleNext", trigger.OnErrorNext);
+        Assert.Equal("Wait", probe.Action);
+        Assert.Equal("templates/shop/shop_title.png", probe.Template);
+        Assert.Contains("runRandomShop", probe.Next);
+        Assert.Contains("newhighscoreProbe", probe.OnErrorNext);
+        var saleProbe = definition.GetTask("teamSaleProbe");
+        var saleButton = definition.GetTask("teamSaleShopButton");
+        Assert.Equal("templates/daily_race/items_cancel.png", saleProbe.Template);
+        Assert.Contains("teamSaleShopButton", saleProbe.Next);
+        Assert.Contains("teamShopProbe", saleProbe.OnErrorNext);
+        Assert.Equal(
+            "templates/daily_race/daily_sale_shop_button.png",
+            saleButton.Template);
+        Assert.Contains("runRandomShop", saleButton.Next);
     }
 
     [Fact]
@@ -87,7 +102,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Team_race_uses_a_parallel_result_monitor_until_race_again()
+    public async Task Team_race_uses_sequential_result_probes_until_race_again()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
@@ -97,16 +112,20 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.NotNull(definition);
         var next = definition!.GetTask("next");
         var whiteskip = definition.GetTask("whiteskip");
-        var monitor = definition.GetTask("resultMonitor");
+        var highScoreProbe = definition.GetTask("newhighscoreProbe");
+        var highScore = definition.GetTask("newhighscore");
+        var saleAfterHighScore = definition.GetTask("teamSaleAfterHighscoreProbe");
+        var shopAfterHighScore = definition.GetTask("teamShopAfterHighscore");
 
-        Assert.Contains("resultMonitor", next.Next);
-        Assert.Contains("resultMonitor", whiteskip.Next);
-        Assert.Equal("ParallelMonitor", monitor.Algorithm);
-        Assert.Equal(
-            ["next", "newhighscore", "runRandomShop", "MiddleNext", "nexttwo", "noticesClose"],
-            monitor.MonitorTasks);
-        Assert.Equal("raceagain", monitor.SuccessTask);
-        Assert.Equal("templates/shop/shop_title.png", definition.GetTask("runRandomShop").Template);
+        Assert.Contains("next", whiteskip.Next);
+        Assert.Contains("teamSaleProbe", next.Next);
+        Assert.Contains("newhighscore", highScoreProbe.Next);
+        Assert.Contains("MiddleNext", highScoreProbe.OnErrorNext);
+        Assert.Contains("teamSaleAfterHighscoreProbe", highScore.Next);
+        Assert.Contains("teamShopAfterHighscore", saleAfterHighScore.OnErrorNext);
+        Assert.Contains("runRandomShop", shopAfterHighScore.Next);
+        Assert.Contains("MiddleNext", shopAfterHighScore.OnErrorNext);
+        Assert.Null(definition.GetTask("runRandomShop").Template);
         Assert.Equal(
             "templates/start_game/notices_close.png",
             definition.GetTask("noticesClose").Template);
