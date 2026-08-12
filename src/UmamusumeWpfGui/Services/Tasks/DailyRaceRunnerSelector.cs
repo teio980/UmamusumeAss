@@ -23,29 +23,27 @@ public sealed class DailyRaceRunnerSelector
     // The post-selection detail check must not be weaker than the card
     // matcher. A 0.42 floor allowed a wrong card to look "verified" after
     // the tap even when its portrait was only a loose visual resemblance.
-    private const double MinimumSelectedPortraitScore = 0.50;
+    private const double MinimumSelectedPortraitScore = 0.70;
     private const double MinimumSortDirectionScore = 0.30;
     private const double MinimumSortDirectionMargin = 0.04;
     // A generic source image is compared against a small card portrait, so
-    // low positive NCC values are common even on unrelated cards. Keep the
-    // same 0.50 floor as system references instead of accepting the old 0.38
+    // low positive NCC values are common even on unrelated cards. Use the
+    // same 0.70 floor as system references instead of accepting the old loose
     // false-positive range.
-    public const double MinimumImageMatchScore = 0.50;
-    public const double MinimumSystemReferenceMatchScore = 0.50;
+    public const double MinimumImageMatchScore = 0.70;
+    public const double MinimumSystemReferenceMatchScore = 0.70;
 
     // A system reference is normally cropped from a full-size emulator
     // screenshot, while the same Uma is rendered much smaller inside a
     // runner card. Search a small range of relative sizes so the reference
     // can still match the card portrait instead of assuming a 1:1 crop.
     private static readonly double[] ScreenshotCropScaleCandidates =
-        [0.32, 0.40, 0.48, 0.56, 0.64, 0.72, 0.84, 1.00];
+        [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
 
-    // Keep the fast card scan lightweight, then use the exact scale set used
-    // by Developer Tools for the few strongest card candidates.
+    // Keep this list identical to Developer Tools. The runner selector must
+    // produce the same score for the same screenshot/reference pair.
     private static readonly double[] PreciseScreenshotCropScaleCandidates =
-        [0.32, 0.40, 0.46, 0.50, 0.54, 0.58, 0.62, 0.66, 0.70, 0.74, 0.78, 0.84, 1.00];
-
-    private const int PreciseCandidateCount = 3;
+        [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
 
     private static readonly double[] SelectedPortraitScaleCandidates =
         [1.40, 1.20, 1.60, 1.00, 1.80, 2.00];
@@ -95,6 +93,14 @@ public sealed class DailyRaceRunnerSelector
         new(370, 1010, 160, 190),
         new(545, 1010, 160, 190),
         new(720, 1010, 160, 190),
+        // The runner viewport exposes the upper part of a third row above
+        // the filter bar. It is selectable and must not be excluded from
+        // matching just because its lower half is clipped.
+        new(20, 1220, 160, 65),
+        new(195, 1220, 160, 65),
+        new(370, 1220, 160, 65),
+        new(545, 1220, 160, 65),
+        new(720, 1220, 160, 65),
     ];
 
     private readonly IVisualPipelineRuntime _visualRuntime;
@@ -133,11 +139,6 @@ public sealed class DailyRaceRunnerSelector
             .ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Runs the runner-card matcher against all available visual variants for
-    /// one trainee. A screenshot crop, race-outfit source image, and live
-    /// outfit source image can all be supplied; the highest-scoring variant wins.
-    /// </summary>
     public static async Task<TemplateMatchResult?> FindBestMatchAsync(
         GrayImage screen,
         IReadOnlyList<string> imagePaths,
@@ -241,10 +242,6 @@ public sealed class DailyRaceRunnerSelector
                 "The Daily Race runner display settings did not appear.");
         }
 
-        // The tab label is small anti-aliased text and proved noticeably less
-        // stable than the surrounding fixed dialog layout on real devices.
-        // Tap the center of the right-hand tab, then let the concrete aptitude
-        // option matches below verify that the Filter pane actually opened.
         await TapReferenceRectAsync(
                 connection,
                 [450, 120, 430, 100],
@@ -293,13 +290,6 @@ public sealed class DailyRaceRunnerSelector
                 $"Could not decode any image template for {trainee.NameEn}.");
         }
 
-        // SelectDailyRaceRunner is a custom action, so the generic JSON
-        // runner does not apply templThreshold for us. Honour the value from
-        // runnerSelectHighest instead of silently falling back to the old
-        // 0.50 system-reference floor.
-        var configuredThreshold = double.IsFinite(task.TemplateThreshold)
-            ? Math.Clamp(task.TemplateThreshold, 0d, 1d)
-            : MinimumSystemReferenceMatchScore;
         RunnerCandidate? bestCandidate = null;
         var bestObservedScore = 0d;
         var lastScroll = 0;
@@ -316,14 +306,25 @@ public sealed class DailyRaceRunnerSelector
                 var best = FindBestRunnerCell(
                     screen,
                     templates,
-                    connection,
-                    configuredThreshold);
+                    connection);
                 bestObservedScore = Math.Max(bestObservedScore, best.Score);
+                logSink?.Add(
+                    "Daily Race",
+                    $"Runner page {scroll + 1}: first display-priority match "
+                    + $"{best.Score:0.000} / required {best.RequiredScore:0.000} at cell "
+                    + $"({best.Cell.X},{best.Cell.Y},{best.Cell.Width},{best.Cell.Height}).",
+                    LogEntryKind.Info);
                 if (best.Score >= best.RequiredScore
-                    && (bestCandidate is null
-                        || best.Score > bestCandidate.Value.Match.Score))
+                    && bestCandidate is null)
                 {
                     bestCandidate = new RunnerCandidate(scroll, best);
+                    logSink?.Add(
+                        "Daily Race",
+                        $"Found {trainee.NameEn} on runner page {scroll + 1} with "
+                        + $"display-priority match score {best.Score:0.000}; "
+                        + "stopping further scroll.",
+                        LogEntryKind.Info);
+                    break;
                 }
             }
 
@@ -346,14 +347,10 @@ public sealed class DailyRaceRunnerSelector
             return HachimiCustomActionResult.Failure(
                 $"Filtered the runner list, but could not find {trainee.NameEn} "
                 + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) after scrolling "
-                + $"(best score {bestObservedScore:0.000} / threshold "
-                + $"{configuredThreshold:0.000}).");
+                + $"(best observed score {bestObservedScore:0.000} / threshold "
+                + $"{MinimumSystemReferenceMatchScore:0.000}).");
         }
 
-        // Scan all visible pages and keep the strongest candidate. A loose
-        // threshold can be passed by a similar portrait on an earlier page;
-        // choosing the first match made that false positive win before the
-        // better candidate was ever inspected.
         await RestoreRunnerListPositionAsync(
                 connection,
                 definition,
@@ -370,18 +367,17 @@ public sealed class DailyRaceRunnerSelector
         {
             return HachimiCustomActionResult.Failure(
                 $"Found {trainee.NameEn}, but could not capture the runner list "
-                + "again before selecting the highest-scoring card.");
+                + "again before selecting the display-priority card.");
         }
 
         var selectedBest = FindBestRunnerCell(
             selectedScreen,
             templates,
-            connection,
-            configuredThreshold);
+            connection);
         if (selectedBest.Score < selectedBest.RequiredScore)
         {
             return HachimiCustomActionResult.Failure(
-                $"Found {trainee.NameEn}, but the highest-scoring runner card "
+                $"Found {trainee.NameEn}, but the display-priority runner card "
                 + "could not be restored for selection.");
         }
 
@@ -417,10 +413,10 @@ public sealed class DailyRaceRunnerSelector
         }
 
         return HachimiCustomActionResult.Success(
-            $"Filtered and selected {trainee.NameEn} "
-            + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
-            + $"at highest card score {bestCandidate.Value.Match.Score:0.000}; "
-            + $"selected portrait score {selectedPortraitScore:0.000}.");
+                $"Filtered and selected {trainee.NameEn} "
+                + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
+                + $"at display-priority card score {bestCandidate.Value.Match.Score:0.000}; "
+                + $"selected portrait score {selectedPortraitScore:0.000}.");
     }
 
     private async Task RestoreRunnerListPositionAsync(
@@ -433,9 +429,6 @@ public sealed class DailyRaceRunnerSelector
         if (currentScroll == targetScroll)
             return;
 
-        // Return to the top first. This also handles lists shorter than the
-        // maximum scroll count, where several of the original swipes may have
-        // been clamped at the bottom.
         for (var index = 0; index < currentScroll; index++)
         {
             await _visualRuntime.SwipeAsync(
@@ -705,9 +698,6 @@ public sealed class DailyRaceRunnerSelector
         var screenshotTemplates = templates
             .Where(template => template.UsesScreenshotCrop)
             .ToArray();
-        // Source assets do not contain the exact selected-detail crop. The
-        // card match has already verified those assets, so skip this optional
-        // second check when no emulator screenshot reference is available.
         if (screenshotTemplates.Length == 0)
             return MinimumSelectedPortraitScore;
 
@@ -761,6 +751,25 @@ public sealed class DailyRaceRunnerSelector
         return await Task.Run(
                 () =>
                 {
+
+                    if (imagePath.Contains("system_reference", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var decodedReference = GrayImageCodec.FromFile(imagePath);
+                        if (decodedReference is not null)
+                        {
+                            var referenceMask = new byte[
+                                checked(decodedReference.Width * decodedReference.Height)];
+                            Array.Fill(referenceMask, (byte)255);
+                            return new RunnerTemplate(
+                                decodedReference.Width,
+                                decodedReference.Height,
+                                decodedReference.Pixels,
+                                referenceMask,
+                                UsesScreenshotCrop: true,
+                                SourceImage: decodedReference);
+                        }
+                    }
+
                     using var image = Image.Load<Rgba32>(imagePath);
                     var rgba = new byte[checked(image.Width * image.Height * 4)];
                     image.CopyPixelDataTo(rgba);
@@ -794,12 +803,23 @@ public sealed class DailyRaceRunnerSelector
                             opaquePixelCount++;
                     }
 
-                    // system_reference images are usually crops captured from
-                    // the emulator. Keep their aspect ratio and search for
-                    // the crop inside each runner card instead of stretching
-                    // it as if it were a transparent full-body asset.
                     if (opaquePixelCount >= pixelCount * 0.98)
                     {
+                        var screenshotImage = GrayImageCodec.FromFile(imagePath);
+                        if (screenshotImage is not null)
+                        {
+                            var decodedMask = new byte[
+                                checked(screenshotImage.Width * screenshotImage.Height)];
+                            Array.Fill(decodedMask, (byte)255);
+                            return new RunnerTemplate(
+                                screenshotImage.Width,
+                                screenshotImage.Height,
+                                screenshotImage.Pixels,
+                                decodedMask,
+                                UsesScreenshotCrop: true,
+                                SourceImage: screenshotImage);
+                        }
+
                         var screenshotPixels = new byte[pixelCount];
                         var screenshotMask = new byte[pixelCount];
                         for (var index = 0; index < pixelCount; index++)
@@ -860,59 +880,46 @@ public sealed class DailyRaceRunnerSelector
     private static RunnerCellMatch FindBestRunnerCell(
         GrayImage screen,
         IReadOnlyList<RunnerTemplate> templates,
-        LastVerifiedConnection connection,
-        double? configuredThreshold = null)
+        LastVerifiedConnection connection)
     {
         var bestScore = double.MinValue;
         var bestCell = RunnerCells[0];
         var requiredScore = MinimumImageMatchScore;
-        var candidates = new List<RunnerCellCandidate>(
-            templates.Count * RunnerCells.Length);
-        foreach (var template in templates)
+        // System-reference crops are the identity signal. Do not let a
+        // transparent/full-body asset win with a coincidental card-frame
+        // correlation when a system reference is available for the target.
+        var screenshotTemplates = templates
+            .Where(template => template.UsesScreenshotCrop
+                && template.SourceImage is not null)
+            .ToArray();
+        var templatesToCompare = screenshotTemplates.Length > 0
+            ? screenshotTemplates
+            : templates;
+        foreach (var cell in RunnerCells)
         {
-            var templateRequiredScore = template.UsesScreenshotCrop
-                ? MinimumSystemReferenceMatchScore
-                : MinimumImageMatchScore;
-            if (configuredThreshold is { } threshold)
-                templateRequiredScore = Math.Max(
-                    templateRequiredScore,
-                    Math.Clamp(threshold, 0d, 1d));
-            foreach (var cell in RunnerCells)
+            foreach (var template in templatesToCompare)
             {
+                var templateRequiredScore = template.UsesScreenshotCrop
+                    ? MinimumSystemReferenceMatchScore
+                    : MinimumImageMatchScore;
                 var score = CompareCell(screen, template, cell, connection);
-                candidates.Add(new RunnerCellCandidate(
-                    template,
-                    cell,
-                    score,
-                    templateRequiredScore));
                 if (score > bestScore)
                 {
                     bestScore = score;
                     bestCell = cell;
                     requiredScore = templateRequiredScore;
                 }
-            }
-        }
 
-        // The coarse pass is only for locating likely cards. Re-score the
-        // strongest screenshot-reference candidates with the same precision
-        // settings as Developer Tools before deciding which card to tap.
-        foreach (var candidate in candidates
-                     .Where(item => item.Template.UsesScreenshotCrop)
-                     .OrderByDescending(item => item.Score)
-                     .Take(PreciseCandidateCount))
-        {
-            var score = CompareCell(
-                screen,
-                candidate.Template,
-                candidate.Cell,
-                connection,
-                precise: true);
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestCell = candidate.Cell;
-                requiredScore = candidate.RequiredScore;
+                // Runner cards are already sorted by display priority. The
+                // first cell that clears the identity threshold is the one
+                // to select; do not let a later card win on a slightly higher
+                // visual correlation score.
+                if (score >= templateRequiredScore)
+                {
+                    bestCell = cell;
+                    requiredScore = templateRequiredScore;
+                    return new RunnerCellMatch(cell, score, requiredScore);
+                }
             }
         }
 
@@ -923,17 +930,16 @@ public sealed class DailyRaceRunnerSelector
         GrayImage screen,
         RunnerTemplate template,
         RunnerCell cell,
-        LastVerifiedConnection connection,
-        bool precise = false)
+        LastVerifiedConnection connection)
     {
-        var x = ScaleCoordinate(cell.X + 8, screen.Width, DefaultReferenceWidth);
-        var y = ScaleCoordinate(cell.Y + 8, screen.Height, DefaultReferenceHeight);
+        var x = ScaleCoordinate(cell.X, screen.Width, DefaultReferenceWidth);
+        var y = ScaleCoordinate(cell.Y, screen.Height, DefaultReferenceHeight);
         var width = Math.Max(
             1,
-            ScaleCoordinate(cell.Width - 16, screen.Width, DefaultReferenceWidth));
+            ScaleCoordinate(cell.Width, screen.Width, DefaultReferenceWidth));
         var height = Math.Max(
             1,
-            ScaleCoordinate(cell.Height - 16, screen.Height, DefaultReferenceHeight));
+            ScaleCoordinate(cell.Height, screen.Height, DefaultReferenceHeight));
         if (x < 0 || y < 0 || x + width > screen.Width || y + height > screen.Height)
             return 0;
 
@@ -942,31 +948,14 @@ public sealed class DailyRaceRunnerSelector
             if (template.SourceImage is not { } sourceImage)
                 return CompareScreenshotCrop(screen, template, cell, connection);
 
-            // The lower part of a runner card contains the rank badge and
-            // rating number. A screenshot reference is meant to identify the
-            // portrait, so allowing the matcher to search that whole area can
-            // produce a plausible score from UI decorations instead of the
-            // runner. Keep the search in the upper card/portrait region while
-            // preserving the card bounds used for the tap.
-            var portraitHeight = Math.Max(1, (int)Math.Round(height * 0.78d));
-
-            // Use the same multi-scale NCC + edge scoring as Developer Tools,
-            // but keep the search constrained to this runner card. The old
-            // screenshot-crop scorer used a smaller fixed sample and missed
-            // face crops when the card rendered them below the 0.48 scale.
             return TemplateMatcher.FindScaled(
                     screen,
                     sourceImage,
-                    [x, y, width, portraitHeight],
+                    [x, y, width, height],
                     threshold: 0,
                     referenceWidth: screen.Width,
                     referenceHeight: screen.Height,
-                    precise
-                        ? PreciseScreenshotCropScaleCandidates
-                        : ScreenshotCropScaleCandidates,
-                    candidateStep: precise ? 4 : 8,
-                    sampleWidth: precise ? 16 : 8,
-                    sampleHeight: precise ? 16 : 8)
+                    PreciseScreenshotCropScaleCandidates)
                 .Score;
         }
 
@@ -1018,14 +1007,14 @@ public sealed class DailyRaceRunnerSelector
         RunnerCell cell,
         LastVerifiedConnection connection)
     {
-        var cellX = ScaleCoordinate(cell.X + 8, screen.Width, DefaultReferenceWidth);
-        var cellY = ScaleCoordinate(cell.Y + 8, screen.Height, DefaultReferenceHeight);
+        var cellX = ScaleCoordinate(cell.X, screen.Width, DefaultReferenceWidth);
+        var cellY = ScaleCoordinate(cell.Y, screen.Height, DefaultReferenceHeight);
         var cellWidth = Math.Max(
             1,
-            ScaleCoordinate(cell.Width - 16, screen.Width, DefaultReferenceWidth));
+            ScaleCoordinate(cell.Width, screen.Width, DefaultReferenceWidth));
         var cellHeight = Math.Max(
             1,
-            ScaleCoordinate(cell.Height - 16, screen.Height, DefaultReferenceHeight));
+            ScaleCoordinate(cell.Height, screen.Height, DefaultReferenceHeight));
         if (cellX < 0 || cellY < 0 || cellX + cellWidth > screen.Width || cellY + cellHeight > screen.Height)
             return 0;
 
@@ -1108,8 +1097,6 @@ public sealed class DailyRaceRunnerSelector
             }
         }
 
-        // The portrait is small enough that a four-pixel miss can noticeably
-        // depress NCC. Refine around the coarse winner one pixel at a time.
         var refineMinX = Math.Max(cellX, bestX - candidateStep + 1);
         var refineMaxX = Math.Min(maxX, bestX + candidateStep - 1);
         var refineMinY = Math.Max(cellY, bestY - candidateStep + 1);
@@ -1399,12 +1386,6 @@ public sealed class DailyRaceRunnerSelector
     }
 
     private readonly record struct RunnerCellMatch(
-        RunnerCell Cell,
-        double Score,
-        double RequiredScore);
-
-    private readonly record struct RunnerCellCandidate(
-        RunnerTemplate Template,
         RunnerCell Cell,
         double Score,
         double RequiredScore);

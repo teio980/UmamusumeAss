@@ -134,7 +134,7 @@ public sealed class DeveloperToolsImageMatchTests
             const int screenWidth = 900;
             const int screenHeight = 1600;
             const int matchX = 28;
-            const int matchY = 808;
+            const int matchY = 1228;
             var screenPixels = Enumerable.Repeat(
                     (byte)20,
                     screenWidth * screenHeight)
@@ -168,7 +168,7 @@ public sealed class DeveloperToolsImageMatchTests
             Assert.NotNull(result);
             Assert.True(result!.Found, $"Reference score was {result.Score:0.000}.");
             Assert.Equal(20, result.X);
-            Assert.Equal(800, result.Y);
+            Assert.Equal(1220, result.Y);
         }
         finally
         {
@@ -214,6 +214,44 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public async Task Daily_race_matcher_does_not_use_the_large_detail_portrait_as_a_runner_card()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(
+            Path.Combine(root, "debug", "live-selector-timeout.png"));
+        var referencePath = Path.Combine(
+            root,
+            "resource",
+            "uma",
+            "system_reference",
+            "100601.webp");
+
+        Assert.NotNull(screen);
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator",
+            "android",
+            "test",
+            900,
+            1600,
+            900,
+            1600,
+            DateTimeOffset.UtcNow);
+        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
+            screen!,
+            referencePath,
+            connection);
+
+        Assert.NotNull(result);
+        Console.WriteLine(
+            $"Detail-only 100601 score {result!.Score:0.000} at "
+            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
+        Assert.False(
+            result.Found,
+            $"The detail portrait was incorrectly accepted as a card: {result.Score:0.000}.");
+    }
+
+    [Fact]
     public async Task Daily_race_matcher_reports_the_current_filtered_runner_grid()
     {
         var root = FindSolutionRoot();
@@ -242,14 +280,68 @@ public sealed class DeveloperToolsImageMatchTests
 
         var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
             screen,
-            imagePaths,
+            imagePaths[0],
             connection);
+
+        var selectedReference = GrayImageCodec.FromFile(imagePaths[0]);
+        Assert.NotNull(selectedReference);
+        var fullPageMatch = TemplateMatcher.FindScaled(
+            screen,
+            selectedReference!,
+            roi: null,
+            threshold: 0,
+            referenceWidth: screen.Width,
+            referenceHeight: screen.Height,
+            scaleCandidates: [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00]);
 
         Assert.NotNull(result);
         Console.WriteLine(
             $"Current filtered grid score {result!.Score:0.000} at "
-            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
+            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}); "
+            + $"100601 full-page score {fullPageMatch.Score:0.000} at "
+            + $"({fullPageMatch.X}, {fullPageMatch.Y}, {fullPageMatch.Width}, {fullPageMatch.Height}).");
         Assert.True(result.Found, $"Current filtered grid score was {result.Score:0.000}.");
+    }
+
+    [Fact]
+    public async Task Daily_race_matcher_reports_100602_on_the_current_filtered_runner_grid()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(
+            Path.Combine(root, "debug", "live-restored-top.png"));
+        if (screen is null)
+            return;
+
+        var paths = new[]
+        {
+            Path.Combine(root, "resource", "uma", "system_reference", "100602.webp"),
+            Path.Combine(root, "resource", "uma", "system_reference", "1006_live.webp"),
+            Path.Combine(root, "resource", "uma", "assets", "images", "global", "trainees", "100602.webp"),
+            Path.Combine(root, "resource", "uma", "assets", "images", "global", "live_outfits", "1006.png"),
+        };
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator",
+            "android",
+            "test",
+            screen.Width,
+            screen.Height,
+            screen.Width,
+            screen.Height,
+            DateTimeOffset.UtcNow);
+
+        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
+            screen,
+            paths,
+            connection);
+
+        Assert.NotNull(result);
+        Console.WriteLine(
+            $"100602 filtered grid score {result!.Score:0.000} at "
+            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
+        Assert.True(
+            result.Score >= 0.80,
+            $"100602 grid score was only {result.Score:0.000}.");
     }
 
     [Fact]

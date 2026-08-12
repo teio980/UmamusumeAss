@@ -21,7 +21,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private const double SystemReferenceMatchThreshold =
         DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore;
     private static readonly double[] SystemReferenceScaleCandidates =
-        [0.32, 0.40, 0.46, 0.50, 0.54, 0.58, 0.62, 0.66, 0.70, 0.74, 0.78, 0.84, 1.00];
+        [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
 
     private static readonly JsonSerializerOptions PipelineJsonOptions = new()
     {

@@ -22,7 +22,11 @@ internal static class TemplateMatcher
         int referenceWidth,
         int referenceHeight,
         IReadOnlyList<double> scaleCandidates,
-        int candidateStep = 4,
+        // The coarse pass only locates the correlation basin. FindAtSize
+        // refines the winning area at pixel precision, so an 8-pixel coarse
+        // stride keeps the same final match while avoiding a large amount of
+        // redundant work across the runner grid.
+        int candidateStep = 8,
         int sampleWidth = 16,
         int sampleHeight = 16)
     {
@@ -55,11 +59,12 @@ internal static class TemplateMatcher
         var bestY = bounds.Y;
         var bestWidth = template.Width;
         var bestHeight = template.Height;
+        var bestScale = double.NaN;
 
-        foreach (var scale in scaleCandidates)
+        void EvaluateScale(double scale)
         {
             if (!double.IsFinite(scale) || scale <= 0)
-                continue;
+                return;
 
             var targetWidth = Math.Max(
                 1,
@@ -68,7 +73,7 @@ internal static class TemplateMatcher
                 1,
                 (int)Math.Round(template.Height * referenceScale * scale));
             if (targetWidth > screen.Width || targetHeight > screen.Height)
-                continue;
+                return;
 
             var match = FindAtSize(
                 screen,
@@ -86,7 +91,21 @@ internal static class TemplateMatcher
                 bestY = match.Y;
                 bestWidth = targetWidth;
                 bestHeight = targetHeight;
+                bestScale = scale;
             }
+        }
+
+        foreach (var scale in scaleCandidates)
+            EvaluateScale(scale);
+
+        // The rendered card size usually falls between two integer template
+        // scales. Recheck around the coarse winner at 0.01 increments; this
+        // avoids losing a genuinely identical crop merely because the
+        // supplied scale list landed 2-3 pixels away from its display size.
+        if (double.IsFinite(bestScale))
+        {
+            for (var offset = -4; offset <= 4; offset++)
+                EvaluateScale(bestScale + offset * 0.01d);
         }
 
         if (bestScore == double.MinValue)
