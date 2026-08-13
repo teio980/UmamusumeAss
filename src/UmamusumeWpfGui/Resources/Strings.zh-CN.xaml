@@ -316,6 +316,9 @@
   <sys:String x:Key="DeveloperToolsPipelineValidateButton">校验</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSaveButton">保存JSON</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineResourceLabel">编辑资源位置</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageLabel">剧本包内文件（选择manifest后可编辑全部JSON）</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageValidateButton">校验剧本包JSON</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageSaveButton">保存剧本文件</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUndoButton">撤销</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRedoButton">恢复</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTimingTitle">Timing字段</sys:String>
@@ -328,4 +331,9 @@
   <sys:String x:Key="DeveloperToolsPipelineEntryLabel">入口任务</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRunButton">运行测试</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineStopButton">停止</sys:String>
+  <sys:String x:Key="GrassTaskUraTraining">URA 育成</sys:String>
+  <sys:String x:Key="GrassTaskUraTrainingDescription">运行模块化 URA Finale 育成流程</sys:String>
+  <sys:String x:Key="GrassUraTrainingConnectionRequired">请连接设备并配置有效的 URA 育成设置。</sys:String>
+  <sys:String x:Key="GrassUraTrainingCanceled">URA 育成已取消。</sys:String>
+  <sys:String x:Key="GrassUraTrainingStopRequested">已请求停止 URA 育成。</sys:String>
 </ResourceDictionary>

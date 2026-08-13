@@ -7,6 +7,7 @@ using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
@@ -73,6 +74,15 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .ToSelf()
             .InSingletonScope();
         builder.Bind<DailyRaceTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<IUraTrainingPipeline>()
+            .To<AdbUraTrainingPipeline>()
+            .InSingletonScope();
+        builder.Bind<UraTraineeSelector>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<UraTrainingTaskModule>()
             .ToSelf()
             .InSingletonScope();
         builder.Bind<ITeamRacePipeline>()

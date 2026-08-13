@@ -315,6 +315,9 @@
   <sys:String x:Key="DeveloperToolsPipelineValidateButton">Validate</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSaveButton">Save JSON</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineResourceLabel">Edit resource location</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageLabel">Scenario package files (select a manifest to edit all JSON)</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageValidateButton">Validate package JSON</sys:String>
+  <sys:String x:Key="DeveloperToolsScenarioPackageSaveButton">Save scenario file</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUndoButton">Undo</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRedoButton">Redo</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTimingTitle">Timing fields</sys:String>
@@ -327,4 +330,9 @@
   <sys:String x:Key="DeveloperToolsPipelineEntryLabel">Entry task</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRunButton">Run test</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineStopButton">Stop</sys:String>
+  <sys:String x:Key="GrassTaskUraTraining">URA Training</sys:String>
+  <sys:String x:Key="GrassTaskUraTrainingDescription">Run a modular URA Finale training career</sys:String>
+  <sys:String x:Key="GrassUraTrainingConnectionRequired">Connect a device and configure a valid URA training profile first.</sys:String>
+  <sys:String x:Key="GrassUraTrainingCanceled">URA training canceled.</sys:String>
+  <sys:String x:Key="GrassUraTrainingStopRequested">URA training stop requested.</sys:String>
 </ResourceDictionary>

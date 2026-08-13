@@ -226,6 +226,9 @@
                     <DataTemplate DataType="{x:Type tasksettings:DailyRaceTaskSettingsViewModel}">
                       <taskviews:DailyRaceTaskSettingsView />
                     </DataTemplate>
+                    <DataTemplate DataType="{x:Type tasksettings:UraTrainingTaskSettingsViewModel}">
+                      <taskviews:UraTrainingTaskSettingsView />
+                    </DataTemplate>
                     <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
                       <taskviews:MailCollectionTaskSettingsView />
                     </DataTemplate>
