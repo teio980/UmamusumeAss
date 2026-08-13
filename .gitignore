@@ -23,6 +23,7 @@ dist/
 packages/
 *.nuget.props
 *.nuget.targets
+TestResults/
 
 # Visual Studio
 .vs/
