@@ -132,6 +132,27 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Shop_pipeline_skips_sold_out_items_and_returns_with_back()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "shop.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        Assert.Equal("shopNoShopComplete", definition!.GetTask("shopProbe").OnErrorNext.Single());
+        Assert.False(definition.GetTask("shopBuy1").Required);
+        Assert.False(definition.GetTask("shopBuy7").Required);
+        var back = definition.GetTask("shopBack");
+        Assert.Equal("ClickSelf", back.Action, ignoreCase: true);
+        Assert.Equal("templates/shop/back.png", back.Template);
+        Assert.Equal("shopComplete", back.Next.Single());
+        Assert.Equal("shopAndroidBack", back.OnErrorNext.Single());
+        Assert.True(definition.GetTask("shopComplete").Success);
+        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", back.Template!)));
+    }
+
+    [Fact]
     public async Task Daily_race_enables_multi_race_and_configures_ticket_count()
     {
         var root = FindSolutionRoot();

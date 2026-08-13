@@ -14,7 +14,7 @@
       "postDelay": 450,
       "required": false,
       "next": ["shopSelectAll"],
-      "onErrorNext": ["shopComplete"]
+      "onErrorNext": ["shopNoShopComplete"]
     },
     "shopSelectAll": {
       "template": "templates/shop/select_all.png",
@@ -22,6 +22,7 @@
       "templThreshold": 0.86,
       "timeoutMs": 8000,
       "postDelay": 500,
+      "required": false,
       "next": ["shopConfirm"],
       "exceededNext": ["shopBuy1"]
     },
@@ -31,6 +32,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopBuy2"],
       "exceededNext": ["shopBuy2"]
     },
@@ -40,6 +42,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopBuy3"],
       "exceededNext": ["shopBuy3"]
     },
@@ -49,6 +52,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopScrollMiddle"],
       "exceededNext": ["shopScrollMiddle"]
     },
@@ -65,6 +69,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopBuy5"],
       "exceededNext": ["shopBuy5"]
     },
@@ -74,6 +79,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopScrollBottom"],
       "exceededNext": ["shopScrollBottom"]
     },
@@ -90,6 +96,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopBuy7"],
       "exceededNext": ["shopBuy7"]
     },
@@ -99,6 +106,7 @@
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,
+      "required": false,
       "next": ["shopConfirm"],
       "exceededNext": ["shopConfirm"]
     },
@@ -110,7 +118,7 @@
       "postDelay": 1200,
       "required": false,
       "next": ["shopExchangeConfirm"],
-      "onErrorNext": ["shopComplete"]
+      "onErrorNext": ["shopBack"]
     },
     "shopExchangeConfirm": {
       "template": "templates/shop/exchange_confirm.png",
@@ -118,7 +126,9 @@
       "templThreshold": 0.80,
       "timeoutMs": 10000,
       "postDelay": 400,
-      "next": ["shopExchangeComplete"]
+      "required": false,
+      "next": ["shopExchangeComplete"],
+      "onErrorNext": ["shopBack"]
     },
     "shopExchangeComplete": {
       "template": "templates/shop/exchange_complete.png",
@@ -126,7 +136,9 @@
       "templThreshold": 0.86,
       "timeoutMs": 10000,
       "postDelay": 400,
-      "next": ["shopClose"]
+      "required": false,
+      "next": ["shopClose"],
+      "onErrorNext": ["shopBack"]
     },
     "shopClose": {
       "template": "templates/shop/exchange_close.png",
@@ -134,7 +146,32 @@
       "templThreshold": 0.80,
       "timeoutMs": 5000,
       "postDelay": 1200,
-      "next": ["shopComplete"]
+      "required": false,
+      "next": ["shopBack"],
+      "onErrorNext": ["shopBack"]
+    },
+    "shopBack": {
+      "template": "templates/shop/back.png",
+      "roi": [0, 1250, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopComplete"],
+      "onErrorNext": ["shopAndroidBack"]
+    },
+    "shopAndroidBack": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopComplete"],
+      "onErrorNext": ["shopComplete"]
+    },
+    "shopNoShopComplete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
     },
     "shopComplete": {
       "algorithm": "JustReturn",
