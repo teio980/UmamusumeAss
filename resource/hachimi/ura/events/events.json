@@ -1,0 +1,42 @@
+{
+  "$schema": "uma.scenario.events.v1",
+  "scenarioId": "ura",
+  "events": [
+    {
+      "eventId": "ura_entry",
+      "phase": "career",
+      "trigger": {"afterObjectiveId": "career_goals_complete"},
+      "title": "Going to the URA Finale!",
+      "capture": "screens/captures/ura_finale_after_goal_next.png",
+      "nextState": "finale_underway"
+    },
+    {
+      "eventId": "ura_qualifier_before",
+      "phase": "finale_underway",
+      "trigger": {"beforeRaceId": "ura_finale_qualifier"},
+      "title": "Before the URA Finale Qualifier",
+      "capture": "screens/captures/ura_prelim_attributes2.png"
+    },
+    {
+      "eventId": "ura_semifinal_before",
+      "phase": "finale_underway",
+      "trigger": {"beforeRaceId": "ura_finale_semifinal"},
+      "title": "Before the URA Finale Semifinal",
+      "capture": "screens/captures/ura_semifinal_attributes.png"
+    },
+    {
+      "eventId": "ura_semifinal_after",
+      "phase": "finale_underway",
+      "trigger": {"afterRaceId": "ura_finale_semifinal"},
+      "title": "After the URA Finale Semifinal",
+      "capture": "screens/captures/ura_final_current.png"
+    },
+    {
+      "eventId": "ura_finals_after",
+      "phase": "finished",
+      "trigger": {"afterRaceId": "ura_finale_finals"},
+      "title": "After the URA Finale Finals",
+      "capture": "screens/captures/ura_final_after_reward.png"
+    }
+  ]
+}

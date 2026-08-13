@@ -1,0 +1,17 @@
+{
+  "$schema": "uma.scenario.localization.v1",
+  "scenarioId": "ura",
+  "locale": "en",
+  "strings": {
+    "scenario.ura": "URA Finale",
+    "phase.finale_underway": "Finale Underway",
+    "objective.ura_finale_qualifier": "Place 1st in URA Finale Qualifier",
+    "objective.ura_finale_semifinal": "Place 1st in URA Finale Semifinal",
+    "objective.ura_finale_finals": "Place 1st in URA Finale Finals",
+    "race.ura_finale_qualifier": "URA Finale Qualifier",
+    "race.ura_finale_semifinal": "URA Finale Semifinal",
+    "race.ura_finale_finals": "URA Finale Finals",
+    "event.ura_entry": "Going to the URA Finale!",
+    "event.ura_finals_after": "After the URA Finale Finals"
+  }
+}

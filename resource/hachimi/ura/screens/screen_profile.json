@@ -1,0 +1,1050 @@
+﻿{
+    "$schema":  "uma.screen.profile.v1",
+    "profileId":  "ura.global.900x1600.v1",
+    "scenarioId":  "ura",
+    "region":  "global",
+    "gameVersionRange":  "\u003e=2025.01",
+    "referenceWidth":  900,
+    "referenceHeight":  1600,
+    "coordinateSpace":  "reference_pixels",
+    "captureRoot":  "captures/",
+    "stableFramePolicy":  {
+                              "minimumStableSamples":  2,
+                              "ignoreStates":  [
+                                                   "loading",
+                                                   "connecting",
+                                                   "race_playback",
+                                                   "transition"
+                                               ],
+                              "requireNoOverlayAnimation":  true
+                          },
+    "screens":  [
+                    {
+                        "screenId":  "career_main",
+                        "recognition":  {
+                                            "template":  "captures/training_main_turn1_ura.png",
+                                            "templates":  [
+                                                              "captures/training_main_turn2_ura.png",
+                                                              "captures/training_main_turn10_ura.png",
+                                                              "captures/training_main_turn13_ura.png",
+                                                              "captures/training_main_turn15_ura.png",
+                                                              "captures/senior_year_main.png",
+                                                              "captures/year2_main_start.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Training"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "scenario.phase",
+                                               "bounds":  {
+                                                              "x":  15,
+                                                              "y":  45,
+                                                              "width":  300,
+                                                              "height":  45
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "objective.title",
+                                               "bounds":  {
+                                                              "x":  315,
+                                                              "y":  90,
+                                                              "width":  520,
+                                                              "height":  65
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "stats.summary",
+                                               "bounds":  {
+                                                              "x":  25,
+                                                              "y":  1030,
+                                                              "width":  850,
+                                                              "height":  120
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "goal.details",
+                                            "task":  "career_main_goal_details"
+                                        },
+                                        {
+                                            "semanticId":  "action.training",
+                                            "task":  "career_main_action_training"
+                                        },
+                                        {
+                                            "semanticId":  "action.rest",
+                                            "task":  "career_main_action_rest"
+                                        },
+                                        {
+                                            "semanticId":  "action.finale_races",
+                                            "task":  "career_main_action_finale_races"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_races_ready",
+                        "recognition":  {
+                                            "template":  "captures/ura_finale_main_ready.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_races_active.png",
+                                                              "captures/ura_late_oct_goal_ready.png",
+                                                              "captures/goal2_main_ready.png",
+                                                              "captures/goal2_main_start.png",
+                                                              "captures/goal3_main_start.png",
+                                                              "captures/senior_year_main_ready.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Races"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "action.races",
+                                            "task":  "career_races_ready_action_races"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "training_selection",
+                        "recognition":  {
+                                            "template":  "captures/training_selection_ura.png",
+                                            "templates":  [
+                                                              "captures/ura_semifinal_training_select.png",
+                                                              "captures/ura_final_training_select.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Training"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "training.failure_rate",
+                                               "bounds":  {
+                                                              "x":  15,
+                                                              "y":  1135,
+                                                              "width":  230,
+                                                              "height":  90
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "training.speed",
+                                            "task":  "training_selection_training_speed"
+                                        },
+                                        {
+                                            "semanticId":  "training.stamina",
+                                            "task":  "training_selection_training_stamina"
+                                        },
+                                        {
+                                            "semanticId":  "training.power",
+                                            "task":  "training_selection_training_power"
+                                        },
+                                        {
+                                            "semanticId":  "training.guts",
+                                            "task":  "training_selection_training_guts"
+                                        },
+                                        {
+                                            "semanticId":  "training.wit",
+                                            "task":  "training_selection_training_wit"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "training_result",
+                        "recognition":  {
+                                            "template":  "captures/training_result_ura.png",
+                                            "templates":  [
+                                                              "captures/training_turn2_result_ura.png",
+                                                              "captures/training_partner_result_ura.png",
+                                                              "captures/training_duel_result_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Training"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "training_result_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "training_event",
+                        "recognition":  {
+                                            "template":  "captures/training_event_ura.png",
+                                            "templates":  [
+                                                              "captures/support_event_result_ura.png",
+                                                              "captures/trainee_event_result_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Career"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "training_event_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "event_choice",
+                        "recognition":  {
+                                            "template":  "captures/support_event_choice_ura.png",
+                                            "templates":  [
+                                                              "captures/trainee_event_choice_ura.png",
+                                                              "captures/scenario_event_duel_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Career"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.choice.first",
+                                            "task":  "event_choice_event_choice_first"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "rest_confirmation",
+                        "recognition":  {
+                                            "template":  "captures/rest_result_ura.png",
+                                            "requiredText":  [
+                                                                 "Rest",
+                                                                 "OK"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "rest.confirm",
+                                            "task":  "rest_confirmation_rest_confirm"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "rest_result",
+                        "recognition":  {
+                                            "template":  "captures/rest_after_debut.png",
+                                            "templates":  [
+                                                              "captures/rest_event_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Well-Rested"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "rest_result_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_list",
+                        "recognition":  {
+                                            "template":  "captures/ura_tenno_race_list.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_details.png",
+                                                              "captures/ura_tenno_race_list.png",
+                                                              "captures/goal2_race_list.png",
+                                                              "captures/senior_feb_races.png",
+                                                              "captures/senior_late_feb_races.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Race List"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.name",
+                                               "bounds":  {
+                                                              "x":  300,
+                                                              "y":  250,
+                                                              "width":  500,
+                                                              "height":  100
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "race.course",
+                                               "bounds":  {
+                                                              "x":  410,
+                                                              "y":  520,
+                                                              "width":  440,
+                                                              "height":  105
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "race.field_size",
+                                               "bounds":  {
+                                                              "x":  400,
+                                                              "y":  550,
+                                                              "width":  260,
+                                                              "height":  60
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.goal_entry",
+                                            "task":  "race_list_race_goal_entry"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_day",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_race_day.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_race_day.png",
+                                                              "captures/senior_arima_race_day.png",
+                                                              "captures/senior_kawasaki_race_day.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Race Day"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.objective",
+                                               "bounds":  {
+                                                              "x":  315,
+                                                              "y":  90,
+                                                              "width":  540,
+                                                              "height":  75
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "stats.summary",
+                                               "bounds":  {
+                                                              "x":  25,
+                                                              "y":  1100,
+                                                              "width":  850,
+                                                              "height":  115
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.open_list",
+                                            "task":  "race_day_race_open_list"
+                                        },
+                                        {
+                                            "semanticId":  "skills.open",
+                                            "task":  "race_day_skills_open"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_details",
+                        "recognition":  {
+                                            "template":  "captures/ura_prelim_confirm.png",
+                                            "templates":  [
+                                                              "captures/ura_semifinal_details.png",
+                                                              "captures/ura_final_details.png",
+                                                              "captures/senior_arima_confirm_dialog.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Race Details",
+                                                                 "Enter race?"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.details",
+                                               "bounds":  {
+                                                              "x":  25,
+                                                              "y":  450,
+                                                              "width":  850,
+                                                              "height":  500
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.confirm",
+                                            "task":  "race_details_race_confirm"
+                                        },
+                                        {
+                                            "semanticId":  "race.cancel",
+                                            "task":  "race_details_race_cancel"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_attributes",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_attributes2.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_attributes.png",
+                                                              "captures/ura_prelim_attributes2.png",
+                                                              "captures/ura_semifinal_attributes.png",
+                                                              "captures/ura_final_attributes.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Attributes",
+                                                                 "Stats",
+                                                                 "Aptitude"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.runner_attributes",
+                                               "bounds":  {
+                                                              "x":  430,
+                                                              "y":  215,
+                                                              "width":  450,
+                                                              "height":  770
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.start_playback",
+                                            "task":  "race_attributes_race_start_playback"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_playback",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_runner_ready2.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_runner_ready.png",
+                                                              "captures/ura_prelim_runner_ready2.png",
+                                                              "captures/ura_semifinal_runner_ready.png",
+                                                              "captures/ura_semifinal_runner_ready2.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Race!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.runners",
+                                               "bounds":  {
+                                                              "x":  35,
+                                                              "y":  235,
+                                                              "width":  840,
+                                                              "height":  1120
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.play",
+                                            "task":  "race_playback_race_play"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_playback_settings",
+                        "recognition":  {
+                                            "template":  "captures/ura_prelim_playback_ready.png",
+                                            "requiredText":  [
+                                                                 "Race Playback",
+                                                                 "OK"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.playback_settings_ok",
+                                            "task":  "race_playback_settings_race_playback_settings_ok"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_live",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_race_live.png",
+                                            "templates":  [
+                                                              "captures/ura_semifinal_race_live.png",
+                                                              "captures/ura_prelim_result_or_live.png",
+                                                              "captures/senior_arima_race_live.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "START",
+                                                                 "FINISH"
+                                                             ],
+                                            "stable":  false
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.live_next",
+                                            "task":  "race_live_race_live_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_result",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_finish.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_finish.png",
+                                                              "captures/ura_semifinal_finish.png",
+                                                              "captures/ura_semifinal_result.png",
+                                                              "captures/senior_arima_result.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "1st"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "result.placement",
+                                               "bounds":  {
+                                                              "x":  40,
+                                                              "y":  250,
+                                                              "width":  820,
+                                                              "height":  700
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "result.time",
+                                               "bounds":  {
+                                                              "x":  700,
+                                                              "y":  790,
+                                                              "width":  150,
+                                                              "height":  100
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "result.next",
+                                            "task":  "race_result_result_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "reward",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_reward.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_reward.png",
+                                                              "captures/ura_semifinal_reward.png",
+                                                              "captures/senior_arima_reward.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Fans",
+                                                                 "Items"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "reward.fans",
+                                               "bounds":  {
+                                                              "x":  230,
+                                                              "y":  1130,
+                                                              "width":  500,
+                                                              "height":  90
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "reward.class",
+                                               "bounds":  {
+                                                              "x":  180,
+                                                              "y":  760,
+                                                              "width":  550,
+                                                              "height":  400
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "reward.next",
+                                            "task":  "reward_reward_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "reward_support",
+                        "recognition":  {
+                                            "template":  "captures/ura_rewards_support_loaded.png",
+                                            "requiredText":  [
+                                                                 "REWARDS",
+                                                                 "Support Cards"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "reward.next",
+                                            "task":  "reward_support_reward_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "goal_update",
+                        "recognition":  {
+                                            "template":  "captures/ura_finale_goal_update.png",
+                                            "templates":  [
+                                                              "captures/senior_goal_update.png",
+                                                              "captures/year2_goal_update.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Next"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "goal.update_next",
+                                            "task":  "goal_update_goal_update_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "goal_complete",
+                        "recognition":  {
+                                            "template":  "captures/ura_finale_entry.png",
+                                            "requiredText":  [
+                                                                 "All goals achieved!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "goal.status",
+                                               "bounds":  {
+                                                              "x":  40,
+                                                              "y":  250,
+                                                              "width":  820,
+                                                              "height":  700
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "goal.next",
+                                            "task":  "goal_complete_goal_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "scenario_event",
+                        "recognition":  {
+                                            "template":  "captures/ura_finale_after_goal_next.png",
+                                            "requiredText":  [
+                                                                 "Main Scenario Event"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "event.title",
+                                               "bounds":  {
+                                                              "x":  70,
+                                                              "y":  245,
+                                                              "width":  700,
+                                                              "height":  130
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "event.body",
+                                               "bounds":  {
+                                                              "x":  35,
+                                                              "y":  1130,
+                                                              "width":  830,
+                                                              "height":  330
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "scenario_event_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "home",
+                        "recognition":  {
+                                            "template":  "captures/ura_returned_home.png",
+                                            "requiredText":  [
+                                                                 "Home"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "home.career",
+                                            "task":  "home_home_career"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "scenario_select",
+                        "recognition":  {
+                                            "template":  "captures/scenario_select_ura.png",
+                                            "requiredText":  [
+                                                                 "Scenario Select",
+                                                                 "URA Finale"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "scenario.next",
+                                            "task":  "scenario_select_scenario_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "scenario_intro",
+                        "recognition":  {
+                                            "template":  "captures/after_career_tap.png",
+                                            "templates":  [
+                                                              "captures/career_intro_event_ura.png",
+                                                              "captures/career_intro_event_skip_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Career"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "scenario.next",
+                                            "task":  "scenario_intro_scenario_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "trainee_select",
+                        "recognition":  {
+                                            "template":  "captures/trainee_select_ura.png",
+                                            "requiredText":  [
+                                                                 "Trainee Select",
+                                                                 "Oguri Cap"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "trainee.next",
+                                            "task":  "trainee_select_trainee_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_select",
+                        "recognition":  {
+                                            "template":  "captures/support_select_ura.png",
+                                            "requiredText":  [
+                                                                 "Support Formation",
+                                                                 "Auto-Fill"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.auto_fill",
+                                            "task":  "support_select_support_auto_fill"
+                                        },
+                                        {
+                                            "semanticId":  "support.start",
+                                            "task":  "support_select_support_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_autofill_confirmation",
+                        "recognition":  {
+                                            "template":  "captures/support_autofill_prompt_ura.png",
+                                            "requiredText":  [
+                                                                 "Auto-Select",
+                                                                 "OK"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.autofill_ok",
+                                            "task":  "support_autofill_confirmation_support_autofill_ok"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_ready",
+                        "recognition":  {
+                                            "template":  "captures/support_autofilled_ura.png",
+                                            "requiredText":  [
+                                                                 "Support Formation",
+                                                                 "Start Career!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.start",
+                                            "task":  "support_ready_support_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "legacy_select",
+                        "recognition":  {
+                                            "template":  "captures/legacy_selected_ura_confirmed.png",
+                                            "requiredText":  [
+                                                                 "Legacy Select",
+                                                                 "Auto-Select"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "legacy.next",
+                                            "task":  "legacy_select_legacy_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_intro_event",
+                        "recognition":  {
+                                            "template":  "captures/intro_tazuna_ura.png",
+                                            "templates":  [
+                                                              "captures/career_intro_event_ura.png",
+                                                              "captures/career_intro_event_skip_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Tazuna"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "career_intro_event_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_entry",
+                        "recognition":  {
+                                            "template":  "captures/career_intro_ura.png",
+                                            "requiredText":  [
+                                                                 "Final Confirmation",
+                                                                 "Start Career!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.start",
+                                            "task":  "career_entry_career_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "complete_career",
+                        "recognition":  {
+                                            "template":  "captures/ura_complete_career_next.png",
+                                            "requiredText":  [
+                                                                 "Complete Career",
+                                                                 "Finish"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.finish",
+                                            "task":  "complete_career_career_finish"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_rank",
+                        "recognition":  {
+                                            "template":  "captures/ura_post_finish_loaded.png",
+                                            "requiredText":  [
+                                                                 "CAREER RANK",
+                                                                 "Rating"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.next",
+                                            "task":  "career_rank_career_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "sparks",
+                        "recognition":  {
+                                            "template":  "captures/ura_career_rank_next.png",
+                                            "requiredText":  [
+                                                                 "SPARKS",
+                                                                 "Confirm"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "sparks.confirm",
+                                            "task":  "sparks_sparks_confirm"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "sparks_confirmation",
+                        "recognition":  {
+                                            "template":  "captures/ura_sparks_confirmed.png",
+                                            "requiredText":  [
+                                                                 "Confirmation",
+                                                                 "Keep this set of Sparks?"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "sparks.keep",
+                                            "task":  "sparks_confirmation_sparks_keep"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_result",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_result_next.png",
+                                            "templates":  [
+                                                              "captures/ura_final_result_close.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Career Record",
+                                                                 "Next"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.next",
+                                            "task":  "career_result_career_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "rewards",
+                        "recognition":  {
+                                            "template":  "captures/ura_rewards_loaded.png",
+                                            "requiredText":  [
+                                                                 "REWARDS",
+                                                                 "Next"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "rewards.next",
+                                            "task":  "rewards_rewards_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_complete",
+                        "recognition":  {
+                                            "template":  "captures/ura_rewards_support_next.png",
+                                            "requiredText":  [
+                                                                 "Career Complete",
+                                                                 "To Home"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.to_home",
+                                            "task":  "career_complete_career_to_home"
+                                        }
+                                    ]
+                    }
+                ],
+    "transitions":  [
+                        {
+                            "from":  "career_main",
+                            "to":  "training_selection",
+                            "on":  "training.open"
+                        },
+                        {
+                            "from":  "career_main",
+                            "to":  "race_day",
+                            "on":  "race.goal_ready"
+                        },
+                        {
+                            "from":  "race_day",
+                            "to":  "race_list",
+                            "on":  "race.open"
+                        },
+                        {
+                            "from":  "race_list",
+                            "to":  "race_details",
+                            "on":  "race.select"
+                        },
+                        {
+                            "from":  "race_details",
+                            "to":  "race_attributes",
+                            "on":  "race.confirm"
+                        },
+                        {
+                            "from":  "race_attributes",
+                            "to":  "race_playback",
+                            "on":  "race.start"
+                        },
+                        {
+                            "from":  "race_playback",
+                            "to":  "race_result",
+                            "on":  "race.finished"
+                        },
+                        {
+                            "from":  "race_result",
+                            "to":  "reward",
+                            "on":  "result.next"
+                        },
+                        {
+                            "from":  "reward",
+                            "to":  "goal_complete",
+                            "on":  "reward.next"
+                        },
+                        {
+                            "from":  "goal_complete",
+                            "to":  "scenario_event",
+                            "on":  "goal.next"
+                        },
+                        {
+                            "from":  "scenario_event",
+                            "to":  "career_main",
+                            "on":  "event.complete"
+                        }
+                    ],
+    "captureEvidence":  {
+                            "method":  "adb",
+                            "device":  "emulator-5554",
+                            "resolution":  {
+                                               "width":  900,
+                                               "height":  1600
+                                           },
+                            "directory":  "captures/",
+                            "rawPngs":  485,
+                            "stableRepresentativeCount":  11
+                        }
+}

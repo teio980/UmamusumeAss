@@ -1,0 +1,1762 @@
+﻿{
+    "name":  "ura-training-execution",
+    "schemaVersion":  1,
+    "description":  "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+    "referenceWidth":  900,
+    "referenceHeight":  1600,
+    "templates":  {
+
+                  },
+    "tasks":  {
+                  "home":  {
+                              "algorithm":  "MatchTemplate",
+                              "action":  "ClickSelf",
+                              "template":  "../../templates/start_game/game_home_selected.png",
+                              "templThreshold":  0.8,
+                              "roi":  [
+                                          250,
+                                          1400,
+                                          400,
+                                          200
+                                      ],
+                              "preDelay":  0,
+                              "postDelay":  1200,
+                              "waitMs":  0,
+                              "timeoutMs":  2500,
+                              "pollIntervalMs":  250,
+                              "next":  [
+                                          "home_home_career"
+                                      ],
+                              "onErrorNext":  [
+                                                  "homeAlt"
+                                              ],
+                              "exceededNext":  [
+
+                                              ],
+                              "sub":  [
+
+                                      ],
+                              "monitorTasks":  [
+
+                                               ],
+                              "maxTimes":  0,
+                              "required":  true,
+                              "success":  false
+                          },
+                  "homeAlt":  {
+                                 "algorithm":  "MatchTemplate",
+                                 "action":  "ClickSelf",
+                                 "template":  "../../templates/start_game/game_home_unselected.png",
+                                 "templThreshold":  0.8,
+                                 "roi":  [
+                                             250,
+                                             1400,
+                                             400,
+                                             200
+                                         ],
+                                 "preDelay":  0,
+                                 "postDelay":  1200,
+                                 "waitMs":  0,
+                                 "timeoutMs":  2500,
+                                 "pollIntervalMs":  250,
+                                 "next":  [
+                                             "home_home_career"
+                                         ],
+                                 "onErrorNext":  [
+
+                                             ],
+                                 "exceededNext":  [
+
+                                             ],
+                                 "sub":  [
+
+                                         ],
+                                 "monitorTasks":  [
+
+                                                  ],
+                                 "maxTimes":  0,
+                                 "required":  true,
+                                 "success":  false
+                             },
+                  "career_main_goal_details":  {
+                                                   "algorithm":  "MatchTemplate",
+                                                   "action":  "ClickSelf",
+                                                   "template":  "templates/career_main_goal_details.png",
+                                                   "templThreshold":  0.78,
+                                                   "roi":  [
+                                                               760,
+                                                               95,
+                                                               125,
+                                                               75
+                                                           ],
+                                                   "preDelay":  0,
+                                                   "postDelay":  650,
+                                                   "waitMs":  0,
+                                                   "timeoutMs":  12000,
+                                                   "pollIntervalMs":  250,
+                                                   "next":  [
+
+                                                            ],
+                                                   "onErrorNext":  [
+
+                                                                   ],
+                                                   "exceededNext":  [
+
+                                                                    ],
+                                                   "sub":  [
+
+                                                           ],
+                                                   "monitorTasks":  [
+
+                                                                    ],
+                                                   "maxTimes":  0,
+                                                   "required":  true,
+                                                   "success":  false
+                                               },
+                  "career_main_action_training":  {
+                                                      "algorithm":  "MatchTemplate",
+                                                      "action":  "ClickSelf",
+                                                      "template":  "templates/career_main_action_training.png",
+                                                      "templThreshold":  0.78,
+                                                      "roi":  [
+                                                                  280,
+                                                                  1180,
+                                                                  340,
+                                                                  150
+                                                              ],
+                                                      "preDelay":  0,
+                                                      "postDelay":  650,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+
+                                                               ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                       ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
+                  "career_main_action_rest":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/career_main_action_rest.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              25,
+                                                              1160,
+                                                              220,
+                                                              160
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "career_main_action_finale_races":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/career_main_action_finale_races.png",
+                                                          "templThreshold":  0.78,
+                                                          "roi":  [
+                                                                      580,
+                                                                      1330,
+                                                                      250,
+                                                                      170
+                                                                  ],
+                                                          "preDelay":  0,
+                                                          "postDelay":  650,
+                                                          "waitMs":  0,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "next":  [
+
+                                                                   ],
+                                                          "onErrorNext":  [
+
+                                                                          ],
+                                                          "exceededNext":  [
+
+                                                                           ],
+                                                          "sub":  [
+
+                                                                  ],
+                                                          "monitorTasks":  [
+
+                                                                           ],
+                                                          "maxTimes":  0,
+                                                          "required":  true,
+                                                          "success":  false
+                                                      },
+                  "career_races_ready_action_races":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/career_races_ready_action_races.png",
+                                                          "templThreshold":  0.78,
+                                                          "roi":  [
+                                                                      580,
+                                                                      1330,
+                                                                      250,
+                                                                      170
+                                                                  ],
+                                                          "preDelay":  0,
+                                                          "postDelay":  650,
+                                                          "waitMs":  0,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "next":  [
+
+                                                                   ],
+                                                          "onErrorNext":  [
+
+                                                                          ],
+                                                          "exceededNext":  [
+
+                                                                           ],
+                                                          "sub":  [
+
+                                                                  ],
+                                                          "monitorTasks":  [
+
+                                                                           ],
+                                                          "maxTimes":  0,
+                                                          "required":  true,
+                                                          "success":  false
+                                                      },
+                  "training_selection_training_speed":  {
+                                                            "algorithm":  "MatchTemplate",
+                                                            "action":  "ClickSelf",
+                                                            "template":  "templates/training_selection_training_speed.png",
+                                                            "templThreshold":  0.78,
+                                                            "roi":  [
+                                                                        35,
+                                                                        1210,
+                                                                        180,
+                                                                        210
+                                                                    ],
+                                                            "preDelay":  0,
+                                                            "postDelay":  650,
+                                                            "waitMs":  0,
+                                                            "timeoutMs":  12000,
+                                                            "pollIntervalMs":  250,
+                                                            "next":  [
+
+                                                                     ],
+                                                            "onErrorNext":  [
+
+                                                                            ],
+                                                            "exceededNext":  [
+
+                                                                             ],
+                                                            "sub":  [
+
+                                                                    ],
+                                                            "monitorTasks":  [
+
+                                                                             ],
+                                                            "maxTimes":  0,
+                                                            "required":  true,
+                                                            "success":  false
+                                                        },
+                  "training_selection_training_stamina":  {
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/training_selection_training_stamina.png",
+                                                              "templThreshold":  0.78,
+                                                              "roi":  [
+                                                                          210,
+                                                                          1270,
+                                                                          170,
+                                                                          150
+                                                                      ],
+                                                              "preDelay":  0,
+                                                              "postDelay":  650,
+                                                              "waitMs":  0,
+                                                              "timeoutMs":  12000,
+                                                              "pollIntervalMs":  250,
+                                                              "next":  [
+
+                                                                       ],
+                                                              "onErrorNext":  [
+
+                                                                              ],
+                                                              "exceededNext":  [
+
+                                                                               ],
+                                                              "sub":  [
+
+                                                                      ],
+                                                              "monitorTasks":  [
+
+                                                                               ],
+                                                              "maxTimes":  0,
+                                                              "required":  true,
+                                                              "success":  false
+                                                          },
+                  "training_selection_training_power":  {
+                                                            "algorithm":  "MatchTemplate",
+                                                            "action":  "ClickSelf",
+                                                            "template":  "templates/training_selection_training_power.png",
+                                                            "templThreshold":  0.78,
+                                                            "roi":  [
+                                                                        375,
+                                                                        1270,
+                                                                        170,
+                                                                        150
+                                                                    ],
+                                                            "preDelay":  0,
+                                                            "postDelay":  650,
+                                                            "waitMs":  0,
+                                                            "timeoutMs":  12000,
+                                                            "pollIntervalMs":  250,
+                                                            "next":  [
+
+                                                                     ],
+                                                            "onErrorNext":  [
+
+                                                                            ],
+                                                            "exceededNext":  [
+
+                                                                             ],
+                                                            "sub":  [
+
+                                                                    ],
+                                                            "monitorTasks":  [
+
+                                                                             ],
+                                                            "maxTimes":  0,
+                                                            "required":  true,
+                                                            "success":  false
+                                                        },
+                  "training_selection_training_guts":  {
+                                                           "algorithm":  "MatchTemplate",
+                                                           "action":  "ClickSelf",
+                                                           "template":  "templates/training_selection_training_guts.png",
+                                                           "templThreshold":  0.78,
+                                                           "roi":  [
+                                                                       540,
+                                                                       1270,
+                                                                       170,
+                                                                       150
+                                                                   ],
+                                                           "preDelay":  0,
+                                                           "postDelay":  650,
+                                                           "waitMs":  0,
+                                                           "timeoutMs":  12000,
+                                                           "pollIntervalMs":  250,
+                                                           "next":  [
+
+                                                                    ],
+                                                           "onErrorNext":  [
+
+                                                                           ],
+                                                           "exceededNext":  [
+
+                                                                            ],
+                                                           "sub":  [
+
+                                                                   ],
+                                                           "monitorTasks":  [
+
+                                                                            ],
+                                                           "maxTimes":  0,
+                                                           "required":  true,
+                                                           "success":  false
+                                                       },
+                  "training_selection_training_wit":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/training_selection_training_wit.png",
+                                                          "templThreshold":  0.78,
+                                                          "roi":  [
+                                                                      700,
+                                                                      1270,
+                                                                      170,
+                                                                      150
+                                                                  ],
+                                                          "preDelay":  0,
+                                                          "postDelay":  650,
+                                                          "waitMs":  0,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "next":  [
+
+                                                                   ],
+                                                          "onErrorNext":  [
+
+                                                                          ],
+                                                          "exceededNext":  [
+
+                                                                           ],
+                                                          "sub":  [
+
+                                                                  ],
+                                                          "monitorTasks":  [
+
+                                                                           ],
+                                                          "maxTimes":  0,
+                                                          "required":  true,
+                                                          "success":  false
+                                                      },
+                  "training_result_event_advance":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/training_result_event_advance.png",
+                                                        "templThreshold":  0.78,
+                                                        "roi":  [
+                                                                    225,
+                                                                    1510,
+                                                                    200,
+                                                                    70
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  650,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [
+
+                                                                 ],
+                                                        "onErrorNext":  [
+
+                                                                        ],
+                                                        "exceededNext":  [
+
+                                                                         ],
+                                                        "sub":  [
+
+                                                                ],
+                                                        "monitorTasks":  [
+
+                                                                         ],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                  "training_event_event_advance":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/training_event_event_advance.png",
+                                                       "templThreshold":  0.78,
+                                                       "roi":  [
+                                                                   225,
+                                                                   1510,
+                                                                   200,
+                                                                   70
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                                ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "event_choice_event_choice_first":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/event_choice_event_choice_first.png",
+                                                          "templThreshold":  0.78,
+                                                          "roi":  [
+                                                                      30,
+                                                                      890,
+                                                                      840,
+                                                                      125
+                                                                  ],
+                                                          "preDelay":  0,
+                                                          "postDelay":  650,
+                                                          "waitMs":  0,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "next":  [
+
+                                                                   ],
+                                                          "onErrorNext":  [
+
+                                                                          ],
+                                                          "exceededNext":  [
+
+                                                                           ],
+                                                          "sub":  [
+
+                                                                  ],
+                                                          "monitorTasks":  [
+
+                                                                           ],
+                                                          "maxTimes":  0,
+                                                          "required":  true,
+                                                          "success":  false
+                                                      },
+                  "rest_confirmation_rest_confirm":  {
+                                                         "algorithm":  "MatchTemplate",
+                                                         "action":  "ClickSelf",
+                                                         "template":  "templates/rest_confirmation_rest_confirm.png",
+                                                         "templThreshold":  0.78,
+                                                         "roi":  [
+                                                                     470,
+                                                                     995,
+                                                                     360,
+                                                                     120
+                                                                 ],
+                                                         "preDelay":  0,
+                                                         "postDelay":  650,
+                                                         "waitMs":  0,
+                                                         "timeoutMs":  12000,
+                                                         "pollIntervalMs":  250,
+                                                         "next":  [
+
+                                                                  ],
+                                                         "onErrorNext":  [
+
+                                                                         ],
+                                                         "exceededNext":  [
+
+                                                                          ],
+                                                         "sub":  [
+
+                                                                 ],
+                                                         "monitorTasks":  [
+
+                                                                          ],
+                                                         "maxTimes":  0,
+                                                         "required":  true,
+                                                         "success":  false
+                                                     },
+                  "rest_result_event_advance":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/rest_result_event_advance.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                30,
+                                                                1040,
+                                                                840,
+                                                                150
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "race_list_race_goal_entry":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/race_list_race_goal_entry.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                30,
+                                                                870,
+                                                                840,
+                                                                210
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "race_day_race_open_list":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/race_day_race_open_list.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              470,
+                                                              1230,
+                                                              360,
+                                                              220
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "race_day_skills_open":  {
+                                               "algorithm":  "MatchTemplate",
+                                               "action":  "ClickSelf",
+                                               "template":  "templates/race_day_skills_open.png",
+                                               "templThreshold":  0.78,
+                                               "roi":  [
+                                                           80,
+                                                           1250,
+                                                           350,
+                                                           180
+                                                       ],
+                                               "preDelay":  0,
+                                               "postDelay":  650,
+                                               "waitMs":  0,
+                                               "timeoutMs":  12000,
+                                               "pollIntervalMs":  250,
+                                               "next":  [
+
+                                                        ],
+                                               "onErrorNext":  [
+
+                                                               ],
+                                               "exceededNext":  [
+
+                                                                ],
+                                               "sub":  [
+
+                                                       ],
+                                               "monitorTasks":  [
+
+                                                                ],
+                                               "maxTimes":  0,
+                                               "required":  true,
+                                               "success":  false
+                                           },
+                  "race_details_race_confirm":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/race_details_race_confirm.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                470,
+                                                                1090,
+                                                                360,
+                                                                130
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "race_details_race_cancel":  {
+                                                   "algorithm":  "MatchTemplate",
+                                                   "action":  "ClickSelf",
+                                                   "template":  "templates/race_details_race_cancel.png",
+                                                   "templThreshold":  0.78,
+                                                   "roi":  [
+                                                               70,
+                                                               1090,
+                                                               360,
+                                                               130
+                                                           ],
+                                                   "preDelay":  0,
+                                                   "postDelay":  650,
+                                                   "waitMs":  0,
+                                                   "timeoutMs":  12000,
+                                                   "pollIntervalMs":  250,
+                                                   "next":  [
+
+                                                            ],
+                                                   "onErrorNext":  [
+
+                                                                   ],
+                                                   "exceededNext":  [
+
+                                                                    ],
+                                                   "sub":  [
+
+                                                           ],
+                                                   "monitorTasks":  [
+
+                                                                    ],
+                                                   "maxTimes":  0,
+                                                   "required":  true,
+                                                   "success":  false
+                                               },
+                  "race_attributes_race_start_playback":  {
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/race_attributes_race_start_playback.png",
+                                                              "templThreshold":  0.78,
+                                                              "roi":  [
+                                                                          465,
+                                                                          1410,
+                                                                          245,
+                                                                          115
+                                                                      ],
+                                                              "preDelay":  0,
+                                                              "postDelay":  650,
+                                                              "waitMs":  0,
+                                                              "timeoutMs":  12000,
+                                                              "pollIntervalMs":  250,
+                                                              "next":  [
+
+                                                                       ],
+                                                              "onErrorNext":  [
+
+                                                                              ],
+                                                              "exceededNext":  [
+
+                                                                               ],
+                                                              "sub":  [
+
+                                                                      ],
+                                                              "monitorTasks":  [
+
+                                                                               ],
+                                                              "maxTimes":  0,
+                                                              "required":  true,
+                                                              "success":  false
+                                                          },
+                  "race_playback_race_play":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/race_playback_race_play.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              270,
+                                                              1410,
+                                                              360,
+                                                              110
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "race_playback_settings_race_playback_settings_ok":  {
+                                                                           "algorithm":  "MatchTemplate",
+                                                                           "action":  "ClickSelf",
+                                                                           "template":  "templates/race_playback_settings_race_playback_settings_ok.png",
+                                                                           "templThreshold":  0.78,
+                                                                           "roi":  [
+                                                                                       470,
+                                                                                       995,
+                                                                                       360,
+                                                                                       120
+                                                                                   ],
+                                                                           "preDelay":  0,
+                                                                           "postDelay":  650,
+                                                                           "waitMs":  0,
+                                                                           "timeoutMs":  12000,
+                                                                           "pollIntervalMs":  250,
+                                                                           "next":  [
+
+                                                                                    ],
+                                                                           "onErrorNext":  [
+
+                                                                                           ],
+                                                                           "exceededNext":  [
+
+                                                                                            ],
+                                                                           "sub":  [
+
+                                                                                   ],
+                                                                           "monitorTasks":  [
+
+                                                                                            ],
+                                                                           "maxTimes":  0,
+                                                                           "required":  true,
+                                                                           "success":  false
+                                                                       },
+                  "race_live_race_live_next":  {
+                                                   "algorithm":  "MatchTemplate",
+                                                   "action":  "ClickSelf",
+                                                   "template":  "templates/race_live_race_live_next.png",
+                                                   "templThreshold":  0.78,
+                                                   "roi":  [
+                                                               650,
+                                                               1450,
+                                                               120,
+                                                               120
+                                                           ],
+                                                   "preDelay":  0,
+                                                   "postDelay":  650,
+                                                   "waitMs":  0,
+                                                   "timeoutMs":  12000,
+                                                   "pollIntervalMs":  250,
+                                                   "next":  [
+
+                                                            ],
+                                                   "onErrorNext":  [
+
+                                                                   ],
+                                                   "exceededNext":  [
+
+                                                                    ],
+                                                   "sub":  [
+
+                                                           ],
+                                                   "monitorTasks":  [
+
+                                                                    ],
+                                                   "maxTimes":  0,
+                                                   "required":  true,
+                                                   "success":  false
+                                               },
+                  "race_result_result_next":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/race_result_result_next.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              270,
+                                                              1410,
+                                                              360,
+                                                              115
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "reward_reward_next":  {
+                                             "algorithm":  "MatchTemplate",
+                                             "action":  "ClickSelf",
+                                             "template":  "templates/reward_reward_next.png",
+                                             "templThreshold":  0.78,
+                                             "roi":  [
+                                                         270,
+                                                         1410,
+                                                         360,
+                                                         115
+                                                     ],
+                                             "preDelay":  0,
+                                             "postDelay":  650,
+                                             "waitMs":  0,
+                                             "timeoutMs":  12000,
+                                             "pollIntervalMs":  250,
+                                             "next":  [
+
+                                                      ],
+                                             "onErrorNext":  [
+
+                                                             ],
+                                             "exceededNext":  [
+
+                                                              ],
+                                             "sub":  [
+
+                                                     ],
+                                             "monitorTasks":  [
+
+                                                              ],
+                                             "maxTimes":  0,
+                                             "required":  true,
+                                             "success":  false
+                                         },
+                  "reward_support_reward_next":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/reward_support_reward_next.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [
+                                                                 270,
+                                                                 1410,
+                                                                 360,
+                                                                 115
+                                                             ],
+                                                     "preDelay":  0,
+                                                     "postDelay":  650,
+                                                     "waitMs":  0,
+                                                     "timeoutMs":  12000,
+                                                     "pollIntervalMs":  250,
+                                                     "next":  [
+
+                                                              ],
+                                                     "onErrorNext":  [
+
+                                                                     ],
+                                                     "exceededNext":  [
+
+                                                                      ],
+                                                     "sub":  [
+
+                                                             ],
+                                                     "monitorTasks":  [
+
+                                                                      ],
+                                                     "maxTimes":  0,
+                                                     "required":  true,
+                                                     "success":  false
+                                                 },
+                  "goal_update_goal_update_next":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/goal_update_goal_update_next.png",
+                                                       "templThreshold":  0.78,
+                                                       "roi":  [
+                                                                   270,
+                                                                   1340,
+                                                                   360,
+                                                                   120
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                                ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "goal_complete_goal_next":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/goal_complete_goal_next.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              270,
+                                                              1340,
+                                                              360,
+                                                              120
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "scenario_event_event_advance":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/scenario_event_event_advance.png",
+                                                       "templThreshold":  0.78,
+                                                       "roi":  [
+                                                                   225,
+                                                                   1510,
+                                                                   200,
+                                                                   70
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                                ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "home_home_career":  {
+                                           "algorithm":  "MatchTemplate",
+                                           "action":  "ClickSelf",
+                                           "template":  "templates/home_home_career.png",
+                                           "templThreshold":  0.78,
+                                           "roi":  [
+                                                       505,
+                                                       1240,
+                                                       330,
+                                                       180
+                                                   ],
+                                           "preDelay":  0,
+                                           "postDelay":  650,
+                                           "waitMs":  0,
+                                           "timeoutMs":  12000,
+                                           "pollIntervalMs":  250,
+                                           "next":  [
+
+                                                    ],
+                                           "onErrorNext":  [
+
+                                                           ],
+                                           "exceededNext":  [
+
+                                                            ],
+                                           "sub":  [
+
+                                                   ],
+                                           "monitorTasks":  [
+
+                                                            ],
+                                           "maxTimes":  0,
+                                           "required":  true,
+                                           "success":  false
+                                       },
+                  "scenario_select_scenario_next":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/scenario_select_scenario_next.png",
+                                                        "templThreshold":  0.78,
+                                                        "roi":  [
+                                                                    270,
+                                                                    1300,
+                                                                    360,
+                                                                    120
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  650,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [
+
+                                                                 ],
+                                                        "onErrorNext":  [
+
+                                                                        ],
+                                                        "exceededNext":  [
+
+                                                                         ],
+                                                        "sub":  [
+
+                                                                ],
+                                                        "monitorTasks":  [
+
+                                                                         ],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                  "scenario_intro_scenario_next":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/scenario_intro_scenario_next.png",
+                                                       "templThreshold":  0.78,
+                                                       "roi":  [
+                                                                   225,
+                                                                   1510,
+                                                                   200,
+                                                                   70
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                                ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "trainee_select_trainee_next":  {
+                                                      "algorithm":  "MatchTemplate",
+                                                      "action":  "ClickSelf",
+                                                      "template":  "templates/trainee_select_trainee_next.png",
+                                                      "templThreshold":  0.78,
+                                                      "roi":  [
+                                                                  270,
+                                                                  1300,
+                                                                  360,
+                                                                  120
+                                                              ],
+                                                      "preDelay":  0,
+                                                      "postDelay":  650,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+
+                                                               ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                       ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
+                  "support_select_support_auto_fill":  {
+                                                           "algorithm":  "MatchTemplate",
+                                                           "action":  "ClickSelf",
+                                                           "template":  "templates/support_select_support_auto_fill.png",
+                                                           "templThreshold":  0.78,
+                                                           "roi":  [
+                                                                       450,
+                                                                       1110,
+                                                                       390,
+                                                                       100
+                                                                   ],
+                                                           "preDelay":  0,
+                                                           "postDelay":  650,
+                                                           "waitMs":  0,
+                                                           "timeoutMs":  12000,
+                                                           "pollIntervalMs":  250,
+                                                           "next":  [
+
+                                                                    ],
+                                                           "onErrorNext":  [
+
+                                                                           ],
+                                                           "exceededNext":  [
+
+                                                                            ],
+                                                           "sub":  [
+
+                                                                   ],
+                                                           "monitorTasks":  [
+
+                                                                            ],
+                                                           "maxTimes":  0,
+                                                           "required":  true,
+                                                           "success":  false
+                                                       },
+                  "support_select_support_start":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/support_select_support_start.png",
+                                                       "templThreshold":  0.78,
+                                                       "roi":  [
+                                                                   330,
+                                                                   1300,
+                                                                   300,
+                                                                   120
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                                ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "support_autofill_confirmation_support_autofill_ok":  {
+                                                                            "algorithm":  "MatchTemplate",
+                                                                            "action":  "ClickSelf",
+                                                                            "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",
+                                                                            "templThreshold":  0.78,
+                                                                            "roi":  [
+                                                                                        470,
+                                                                                        995,
+                                                                                        360,
+                                                                                        120
+                                                                                    ],
+                                                                            "preDelay":  0,
+                                                                            "postDelay":  650,
+                                                                            "waitMs":  0,
+                                                                            "timeoutMs":  12000,
+                                                                            "pollIntervalMs":  250,
+                                                                            "next":  [
+
+                                                                                     ],
+                                                                            "onErrorNext":  [
+
+                                                                                            ],
+                                                                            "exceededNext":  [
+
+                                                                                             ],
+                                                                            "sub":  [
+
+                                                                                    ],
+                                                                            "monitorTasks":  [
+
+                                                                                             ],
+                                                                            "maxTimes":  0,
+                                                                            "required":  true,
+                                                                            "success":  false
+                                                                        },
+                  "support_ready_support_start":  {
+                                                      "algorithm":  "MatchTemplate",
+                                                      "action":  "ClickSelf",
+                                                      "template":  "templates/support_ready_support_start.png",
+                                                      "templThreshold":  0.78,
+                                                      "roi":  [
+                                                                  330,
+                                                                  1300,
+                                                                  300,
+                                                                  120
+                                                              ],
+                                                      "preDelay":  0,
+                                                      "postDelay":  650,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+
+                                                               ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                       ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
+                  "legacy_select_legacy_next":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/legacy_select_legacy_next.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                270,
+                                                                1300,
+                                                                360,
+                                                                120
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "career_intro_event_event_advance":  {
+                                                           "algorithm":  "MatchTemplate",
+                                                           "action":  "ClickSelf",
+                                                           "template":  "templates/career_intro_event_event_advance.png",
+                                                           "templThreshold":  0.78,
+                                                           "roi":  [
+                                                                       740,
+                                                                       1400,
+                                                                       150,
+                                                                       170
+                                                                   ],
+                                                           "preDelay":  0,
+                                                           "postDelay":  650,
+                                                           "waitMs":  0,
+                                                           "timeoutMs":  12000,
+                                                           "pollIntervalMs":  250,
+                                                           "next":  [
+
+                                                                    ],
+                                                           "onErrorNext":  [
+
+                                                                           ],
+                                                           "exceededNext":  [
+
+                                                                            ],
+                                                           "sub":  [
+
+                                                                   ],
+                                                           "monitorTasks":  [
+
+                                                                            ],
+                                                           "maxTimes":  0,
+                                                           "required":  true,
+                                                           "success":  false
+                                                       },
+                  "career_entry_career_start":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/career_entry_career_start.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                470,
+                                                                1430,
+                                                                360,
+                                                                120
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "complete_career_career_finish":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/complete_career_career_finish.png",
+                                                        "templThreshold":  0.78,
+                                                        "roi":  [
+                                                                    470,
+                                                                    1080,
+                                                                    360,
+                                                                    150
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  650,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [
+
+                                                                 ],
+                                                        "onErrorNext":  [
+
+                                                                        ],
+                                                        "exceededNext":  [
+
+                                                                         ],
+                                                        "sub":  [
+
+                                                                ],
+                                                        "monitorTasks":  [
+
+                                                                         ],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                  "career_rank_career_next":  {
+                                                  "algorithm":  "MatchTemplate",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/career_rank_career_next.png",
+                                                  "templThreshold":  0.78,
+                                                  "roi":  [
+                                                              270,
+                                                              1410,
+                                                              360,
+                                                              115
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
+                  "sparks_sparks_confirm":  {
+                                                "algorithm":  "MatchTemplate",
+                                                "action":  "ClickSelf",
+                                                "template":  "templates/sparks_sparks_confirm.png",
+                                                "templThreshold":  0.78,
+                                                "roi":  [
+                                                            470,
+                                                            1410,
+                                                            360,
+                                                            115
+                                                        ],
+                                                "preDelay":  0,
+                                                "postDelay":  650,
+                                                "waitMs":  0,
+                                                "timeoutMs":  12000,
+                                                "pollIntervalMs":  250,
+                                                "next":  [
+
+                                                         ],
+                                                "onErrorNext":  [
+
+                                                                ],
+                                                "exceededNext":  [
+
+                                                                 ],
+                                                "sub":  [
+
+                                                        ],
+                                                "monitorTasks":  [
+
+                                                                 ],
+                                                "maxTimes":  0,
+                                                "required":  true,
+                                                "success":  false
+                                            },
+                  "sparks_confirmation_sparks_keep":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/sparks_confirmation_sparks_keep.png",
+                                                          "templThreshold":  0.78,
+                                                          "roi":  [
+                                                                      470,
+                                                                      1410,
+                                                                      360,
+                                                                      115
+                                                                  ],
+                                                          "preDelay":  0,
+                                                          "postDelay":  650,
+                                                          "waitMs":  0,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "next":  [
+
+                                                                   ],
+                                                          "onErrorNext":  [
+
+                                                                          ],
+                                                          "exceededNext":  [
+
+                                                                           ],
+                                                          "sub":  [
+
+                                                                  ],
+                                                          "monitorTasks":  [
+
+                                                                           ],
+                                                          "maxTimes":  0,
+                                                          "required":  true,
+                                                          "success":  false
+                                                      },
+                  "career_result_career_next":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/career_result_career_next.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                270,
+                                                                1410,
+                                                                360,
+                                                                115
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "waitMs":  0,
+                                                    "timeoutMs":  12000,
+                                                    "pollIntervalMs":  250,
+                                                    "next":  [
+
+                                                             ],
+                                                    "onErrorNext":  [
+
+                                                                    ],
+                                                    "exceededNext":  [
+
+                                                                     ],
+                                                    "sub":  [
+
+                                                            ],
+                                                    "monitorTasks":  [
+
+                                                                     ],
+                                                    "maxTimes":  0,
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
+                  "rewards_rewards_next":  {
+                                               "algorithm":  "MatchTemplate",
+                                               "action":  "ClickSelf",
+                                               "template":  "templates/rewards_rewards_next.png",
+                                               "templThreshold":  0.78,
+                                               "roi":  [
+                                                           270,
+                                                           1410,
+                                                           360,
+                                                           115
+                                                       ],
+                                               "preDelay":  0,
+                                               "postDelay":  650,
+                                               "waitMs":  0,
+                                               "timeoutMs":  12000,
+                                               "pollIntervalMs":  250,
+                                               "next":  [
+
+                                                        ],
+                                               "onErrorNext":  [
+
+                                                               ],
+                                               "exceededNext":  [
+
+                                                                ],
+                                               "sub":  [
+
+                                                       ],
+                                               "monitorTasks":  [
+
+                                                                ],
+                                               "maxTimes":  0,
+                                               "required":  true,
+                                               "success":  false
+                                           },
+                  "career_complete_career_to_home":  {
+                                                         "algorithm":  "MatchTemplate",
+                                                         "action":  "ClickSelf",
+                                                         "template":  "templates/career_complete_career_to_home.png",
+                                                         "templThreshold":  0.78,
+                                                         "roi":  [
+                                                                     70,
+                                                                     990,
+                                                                     360,
+                                                                     120
+                                                                 ],
+                                                         "preDelay":  0,
+                                                         "postDelay":  650,
+                                                         "waitMs":  0,
+                                                         "timeoutMs":  12000,
+                                                         "pollIntervalMs":  250,
+                                                         "next":  [
+
+                                                                  ],
+                                                         "onErrorNext":  [
+
+                                                                         ],
+                                                         "exceededNext":  [
+
+                                                                          ],
+                                                         "sub":  [
+
+                                                                 ],
+                                                         "monitorTasks":  [
+
+                                                                          ],
+                                                         "maxTimes":  0,
+                                                         "required":  true,
+                                                         "success":  false
+                                                     }
+              }
+}

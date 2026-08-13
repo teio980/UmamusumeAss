@@ -1,0 +1,26 @@
+{
+  "$schema": "uma.scenario.manifest.v1",
+  "schemaVersion": 1,
+  "scenarioId": "ura",
+  "displayName": "URA Finale",
+  "region": "global",
+  "supportedRegions": ["global"],
+  "gameVersionRange": ">=2025.01",
+  "dataVersion": "adb-capture-2026-08-13",
+  "moduleType": "builtin:ura",
+  "capabilities": [
+    "yearly_objective",
+    "multi_stage_finale",
+    "special_training",
+    "race_retry",
+    "checkpoint_resume"
+  ],
+  "definition": "scenario.json",
+  "objectives": "objectives.json",
+  "races": "races.json",
+  "events": "events/events.json",
+  "screens": "screens/screen_profile.json",
+  "execution": "screens/execution.json",
+  "localization": "localization/",
+  "globalDatabase": "../../uma/database/global/"
+}

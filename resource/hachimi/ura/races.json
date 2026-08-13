@@ -1,0 +1,107 @@
+{
+  "$schema": "uma.scenario.races.v1",
+  "scenarioId": "ura",
+  "sourcePolicy": "reference-global-database-by-id",
+  "races": [
+    {
+      "raceId": "junior_debut",
+      "name": "Junior Make Debut",
+      "grade": "DEBUT",
+      "course": {"surface": "turf", "distance": 1800, "distanceBand": "medium", "direction": "right_outer", "venue": "Hanshin"},
+      "fieldSize": 9,
+      "held": {"year": "junior", "phase": "debut"},
+      "rewardFans": 3000,
+      "observedOutcome": {"placement": 1, "capture": "captures/debut_race_result_wait.png"}
+    },
+    {
+      "raceId": "kawasaki_kinen",
+      "name": "Kawasaki Kinen",
+      "grade": "G1",
+      "course": {"surface": "dirt", "distance": 2100, "distanceBand": "medium", "direction": "left", "venue": "Kawasaki"},
+      "fieldSize": 14,
+      "held": {"year": "senior", "phase": "early_february"},
+      "observedOutcome": {"placement": 1, "capture": "captures/senior_kawasaki_result_detail.png"}
+    },
+    {
+      "raceId": "february_stakes",
+      "name": "February Stakes",
+      "grade": "G1",
+      "course": {"surface": "dirt", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
+      "fieldSize": 16,
+      "held": {"year": "senior", "phase": "late_february"},
+      "observedOutcome": {"placement": 1, "capture": "captures/senior_february_result_detail.png"}
+    },
+    {
+      "raceId": "nhk_mile_cup",
+      "name": "NHK Mile Cup",
+      "grade": "G1",
+      "course": {"surface": "turf", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
+      "held": {"year": "classic", "phase": "spring"},
+      "objectiveReference": "nhk_mile_cup",
+      "observedOutcome": {"placement": 1, "capture": "captures/year2_nhk_result_detail.png"}
+    },
+    {
+      "raceId": "mile_championship",
+      "name": "Mile Championship",
+      "grade": "G1",
+      "course": {"surface": "turf", "distance": 1600, "distanceBand": "mile", "venue": "Kyoto"},
+      "held": {"year": "classic", "phase": "late_year"},
+      "objectiveReference": "mile_championship",
+      "observedOutcome": {"placement": 1, "capture": "captures/classic_milech_race_result.png"}
+    },
+    {
+      "raceId": "tenno_sho_autumn",
+      "name": "Tenno Sho (Autumn)",
+      "grade": "G1",
+      "course": {"surface": "turf", "distance": 2000, "distanceBand": "medium", "direction": "left", "venue": "Tokyo"},
+      "fieldSize": 18,
+      "held": {"year": "senior", "phase": "late_october"},
+      "observedOutcome": {"placement": 1, "time": "1:56.6", "capture": "captures/ura_tenno_result.png"},
+      "objectiveReference": "tenno_sho_autumn"
+    },
+    {
+      "raceId": "arima_kinen_goal",
+      "name": "Arima Kinen",
+      "grade": "G1",
+      "course": {"surface": "turf", "distance": 2500, "distanceBand": "long", "direction": "right_inner", "venue": "Nakayama"},
+      "fieldSize": 16,
+      "held": {"year": "senior", "phase": "late_december"},
+      "retryPolicy": {"enabled": true, "observedAttempts": 4, "maxRetryCount": 3},
+      "observedOutcome": {"placement": 1, "time": "2:28.9", "capture": "captures/ura_arima_last_retry_finish3.png"},
+      "objectiveReference": "arima_kinen_goal"
+    },
+    {
+      "raceId": "ura_finale_qualifier",
+      "name": "URA Finale Qualifier",
+      "grade": "EX",
+      "course": {"surface": "turf", "distance": 1800, "distanceBand": "mile", "direction": "right_outer", "venue": "Hanshin"},
+      "fieldSize": 18,
+      "held": {"phase": "finale_underway"},
+      "rewardFans": 7000,
+      "advancesTo": "ura_finale_semifinal",
+      "observedOutcome": {"placement": 1, "time": "1:44.7", "capture": "captures/ura_prelim_finish.png"}
+    },
+    {
+      "raceId": "ura_finale_semifinal",
+      "name": "URA Finale Semifinal",
+      "grade": "EX",
+      "course": {"surface": "turf", "distance": 1800, "distanceBand": "mile", "direction": "right_outer", "venue": "Kyoto"},
+      "fieldSize": 18,
+      "held": {"phase": "finale_underway"},
+      "rewardFans": 10000,
+      "advancesTo": "ura_finale_finals",
+      "observedOutcome": {"placement": 1, "time": "1:45.3", "capture": "captures/ura_semifinal_result.png"}
+    },
+    {
+      "raceId": "ura_finale_finals",
+      "name": "URA Finale Finals",
+      "grade": "EX",
+      "course": {"surface": "turf", "distance": 1600, "distanceBand": "mile", "direction": "right_outer", "venue": "Kyoto"},
+      "fieldSize": 18,
+      "held": {"phase": "finale_underway"},
+      "rewardFans": 30000,
+      "advancesTo": "scenario_complete",
+      "observedOutcome": {"placement": 1, "time": "1:30.1", "capture": "captures/ura_final_finish.png"}
+    }
+  ]
+}

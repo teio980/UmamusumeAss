@@ -1,0 +1,95 @@
+{
+  "$schema": "uma.scenario.objectives.v1",
+  "scenarioId": "ura",
+  "objectiveChainId": "ura_default_goal_chain",
+  "completionPolicy": "sequential",
+  "objectives": [
+    {
+      "objectiveId": "debut_race",
+      "kind": "race_result",
+      "raceId": "junior_debut",
+      "target": {"placementAtMost": 1},
+      "nextObjectiveId": "fans_3000"
+    },
+    {
+      "objectiveId": "fans_3000",
+      "kind": "fans",
+      "target": {"minimum": 3000},
+      "nextObjectiveId": "nhk_mile_cup"
+    },
+    {
+      "objectiveId": "nhk_mile_cup",
+      "kind": "race_result",
+      "raceId": "nhk_mile_cup",
+      "target": {"placementAtMost": 5},
+      "nextObjectiveId": "mile_championship"
+    },
+    {
+      "objectiveId": "mile_championship",
+      "kind": "race_result",
+      "raceId": "mile_championship",
+      "target": {"placementAtMost": 3},
+      "nextObjectiveId": "senior_arima_top3"
+    },
+    {
+      "objectiveId": "senior_arima_top3",
+      "kind": "race_result",
+      "raceId": "arima_kinen_goal",
+      "target": {"placementAtMost": 3},
+      "nextObjectiveId": "g1_top3_twice"
+    },
+    {
+      "objectiveId": "g1_top3_twice",
+      "kind": "race_result_count",
+      "target": {"raceGrade": "G1", "placementAtMost": 3, "count": 2},
+      "observedRaceIds": ["kawasaki_kinen", "february_stakes"],
+      "nextObjectiveId": "tenno_sho_autumn"
+    },
+    {
+      "objectiveId": "tenno_sho_autumn",
+      "kind": "race_result",
+      "raceId": "tenno_sho_autumn",
+      "target": {"placement": 1},
+      "nextObjectiveId": "arima_kinen_goal"
+    },
+    {
+      "objectiveId": "arima_kinen_goal",
+      "kind": "race_result",
+      "raceId": "arima_kinen_goal",
+      "target": {"placement": 1},
+      "nextObjectiveId": "career_goals_complete"
+    },
+    {
+      "objectiveId": "career_goals_complete",
+      "kind": "chain_complete",
+      "target": {"allPreviousObjectives": true},
+      "nextObjectiveId": "ura_finale_qualifier"
+    },
+    {
+      "objectiveId": "ura_finale_qualifier",
+      "kind": "race_result",
+      "raceId": "ura_finale_qualifier",
+      "target": {"placement": 1},
+      "nextObjectiveId": "ura_finale_semifinal"
+    },
+    {
+      "objectiveId": "ura_finale_semifinal",
+      "kind": "race_result",
+      "raceId": "ura_finale_semifinal",
+      "target": {"placement": 1},
+      "nextObjectiveId": "ura_finale_finals"
+    },
+    {
+      "objectiveId": "ura_finale_finals",
+      "kind": "race_result",
+      "raceId": "ura_finale_finals",
+      "target": {"placement": 1},
+      "nextObjectiveId": "scenario_complete"
+    },
+    {
+      "objectiveId": "scenario_complete",
+      "kind": "scenario_complete",
+      "target": {"finalSeriesComplete": true}
+    }
+  ]
+}
