@@ -104,7 +104,7 @@
       "timeoutMs": 20000,
       "postDelay": 800,
       "maxTimes": 10,
-      "next": ["next"]
+      "next": ["resultMonitor"]
     },
     "next": {
       "template": "templates/team_race/result_next.png",
@@ -112,7 +112,7 @@
       "templThreshold": 0.86,
       "timeoutMs": 20000,
       "postDelay": 1200,
-      "next": ["teamSaleProbe"]
+      "next": ["resultMonitor"]
     },
     "teamSaleProbe": {
       "algorithm": "MatchTemplate",
@@ -171,8 +171,8 @@
       "timeoutMs": 5000,
       "postDelay": 1200,
       "required": false,
-      "next": ["teamSaleAfterHighscoreProbe"],
-      "onErrorNext": ["teamSaleAfterHighscoreProbe"]
+      "next": ["teamSaleShopButtonAfterHighscore"],
+      "onErrorNext": ["teamSaleShopButtonAfterHighscore"]
     },
     "teamSaleAfterHighscoreProbe": {
       "algorithm": "MatchTemplate",
@@ -212,6 +212,9 @@
       "onErrorNext": ["MiddleNext"]
     },
     "runRandomShop": {
+      "template": "templates/shop/shop_title.png",
+      "roi": [0, 0, 400, 180],
+      "templThreshold": 0.86,
       "algorithm": "JustReturn",
       "action": "RunPipeline",
       "pipeline": "shop.json",
@@ -249,6 +252,22 @@
       "postDelay": 800,
       "next": ["raceagain"],
       "onErrorNext": ["raceagain"]
+    },
+    "resultMonitor": {
+      "algorithm": "ParallelMonitor",
+      "monitorTasks": [
+        "next",
+        "newhighscore",
+        "teamSaleShopButton",
+        "runRandomShop",
+        "MiddleNext",
+        "nexttwo",
+        "noticesClose"
+      ],
+      "successTask": "raceagain",
+      "timeoutMs": 60000,
+      "pollIntervalMs": 300,
+      "next": ["raceagain"]
     },
     "raceagain": {
       "template": "templates/team_race/race_again.png",

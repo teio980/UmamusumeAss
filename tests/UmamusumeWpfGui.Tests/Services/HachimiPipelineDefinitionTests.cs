@@ -53,7 +53,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Team_race_can_call_the_shared_shop_pipeline_after_a_shop_probe()
+    public async Task Team_race_exposes_the_shop_pipeline_to_the_parallel_result_monitor()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
@@ -82,6 +82,11 @@ public sealed class HachimiPipelineDefinitionTests
             "templates/daily_race/daily_sale_shop_button.png",
             saleButton.Template);
         Assert.Contains("runRandomShop", saleButton.Next);
+        var monitor = definition.GetTask("resultMonitor");
+        Assert.Equal("ParallelMonitor", monitor.Algorithm);
+        Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
+        Assert.Contains("runRandomShop", monitor.MonitorTasks);
+        Assert.Equal("raceagain", monitor.SuccessTask);
     }
 
     [Fact]
@@ -102,7 +107,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Team_race_uses_sequential_result_probes_until_race_again()
+    public async Task Team_race_uses_parallel_result_monitor_until_race_again()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
@@ -117,15 +122,24 @@ public sealed class HachimiPipelineDefinitionTests
         var saleAfterHighScore = definition.GetTask("teamSaleAfterHighscoreProbe");
         var shopAfterHighScore = definition.GetTask("teamShopAfterHighscore");
 
-        Assert.Contains("next", whiteskip.Next);
-        Assert.Contains("teamSaleProbe", next.Next);
+        var monitor = definition.GetTask("resultMonitor");
+        Assert.Contains("resultMonitor", whiteskip.Next);
+        Assert.Contains("resultMonitor", next.Next);
         Assert.Contains("newhighscore", highScoreProbe.Next);
         Assert.Contains("MiddleNext", highScoreProbe.OnErrorNext);
-        Assert.Contains("teamSaleAfterHighscoreProbe", highScore.Next);
+        Assert.Contains("teamSaleShopButtonAfterHighscore", highScore.Next);
         Assert.Contains("teamShopAfterHighscore", saleAfterHighScore.OnErrorNext);
         Assert.Contains("runRandomShop", shopAfterHighScore.Next);
         Assert.Contains("MiddleNext", shopAfterHighScore.OnErrorNext);
-        Assert.Null(definition.GetTask("runRandomShop").Template);
+        Assert.Equal(
+            "templates/shop/shop_title.png",
+            definition.GetTask("runRandomShop").Template);
+        Assert.Equal("ParallelMonitor", monitor.Algorithm);
+        Assert.Contains("next", monitor.MonitorTasks);
+        Assert.Contains("newhighscore", monitor.MonitorTasks);
+        Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
+        Assert.Contains("runRandomShop", monitor.MonitorTasks);
+        Assert.Equal("raceagain", monitor.SuccessTask);
         Assert.Equal(
             "templates/start_game/notices_close.png",
             definition.GetTask("noticesClose").Template);
