@@ -135,6 +135,32 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         }
     }
 
+    public async Task TapAsync(
+        LastVerifiedConnection connection,
+        int x,
+        int y,
+        int referenceWidth,
+        int referenceHeight,
+        string taskName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        var scaledX = ScaleCoordinate(x, Math.Max(1, referenceWidth), connection.Width);
+        var scaledY = ScaleCoordinate(y, Math.Max(1, referenceHeight), connection.Height);
+        var result = await _adbRuntime.TapAsync(
+                connection.AdbPath,
+                connection.Serial,
+                scaledX,
+                scaledY,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"ADB coordinate tap failed for '{taskName}': {result.Stderr}");
+        }
+    }
+
     public async Task SwipeAsync(
         LastVerifiedConnection connection,
         int[] coordinates,
