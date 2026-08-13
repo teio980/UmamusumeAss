@@ -366,6 +366,13 @@
                           ItemsSource="{Binding PipelineFiles}"
                           SelectedItem="{Binding SelectedPipelineFile, Mode=TwoWay}"
                           ToolTip="{DynamicResource DeveloperToolsPipelineFileHint}" />
+                <TextBlock Margin="0,10,0,0"
+                           Text="{DynamicResource DeveloperToolsScenarioPackageLabel}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ComboBox Margin="0,4,0,0"
+                          ItemsSource="{Binding ScenarioPackageFiles}"
+                          DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedScenarioPackageFile, Mode=TwoWay}" />
               </StackPanel>
               <WrapPanel Grid.Column="1"
                          VerticalAlignment="Bottom">
@@ -870,6 +877,16 @@
                            Command="{Binding SavePipelineCommand}"
                            Appearance="Primary"
                            Icon="Save24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsScenarioPackageValidateButton}"
+                           Command="{Binding ValidateScenarioPackageCommand}"
+                           Appearance="Secondary"
+                           Icon="Checkmark24" />
+                <ui:Button Margin="8,0,0,0"
+                           Content="{DynamicResource DeveloperToolsScenarioPackageSaveButton}"
+                           Command="{Binding SaveScenarioPackageFileCommand}"
+                           Appearance="Primary"
+                           Icon="Save24" />
               </WrapPanel>
               <Border Grid.Row="1"
                       Margin="0,10,0,10"
@@ -917,10 +934,24 @@
                   </Border>
                 </Grid>
               </Border>
-              <TextBlock Grid.Row="2"
-                         Text="{Binding PipelineStatusText}"
-                         TextWrapping="Wrap"
-                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              <StackPanel Grid.Row="2">
+                <TextBlock Text="{Binding PipelineStatusText}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="{Binding ScenarioPackageStatusText}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBox Margin="0,8,0,0"
+                         Height="220"
+                         FontFamily="Consolas"
+                         AcceptsReturn="True"
+                         HorizontalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Auto"
+                         Text="{Binding ScenarioPackageJsonText, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding HasRawScenarioPackageFile}"
+                         Visibility="{Binding HasRawScenarioPackageFile, Converter={StaticResource BoolToVisibility}}" />
+              </StackPanel>
             </Grid>
           </Grid>
         </TabItem>

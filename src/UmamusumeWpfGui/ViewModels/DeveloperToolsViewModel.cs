@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.ViewModels;
 
@@ -36,6 +37,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private readonly HachimiJsonPipelineRunner _pipelineRunner;
     private readonly ObservableCollection<DeveloperToolsImageItem> _existingImages = [];
     private readonly ObservableCollection<string> _pipelineFiles = [];
+    private readonly ObservableCollection<ScenarioPackageFileEditorItem> _scenarioPackageFiles = [];
     private readonly ObservableCollection<HachimiPipelineTaskEditorItem> _pipelineTasks = [];
     private readonly ObservableCollection<PipelineResourceOption> _pipelineResourceOptions = [];
     private readonly ObservableCollection<LogEntry> _pipelineRunLogs = [];
@@ -59,6 +61,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private bool _disposed;
     private CancellationTokenSource? _pipelineRunCancellation;
     private HachimiPipelineDefinition? _pipelineDefinition;
+    private string? _pipelineDefinitionPath;
+    private string? _loadedScenarioManifestPath;
+    private ScenarioPackageFileEditorItem? _selectedScenarioPackageFile;
+    private string _scenarioPackageStatusText = "Load a scenario manifest to edit its complete package.";
     private string? _selectedPipelineFile;
     private HachimiPipelineTaskEditorItem? _selectedPipelineTask;
     private string _pipelineName = "new-pipeline";
@@ -99,6 +105,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _pipelineRunner = pipelineRunner;
         ExistingImages = new ReadOnlyObservableCollection<DeveloperToolsImageItem>(_existingImages);
         PipelineFiles = new ReadOnlyObservableCollection<string>(_pipelineFiles);
+        ScenarioPackageFiles = new ReadOnlyObservableCollection<ScenarioPackageFileEditorItem>(
+            _scenarioPackageFiles);
         PipelineTasks = new ReadOnlyObservableCollection<HachimiPipelineTaskEditorItem>(_pipelineTasks);
         PipelineResourceOptions = new ReadOnlyObservableCollection<PipelineResourceOption>(
             _pipelineResourceOptions);
@@ -220,6 +228,17 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         StopPipelineCommand = new RelayCommand(
             _ => StopPipeline(),
             _ => !_disposed && _isPipelineRunning);
+        SaveScenarioPackageFileCommand = new RelayCommand(
+            _ => SaveSelectedScenarioPackageFile(),
+            _ => !_disposed
+                && !_isPipelineBusy
+                && SelectedScenarioPackageFile is not null);
+        ValidateScenarioPackageCommand = new RelayCommand(
+            _ => ValidateScenarioPackage(),
+            _ => !_disposed
+                && !_isPipelineBusy
+                && _loadedScenarioManifestPath is not null
+                && _scenarioPackageFiles.Count > 0);
 
         _ = RefreshExistingImagesAsync();
         RefreshPipelineResourceOptions();
@@ -254,6 +273,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public ICommand SimulatePipelineCommand { get; }
     public ICommand RunPipelineCommand { get; }
     public ICommand StopPipelineCommand { get; }
+    public ICommand SaveScenarioPackageFileCommand { get; }
+    public ICommand ValidateScenarioPackageCommand { get; }
 
     public ConnectionState ConnectionState => _connectionState.State;
 
@@ -344,6 +365,47 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public string ImageMatchTestStatus => _imageMatchTestStatus;
 
     public ReadOnlyObservableCollection<string> PipelineFiles { get; }
+
+    public ReadOnlyObservableCollection<ScenarioPackageFileEditorItem> ScenarioPackageFiles { get; }
+
+    public ScenarioPackageFileEditorItem? SelectedScenarioPackageFile
+    {
+        get => _selectedScenarioPackageFile;
+        set
+        {
+            if (ReferenceEquals(_selectedScenarioPackageFile, value))
+                return;
+
+            _selectedScenarioPackageFile = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasScenarioPackageFile));
+            OnPropertyChanged(nameof(HasRawScenarioPackageFile));
+            OnPropertyChanged(nameof(ScenarioPackageJsonText));
+            RaisePipelineCommandStates();
+        }
+    }
+
+    public bool HasScenarioPackageFile => SelectedScenarioPackageFile is not null;
+
+    public bool HasRawScenarioPackageFile => SelectedScenarioPackageFile is { IsRawJsonEditable: true };
+
+    public string ScenarioPackageJsonText
+    {
+        get => SelectedScenarioPackageFile?.JsonText ?? string.Empty;
+        set
+        {
+            if (SelectedScenarioPackageFile is null
+                || !SelectedScenarioPackageFile.IsRawJsonEditable)
+            {
+                return;
+            }
+
+            SelectedScenarioPackageFile.JsonText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ScenarioPackageStatusText => _scenarioPackageStatusText;
 
     public ReadOnlyObservableCollection<HachimiPipelineTaskEditorItem> PipelineTasks { get; }
 
@@ -511,7 +573,17 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _pipelineFiles.Clear();
         if (Directory.Exists(directory))
         {
-            foreach (var path in Directory.EnumerateFiles(directory, "*.json")
+            var ordinaryPipelines = Directory.EnumerateFiles(
+                    directory,
+                    "*.json",
+                    SearchOption.TopDirectoryOnly);
+            var scenarioManifests = Directory.EnumerateFiles(
+                    directory,
+                    "manifest.json",
+                    SearchOption.AllDirectories);
+            foreach (var path in ordinaryPipelines
+                         .Concat(scenarioManifests)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
                          .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
             {
                 _pipelineFiles.Add(path);
@@ -528,7 +600,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
         SetPipelineStatus(_pipelineFiles.Count == 0
             ? "No JSON flow definitions were found. Create a new flow to begin."
-            : $"Found {_pipelineFiles.Count} JSON flow definition(s). Select one and click Load.");
+            : $"Found {_pipelineFiles.Count} JSON flow or scenario package definition(s). Select one and click Load.");
     }
 
     public void RefreshPipelineResourceOptions()
@@ -574,18 +646,48 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         try
         {
             var path = Path.GetFullPath(SelectedPipelineFile);
-            var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path)
-                .ConfigureAwait(true);
+            HachimiPipelineDefinition? definition;
+            string definitionPath;
+            string loadedDescription;
+            string? scenarioManifestPath = null;
+            if (IsScenarioManifest(path))
+            {
+                var pack = await UraScenarioPackLoader.LoadAsync(path)
+                    .ConfigureAwait(true);
+                definition = pack.ExecutionDefinition;
+                definitionPath = UraScenarioResourceResolver.Resolve(
+                    pack,
+                    pack.Manifest.Execution);
+                loadedDescription =
+                    $"Loaded {pack.Manifest.DisplayName} scenario package; "
+                    + $"editing its execution definition ({pack.ExecutionDefinition.Tasks.Count} task(s)).";
+                scenarioManifestPath = path;
+                LoadScenarioPackageFiles(path, pack.RootDirectory);
+            }
+            else
+            {
+                definition = await HachimiPipelineDefinitionLoader.LoadAsync(path)
+                    .ConfigureAwait(true);
+                definitionPath = path;
+                loadedDescription =
+                    $"Loaded {Path.GetFileName(path)}: "
+                    + $"{definition?.Tasks.Count ?? 0} task(s).";
+                ClearScenarioPackageFiles();
+            }
             if (definition is null)
             {
                 SetPipelineStatus(
                     Path.GetFileName(path).Equals("start_game.json", StringComparison.OrdinalIgnoreCase)
                         ? "start_game.json uses the startup compatibility schema and is not editable by the ordinary flow editor."
-                        : "The selected JSON is invalid, unsupported, or contains an unknown property.");
+                        : IsScenarioManifest(path)
+                            ? "The selected scenario package is invalid or incomplete."
+                            : "The selected JSON is invalid, unsupported, or contains an unknown property.");
                 return;
             }
 
             _pipelineDefinition = definition;
+            _pipelineDefinitionPath = definitionPath;
+            _loadedScenarioManifestPath = scenarioManifestPath;
             PipelineName = definition.Name;
             PipelineDescription = definition.Description;
             PipelineReferenceWidthText = definition.ReferenceWidth.ToString(CultureInfo.InvariantCulture);
@@ -604,7 +706,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             OnPropertyChanged(nameof(HasPipelineDefinition));
             OnPropertyChanged(nameof(PipelineTasks));
             SetPipelineStatus(
-                $"Loaded {Path.GetFileName(path)}: {_pipelineTasks.Count} task(s). Drag on the screenshot to fill the selected task's ROI.");
+                loadedDescription + " Drag on the screenshot to fill the selected task's ROI.");
             InitializePipelineHistory();
             RaisePipelineCommandStates();
         }
@@ -632,6 +734,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             ReferenceHeight = 1600,
             BaseDirectory = GetPipelineDirectory(),
         };
+        _pipelineDefinitionPath = null;
+        _loadedScenarioManifestPath = null;
+        ClearScenarioPackageFiles();
         SelectedPipelineFile = null;
         PipelineName = _pipelineDefinition.Name;
         PipelineDescription = string.Empty;
@@ -883,7 +988,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 return;
             }
 
-            var path = SelectedPipelineFile;
+            var path = _pipelineDefinitionPath ?? SelectedPipelineFile;
             if (string.IsNullOrWhiteSpace(path))
             {
                 path = ShowPipelineSaveDialog();
@@ -895,13 +1000,128 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(definition, PipelineJsonOptions));
             _pipelineDefinition = definition;
-            SelectedPipelineFile = path;
+            _pipelineDefinitionPath = path;
+            SelectedPipelineFile = _loadedScenarioManifestPath ?? path;
             RefreshPipelineFiles();
-            SetPipelineStatus($"Saved flow: {path}");
+            SetPipelineStatus(
+                _loadedScenarioManifestPath is not null
+                    ? $"Saved scenario execution definition: {path}"
+                    : $"Saved flow: {path}");
         }
         catch (Exception exception)
         {
             SetPipelineStatus($"Could not save the JSON flow: {exception.Message}");
+        }
+    }
+
+    private void LoadScenarioPackageFiles(string manifestPath, string rootDirectory)
+    {
+        _scenarioPackageFiles.Clear();
+        var files = Directory.EnumerateFiles(
+                rootDirectory,
+                "*.json",
+                SearchOption.AllDirectories)
+            .OrderBy(path => string.Equals(
+                    Path.GetFullPath(path),
+                    Path.GetFullPath(manifestPath),
+                    StringComparison.OrdinalIgnoreCase)
+                ? 0
+                : 1)
+            .ThenBy(path => Path.GetRelativePath(rootDirectory, path), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in files)
+        {
+            var relativePath = Path.GetRelativePath(rootDirectory, path)
+                .Replace(Path.DirectorySeparatorChar, '/');
+            var text = File.ReadAllText(path);
+            try
+            {
+                using var document = JsonDocument.Parse(text);
+                text = JsonSerializer.Serialize(
+                    document.RootElement,
+                    PipelineJsonOptions);
+            }
+            catch (JsonException)
+            {
+                // Keep the original text visible; validation will report the
+                // malformed document without destroying the user's content.
+            }
+
+            _scenarioPackageFiles.Add(new ScenarioPackageFileEditorItem(
+                relativePath,
+                path,
+                text));
+        }
+
+        SelectedScenarioPackageFile = _scenarioPackageFiles.FirstOrDefault();
+        _scenarioPackageStatusText =
+            $"Loaded complete scenario package: {_scenarioPackageFiles.Count} JSON file(s).";
+        OnPropertyChanged(nameof(ScenarioPackageStatusText));
+        OnPropertyChanged(nameof(ScenarioPackageFiles));
+        RaisePipelineCommandStates();
+    }
+
+    private void ClearScenarioPackageFiles()
+    {
+        _scenarioPackageFiles.Clear();
+        SelectedScenarioPackageFile = null;
+        _scenarioPackageStatusText = "Load a scenario manifest to edit its complete package.";
+        OnPropertyChanged(nameof(ScenarioPackageStatusText));
+        OnPropertyChanged(nameof(ScenarioPackageFiles));
+        RaisePipelineCommandStates();
+    }
+
+    private void ValidateScenarioPackage()
+    {
+        if (_loadedScenarioManifestPath is null)
+            return;
+
+        var errors = new List<string>();
+        foreach (var file in _scenarioPackageFiles)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(file.JsonText);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    errors.Add($"{file.RelativePath}: root must be an object");
+            }
+            catch (JsonException exception)
+            {
+                errors.Add($"{file.RelativePath}: {exception.Message}");
+            }
+        }
+
+        _scenarioPackageStatusText = errors.Count == 0
+            ? $"Package JSON validation passed: {_scenarioPackageFiles.Count} file(s)."
+            : "Package validation failed: " + string.Join(" | ", errors);
+        OnPropertyChanged(nameof(ScenarioPackageStatusText));
+    }
+
+    private void SaveSelectedScenarioPackageFile()
+    {
+        var file = SelectedScenarioPackageFile;
+        if (file is null)
+            return;
+
+        try
+        {
+            using var document = JsonDocument.Parse(file.JsonText);
+            var formatted = JsonSerializer.Serialize(document.RootElement, PipelineJsonOptions);
+            File.WriteAllText(file.FullPath, formatted);
+            file.JsonText = formatted;
+            _scenarioPackageStatusText = $"Saved {file.RelativePath}.";
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+        }
+        catch (JsonException exception)
+        {
+            _scenarioPackageStatusText =
+                $"Save blocked for {file.RelativePath}: invalid JSON. {exception.Message}";
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+        }
+        catch (Exception exception)
+        {
+            _scenarioPackageStatusText = $"Could not save {file.RelativePath}: {exception.Message}";
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
         }
     }
 
@@ -1012,6 +1232,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private static bool HasArray(int[]? values, int length) =>
         values is not null && values.Length == length;
+
+    private static bool IsScenarioManifest(string? path) =>
+        !string.IsNullOrWhiteSpace(path)
+        && Path.GetFileName(path).Equals("manifest.json", StringComparison.OrdinalIgnoreCase);
 
     private static string Normalize(string? value) =>
         value?.Replace("_", string.Empty, StringComparison.Ordinal)
@@ -1683,6 +1907,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             SimulatePipelineCommand,
             RunPipelineCommand,
             StopPipelineCommand,
+            SaveScenarioPackageFileCommand,
+            ValidateScenarioPackageCommand,
         })
         {
             if (command is RelayCommand relayCommand)
@@ -2111,6 +2337,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _pipelineRunCancellation?.Cancel();
         _pipelineRunCancellation?.Dispose();
         _pipelineRunCancellation = null;
+        _scenarioPackageFiles.Clear();
+        _selectedScenarioPackageFile = null;
         _connectionState.StateChanged -= OnConnectionStateChanged;
         _umaDatabase.DatabaseLoaded -= OnUmaDatabaseLoaded;
         RaiseCommandStates();
