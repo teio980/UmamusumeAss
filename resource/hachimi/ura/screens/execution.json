@@ -181,41 +181,6 @@
                                                                "required":  true,
                                                                "success":  false
                                                            },
-                  "scenario_intro_scenario_next":  {
-                                                       "algorithm":  "MatchTemplate",
-                                                       "action":  "ClickSelf",
-                                                       "template":  "templates/scenario_intro_scenario_next.png",
-                                                       "templThreshold":  0.78,
-                                                       "roi":  [
-                                                                   225,
-                                                                   1510,
-                                                                   200,
-                                                                   70
-                                                               ],
-                                                       "preDelay":  0,
-                                                       "postDelay":  650,
-                                                       "waitMs":  0,
-                                                       "timeoutMs":  12000,
-                                                       "pollIntervalMs":  250,
-                                                       "next":  [
-
-                                                                ],
-                                                       "onErrorNext":  [
-
-                                                                       ],
-                                                       "exceededNext":  [
-
-                                                                        ],
-                                                       "sub":  [
-
-                                                               ],
-                                                       "monitorTasks":  [
-
-                                                                        ],
-                                                       "maxTimes":  0,
-                                                       "required":  true,
-                                                       "success":  false
-                                                   },
                   "trainee_select_pick":  {
                                                       "algorithm":  "MatchTemplate",
                                                       "action":  "SelectUraTrainee",

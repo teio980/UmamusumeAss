@@ -18,7 +18,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             "home",
             "scenario_select",
-            "scenario_intro",
             "legacy_select",
             "trainee_select",
             "support_select",
@@ -161,6 +160,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 : "Starting a new URA career session.");
 
         var actionCount = 0;
+        var setupObservationRetryCount = 0;
         var careerEntryFlowStarted = state.CareerEntryOpened;
         if (!state.CareerStarted && !state.CareerEntryOpened)
         {
@@ -191,12 +191,23 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (observation is null)
             {
+                if (state.CareerEntryOpened
+                    && !state.CareerStarted
+                    && setupObservationRetryCount < 12)
+                {
+                    setupObservationRetryCount++;
+                    await _visualRuntime.DelayAsync(250, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
                 return Failure(
                     "Could not recognize a stable Career screen; automation paused safely.",
                     state.LastScreenId,
                     actionCount);
             }
 
+            setupObservationRetryCount = 0;
             state.LastScreenId = observation.ScreenId;
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -296,10 +307,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         state,
                         logSink,
                         cancellationToken)
-                    .ConfigureAwait(false);
-            case "scenario_intro":
-                return await RunScreenActionAsync(
-                        connection, pack, observation.ScreenId, "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "trainee_select":
                 if (state.TraineeSelected)
@@ -718,8 +725,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         UraCareerSessionState state,
         CancellationToken cancellationToken)
     {
+        var careerEntryFlowActive = state.CareerEntryOpened && !state.CareerStarted;
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => !careerEntryFlowActive
+                || !string.Equals(screen.ScreenId, "home", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.CareerStarted
                 || state.TurnIndex > 0
                 || CareerEntryScreenIds.Contains(screen.ScreenId))

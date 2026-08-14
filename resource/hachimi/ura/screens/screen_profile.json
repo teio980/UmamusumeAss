@@ -76,26 +76,6 @@
                                     ]
                     },
                     {
-                        "screenId":  "scenario_intro",
-                        "recognition":  {
-                                            "template":  "captures/after_career_tap.png",
-                                            "templates":  [
-                                                              "captures/career_intro_event_ura.png",
-                                                              "captures/career_intro_event_skip_ura.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Career"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "scenario.next",
-                                            "task":  "scenario_intro_scenario_next"
-                                        }
-                                    ]
-                    },
-                    {
                         "screenId":  "trainee_select",
                         "recognition":  {
                                             "template":  "captures/trainee_select_ura.png",
