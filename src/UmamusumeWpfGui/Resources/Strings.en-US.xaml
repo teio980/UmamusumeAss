@@ -296,6 +296,7 @@
   <sys:String x:Key="DeveloperToolsPipelineTemplateLabel">Template path</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineEditTemplateButton">Edit current template</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRoiLabel">ROI</sys:String>
+  <sys:String x:Key="DeveloperToolsPipelineSearchRoisLabel">Search ROIs</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUseRoiButton">Use screenshot ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTemplateButton">Save crop as template</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">Save edited template + auto ROI</sys:String>

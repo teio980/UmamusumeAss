@@ -20,6 +20,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private string _template = string.Empty;
     private string _templateThresholdText = "0.86";
     private string _roiText = string.Empty;
+    private string _searchRoisText = string.Empty;
     private string _specificRectText = string.Empty;
     private string _preDelayText = "0";
     private string _postDelayText = "0";
@@ -65,6 +66,16 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     }
 
     public string RoiText { get => _roiText; set => Set(ref _roiText, value); }
+
+    /// <summary>
+    /// One card ROI per line. This is kept in the ordinary task editor so a
+    /// save cannot silently remove URA's data-driven trainee search regions.
+    /// </summary>
+    public string SearchRoisText
+    {
+        get => _searchRoisText;
+        set => Set(ref _searchRoisText, value);
+    }
 
     public string SpecificRectText
     {
@@ -143,6 +154,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             Template = task.Template ?? string.Empty,
             TemplateThresholdText = task.TemplateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
             RoiText = FormatArray(task.Roi),
+            SearchRoisText = FormatRois(task.SearchRois),
             SpecificRectText = FormatArray(task.SpecificRect),
             PreDelayText = task.PreDelay.ToString(CultureInfo.InvariantCulture),
             PostDelayText = task.PostDelay.ToString(CultureInfo.InvariantCulture),
@@ -175,6 +187,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         Template = Template,
         TemplateThresholdText = TemplateThresholdText,
         RoiText = RoiText,
+        SearchRoisText = SearchRoisText,
         SpecificRectText = SpecificRectText,
         PreDelayText = PreDelayText,
         PostDelayText = PostDelayText,
@@ -215,6 +228,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             nameof(TemplateThresholdText),
             defaultValue: 0.86);
         task.Roi = ParseArray(RoiText, nameof(RoiText), expectedLength: 4);
+        task.SearchRois = ParseRois(SearchRoisText, nameof(SearchRoisText));
         task.SpecificRect = ParseArray(SpecificRectText, nameof(SpecificRectText), expectedLength: 4);
         task.PreDelay = ParseInt(PreDelayText, nameof(PreDelayText));
         task.PostDelay = ParseInt(PostDelayText, nameof(PostDelayText));
@@ -337,6 +351,25 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
 
     private static string FormatArray(int[]? values) =>
         values is null ? string.Empty : string.Join(", ", values);
+
+    private static string FormatRois(IEnumerable<int[]> values) =>
+        string.Join(Environment.NewLine, values.Select(FormatArray));
+
+    private static List<int[]> ParseRois(string? value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        var result = new List<int[]>();
+        var lines = value.Split(['\r', '\n', ';'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            result.Add(ParseArray(line, fieldName, expectedLength: 4)
+                ?? throw new FormatException($"{fieldName} contains an empty ROI."));
+        }
+
+        return result;
+    }
 
     private static string FormatList(IEnumerable<string> values) =>
         string.Join(Environment.NewLine, values);

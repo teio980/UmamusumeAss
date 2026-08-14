@@ -33,7 +33,11 @@ public sealed class ScenarioPackageFileEditorItem : INotifyPropertyChanged
         "screens/execution.json",
         StringComparison.OrdinalIgnoreCase);
 
-    public bool IsRawJsonEditable => !IsExecution;
+    // The execution definition is part of the scenario package too. It must
+    // remain editable here; otherwise the DeveloperTool can inspect the
+    // click graph but cannot maintain the graph that the runtime actually
+    // executes.
+    public bool IsRawJsonEditable => File.Exists(FullPath);
 
     public string JsonText
     {

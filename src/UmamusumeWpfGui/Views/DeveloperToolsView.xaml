@@ -506,6 +506,7 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="130" />
@@ -726,6 +727,19 @@
                               IsChecked="{Binding SelectedPipelineTask.Success}" />
 
                     <TextBlock Grid.Row="11"
+                               Grid.Column="0"
+                               Text="{DynamicResource DeveloperToolsPipelineSearchRoisLabel}" />
+                    <TextBox Grid.Row="11"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             Height="56"
+                             Margin="6,0,0,6"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             ToolTip="x, y, width, height; one ROI per line"
+                             Text="{Binding SelectedPipelineTask.SearchRoisText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="12"
                                Grid.Column="0"
                                Grid.ColumnSpan="4"
                                Text="{DynamicResource DeveloperToolsPipelineFieldHint}"

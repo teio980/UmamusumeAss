@@ -297,6 +297,7 @@
   <sys:String x:Key="DeveloperToolsPipelineTemplateLabel">模板路径</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineEditTemplateButton">编辑当前模板</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineRoiLabel">ROI</sys:String>
+  <sys:String x:Key="DeveloperToolsPipelineSearchRoisLabel">搜索区域（每行一个）</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUseRoiButton">使用截图ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTemplateButton">裁剪并保存模板</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">保存修改模板并自动更新ROI</sys:String>
