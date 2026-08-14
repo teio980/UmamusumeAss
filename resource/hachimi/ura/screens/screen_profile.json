@@ -1,4 +1,4 @@
-﻿{
+{
     "$schema":  "uma.screen.profile.v1",
     "profileId":  "ura.global.900x1600.v1",
     "scenarioId":  "ura",
@@ -18,7 +18,237 @@
                                                ],
                               "requireNoOverlayAnimation":  true
                           },
+    "scenarioSelection":  {
+                              "scenarioId":  "ura",
+                              "recognition":  {
+                                                  "template":  "templates/scenario_select_ura_card.png",
+                                                  "roi":  [
+                                                             120,
+                                                             500,
+                                                             660,
+                                                             620
+                                                         ],
+                                                  "templThreshold":  0.78,
+                                                  "stable":  true
+                                              },
+                              "maxAdvanceAttempts":  8
+                          },
     "screens":  [
+                    {
+                        "screenId":  "home",
+                        "entryTask":  "home",
+                        "recognition":  {
+                                            "template":  "captures/ura_returned_home.png",
+                                            "requiredText":  [
+                                                                 "Home"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "home.career",
+                                            "task":  "home_home_career"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "scenario_select",
+                        "recognition":  {
+                                            "template":  "templates/scenario_select_header.png",
+                                            "templates":  [
+                                                              "captures/scenario_select_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Scenario Select",
+                                                                 "URA Finale"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "scenario.next",
+                                            "task":  "scenario_select_scenario_next"
+                                        },
+                                        {
+                                            "semanticId":  "scenario.next_card",
+                                            "task":  "scenario_select_scenario_next_card"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "scenario_intro",
+                        "recognition":  {
+                                            "template":  "captures/after_career_tap.png",
+                                            "templates":  [
+                                                              "captures/career_intro_event_ura.png",
+                                                              "captures/career_intro_event_skip_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Career"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "scenario.next",
+                                            "task":  "scenario_intro_scenario_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "trainee_select",
+                        "recognition":  {
+                                            "template":  "captures/trainee_select_ura.png",
+                                            "requiredText":  [
+                                                                 "Trainee Select",
+                                                                 "Oguri Cap"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "trainee.pick",
+                                            "task":  "trainee_select_pick"
+                                        },
+                                        {
+                                            "semanticId":  "trainee.next",
+                                            "task":  "trainee_select_trainee_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_select",
+                        "recognition":  {
+                                            "template":  "captures/support_select_ura.png",
+                                            "requiredText":  [
+                                                                 "Support Formation",
+                                                                 "Auto-Fill"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.auto_fill",
+                                            "task":  "support_select_support_auto_fill"
+                                        },
+                                        {
+                                            "semanticId":  "support.start",
+                                            "task":  "support_select_support_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_autofill_confirmation",
+                        "recognition":  {
+                                            "template":  "captures/support_autofill_prompt_ura.png",
+                                            "requiredText":  [
+                                                                 "Auto-Select",
+                                                                 "OK"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.autofill_ok",
+                                            "task":  "support_autofill_confirmation_support_autofill_ok"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "support_ready",
+                        "recognition":  {
+                                            "template":  "captures/support_autofilled_ura.png",
+                                            "requiredText":  [
+                                                                 "Support Formation",
+                                                                 "Start Career!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "support.start",
+                                            "task":  "support_ready_support_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "legacy_select",
+                        "recognition":  {
+                                            "template":  "captures/legacy_selected_ura_confirmed.png",
+                                            "requiredText":  [
+                                                                 "Legacy Select",
+                                                                 "Auto-Select"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "legacy.next",
+                                            "task":  "legacy_select_legacy_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_intro_event",
+                        "recognition":  {
+                                            "template":  "captures/intro_tazuna_ura.png",
+                                            "templates":  [
+                                                              "captures/career_intro_event_ura.png",
+                                                              "captures/career_intro_event_skip_ura.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Tazuna"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "event.advance",
+                                            "task":  "career_intro_event_event_advance"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_entry",
+                        "recognition":  {
+                                            "template":  "captures/career_intro_ura.png",
+                                            "requiredText":  [
+                                                                 "Final Confirmation",
+                                                                 "Start Career!"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.start",
+                                            "task":  "career_entry_career_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_races_ready",
+                        "recognition":  {
+                                            "template":  "captures/ura_finale_main_ready.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_races_active.png",
+                                                              "captures/ura_late_oct_goal_ready.png",
+                                                              "captures/goal2_main_ready.png",
+                                                              "captures/goal2_main_start.png",
+                                                              "captures/goal3_main_start.png",
+                                                              "captures/senior_year_main_ready.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Races"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "action.races",
+                                            "task":  "career_races_ready_action_races"
+                                        }
+                                    ]
+                    },
                     {
                         "screenId":  "career_main",
                         "recognition":  {
@@ -81,30 +311,6 @@
                                         {
                                             "semanticId":  "action.finale_races",
                                             "task":  "career_main_action_finale_races"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "career_races_ready",
-                        "recognition":  {
-                                            "template":  "captures/ura_finale_main_ready.png",
-                                            "templates":  [
-                                                              "captures/ura_prelim_races_active.png",
-                                                              "captures/ura_late_oct_goal_ready.png",
-                                                              "captures/goal2_main_ready.png",
-                                                              "captures/goal2_main_start.png",
-                                                              "captures/goal3_main_start.png",
-                                                              "captures/senior_year_main_ready.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Races"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "action.races",
-                                            "task":  "career_races_ready_action_races"
                                         }
                                     ]
                     },
@@ -253,6 +459,51 @@
                                     ]
                     },
                     {
+                        "screenId":  "race_day",
+                        "recognition":  {
+                                            "template":  "captures/ura_final_race_day.png",
+                                            "templates":  [
+                                                              "captures/ura_prelim_race_day.png",
+                                                              "captures/senior_arima_race_day.png",
+                                                              "captures/senior_kawasaki_race_day.png"
+                                                          ],
+                                            "requiredText":  [
+                                                                 "Race Day"
+                                                             ],
+                                            "stable":  true
+                                        },
+                        "ocrRegions":  [
+                                           {
+                                               "semanticId":  "race.objective",
+                                               "bounds":  {
+                                                              "x":  315,
+                                                              "y":  90,
+                                                              "width":  540,
+                                                              "height":  75
+                                                          }
+                                           },
+                                           {
+                                               "semanticId":  "stats.summary",
+                                               "bounds":  {
+                                                              "x":  25,
+                                                              "y":  1100,
+                                                              "width":  850,
+                                                              "height":  115
+                                                          }
+                                           }
+                                       ],
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.open_list",
+                                            "task":  "race_day_race_open_list"
+                                        },
+                                        {
+                                            "semanticId":  "skills.open",
+                                            "task":  "race_day_skills_open"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "race_list",
                         "recognition":  {
                                             "template":  "captures/ura_tenno_race_list.png",
@@ -301,51 +552,6 @@
                                         {
                                             "semanticId":  "race.goal_entry",
                                             "task":  "race_list_race_goal_entry"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "race_day",
-                        "recognition":  {
-                                            "template":  "captures/ura_final_race_day.png",
-                                            "templates":  [
-                                                              "captures/ura_prelim_race_day.png",
-                                                              "captures/senior_arima_race_day.png",
-                                                              "captures/senior_kawasaki_race_day.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Race Day"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "ocrRegions":  [
-                                           {
-                                               "semanticId":  "race.objective",
-                                               "bounds":  {
-                                                              "x":  315,
-                                                              "y":  90,
-                                                              "width":  540,
-                                                              "height":  75
-                                                          }
-                                           },
-                                           {
-                                               "semanticId":  "stats.summary",
-                                               "bounds":  {
-                                                              "x":  25,
-                                                              "y":  1100,
-                                                              "width":  850,
-                                                              "height":  115
-                                                          }
-                                           }
-                                       ],
-                        "actions":  [
-                                        {
-                                            "semanticId":  "race.open_list",
-                                            "task":  "race_day_race_open_list"
-                                        },
-                                        {
-                                            "semanticId":  "skills.open",
-                                            "task":  "race_day_skills_open"
                                         }
                                     ]
                     },
@@ -674,190 +880,6 @@
                                         {
                                             "semanticId":  "event.advance",
                                             "task":  "scenario_event_event_advance"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "home",
-                        "entryTask":  "home",
-                        "recognition":  {
-                                            "template":  "captures/ura_returned_home.png",
-                                            "requiredText":  [
-                                                                 "Home"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "home.career",
-                                            "task":  "home_home_career"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "scenario_select",
-                        "recognition":  {
-                                            "template":  "captures/scenario_select_ura.png",
-                                            "requiredText":  [
-                                                                 "Scenario Select",
-                                                                 "URA Finale"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "scenario.next",
-                                            "task":  "scenario_select_scenario_next"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "scenario_intro",
-                        "recognition":  {
-                                            "template":  "captures/after_career_tap.png",
-                                            "templates":  [
-                                                              "captures/career_intro_event_ura.png",
-                                                              "captures/career_intro_event_skip_ura.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Career"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "scenario.next",
-                                            "task":  "scenario_intro_scenario_next"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "trainee_select",
-                        "recognition":  {
-                                            "template":  "captures/trainee_select_ura.png",
-                                            "requiredText":  [
-                                                                 "Trainee Select",
-                                                                 "Oguri Cap"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "trainee.pick",
-                                            "task":  "trainee_select_pick"
-                                        },
-                                        {
-                                            "semanticId":  "trainee.next",
-                                            "task":  "trainee_select_trainee_next"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "support_select",
-                        "recognition":  {
-                                            "template":  "captures/support_select_ura.png",
-                                            "requiredText":  [
-                                                                 "Support Formation",
-                                                                 "Auto-Fill"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "support.auto_fill",
-                                            "task":  "support_select_support_auto_fill"
-                                        },
-                                        {
-                                            "semanticId":  "support.start",
-                                            "task":  "support_select_support_start"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "support_autofill_confirmation",
-                        "recognition":  {
-                                            "template":  "captures/support_autofill_prompt_ura.png",
-                                            "requiredText":  [
-                                                                 "Auto-Select",
-                                                                 "OK"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "support.autofill_ok",
-                                            "task":  "support_autofill_confirmation_support_autofill_ok"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "support_ready",
-                        "recognition":  {
-                                            "template":  "captures/support_autofilled_ura.png",
-                                            "requiredText":  [
-                                                                 "Support Formation",
-                                                                 "Start Career!"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "support.start",
-                                            "task":  "support_ready_support_start"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "legacy_select",
-                        "recognition":  {
-                                            "template":  "captures/legacy_selected_ura_confirmed.png",
-                                            "requiredText":  [
-                                                                 "Legacy Select",
-                                                                 "Auto-Select"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "legacy.next",
-                                            "task":  "legacy_select_legacy_next"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "career_intro_event",
-                        "recognition":  {
-                                            "template":  "captures/intro_tazuna_ura.png",
-                                            "templates":  [
-                                                              "captures/career_intro_event_ura.png",
-                                                              "captures/career_intro_event_skip_ura.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Tazuna"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "event.advance",
-                                            "task":  "career_intro_event_event_advance"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "career_entry",
-                        "recognition":  {
-                                            "template":  "captures/career_intro_ura.png",
-                                            "requiredText":  [
-                                                                 "Final Confirmation",
-                                                                 "Start Career!"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "career.start",
-                                            "task":  "career_entry_career_start"
                                         }
                                     ]
                     },

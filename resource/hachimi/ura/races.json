@@ -14,24 +14,6 @@
       "observedOutcome": {"placement": 1, "capture": "captures/debut_race_result_wait.png"}
     },
     {
-      "raceId": "kawasaki_kinen",
-      "name": "Kawasaki Kinen",
-      "grade": "G1",
-      "course": {"surface": "dirt", "distance": 2100, "distanceBand": "medium", "direction": "left", "venue": "Kawasaki"},
-      "fieldSize": 14,
-      "held": {"year": "senior", "phase": "early_february"},
-      "observedOutcome": {"placement": 1, "capture": "captures/senior_kawasaki_result_detail.png"}
-    },
-    {
-      "raceId": "february_stakes",
-      "name": "February Stakes",
-      "grade": "G1",
-      "course": {"surface": "dirt", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
-      "fieldSize": 16,
-      "held": {"year": "senior", "phase": "late_february"},
-      "observedOutcome": {"placement": 1, "capture": "captures/senior_february_result_detail.png"}
-    },
-    {
       "raceId": "nhk_mile_cup",
       "name": "NHK Mile Cup",
       "grade": "G1",
@@ -48,6 +30,24 @@
       "held": {"year": "classic", "phase": "late_year"},
       "objectiveReference": "mile_championship",
       "observedOutcome": {"placement": 1, "capture": "captures/classic_milech_race_result.png"}
+    },
+    {
+      "raceId": "kawasaki_kinen",
+      "name": "Kawasaki Kinen",
+      "grade": "G1",
+      "course": {"surface": "dirt", "distance": 2100, "distanceBand": "medium", "direction": "left", "venue": "Kawasaki"},
+      "fieldSize": 14,
+      "held": {"year": "senior", "phase": "early_february"},
+      "observedOutcome": {"placement": 1, "capture": "captures/senior_kawasaki_result_detail.png"}
+    },
+    {
+      "raceId": "february_stakes",
+      "name": "February Stakes",
+      "grade": "G1",
+      "course": {"surface": "dirt", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
+      "fieldSize": 16,
+      "held": {"year": "senior", "phase": "late_february"},
+      "observedOutcome": {"placement": 1, "capture": "captures/senior_february_result_detail.png"}
     },
     {
       "raceId": "tenno_sho_autumn",

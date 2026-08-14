@@ -47,6 +47,12 @@ public sealed class UraCareerSessionState
     public bool HasPendingRace { get; set; }
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
+    public bool TraineeSelected { get; set; }
+    public int ScenarioSelectionAdvanceAttempts { get; set; }
+    // Indicates that the selected URA career has actually reached the career
+    // main screen. It must not be inferred from the Home entry click: Home is
+    // both the starting point and the terminal destination.
+    public bool CareerStarted { get; set; }
     public bool CareerEntryOpened { get; set; }
     public UraPlannedAction LastAction { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
@@ -159,6 +165,9 @@ public sealed class UraScenarioModule
         double confidence)
     {
         state.LastScreenId = screenId;
+        if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
+            state.CareerStarted = true;
+
         if (string.Equals(screenId, "race_day", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_list", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_details", StringComparison.OrdinalIgnoreCase)

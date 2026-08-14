@@ -652,14 +652,12 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             string? scenarioManifestPath = null;
             if (IsScenarioManifest(path))
             {
-                var pack = await UraScenarioPackLoader.LoadAsync(path)
+                var pack = await ScenarioPackageLoader.LoadExecutionAsync(path)
                     .ConfigureAwait(true);
                 definition = pack.ExecutionDefinition;
-                definitionPath = UraScenarioResourceResolver.Resolve(
-                    pack,
-                    pack.Manifest.Execution);
+                definitionPath = pack.ExecutionPath;
                 loadedDescription =
-                    $"Loaded {pack.Manifest.DisplayName} scenario package; "
+                    $"Loaded {pack.DisplayName} ({pack.ScenarioId}) scenario package; "
                     + $"editing its execution definition ({pack.ExecutionDefinition.Tasks.Count} task(s)).";
                 scenarioManifestPath = path;
                 LoadScenarioPackageFiles(path, pack.RootDirectory);

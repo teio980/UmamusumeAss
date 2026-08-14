@@ -6,7 +6,7 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class UraScenarioPackLoaderTests
 {
     private static readonly string[] SupportedExecutionActions =
-        ["ClickSelf", "SelectUraTrainee"];
+        ["ClickSelf", "ClickRect", "SelectUraTrainee"];
 
     [Fact]
     public async Task LoadAsync_LoadsCheckedInUraPack()
@@ -41,6 +41,24 @@ public sealed class UraScenarioPackLoaderTests
                 SupportedExecutionActions));
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "home");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_complete");
+        Assert.Equal("home", pack.ScreenProfile.Find("home")?.EntryTask);
+        Assert.Equal(
+            "templates/scenario_select_header.png",
+            pack.ScreenProfile.Find("scenario_select")?.Recognition.Template);
+        Assert.Contains(
+            "captures/scenario_select_ura.png",
+            pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates
+                ?? []);
+        Assert.Equal("ura", pack.ScreenProfile.ScenarioSelection?.ScenarioId);
+        Assert.Equal(
+            "templates/scenario_select_ura_card.png",
+            pack.ScreenProfile.ScenarioSelection?.Recognition.Template);
+        Assert.Equal(
+            "ClickRect",
+            pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].Action);
+        Assert.Equal(
+            new[] { 815, 650, 75, 180 },
+            pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].SpecificRect);
         Assert.Equal(
             "../../templates/start_game/game_home_selected.png",
             pack.ExecutionDefinition.Tasks["home"].Template);
@@ -50,6 +68,28 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["home"].Next);
         Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["homeAlt"].Next);
+    }
+
+    [Fact]
+    public async Task ScenarioPackageLoader_LoadsCareerExecutionWithoutUraSpecificValidation()
+    {
+        var root = FindWorkspaceRoot();
+        var manifest = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "manifest.json");
+
+        var package = await ScenarioPackageLoader.LoadExecutionAsync(manifest);
+
+        Assert.Equal("ura", package.ScenarioId);
+        Assert.Equal("URA Finale", package.DisplayName);
+        Assert.EndsWith(
+            Path.Combine("screens", "execution.json"),
+            package.ExecutionPath,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("career-training-execution", package.ExecutionDefinition.Name);
     }
 
     [Fact]

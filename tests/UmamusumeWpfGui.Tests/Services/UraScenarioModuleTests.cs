@@ -70,6 +70,20 @@ public sealed class UraScenarioModuleTests
         Assert.Equal("finished", state.PhaseId);
     }
 
+    [Fact]
+    public async Task CareerStartedIsSetOnlyAfterCareerMainIsObserved()
+    {
+        var pack = await LoadPackAsync();
+        var module = new UraScenarioModule(pack);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "home", 0.99);
+        Assert.False(state.CareerStarted);
+
+        module.ObserveScreen(state, "career_main", 0.99);
+        Assert.True(state.CareerStarted);
+    }
+
     private static async Task<UraScenarioPack> LoadPackAsync()
     {
         var root = FindWorkspaceRoot();
