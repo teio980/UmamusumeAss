@@ -7,15 +7,15 @@ using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-public sealed class UraTrainingTaskModule : IGrassTaskModule
+public sealed class CareerTrainingTaskModule : IGrassTaskModule
 {
     private readonly ILocalizationService _localizationService;
-    private readonly IUraTrainingPipeline _pipeline;
+    private readonly ICareerTrainingPipeline _pipeline;
     private readonly IUmaDatabaseService _umaDatabase;
 
-    public UraTrainingTaskModule(
+    public CareerTrainingTaskModule(
         ILocalizationService localizationService,
-        IUraTrainingPipeline pipeline,
+        ICareerTrainingPipeline pipeline,
         IUmaDatabaseService umaDatabase)
     {
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -24,23 +24,23 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         _localizationService = localizationService;
         _pipeline = pipeline;
         _umaDatabase = umaDatabase;
-        Settings = new UraTrainingTaskSettingsViewModel(_umaDatabase);
+        Settings = new CareerTrainingTaskSettingsViewModel(_umaDatabase);
     }
 
     public GrassTaskDefinition Definition { get; } = new(
-        "ura-training",
-        "GrassTaskUraTraining",
-        "GrassTaskUraTrainingDescription",
-        "URA Training",
-        "Run a modular URA Finale training career");
+        "career-training",
+        "GrassTaskCareerTraining",
+        "GrassTaskCareerTrainingDescription",
+        "Career Training",
+        "Run a modular scenario training career");
 
-    public UraTrainingTaskSettingsViewModel Settings { get; }
+    public CareerTrainingTaskSettingsViewModel Settings { get; }
 
     object IGrassTaskModule.Settings => Settings;
 
     public JsonObject ExportSettings() => new()
     {
-        ["scenarioId"] = "ura",
+        ["scenarioId"] = Settings.ScenarioId,
         ["manifestPath"] = Settings.ManifestPath,
         ["traineeId"] = Settings.TraineeId,
         ["supportCardIds"] = new JsonArray(Settings.ParseSupportCardIds()
@@ -56,6 +56,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         ArgumentNullException.ThrowIfNull(settings);
         var manifestPath = ReadString(settings, "manifestPath");
         Settings.ManifestPath = MigrateManifestPath(manifestPath ?? Settings.ManifestPath);
+        Settings.ScenarioId = ReadString(settings, "scenarioId") ?? Settings.ScenarioId;
         Settings.TraineeId = ReadNullableInt(settings, "traineeId") ?? Settings.TraineeId;
         Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
         Settings.PauseOnUnknownOutcome = ReadBool(
@@ -74,7 +75,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         }
     }
 
-    public IGrassTaskModule CreateInstance() => new UraTrainingTaskModule(
+    public IGrassTaskModule CreateInstance() => new CareerTrainingTaskModule(
         _localizationService,
         _pipeline,
         _umaDatabase);
@@ -94,8 +95,8 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         if (!CanExecute(context) || context.Connection is not { } connection)
         {
             var message = Localize(
-                "GrassUraTrainingConnectionRequired",
-                "Connect a device and configure a valid URA training profile first.");
+                "GrassCareerTrainingConnectionRequired",
+                "Connect a device and configure a valid career training profile first.");
             Settings.SetStatus(message);
             return new GrassTaskExecutionResult(false, false, message);
         }
@@ -104,7 +105,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         {
             var result = await _pipeline.RunAsync(
                     connection,
-                    new UraTrainingSettings(
+                    new CareerTrainingSettings(
                         Settings.ManifestPath,
                         Settings.TraineeId!.Value,
                         Settings.ParseSupportCardIds(),
@@ -119,7 +120,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
         }
         catch (OperationCanceledException)
         {
-            var message = Localize("GrassUraTrainingCanceled", "URA training canceled.");
+            var message = Localize("GrassCareerTrainingCanceled", "Career training canceled.");
             Settings.SetStatus(message);
             return new GrassTaskExecutionResult(false, false, message);
         }
@@ -139,7 +140,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
             return new GrassTaskExecutionResult(
                 true,
                 false,
-                Localize("GrassUraTrainingStopRequested", "URA training stop requested."));
+                Localize("GrassCareerTrainingStopRequested", "Career training stop requested."));
         }
 
         return await StopPipelineAsync(connection, context.LogSink, cancellationToken)
@@ -198,7 +199,7 @@ public sealed class UraTrainingTaskModule : IGrassTaskModule
             "/resource/uma/scenarios/ura/manifest.json",
             StringComparison.OrdinalIgnoreCase);
         return isLegacyRelative || isLegacyAbsolute
-            ? UraTrainingTaskSettingsViewModel.DefaultManifestPath
+            ? CareerTrainingTaskSettingsViewModel.DefaultManifestPath
             : path.Trim();
     }
 }

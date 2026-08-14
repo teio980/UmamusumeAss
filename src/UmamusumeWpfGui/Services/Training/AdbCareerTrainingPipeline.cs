@@ -1,24 +1,46 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
+public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 {
     private const double RecognitionThreshold = 0.78;
+    private const double EarlyRecognitionThreshold = 0.985;
+
+    private static readonly HashSet<string> CareerEntryScreenIds =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "home",
+            "scenario_select",
+            "scenario_intro",
+            "legacy_select",
+            "trainee_select",
+            "support_select",
+            "support_autofill_confirmation",
+            "support_ready",
+            "career_races_ready",
+            "career_entry",
+            "career_intro_event",
+            "career_main",
+        };
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
     private readonly UraTraineeSelector _traineeSelector;
     private readonly UraRaceResultRecognizer _raceResultRecognizer;
     private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
+        StringComparer.OrdinalIgnoreCase);
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
 
-    public AdbUraTrainingPipeline(
+    public AdbCareerTrainingPipeline(
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
         UraTraineeSelector traineeSelector,
@@ -35,9 +57,9 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         _jsonRunner = jsonRunner;
     }
 
-    public async Task<UraTrainingResult> RunAsync(
+    public async Task<CareerTrainingResult> RunAsync(
         LastVerifiedConnection connection,
-        UraTrainingSettings settings,
+        CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken = default)
     {
@@ -49,7 +71,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         {
             if (_runCancellation is not null)
             {
-                return Failure("A URA training run is already in progress.", "busy");
+                return Failure("A Career training run is already in progress.", "busy");
             }
 
             _runCancellation = linked;
@@ -62,8 +84,8 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            logSink?.Add("URA Training", "URA training was stopped.", LogEntryKind.Failure);
-            return Failure("URA training was stopped.", "canceled");
+            logSink?.Add("Career Training", "Career training was stopped.", LogEntryKind.Failure);
+            return Failure("Career training was stopped.", "canceled");
         }
         finally
         {
@@ -75,7 +97,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         }
     }
 
-    public Task<UraTrainingResult> StopAsync(
+    public Task<CareerTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default)
@@ -86,13 +108,13 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             _runCancellation?.Cancel();
         }
 
-        logSink?.Add("URA Training", "Stop requested.");
-        return Task.FromResult(new UraTrainingResult(true, "Stop requested.", 0, "stop"));
+        logSink?.Add("Career Training", "Stop requested.");
+        return Task.FromResult(new CareerTrainingResult(true, "Stop requested.", 0, "stop"));
     }
 
-    private async Task<UraTrainingResult> RunCoreAsync(
+    private async Task<CareerTrainingResult> RunCoreAsync(
         LastVerifiedConnection connection,
-        UraTrainingSettings settings,
+        CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken = default)
     {
@@ -113,7 +135,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         var pack = await UraScenarioPackLoader.LoadAsync(settings.ManifestPath, cancellationToken)
             .ConfigureAwait(false);
         logSink?.Add(
-            "URA Training",
+            "Career Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
 
         var scenario = new UraScenarioModule(pack);
@@ -123,20 +145,45 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             ?? scenario.CreateInitialState();
         if (!string.Equals(state.ScenarioId, pack.Manifest.ScenarioId, StringComparison.OrdinalIgnoreCase))
             state = scenario.CreateInitialState();
-        state.CareerEntryOpened = false;
+        if (state.TurnIndex == 0 && !state.CareerStarted)
+        {
+            // A failed setup attempt can leave only the entry flags in the
+            // checkpoint. A new zero-turn career must always restart at the
+            // real game Home screen instead of skipping into URA recognition.
+            state.CareerEntryOpened = false;
+            state.TraineeSelected = false;
+            state.ScenarioSelectionAdvanceAttempts = 0;
+        }
         logSink?.Add(
-            "URA Training",
+            "Career Training",
             state.TurnIndex > 0
                 ? $"Resuming checkpoint at turn {state.TurnIndex}, objective {state.CurrentObjectiveId}."
                 : "Starting a new URA career session.");
-        state.CareerEntryOpened = await EnsureCareerEntryAsync(
-                connection,
-                pack,
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
 
         var actionCount = 0;
+        var careerEntryFlowStarted = state.CareerEntryOpened;
+        if (!state.CareerStarted && !state.CareerEntryOpened)
+        {
+            logSink?.Add("Career Training", "Entering Career from the game Home screen.");
+            state.CareerEntryOpened = await EnsureCareerEntryAsync(
+                    connection,
+                    pack,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!state.CareerEntryOpened)
+            {
+                return Failure(
+                    "Could not enter Career from the game Home screen.",
+                    "home",
+                    actionCount);
+            }
+
+            careerEntryFlowStarted = true;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            actionCount++;
+        }
+
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -145,7 +192,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             if (observation is null)
             {
                 return Failure(
-                    "Could not recognize a stable URA screen; automation paused safely.",
+                    "Could not recognize a stable Career screen; automation paused safely.",
                     state.LastScreenId,
                     actionCount);
             }
@@ -154,13 +201,24 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             logSink?.Add(
-                "URA Training",
+                "Career Training",
                 $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
 
             if (observation.ScreenId == "home")
             {
-                if (!state.CareerEntryOpened)
+                if (!state.CareerStarted)
                 {
+                    // The Home entry graph may have completed its last tap
+                    // while the UI is still rendering Home. Do not replay the
+                    // Home/Career taps during that transition.
+                    if (careerEntryFlowStarted)
+                    {
+                        await _visualRuntime.DelayAsync(250, cancellationToken)
+                            .ConfigureAwait(false);
+                        actionCount++;
+                        continue;
+                    }
+
                     state.CareerEntryOpened = await EnsureCareerEntryAsync(
                             connection,
                             pack,
@@ -175,12 +233,13 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                             actionCount);
                     }
 
+                    await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
                     actionCount++;
                     continue;
                 }
 
                 await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-                return new UraTrainingResult(
+                return new CareerTrainingResult(
                     true,
                     "URA career completed and returned to Home.",
                     actionCount,
@@ -212,15 +271,15 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
 
         await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         return Failure(
-            "URA training exceeded the safety action limit and was paused.",
+            "Career training exceeded the safety action limit and was paused.",
             state.LastScreenId,
             actionCount);
     }
 
-    private async Task<UraTrainingResult?> HandleScreenAsync(
+    private async Task<CareerTrainingResult?> HandleScreenAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
-        UraTrainingSettings settings,
+        CareerTrainingSettings settings,
         UraScenarioModule scenario,
         UraDefaultStrategy strategy,
         UraCareerSessionState state,
@@ -231,12 +290,31 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         switch (observation.ScreenId)
         {
             case "scenario_select":
+                return await HandleScenarioSelectionAsync(
+                        connection,
+                        pack,
+                        state,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             case "scenario_intro":
                 return await RunScreenActionAsync(
                         connection, pack, observation.ScreenId, "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "trainee_select":
-                return await RunScreenActionAsync(
+                if (state.TraineeSelected)
+                {
+                    return await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "trainee_select",
+                            "next",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                var traineePickResult = await RunScreenActionAsync(
                         connection,
                         pack,
                         "trainee_select",
@@ -265,6 +343,9 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                             }
                         })
                     .ConfigureAwait(false);
+                if (traineePickResult is null)
+                    state.TraineeSelected = true;
+                return traineePickResult;
             case "support_select":
                 if (settings.SupportCardIds.Count > 0)
                 {
@@ -454,7 +535,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                 if (settings.PauseOnUnknownOutcome)
                 {
                     logSink?.Add(
-                        "URA Training",
+                        "Career Training",
                         $"Unknown or unsupported stable screen '{observation.ScreenId}'; paused.",
                         LogEntryKind.Failure);
                     return Failure(
@@ -466,7 +547,101 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         }
     }
 
-    private async Task<UraTrainingResult?> HandleCareerMainAsync(
+    private async Task<CareerTrainingResult?> HandleScenarioSelectionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        UraCareerSessionState state,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var selection = pack.ScreenProfile.ScenarioSelection;
+        if (selection is null)
+        {
+            return await RunScreenActionAsync(
+                    connection, pack, "scenario_select", "next", logSink, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var observed = await FindScenarioSelectionAsync(
+                connection,
+                pack,
+                selection,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!observed.Captured)
+        {
+            return Failure(
+                "Could not capture the scenario selection screen.",
+                "scenario_select");
+        }
+
+        if (observed.Match is { Found: true } match)
+        {
+            state.ScenarioSelectionAdvanceAttempts = 0;
+            logSink?.Add(
+                "Career Training",
+                $"Detected target scenario '{selection.ScenarioId}' "
+                + $"with score {match.Score:0.000}; confirming selection.");
+            return await RunScreenActionAsync(
+                    connection, pack, "scenario_select", "next", logSink, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (state.ScenarioSelectionAdvanceAttempts >= selection.MaxAdvanceAttempts)
+        {
+            return Failure(
+                $"Target scenario '{selection.ScenarioId}' was not found after "
+                + $"{selection.MaxAdvanceAttempts} carousel advances.",
+                "scenario_select");
+        }
+
+        state.ScenarioSelectionAdvanceAttempts++;
+        logSink?.Add(
+            "Career Training",
+            $"Target scenario '{selection.ScenarioId}' is not visible; advancing "
+            + $"the scenario carousel ({state.ScenarioSelectionAdvanceAttempts}/"
+            + $"{selection.MaxAdvanceAttempts}).");
+        return await RunScreenActionAsync(
+                connection, pack, "scenario_select", "next_card", logSink, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<(bool Captured, TemplateMatchResult? Match)> FindScenarioSelectionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        CareerScenarioSelectionDefinition selection,
+        CancellationToken cancellationToken)
+    {
+        var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+            .ConfigureAwait(false);
+        if (frame is null)
+            return (false, null);
+
+        TemplateMatchResult? best = null;
+        foreach (var templatePath in selection.Recognition.GetTemplates())
+        {
+            var template = await LoadTemplateCachedAsync(
+                    ResolveCapture(pack, templatePath),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (template is null)
+                continue;
+
+            var match = TemplateMatcher.Find(
+                frame,
+                template,
+                selection.Recognition.Roi,
+                selection.Recognition.TemplateThreshold,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight);
+            if (match.Found && (best is null || match.Score > best.Score))
+                best = match;
+        }
+
+        return (true, best);
+    }
+
+    private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         UraScenarioModule scenario,
@@ -511,7 +686,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         if (screen is null || string.IsNullOrWhiteSpace(screen.EntryTask))
         {
             logSink?.Add(
-                "URA Training",
+                "Career Training",
                 "Home entryTask is missing from screen_profile.json.",
                 LogEntryKind.Failure);
             return false;
@@ -527,13 +702,13 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         if (!result.Succeeded)
         {
             logSink?.Add(
-                "URA Training",
+                "Career Training",
                 $"Could not enter Career from the shared Home entry task: {result.Message}",
                 LogEntryKind.Failure);
             return false;
         }
 
-        logSink?.Add("URA Training", "Opened Career from the shared Home tab.");
+        logSink?.Add("Career Training", "Opened Career from the shared Home tab.");
         return true;
     }
 
@@ -545,6 +720,9 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
     {
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => state.CareerStarted
+                || state.TurnIndex > 0
+                || CareerEntryScreenIds.Contains(screen.ScreenId))
             .OrderBy(screen => screen.ScreenId switch
             {
                 "home" => 0,
@@ -589,15 +767,13 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         UraObservation? best = null;
         foreach (var frame in frames)
         {
+            UraObservation? frameBest = null;
             foreach (var screen in candidates)
             {
                 foreach (var template in screen.Templates)
                 {
                     var path = ResolveCapture(pack, template);
-                    var grayTemplate = await _visualRuntime.LoadTemplateAsync(
-                            path,
-                            string.Empty,
-                            cancellationToken)
+                    var grayTemplate = await LoadTemplateCachedAsync(path, cancellationToken)
                         .ConfigureAwait(false);
                     if (grayTemplate is null)
                         continue;
@@ -610,18 +786,42 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                         pack.ScreenProfile.ReferenceWidth,
                         pack.ScreenProfile.ReferenceHeight);
                     if (match.Found
-                        && (best is null || match.Score > best.Score))
+                        && (frameBest is null || match.Score > frameBest.Score))
                     {
-                        best = new UraObservation(screen.ScreenId, match.Score);
+                        frameBest = new UraObservation(screen.ScreenId, match.Score);
                     }
+
+                    if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                        break;
                 }
+
+                if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                    break;
             }
+
+            if (frameBest is not null && (best is null || frameBest.Score > best.Score))
+                best = frameBest;
         }
 
         return best;
     }
 
-    private async Task<UraTrainingResult?> RunScreenActionAsync(
+    private Task<GrayImage?> LoadTemplateCachedAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        var lazy = _templateCache.GetOrAdd(
+            path,
+            key => new Lazy<Task<GrayImage?>>(
+                () => _visualRuntime.LoadTemplateAsync(
+                    key,
+                    string.Empty,
+                    CancellationToken.None),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        return lazy.Value.WaitAsync(cancellationToken);
+    }
+
+    private async Task<CareerTrainingResult?> RunScreenActionAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         string screenId,
@@ -680,7 +880,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         }
     }
 
-    private static UraTrainingResult Failure(
+    private static CareerTrainingResult Failure(
         string message,
         string lastScreenId,
         int actionsCompleted = 0) =>

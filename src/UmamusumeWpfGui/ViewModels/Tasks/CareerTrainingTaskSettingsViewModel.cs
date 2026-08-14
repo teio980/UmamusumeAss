@@ -9,12 +9,13 @@ using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
-public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
+public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultManifestPath = "resource/hachimi/ura/manifest.json";
     public const string DefaultStrategyId = "default-speed-medium";
 
     private readonly IUmaDatabaseService? _umaDatabase;
+    private string _scenarioId = "ura";
     private string _manifestPath = DefaultManifestPath;
     private int? _traineeId = 100601;
     private string _supportCardIdsText = string.Empty;
@@ -24,9 +25,9 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _status = string.Empty;
     private string _traineeSearchText = string.Empty;
     private bool _isTraineeDropDownOpen;
-    private readonly List<UraTraineeOption> _allTraineeOptions = [];
+    private readonly List<CareerTraineeOption> _allTraineeOptions = [];
 
-    public UraTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
+    public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
         _umaDatabase = umaDatabase;
         if (_umaDatabase is not null)
@@ -36,9 +37,9 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ObservableCollection<UraTraineeOption> TraineeOptions { get; } = [];
+    public ObservableCollection<CareerTraineeOption> TraineeOptions { get; } = [];
 
-    public ObservableCollection<UraTraineeOption> FilteredTraineeOptions { get; } = [];
+    public ObservableCollection<CareerTraineeOption> FilteredTraineeOptions { get; } = [];
 
     public string TraineeSearchText
     {
@@ -72,6 +73,12 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
         set => Set(ref _manifestPath, value?.Trim() ?? string.Empty);
     }
 
+    public string ScenarioId
+    {
+        get => _scenarioId;
+        set => Set(ref _scenarioId, value?.Trim() ?? string.Empty);
+    }
+
     public int? TraineeId
     {
         get => _traineeId;
@@ -83,7 +90,7 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    public UraTraineeOption? SelectedTrainee
+    public CareerTraineeOption? SelectedTrainee
     {
         get => TraineeOptions.FirstOrDefault(item => item.TraineeId == TraineeId)
             ?? TraineeOptions.FirstOrDefault();
@@ -171,7 +178,7 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
                     }
                 }
 
-                var option = new UraTraineeOption(trainee.TraineeId, label, thumbnail);
+                var option = new CareerTraineeOption(trainee.TraineeId, label, thumbnail);
                 _allTraineeOptions.Add(option);
                 TraineeOptions.Add(option);
             }
@@ -228,7 +235,7 @@ public sealed class UraTrainingTaskSettingsViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
-public sealed record UraTraineeOption(
+public sealed record CareerTraineeOption(
     int TraineeId,
     string Label,
     BitmapSource? Thumbnail = null);

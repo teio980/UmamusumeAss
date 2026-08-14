@@ -3,21 +3,21 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-public interface IUraTrainingPipeline
+public interface ICareerTrainingPipeline
 {
-    Task<UraTrainingResult> RunAsync(
+    Task<CareerTrainingResult> RunAsync(
         LastVerifiedConnection connection,
-        UraTrainingSettings settings,
+        CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken = default);
 
-    Task<UraTrainingResult> StopAsync(
+    Task<CareerTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
         CancellationToken cancellationToken = default);
 }
 
-public sealed record UraTrainingSettings(
+public sealed record CareerTrainingSettings(
     string ManifestPath,
     int TraineeId,
     IReadOnlyList<int> SupportCardIds,
@@ -25,7 +25,7 @@ public sealed record UraTrainingSettings(
     bool PauseOnUnknownOutcome,
     bool AllowOptionalRaces);
 
-public sealed record UraTrainingResult(
+public sealed record CareerTrainingResult(
     bool Succeeded,
     string Message,
     int ActionsCompleted,

@@ -1,0 +1,38 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.CareerTrainingTaskSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <StackPanel>
+      <TextBlock Text="Career Training Settings" FontWeight="Medium" />
+      <TextBlock Margin="0,12,0,0" Text="Scenario manifest" />
+      <ui:TextBox Margin="0,6,0,0"
+                  Text="{Binding ManifestPath, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,12,0,0" Text="Trainee" />
+      <taskviews:TraineePickerView Margin="0,6,0,0" />
+
+      <TextBlock Margin="0,12,0,0" Text="Support card IDs (optional)" />
+      <ui:TextBox Margin="0,6,0,0"
+                  Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />
+
+      <TextBlock Margin="0,12,0,0" Text="Strategy ID" />
+      <ui:TextBox Margin="0,6,0,0"
+                  Text="{Binding StrategyId, UpdateSourceTrigger=PropertyChanged}" />
+
+      <CheckBox Margin="0,12,0,0"
+                IsChecked="{Binding PauseOnUnknownOutcome}">
+        <TextBlock Text="Pause on unknown screen/outcome"
+                   TextWrapping="Wrap" />
+      </CheckBox>
+      <CheckBox Margin="0,8,0,0"
+                IsChecked="{Binding AllowOptionalRaces}">
+        <TextBlock Text="Allow optional races"
+                   TextWrapping="Wrap" />
+      </CheckBox>
+      <TextBlock Margin="0,10,0,0"
+                 Text="{Binding Status}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+  </StackPanel>
+</UserControl>

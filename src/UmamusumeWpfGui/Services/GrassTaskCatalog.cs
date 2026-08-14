@@ -40,7 +40,7 @@ public sealed class DefaultGrassTaskCatalog : IGrassTaskCatalog
         StartGameTaskModule startGameTaskModule,
         TeamRaceTaskModule teamRaceTaskModule,
         DailyRaceTaskModule dailyRaceTaskModule,
-        UraTrainingTaskModule uraTrainingTaskModule,
+        CareerTrainingTaskModule careerTrainingTaskModule,
         MailCollectionTaskModule mailCollectionTaskModule,
         MissionCollectionTaskModule missionCollectionTaskModule,
         ShopTaskModule shopTaskModule)
@@ -48,14 +48,14 @@ public sealed class DefaultGrassTaskCatalog : IGrassTaskCatalog
         ArgumentNullException.ThrowIfNull(startGameTaskModule);
         ArgumentNullException.ThrowIfNull(teamRaceTaskModule);
         ArgumentNullException.ThrowIfNull(dailyRaceTaskModule);
-        ArgumentNullException.ThrowIfNull(uraTrainingTaskModule);
+        ArgumentNullException.ThrowIfNull(careerTrainingTaskModule);
         ArgumentNullException.ThrowIfNull(mailCollectionTaskModule);
         ArgumentNullException.ThrowIfNull(missionCollectionTaskModule);
         ArgumentNullException.ThrowIfNull(shopTaskModule);
         _catalog.Register(startGameTaskModule);
         _catalog.Register(teamRaceTaskModule);
         _catalog.Register(dailyRaceTaskModule);
-        _catalog.Register(uraTrainingTaskModule);
+        _catalog.Register(careerTrainingTaskModule);
         _catalog.Register(mailCollectionTaskModule);
         _catalog.Register(missionCollectionTaskModule);
         _catalog.Register(shopTaskModule);

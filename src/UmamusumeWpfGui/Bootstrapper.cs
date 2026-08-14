@@ -79,13 +79,13 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<DailyRaceTaskModule>()
             .ToSelf()
             .InSingletonScope();
-        builder.Bind<IUraTrainingPipeline>()
-            .To<AdbUraTrainingPipeline>()
+        builder.Bind<ICareerTrainingPipeline>()
+            .To<AdbCareerTrainingPipeline>()
             .InSingletonScope();
         builder.Bind<UraTraineeSelector>()
             .ToSelf()
             .InSingletonScope();
-        builder.Bind<UraTrainingTaskModule>()
+        builder.Bind<CareerTrainingTaskModule>()
             .ToSelf()
             .InSingletonScope();
         builder.Bind<ITeamRacePipeline>()

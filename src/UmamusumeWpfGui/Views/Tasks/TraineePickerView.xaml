@@ -1,0 +1,97 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.TraineePickerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <c:NullToVisibilityConverter x:Key="NullToVisibility" />
+  </UserControl.Resources>
+
+  <Grid HorizontalAlignment="Stretch">
+    <ToggleButton x:Name="DropDownButton"
+                  Height="32"
+                  Background="{DynamicResource SurfaceRaisedBrush}"
+                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                  BorderThickness="1"
+                  IsChecked="{Binding IsTraineeDropDownOpen, Mode=TwoWay}">
+      <Grid>
+        <Grid Margin="10,0,36,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Image Width="24"
+                 Height="24"
+                 Margin="0,0,8,0"
+                 Source="{Binding SelectedTrainee.Thumbnail}"
+                 Stretch="Uniform"
+                 Visibility="{Binding SelectedTrainee.Thumbnail,
+                                      Converter={StaticResource NullToVisibility}}" />
+          <TextBlock Grid.Column="1"
+                     VerticalAlignment="Center"
+                     Text="{Binding SelectedTrainee.Label}"
+                     TextWrapping="Wrap" />
+        </Grid>
+        <Path Width="10"
+              Height="6"
+              Margin="0,0,12,0"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Center"
+              Data="M 0,0 L 5,5 L 10,0 Z"
+              Fill="{DynamicResource TextSecondaryBrush}" />
+      </Grid>
+    </ToggleButton>
+
+    <Popup AllowsTransparency="True"
+           DataContext="{Binding PlacementTarget.DataContext,
+               RelativeSource={RelativeSource Self}}"
+           IsOpen="{Binding IsTraineeDropDownOpen, Mode=TwoWay}"
+           Placement="Bottom"
+           PlacementTarget="{Binding ElementName=DropDownButton}"
+           StaysOpen="False">
+      <Border Width="{Binding ActualWidth, ElementName=DropDownButton}"
+              MaxHeight="430"
+              Padding="8"
+              Background="{DynamicResource SurfaceRaisedBrush}"
+              BorderBrush="{DynamicResource BorderSubtleBrush}"
+              BorderThickness="1"
+              CornerRadius="4">
+        <StackPanel>
+          <ui:TextBox Margin="0,0,0,8"
+                      Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                      PlaceholderText="{DynamicResource GrassDailyRaceTraineeSearchPlaceholder}" />
+          <ListBox MaxHeight="350"
+                   BorderThickness="0"
+                   ItemsSource="{Binding FilteredTraineeOptions}"
+                   SelectedItem="{Binding SelectedTrainee, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   PreviewMouseLeftButtonUp="TraineeList_PreviewMouseLeftButtonUp">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid MinHeight="60"
+                      VerticalAlignment="Center">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="52"
+                          Height="52"
+                          Margin="0,2,10,2"
+                          Background="{DynamicResource SurfaceRaisedBrush}"
+                          CornerRadius="4">
+                    <Image Source="{Binding Thumbnail}"
+                           Stretch="Uniform" />
+                  </Border>
+                  <TextBlock Grid.Column="1"
+                             VerticalAlignment="Center"
+                             Text="{Binding Label}"
+                             TextWrapping="Wrap" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

@@ -625,8 +625,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
         foreach (var cachedTask in _settingsService.Load().TaskQueue)
         {
+            var taskId = MigrateTaskId(cachedTask.TaskId);
             var prototype = _taskCatalog.Modules.FirstOrDefault(module =>
-                module.Definition.Id.Equals(cachedTask.TaskId, StringComparison.Ordinal));
+                module.Definition.Id.Equals(taskId, StringComparison.Ordinal));
             if (prototype is null)
                 continue;
 
@@ -639,7 +640,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             {
                 AddScriptLog(
                     Localize("GrassScriptQueue", "Task queue"),
-                    $"Could not restore task '{cachedTask.TaskId}': {exception.Message}",
+                    $"Could not restore task '{taskId}': {exception.Message}",
                     LogEntryKind.Failure);
                 continue;
             }
@@ -656,6 +657,11 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         NotifyTaskSummaryChanged();
         RaiseQueueCommandStateChanged();
     }
+
+    private static string MigrateTaskId(string taskId) =>
+        string.Equals(taskId, "ura-training", StringComparison.Ordinal)
+            ? "career-training"
+            : taskId;
 
     private void MigrateLegacyShopTask()
     {
