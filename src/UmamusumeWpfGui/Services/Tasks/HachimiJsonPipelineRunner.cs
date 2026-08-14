@@ -333,6 +333,7 @@ public sealed class HachimiJsonPipelineRunner
         switch (action)
         {
             case "selectdailyracerunner":
+            case "selecturatrainee":
                 if (runOptions.CustomActionExecutor is null)
                 {
                     return TaskExecutionResult.Failed(
@@ -349,6 +350,21 @@ public sealed class HachimiJsonPipelineRunner
                     .ConfigureAwait(false);
                 if (!customResult.Succeeded)
                     return TaskExecutionResult.Failed(customResult.Message);
+                if (customResult.Match is not null)
+                {
+                    await _visualRuntime.TapMatchAsync(
+                            connection,
+                            customResult.Match,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"Clicked dynamic match at ({customResult.Match.CenterX},{customResult.Match.CenterY}), "
+                        + $"score {customResult.Match.Score:0.000}.",
+                        LogEntryKind.Success);
+                }
                 if (!string.IsNullOrWhiteSpace(customResult.Message))
                 {
                     AddTaskLog(logSink, taskName, customResult.Message, LogEntryKind.Success);
@@ -1053,9 +1069,15 @@ public sealed class HachimiPipelineRunOptions
     public int PipelineDepth { get; init; }
 }
 
-public sealed record HachimiCustomActionResult(bool Succeeded, string Message)
+public sealed record HachimiCustomActionResult(
+    bool Succeeded,
+    string Message,
+    TemplateMatchResult? Match = null)
 {
-    public static HachimiCustomActionResult Success(string message) => new(true, message);
+    public static HachimiCustomActionResult Success(
+        string message,
+        TemplateMatchResult? match = null) =>
+        new(true, message, match);
 
     public static HachimiCustomActionResult Failure(string message) => new(false, message);
 }

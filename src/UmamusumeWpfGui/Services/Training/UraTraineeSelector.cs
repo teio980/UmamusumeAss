@@ -18,16 +18,6 @@ public sealed class UraTraineeSelector
     private static readonly double[] MatchScales =
         [0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.35, 1.50, 1.70, 1.90];
 
-    private static readonly int[][] TraineeCells =
-    [
-        [35, 815, 145, 170], [205, 815, 145, 170], [375, 815, 145, 170],
-        [545, 815, 145, 170], [715, 815, 145, 170],
-        [35, 1010, 145, 170], [205, 1010, 145, 170], [375, 1010, 145, 170],
-        [545, 1010, 145, 170], [715, 1010, 145, 170],
-        [35, 1205, 145, 90], [205, 1205, 145, 90], [375, 1205, 145, 90],
-        [545, 1205, 145, 90], [715, 1205, 145, 90],
-    ];
-
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
 
@@ -44,9 +34,13 @@ public sealed class UraTraineeSelector
     public async Task<UraTraineeSelectionResult> SelectAsync(
         LastVerifiedConnection connection,
         int traineeId,
+        IReadOnlyList<int[]> cellRois,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(cellRois);
+        if (cellRois.Count == 0 || cellRois.Any(roi => roi is null || roi.Length != 4))
+            return Failure("The JSON trainee selector has no valid candidate cell ROIs.");
 
         if (!_umaDatabase.TryGetTrainee(traineeId, out var trainee)
             || trainee is null
@@ -82,7 +76,7 @@ public sealed class UraTraineeSelector
             if (template is null)
                 continue;
 
-            foreach (var cell in TraineeCells)
+            foreach (var cell in cellRois)
             {
                 var match = TemplateMatcher.FindScaled(
                     screen,
@@ -107,16 +101,10 @@ public sealed class UraTraineeSelector
                 + $"(best score {bestScore:0.000} / required {MinimumMatchScore:0.000}).");
         }
 
-        await _visualRuntime.TapMatchAsync(
-                connection,
-                bestMatch,
-                "trainee.select",
-                cancellationToken)
-            .ConfigureAwait(false);
-
         return new UraTraineeSelectionResult(
             true,
-            $"Located {trainee.NameEn} on the URA trainee grid with score {bestScore:0.000}.");
+            $"Located {trainee.NameEn} on the URA trainee grid with score {bestScore:0.000}.",
+            bestMatch);
     }
 
     private List<string> GetTemplatePaths(UmaTraineeRecord trainee)
@@ -138,4 +126,7 @@ public sealed class UraTraineeSelector
         new(false, message);
 }
 
-public sealed record UraTraineeSelectionResult(bool Succeeded, string Message);
+public sealed record UraTraineeSelectionResult(
+    bool Succeeded,
+    string Message,
+    TemplateMatchResult? Match = null);

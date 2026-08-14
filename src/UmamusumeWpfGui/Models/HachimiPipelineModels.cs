@@ -84,6 +84,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("specificRect")]
     public int[]? SpecificRect { get; set; }
 
+    [JsonPropertyName("searchRois")]
+    public List<int[]> SearchRois { get; set; } = [];
+
     [JsonPropertyName("preDelay")]
     public int PreDelay { get; set; }
 

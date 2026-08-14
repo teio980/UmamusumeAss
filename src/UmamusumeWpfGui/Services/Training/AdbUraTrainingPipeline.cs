@@ -9,9 +9,6 @@ namespace UmamusumeWpfGui.Services.Training;
 public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
 {
     private const double RecognitionThreshold = 0.78;
-    private const int PollIntervalMilliseconds = 350;
-    private const int RecognitionTimeoutMilliseconds = 12_000;
-    private const int ActionSettleMilliseconds = 650;
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
@@ -164,14 +161,20 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             {
                 if (!state.CareerEntryOpened)
                 {
-                    await TapSemanticAsync(
+                    state.CareerEntryOpened = await EnsureCareerEntryAsync(
                             connection,
                             pack,
-                            "home",
-                            "home.career",
+                            logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    state.CareerEntryOpened = true;
+                    if (!state.CareerEntryOpened)
+                    {
+                        return Failure(
+                            "Could not enter URA Career from the shared Home JSON entry flow.",
+                            "home",
+                            actionCount);
+                    }
+
                     actionCount++;
                     continue;
                 }
@@ -205,8 +208,6 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
             }
 
             actionCount++;
-            await _visualRuntime.DelayAsync(ActionSettleMilliseconds, cancellationToken)
-                .ConfigureAwait(false);
         }
 
         await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -230,23 +231,39 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         switch (observation.ScreenId)
         {
             case "scenario_select":
-                return await TapSemanticAsync(
-                        connection, pack, "scenario_select", "scenario.next", cancellationToken)
-                    .ConfigureAwait(false);
             case "scenario_intro":
-                return await TapSemanticAsync(
-                        connection, pack, "scenario_intro", "scenario.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, observation.ScreenId, "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "trainee_select":
-                var traineeSelection = await _traineeSelector.SelectAsync(
+                return await RunScreenActionAsync(
                         connection,
-                        settings.TraineeId,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!traineeSelection.Succeeded)
-                    return Failure(traineeSelection.Message, observation.ScreenId);
-                return await TapSemanticAsync(
-                        connection, pack, "trainee_select", "trainee.next", cancellationToken)
+                        pack,
+                        "trainee_select",
+                        "pick",
+                        logSink,
+                        cancellationToken,
+                        new HachimiPipelineRunOptions
+                        {
+                            CustomActionExecutor = async (
+                                    actionConnection,
+                                    definition,
+                                    taskName,
+                                    task,
+                                    actionLogSink,
+                                    actionCancellationToken) =>
+                            {
+                                var selection = await _traineeSelector.SelectAsync(
+                                        actionConnection,
+                                        settings.TraineeId,
+                                        task.SearchRois,
+                                        actionCancellationToken)
+                                    .ConfigureAwait(false);
+                                return selection.Succeeded
+                                    ? HachimiCustomActionResult.Success(selection.Message, selection.Match)
+                                    : HachimiCustomActionResult.Failure(selection.Message);
+                            }
+                        })
                     .ConfigureAwait(false);
             case "support_select":
                 if (settings.SupportCardIds.Count > 0)
@@ -257,99 +274,100 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                         + "a different deck.",
                         observation.ScreenId);
                 }
-                return await TapSemanticAsync(
-                        connection, pack, "support_select", "support.auto_fill", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "support_select", "auto_fill", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "support_autofill_confirmation":
-                return await TapSemanticAsync(
+                return await RunScreenActionAsync(
                         connection,
                         pack,
                         "support_autofill_confirmation",
-                        "support.autofill_ok",
+                        "autofill_ok",
+                        logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
             case "support_ready":
-                return await TapSemanticAsync(
-                        connection, pack, "support_ready", "support.start", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "support_ready", "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "legacy_select":
-                return await TapSemanticAsync(
-                        connection, pack, "legacy_select", "legacy.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "legacy_select", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_intro_event":
-                return await TapSemanticAsync(
-                        connection, pack, "career_intro_event", "event.advance", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_intro_event", "advance", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_main":
                 return await HandleCareerMainAsync(
                         connection, pack, scenario, strategy, state, logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_races_ready":
-                return await TapSemanticAsync(
-                        connection, pack, "career_races_ready", "action.races", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_races_ready", "races", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_entry":
-                return await TapSemanticAsync(
-                        connection, pack, "career_entry", "career.start", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_entry", "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "training_selection":
                 state.LastAction = UraPlannedAction.Training;
-                return await TapSemanticAsync(
-                        connection, pack, "training_selection", "training.speed", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "training_selection", "speed", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "training_result":
             case "training_event":
             case "rest_result":
-            case "transition_event":
                 state.HasScenarioEvent = false;
-                return await TapSemanticAsync(
-                        connection, pack, observation.ScreenId, "event.advance", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, observation.ScreenId, "advance", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "event_choice":
-                return await TapSemanticAsync(
-                        connection, pack, "event_choice", "event.choice.first", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "event_choice", "choice_first", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "rest_confirmation":
                 state.LastAction = UraPlannedAction.Rest;
-                return await TapSemanticAsync(
-                        connection, pack, "rest_confirmation", "rest.confirm", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "rest_confirmation", "confirm", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_day":
                 state.HasPendingRace = true;
-                return await TapSemanticAsync(
-                        connection, pack, "race_day", "race.open_list", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_day", "open_list", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_list":
-                return await TapSemanticAsync(
-                        connection, pack, "race_list", "race.goal_entry", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_list", "goal_entry", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_details":
-                return await TapSemanticAsync(
-                        connection, pack, "race_details", "race.confirm", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_details", "confirm", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_attributes":
-                return await TapSemanticAsync(
-                        connection, pack, "race_attributes", "race.start_playback", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_attributes", "start_playback", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_playback":
-                return await TapSemanticAsync(
-                        connection, pack, "race_playback", "race.play", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_playback", "play", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_playback_settings":
-                return await TapSemanticAsync(
+                return await RunScreenActionAsync(
                         connection,
                         pack,
                         "race_playback_settings",
-                        "race.playback_settings_ok",
+                        "playback_settings_ok",
+                        logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
-            case "goal_update":
-                return await TapSemanticAsync(
-                        connection, pack, "goal_update", "goal.update_next", cancellationToken)
+            case "race_live":
+                return await RunScreenActionAsync(
+                        connection, pack, "race_live", "live_next", logSink, cancellationToken)
                     .ConfigureAwait(false);
-            case "race_playback_end":
-                return await TapSemanticAsync(
-                        connection, pack, "race_playback_end", "race.playback_next", cancellationToken)
+            case "goal_update":
+                return await RunScreenActionAsync(
+                        connection, pack, "goal_update", "update_next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "race_result":
                 var currentRace = scenario.CurrentRace(state);
@@ -383,58 +401,54 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                 {
                     return Failure(ex.Message, observation.ScreenId);
                 }
-                return await TapSemanticAsync(
-                        connection, pack, "race_result", "result.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "race_result", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "reward":
-                return await TapSemanticAsync(
-                        connection, pack, "reward", "reward.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "reward", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "reward_support":
-                return await TapSemanticAsync(
-                        connection, pack, "reward_support", "reward.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "reward_support", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "goal_complete":
                 state.HasPendingRace = true;
-                return await TapSemanticAsync(
-                        connection, pack, "goal_complete", "goal.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "goal_complete", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "scenario_event":
                 state.HasScenarioEvent = false;
-                return await TapSemanticAsync(
-                        connection, pack, "scenario_event", "event.advance", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "scenario_event", "advance", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "complete_career":
-                return await TapSemanticAsync(
-                        connection, pack, "complete_career", "career.finish", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "complete_career", "finish", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_rank":
-                return await TapSemanticAsync(
-                        connection, pack, "career_rank", "career.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_rank", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_result":
-                return await TapSemanticAsync(
-                        connection, pack, "career_result", "career.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_result", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "rewards":
-                return await TapSemanticAsync(
-                        connection, pack, "rewards", "rewards.next", cancellationToken)
-                    .ConfigureAwait(false);
-            case "rewards_support":
-                return await TapSemanticAsync(
-                        connection, pack, "rewards_support", "rewards.next", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "rewards", "next", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "sparks":
-                return await TapSemanticAsync(
-                        connection, pack, "sparks", "sparks.confirm", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "sparks", "confirm", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "sparks_confirmation":
-                return await TapSemanticAsync(
-                        connection, pack, "sparks_confirmation", "sparks.keep", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "sparks_confirmation", "keep", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_complete":
-                return await TapSemanticAsync(
-                        connection, pack, "career_complete", "career.to_home", cancellationToken)
+                return await RunScreenActionAsync(
+                        connection, pack, "career_complete", "to_home", logSink, cancellationToken)
                     .ConfigureAwait(false);
             default:
                 if (settings.PauseOnUnknownOutcome)
@@ -470,18 +484,19 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
                 "career_main");
         }
         logSink?.Add("URA Strategy", decision.Reason);
-        var semanticId = decision.Action switch
+        var actionId = decision.Action switch
         {
-            UraPlannedAction.Rest => "action.rest",
-            UraPlannedAction.FinaleRace => "action.finale_races",
-            _ => "action.training",
+            UraPlannedAction.Rest => "rest",
+            UraPlannedAction.FinaleRace => "finale_races",
+            _ => "training",
         };
         state.LastAction = decision.Action;
-        return await TapSemanticAsync(
+        return await RunScreenActionAsync(
                 connection,
                 pack,
                 "career_main",
-                semanticId,
+                actionId,
+                logSink,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -492,14 +507,20 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        // Match and click the shared Home tab first, exactly like Daily Race
-        // and Team Race. The selected and unselected variants are both handled
-        // by the URA execution graph before the Career button is clicked.
+        var screen = pack.ScreenProfile.Find("home");
+        if (screen is null || string.IsNullOrWhiteSpace(screen.EntryTask))
+        {
+            logSink?.Add(
+                "URA Training",
+                "Home entryTask is missing from screen_profile.json.",
+                LogEntryKind.Failure);
+            return false;
+        }
+
         var result = await _jsonRunner.RunAsync(
                 connection,
                 pack.ExecutionDefinition,
-                "home",
-                options: null,
+                screen.EntryTask,
                 logSink: logSink,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -507,7 +528,7 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         {
             logSink?.Add(
                 "URA Training",
-                $"Could not enter Career from the shared Home tab: {result.Message}",
+                $"Could not enter Career from the shared Home entry task: {result.Message}",
                 LogEntryKind.Failure);
             return false;
         }
@@ -600,59 +621,47 @@ public sealed class AdbUraTrainingPipeline : IUraTrainingPipeline
         return best;
     }
 
-    private async Task<UraTrainingResult?> TapSemanticAsync(
+    private async Task<UraTrainingResult?> RunScreenActionAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         string screenId,
-        string semanticId,
-        CancellationToken cancellationToken)
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken,
+        HachimiPipelineRunOptions? options = null)
     {
-        var screen = pack.ScreenProfile.Find(screenId)
-            ?? throw new InvalidDataException($"Screen '{screenId}' is not in the URA profile.");
-        var action = screen.FindAction(semanticId)
-            ?? throw new InvalidDataException(
-                $"Semantic action '{semanticId}' is not in screen '{screenId}'.");
+        var screen = pack.ScreenProfile.Find(screenId);
+        if (screen is null)
+        {
+            return Failure(
+                $"Screen '{screenId}' is missing from screen_profile.json.",
+                screenId);
+        }
+
+        var action = screen.FindAction(actionId);
+        if (action is null || string.IsNullOrWhiteSpace(action.Task))
+        {
+            return Failure(
+                $"Screen action '{screenId}.{actionId}' is missing from screen_profile.json.",
+                screenId);
+        }
+
         var result = await _jsonRunner.RunAsync(
                 connection,
                 pack.ExecutionDefinition,
                 action.Task,
-                logSink: null,
+                options: options,
+                logSink: logSink,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
             return Failure(
-                $"Could not execute URA action '{semanticId}' on '{screenId}': {result.Message}",
+                $"Could not execute JSON task '{action.Task}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
         }
 
         return null;
-    }
-
-    private async Task<TemplateMatchResult?> WaitTemplateAsync(
-        LastVerifiedConnection connection,
-        string name,
-        string path,
-        int[] roi,
-        double threshold,
-        string taskName,
-        string baseDirectory,
-        int timeout,
-        CancellationToken cancellationToken)
-    {
-        return await _visualRuntime.WaitForMatchAsync(
-                connection,
-                path,
-                roi,
-                threshold,
-                900,
-                1600,
-                timeout,
-                PollIntervalMilliseconds,
-                name + "." + taskName,
-                baseDirectory,
-                cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private static string ResolveCapture(UraScenarioPack pack, string relativePath) =>

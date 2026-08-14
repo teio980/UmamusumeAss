@@ -1233,6 +1233,126 @@
                                                        "required":  true,
                                                        "success":  false
                                                    },
+                  "trainee_select_pick":  {
+                                                      "algorithm":  "MatchTemplate",
+                                                      "action":  "SelectUraTrainee",
+                                                      "searchRois":  [
+                                                                  [
+                                                                      35,
+                                                                      815,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      205,
+                                                                      815,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      375,
+                                                                      815,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      545,
+                                                                      815,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      715,
+                                                                      815,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      35,
+                                                                      1010,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      205,
+                                                                      1010,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      375,
+                                                                      1010,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      545,
+                                                                      1010,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      715,
+                                                                      1010,
+                                                                      145,
+                                                                      170
+                                                                  ],
+                                                                  [
+                                                                      35,
+                                                                      1205,
+                                                                      145,
+                                                                      90
+                                                                  ],
+                                                                  [
+                                                                      205,
+                                                                      1205,
+                                                                      145,
+                                                                      90
+                                                                  ],
+                                                                  [
+                                                                      375,
+                                                                      1205,
+                                                                      145,
+                                                                      90
+                                                                  ],
+                                                                  [
+                                                                      545,
+                                                                      1205,
+                                                                      145,
+                                                                      90
+                                                                  ],
+                                                                  [
+                                                                      715,
+                                                                      1205,
+                                                                      145,
+                                                                      90
+                                                                  ]
+                                                              ],
+                                                      "templThreshold":  0.78,
+                                                      "preDelay":  0,
+                                                      "postDelay":  0,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+                                                                  "trainee_select_trainee_next"
+                                                              ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                       ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
                   "trainee_select_trainee_next":  {
                                                       "algorithm":  "MatchTemplate",
                                                       "action":  "ClickSelf",

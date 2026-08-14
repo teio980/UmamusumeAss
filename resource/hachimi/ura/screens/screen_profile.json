@@ -679,6 +679,7 @@
                     },
                     {
                         "screenId":  "home",
+                        "entryTask":  "home",
                         "recognition":  {
                                             "template":  "captures/ura_returned_home.png",
                                             "requiredText":  [
@@ -741,6 +742,10 @@
                                             "stable":  true
                                         },
                         "actions":  [
+                                        {
+                                            "semanticId":  "trainee.pick",
+                                            "task":  "trainee_select_pick"
+                                        },
                                         {
                                             "semanticId":  "trainee.next",
                                             "task":  "trainee_select_trainee_next"

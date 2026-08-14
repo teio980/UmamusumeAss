@@ -177,7 +177,8 @@
           <ComboBox Width="200"
                     Margin="0,12,0,0"
                     HorizontalAlignment="Left"
-                    SelectedItem="{Binding SelectedLanguage}"
+                    SelectedValue="{Binding SelectedLanguage, Mode=TwoWay}"
+                    SelectedValuePath="Content"
                     IsReadOnly="True">
             <ComboBox.Items>
               <ComboBoxItem>en-US</ComboBoxItem>

@@ -5,6 +5,9 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class UraScenarioPackLoaderTests
 {
+    private static readonly string[] SupportedExecutionActions =
+        ["ClickSelf", "SelectUraTrainee"];
+
     [Fact]
     public async Task LoadAsync_LoadsCheckedInUraPack()
     {
@@ -25,9 +28,17 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal("ura", pack.Events.ScenarioId);
         Assert.Equal("ura", pack.ScreenProfile.ScenarioId);
         Assert.NotEmpty(pack.ExecutionDefinition.Tasks);
+        Assert.Equal(
+            "SelectUraTrainee",
+            pack.ExecutionDefinition.Tasks["trainee_select_pick"].Action);
+        Assert.Equal(
+            15,
+            pack.ExecutionDefinition.Tasks["trainee_select_pick"].SearchRois.Count);
         Assert.All(
             pack.ExecutionDefinition.Tasks.Values,
-            task => Assert.Equal("ClickSelf", task.Action));
+            task => Assert.Contains(
+                task.Action,
+                SupportedExecutionActions));
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "home");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_complete");
         Assert.Equal(

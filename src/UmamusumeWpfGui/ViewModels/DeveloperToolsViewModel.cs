@@ -1180,6 +1180,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             "runpipeline",
             "screenshot",
             "selectdailyracerunner",
+            "selecturatrainee",
             "stop",
             "swipe",
             "wait",

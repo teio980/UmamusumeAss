@@ -380,6 +380,9 @@ public sealed class UraScreenDefinition
     [JsonPropertyName("screenId")]
     public string ScreenId { get; set; } = string.Empty;
 
+    [JsonPropertyName("entryTask")]
+    public string? EntryTask { get; set; }
+
     [JsonPropertyName("recognition")]
     public UraScreenRecognition Recognition { get; set; } = new();
 
@@ -388,9 +391,13 @@ public sealed class UraScreenDefinition
 
     public IReadOnlyList<string> Templates => Recognition.GetTemplates();
 
-    public UraScreenAction? FindAction(string semanticId) =>
+    public UraScreenAction? FindAction(string actionId) =>
         Actions.FirstOrDefault(item =>
-            string.Equals(item.SemanticId, semanticId, StringComparison.OrdinalIgnoreCase));
+            string.Equals(item.SemanticId, actionId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                item.SemanticId.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(),
+                actionId,
+                StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class UraScreenRecognition
@@ -607,6 +614,13 @@ public sealed class UraScenarioPackLoader
                 throw new InvalidDataException($"Screen '{screen.ScreenId}' has no recognition template.");
             foreach (var template in screen.Templates)
                 RequireFile(profileDirectory, template);
+
+            if (!string.IsNullOrWhiteSpace(screen.EntryTask)
+                && !execution.Tasks.ContainsKey(screen.EntryTask))
+            {
+                throw new InvalidDataException(
+                    $"Screen '{screen.ScreenId}' entry task '{screen.EntryTask}' is not defined.");
+            }
 
             var actionIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var action in screen.Actions)
