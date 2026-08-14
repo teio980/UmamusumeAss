@@ -13,11 +13,7 @@ public sealed class HachimiSettings
 
 public sealed class HachimiShopSettings
 {
-    public const string DefaultDefinitionPath = "resource/hachimi/shop.json";
-
     public bool Enabled { get; set; } = true;
-
-    public string DefinitionPath { get; set; } = DefaultDefinitionPath;
 
     public bool SelectAll { get; set; }
 

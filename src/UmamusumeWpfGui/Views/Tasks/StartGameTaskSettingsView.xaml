@@ -3,12 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <Border Padding="12"
-          Background="{DynamicResource SurfaceRaisedBrush}"
-          BorderBrush="{DynamicResource BorderSubtleBrush}"
-          BorderThickness="1"
-          CornerRadius="6">
-    <StackPanel>
+  <StackPanel>
       <TextBlock Text="{DynamicResource GrassGameLaunchTitle}"
                  FontWeight="Medium" />
       <TextBlock Margin="0,12,0,0"
@@ -23,6 +18,5 @@
                  Text="{Binding Status}"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource TextSecondaryBrush}" />
-    </StackPanel>
-  </Border>
+  </StackPanel>
 </UserControl>

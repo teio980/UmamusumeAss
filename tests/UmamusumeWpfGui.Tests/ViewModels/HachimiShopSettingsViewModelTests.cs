@@ -33,13 +33,11 @@ public sealed class HachimiShopSettingsViewModelTests : IDisposable
 
         viewModel.Enabled = false;
         viewModel.BuyShoes = true;
-        viewModel.DefinitionPath = "custom/shop.json";
 
         var loaded = _settings.Load();
 
         Assert.False(loaded.Hachimi.Shop.Enabled);
         Assert.True(loaded.Hachimi.Shop.BuyShoes);
-        Assert.Equal("custom/shop.json", loaded.Hachimi.Shop.DefinitionPath);
         Assert.Empty(loaded.TaskQueue);
     }
 }

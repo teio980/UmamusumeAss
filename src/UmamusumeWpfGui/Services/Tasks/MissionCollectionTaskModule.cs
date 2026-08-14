@@ -70,12 +70,7 @@ public sealed class MissionCollectionTaskModule : IGrassTaskModule
             "Collecting mission rewards"));
         context.LogSink?.Add(
             Localize("GrassTaskMissionCollection", "Mission collection"),
-            string.Format(
-                System.Globalization.CultureInfo.InvariantCulture,
-                Localize(
-                    "GrassMissionCollectionRunning",
-                    "Collecting mission rewards using {0}"),
-                Settings.DefinitionPath));
+            Localize("GrassMissionCollectionRunning", "Collecting mission rewards"));
 
         var result = await _pipeline.RunAsync(
                 connection,

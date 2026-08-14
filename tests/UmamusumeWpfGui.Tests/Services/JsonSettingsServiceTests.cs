@@ -112,9 +112,7 @@ public sealed class JsonSettingsServiceTests : IDisposable
         Assert.Equal(original.ConnectAddressHistory, loaded.ConnectAddressHistory);
         Assert.Equal(original.TargetPackageIds, loaded.TargetPackageIds);
         Assert.Equal(original.TargetActivityName, loaded.TargetActivityName);
-        Assert.Equal(
-            original.Hachimi.Shop.DefinitionPath,
-            loaded.Hachimi.Shop.DefinitionPath);
+        Assert.Equal(original.Hachimi.Shop.Enabled, loaded.Hachimi.Shop.Enabled);
         var cachedTask = Assert.Single(loaded.TaskQueue);
         Assert.Equal("start-game", cachedTask.TaskId);
         Assert.False(cachedTask.IsEnabled);

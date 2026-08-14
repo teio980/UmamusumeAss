@@ -91,9 +91,8 @@ public sealed class TeamRaceTaskModule : IGrassTaskModule
             Localize("GrassTaskTeamRace", "Team Race"),
             string.Format(
                 CultureInfo.InvariantCulture,
-                Localize("GrassTeamRaceRunning", "Running {0} race(s) from {1}"),
-                Settings.RaceCount,
-                Settings.DefinitionPath));
+                Localize("GrassTeamRaceRunning", "Running {0} race(s)"),
+                Settings.RaceCount));
 
         var result = await _pipeline.RunAsync(
             connection,

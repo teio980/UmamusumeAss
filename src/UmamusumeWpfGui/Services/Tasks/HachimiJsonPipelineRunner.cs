@@ -809,13 +809,6 @@ public sealed class HachimiJsonPipelineRunner
 
         var requestedPipeline = task.Pipeline.Trim();
         var isShopPipeline = IsShopPipeline(requestedPipeline);
-        if (isShopPipeline)
-        {
-            requestedPipeline = ResolveConfiguredShopPath(
-                _settingsService.Load().Hachimi.Shop.DefinitionPath,
-                parentDefinition.BaseDirectory,
-                requestedPipeline);
-        }
 
         if (parentOptions.PipelineDepth >= HachimiPipelineRunOptions.MaximumPipelineDepth)
         {
@@ -879,30 +872,6 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         return settings.ToOptions().ToMaxTimesOverrides();
-    }
-
-    private static string ResolveConfiguredShopPath(
-        string configuredPath,
-        string parentBaseDirectory,
-        string fallbackPath)
-    {
-        if (string.IsNullOrWhiteSpace(configuredPath))
-            return fallbackPath;
-
-        if (Path.IsPathRooted(configuredPath))
-            return configuredPath;
-
-        var appRelativePath = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, configuredPath));
-        if (File.Exists(appRelativePath))
-            return appRelativePath;
-
-        var parentRelativePath = Path.GetFullPath(
-            Path.Combine(parentBaseDirectory, configuredPath));
-        if (File.Exists(parentRelativePath))
-            return parentRelativePath;
-
-        return fallbackPath;
     }
 
     private static bool HasExceededLimit(

@@ -96,10 +96,9 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
             Localize("GrassTaskDailyRace", "Daily Race"),
             string.Format(
                 CultureInfo.InvariantCulture,
-                Localize("GrassDailyRaceRunning", "Running {0} {1} race(s) from {2}"),
+                Localize("GrassDailyRaceRunning", "Running {0} {1} race(s)"),
                 Settings.Mode,
-                Settings.RaceCount,
-                Settings.DefinitionPath));
+                Settings.RaceCount));
 
         var result = await _pipeline.RunWithTraineeAsync(
                 connection,

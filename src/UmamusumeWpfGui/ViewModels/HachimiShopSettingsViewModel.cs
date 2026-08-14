@@ -15,7 +15,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
     {
         _settingsService = settingsService;
         _settings = settingsService?.Load().Hachimi.Shop ?? new HachimiShopSettings();
-        _settings.DefinitionPath = NormalizePath(_settings.DefinitionPath);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -24,20 +23,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
     {
         get => _settings.Enabled;
         set => SetValue(_settings.Enabled, value, next => _settings.Enabled = next);
-    }
-
-    public string DefinitionPath
-    {
-        get => _settings.DefinitionPath;
-        set
-        {
-            var normalized = NormalizePath(value);
-            if (_settings.DefinitionPath == normalized)
-                return;
-            _settings.DefinitionPath = normalized;
-            OnPropertyChanged();
-            Persist();
-        }
     }
 
     public bool SelectAll
@@ -84,10 +69,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
 
     internal bool IsDefault =>
         _settings.Enabled
-        && string.Equals(
-            _settings.DefinitionPath,
-            HachimiShopSettings.DefaultDefinitionPath,
-            StringComparison.Ordinal)
         && !_settings.SelectAll
         && !_settings.BuyStarPieces
         && !_settings.BuyAlarmClock
@@ -100,7 +81,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        SetIfPresent(settings, "definitionPath", value => DefinitionPath = value);
         SetIfPresent(settings, "selectAll", value => SelectAll = value);
         SetIfPresent(settings, "buyStarPieces", value => BuyStarPieces = value);
         SetIfPresent(settings, "buyAlarmClock", value => BuyAlarmClock = value);
@@ -132,7 +112,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
     private HachimiShopSettings CopySettings() => new()
     {
         Enabled = _settings.Enabled,
-        DefinitionPath = _settings.DefinitionPath,
         SelectAll = _settings.SelectAll,
         BuyStarPieces = _settings.BuyStarPieces,
         BuyAlarmClock = _settings.BuyAlarmClock,
@@ -174,11 +153,6 @@ public sealed class HachimiShopSettingsViewModel : INotifyPropertyChanged
         {
         }
     }
-
-    private static string NormalizePath(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? HachimiShopSettings.DefaultDefinitionPath
-            : value.Trim();
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

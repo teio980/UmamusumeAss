@@ -70,12 +70,7 @@ public sealed class MailCollectionTaskModule : IGrassTaskModule
             "Collecting mailbox rewards"));
         context.LogSink?.Add(
             Localize("GrassTaskRewardsCollection", "Mail collection"),
-            string.Format(
-                System.Globalization.CultureInfo.InvariantCulture,
-                Localize(
-                    "GrassMailCollectionRunning",
-                    "Collecting rewards using {0}"),
-                Settings.DefinitionPath));
+            Localize("GrassMailCollectionRunning", "Collecting rewards"));
 
         var result = await _pipeline.RunAsync(
                 connection,

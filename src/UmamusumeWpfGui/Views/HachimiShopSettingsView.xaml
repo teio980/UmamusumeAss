@@ -1,38 +1,56 @@
 <UserControl x:Class="UmamusumeWpfGui.Views.HachimiShopSettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <Border Padding="12"
-          Background="{DynamicResource SurfaceRaisedBrush}"
-          BorderBrush="{DynamicResource BorderSubtleBrush}"
-          BorderThickness="1"
-          CornerRadius="6">
-    <StackPanel>
-      <TextBlock Text="{DynamicResource GrassHachimiGlobalSettingsTitle}"
-                 FontWeight="Medium" />
-      <TextBlock Margin="0,6,0,0"
-                 Text="{DynamicResource GrassShopDefinitionHint}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
-      <CheckBox Margin="0,12,0,0"
-                IsChecked="{Binding Enabled}"
-                Content="{DynamicResource GrassShopEnabled}" />
-      <TextBlock Margin="0,12,0,0"
-                 Text="{DynamicResource GrassShopDefinitionPathLabel}"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
-      <ui:TextBox Margin="0,6,0,0"
-                  Text="{Binding DefinitionPath, UpdateSourceTrigger=PropertyChanged}" />
-      <CheckBox Margin="0,12,0,0"
-                IsChecked="{Binding SelectAll}"
-                Content="{DynamicResource GrassShopSelectAll}" />
-      <Separator Margin="0,8" />
-      <CheckBox Content="{DynamicResource GrassShopBuyStarPieces}" IsChecked="{Binding BuyStarPieces}" />
-      <CheckBox Content="{DynamicResource GrassShopBuyAlarmClock}" IsChecked="{Binding BuyAlarmClock}" />
-      <CheckBox Content="{DynamicResource GrassShopBuyPleasingParfait}" IsChecked="{Binding BuyPleasingParfait}" />
-      <CheckBox Content="{DynamicResource GrassShopBuyShoes}" IsChecked="{Binding BuyShoes}" />
-      <CheckBox Content="{DynamicResource GrassShopBuySupportPoints}" IsChecked="{Binding BuySupportPoints}" />
-      <CheckBox Content="{DynamicResource GrassShopBuyFlags}" IsChecked="{Binding BuyFlags}" />
-    </StackPanel>
-  </Border>
+  <UserControl.Resources>
+    <DataTemplate x:Key="WrapCheckBoxContent">
+      <TextBlock Text="{Binding}"
+                 TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel>
+    <TextBlock Text="{DynamicResource GrassShopSettingsTitle}"
+               FontWeight="Medium"
+               TextWrapping="Wrap" />
+    <CheckBox Margin="0,10,0,0"
+              IsChecked="{Binding Enabled}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopEnabled}" />
+    <CheckBox Margin="0,8,0,0"
+              IsChecked="{Binding SelectAll}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopSelectAll}" />
+    <Separator Margin="0,8" />
+    <CheckBox IsChecked="{Binding BuyStarPieces}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuyStarPieces}" />
+    <CheckBox Margin="0,6,0,0"
+              IsChecked="{Binding BuyAlarmClock}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuyAlarmClock}" />
+    <CheckBox Margin="0,6,0,0"
+              IsChecked="{Binding BuyPleasingParfait}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuyPleasingParfait}" />
+    <CheckBox Margin="0,6,0,0"
+              IsChecked="{Binding BuyShoes}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuyShoes}" />
+    <CheckBox Margin="0,6,0,0"
+              IsChecked="{Binding BuySupportPoints}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuySupportPoints}" />
+    <CheckBox Margin="0,6,0,0"
+              IsChecked="{Binding BuyFlags}"
+              HorizontalContentAlignment="Stretch"
+              ContentTemplate="{StaticResource WrapCheckBoxContent}"
+              Content="{DynamicResource GrassShopBuyFlags}" />
+  </StackPanel>
 </UserControl>
