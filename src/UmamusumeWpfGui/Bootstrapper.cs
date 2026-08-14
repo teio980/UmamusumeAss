@@ -57,6 +57,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<HachimiJsonPipelineRunner>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<ShopTaskModule>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<DailyRaceRunnerSelector>()
             .ToSelf()
             .InSingletonScope();

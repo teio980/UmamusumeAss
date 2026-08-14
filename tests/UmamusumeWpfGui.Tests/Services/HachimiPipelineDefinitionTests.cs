@@ -11,6 +11,7 @@ public sealed class HachimiPipelineDefinitionTests
     [InlineData("team_race.json", "RaceTab")]
     [InlineData("daily_race.json", "DailyProgram")]
     [InlineData("mission_collection.json", "missionIcon")]
+    [InlineData("shop_task.json", "home")]
     public async Task Ordinary_pipeline_definitions_load_with_the_shared_schema(
         string fileName,
         string expectedTask)
@@ -156,7 +157,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.NotNull(definition);
         Assert.Equal("shopNoShopComplete", definition!.GetTask("shopProbe").OnErrorNext.Single());
         Assert.False(definition.GetTask("shopBuy1").Required);
-        Assert.False(definition.GetTask("shopBuy7").Required);
+        Assert.False(definition.GetTask("shopBuy21").Required);
         var back = definition.GetTask("shopBack");
         Assert.Equal("ClickSelf", back.Action, ignoreCase: true);
         Assert.Equal("templates/shop/back.png", back.Template);
@@ -164,6 +165,49 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopAndroidBack", back.OnErrorNext.Single());
         Assert.True(definition.GetTask("shopComplete").Success);
         Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", back.Template!)));
+    }
+
+    [Fact]
+    public void Shop_settings_repeat_each_trigger_for_three_daily_sales()
+    {
+        var options = new ShopPurchaseOptions(
+            SelectAll: false,
+            BuyStarPieces: true,
+            BuyAlarmClock: false,
+            BuyPleasingParfait: false,
+            BuyShoes: false,
+            BuySupportPoints: false,
+            BuyFlags: false);
+
+        var overrides = options.ToMaxTimesOverrides();
+
+        Assert.Equal(16, overrides.Count);
+        foreach (var slot in Enumerable.Range(1, 21))
+        {
+            var triggerSlot = (slot - 1) % 7 + 1;
+            if (triggerSlot is 1 or 2)
+                Assert.DoesNotContain($"shopBuy{slot}", overrides.Keys);
+            else
+                Assert.Equal(0, overrides[$"shopBuy{slot}"]);
+        }
+    }
+
+    [Fact]
+    public async Task Shop_task_enters_daily_sales_and_calls_shared_shop_pipeline()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "shop_task.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        Assert.Equal("ClickRect", definition!.GetTask("specialShop").Action, ignoreCase: true);
+        Assert.Equal([270, 1320, 100, 120], definition.GetTask("specialShop").SpecificRect!);
+        Assert.Equal([40, 1140, 400, 150], definition.GetTask("dailySales").SpecificRect!);
+        var runShop = definition.GetTask("runShop");
+        Assert.Equal("RunPipeline", runShop.Action, ignoreCase: true);
+        Assert.Equal("shop.json", runShop.Pipeline);
+        Assert.Equal("shopProbe", runShop.Entry);
     }
 
     [Fact]

@@ -15,7 +15,7 @@ public sealed record ShopPurchaseOptions(
         if (!SelectAll)
             overrides["shopSelectAll"] = 0;
 
-        for (var slot = 1; slot <= 7; slot++)
+        for (var slot = 1; slot <= 21; slot++)
         {
             if (!SelectAll && !IsSlotSelected(slot))
                 overrides[$"shopBuy{slot}"] = 0;
@@ -24,7 +24,7 @@ public sealed record ShopPurchaseOptions(
         return overrides;
     }
 
-    public bool IsSlotSelected(int slot) => slot switch
+    public bool IsSlotSelected(int slot) => ((slot - 1) % 7 + 1) switch
     {
         1 or 2 => BuyStarPieces,
         3 => BuyAlarmClock,

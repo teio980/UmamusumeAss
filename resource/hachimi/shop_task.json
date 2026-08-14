@@ -1,0 +1,83 @@
+{
+  "name": "shop-purchase",
+  "schemaVersion": 1,
+  "description": "Return to Home, open Special Shop, enter Daily Sales, and reuse shop.json.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "tasks": {
+    "home": {
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["specialShop"],
+      "onErrorNext": ["homeAlt"]
+    },
+    "homeAlt": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["specialShop"],
+      "onErrorNext": ["back"]
+    },
+    "specialShop": {
+      "algorithm": "ClickRect",
+      "action": "ClickRect",
+      "specificRect": [270, 1320, 100, 120],
+      "postDelay": 1500,
+      "next": ["dailySales"]
+    },
+    "dailySales": {
+      "algorithm": "ClickRect",
+      "action": "ClickRect",
+      "specificRect": [40, 1140, 400, 150],
+      "postDelay": 1500,
+      "next": ["runShop"]
+    },
+    "runShop": {
+      "algorithm": "JustReturn",
+      "action": "RunPipeline",
+      "pipeline": "shop.json",
+      "entry": "shopProbe",
+      "next": ["homeReturn"],
+      "onErrorNext": ["homeReturn"]
+    },
+    "homeReturn": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["homeVerify"],
+      "onErrorNext": ["homeVerify"]
+    },
+    "homeVerify": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 300,
+      "success": true
+    },
+    "back": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 600,
+      "maxTimes": 3,
+      "next": ["home"],
+      "exceededNext": ["stop"]
+    },
+    "stop": {
+      "algorithm": "JustReturn",
+      "action": "Stop"
+    }
+  }
+}

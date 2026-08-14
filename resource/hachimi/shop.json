@@ -1,7 +1,7 @@
 {
   "name": "shop",
   "schemaVersion": 1,
-  "description": "Optional shop probe and configured purchase flow.",
+  "description": "Optional shop probe and configured purchase flow for up to three daily sales.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "templates": {},
@@ -59,7 +59,7 @@
     "shopScrollMiddle": {
       "algorithm": "Swipe",
       "action": "Swipe",
-      "swipe": [450, 1160, 450, 700, 450],
+      "swipe": [450, 1050, 450, 650, 450],
       "postDelay": 700,
       "next": ["shopBuy4"]
     },
@@ -86,7 +86,7 @@
     "shopScrollBottom": {
       "algorithm": "Swipe",
       "action": "Swipe",
-      "swipe": [450, 1160, 450, 700, 450],
+      "swipe": [450, 1050, 450, 650, 450],
       "postDelay": 700,
       "next": ["shopBuy6"]
     },
@@ -101,6 +101,195 @@
       "exceededNext": ["shopBuy7"]
     },
     "shopBuy7": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll3"],
+      "exceededNext": ["shopScroll3"]
+    },
+    "shopScroll3": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy8"]
+    },
+    "shopBuy8": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy9"],
+      "exceededNext": ["shopBuy9"]
+    },
+    "shopBuy9": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll4"],
+      "exceededNext": ["shopScroll4"]
+    },
+    "shopScroll4": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy10"]
+    },
+    "shopBuy10": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy11"],
+      "exceededNext": ["shopBuy11"]
+    },
+    "shopBuy11": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll5"],
+      "exceededNext": ["shopScroll5"]
+    },
+    "shopScroll5": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy12"]
+    },
+    "shopBuy12": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy13"],
+      "exceededNext": ["shopBuy13"]
+    },
+    "shopBuy13": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll6"],
+      "exceededNext": ["shopScroll6"]
+    },
+    "shopScroll6": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy14"]
+    },
+    "shopBuy14": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy15"],
+      "exceededNext": ["shopBuy15"]
+    },
+    "shopBuy15": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll7"],
+      "exceededNext": ["shopScroll7"]
+    },
+    "shopScroll7": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy16"]
+    },
+    "shopBuy16": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy17"],
+      "exceededNext": ["shopBuy17"]
+    },
+    "shopBuy17": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll8"],
+      "exceededNext": ["shopScroll8"]
+    },
+    "shopScroll8": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy18"]
+    },
+    "shopBuy18": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy19"],
+      "exceededNext": ["shopBuy19"]
+    },
+    "shopBuy19": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll9"],
+      "exceededNext": ["shopScroll9"]
+    },
+    "shopScroll9": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy20"]
+    },
+    "shopBuy20": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy21"],
+      "exceededNext": ["shopBuy21"]
+    },
+    "shopBuy21": {
       "template": "templates/shop/item_checkbox.png",
       "roi": [680, 960, 220, 220],
       "templThreshold": 0.80,
