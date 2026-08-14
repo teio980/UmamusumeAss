@@ -885,34 +885,35 @@ FinaleStrategy
 现有 `resource/uma/database/global` 可以继续作为静态实体数据库；剧本内容建议独立出来。整体引用方式必须和 Daily Race 使用马娘数据库的方式一致：数据库负责实体和资源索引，任务/策略只保存 ID。
 
 ```text
-resource/uma/
-├── database/
-│   ├── global/
-│   │   ├── meta.json
-│   │   ├── base_characters.json
-│   │   ├── trainees.json
-│   │   └── support_cards.json
-│   └── jp/
-├── scenarios/
-│   ├── ura/
-│   │   ├── manifest.json
-│   │   ├── scenario.json
-│   │   ├── objectives.json
-│   │   ├── races.json
-│   │   ├── events/
-│   │   ├── screens/
-│   │   └── localization/
-│   ├── climax/
-│   ├── grand_live/
-│   └── uaf/
-├── strategies/
-│   ├── default/
-│   └── user/
-├── assets/
-│   ├── images/
-│   ├── templates/
-│   └── screens/
-└── system_reference/
+resource/
+├── uma/
+│   ├── database/
+│   │   ├── global/
+│   │   │   ├── meta.json
+│   │   │   ├── base_characters.json
+│   │   │   ├── trainees.json
+│   │   │   └── support_cards.json
+│   │   └── jp/
+│   ├── assets/
+│   │   ├── images/
+│   │   ├── templates/
+│   │   └── screens/
+│   └── system_reference/
+└── hachimi/
+    ├── ura/
+    │   ├── manifest.json
+    │   ├── scenario.json
+    │   ├── objectives.json
+    │   ├── races.json
+    │   ├── events/
+    │   ├── screens/
+    │   └── localization/
+    ├── climax/
+    ├── grand_live/
+    ├── uaf/
+    ├── daily_race.json
+    ├── shop.json
+    └── team_race.json
 ```
 
 ### 12.1 大数据目录和加载职责
@@ -951,7 +952,7 @@ DataCatalog.LoadAsync(resourceRoot, region, gameVersion)
   4. 读取 trainees.json
   5. 读取 support_cards.json
   6. 读取 skills.json / races.json / events.json
-  7. 读取 scenarios/<scenarioId>/manifest.json
+  7. 读取 hachimi/<scenarioId>/manifest.json
   8. 校验所有外键引用
   9. 建立 id/name/alias/type/character/scenario 索引
  10. 发布 DataLoaded
@@ -1653,3 +1654,118 @@ tests/Umamusume.Training.Automation.Tests/
 - 现有连接、CoreBridge、视觉流水线和固定任务测试不被破坏。
 
 这套结构的核心价值是：把《赛马娘》不断新增的剧本，归类为可组合的时间轴、目标、资源、团队、设施、事件和阶段结算规则；把设备控制和屏幕变化限制在自动化适配层；让后续开发从“复制一份脚本”变成“新增一个剧本包或小型规则模块”。
+
+## 23. URA Finale ADB 实跑与模板验收记录
+
+本节是第一条真实闭环的验证记录，不改变前面的架构契约。运行方式严格使用 ADB，设备为 `emulator-5554`，游戏画面为 `900x1600`；实体选择使用现有全局马娘数据库中的 `oguri_cap`，脚本仍只传递实体 ID，不把角色名称或图片路径写入策略。
+
+### 23.1 已验证的运行链
+
+```text
+Career Start
+  -> Junior / Classic / Senior common training loop
+  -> career objective chain
+  -> All goals achieved
+  -> Going to the URA Finale!
+  -> URA Finale Qualifier
+  -> URA Finale Semifinal
+  -> URA Finale Finals
+  -> Challenge Complete / After the URA Finale Finals
+```
+
+三场 URA Finale 的实际采集结果：
+
+| 阶段 | 场地 | 距离 | 闸位 | 结果 | 代表结果截图 |
+|---|---|---:|---:|---:|---|
+| Qualifier | Hanshin Turf | 1800m | 18 | 1st，1:44.7 | `screens/captures/ura_prelim_finish.png` |
+| Semifinal | Kyoto Turf | 1800m | 18 | 1st，1:45.3 | `screens/captures/ura_semifinal_result.png` |
+| Finals | Kyoto Turf | 1600m | 18 | 1st，1:30.1 | `screens/captures/ura_final_finish.png` |
+
+### 23.2 采集产物与职责边界
+
+- `manifest.json`、`scenario.json`、`objectives.json`、`races.json`：场景包内容和引用关系。
+- `events/events.json`、`localization/en.json`：场景事件与可替换文本入口。
+- `screens/screen_profile.json`：页面识别、OCR 区域和语义动作映射；不保存执行器直接点击坐标，不属于策略脚本。
+- `screens/execution.json`：按 Daily Race/Hachimi 任务 schema 描述模板匹配与 `ClickSelf` 执行；ROI 只限制搜索范围。
+- `screens/captures/`：ADB 原始运行证据和稳定页面代表帧；动态比赛播放、加载和 Connecting 画面不得作为稳定模板。
+
+当前 profile 覆盖 38 个可加载 screen contract，包含育成回合、训练/休息结果、事件、目标比赛、比赛播放、比赛结果、奖励、URA Finale 和回到 Home 的页面。
+
+### 23.3 失败与重试分支
+
+本次 Arima Kinen 实跑出现了真实失败分支：第 5、第 8、第 3，随后使用游戏提供的最后一次重试获得第 1。该过程证明执行器需要保留：
+
+1. `UnknownOutcome` / 失败结果的独立状态。
+2. `retryCount` 和闹钟资源变化。
+3. 只有在结果页确认目标完成后，才推进 `objectiveId`。
+4. 最后一次重试失败时必须安全暂停，不得把普通第 3 名误判为目标完成。
+
+因此 `race_retry` 被声明为 URA capability，且不应写成某个按钮坐标的特殊分支。
+
+### 23.4 验收结论
+
+- JSON 场景包、事件包、英文 localization 和 screen profile 均可解析。
+- profile 引用的代表模板和比赛结果截图均存在。
+- 目标链覆盖普通育成目标、URA 三阶段和终局状态。
+- 通过 `raceId`、`objectiveId`、`scenarioId` 引用数据，符合 Daily Race 的大数据引用方式。
+- URA 专属逻辑集中在场景包与模块 hook；通用执行器只消费 `SemanticId` 和已验证动作。
+
+### 23.5 终局结算到主页的完整闭环
+
+在完成 URA Finale Finals 后，继续使用 ADB 完成了终局页面链，并以回到主页作为本次实跑完成条件：
+
+```text
+Complete Career
+  -> Finish confirmation
+  -> Career Rank
+  -> Sparks
+  -> Sparks keep confirmation
+  -> Career result / major wins
+  -> Rewards: bond and fans
+  -> Rewards: support cards, support points and items
+  -> Career Complete
+  -> To Home
+  -> Home
+```
+
+本次终局稳定页面证据：
+
+| 语义页面 | 代表截图 |
+|---|---|
+| Complete Career confirmation | `screens/captures/ura_complete_career_next.png` |
+| Career Rank | `screens/captures/ura_post_finish_loaded.png` |
+| Sparks | `screens/captures/ura_career_rank_next.png` |
+| Sparks keep confirmation | `screens/captures/ura_sparks_confirmed.png` |
+| Career result | `screens/captures/ura_final_result_close.png` |
+| Rewards: bond / fans | `screens/captures/ura_rewards_loaded.png` |
+| Rewards: support cards / items | `screens/captures/ura_rewards_support_loaded.png` |
+| Career Complete | `screens/captures/ura_rewards_support_next.png` |
+| Returned Home | `screens/captures/ura_returned_home.png` |
+
+这些页面属于通用育成终局流水线，不应写进 URA 的策略分支；后续剧本只需提供自己的终局奖励、剧本结算和 capability 定义，复用 `CareerComplete`、`RewardSettlement`、`ReturnToHome` 等通用状态。`Career Complete` 页的 `To Home` 是本次运行的最终安全终止动作，不能把中间的加载页、奖励动画或模糊过渡帧注册为模板。
+
+### 23.6.1 实现校正：点击模板与剧本状态必须同时遵守契约
+
+上一版实现曾把 `screen_profile.json` 的 `anchors.bounds` 当成直接点击坐标，这不符合本仓库 `daily_race.json` 的执行标准，也不符合本设计第 9、10、19 节的职责边界。本版以以下规则为准：
+
+- `screen_profile.json` 只描述页面模板和语义动作映射；不保存执行器直接点击的按钮坐标。
+- `screens/screen_profile.json` 负责把页面动作名绑定到 execution task；新增剧本只需提供自己的 screen profile，不需要在 Pipeline 中复制按钮映射。
+- `screens/execution.json` 使用现有 Hachimi JSON schema：`algorithm: MatchTemplate`、`action: ClickSelf`、`template`、`templThreshold`、`roi`、超时、轮询和状态转移字段。动态数据库选择也通过 JSON 的自定义 action 节点进入可插拔适配器。
+- `roi` 仅是按钮模板的搜索范围；真实点击点来自当前截图中的模板匹配结果 `TemplateMatchResult.CenterX/CenterY`。
+- 场景加载器同时校验目标、赛事、事件、页面 profile 和 execution task 的 ID/资源引用，任一层不完整都 fail closed。
+- `UraScenarioModule` 持有目标链、赛事链、URA Finale 阶段和重试规则；视觉执行器不决定目标推进，策略也不读取坐标。
+- `UraCareerSessionState` 区分观察值、来源和置信度，并把回合、目标、当前赛事、重试次数、粉丝、比赛结果和完成目标写入 checkpoint。
+- 未确认的比赛结果不会自动推进目标；可重试赛事只有在数据包声明 `retryPolicy` 且重试次数未超限时才允许回到同一目标，否则进入安全暂停。
+
+### 23.6 第一版代码接入
+
+本阶段已将上述契约接入现有 WPF/ADB 任务架构，入口为 `ura-training`：
+
+- `UraScenarioPackLoader` 加载并校验 manifest、scenario、目标、比赛、事件、screen profile 和 execution；场景内资源引用必须位于场景包目录内，公共大数据目录作为共享 ID 引用记录，screen ID 不得重复。
+- `AdbUraTrainingPipeline` 实现 Home → Career → 选择剧本/马娘/支援卡 → 育成回合 → 目标赛 → URA 三阶段 → 终局结算 → Home 的可恢复式观察-决策循环；所有静态按钮动作均通过 `screen_profile.json` 调用 JSON execution task。
+- `UraTraineeSelector` 复用全局 system reference，按数据库 `traineeId` 在选择网格中匹配并验证后点击；不满足置信度时安全暂停。
+- `supportCardIds` 只保存全局数据库 ID；当前资源包没有支援卡模板时，空列表才允许游戏自动填充，配置了 ID 则直接安全暂停，不会静默选择错误卡组。
+- `UraTrainingPlanner` 只输出领域动作，ADB 坐标、模板和页面语义均由 screen profile 与执行层负责。
+- 训练结果、休息确认、事件选择、比赛播放设置、不同比赛阶段结果/奖励、目标更新和奖励支援卡页均作为独立 screen contract，避免把页面差异塞进策略分支。
+
+验证结果：应用和测试项目均以 0 warning / 0 error 构建；URA 场景包当前包含 38 个可加载 screen contract、48 个 `MatchTemplate + ClickSelf` execution task，所有 profile/execution/result 资源引用均存在；场景加载、目标链、重试和决赛阶段定向测试 8/8 通过。全量测试在现有打包测试处超时，未产生失败断言；尚未把这版代码再次驱动真实模拟器跑完整局，因此真实运行仍应保留 `pauseOnUnknownOutcome`，先做受控 smoke run。
