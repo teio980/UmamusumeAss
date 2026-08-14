@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -504,7 +505,7 @@ public sealed partial class GrassView : UserControl
             >= _scrollViewer.ScrollableHeight - 1;
     }
 
-    private void OnCopyScriptLogClick(object sender, RoutedEventArgs e)
+    private async void OnCopyScriptLogClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not GrassViewModel viewModel
             || viewModel.ScriptLogs.Count == 0)
@@ -516,7 +517,30 @@ public sealed partial class GrassView : UserControl
             Environment.NewLine,
             viewModel.ScriptLogs.Select(entry =>
                 $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Kind}\t{entry.Type}\t{entry.Details}"));
-        Clipboard.SetText(text);
+        await TrySetClipboardTextAsync(text);
+    }
+
+    private static async Task<bool> TrySetClipboardTextAsync(string text)
+    {
+        const int attempts = 5;
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            try
+            {
+                Clipboard.SetText(text);
+                return true;
+            }
+            catch (ExternalException) when (attempt + 1 < attempts)
+            {
+                await Task.Delay(75);
+            }
+            catch (ExternalException)
+            {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private void OnClearScriptLogClick(object sender, RoutedEventArgs e)

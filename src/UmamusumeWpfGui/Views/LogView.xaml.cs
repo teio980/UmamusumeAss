@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -129,7 +130,7 @@ public sealed partial class LogView : UserControl
             >= _scrollViewer.ScrollableHeight - 1;
     }
 
-    private void OnCopyAllClick(object sender, RoutedEventArgs e)
+    private async void OnCopyAllClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not LogViewModel viewModel || viewModel.Entries.Count == 0)
             return;
@@ -137,7 +138,30 @@ public sealed partial class LogView : UserControl
         var text = string.Join(
             Environment.NewLine,
             viewModel.Entries.Select(FormatEntry));
-        Clipboard.SetText(text);
+        await TrySetClipboardTextAsync(text);
+    }
+
+    private static async Task<bool> TrySetClipboardTextAsync(string text)
+    {
+        const int attempts = 5;
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            try
+            {
+                Clipboard.SetText(text);
+                return true;
+            }
+            catch (ExternalException) when (attempt + 1 < attempts)
+            {
+                await Task.Delay(75);
+            }
+            catch (ExternalException)
+            {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private static string FormatEntry(LogEntry entry) =>
