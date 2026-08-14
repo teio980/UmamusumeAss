@@ -62,14 +62,29 @@
               </StackPanel>
             </Grid>
 
-            <Border Grid.Row="1"
-                    MinHeight="600"
-                    Margin="0,18,0,12"
-                    Background="#18000000"
-                    ClipToBounds="True">
+            <Grid Grid.Row="1"
+                  x:Name="CapturePreviewSurface"
+                  MinHeight="600"
+                  Margin="0,18,0,12"
+                  Background="#18000000"
+                  ClipToBounds="True"
+                  SizeChanged="OnCapturePreviewSurfaceSizeChanged">
               <Image Source="{Binding ScreenshotImage}"
-                     Stretch="Uniform" />
-            </Border>
+                     Stretch="Uniform"
+                     IsHitTestVisible="False" />
+              <Canvas x:Name="CaptureCropOverlay"
+                      Background="Transparent"
+                      MouseLeftButtonDown="OnCaptureCropMouseLeftButtonDown"
+                      MouseMove="OnCaptureCropMouseMove"
+                      MouseLeftButtonUp="OnCaptureCropMouseLeftButtonUp">
+                <Rectangle x:Name="CaptureCropRectangle"
+                           Stroke="#FFFFB84D"
+                           StrokeThickness="2"
+                           Fill="#33FFB84D"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False" />
+              </Canvas>
+            </Grid>
 
             <StackPanel Grid.Row="2">
               <TextBlock Text="{Binding StatusText}"

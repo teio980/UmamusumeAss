@@ -14,10 +14,12 @@ public sealed partial class DeveloperToolsView : UserControl
     private const double PreviewScaleStep = 1.1;
 
     private bool _isSelecting;
+    private bool _isCaptureSelecting;
     private bool _isPipelineSelecting;
     private Point _pipelineSelectionStart;
     private bool _isPanning;
     private Point _selectionStart;
+    private Point _captureSelectionStart;
     private Point _panStart;
     private Vector _panStartTranslation;
     private Point _lastPreviewPointer;
@@ -42,8 +44,10 @@ public sealed partial class DeveloperToolsView : UserControl
     {
         UnsubscribeFromViewModel();
         CropOverlay.ReleaseMouseCapture();
+        CaptureCropOverlay.ReleaseMouseCapture();
         PipelineRoiOverlay.ReleaseMouseCapture();
         _isSelecting = false;
+        _isCaptureSelecting = false;
         _isPanning = false;
         _isPipelineSelecting = false;
     }
@@ -97,6 +101,7 @@ public sealed partial class DeveloperToolsView : UserControl
                 }
 
                 UpdatePreviewState();
+                UpdateCaptureCropRectangle();
                 UpdateImageMatchRectangle();
                 UpdatePipelineRoiRectangle();
             });
@@ -105,6 +110,59 @@ public sealed partial class DeveloperToolsView : UserControl
 
     private void OnPipelineRoiSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdatePipelineRoiRectangle();
+
+    private void OnCapturePreviewSurfaceSizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateCaptureCropRectangle();
+
+    private void OnCaptureCropMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel is not { HasScreenshot: true })
+        {
+            return;
+        }
+
+        _isCaptureSelecting = true;
+        _captureSelectionStart = e.GetPosition(CaptureCropOverlay);
+        CaptureCropOverlay.CaptureMouse();
+        SetRectangle(CaptureCropRectangle, _captureSelectionStart, _captureSelectionStart);
+        e.Handled = true;
+    }
+
+    private void OnCaptureCropMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isCaptureSelecting || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        SetRectangle(
+            CaptureCropRectangle,
+            _captureSelectionStart,
+            e.GetPosition(CaptureCropOverlay));
+    }
+
+    private void OnCaptureCropMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isCaptureSelecting)
+        {
+            return;
+        }
+
+        var end = e.GetPosition(CaptureCropOverlay);
+        _isCaptureSelecting = false;
+        CaptureCropOverlay.ReleaseMouseCapture();
+        if (TryGetCaptureCropRegion(_captureSelectionStart, end, out var region))
+        {
+            _viewModel?.SetCropRegion(region);
+        }
+        else
+        {
+            _viewModel?.SetCropRegion(null);
+        }
+
+        UpdateCaptureCropRectangle();
+        e.Handled = true;
+    }
 
     private void OnPipelineRoiMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -434,6 +492,7 @@ public sealed partial class DeveloperToolsView : UserControl
         EmptyPreview.Visibility = _viewModel?.HasScreenshot == true
             ? Visibility.Collapsed
             : Visibility.Visible;
+        UpdateCaptureCropRectangle();
         UpdateCropRectangle();
         UpdateImageMatchRectangle();
         UpdateRoiBadge();
@@ -514,6 +573,51 @@ public sealed partial class DeveloperToolsView : UserControl
                 imageRect.Top + (region.Y + region.Height) * scale));
     }
 
+    private void UpdateCaptureCropRectangle()
+    {
+        if (_viewModel?.CropRegion is not { } region
+            || !TryGetCaptureImageLayout(out var imageRect, out var scale))
+        {
+            CaptureCropRectangle.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SetRectangle(
+            CaptureCropRectangle,
+            new Point(imageRect.Left + region.X * scale, imageRect.Top + region.Y * scale),
+            new Point(
+                imageRect.Left + (region.X + region.Width) * scale,
+                imageRect.Top + (region.Y + region.Height) * scale));
+    }
+
+    private bool TryGetCaptureCropRegion(Point start, Point end, out Int32Rect region)
+    {
+        region = default;
+        if (_viewModel?.ScreenshotImage is not { } image
+            || !TryGetCaptureImageLayout(out var imageRect, out var scale))
+        {
+            return false;
+        }
+
+        var selection = new Rect(start, end);
+        selection.Intersect(imageRect);
+        if (selection.Width < 2 || selection.Height < 2 || scale <= 0)
+        {
+            return false;
+        }
+
+        var x = (int)Math.Floor((selection.Left - imageRect.Left) / scale);
+        var y = (int)Math.Floor((selection.Top - imageRect.Top) / scale);
+        var right = (int)Math.Ceiling((selection.Right - imageRect.Left) / scale);
+        var bottom = (int)Math.Ceiling((selection.Bottom - imageRect.Top) / scale);
+        x = Math.Clamp(x, 0, image.PixelWidth);
+        y = Math.Clamp(y, 0, image.PixelHeight);
+        right = Math.Clamp(right, x, image.PixelWidth);
+        bottom = Math.Clamp(bottom, y, image.PixelHeight);
+        region = new Int32Rect(x, y, right - x, bottom - y);
+        return region.Width > 0 && region.Height > 0;
+    }
+
     private void UpdateRoiBadge()
     {
         if (_viewModel?.CropRegion is not { } region)
@@ -591,6 +695,30 @@ public sealed partial class DeveloperToolsView : UserControl
         scale = Math.Min(
             imageRect.Width / image.PixelWidth,
             imageRect.Height / image.PixelHeight);
+        return scale > 0;
+    }
+
+    private bool TryGetCaptureImageLayout(out Rect imageRect, out double scale)
+    {
+        imageRect = default;
+        scale = 0;
+        if (_viewModel?.ScreenshotImage is not { } image
+            || CaptureCropOverlay.ActualWidth <= 0
+            || CaptureCropOverlay.ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        scale = Math.Min(
+            CaptureCropOverlay.ActualWidth / image.PixelWidth,
+            CaptureCropOverlay.ActualHeight / image.PixelHeight);
+        var width = image.PixelWidth * scale;
+        var height = image.PixelHeight * scale;
+        imageRect = new Rect(
+            (CaptureCropOverlay.ActualWidth - width) / 2,
+            (CaptureCropOverlay.ActualHeight - height) / 2,
+            width,
+            height);
         return scale > 0;
     }
 }
