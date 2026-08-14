@@ -49,12 +49,21 @@ mkdir "%PUBLISH_DIR%"
 dotnet publish "%PROJECT%" -c Release -r win-x64 --self-contained true ^
     -p:PublishSingleFile=true ^
     -p:IncludeNativeLibrariesForSelfExtract=true ^
+    -p:GenerateRuntimeConfigurationFiles=true ^
     -p:DebugType=None ^
     -p:DebugSymbols=false ^
     -p:PublishTrimmed=false ^
     -o "%PUBLISH_DIR%" --nologo
 if errorlevel 1 goto :err_dotnet_build
 if not exist "%PUBLISH_DIR%\UmamusumeAss.exe" goto :err_dotnet_build
+
+rem Stage the complete URA scenario package explicitly so every build contains
+rem the same resource tree as the source. Do not validate a single capture here.
+if not exist "resource\hachimi\ura\" goto :err_resources
+if not exist "%PUBLISH_DIR%\resource\hachimi\ura" mkdir "%PUBLISH_DIR%\resource\hachimi\ura"
+xcopy /e /i /y /q "resource\hachimi\ura\*" "%PUBLISH_DIR%\resource\hachimi\ura\" >nul
+if errorlevel 1 goto :err_copy_resources
+if not exist "%PUBLISH_DIR%\resource\hachimi\ura\" goto :err_resources
 
 echo [6/6] Copying final files to application output...
 xcopy /e /i /y /q "%PUBLISH_DIR%\*" "%OUT_DIR%\" >nul
@@ -65,6 +74,7 @@ copy /y "%NATIVE_DLL%" "%OUT_DIR%\UmamusumeCore.dll" >nul
 if errorlevel 1 goto :err_copy_native
 if not exist "%OUT_DIR%\UmamusumeCore.dll" goto :err_copy_native
 if not exist "%OUT_DIR%\resource\connection.json" goto :err_resources
+if not exist "%OUT_DIR%\resource\hachimi\ura\" goto :err_resources
 
 if exist "build\publish" rmdir /s /q "build\publish"
 if exist "build\publish" goto :err_publish_clean
@@ -114,6 +124,9 @@ echo [ERROR] Could not place UmamusumeCore.dll beside the application.
 goto :end_err
 :err_copy_publish
 echo [ERROR] Could not copy the publish output to the application directory.
+goto :end_err
+:err_copy_resources
+echo [ERROR] Could not stage the URA scenario resources into the publish output.
 goto :end_err
 :err_publish_clean
 echo [ERROR] Could not clean the temporary publish directory.

@@ -113,6 +113,31 @@ $proc = Start-Process -FilePath "dotnet" -ArgumentList @(
 if ($proc.ExitCode -ne 0) {
     throw "dotnet publish failed with exit code $($proc.ExitCode)"
 }
+
+$uraSource = Join-Path $SolutionRoot "resource\hachimi\ura"
+$uraPublish = Join-Path $PublishDir "resource\hachimi\ura"
+$uraPublishParent = Join-Path $PublishDir "resource\hachimi"
+if (-not (Test-Path -LiteralPath $uraSource)) {
+    throw "URA scenario source package is incomplete: $uraSource"
+}
+New-Item -ItemType Directory -Path $uraPublishParent -Force | Out-Null
+Copy-Item -LiteralPath $uraSource -Destination $uraPublishParent -Recurse -Force
+if (-not (Test-Path -LiteralPath $uraPublish)) {
+    throw "URA scenario package was not staged into publish output: $uraPublish"
+}
+$uraFiles = @(Get-ChildItem -LiteralPath $uraSource -File -Recurse)
+$missingUraFiles = @(
+    foreach ($uraFile in $uraFiles) {
+        $relativePath = [System.IO.Path]::GetRelativePath($uraSource, $uraFile.FullName)
+        $publishedPath = Join-Path $uraPublish $relativePath
+        if (-not (Test-Path -LiteralPath $publishedPath)) {
+            $relativePath
+        }
+    }
+)
+if ($missingUraFiles.Count -gt 0) {
+    throw "URA scenario files were not staged into publish output: $($missingUraFiles -join ', ')"
+}
 Write-Host "OK"
 Write-Host ""
 
@@ -141,6 +166,11 @@ if (-not (Test-Path -LiteralPath $hostfxr) -and -not (Test-Path -LiteralPath $sp
     throw "Self-contained runtime evidence missing: neither hostfxr.dll nor System.Private.CoreLib.dll found in $PublishDir"
 }
 Write-Host "  Verified self-contained runtime evidence"
+
+if (-not (Test-Path -LiteralPath $uraPublish)) {
+    throw "URA scenario package was not included in publish output: $uraPublish"
+}
+Write-Host "  Verified URA scenario resource tree ($($uraFiles.Count) files)"
 
 Write-Host "OK"
 Write-Host ""

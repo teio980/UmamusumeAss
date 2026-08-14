@@ -154,6 +154,8 @@ public sealed class PackageLayoutTests : IDisposable
         "UmamusumeAss.exe",
         "UmamusumeCore.dll",
         "Umamusume.CoreBridge.dll",
+        "resource/hachimi/ura/manifest.json",
+        "resource/hachimi/ura/screens/captures/debut_race_result_wait.png",
     ];
 
 
