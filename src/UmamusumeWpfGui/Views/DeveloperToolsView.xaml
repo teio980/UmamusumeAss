@@ -69,21 +69,73 @@
                   Background="#18000000"
                   ClipToBounds="True"
                   SizeChanged="OnCapturePreviewSurfaceSizeChanged">
-              <Image Source="{Binding ScreenshotImage}"
-                     Stretch="Uniform"
-                     IsHitTestVisible="False" />
+              <Grid x:Name="CapturePreviewPanContent">
+                <Grid.RenderTransform>
+                  <TranslateTransform x:Name="CapturePreviewTranslateTransform" />
+                </Grid.RenderTransform>
+                <Grid x:Name="CapturePreviewContent"
+                      RenderTransformOrigin="0.5,0.5">
+                  <Grid.RenderTransform>
+                    <ScaleTransform x:Name="CapturePreviewScaleTransform"
+                                    ScaleX="1"
+                                    ScaleY="1" />
+                  </Grid.RenderTransform>
+                  <Image Source="{Binding ScreenshotImage}"
+                         Stretch="Uniform"
+                         IsHitTestVisible="False" />
+                  <Canvas x:Name="CaptureCropVisualOverlay"
+                          IsHitTestVisible="False">
+                    <Rectangle x:Name="CaptureCropRectangle"
+                               Stroke="#FF4CC2FF"
+                               StrokeThickness="2"
+                               Fill="#334CC2FF"
+                               Visibility="Collapsed" />
+                  </Canvas>
+                </Grid>
+              </Grid>
               <Canvas x:Name="CaptureCropOverlay"
                       Background="Transparent"
                       MouseLeftButtonDown="OnCaptureCropMouseLeftButtonDown"
                       MouseMove="OnCaptureCropMouseMove"
-                      MouseLeftButtonUp="OnCaptureCropMouseLeftButtonUp">
-                <Rectangle x:Name="CaptureCropRectangle"
+                      MouseLeftButtonUp="OnCaptureCropMouseLeftButtonUp"
+                      MouseDown="OnCapturePanMouseMiddleButtonDown"
+                      MouseUp="OnCapturePanMouseMiddleButtonUp"
+                      MouseLeave="OnCaptureCropMouseLeave"
+                      MouseWheel="OnCapturePreviewMouseWheel">
+                <Rectangle x:Name="CaptureSelectionRectangle"
                            Stroke="#FFFFB84D"
                            StrokeThickness="2"
                            Fill="#33FFB84D"
                            Visibility="Collapsed"
                            IsHitTestVisible="False" />
               </Canvas>
+              <Border x:Name="CaptureCoordinateBadge"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="CaptureCoordinateText"
+                           Foreground="White" />
+              </Border>
+              <Border x:Name="CaptureRoiBadge"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="10"
+                      Padding="8,4"
+                      Background="#CC202020"
+                      BorderBrush="#FFFFB84D"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="CaptureRoiText"
+                           Foreground="White"
+                           FontFamily="Consolas" />
+              </Border>
             </Grid>
 
             <StackPanel Grid.Row="2">

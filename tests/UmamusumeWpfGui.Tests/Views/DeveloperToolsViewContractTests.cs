@@ -18,6 +18,10 @@ public sealed class DeveloperToolsViewContractTests
             .Single(element => HasName(element, "CapturePreviewSurface"));
         var captureOverlay = document.Descendants()
             .Single(element => HasName(element, "CaptureCropOverlay"));
+        var captureCoordinateBadge = document.Descendants()
+            .Single(element => HasName(element, "CaptureCoordinateBadge"));
+        var captureRoiBadge = document.Descendants()
+            .Single(element => HasName(element, "CaptureRoiBadge"));
         var content = document.ToString();
 
         Assert.Equal(
@@ -32,10 +36,30 @@ public sealed class DeveloperToolsViewContractTests
         Assert.Equal(
             "OnCaptureCropMouseLeftButtonUp",
             captureOverlay.Attribute("MouseLeftButtonUp")?.Value);
+        Assert.Equal(
+            "OnCapturePanMouseMiddleButtonDown",
+            captureOverlay.Attribute("MouseDown")?.Value);
+        Assert.Equal(
+            "OnCapturePanMouseMiddleButtonUp",
+            captureOverlay.Attribute("MouseUp")?.Value);
+        Assert.Equal(
+            "OnCapturePreviewMouseWheel",
+            captureOverlay.Attribute("MouseWheel")?.Value);
+        Assert.Equal(
+            "OnCaptureCropMouseLeave",
+            captureOverlay.Attribute("MouseLeave")?.Value);
+        Assert.Equal("CaptureCoordinateText", GetDescendantName(captureCoordinateBadge));
+        Assert.Equal("CaptureRoiText", GetDescendantName(captureRoiBadge));
         Assert.Contains("SaveCroppedCommand", content);
     }
 
     private static bool HasName(XElement element, string name) =>
         element.Attributes().Any(attribute =>
             attribute.Name.LocalName == "Name" && attribute.Value == name);
+
+    private static string? GetDescendantName(XElement element) =>
+        element.Descendants()
+            .SelectMany(descendant => descendant.Attributes())
+            .FirstOrDefault(attribute => attribute.Name.LocalName == "Name")
+            ?.Value;
 }
