@@ -492,17 +492,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             foreach (var task in queuedTasks)
             {
                 operationCts.Token.ThrowIfCancellationRequested();
-                if (!task.Module.CanExecute(context))
-                {
-                    task.Status = Localize("GrassTaskError", "Error");
-                    AddScriptLog(
-                        task.Name,
-                        Localize(
-                            "GrassScriptTaskCannotExecute",
-                            "Task cannot execute with the current configuration"),
-                        LogEntryKind.Failure);
-                    break;
-                }
 
                 _runningTask = task;
                 IsQueueRunning = true;
@@ -510,24 +499,49 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 AddScriptLog(
                     task.Name,
                     Localize("GrassScriptTaskRunning", "Running task"));
-                var result = await task.Module.ExecuteAsync(
-                    context,
-                    operationCts.Token).ConfigureAwait(true);
-                task.Status = result.Succeeded
-                    ? Localize("GrassTaskCompleted", "Completed")
-                    : Localize("GrassTaskError", "Error");
-                AddScriptLog(
-                    task.Name,
-                    result.Message,
-                    result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
 
-                if (!result.Succeeded)
-                    break;
+                try
+                {
+                    if (!task.Module.CanExecute(context))
+                    {
+                        task.Status = Localize("GrassTaskError", "Error");
+                        AddScriptLog(
+                            task.Name,
+                            Localize(
+                                "GrassScriptTaskCannotExecute",
+                                "Task cannot execute with the current configuration"),
+                            LogEntryKind.Failure);
+                        continue;
+                    }
 
-                AddScriptLog(
-                    task.Name,
-                    Localize("GrassScriptTaskCompleted", "Task completed"),
-                    LogEntryKind.Success);
+                    var result = await task.Module.ExecuteAsync(
+                        context,
+                        operationCts.Token).ConfigureAwait(true);
+                    task.Status = result.Succeeded
+                        ? Localize("GrassTaskCompleted", "Completed")
+                        : Localize("GrassTaskError", "Error");
+                    AddScriptLog(
+                        task.Name,
+                        result.Message,
+                        result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
+
+                    if (!result.Succeeded)
+                        continue;
+
+                    AddScriptLog(
+                        task.Name,
+                        Localize("GrassScriptTaskCompleted", "Task completed"),
+                        LogEntryKind.Success);
+                }
+                catch (OperationCanceledException) when (operationCts.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    task.Status = Localize("GrassTaskError", "Error");
+                    AddScriptLog(task.Name, exception.Message, LogEntryKind.Failure);
+                }
             }
 
             queueSucceeded = queuedTasks.Count > 0

@@ -242,6 +242,54 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public async Task QueueContinuesAfterTaskFailure()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var state = new ConnectionStateService();
+        state.UpdateLastVerified(new LastVerifiedConnection(
+            "adb.exe",
+            "emulator-5554",
+            "android-id",
+            "35",
+            1080,
+            1920,
+            1080,
+            1920,
+            DateTimeOffset.UtcNow));
+        state.SetState(ConnectionState.Connected);
+
+        var failed = new FailingGrassTaskModule();
+        var succeeding = new RecordingGrassTaskModule();
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(failed);
+        catalog.Register(succeeding);
+        using var viewModel = new GrassViewModel(
+            log,
+            new FakeLocalizationService(),
+            catalog,
+            state);
+
+        var selectionIndex = 0;
+        viewModel.RequestTaskSelection = _ => selectionIndex++ == 0
+            ? failed
+            : succeeding;
+        viewModel.AddTaskCommand.Execute(null);
+        viewModel.AddTaskCommand.Execute(null);
+
+        viewModel.StartCommand.Execute(null);
+        await succeeding.Completed.Task;
+        while (viewModel.IsQueueOperationInProgress)
+            await Task.Delay(10);
+
+        Assert.Equal("Error", viewModel.Tasks[0].Status);
+        Assert.Equal("Completed", viewModel.Tasks[1].Status);
+        Assert.Contains(
+            viewModel.ScriptLogs,
+            entry => entry.Type == succeeding.Definition.FallbackName
+                && entry.Details == "completed");
+    }
+
+    [Fact]
     public async Task StopCancelsTheScriptWithoutCallingTaskStopOrClosingTheGame()
     {
         using var log = new LogViewModel(new FakeUmaService());
@@ -484,6 +532,78 @@ public sealed class GrassViewModelTests
             StopCallCount++;
             return Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
         }
+    }
+
+    private sealed class FailingGrassTaskModule : IGrassTaskModule
+    {
+        public GrassTaskDefinition Definition { get; } = new(
+            "failing-task",
+            "FailingTask",
+            "FailingTaskDescription",
+            "Failing task",
+            "A task that reports a failure");
+
+        public object Settings { get; } = new();
+
+        public JsonObject ExportSettings() => new();
+
+        public void ImportSettings(JsonObject settings)
+        {
+        }
+
+        public IGrassTaskModule CreateInstance() => this;
+
+        public bool CanExecute(GrassTaskExecutionContext context) =>
+            context.Connection is not null;
+
+        public Task<GrassTaskExecutionResult> ExecuteAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GrassTaskExecutionResult(false, false, "failed"));
+
+        public Task<GrassTaskExecutionResult> StopAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
+    }
+
+    private sealed class RecordingGrassTaskModule : IGrassTaskModule
+    {
+        public TaskCompletionSource<bool> Completed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public GrassTaskDefinition Definition { get; } = new(
+            "recording-task",
+            "RecordingTask",
+            "RecordingTaskDescription",
+            "Recording task",
+            "A task that records execution");
+
+        public object Settings { get; } = new();
+
+        public JsonObject ExportSettings() => new();
+
+        public void ImportSettings(JsonObject settings)
+        {
+        }
+
+        public IGrassTaskModule CreateInstance() => this;
+
+        public bool CanExecute(GrassTaskExecutionContext context) =>
+            context.Connection is not null;
+
+        public Task<GrassTaskExecutionResult> ExecuteAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            Completed.TrySetResult(true);
+            return Task.FromResult(new GrassTaskExecutionResult(true, false, "completed"));
+        }
+
+        public Task<GrassTaskExecutionResult> StopAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
     }
 
     private sealed class InMemorySettingsService : ISettingsService
