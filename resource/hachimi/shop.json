@@ -28,7 +28,7 @@
     },
     "shopBuy1": {
       "template": "templates/shop/item_checkbox.png",
-      "roi": [680, 500, 220, 220],
+      "roi": [680, 580, 220, 220],
       "templThreshold": 0.80,
       "timeoutMs": 6000,
       "postDelay": 350,

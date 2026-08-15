@@ -76,7 +76,7 @@
     },
     "dailyClose": {
       "template": "templates/mission_collection/reward_close.png",
-      "roi": [250, 1380, 450, 200],
+      "roi": [250, 1000, 450, 600],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
@@ -115,7 +115,7 @@
     },
     "mainClose": {
       "template": "templates/mission_collection/reward_close.png",
-      "roi": [250, 1380, 450, 200],
+      "roi": [250, 1000, 450, 600],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
@@ -154,7 +154,7 @@
     },
     "titlesClose": {
       "template": "templates/mission_collection/reward_close.png",
-      "roi": [250, 1380, 450, 200],
+      "roi": [250, 1000, 450, 600],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
@@ -193,7 +193,7 @@
     },
     "specialClose": {
       "template": "templates/mission_collection/reward_close.png",
-      "roi": [250, 1380, 450, 200],
+      "roi": [250, 1000, 450, 600],
       "templThreshold": 0.86,
       "timeoutMs": 12000,
       "pollIntervalMs": 300,
