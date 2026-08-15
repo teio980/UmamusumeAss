@@ -38,6 +38,10 @@
              Link="resource\uma\database\global\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\resource\uma\career_filter_tab.png"
+             Link="resource\uma\career_filter_tab.png"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\resource\uma\assets\images\global\trainees\**\*"
              Link="resource\uma\assets\images\global\trainees\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"

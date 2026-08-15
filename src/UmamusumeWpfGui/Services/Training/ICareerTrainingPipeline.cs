@@ -23,7 +23,11 @@ public sealed record CareerTrainingSettings(
     IReadOnlyList<int> SupportCardIds,
     string StrategyId,
     bool PauseOnUnknownOutcome,
-    bool AllowOptionalRaces);
+    bool AllowOptionalRaces,
+    string LegacySelectionMode,
+    bool UseLegacyGuest,
+    IReadOnlyList<string> LegacyAttributeSparks,
+    IReadOnlyList<string> LegacyAptitudeSparks);
 
 public sealed record CareerTrainingResult(
     bool Succeeded,

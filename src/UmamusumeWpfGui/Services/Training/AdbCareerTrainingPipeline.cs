@@ -10,7 +10,6 @@ namespace UmamusumeWpfGui.Services.Training;
 
 public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 {
-    private const double RecognitionThreshold = 0.78;
     private const double EarlyRecognitionThreshold = 0.985;
 
     private static readonly HashSet<string> CareerEntryScreenIds =
@@ -32,6 +31,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
     private readonly UraTraineeSelector _traineeSelector;
+    private readonly UraLegacySelector _legacySelector;
     private readonly UraRaceResultRecognizer _raceResultRecognizer;
     private readonly HachimiJsonPipelineRunner _jsonRunner;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
@@ -43,15 +43,18 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
         UraTraineeSelector traineeSelector,
+        UraLegacySelector legacySelector,
         HachimiJsonPipelineRunner jsonRunner)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
         ArgumentNullException.ThrowIfNull(umaDatabase);
         ArgumentNullException.ThrowIfNull(traineeSelector);
+        ArgumentNullException.ThrowIfNull(legacySelector);
         ArgumentNullException.ThrowIfNull(jsonRunner);
         _visualRuntime = visualRuntime;
         _umaDatabase = umaDatabase;
         _traineeSelector = traineeSelector;
+        _legacySelector = legacySelector;
         _raceResultRecognizer = new UraRaceResultRecognizer(visualRuntime);
         _jsonRunner = jsonRunner;
     }
@@ -151,6 +154,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             // real game Home screen instead of skipping into URA recognition.
             state.CareerEntryOpened = false;
             state.TraineeSelected = false;
+            state.ScenarioSelected = false;
+            state.LegacySelected = false;
             state.ScenarioSelectionAdvanceAttempts = 0;
         }
         logSink?.Add(
@@ -277,6 +282,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return terminal with { ActionsCompleted = actionCount };
             }
 
+            // Persist setup transitions as well as observations. In
+            // particular, ScenarioSelected must survive a restart after the
+            // first Next click so we do not re-enter the scenario carousel.
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             actionCount++;
         }
 
@@ -340,12 +349,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             {
                                 var selection = await _traineeSelector.SelectAsync(
                                         actionConnection,
+                                        definition,
+                                        taskName,
+                                        task,
                                         settings.TraineeId,
-                                        task.SearchRois,
+                                        actionLogSink,
                                         actionCancellationToken)
                                     .ConfigureAwait(false);
                                 return selection.Succeeded
-                                    ? HachimiCustomActionResult.Success(selection.Message, selection.Match)
+                                    ? HachimiCustomActionResult.Success(selection.Message)
                                     : HachimiCustomActionResult.Failure(selection.Message);
                             }
                         })
@@ -379,9 +391,46 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         connection, pack, "support_ready", "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "legacy_select":
-                return await RunScreenActionAsync(
-                        connection, pack, "legacy_select", "next", logSink, cancellationToken)
+                if (state.LegacySelected)
+                {
+                    return await RunScreenActionAsync(
+                            connection, pack, "legacy_select", "next", logSink, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                var legacyPickResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "legacy_select",
+                        "choose",
+                        logSink,
+                        cancellationToken,
+                        new HachimiPipelineRunOptions
+                        {
+                            CustomActionExecutor = async (
+                                    actionConnection,
+                                    definition,
+                                    taskName,
+                                    task,
+                                    actionLogSink,
+                                    actionCancellationToken) =>
+                            {
+                                var selection = await _legacySelector.SelectAsync(
+                                        actionConnection,
+                                        definition,
+                                        settings,
+                                        actionLogSink,
+                                        actionCancellationToken)
+                                    .ConfigureAwait(false);
+                                return selection.Succeeded
+                                    ? HachimiCustomActionResult.Success(selection.Message)
+                                    : HachimiCustomActionResult.Failure(selection.Message);
+                            }
+                        })
                     .ConfigureAwait(false);
+                if (legacyPickResult is null)
+                    state.LegacySelected = true;
+                return legacyPickResult;
             case "career_intro_event":
                 return await RunScreenActionAsync(
                         connection, pack, "career_intro_event", "advance", logSink, cancellationToken)
@@ -589,9 +638,12 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "Career Training",
                 $"Detected target scenario '{selection.ScenarioId}' "
                 + $"with score {match.Score:0.000}; confirming selection.");
-            return await RunScreenActionAsync(
+            var result = await RunScreenActionAsync(
                     connection, pack, "scenario_select", "next", logSink, cancellationToken)
                 .ConfigureAwait(false);
+            if (result is null)
+                state.ScenarioSelected = true;
+            return result;
         }
 
         if (state.ScenarioSelectionAdvanceAttempts >= selection.MaxAdvanceAttempts)
@@ -726,6 +778,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         CancellationToken cancellationToken)
     {
         var careerEntryFlowActive = state.CareerEntryOpened && !state.CareerStarted;
+        var traineeSelectionExpected = state.ScenarioSelected
+            && !state.TraineeSelected
+            && !state.CareerStarted;
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
             .Where(screen => !careerEntryFlowActive
@@ -733,6 +788,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             .Where(screen => state.CareerStarted
                 || state.TurnIndex > 0
                 || CareerEntryScreenIds.Contains(screen.ScreenId))
+            .Where(screen => !traineeSelectionExpected
+                || string.Equals(screen.ScreenId, "trainee_select", StringComparison.OrdinalIgnoreCase))
             .OrderBy(screen => screen.ScreenId switch
             {
                 "home" => 0,
@@ -791,8 +848,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     var match = TemplateMatcher.Find(
                         frame,
                         grayTemplate,
-                        roi: null,
-                        threshold: RecognitionThreshold,
+                        roi: screen.Recognition.Roi,
+                        threshold: screen.Recognition.TemplateThreshold,
                         pack.ScreenProfile.ReferenceWidth,
                         pack.ScreenProfile.ReferenceHeight);
                     if (match.Found

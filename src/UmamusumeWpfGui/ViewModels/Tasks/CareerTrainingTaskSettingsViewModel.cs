@@ -22,6 +22,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _strategyId = DefaultStrategyId;
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
+    private string _legacySelectionMode = "auto";
+    private bool _useLegacyGuest;
     private string _status = string.Empty;
     private string _traineeSearchText = string.Empty;
     private bool _isTraineeDropDownOpen;
@@ -40,6 +42,35 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public ObservableCollection<CareerTraineeOption> TraineeOptions { get; } = [];
 
     public ObservableCollection<CareerTraineeOption> FilteredTraineeOptions { get; } = [];
+
+    public IReadOnlyList<CareerLegacySelectionModeOption> LegacySelectionModes { get; } =
+    [
+        new("auto", "Auto-Select"),
+        new("manual", "Select Legacy 1 and Legacy 2"),
+    ];
+
+    public ObservableCollection<CareerSparkOption> AttributeSparkOptions { get; } =
+    [
+        new("Speed", "Speed"),
+        new("Stamina", "Stamina"),
+        new("Power", "Power"),
+        new("Guts", "Guts"),
+        new("Wit", "Wit"),
+    ];
+
+    public ObservableCollection<CareerSparkOption> AptitudeSparkOptions { get; } =
+    [
+        new("Turf", "Turf"),
+        new("Dirt", "Dirt"),
+        new("Sprint", "Sprint"),
+        new("Mile", "Mile"),
+        new("Medium", "Medium"),
+        new("Long", "Long"),
+        new("Front", "Front"),
+        new("Pace", "Pace"),
+        new("Late", "Late"),
+        new("End", "End"),
+    ];
 
     public string TraineeSearchText
     {
@@ -121,6 +152,29 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         set => Set(ref _allowOptionalRaces, value);
     }
 
+    public string LegacySelectionMode
+    {
+        get => _legacySelectionMode;
+        set
+        {
+            var normalized = string.Equals(value, "manual", StringComparison.OrdinalIgnoreCase)
+                ? "manual"
+                : "auto";
+            if (!Set(ref _legacySelectionMode, normalized))
+                return;
+            OnPropertyChanged(nameof(IsManualLegacySelection));
+        }
+    }
+
+    public bool IsManualLegacySelection =>
+        string.Equals(LegacySelectionMode, "manual", StringComparison.OrdinalIgnoreCase);
+
+    public bool UseLegacyGuest
+    {
+        get => _useLegacyGuest;
+        set => Set(ref _useLegacyGuest, value);
+    }
+
     public string Status
     {
         get => _status;
@@ -139,6 +193,20 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
 
         return ids;
+    }
+
+    public IReadOnlyList<string> ParseLegacyAttributeSparks() =>
+        AttributeSparkOptions.Where(item => item.IsSelected).Select(item => item.Key).ToArray();
+
+    public IReadOnlyList<string> ParseLegacyAptitudeSparks() =>
+        AptitudeSparkOptions.Where(item => item.IsSelected).Select(item => item.Key).ToArray();
+
+    public void SetLegacySparkSelections(
+        IEnumerable<string> attributeSparks,
+        IEnumerable<string> aptitudeSparks)
+    {
+        SetSelections(AttributeSparkOptions, attributeSparks);
+        SetSelections(AptitudeSparkOptions, aptitudeSparks);
     }
 
     public bool IsValid =>
@@ -233,9 +301,51 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private static void SetSelections(
+        IEnumerable<CareerSparkOption> options,
+        IEnumerable<string> selectedKeys)
+    {
+        var selected = selectedKeys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var option in options)
+            option.IsSelected = selected.Contains(option.Key);
+    }
 }
 
 public sealed record CareerTraineeOption(
     int TraineeId,
     string Label,
     BitmapSource? Thumbnail = null);
+
+public sealed record CareerLegacySelectionModeOption(string Value, string Label);
+
+public sealed class CareerSparkOption : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public CareerSparkOption(string key, string label)
+    {
+        Key = key;
+        Label = label;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Key { get; }
+
+    public string Label { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value)
+                return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+}

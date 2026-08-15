@@ -479,7 +479,7 @@
                   "legacy_select_legacy_next":  {
                                                     "algorithm":  "MatchTemplate",
                                                     "action":  "ClickSelf",
-                                                    "template":  "templates/legacy_select_legacy_next.png",
+                                                    "template":  "templates/legacy/legacy_next_enabled.png",
                                                     "templThreshold":  0.78,
                                                     "roi":  [
                                                                 270,
@@ -511,6 +511,33 @@
                                                     "required":  true,
                                                     "success":  false
                                                 },
+                  "legacy_select_legacy_choose":  {
+                                                      "algorithm":  "JustReturn",
+                                                      "action":  "SelectUraLegacy",
+                                                      "preDelay":  0,
+                                                      "postDelay":  650,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+
+                                                               ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                       ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
                   "career_intro_event_event_advance":  {
                                                            "algorithm":  "MatchTemplate",
                                                            "action":  "ClickSelf",

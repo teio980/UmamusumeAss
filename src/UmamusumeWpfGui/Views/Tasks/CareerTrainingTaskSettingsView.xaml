@@ -12,6 +12,51 @@
       <TextBlock Margin="0,12,0,0" Text="Trainee" />
       <taskviews:TraineePickerView Margin="0,6,0,0" />
 
+      <TextBlock Margin="0,12,0,0" Text="Legacy selection" />
+      <ComboBox Margin="0,6,0,0"
+                ItemsSource="{Binding LegacySelectionModes}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding LegacySelectionMode, UpdateSourceTrigger=PropertyChanged}" />
+      <CheckBox Margin="0,8,0,0"
+                IsChecked="{Binding UseLegacyGuest}">
+        <TextBlock Text="Use a guest legacy for Legacy 1"
+                   TextWrapping="Wrap" />
+      </CheckBox>
+      <StackPanel Margin="0,8,0,0"
+                  IsEnabled="{Binding IsManualLegacySelection}">
+        <TextBlock Text="Attribute sparks" />
+        <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding AttributeSparkOptions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <CheckBox Margin="0,0,12,4"
+                        Content="{Binding Label}"
+                        IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Margin="0,4,0,0" Text="Aptitude sparks" />
+        <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding AptitudeSparkOptions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <CheckBox Margin="0,0,12,4"
+                        Content="{Binding Label}"
+                        IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
       <TextBlock Margin="0,12,0,0" Text="Support card IDs (optional)" />
       <ui:TextBox Margin="0,6,0,0"
                   Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />

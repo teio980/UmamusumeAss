@@ -7,6 +7,9 @@ public sealed class UraScenarioPackLoaderTests
 {
     private static readonly string[] SupportedExecutionActions =
         ["ClickSelf", "ClickRect", "SelectUraTrainee"];
+    private static readonly int[] ScenarioHeaderRoi = [0, 190, 430, 80];
+    private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];
+    private static readonly int[] ScenarioNextCardRect = [815, 650, 75, 180];
 
     [Fact]
     public async Task LoadAsync_LoadsCheckedInUraPack()
@@ -45,6 +48,21 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "templates/scenario_select_header.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.Template);
+        Assert.Equal(
+            ScenarioHeaderRoi,
+            pack.ScreenProfile.Find("scenario_select")?.Recognition.Roi);
+        Assert.Equal(
+            0.95,
+            pack.ScreenProfile.Find("scenario_select")?.Recognition.TemplateThreshold);
+        Assert.Equal(
+            "templates/trainee_select_header.png",
+            pack.ScreenProfile.Find("trainee_select")?.Recognition.Template);
+        Assert.Equal(
+            TraineeHeaderRoi,
+            pack.ScreenProfile.Find("trainee_select")?.Recognition.Roi);
+        Assert.Equal(
+            0.88,
+            pack.ScreenProfile.Find("trainee_select")?.Recognition.TemplateThreshold);
         Assert.Contains(
             "captures/scenario_select_ura.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates
@@ -57,7 +75,7 @@ public sealed class UraScenarioPackLoaderTests
             "ClickRect",
             pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].Action);
         Assert.Equal(
-            new[] { 815, 650, 75, 180 },
+            ScenarioNextCardRect,
             pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].SpecificRect);
         Assert.Equal(
             "../../templates/start_game/game_home_selected.png",

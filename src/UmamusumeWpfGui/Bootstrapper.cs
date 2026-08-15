@@ -85,6 +85,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<UraTraineeSelector>()
             .ToSelf()
             .InSingletonScope();
+        builder.Bind<UraLegacySelector>()
+            .ToSelf()
+            .InSingletonScope();
         builder.Bind<CareerTrainingTaskModule>()
             .ToSelf()
             .InSingletonScope();

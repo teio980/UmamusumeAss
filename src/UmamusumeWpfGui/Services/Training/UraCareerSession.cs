@@ -48,6 +48,11 @@ public sealed class UraCareerSessionState
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
     public bool TraineeSelected { get; set; }
+    public bool LegacySelected { get; set; }
+    // The scenario Next button and the trainee Next button share the same
+    // visual position. Once the scenario has been confirmed, setup must only
+    // accept trainee_select until the trainee has been picked.
+    public bool ScenarioSelected { get; set; }
     public int ScenarioSelectionAdvanceAttempts { get; set; }
     // Indicates that the selected URA career has actually reached the career
     // main screen. It must not be inferred from the Home entry click: Home is

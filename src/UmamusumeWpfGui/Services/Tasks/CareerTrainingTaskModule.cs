@@ -49,6 +49,14 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         ["strategyId"] = Settings.StrategyId,
         ["pauseOnUnknownOutcome"] = Settings.PauseOnUnknownOutcome,
         ["allowOptionalRaces"] = Settings.AllowOptionalRaces,
+        ["legacySelectionMode"] = Settings.LegacySelectionMode,
+        ["useLegacyGuest"] = Settings.UseLegacyGuest,
+        ["legacyAttributeSparks"] = new JsonArray(Settings.ParseLegacyAttributeSparks()
+            .Select(item => (JsonNode?)JsonValue.Create(item))
+            .ToArray()),
+        ["legacyAptitudeSparks"] = new JsonArray(Settings.ParseLegacyAptitudeSparks()
+            .Select(item => (JsonNode?)JsonValue.Create(item))
+            .ToArray()),
     };
 
     public void ImportSettings(JsonObject settings)
@@ -67,6 +75,15 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
             settings,
             "allowOptionalRaces",
             Settings.AllowOptionalRaces);
+        Settings.LegacySelectionMode = ReadString(settings, "legacySelectionMode")
+            ?? Settings.LegacySelectionMode;
+        Settings.UseLegacyGuest = ReadBool(
+            settings,
+            "useLegacyGuest",
+            Settings.UseLegacyGuest);
+        Settings.SetLegacySparkSelections(
+            ReadStringArray(settings, "legacyAttributeSparks"),
+            ReadStringArray(settings, "legacyAptitudeSparks"));
         if (settings["supportCardIds"] is JsonArray cards)
         {
             Settings.SupportCardIdsText = string.Join(",", cards
@@ -111,7 +128,11 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
                         Settings.ParseSupportCardIds(),
                         Settings.StrategyId,
                         Settings.PauseOnUnknownOutcome,
-                        Settings.AllowOptionalRaces),
+                        Settings.AllowOptionalRaces,
+                        Settings.LegacySelectionMode,
+                        Settings.UseLegacyGuest,
+                        Settings.ParseLegacyAttributeSparks(),
+                        Settings.ParseLegacyAptitudeSparks()),
                     context.LogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -186,6 +207,24 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         try { return settings[key]?.GetValue<bool>() ?? fallback; }
         catch (InvalidOperationException) { return fallback; }
         catch (FormatException) { return fallback; }
+    }
+
+    private static string[] ReadStringArray(JsonObject settings, string key)
+    {
+        if (settings[key] is not JsonArray values)
+            return [];
+
+        return values
+            .Select(item =>
+            {
+                try { return item?.GetValue<string>(); }
+                catch (InvalidOperationException) { return null; }
+                catch (FormatException) { return null; }
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static string MigrateManifestPath(string path)

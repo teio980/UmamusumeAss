@@ -23,10 +23,10 @@
                               "recognition":  {
                                                   "template":  "templates/scenario_select_ura_card.png",
                                                   "roi":  [
-                                                             120,
-                                                             500,
-                                                             660,
-                                                             620
+                                                             420,
+                                                             420,
+                                                             200,
+                                                             380
                                                          ],
                                                   "templThreshold":  0.78,
                                                   "stable":  true
@@ -58,6 +58,13 @@
                                             "templates":  [
                                                               "captures/scenario_select_ura.png"
                                                           ],
+                                            "roi":  [
+                                                       0,
+                                                       190,
+                                                       430,
+                                                       80
+                                                   ],
+                                            "templThreshold":  0.95,
                                             "requiredText":  [
                                                                  "Scenario Select",
                                                                  "URA Finale"
@@ -78,7 +85,17 @@
                     {
                         "screenId":  "trainee_select",
                         "recognition":  {
-                                            "template":  "captures/trainee_select_ura.png",
+                                            "template":  "templates/trainee_select_header.png",
+                                            "templates":  [
+                                                              "captures/trainee_select_ura.png"
+                                                          ],
+                                            "roi":  [
+                                                       0,
+                                                       190,
+                                                       280,
+                                                       80
+                                                   ],
+                                            "templThreshold":  0.88,
                                             "requiredText":  [
                                                                  "Trainee Select",
                                                                  "Oguri Cap"
@@ -154,7 +171,14 @@
                     {
                         "screenId":  "legacy_select",
                         "recognition":  {
-                                            "template":  "captures/legacy_selected_ura_confirmed.png",
+                                            "template":  "templates/legacy/legacy_select_header.png",
+                                            "roi":  [
+                                                       0,
+                                                       180,
+                                                       500,
+                                                       100
+                                                   ],
+                                            "templThreshold":  0.90,
                                             "requiredText":  [
                                                                  "Legacy Select",
                                                                  "Auto-Select"
@@ -162,6 +186,10 @@
                                             "stable":  true
                                         },
                         "actions":  [
+                                        {
+                                            "semanticId":  "legacy.choose",
+                                            "task":  "legacy_select_legacy_choose"
+                                        },
                                         {
                                             "semanticId":  "legacy.next",
                                             "task":  "legacy_select_legacy_next"
