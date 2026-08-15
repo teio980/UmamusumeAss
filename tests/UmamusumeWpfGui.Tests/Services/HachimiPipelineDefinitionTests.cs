@@ -88,6 +88,8 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
         Assert.Contains("runRandomShop", monitor.MonitorTasks);
         Assert.Equal("raceagain", monitor.SuccessTask);
+        Assert.Contains("teamRaceAfterShop", monitor.SuccessTasks);
+        Assert.Equal(180000, monitor.TimeoutMilliseconds);
     }
 
     [Fact]
@@ -105,6 +107,13 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("specialTab", definition.GetTask("titlesRed").OnErrorNext.Single());
         Assert.Equal("returnHome", definition.GetTask("specialRed").OnErrorNext.Single());
         Assert.True(definition.GetTask("homeVerify").Success);
+
+        foreach (var closeTaskName in new[] { "dailyClose", "mainClose", "titlesClose", "specialClose" })
+        {
+            Assert.Equal(
+                [250, 1000, 450, 600],
+                definition.GetTask(closeTaskName).Roi!);
+        }
     }
 
     [Fact]
@@ -141,6 +150,20 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
         Assert.Contains("runRandomShop", monitor.MonitorTasks);
         Assert.Equal("raceagain", monitor.SuccessTask);
+        Assert.Contains("teamRaceAfterShop", monitor.SuccessTasks);
+        Assert.Equal(
+            "templates/team_race/team_race.png",
+            definition.GetTask("teamRaceAfterShop").Template);
+        Assert.Equal(
+            "opponent",
+            definition.GetTask("teamRaceAfterShop").Next.Single());
+        Assert.Equal("race", definition.GetTask("teamRaceAfterShop").CountAs);
+        Assert.Equal("raceAdvance", definition.GetTask("teamRaceAfterShop").CountKey);
+        Assert.Equal("raceAdvance", definition.GetTask("raceagain").CountKey);
+        Assert.Equal(
+            "complete",
+            definition.GetTask("teamRaceAfterShop").ExceededNext.Single());
+        Assert.Equal(180000, monitor.TimeoutMilliseconds);
         Assert.Equal(
             "templates/start_game/notices_close.png",
             definition.GetTask("noticesClose").Template);
@@ -158,6 +181,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopNoShopComplete", definition!.GetTask("shopProbe").OnErrorNext.Single());
         Assert.False(definition.GetTask("shopBuy1").Required);
         Assert.False(definition.GetTask("shopBuy21").Required);
+        Assert.Equal([680, 580, 220, 220], definition.GetTask("shopBuy1").Roi!);
         var back = definition.GetTask("shopBack");
         Assert.Equal("ClickSelf", back.Action, ignoreCase: true);
         Assert.Equal("templates/shop/back.png", back.Template);

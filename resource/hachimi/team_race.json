@@ -223,6 +223,17 @@
       "next": ["MiddleNext"],
       "onErrorNext": ["MiddleNext"]
     },
+    "teamRaceAfterShop": {
+      "template": "templates/team_race/team_race.png",
+      "roi": [140, 900, 620, 300],
+      "templThreshold": 0.86,
+      "timeoutMs": 20000,
+      "postDelay": 1200,
+      "countAs": "race",
+      "countKey": "raceAdvance",
+      "next": ["opponent"],
+      "exceededNext": ["complete"]
+    },
     "MiddleNext": {
       "template": "templates/team_race/final_next.png",
       "roi": [350, 1430, 250, 150],
@@ -265,7 +276,8 @@
         "noticesClose"
       ],
       "successTask": "raceagain",
-      "timeoutMs": 60000,
+      "successTasks": ["teamRaceAfterShop"],
+      "timeoutMs": 180000,
       "pollIntervalMs": 300,
       "next": ["raceagain"]
     },
@@ -276,6 +288,7 @@
       "timeoutMs": 20000,
       "postDelay": 1200,
       "countAs": "race",
+      "countKey": "raceAdvance",
       "next": ["opponent"],
       "exceededNext": ["finalNext"]
     },
@@ -300,7 +313,7 @@
     "nextRaceLoadMs": 10000,
     "playbackLoadMs": 20000,
     "skipSettleMs": 2500,
-    "raceTimeoutMs": 60000,
+    "raceTimeoutMs": 180000,
     "shopProbeMs": 1500,
     "pollIntervalMs": 1000,
     "betweenRacesMs": 1200

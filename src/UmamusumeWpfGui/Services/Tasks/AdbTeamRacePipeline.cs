@@ -62,7 +62,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
                         MaxTimesOverrides = new Dictionary<string, int>(
                             StringComparer.OrdinalIgnoreCase)
                         {
-                            ["raceagain"] = requestedRaces - 1,
+                            ["raceAdvance"] = requestedRaces - 1,
                         },
                     },
                     logSink,

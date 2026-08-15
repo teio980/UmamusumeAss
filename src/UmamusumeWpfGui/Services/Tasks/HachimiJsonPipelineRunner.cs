@@ -120,7 +120,7 @@ public sealed class HachimiJsonPipelineRunner
                     current);
             }
 
-            var taskCount = state.GetTaskCount(current);
+            var taskCount = state.GetTaskCount(current, task);
             if (HasExceededLimit(current, task, taskCount, state.Options))
             {
                 AddLog(
@@ -142,7 +142,7 @@ public sealed class HachimiJsonPipelineRunner
                 continue;
             }
 
-            state.IncrementTaskCount(current);
+            state.IncrementTaskCount(current, task);
             AddTaskLog(
                 logSink,
                 current,
@@ -199,7 +199,11 @@ public sealed class HachimiJsonPipelineRunner
             if (task.Success)
                 return Succeed(state, current);
 
-            current = FirstExisting(definition, task.Next) ?? string.Empty;
+            current = execution.TransitionTask is { Length: > 0 } transitionTask
+                && definition.TryGetTask(transitionTask, out _)
+                ? transitionTask
+                : FirstExisting(definition, task.Next)
+                    ?? string.Empty;
             if (string.IsNullOrEmpty(current))
                 return Succeed(state, execution.LastTask ?? entryTask);
         }
@@ -334,6 +338,7 @@ public sealed class HachimiJsonPipelineRunner
         {
             case "selectdailyracerunner":
             case "selecturatrainee":
+            case "selecturalegacy":
                 if (runOptions.CustomActionExecutor is null)
                 {
                     return TaskExecutionResult.Failed(
@@ -542,15 +547,20 @@ public sealed class HachimiJsonPipelineRunner
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var successName = monitorTask.SuccessTask?.Trim();
-        if (string.IsNullOrWhiteSpace(successName))
+        var successNames = new[] { monitorTask.SuccessTask }
+            .Concat(monitorTask.SuccessTasks)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (successNames.Length == 0)
         {
             return TaskExecutionResult.Failed(
-                $"Parallel monitor '{taskName}' has no successTask.");
+                $"Parallel monitor '{taskName}' has no successTask or successTasks.");
         }
 
         var candidateNames = monitorNames
-            .Append(successName)
+            .Concat(successNames)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var candidates = new List<ParallelMonitorCandidate>(candidateNames.Length);
@@ -585,11 +595,20 @@ public sealed class HachimiJsonPipelineRunner
             .Where(byName.ContainsKey)
             .Select(name => byName[name])
             .ToArray();
-        var successCandidate = byName[successName];
+        var successCandidates = successNames
+            .Where(byName.ContainsKey)
+            .Select(name => byName[name])
+            .ToArray();
         if (monitorCandidates.Length == 0)
         {
             return TaskExecutionResult.Failed(
                 $"Parallel monitor '{taskName}' has no monitorTasks.");
+        }
+
+        if (successCandidates.Length == 0)
+        {
+            return TaskExecutionResult.Failed(
+                $"Parallel monitor '{taskName}' references no defined success task.");
         }
 
         var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
@@ -606,7 +625,8 @@ public sealed class HachimiJsonPipelineRunner
             logSink,
             taskName,
             $"Parallel monitor: candidates=[{string.Join(", ", candidateNames)}], "
-            + $"success='{successCandidate.Name}', timeout={timeout.TotalMilliseconds:0}ms, "
+            + $"success=[{string.Join(", ", successCandidates.Select(candidate => candidate.Name))}], "
+            + $"timeout={timeout.TotalMilliseconds:0}ms, "
             + $"poll={poll.TotalMilliseconds:0}ms.");
         var started = Stopwatch.GetTimestamp();
         Dictionary<string, TemplateMatchResult>? lastMatches = null;
@@ -632,15 +652,19 @@ public sealed class HachimiJsonPipelineRunner
 
                 // The stop condition always wins over a stale button match in
                 // the same screenshot.
-                if (matches.TryGetValue(successCandidate.Name, out var successMatch)
-                    && successMatch.Found)
+                var successCandidate = successCandidates.FirstOrDefault(candidate =>
+                    matches.TryGetValue(candidate.Name, out var successMatch)
+                    && successMatch.Found);
+                if (successCandidate is not null)
                 {
                     AddTaskLog(
                         logSink,
                         taskName,
                         $"{taskName}: success task '{successCandidate.Name}' detected; leaving parallel monitor.",
                         LogEntryKind.Success);
-                    return TaskExecutionResult.Completed(taskName);
+                    return TaskExecutionResult.Completed(
+                        taskName,
+                        transitionTask: successCandidate.Name);
                 }
 
                 foreach (var candidate in monitorCandidates)
@@ -886,6 +910,13 @@ public sealed class HachimiJsonPipelineRunner
             return taskCount >= Math.Max(0, overrideLimit);
         }
 
+        if (task.CountKey is { Length: > 0 } countKey
+            && options.MaxTimesOverrides is not null
+            && options.MaxTimesOverrides.TryGetValue(countKey, out overrideLimit))
+        {
+            return taskCount >= Math.Max(0, overrideLimit);
+        }
+
         return task.MaxTimes > 0 && taskCount >= task.MaxTimes;
     }
 
@@ -984,11 +1015,23 @@ public sealed class HachimiJsonPipelineRunner
 
         public int CompletedUnits { get; set; }
 
-        public int GetTaskCount(string taskName) =>
-            _taskCounts.TryGetValue(taskName, out var count) ? count : 0;
+        public int GetTaskCount(string taskName, HachimiPipelineTask task) =>
+            _taskCounts.TryGetValue(GetCountKey(taskName, task), out var count)
+                ? count
+                : 0;
 
-        public void IncrementTaskCount(string taskName) =>
-            _taskCounts[taskName] = GetTaskCount(taskName) + 1;
+        public void IncrementTaskCount(string taskName, HachimiPipelineTask task)
+        {
+            var countKey = GetCountKey(taskName, task);
+            _taskCounts[countKey] = _taskCounts.TryGetValue(countKey, out var count)
+                ? count + 1
+                : 1;
+        }
+
+        private static string GetCountKey(string taskName, HachimiPipelineTask task) =>
+            task.CountKey is { Length: > 0 } countKey
+                ? countKey
+                : taskName;
     }
 
     private sealed record ParallelMonitorCandidate(
@@ -999,13 +1042,16 @@ public sealed class HachimiJsonPipelineRunner
     private sealed record TaskExecutionResult(
         bool Succeeded,
         string Message,
-        string? LastTask)
+        string? LastTask,
+        string? TransitionTask)
     {
-        public static TaskExecutionResult Completed(string taskName) =>
-            new(true, string.Empty, taskName);
+        public static TaskExecutionResult Completed(
+            string taskName,
+            string? transitionTask = null) =>
+            new(true, string.Empty, taskName, transitionTask);
 
         public static TaskExecutionResult Failed(string message) =>
-            new(false, message, null);
+            new(false, message, null, null);
     }
 }
 

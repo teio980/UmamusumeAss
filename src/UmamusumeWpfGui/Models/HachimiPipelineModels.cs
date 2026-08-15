@@ -122,6 +122,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("successTask")]
     public string? SuccessTask { get; set; }
 
+    [JsonPropertyName("successTasks")]
+    public List<string> SuccessTasks { get; set; } = [];
+
     [JsonPropertyName("maxTimes")]
     public int MaxTimes { get; set; }
 
@@ -133,6 +136,9 @@ public sealed class HachimiPipelineTask
 
     [JsonPropertyName("countAs")]
     public string? CountAs { get; set; }
+
+    [JsonPropertyName("countKey")]
+    public string? CountKey { get; set; }
 }
 
 public sealed class HachimiPipelineTemplates
