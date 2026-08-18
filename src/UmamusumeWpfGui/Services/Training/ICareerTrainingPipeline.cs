@@ -21,6 +21,8 @@ public sealed record CareerTrainingSettings(
     string ManifestPath,
     int TraineeId,
     IReadOnlyList<int> SupportCardIds,
+    string SupportDeckMode,
+    string SupportDeckPreset,
     string StrategyId,
     bool PauseOnUnknownOutcome,
     bool AllowOptionalRaces,

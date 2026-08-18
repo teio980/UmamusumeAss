@@ -148,6 +148,7 @@ public sealed class HachimiJsonPipelineRunner
                 current,
                 $"Run #{taskCount + 1}: algorithm={task.Algorithm}, action={task.Action}, "
                 + $"template={task.Template ?? "none"}, roi={FormatArray(task.Roi)}, "
+                + $"searchRois={task.SearchRois.Count}, minScoreGap={task.MinimumScoreGap:0.000}, "
                 + $"threshold={task.TemplateThreshold:0.000}, timeout={task.TimeoutMilliseconds}ms, "
                 + $"preDelay={task.PreDelay}ms, wait={task.WaitMilliseconds}ms, postDelay={task.PostDelay}ms.");
 
@@ -283,7 +284,15 @@ public sealed class HachimiJsonPipelineRunner
             return monitorResult;
         }
 
-        if (!string.IsNullOrWhiteSpace(task.Template))
+        var templatePath = task.Template;
+        if (runOptions.TemplateOverrides is not null
+            && runOptions.TemplateOverrides.TryGetValue(taskName, out var templateOverride)
+            && !string.IsNullOrWhiteSpace(templateOverride))
+        {
+            templatePath = templateOverride;
+        }
+
+        if (!string.IsNullOrWhiteSpace(templatePath))
         {
             var roi = task.Roi;
             var pollInterval = task.PollIntervalMilliseconds > 0
@@ -298,23 +307,38 @@ public sealed class HachimiJsonPipelineRunner
             AddTaskLog(
                 logSink,
                 taskName,
-                $"Waiting for template '{task.Template}' in ROI {FormatArray(roi)} "
+                $"Waiting for template '{templatePath}' in ROI {FormatArray(roi)} "
                 + $"(threshold {task.TemplateThreshold:0.000}, timeout {task.TimeoutMilliseconds}ms, "
                 + $"poll {pollInterval}ms).");
 
-            match = await _visualRuntime.WaitForMatchAsync(
-                    connection,
-                    task.Template,
-                    roi,
-                    task.TemplateThreshold,
-                    definition.ReferenceWidth,
-                    definition.ReferenceHeight,
-                    task.TimeoutMilliseconds,
-                    pollInterval,
-                    taskName,
-                    definition.BaseDirectory,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            match = task.SearchRois.Count > 0
+                ? await _visualRuntime.WaitForMatchInRoisAsync(
+                        connection,
+                        templatePath,
+                        task.TemplateThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        task.TimeoutMilliseconds,
+                        pollInterval,
+                        taskName,
+                        definition.BaseDirectory,
+                        task.SearchRois,
+                        task.MinimumScoreGap,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await _visualRuntime.WaitForMatchAsync(
+                        connection,
+                        templatePath,
+                        roi,
+                        task.TemplateThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        task.TimeoutMilliseconds,
+                        pollInterval,
+                        taskName,
+                        definition.BaseDirectory,
+                        cancellationToken)
+                    .ConfigureAwait(false);
 
             if (match is null || !match.Found)
             {
@@ -1071,6 +1095,12 @@ public sealed class HachimiPipelineRunOptions
     /// The task definition keeps the default ROI for backwards compatibility.
     /// </summary>
     public IReadOnlyDictionary<string, int[]>? RoiOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime template paths supplied by a caller for data-driven cards.
+    /// The JSON task still owns the algorithm and click action.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? TemplateOverrides { get; init; }
 
     public Func<
         LastVerifiedConnection,

@@ -43,6 +43,8 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         ["scenarioId"] = Settings.ScenarioId,
         ["manifestPath"] = Settings.ManifestPath,
         ["traineeId"] = Settings.TraineeId,
+        ["supportDeckMode"] = Settings.SupportDeckMode,
+        ["supportDeckPreset"] = Settings.SupportDeckPreset,
         ["supportCardIds"] = new JsonArray(Settings.ParseSupportCardIds()
             .Select(id => (JsonNode?)JsonValue.Create(id))
             .ToArray()),
@@ -66,6 +68,17 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         Settings.ManifestPath = MigrateManifestPath(manifestPath ?? Settings.ManifestPath);
         Settings.ScenarioId = ReadString(settings, "scenarioId") ?? Settings.ScenarioId;
         Settings.TraineeId = ReadNullableInt(settings, "traineeId") ?? Settings.TraineeId;
+        var supportCardIds = settings["supportCardIds"] is JsonArray cards
+            ? string.Join(",", cards
+                .Select(item => item?.GetValue<int>())
+                .Where(item => item is > 0))
+            : string.Empty;
+        Settings.SupportCardIdsText = supportCardIds;
+        var savedSupportDeckMode = ReadString(settings, "supportDeckMode");
+        Settings.SupportDeckMode = savedSupportDeckMode
+            ?? (string.IsNullOrWhiteSpace(supportCardIds) ? "auto" : "selected");
+        Settings.SupportDeckPreset = ReadString(settings, "supportDeckPreset")
+            ?? Settings.SupportDeckPreset;
         Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
         Settings.PauseOnUnknownOutcome = ReadBool(
             settings,
@@ -84,12 +97,6 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         Settings.SetLegacySparkSelections(
             ReadStringArray(settings, "legacyAttributeSparks"),
             ReadStringArray(settings, "legacyAptitudeSparks"));
-        if (settings["supportCardIds"] is JsonArray cards)
-        {
-            Settings.SupportCardIdsText = string.Join(",", cards
-                .Select(item => item?.GetValue<int>())
-                .Where(item => item is > 0));
-        }
     }
 
     public IGrassTaskModule CreateInstance() => new CareerTrainingTaskModule(
@@ -100,6 +107,10 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
     public bool CanExecute(GrassTaskExecutionContext context) =>
         context.Connection is not null
         && Settings.IsValid
+        && (!Settings.IsManualSupportDeck
+            || Settings.SelectedSupportCardCount is 5 or 6)
+        && (!Settings.IsHighestStarSupportDeck
+            || !Settings.SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
         && Settings.TraineeId is > 0
         && _umaDatabase.TryGetTrainee(Settings.TraineeId.Value, out var trainee)
         && trainee is not null
@@ -126,6 +137,8 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
                         Settings.ManifestPath,
                         Settings.TraineeId!.Value,
                         Settings.ParseSupportCardIds(),
+                        Settings.SupportDeckMode,
+                        Settings.SupportDeckPreset,
                         Settings.StrategyId,
                         Settings.PauseOnUnknownOutcome,
                         Settings.AllowOptionalRaces,

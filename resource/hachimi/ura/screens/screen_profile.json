@@ -129,6 +129,90 @@
                                             "task":  "support_select_support_auto_fill"
                                         },
                                         {
+                                            "semanticId":  "support.ranked.display_settings",
+                                            "task":  "support_select_support_display_settings"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.sort_uncap",
+                                            "task":  "support_select_support_sort_uncap"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_tab",
+                                            "task":  "support_select_support_filter_tab"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_reset",
+                                            "task":  "support_select_support_filter_reset"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_r",
+                                            "task":  "support_select_support_filter_r"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_sr",
+                                            "task":  "support_select_support_filter_sr"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_ssr",
+                                            "task":  "support_select_support_filter_ssr"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_speed",
+                                            "task":  "support_select_support_filter_speed"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_stamina",
+                                            "task":  "support_select_support_filter_stamina"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_power",
+                                            "task":  "support_select_support_filter_power"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_guts",
+                                            "task":  "support_select_support_filter_guts"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_wit",
+                                            "task":  "support_select_support_filter_wit"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_friend",
+                                            "task":  "support_select_support_filter_friend"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.filter_apply",
+                                            "task":  "support_select_support_filter_apply"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.sort_desc",
+                                            "task":  "support_select_support_sort_asc_click"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.select_card_badge",
+                                            "task":  "support_select_support_card_badge"
+                                        },
+                                        {
+                                            "semanticId":  "support.reset",
+                                            "task":  "support_select_support_reset"
+                                        },
+                                        {
+                                            "semanticId":  "support.open",
+                                            "task":  "support_select_support_open"
+                                        },
+                                        {
+                                            "semanticId":  "support.select",
+                                            "task":  "support_select_support_card"
+                                        },
+                                        {
+                                            "semanticId":  "support.scroll_top",
+                                            "task":  "support_select_support_scroll_top"
+                                        },
+                                        {
+                                            "semanticId":  "support.close",
+                                            "task":  "support_select_support_close"
+                                        },
+                                        {
                                             "semanticId":  "support.start",
                                             "task":  "support_select_support_start"
                                         }

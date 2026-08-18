@@ -87,6 +87,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("searchRois")]
     public List<int[]> SearchRois { get; set; } = [];
 
+    [JsonPropertyName("minScoreGap")]
+    public double MinimumScoreGap { get; set; }
+
     [JsonPropertyName("preDelay")]
     public int PreDelay { get; set; }
 

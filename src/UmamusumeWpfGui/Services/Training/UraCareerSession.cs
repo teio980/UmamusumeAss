@@ -48,6 +48,7 @@ public sealed class UraCareerSessionState
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
     public bool TraineeSelected { get; set; }
+    public bool SupportCardsSelected { get; set; }
     public bool LegacySelected { get; set; }
     // The scenario Next button and the trainee Next button share the same
     // visual position. Once the scenario has been confirmed, setup must only

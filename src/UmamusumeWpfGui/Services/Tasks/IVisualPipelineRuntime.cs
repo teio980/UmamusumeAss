@@ -30,6 +30,20 @@ public interface IVisualPipelineRuntime
         string baseDirectory,
         CancellationToken cancellationToken = default);
 
+    Task<TemplateMatchResult?> WaitForMatchInRoisAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        IReadOnlyList<int[]> searchRois,
+        double minimumScoreGap,
+        CancellationToken cancellationToken = default);
+
     Task TapMatchAsync(
         LastVerifiedConnection connection,
         TemplateMatchResult match,

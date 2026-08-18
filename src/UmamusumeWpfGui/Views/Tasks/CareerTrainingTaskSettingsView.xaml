@@ -57,9 +57,89 @@
         </ItemsControl>
       </StackPanel>
 
-      <TextBlock Margin="0,12,0,0" Text="Support card IDs (optional)" />
-      <ui:TextBox Margin="0,6,0,0"
-                  Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,12,0,0" Text="Support deck mode" />
+      <ComboBox Margin="0,6,0,0"
+                ItemsSource="{Binding SupportDeckModes}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,6,0,0"
+                 Text="Auto-Fill uses the game button; Highest-star preset uses SSR then SR by Uncap Level; Selected cards lets you choose exact cards."
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <StackPanel Margin="0,8,0,0"
+                  IsEnabled="{Binding IsSupportPresetMode}">
+        <TextBlock Text="Support deck preset" />
+        <ComboBox Margin="0,6,0,0"
+                  ItemsSource="{Binding SupportDeckPresets}"
+                  DisplayMemberPath="Label"
+                  SelectedValuePath="Value"
+                  SelectedValue="{Binding SupportDeckPreset, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Margin="0,6,0,0"
+                   Text="Preset checks the selected card types; Custom leaves the composition free."
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+        <TextBlock Margin="0,10,0,0"
+                   Text="Support cards"
+                   FontWeight="Medium" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding SelectedSupportCardCountText}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+        <Grid Margin="0,6,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="130" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBox Margin="0,0,6,0"
+                      IsEnabled="{Binding IsManualSupportDeck}"
+                      Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+                      PlaceholderText="Search name or ID" />
+          <ComboBox Grid.Column="1"
+                    IsEnabled="{Binding IsManualSupportDeck}"
+                    ItemsSource="{Binding SupportCardTypeOptions}"
+                    DisplayMemberPath="Label"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding SupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+        <ListBox Height="260"
+                 Margin="0,6,0,0"
+                 BorderThickness="1"
+                 IsEnabled="{Binding IsManualSupportDeck}"
+                 ItemsSource="{Binding FilteredSupportCardOptions}">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <CheckBox Padding="4,3"
+                        IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                <Grid MinHeight="48">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="62" />
+                  </Grid.ColumnDefinitions>
+                  <Image Width="36"
+                         Height="46"
+                         Source="{Binding ImageUrl}"
+                         Stretch="UniformToFill" />
+                  <TextBlock Grid.Column="1"
+                             Margin="8,0,4,0"
+                             VerticalAlignment="Center"
+                             Text="{Binding Label}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="2"
+                             VerticalAlignment="Center"
+                             Text="{Binding Type}"
+                             TextAlignment="Right"
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Grid>
+              </CheckBox>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Margin="0,8,0,0" Text="Manual card IDs (optional; comma-separated)" />
+        <ui:TextBox Margin="0,6,0,0"
+                    IsEnabled="{Binding IsManualSupportDeck}"
+                    Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
 
       <TextBlock Margin="0,12,0,0" Text="Strategy ID" />
       <ui:TextBox Margin="0,6,0,0"

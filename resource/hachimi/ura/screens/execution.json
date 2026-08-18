@@ -371,7 +371,344 @@
                                                            "required":  true,
                                                            "success":  false
                                                        },
-                  "support_autofill_confirmation_support_autofill_ok":  {
+                  "support_select_support_display_settings":  {
+                                                                   "algorithm":  "JustReturn",
+                                                                   "action":  "ClickRect",
+                                                                   "specificRect":  [
+                                                                                       490,
+                                                                                       1290,
+                                                                                       250,
+                                                                                       90
+                                                                                   ],
+                                                                   "postDelay":  250,
+                                                                   "required":  true
+                                                               },
+                  "support_select_support_sort_uncap":  {
+                                                               "algorithm":  "JustReturn",
+                                                               "action":  "ClickRect",
+                                                               "specificRect":  [
+                                                                                   35,
+                                                                                   410,
+                                                                                   240,
+                                                                                   120
+                                                                               ],
+                                                               "postDelay":  100,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_filter_tab":  {
+                                                               "algorithm":  "JustReturn",
+                                                               "action":  "ClickRect",
+                                                               "specificRect":  [
+                                                                                   450,
+                                                                                   130,
+                                                                                   430,
+                                                                                   80
+                                                                               ],
+                                                               "postDelay":  100,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_filter_reset":  {
+                                                                 "algorithm":  "JustReturn",
+                                                                 "action":  "ClickRect",
+                                                                 "specificRect":  [
+                                                                                     620,
+                                                                                     1290,
+                                                                                     240,
+                                                                                     100
+                                                                                 ],
+                                                                 "postDelay":  100,
+                                                                 "required":  true
+                                                             },
+                  "support_select_support_filter_r":  {
+                                                            "algorithm":  "JustReturn",
+                                                            "action":  "ClickRect",
+                                                            "specificRect":  [35, 295, 125, 100],
+                                                            "postDelay":  50,
+                                                            "required":  true
+                                                        },
+                  "support_select_support_filter_sr":  {
+                                                             "algorithm":  "JustReturn",
+                                                             "action":  "ClickRect",
+                                                             "specificRect":  [320, 295, 125, 100],
+                                                             "postDelay":  50,
+                                                             "required":  true
+                                                         },
+                  "support_select_support_filter_ssr":  {
+                                                              "algorithm":  "JustReturn",
+                                                              "action":  "ClickRect",
+                                                              "specificRect":  [605, 295, 125, 100],
+                                                              "postDelay":  50,
+                                                              "required":  true
+                                                          },
+                  "support_select_support_filter_speed":  {
+                                                                "algorithm":  "JustReturn",
+                                                                "action":  "ClickRect",
+                                                                "specificRect":  [35, 475, 200, 100],
+                                                                "postDelay":  50,
+                                                                "required":  true
+                                                            },
+                  "support_select_support_filter_stamina":  {
+                                                                  "algorithm":  "JustReturn",
+                                                                  "action":  "ClickRect",
+                                                                  "specificRect":  [315, 475, 230, 100],
+                                                                  "postDelay":  50,
+                                                                  "required":  true
+                                                              },
+                  "support_select_support_filter_power":  {
+                                                                "algorithm":  "JustReturn",
+                                                                "action":  "ClickRect",
+                                                                "specificRect":  [595, 475, 230, 100],
+                                                                "postDelay":  50,
+                                                                "required":  true
+                                                            },
+                  "support_select_support_filter_guts":  {
+                                                               "algorithm":  "JustReturn",
+                                                               "action":  "ClickRect",
+                                                               "specificRect":  [35, 570, 200, 100],
+                                                               "postDelay":  50,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_filter_wit":  {
+                                                              "algorithm":  "JustReturn",
+                                                              "action":  "ClickRect",
+                                                              "specificRect":  [315, 570, 230, 100],
+                                                              "postDelay":  50,
+                                                              "required":  true
+                                                          },
+                  "support_select_support_filter_friend":  {
+                                                                 "algorithm":  "JustReturn",
+                                                                 "action":  "ClickRect",
+                                                                 "specificRect":  [35, 665, 230, 100],
+                                                                 "postDelay":  50,
+                                                                 "required":  true
+                                                             },
+                  "support_select_support_filter_apply":  {
+                                                                 "algorithm":  "JustReturn",
+                                                                 "action":  "ClickRect",
+                                                                 "specificRect":  [450, 1400, 390, 120],
+                                                                 "postDelay":  450,
+                                                                 "required":  true
+                                                             },
+                  "support_select_support_sort_asc_click":  {
+                                                                 "algorithm":  "MatchTemplate",
+                                                                 "action":  "ClickSelf",
+                                                                 "template":  "templates/support_cards/sort_asc.png",
+                                                                 "templThreshold":  0.90,
+                                                                 "roi":  [730, 1290, 140, 90],
+                                                                 "timeoutMs":  350,
+                                                                 "pollIntervalMs":  50,
+                                                                 "postDelay":  350,
+                                                                 "required":  false
+                                                             },
+                  "support_select_support_card_badge":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support_cards/ssr_badge.png",
+                                                               "templThreshold":  0.86,
+                                                               "roi":  [30, 130, 840, 1240],
+                                                               "timeoutMs":  350,
+                                                               "pollIntervalMs":  50,
+                                                               "postDelay":  250,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_reset":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/support_select_support_reset.png",
+                                                        "templThreshold":  0.82,
+                                                        "roi":  [
+                                                                    40,
+                                                                    1080,
+                                                                    410,
+                                                                    130
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  450,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [],
+                                                        "onErrorNext":  [],
+                                                        "exceededNext":  [],
+                                                        "sub":  [],
+                                                        "monitorTasks":  [],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                   "support_select_support_open":  {
+                                                        "algorithm":  "JustReturn",
+                                                        "action":  "ClickRect",
+                                                        "specificRect":  [
+                                                                            60,
+                                                                            340,
+                                                                            250,
+                                                                            340
+                                                                        ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  600,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  0,
+                                                        "pollIntervalMs":  0,
+                                                        "next":  [],
+                                                        "onErrorNext":  [],
+                                                        "exceededNext":  [],
+                                                        "sub":  [],
+                                                        "monitorTasks":  [],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                   "support_select_support_card":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/support_cards/30028.png",
+                                                       "templThreshold":  0.84,
+                                                       "roi":  [
+                                                                   20,
+                                                                   130,
+                                                                   860,
+                                                                   1240
+                                                               ],
+                                                       "searchRois":  [
+                                                                           [35, 130, 165, 215],
+                                                                           [201, 130, 165, 215],
+                                                                           [368, 130, 165, 215],
+                                                                           [535, 130, 165, 215],
+                                                                           [702, 130, 165, 215],
+                                                                           [35, 343, 165, 215],
+                                                                           [201, 343, 165, 215],
+                                                                           [368, 343, 165, 215],
+                                                                           [535, 343, 165, 215],
+                                                                           [702, 343, 165, 215],
+                                                                           [35, 556, 165, 215],
+                                                                           [201, 556, 165, 215],
+                                                                           [368, 556, 165, 215],
+                                                                           [535, 556, 165, 215],
+                                                                           [702, 556, 165, 215],
+                                                                           [35, 769, 165, 215],
+                                                                           [201, 769, 165, 215],
+                                                                           [368, 769, 165, 215],
+                                                                           [535, 769, 165, 215],
+                                                                           [702, 769, 165, 215],
+                                                                           [35, 982, 165, 215],
+                                                                           [201, 982, 165, 215],
+                                                                           [368, 982, 165, 215],
+                                                                           [535, 982, 165, 215],
+                                                                           [702, 982, 165, 215]
+                                                                       ],
+                                                       "minScoreGap":  0.08,
+                                                       "preDelay":  0,
+                                                       "postDelay":  450,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [],
+                                                       "onErrorNext":  [
+                                                                           "support_select_support_card_scroll"
+                                                                       ],
+                                                       "exceededNext":  [],
+                                                       "sub":  [],
+                                                       "monitorTasks":  [],
+                                                       "maxTimes":  8,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                   "support_select_support_card_scroll":  {
+                                                               "algorithm":  "JustReturn",
+                                                               "action":  "Swipe",
+                                                               "swipe":  [
+                                                                             450,
+                                                                             1300,
+                                                                             450,
+                                                                             450,
+                                                                             600
+                                                                         ],
+                                                               "preDelay":  0,
+                                                               "postDelay":  350,
+                                                               "waitMs":  0,
+                                                               "timeoutMs":  0,
+                                                               "pollIntervalMs":  0,
+                                                               "next":  [
+                                                                           "support_select_support_card"
+                                                                       ],
+                                                               "onErrorNext":  [],
+                                                               "exceededNext":  [],
+                                                               "sub":  [],
+                                                               "monitorTasks":  [],
+                                                               "maxTimes":  0,
+                                                               "required":  true,
+                                                               "success":  false
+                                                           },
+                   "support_select_support_scroll_top":  {
+                                                               "algorithm":  "JustReturn",
+                                                               "action":  "Swipe",
+                                                               "swipe":  [
+                                                                             450,
+                                                                             500,
+                                                                             450,
+                                                                             1350,
+                                                                             600
+                                                                         ],
+                                                               "preDelay":  0,
+                                                               "postDelay":  150,
+                                                               "waitMs":  0,
+                                                               "timeoutMs":  0,
+                                                               "pollIntervalMs":  0,
+                                                               "next":  [
+                                                                           "support_select_support_scroll_top"
+                                                                       ],
+                                                               "onErrorNext":  [],
+                                                               "exceededNext":  [
+                                                                                     "support_select_support_scroll_top_done"
+                                                                                 ],
+                                                               "sub":  [],
+                                                               "monitorTasks":  [],
+                                                               "maxTimes":  3,
+                                                               "required":  true,
+                                                               "success":  false
+                                                           },
+                   "support_select_support_scroll_top_done":  {
+                                                                   "algorithm":  "JustReturn",
+                                                                   "action":  "Wait",
+                                                                   "preDelay":  0,
+                                                                   "postDelay":  0,
+                                                                   "waitMs":  0,
+                                                                   "timeoutMs":  0,
+                                                                   "pollIntervalMs":  0,
+                                                                   "next":  [],
+                                                                   "onErrorNext":  [],
+                                                                   "exceededNext":  [],
+                                                                   "sub":  [],
+                                                                   "monitorTasks":  [],
+                                                                   "maxTimes":  0,
+                                                                   "required":  true,
+                                                                   "success":  true
+                                                               },
+                   "support_select_support_close":  {
+                                                        "algorithm":  "JustReturn",
+                                                        "action":  "ClickRect",
+                                                        "specificRect":  [
+                                                                            250,
+                                                                            1420,
+                                                                            400,
+                                                                            110
+                                                                        ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  500,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  0,
+                                                        "pollIntervalMs":  0,
+                                                        "next":  [],
+                                                        "onErrorNext":  [],
+                                                        "exceededNext":  [],
+                                                        "sub":  [],
+                                                        "monitorTasks":  [],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                   "support_autofill_confirmation_support_autofill_ok":  {
                                                                             "algorithm":  "MatchTemplate",
                                                                             "action":  "ClickSelf",
                                                                             "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",

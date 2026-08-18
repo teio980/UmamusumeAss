@@ -52,7 +52,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             cancellationToken);
     }
 
-    public async Task<TemplateMatchResult?> WaitForMatchAsync(
+    public Task<TemplateMatchResult?> WaitForMatchAsync(
         LastVerifiedConnection connection,
         string? templatePath,
         int[]? roi,
@@ -63,6 +63,63 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         int pollIntervalMilliseconds,
         string taskName,
         string baseDirectory,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchCoreAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            searchRois: null,
+            minimumScoreGap: 0,
+            cancellationToken);
+
+    public Task<TemplateMatchResult?> WaitForMatchInRoisAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        IReadOnlyList<int[]> searchRois,
+        double minimumScoreGap,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchCoreAsync(
+            connection,
+            templatePath,
+            roi: null,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            searchRois,
+            minimumScoreGap,
+            cancellationToken);
+
+    private async Task<TemplateMatchResult?> WaitForMatchCoreAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        IReadOnlyList<int[]>? searchRois,
+        double minimumScoreGap,
         CancellationToken cancellationToken = default)
     {
         var template = await LoadTemplateAsync(
@@ -92,13 +149,15 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                 .ConfigureAwait(false);
             if (screen is not null)
             {
-                var match = TemplateMatcher.Find(
+                var match = FindBestMatch(
                     screen,
                     template,
                     roi,
                     threshold,
                     referenceWidth,
-                    referenceHeight);
+                    referenceHeight,
+                    searchRois,
+                    minimumScoreGap);
                 if (bestMatch is null || match.Score > bestMatch.Score)
                     bestMatch = match;
                 if (match.Found)
@@ -111,6 +170,61 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             await DelayAsync((int)poll.TotalMilliseconds, cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    private static TemplateMatchResult FindBestMatch(
+        GrayImage screen,
+        GrayImage template,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        IReadOnlyList<int[]>? searchRois,
+        double minimumScoreGap)
+    {
+        if (searchRois is not { Count: > 0 })
+        {
+            return TemplateMatcher.Find(
+                screen,
+                template,
+                roi,
+                threshold,
+                referenceWidth,
+                referenceHeight);
+        }
+
+        var candidates = searchRois
+            .Where(candidate => candidate is { Length: >= 4 })
+            .Select(candidate => TemplateMatcher.Find(
+                screen,
+                template,
+                candidate,
+                threshold: 0,
+                referenceWidth,
+                referenceHeight))
+            .OrderByDescending(candidate => candidate.Score)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return TemplateMatcher.Find(
+                screen,
+                template,
+                roi,
+                threshold,
+                referenceWidth,
+                referenceHeight);
+        }
+
+        var best = candidates[0];
+        var secondScore = candidates.Length > 1
+            ? candidates[1].Score
+            : double.MinValue;
+        var gap = candidates.Length > 1
+            ? best.Score - secondScore
+            : double.PositiveInfinity;
+        var found = best.Score >= Math.Clamp(threshold, 0, 1)
+            && gap >= Math.Max(0, minimumScoreGap);
+        return best with { Found = found };
     }
 
     public async Task TapMatchAsync(

@@ -50,6 +50,10 @@
              Link="resource\uma\assets\images\global\live_outfits\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\resource\uma\assets\templates\global\support_cards\**\*"
+             Link="resource\uma\assets\templates\global\support_cards\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\resource\uma\system_reference\**\*"
              Link="resource\uma\system_reference\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"

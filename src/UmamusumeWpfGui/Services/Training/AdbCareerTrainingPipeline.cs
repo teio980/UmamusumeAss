@@ -133,7 +133,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "unknown");
         }
 
-        ValidateSupportCards(settings.SupportCardIds);
+        if (settings.SupportDeckMode.Equals("selected", StringComparison.OrdinalIgnoreCase))
+        {
+            ValidateSupportCards(settings.SupportCardIds, settings.SupportDeckPreset);
+        }
+        else if (settings.SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase)
+            && GetRequiredSupportTypes(settings.SupportDeckPreset) is null)
+        {
+            throw new InvalidOperationException(
+                "Highest-star support selection requires a support deck preset.");
+        }
         var pack = await UraScenarioPackLoader.LoadAsync(settings.ManifestPath, cancellationToken)
             .ConfigureAwait(false);
         logSink?.Add(
@@ -154,6 +163,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             // real game Home screen instead of skipping into URA recognition.
             state.CareerEntryOpened = false;
             state.TraineeSelected = false;
+            state.SupportCardsSelected = false;
             state.ScenarioSelected = false;
             state.LegacySelected = false;
             state.ScenarioSelectionAdvanceAttempts = 0;
@@ -366,13 +376,82 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     state.TraineeSelected = true;
                 return traineePickResult;
             case "support_select":
-                if (settings.SupportCardIds.Count > 0)
+                var supportDeckMode = settings.SupportDeckMode.Trim().ToLowerInvariant();
+                if (supportDeckMode == "highest-star")
                 {
-                    return Failure(
-                        "Support card IDs were validated, but this profile has no "
-                        + "support-card reference templates/selector yet; refusing to auto-fill "
-                        + "a different deck.",
-                        observation.ScreenId);
+                    if (state.SupportCardsSelected)
+                    {
+                        return await RunScreenActionAsync(
+                                connection,
+                                pack,
+                                "support_select",
+                                "start",
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    var rankedSelectionResult = await SelectHighestStarSupportCardsAsync(
+                            connection,
+                            pack,
+                            settings.SupportDeckPreset,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (rankedSelectionResult is not null)
+                        return rankedSelectionResult;
+
+                    state.SupportCardsSelected = true;
+                    return await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "support_select",
+                            "start",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                if (supportDeckMode == "selected")
+                {
+                    if (settings.SupportCardIds.Count is not (5 or 6))
+                    {
+                        return Failure(
+                            "Selected support deck mode requires exactly 5 or 6 cards.",
+                            "support_select");
+                    }
+
+                    if (state.SupportCardsSelected)
+                    {
+                        return await RunScreenActionAsync(
+                                connection,
+                                pack,
+                                "support_select",
+                                "start",
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    var supportSelectionResult = await SelectConfiguredSupportCardsAsync(
+                            connection,
+                            pack,
+                            settings.SupportCardIds,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (supportSelectionResult is not null)
+                        return supportSelectionResult;
+
+                    state.SupportCardsSelected = true;
+                    return await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "support_select",
+                            "start",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 return await RunScreenActionAsync(
                         connection, pack, "support_select", "auto_fill", logSink, cancellationToken)
@@ -934,8 +1013,396 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private static string ResolveCapture(UraScenarioPack pack, string relativePath) =>
         UraScenarioResourceResolver.Resolve(pack, relativePath);
 
-    private void ValidateSupportCards(IReadOnlyList<int> supportCardIds)
+    private async Task<CareerTrainingResult?> SelectConfiguredSupportCardsAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        IReadOnlyList<int> supportCardIds,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
     {
+        var resetResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "reset",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (resetResult is not null)
+            return resetResult;
+
+        var openResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "open",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (openResult is not null)
+            return openResult;
+
+        foreach (var supportCardId in supportCardIds)
+        {
+            var templatePath = ResolveSupportCardTemplate(pack, supportCardId);
+            if (templatePath is null)
+            {
+                return Failure(
+                    $"Support card {supportCardId.ToString(CultureInfo.InvariantCulture)} "
+                    + "has no local selection template.",
+                    "support_select");
+            }
+
+            var scrollTopResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "scroll_top",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (scrollTopResult is not null)
+                return scrollTopResult;
+
+            var result = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "select",
+                    logSink,
+                    cancellationToken,
+                    new HachimiPipelineRunOptions
+                    {
+                        TemplateOverrides = new Dictionary<string, string>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card"] = templatePath,
+                        },
+                    })
+                .ConfigureAwait(false);
+            if (result is not null)
+                return result;
+        }
+
+        return await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "close",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CareerTrainingResult?> SelectHighestStarSupportCardsAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string supportDeckPreset,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var requiredTypes = GetRequiredSupportTypes(supportDeckPreset);
+        if (requiredTypes is null)
+        {
+            return Failure(
+                "Highest-star support selection requires a support deck preset.",
+                "support_select");
+        }
+
+        var resetResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "reset",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (resetResult is not null)
+            return resetResult;
+
+        var openResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "open",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (openResult is not null)
+            return openResult;
+
+        var scrollTopResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "scroll_top",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (scrollTopResult is not null)
+            return scrollTopResult;
+
+        foreach (var required in requiredTypes)
+        {
+            var remaining = required.Value;
+            foreach (var rarity in new[] { "SSR", "SR" })
+            {
+                if (remaining == 0)
+                    break;
+
+                var filterResult = await ConfigureHighestStarFilterAsync(
+                        connection,
+                        pack,
+                        required.Key,
+                        rarity,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (filterResult is not null)
+                    return filterResult;
+
+                var badgePath = ResolveSupportCardRarityBadge(pack, rarity);
+                if (badgePath is null)
+                {
+                    return Failure(
+                        $"The {rarity} support-card badge template is missing.",
+                        "support_select");
+                }
+
+                var selected = await SelectRankedSupportCardSlotsAsync(
+                        connection,
+                        pack,
+                        badgePath,
+                        remaining,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (selected.Failure is not null)
+                    return selected.Failure;
+                remaining -= selected.SelectedCount;
+            }
+
+            if (remaining > 0)
+            {
+                return Failure(
+                    $"Could not find {remaining} more {required.Key} support card(s) after checking SSR and SR.",
+                    "support_select");
+            }
+        }
+
+        return await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "close",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string supportType,
+        string rarity,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var actions = new List<string>
+        {
+            "ranked.display_settings",
+            "ranked.sort_uncap",
+            "ranked.filter_tab",
+            "ranked.filter_reset",
+        };
+
+        foreach (var otherRarity in new[] { "R", "SR", "SSR" })
+        {
+            if (!otherRarity.Equals(rarity, StringComparison.OrdinalIgnoreCase))
+                actions.Add($"ranked.filter_{otherRarity.ToLowerInvariant()}");
+        }
+
+        foreach (var otherType in new[] { "Speed", "Stamina", "Power", "Guts", "Wit", "Friend" })
+        {
+            if (!otherType.Equals(supportType, StringComparison.OrdinalIgnoreCase))
+                actions.Add($"ranked.filter_{GetSupportFilterKey(otherType)}");
+        }
+
+        actions.Add("ranked.filter_apply");
+        actions.Add("ranked.sort_desc");
+
+        foreach (var action in actions)
+        {
+            var result = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    action,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (result is not null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private async Task<RankedSupportSlotResult> SelectRankedSupportCardSlotsAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string badgePath,
+        int requiredCount,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var selectedCount = 0;
+        foreach (var slotRoi in GetSupportCardBadgeRois())
+        {
+            if (selectedCount >= requiredCount)
+                break;
+
+            var result = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "ranked.select_card_badge",
+                    logSink,
+                    cancellationToken,
+                    new HachimiPipelineRunOptions
+                    {
+                        TemplateOverrides = new Dictionary<string, string>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_badge"] = badgePath,
+                        },
+                        RoiOverrides = new Dictionary<string, int[]>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_badge"] = slotRoi,
+                        },
+                    })
+                .ConfigureAwait(false);
+            if (result is null)
+            {
+                selectedCount++;
+                continue;
+            }
+
+            // A missing badge means this sorted slot is empty. Continue to
+            // the next slot so SSR can fall back to SR without guessing.
+        }
+
+        return new RankedSupportSlotResult(selectedCount, null);
+    }
+
+    private static string? ResolveSupportCardRarityBadge(
+        UraScenarioPack pack,
+        string rarity)
+    {
+        var path = Path.Combine(
+            pack.RootDirectory,
+            "screens",
+            "templates",
+            "support_cards",
+            rarity.ToLowerInvariant() + "_badge.png");
+        return File.Exists(path) ? path : null;
+    }
+
+    private static List<int[]> GetSupportCardBadgeRois()
+    {
+        var rois = new List<int[]>(25);
+        foreach (var y in new[] { 140, 353, 566, 779, 992 })
+        {
+            foreach (var x in new[] { 38, 204, 371, 538, 705 })
+                rois.Add([x, y, 75, 80]);
+        }
+
+        return rois;
+    }
+
+    private static string GetSupportFilterKey(string supportType) =>
+        supportType.ToLowerInvariant() switch
+        {
+            "speed" => "speed",
+            "stamina" => "stamina",
+            "power" => "power",
+            "guts" => "guts",
+            "wit" => "wit",
+            "friend" => "friend",
+            _ => throw new InvalidOperationException(
+                $"Unsupported support type '{supportType}'."),
+        };
+
+    private string? ResolveSupportCardTemplate(UraScenarioPack pack, int supportCardId)
+    {
+        var directory = _umaDatabase.GetSupportCardTemplateDirectory(supportCardId);
+        if (Directory.Exists(directory))
+        {
+            var template = Directory.EnumerateFiles(directory)
+                .Where(path => path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (template is not null)
+                return template;
+        }
+
+        var fallback = Path.Combine(
+            pack.RootDirectory,
+            "screens",
+            "templates",
+            "support_cards",
+            supportCardId.ToString(CultureInfo.InvariantCulture) + ".png");
+        return File.Exists(fallback) ? fallback : null;
+    }
+
+    private static Dictionary<string, int>? GetRequiredSupportTypes(
+        string supportDeckPreset) =>
+        supportDeckPreset.ToLowerInvariant() switch
+        {
+            "speed3-stamina3" => new Dictionary<string, int>
+            {
+                ["Speed"] = 3,
+                ["Stamina"] = 3,
+            },
+            "speed3-stamina2-wit1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 3,
+                ["Stamina"] = 2,
+                ["Wit"] = 1,
+            },
+            "speed2-stamina2-power1-wit1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 2,
+                ["Stamina"] = 2,
+                ["Power"] = 1,
+                ["Wit"] = 1,
+            },
+            "speed2-stamina1-power1-wit1-friend1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 2,
+                ["Stamina"] = 1,
+                ["Power"] = 1,
+                ["Wit"] = 1,
+                ["Friend"] = 1,
+            },
+            _ => null,
+        };
+
+    private void ValidateSupportCards(
+        IReadOnlyList<int> supportCardIds,
+        string supportDeckPreset)
+    {
+        if (supportCardIds.Count > 0 && supportCardIds.Count is not (5 or 6))
+        {
+            throw new InvalidOperationException(
+                "A configured support deck must contain 5 own cards, or 5 own cards plus 1 friend card.");
+        }
+
+        var cards = new List<UmaSupportCardRecord>(supportCardIds.Count);
         foreach (var id in supportCardIds)
         {
             if (!_umaDatabase.TryGetSupportCard(id, out var card) || card is null || !card.Available)
@@ -943,6 +1410,32 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 throw new InvalidOperationException(
                     $"Configured support card ID {id.ToString(CultureInfo.InvariantCulture)} "
                     + "was not found or is unavailable.");
+            }
+
+            cards.Add(card);
+        }
+
+        var requiredTypes = GetRequiredSupportTypes(supportDeckPreset);
+        if (requiredTypes is null)
+            return;
+
+        if (supportCardIds.Count != 6)
+        {
+            throw new InvalidOperationException(
+                $"Support deck preset '{supportDeckPreset}' requires exactly 6 cards.");
+        }
+
+        var actualTypes = cards
+            .GroupBy(card => card.Type, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        foreach (var required in requiredTypes)
+        {
+            if (!actualTypes.TryGetValue(required.Key, out var actual)
+                || actual != required.Value)
+            {
+                throw new InvalidOperationException(
+                    $"Support deck does not match preset '{supportDeckPreset}': "
+                    + $"expected {required.Value} {required.Key}, got {actual}.");
             }
         }
     }
@@ -952,6 +1445,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         string lastScreenId,
         int actionsCompleted = 0) =>
         new(false, message, actionsCompleted, lastScreenId);
+
+    private sealed record RankedSupportSlotResult(
+        int SelectedCount,
+        CareerTrainingResult? Failure);
 
     private sealed record UraObservation(string ScreenId, double Score);
 }
