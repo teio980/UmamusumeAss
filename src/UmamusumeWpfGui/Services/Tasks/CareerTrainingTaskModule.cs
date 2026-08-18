@@ -53,6 +53,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         ["allowOptionalRaces"] = Settings.AllowOptionalRaces,
         ["legacySelectionMode"] = Settings.LegacySelectionMode,
         ["useLegacyGuest"] = Settings.UseLegacyGuest,
+        ["useCachedLegacy"] = Settings.UseCachedLegacy,
         ["legacyAttributeSparks"] = new JsonArray(Settings.ParseLegacyAttributeSparks()
             .Select(item => (JsonNode?)JsonValue.Create(item))
             .ToArray()),
@@ -94,6 +95,10 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
             settings,
             "useLegacyGuest",
             Settings.UseLegacyGuest);
+        Settings.UseCachedLegacy = ReadBool(
+            settings,
+            "useCachedLegacy",
+            Settings.UseCachedLegacy);
         Settings.SetLegacySparkSelections(
             ReadStringArray(settings, "legacyAttributeSparks"),
             ReadStringArray(settings, "legacyAptitudeSparks"));
@@ -144,6 +149,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
                         Settings.AllowOptionalRaces,
                         Settings.LegacySelectionMode,
                         Settings.UseLegacyGuest,
+                        Settings.UseCachedLegacy,
                         Settings.ParseLegacyAttributeSparks(),
                         Settings.ParseLegacyAptitudeSparks()),
                     context.LogSink,

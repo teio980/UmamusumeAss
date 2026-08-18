@@ -306,6 +306,61 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             actionCount);
     }
 
+    private async Task<CareerTrainingResult?> HandleLegacySelectionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        CareerTrainingSettings settings,
+        UraCareerSessionState state,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        if (state.LegacySelected)
+        {
+            return await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "legacy_select",
+                    "next",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var legacyPickResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "legacy_select",
+                "choose",
+                logSink,
+                cancellationToken,
+                new HachimiPipelineRunOptions
+                {
+                    CustomActionExecutor = async (
+                            actionConnection,
+                            definition,
+                            taskName,
+                            task,
+                            actionLogSink,
+                            actionCancellationToken) =>
+                    {
+                        var selection = await _legacySelector.SelectAsync(
+                                actionConnection,
+                                definition,
+                                settings,
+                                actionLogSink,
+                                actionCancellationToken)
+                            .ConfigureAwait(false);
+                        return selection.Succeeded
+                            ? HachimiCustomActionResult.Success(selection.Message)
+                            : HachimiCustomActionResult.Failure(selection.Message);
+                    }
+                })
+            .ConfigureAwait(false);
+        if (legacyPickResult is null)
+            state.LegacySelected = true;
+        return legacyPickResult;
+    }
+
     private async Task<CareerTrainingResult?> HandleScreenAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
@@ -330,11 +385,30 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             case "trainee_select":
                 if (state.TraineeSelected)
                 {
-                    return await RunScreenActionAsync(
+                    var traineeNextResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "trainee_select",
                             "next",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (traineeNextResult is not null)
+                        return traineeNextResult;
+
+                    logSink?.Add(
+                        "Career Training",
+                        "Trainee Next succeeded; continuing directly into Legacy Select.");
+
+                    // The live URA flow goes directly from Trainee Select to
+                    // Legacy Select. Continue that transition explicitly
+                    // instead of waiting for the generic screen observer to
+                    // rediscover the next page.
+                    return await HandleLegacySelectionAsync(
+                            connection,
+                            pack,
+                            settings,
+                            state,
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -372,9 +446,28 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             }
                         })
                     .ConfigureAwait(false);
-                if (traineePickResult is null)
-                    state.TraineeSelected = true;
-                return traineePickResult;
+                if (traineePickResult is not null)
+                    return traineePickResult;
+
+                state.TraineeSelected = true;
+                logSink?.Add(
+                    "Career Training",
+                    "Trainee selection and Next succeeded; continuing directly into Legacy Select.");
+
+                // trainee_select_pick is a chained JSON task: after the
+                // custom picker succeeds it automatically runs
+                // trainee_select_trainee_next. The screen is therefore
+                // already transitioning to Legacy Select here. Do not return
+                // to the generic observer, which can miss that short-lived
+                // transition and pause before the legacy selector runs.
+                return await HandleLegacySelectionAsync(
+                        connection,
+                        pack,
+                        settings,
+                        state,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             case "support_select":
                 var supportDeckMode = settings.SupportDeckMode.Trim().ToLowerInvariant();
                 if (supportDeckMode == "highest-star")
@@ -470,46 +563,14 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         connection, pack, "support_ready", "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "legacy_select":
-                if (state.LegacySelected)
-                {
-                    return await RunScreenActionAsync(
-                            connection, pack, "legacy_select", "next", logSink, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                var legacyPickResult = await RunScreenActionAsync(
+                return await HandleLegacySelectionAsync(
                         connection,
                         pack,
-                        "legacy_select",
-                        "choose",
+                        settings,
+                        state,
                         logSink,
-                        cancellationToken,
-                        new HachimiPipelineRunOptions
-                        {
-                            CustomActionExecutor = async (
-                                    actionConnection,
-                                    definition,
-                                    taskName,
-                                    task,
-                                    actionLogSink,
-                                    actionCancellationToken) =>
-                            {
-                                var selection = await _legacySelector.SelectAsync(
-                                        actionConnection,
-                                        definition,
-                                        settings,
-                                        actionLogSink,
-                                        actionCancellationToken)
-                                    .ConfigureAwait(false);
-                                return selection.Succeeded
-                                    ? HachimiCustomActionResult.Success(selection.Message)
-                                    : HachimiCustomActionResult.Failure(selection.Message);
-                            }
-                        })
+                        cancellationToken)
                     .ConfigureAwait(false);
-                if (legacyPickResult is null)
-                    state.LegacySelected = true;
-                return legacyPickResult;
             case "career_intro_event":
                 return await RunScreenActionAsync(
                         connection, pack, "career_intro_event", "advance", logSink, cancellationToken)

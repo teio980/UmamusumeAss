@@ -19,6 +19,15 @@
                 SelectedValuePath="Value"
                 SelectedValue="{Binding LegacySelectionMode, UpdateSourceTrigger=PropertyChanged}" />
       <CheckBox Margin="0,8,0,0"
+                IsChecked="{Binding UseCachedLegacy}">
+        <TextBlock Text="Use cached Legacy 1 and Legacy 2 records when available"
+                   TextWrapping="Wrap" />
+      </CheckBox>
+      <TextBlock Margin="0,4,0,0"
+                 Text="Clear this option to reselect both legacies, even when cached records are detected."
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <CheckBox Margin="0,8,0,0"
                 IsChecked="{Binding UseLegacyGuest}">
         <TextBlock Text="Use a guest legacy for Legacy 1"
                    TextWrapping="Wrap" />

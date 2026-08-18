@@ -255,12 +255,12 @@
                     {
                         "screenId":  "legacy_select",
                         "recognition":  {
-                                            "template":  "templates/legacy/legacy_select_header.png",
+                                            "template":  "templates/legacy/legacy_select_header_cropped.png",
                                             "roi":  [
                                                        0,
-                                                       180,
-                                                       500,
-                                                       100
+                                                       190,
+                                                       300,
+                                                       70
                                                    ],
                                             "templThreshold":  0.90,
                                             "requiredText":  [
@@ -273,6 +273,22 @@
                                         {
                                             "semanticId":  "legacy.choose",
                                             "task":  "legacy_select_legacy_choose"
+                                        },
+                                        {
+                                            "semanticId":  "legacy.clear_cached_1",
+                                            "task":  "legacy_select_legacy1_clear_cached"
+                                        },
+                                        {
+                                            "semanticId":  "legacy.open_1",
+                                            "task":  "legacy_select_legacy1_open"
+                                        },
+                                        {
+                                            "semanticId":  "legacy.clear_cached_2",
+                                            "task":  "legacy_select_legacy2_clear_cached"
+                                        },
+                                        {
+                                            "semanticId":  "legacy.open_2",
+                                            "task":  "legacy_select_legacy2_open"
                                         },
                                         {
                                             "semanticId":  "legacy.next",

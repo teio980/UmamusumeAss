@@ -44,11 +44,16 @@ public sealed class UraLegacySelector
         };
 
     private readonly IVisualPipelineRuntime _visualRuntime;
+    private readonly HachimiJsonPipelineRunner _jsonRunner;
 
-    public UraLegacySelector(IVisualPipelineRuntime visualRuntime)
+    public UraLegacySelector(
+        IVisualPipelineRuntime visualRuntime,
+        HachimiJsonPipelineRunner jsonRunner)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
+        ArgumentNullException.ThrowIfNull(jsonRunner);
         _visualRuntime = visualRuntime;
+        _jsonRunner = jsonRunner;
     }
 
     public async Task<UraLegacySelectionResult> SelectAsync(
@@ -62,12 +67,32 @@ public sealed class UraLegacySelector
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(settings);
 
+        var slotStates = await DetectLegacySlotsAsync(
+                connection,
+                definition,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (settings.UseCachedLegacy
+            && slotStates.Legacy1 == LegacySlotState.Cached
+            && slotStates.Legacy2 == LegacySlotState.Cached)
+        {
+            logSink?.Add(
+                "Career Training",
+                "Detected cached Legacy 1 and Legacy 2 records; keeping both cached selections.");
+            return new UraLegacySelectionResult(
+                true,
+                "Kept the cached URA Legacy 1 and Legacy 2 selections.");
+        }
+
         if (string.Equals(settings.LegacySelectionMode, "manual", StringComparison.OrdinalIgnoreCase))
         {
             return await SelectManuallyAsync(
                     connection,
                     definition,
                     settings,
+                    slotStates,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -79,6 +104,62 @@ public sealed class UraLegacySelector
                 settings.UseLegacyGuest,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<(LegacySlotState Legacy1, LegacySlotState Legacy2)> DetectLegacySlotsAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var legacy1 = await DetectLegacySlotAsync(
+                connection,
+                definition,
+                slot: 1,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var legacy2 = await DetectLegacySlotAsync(
+                connection,
+                definition,
+                slot: 2,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (legacy1, legacy2);
+    }
+
+    private async Task<LegacySlotState> DetectLegacySlotAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        int slot,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var templateName = slot == 1
+            ? "legacy1_cached_record.png"
+            : "legacy2_cached_record.png";
+        var roi = slot == 1
+            ? new[] { 145, 1050, 190, 120 }
+            : new[] { 545, 1050, 205, 120 };
+        var match = await FindTemplateAsync(
+                connection,
+                definition,
+                templateName,
+                roi,
+                $"uraLegacy{slot}CachedRecord",
+                1_500,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (match is { Found: true })
+        {
+            logSink?.Add(
+                "Career Training",
+                $"Detected cached Legacy {slot} record from its Change button.");
+            return LegacySlotState.Cached;
+        }
+
+        return LegacySlotState.Unknown;
     }
 
     private async Task<UraLegacySelectionResult> SelectAutomaticallyAsync(
@@ -176,6 +257,7 @@ public sealed class UraLegacySelector
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
         CareerTrainingSettings settings,
+        (LegacySlotState Legacy1, LegacySlotState Legacy2) slotStates,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -184,6 +266,7 @@ public sealed class UraLegacySelector
                 definition,
                 slot: 1,
                 useGuest: settings.UseLegacyGuest,
+                slotState: slotStates.Legacy1,
                 settings,
                 logSink,
                 cancellationToken)
@@ -197,6 +280,7 @@ public sealed class UraLegacySelector
                 definition,
                 slot: 2,
                 useGuest: false,
+                slotState: slotStates.Legacy2,
                 settings,
                 logSink,
                 cancellationToken)
@@ -225,24 +309,57 @@ public sealed class UraLegacySelector
         HachimiPipelineDefinition definition,
         int slot,
         bool useGuest,
+        LegacySlotState slotState,
         CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var slotTemplate = slot == 1 ? "legacy1_slot.png" : "legacy2_slot.png";
-        if (!await TapTemplateAsync(
+        if (settings.UseCachedLegacy && slotState == LegacySlotState.Cached)
+        {
+            logSink?.Add(
+                "Career Training",
+                $"Keeping cached Legacy {slot} record; skipping Legacy {slot} replacement.");
+            return true;
+        }
+
+        if (!settings.UseCachedLegacy && slotState == LegacySlotState.Cached)
+        {
+            logSink?.Add(
+                "Career Training",
+                $"Cached Legacy {slot} record detected, but cache use is disabled; reselecting it.");
+
+            if (!await RunJsonActionAsync(
+                    connection,
+                    definition,
+                    slot == 1
+                        ? "legacy_select_legacy1_clear_cached"
+                        : "legacy_select_legacy2_clear_cached",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false))
+            {
+                return false;
+            }
+
+        }
+
+        if (!await RunJsonActionAsync(
                 connection,
                 definition,
-                slotTemplate,
-                slot == 1 ? [0, 760, 450, 450] : [430, 760, 450, 450],
-                $"uraLegacy{slot}Open",
+                slot == 1
+                    ? "legacy_select_legacy1_open"
+                    : "legacy_select_legacy2_open",
+                logSink,
                 cancellationToken)
             .ConfigureAwait(false))
         {
+            logSink?.Add(
+                "Career Training",
+                $"Could not find the Legacy {slot} slot template; no tap was sent.",
+                LogEntryKind.Failure);
             return false;
         }
 
-        await _visualRuntime.DelayAsync(450, cancellationToken).ConfigureAwait(false);
         if (useGuest
             && !await TapTemplateAsync(
                     connection,
@@ -293,6 +410,23 @@ public sealed class UraLegacySelector
                 $"uraLegacy{slot}Confirm",
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<bool> RunJsonActionAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var result = await _jsonRunner.RunAsync(
+                connection,
+                definition,
+                taskName,
+                logSink: logSink,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return result.Succeeded;
     }
 
     private async Task<bool> ConfigureDisplayAsync(
@@ -545,6 +679,12 @@ public sealed class UraLegacySelector
 
     private static UraLegacySelectionResult Failure(string message) =>
         new(false, message);
+
+    private enum LegacySlotState
+    {
+        Unknown,
+        Cached,
+    }
 
     private readonly record struct LegacyCell(int X, int Y, int Width, int Height);
 

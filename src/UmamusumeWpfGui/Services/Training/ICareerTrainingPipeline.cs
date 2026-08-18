@@ -28,6 +28,7 @@ public sealed record CareerTrainingSettings(
     bool AllowOptionalRaces,
     string LegacySelectionMode,
     bool UseLegacyGuest,
+    bool UseCachedLegacy,
     IReadOnlyList<string> LegacyAttributeSparks,
     IReadOnlyList<string> LegacyAptitudeSparks);
 

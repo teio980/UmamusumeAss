@@ -29,6 +29,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _allowOptionalRaces;
     private string _legacySelectionMode = "auto";
     private bool _useLegacyGuest;
+    private bool _useCachedLegacy = true;
     private string _status = string.Empty;
     private string _traineeSearchText = string.Empty;
     private bool _isTraineeDropDownOpen;
@@ -298,6 +299,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => _useLegacyGuest;
         set => Set(ref _useLegacyGuest, value);
+    }
+
+    public bool UseCachedLegacy
+    {
+        get => _useCachedLegacy;
+        set => Set(ref _useCachedLegacy, value);
     }
 
     public string Status

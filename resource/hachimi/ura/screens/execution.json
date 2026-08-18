@@ -813,6 +813,146 @@
                                                       "required":  true,
                                                       "success":  false
                                                   },
+                  "legacy_select_legacy1_clear_cached":  {
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/legacy/legacy1_cached_record.png",
+                                                              "templThreshold":  0.86,
+                                                              "roi":  [
+                                                                          145,
+                                                                          1050,
+                                                                          190,
+                                                                          120
+                                                                      ],
+                                                              "preDelay":  0,
+                                                              "postDelay":  450,
+                                                              "waitMs":  0,
+                                                              "timeoutMs":  1500,
+                                                              "pollIntervalMs":  250,
+                                                              "next":  [
+
+                                                                       ],
+                                                              "onErrorNext":  [
+
+                                                                              ],
+                                                              "exceededNext":  [
+
+                                                                               ],
+                                                              "sub":  [
+
+                                                                      ],
+                                                              "monitorTasks":  [
+
+                                                                               ],
+                                                              "maxTimes":  0,
+                                                              "required":  true,
+                                                              "success":  false
+                                                          },
+                  "legacy_select_legacy1_open":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/legacy/legacy1_slot.png",
+                                                        "templThreshold":  0.78,
+                                                        "roi":  [
+                                                                    0,
+                                                                    760,
+                                                                    450,
+                                                                    450
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  450,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  8000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [
+
+                                                                 ],
+                                                        "onErrorNext":  [
+
+                                                                        ],
+                                                        "exceededNext":  [
+
+                                                                         ],
+                                                        "sub":  [
+
+                                                                ],
+                                                        "monitorTasks":  [
+
+                                                                         ],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
+                  "legacy_select_legacy2_clear_cached":  {
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/legacy/legacy2_cached_record.png",
+                                                              "templThreshold":  0.86,
+                                                              "roi":  [
+                                                                          545,
+                                                                          1050,
+                                                                          205,
+                                                                          120
+                                                                      ],
+                                                              "preDelay":  0,
+                                                              "postDelay":  450,
+                                                              "waitMs":  0,
+                                                              "timeoutMs":  1500,
+                                                              "pollIntervalMs":  250,
+                                                              "next":  [
+
+                                                                       ],
+                                                              "onErrorNext":  [
+
+                                                                              ],
+                                                              "exceededNext":  [
+
+                                                                               ],
+                                                              "sub":  [
+
+                                                                      ],
+                                                              "monitorTasks":  [
+
+                                                                               ],
+                                                              "maxTimes":  0,
+                                                              "required":  true,
+                                                              "success":  false
+                                                          },
+                  "legacy_select_legacy2_open":  {
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/legacy/legacy2_slot.png",
+                                                        "templThreshold":  0.78,
+                                                        "roi":  [
+                                                                    430,
+                                                                    760,
+                                                                    450,
+                                                                    450
+                                                                ],
+                                                        "preDelay":  0,
+                                                        "postDelay":  450,
+                                                        "waitMs":  0,
+                                                        "timeoutMs":  8000,
+                                                        "pollIntervalMs":  250,
+                                                        "next":  [
+
+                                                                 ],
+                                                        "onErrorNext":  [
+
+                                                                        ],
+                                                        "exceededNext":  [
+
+                                                                         ],
+                                                        "sub":  [
+
+                                                                ],
+                                                        "monitorTasks":  [
+
+                                                                         ],
+                                                        "maxTimes":  0,
+                                                        "required":  true,
+                                                        "success":  false
+                                                    },
                   "legacy_select_legacy_next":  {
                                                     "algorithm":  "MatchTemplate",
                                                     "action":  "ClickSelf",
