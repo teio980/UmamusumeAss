@@ -116,7 +116,8 @@
                     {
                         "screenId":  "support_select",
                         "recognition":  {
-                                            "template":  "captures/support_select_ura.png",
+                                            "template":  "templates/support_select_support_auto_fill.png",
+                                            "templThreshold":  0.78,
                                             "requiredText":  [
                                                                  "Support Formation",
                                                                  "Auto-Fill"
@@ -193,8 +194,16 @@
                                             "task":  "support_select_support_card_badge"
                                         },
                                         {
+                                            "semanticId":  "support.ranked.selected_card",
+                                            "task":  "support_select_support_card_selected"
+                                        },
+                                        {
                                             "semanticId":  "support.reset",
                                             "task":  "support_select_support_reset"
+                                        },
+                                        {
+                                            "semanticId":  "support.reset_confirm",
+                                            "task":  "support_select_support_reset_confirm"
                                         },
                                         {
                                             "semanticId":  "support.open",

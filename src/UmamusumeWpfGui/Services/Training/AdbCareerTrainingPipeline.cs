@@ -1092,16 +1092,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         if (resetResult is not null)
             return resetResult;
 
-        var openResult = await RunScreenActionAsync(
+        var resetConfirmResult = await RunScreenActionAsync(
                 connection,
                 pack,
                 "support_select",
-                "open",
+                "reset_confirm",
                 logSink,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (openResult is not null)
-            return openResult;
+        if (resetConfirmResult is not null)
+            return resetConfirmResult;
 
         foreach (var supportCardId in supportCardIds)
         {
@@ -1113,6 +1113,17 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     + "has no local selection template.",
                     "support_select");
             }
+
+            var openResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "open",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (openResult is not null)
+                return openResult;
 
             var scrollTopResult = await RunScreenActionAsync(
                     connection,
@@ -1145,14 +1156,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return result;
         }
 
-        return await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "close",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
+        // Selecting a support card closes the picker automatically and returns
+        // to the formation screen. Do not click the picker Close button here:
+        // after the last selection it no longer exists and its old coordinate
+        // overlaps the game's Home tab.
+        return null;
     }
 
     private async Task<CareerTrainingResult?> SelectHighestStarSupportCardsAsync(
@@ -1181,84 +1189,124 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         if (resetResult is not null)
             return resetResult;
 
-        var openResult = await RunScreenActionAsync(
+        var resetConfirmResult = await RunScreenActionAsync(
                 connection,
                 pack,
                 "support_select",
-                "open",
+                "reset_confirm",
                 logSink,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (openResult is not null)
-            return openResult;
+        if (resetConfirmResult is not null)
+            return resetConfirmResult;
 
-        var scrollTopResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "scroll_top",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (scrollTopResult is not null)
-            return scrollTopResult;
-
+        var pickerOpen = false;
         foreach (var required in requiredTypes)
         {
             var remaining = required.Value;
             foreach (var rarity in new[] { "SSR", "SR" })
             {
-                if (remaining == 0)
-                    break;
-
-                var filterResult = await ConfigureHighestStarFilterAsync(
-                        connection,
-                        pack,
-                        required.Key,
-                        rarity,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (filterResult is not null)
-                    return filterResult;
-
-                var badgePath = ResolveSupportCardRarityBadge(pack, rarity);
-                if (badgePath is null)
+                while (remaining > 0)
                 {
-                    return Failure(
-                        $"The {rarity} support-card badge template is missing.",
-                        "support_select");
+                    if (!pickerOpen)
+                    {
+                        var openResult = await RunScreenActionAsync(
+                                connection,
+                                pack,
+                                "support_select",
+                                "open",
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        if (openResult is not null)
+                            return openResult;
+
+                        pickerOpen = true;
+                    }
+
+                    var filterResult = await ConfigureHighestStarFilterAsync(
+                            connection,
+                            pack,
+                            required.Key,
+                            rarity,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (filterResult is not null)
+                        return filterResult;
+
+                    var scrollTopResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "support_select",
+                            "scroll_top",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (scrollTopResult is not null)
+                        return scrollTopResult;
+
+                    var badgePath = ResolveSupportCardRarityBadge(pack, rarity);
+                    if (badgePath is null)
+                    {
+                        return Failure(
+                            $"The {rarity} support-card badge template is missing.",
+                            "support_select");
+                    }
+
+                    var selected = await SelectRankedSupportCardSlotsAsync(
+                            connection,
+                            pack,
+                            badgePath,
+                            1,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (selected.Failure is not null)
+                        return selected.Failure;
+
+                    if (selected.SelectedCount == 0)
+                    {
+                        // No matching card was found in this filtered list.
+                        // The picker is still open, so the next rarity can
+                        // reuse it without tapping an occupied formation slot.
+                        break;
+                    }
+
+                    remaining -= selected.SelectedCount;
+                    // A successful card tap closes the picker automatically.
+                    pickerOpen = false;
                 }
 
-                var selected = await SelectRankedSupportCardSlotsAsync(
-                        connection,
-                        pack,
-                        badgePath,
-                        remaining,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (selected.Failure is not null)
-                    return selected.Failure;
-                remaining -= selected.SelectedCount;
+                if (remaining == 0)
+                    break;
             }
 
             if (remaining > 0)
             {
+                if (pickerOpen)
+                {
+                    var closeResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "support_select",
+                            "close",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (closeResult is not null)
+                        return closeResult;
+                }
+
                 return Failure(
                     $"Could not find {remaining} more {required.Key} support card(s) after checking SSR and SR.",
                     "support_select");
             }
         }
 
-        return await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "close",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
+        // Every successful card selection closes the picker. The next state
+        // recognizer will verify the formation screen before Start Career.
+        return null;
     }
 
     private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
@@ -1318,10 +1366,37 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         CancellationToken cancellationToken)
     {
         var selectedCount = 0;
-        foreach (var slotRoi in GetSupportCardBadgeRois())
+        var slotRois = GetSupportCardSlotRois();
+        var badgeRois = GetSupportCardBadgeRois();
+        for (var index = 0; index < slotRois.Count; index++)
         {
             if (selectedCount >= requiredCount)
                 break;
+
+            var selectedMarkerResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "ranked.selected_card",
+                    logSink,
+                    cancellationToken,
+                    new HachimiPipelineRunOptions
+                    {
+                        RoiOverrides = new Dictionary<string, int[]>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_selected"] = slotRois[index],
+                        },
+                    })
+                .ConfigureAwait(false);
+            if (selectedMarkerResult is null)
+                continue;
+            if (!IsExpectedTemplateMiss(
+                    selectedMarkerResult,
+                    "support_select_support_card_selected"))
+            {
+                return new RankedSupportSlotResult(selectedCount, selectedMarkerResult);
+            }
 
             var result = await RunScreenActionAsync(
                     connection,
@@ -1340,15 +1415,22 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         RoiOverrides = new Dictionary<string, int[]>(
                             StringComparer.OrdinalIgnoreCase)
                         {
-                            ["support_select_support_card_badge"] = slotRoi,
+                            ["support_select_support_card_badge"] = badgeRois[index],
                         },
                     })
                 .ConfigureAwait(false);
             if (result is null)
             {
                 selectedCount++;
-                continue;
+                // One card tap closes the picker. The caller will reopen it
+                // for the next card, so never continue scanning old slots.
+                break;
             }
+
+            if (!IsExpectedTemplateMiss(
+                    result,
+                    "support_select_support_card_badge"))
+                return new RankedSupportSlotResult(selectedCount, result);
 
             // A missing badge means this sorted slot is empty. Continue to
             // the next slot so SSR can fall back to SR without guessing.
@@ -1356,6 +1438,14 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         return new RankedSupportSlotResult(selectedCount, null);
     }
+
+    private static bool IsExpectedTemplateMiss(
+        CareerTrainingResult result,
+        string taskName) =>
+        result.LastScreenId.Equals("support_select", StringComparison.OrdinalIgnoreCase)
+        && result.Message.Contains(
+            $"Timed out waiting for JSON task '{taskName}'",
+            StringComparison.OrdinalIgnoreCase);
 
     private static string? ResolveSupportCardRarityBadge(
         UraScenarioPack pack,
@@ -1368,6 +1458,18 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             "support_cards",
             rarity.ToLowerInvariant() + "_badge.png");
         return File.Exists(path) ? path : null;
+    }
+
+    private static List<int[]> GetSupportCardSlotRois()
+    {
+        var rois = new List<int[]>(25);
+        foreach (var y in new[] { 130, 343, 556, 769, 982 })
+        {
+            foreach (var x in new[] { 35, 201, 368, 535, 702 })
+                rois.Add([x, y, 165, 280]);
+        }
+
+        return rois;
     }
 
     private static List<int[]> GetSupportCardBadgeRois()

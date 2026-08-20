@@ -378,6 +378,143 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("CheckStartNoticeSkip", monitor.TriggerTask);
         Assert.Equal(["CheckLogoSkip"], monitor.TriggerChain);
         Assert.Contains("CheckGameHome", monitor.MonitorTasks);
+        Assert.Equal(180000, monitor.TimeoutMilliseconds);
+        Assert.Equal(5000, monitor.SuccessConfirmationDelayMilliseconds);
+    }
+
+    [Fact]
+    public async Task Ura_support_start_buttons_use_template_detection()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        foreach (var taskName in new[]
+        {
+            "support_select_support_start",
+            "support_ready_support_start",
+        })
+        {
+            var task = definition!.GetTask(taskName);
+            Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
+            Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
+            Assert.NotNull(task.Template);
+            Assert.Null(task.Roi);
+            Assert.Equal(0.44, task.TemplateThreshold);
+        }
+    }
+
+    [Fact]
+    public void Ura_support_select_recognition_uses_the_stable_auto_fill_button()
+    {
+        var root = FindSolutionRoot();
+        var json = File.ReadAllText(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json"));
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        var supportSelect = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
+        var recognition = supportSelect.GetProperty("recognition");
+
+        Assert.Equal(
+            "templates/support_select_support_auto_fill.png",
+            recognition.GetProperty("template").GetString());
+        Assert.False(recognition.TryGetProperty("roi", out _));
+        Assert.Equal(0.78, recognition.GetProperty("templThreshold").GetDouble());
+    }
+
+    [Fact]
+    public async Task Ura_support_reset_confirms_before_opening_card_picker()
+    {
+        var root = FindSolutionRoot();
+        var executionPath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "execution.json");
+        var screenProfilePath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
+        Assert.NotNull(definition);
+        var confirm = definition!.GetTask("support_select_support_reset_confirm");
+        Assert.Equal("MatchTemplate", confirm.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", confirm.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support_autofill_confirmation_support_autofill_ok.png",
+            confirm.Template);
+        Assert.Null(confirm.Roi);
+
+        using var document = System.Text.Json.JsonDocument.Parse(
+            File.ReadAllText(screenProfilePath));
+        var supportSelect = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
+        var resetConfirm = supportSelect
+            .GetProperty("actions")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("semanticId").GetString() == "support.reset_confirm");
+        Assert.Equal(
+            "support_select_support_reset_confirm",
+            resetConfirm.GetProperty("task").GetString());
+    }
+
+    [Fact]
+    public async Task Ura_support_picker_controls_are_template_driven()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        foreach (var taskName in new[]
+        {
+            "support_select_support_auto_fill",
+            "support_select_support_display_settings",
+            "support_select_support_sort_uncap",
+            "support_select_support_filter_tab",
+            "support_select_support_filter_reset",
+            "support_select_support_filter_r",
+            "support_select_support_filter_sr",
+            "support_select_support_filter_ssr",
+            "support_select_support_filter_speed",
+            "support_select_support_filter_stamina",
+            "support_select_support_filter_power",
+            "support_select_support_filter_guts",
+            "support_select_support_filter_wit",
+            "support_select_support_filter_friend",
+            "support_select_support_filter_apply",
+            "support_select_support_reset",
+            "support_select_support_reset_confirm",
+            "support_select_support_open",
+            "support_select_support_close",
+            "support_select_support_start",
+        })
+        {
+            var task = definition!.GetTask(taskName);
+            Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
+            Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
+            Assert.False(string.IsNullOrWhiteSpace(task.Template));
+            Assert.Null(task.SpecificRect);
+        }
+
+        Assert.Null(definition!.GetTask("support_select_support_card").Roi);
     }
 
     private static string FindSolutionRoot()

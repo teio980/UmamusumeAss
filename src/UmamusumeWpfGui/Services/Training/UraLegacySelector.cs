@@ -81,6 +81,19 @@ public sealed class UraLegacySelector
             logSink?.Add(
                 "Career Training",
                 "Detected cached Legacy 1 and Legacy 2 records; keeping both cached selections.");
+
+            if (!await TapTemplateAsync(
+                    connection,
+                    definition,
+                    "legacy_next_enabled.png",
+                    [250, 1250, 400, 200],
+                    "uraLegacyNextCached",
+                    cancellationToken)
+                .ConfigureAwait(false))
+            {
+                return Failure("Could not confirm the cached URA Legacy 1 and Legacy 2 selections.");
+            }
+
             return new UraLegacySelectionResult(
                 true,
                 "Kept the cached URA Legacy 1 and Legacy 2 selections.");

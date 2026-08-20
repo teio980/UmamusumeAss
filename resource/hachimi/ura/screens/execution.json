@@ -341,12 +341,6 @@
                                                            "action":  "ClickSelf",
                                                            "template":  "templates/support_select_support_auto_fill.png",
                                                            "templThreshold":  0.78,
-                                                           "roi":  [
-                                                                       450,
-                                                                       1110,
-                                                                       390,
-                                                                       100
-                                                                   ],
                                                            "preDelay":  0,
                                                            "postDelay":  650,
                                                            "waitMs":  0,
@@ -372,120 +366,142 @@
                                                            "success":  false
                                                        },
                   "support_select_support_display_settings":  {
-                                                                   "algorithm":  "JustReturn",
-                                                                   "action":  "ClickRect",
-                                                                   "specificRect":  [
-                                                                                       490,
-                                                                                       1290,
-                                                                                       250,
-                                                                                       90
-                                                                                   ],
+                                                                   "algorithm":  "MatchTemplate",
+                                                                   "action":  "ClickSelf",
+                                                                   "template":  "templates/support/display_settings.png",
+                                                                   "templThreshold":  0.82,
+                                                                   "timeoutMs":  12000,
+                                                                   "pollIntervalMs":  250,
                                                                    "postDelay":  250,
                                                                    "required":  true
                                                                },
                   "support_select_support_sort_uncap":  {
-                                                               "algorithm":  "JustReturn",
-                                                               "action":  "ClickRect",
-                                                               "specificRect":  [
-                                                                                   35,
-                                                                                   410,
-                                                                                   240,
-                                                                                   120
-                                                                               ],
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/sort_uncap.png",
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
                                                                "postDelay":  100,
                                                                "required":  true
                                                            },
                   "support_select_support_filter_tab":  {
-                                                               "algorithm":  "JustReturn",
-                                                               "action":  "ClickRect",
-                                                               "specificRect":  [
-                                                                                   450,
-                                                                                   130,
-                                                                                   430,
-                                                                                   80
-                                                                               ],
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/filter_tab.png",
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
                                                                "postDelay":  100,
                                                                "required":  true
                                                            },
                   "support_select_support_filter_reset":  {
-                                                                 "algorithm":  "JustReturn",
-                                                                 "action":  "ClickRect",
-                                                                 "specificRect":  [
-                                                                                     620,
-                                                                                     1290,
-                                                                                     240,
-                                                                                     100
-                                                                                 ],
+                                                                 "algorithm":  "MatchTemplate",
+                                                                 "action":  "ClickSelf",
+                                                                 "template":  "templates/support/filter_reset.png",
+                                                                 "templThreshold":  0.82,
+                                                                 "timeoutMs":  12000,
+                                                                 "pollIntervalMs":  250,
                                                                  "postDelay":  100,
                                                                  "required":  true
                                                              },
                   "support_select_support_filter_r":  {
-                                                            "algorithm":  "JustReturn",
-                                                            "action":  "ClickRect",
-                                                            "specificRect":  [35, 295, 125, 100],
+                                                            "algorithm":  "MatchTemplate",
+                                                            "action":  "ClickSelf",
+                                                            "template":  "templates/support/filter_r.png",
+                                                            "templThreshold":  0.82,
+                                                            "timeoutMs":  12000,
+                                                            "pollIntervalMs":  250,
                                                             "postDelay":  50,
                                                             "required":  true
                                                         },
                   "support_select_support_filter_sr":  {
-                                                             "algorithm":  "JustReturn",
-                                                             "action":  "ClickRect",
-                                                             "specificRect":  [320, 295, 125, 100],
+                                                             "algorithm":  "MatchTemplate",
+                                                             "action":  "ClickSelf",
+                                                             "template":  "templates/support/filter_sr.png",
+                                                             "templThreshold":  0.82,
+                                                             "timeoutMs":  12000,
+                                                             "pollIntervalMs":  250,
                                                              "postDelay":  50,
                                                              "required":  true
                                                          },
                   "support_select_support_filter_ssr":  {
-                                                              "algorithm":  "JustReturn",
-                                                              "action":  "ClickRect",
-                                                              "specificRect":  [605, 295, 125, 100],
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/support/filter_ssr.png",
+                                                              "templThreshold":  0.82,
+                                                              "timeoutMs":  12000,
+                                                              "pollIntervalMs":  250,
                                                               "postDelay":  50,
                                                               "required":  true
                                                           },
                   "support_select_support_filter_speed":  {
-                                                                "algorithm":  "JustReturn",
-                                                                "action":  "ClickRect",
-                                                                "specificRect":  [35, 475, 200, 100],
+                                                                "algorithm":  "MatchTemplate",
+                                                                "action":  "ClickSelf",
+                                                                "template":  "templates/support/filter_speed.png",
+                                                                "templThreshold":  0.82,
+                                                                "timeoutMs":  12000,
+                                                                "pollIntervalMs":  250,
                                                                 "postDelay":  50,
                                                                 "required":  true
                                                             },
                   "support_select_support_filter_stamina":  {
-                                                                  "algorithm":  "JustReturn",
-                                                                  "action":  "ClickRect",
-                                                                  "specificRect":  [315, 475, 230, 100],
+                                                                  "algorithm":  "MatchTemplate",
+                                                                  "action":  "ClickSelf",
+                                                                  "template":  "templates/support/filter_stamina.png",
+                                                                  "templThreshold":  0.82,
+                                                                  "timeoutMs":  12000,
+                                                                  "pollIntervalMs":  250,
                                                                   "postDelay":  50,
                                                                   "required":  true
                                                               },
                   "support_select_support_filter_power":  {
-                                                                "algorithm":  "JustReturn",
-                                                                "action":  "ClickRect",
-                                                                "specificRect":  [595, 475, 230, 100],
+                                                                "algorithm":  "MatchTemplate",
+                                                                "action":  "ClickSelf",
+                                                                "template":  "templates/support/filter_power.png",
+                                                                "templThreshold":  0.82,
+                                                                "timeoutMs":  12000,
+                                                                "pollIntervalMs":  250,
                                                                 "postDelay":  50,
                                                                 "required":  true
                                                             },
                   "support_select_support_filter_guts":  {
-                                                               "algorithm":  "JustReturn",
-                                                               "action":  "ClickRect",
-                                                               "specificRect":  [35, 570, 200, 100],
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/filter_guts.png",
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
                                                                "postDelay":  50,
                                                                "required":  true
                                                            },
                   "support_select_support_filter_wit":  {
-                                                              "algorithm":  "JustReturn",
-                                                              "action":  "ClickRect",
-                                                              "specificRect":  [315, 570, 230, 100],
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "ClickSelf",
+                                                              "template":  "templates/support/filter_wit.png",
+                                                              "templThreshold":  0.82,
+                                                              "timeoutMs":  12000,
+                                                              "pollIntervalMs":  250,
                                                               "postDelay":  50,
                                                               "required":  true
                                                           },
                   "support_select_support_filter_friend":  {
-                                                                 "algorithm":  "JustReturn",
-                                                                 "action":  "ClickRect",
-                                                                 "specificRect":  [35, 665, 230, 100],
+                                                                 "algorithm":  "MatchTemplate",
+                                                                 "action":  "ClickSelf",
+                                                                 "template":  "templates/support/filter_friend.png",
+                                                                 "templThreshold":  0.82,
+                                                                 "timeoutMs":  12000,
+                                                                 "pollIntervalMs":  250,
                                                                  "postDelay":  50,
                                                                  "required":  true
                                                              },
                   "support_select_support_filter_apply":  {
-                                                                 "algorithm":  "JustReturn",
-                                                                 "action":  "ClickRect",
-                                                                 "specificRect":  [450, 1400, 390, 120],
+                                                                 "algorithm":  "MatchTemplate",
+                                                                 "action":  "ClickSelf",
+                                                                 "template":  "templates/support/filter_apply.png",
+                                                                 "templThreshold":  0.82,
+                                                                 "timeoutMs":  12000,
+                                                                 "pollIntervalMs":  250,
                                                                  "postDelay":  450,
                                                                  "required":  true
                                                              },
@@ -494,7 +510,6 @@
                                                                  "action":  "ClickSelf",
                                                                  "template":  "templates/support_cards/sort_asc.png",
                                                                  "templThreshold":  0.90,
-                                                                 "roi":  [730, 1290, 140, 90],
                                                                  "timeoutMs":  350,
                                                                  "pollIntervalMs":  50,
                                                                  "postDelay":  350,
@@ -505,10 +520,18 @@
                                                                "action":  "ClickSelf",
                                                                "template":  "templates/support_cards/ssr_badge.png",
                                                                "templThreshold":  0.86,
-                                                               "roi":  [30, 130, 840, 1240],
                                                                "timeoutMs":  350,
                                                                "pollIntervalMs":  50,
                                                                "postDelay":  250,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_card_selected":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "JustReturn",
+                                                               "template":  "templates/support/selected.png",
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  350,
+                                                               "pollIntervalMs":  50,
                                                                "required":  true
                                                            },
                   "support_select_support_reset":  {
@@ -516,12 +539,6 @@
                                                         "action":  "ClickSelf",
                                                         "template":  "templates/support_select_support_reset.png",
                                                         "templThreshold":  0.82,
-                                                        "roi":  [
-                                                                    40,
-                                                                    1080,
-                                                                    410,
-                                                                    130
-                                                                ],
                                                         "preDelay":  0,
                                                         "postDelay":  450,
                                                         "waitMs":  0,
@@ -537,19 +554,15 @@
                                                         "success":  false
                                                     },
                    "support_select_support_open":  {
-                                                        "algorithm":  "JustReturn",
-                                                        "action":  "ClickRect",
-                                                        "specificRect":  [
-                                                                            60,
-                                                                            340,
-                                                                            250,
-                                                                            340
-                                                                        ],
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/support/support_open.png",
+                                                        "templThreshold":  0.82,
                                                         "preDelay":  0,
                                                         "postDelay":  600,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  0,
-                                                        "pollIntervalMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
                                                         "next":  [],
                                                         "onErrorNext":  [],
                                                         "exceededNext":  [],
@@ -564,39 +577,7 @@
                                                        "action":  "ClickSelf",
                                                        "template":  "templates/support_cards/30028.png",
                                                        "templThreshold":  0.84,
-                                                       "roi":  [
-                                                                   20,
-                                                                   130,
-                                                                   860,
-                                                                   1240
-                                                               ],
-                                                       "searchRois":  [
-                                                                           [35, 130, 165, 215],
-                                                                           [201, 130, 165, 215],
-                                                                           [368, 130, 165, 215],
-                                                                           [535, 130, 165, 215],
-                                                                           [702, 130, 165, 215],
-                                                                           [35, 343, 165, 215],
-                                                                           [201, 343, 165, 215],
-                                                                           [368, 343, 165, 215],
-                                                                           [535, 343, 165, 215],
-                                                                           [702, 343, 165, 215],
-                                                                           [35, 556, 165, 215],
-                                                                           [201, 556, 165, 215],
-                                                                           [368, 556, 165, 215],
-                                                                           [535, 556, 165, 215],
-                                                                           [702, 556, 165, 215],
-                                                                           [35, 769, 165, 215],
-                                                                           [201, 769, 165, 215],
-                                                                           [368, 769, 165, 215],
-                                                                           [535, 769, 165, 215],
-                                                                           [702, 769, 165, 215],
-                                                                           [35, 982, 165, 215],
-                                                                           [201, 982, 165, 215],
-                                                                           [368, 982, 165, 215],
-                                                                           [535, 982, 165, 215],
-                                                                           [702, 982, 165, 215]
-                                                                       ],
+                                                       "searchRois":  [],
                                                        "minScoreGap":  0.08,
                                                        "preDelay":  0,
                                                        "postDelay":  450,
@@ -686,19 +667,15 @@
                                                                    "success":  true
                                                                },
                    "support_select_support_close":  {
-                                                        "algorithm":  "JustReturn",
-                                                        "action":  "ClickRect",
-                                                        "specificRect":  [
-                                                                            250,
-                                                                            1420,
-                                                                            400,
-                                                                            110
-                                                                        ],
+                                                        "algorithm":  "MatchTemplate",
+                                                        "action":  "ClickSelf",
+                                                        "template":  "templates/support/support_close.png",
+                                                        "templThreshold":  0.82,
                                                         "preDelay":  0,
                                                         "postDelay":  500,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  0,
-                                                        "pollIntervalMs":  0,
+                                                        "timeoutMs":  12000,
+                                                        "pollIntervalMs":  250,
                                                         "next":  [],
                                                         "onErrorNext":  [],
                                                         "exceededNext":  [],
@@ -708,17 +685,40 @@
                                                         "required":  true,
                                                         "success":  false
                                                     },
-                   "support_autofill_confirmation_support_autofill_ok":  {
+                  "support_select_support_reset_confirm":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",
+                                                               "templThreshold":  0.78,
+                                                               "preDelay":  0,
+                                                               "postDelay":  450,
+                                                               "waitMs":  0,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
+                                                               "next":  [
+
+                                                                        ],
+                                                               "onErrorNext":  [
+
+                                                                       ],
+                                                               "exceededNext":  [
+
+                                                                        ],
+                                                               "sub":  [
+
+                                                                       ],
+                                                               "monitorTasks":  [
+
+                                                                        ],
+                                                               "maxTimes":  0,
+                                                               "required":  true,
+                                                               "success":  false
+                                                           },
+                  "support_autofill_confirmation_support_autofill_ok":  {
                                                                             "algorithm":  "MatchTemplate",
                                                                             "action":  "ClickSelf",
                                                                             "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",
                                                                             "templThreshold":  0.78,
-                                                                            "roi":  [
-                                                                                        470,
-                                                                                        995,
-                                                                                        360,
-                                                                                        120
-                                                                                    ],
                                                                             "preDelay":  0,
                                                                             "postDelay":  650,
                                                                             "waitMs":  0,
@@ -747,13 +747,7 @@
                                                        "algorithm":  "MatchTemplate",
                                                        "action":  "ClickSelf",
                                                        "template":  "templates/support_select_support_start.png",
-                                                       "templThreshold":  0.78,
-                                                       "roi":  [
-                                                                   330,
-                                                                   1300,
-                                                                   300,
-                                                                   120
-                                                               ],
+                                                       "templThreshold":  0.44,
                                                        "preDelay":  0,
                                                        "postDelay":  650,
                                                        "waitMs":  0,
@@ -782,13 +776,7 @@
                                                       "algorithm":  "MatchTemplate",
                                                       "action":  "ClickSelf",
                                                       "template":  "templates/support_ready_support_start.png",
-                                                      "templThreshold":  0.78,
-                                                      "roi":  [
-                                                                  330,
-                                                                  1300,
-                                                                  300,
-                                                                  120
-                                                              ],
+                                                      "templThreshold":  0.44,
                                                       "preDelay":  0,
                                                       "postDelay":  650,
                                                       "waitMs":  0,

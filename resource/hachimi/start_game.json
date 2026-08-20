@@ -17,8 +17,9 @@
       "triggerChain": [
         "CheckLogoSkip"
       ],
-      "timeoutMs": 90000,
+      "timeoutMs": 180000,
       "pollIntervalMs": 100,
+      "successConfirmDelayMs": 5000,
       "success": true,
       "onErrorNext": [ "CheckDataDownload" ]
     },

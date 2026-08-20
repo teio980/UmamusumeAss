@@ -388,8 +388,55 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     .FirstOrDefault(match => match is not null);
                 if (successMatch is not null)
                 {
-                    AddLog(logSink, "StartupMonitor", "Startup success task detected.", LogEntryKind.Success);
-                    return new PipelineTaskResult(true, "Startup success task detected.");
+                    AddLog(
+                        logSink,
+                        "StartupMonitor",
+                        $"Startup success task '{successMatch.Value.Name}' detected; "
+                        + $"waiting {Math.Max(0, monitorTask.SuccessConfirmationDelayMilliseconds)}ms before confirmation.");
+                    await _asyncDelay.DelayAsync(
+                        TimeSpan.FromMilliseconds(Math.Max(
+                            0,
+                            monitorTask.SuccessConfirmationDelayMilliseconds)),
+                        cancellationToken).ConfigureAwait(false);
+
+                    var confirmationScreenshot = await CapturePipelineScreenshotAsync(
+                        connection,
+                        cancellationToken).ConfigureAwait(false);
+                    var confirmationScreen = confirmationScreenshot is null
+                        ? null
+                        : GrayImageCodec.FromScreenshot(confirmationScreenshot);
+                    var confirmed = false;
+                    if (confirmationScreen is not null)
+                    {
+                        var confirmationMatches = await FindStartupMonitorMatchesAsync(
+                            confirmationScreen,
+                            successCandidates,
+                            cancellationToken).ConfigureAwait(false);
+                        confirmed = successCandidates.Any(candidate =>
+                            FindFoundMatch(confirmationMatches, candidate.Name) is not null);
+                    }
+
+                    if (confirmed)
+                    {
+                        AddLog(
+                            logSink,
+                            "StartupMonitor",
+                            "Startup success task confirmed after the settle delay.",
+                            LogEntryKind.Success);
+                        return new PipelineTaskResult(true, "Startup success task confirmed.");
+                    }
+
+                    // The first Home match was transient. Reset any partially
+                    // completed trigger chain, then keep the normal monitor
+                    // loop running. Every fresh screenshot reruns the complete
+                    // monitorTasks set in parallel until Home is confirmed.
+                    chainIndex = -1;
+                    AddLog(
+                        logSink,
+                        taskName,
+                        "Home confirmation failed; continuing all startup monitor tasks until Home is confirmed.",
+                        LogEntryKind.Failure);
+                    continue;
                 }
 
                 if (chainIndex >= 0 && chainIndex < triggerChain.Length)

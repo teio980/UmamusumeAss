@@ -75,6 +75,9 @@ public sealed class StartGamePipelineTask
     [JsonPropertyName("pollIntervalMs")]
     public int PollIntervalMilliseconds { get; set; } = 700;
 
+    [JsonPropertyName("successConfirmDelayMs")]
+    public int SuccessConfirmationDelayMilliseconds { get; set; } = 5_000;
+
     [JsonPropertyName("maxTimes")]
     public int MaxTimes { get; set; } = 1;
 
