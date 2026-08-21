@@ -90,6 +90,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("minScoreGap")]
     public double MinimumScoreGap { get; set; }
 
+    [JsonPropertyName("scaleCandidates")]
+    public List<double> ScaleCandidates { get; set; } = [];
+
     [JsonPropertyName("preDelay")]
     public int PreDelay { get; set; }
 

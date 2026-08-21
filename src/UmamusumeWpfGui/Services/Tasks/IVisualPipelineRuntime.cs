@@ -30,6 +30,20 @@ public interface IVisualPipelineRuntime
         string baseDirectory,
         CancellationToken cancellationToken = default);
 
+    Task<TemplateMatchResult?> WaitForMatchScaledAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        IReadOnlyList<double> scaleCandidates,
+        CancellationToken cancellationToken = default);
+
     Task<TemplateMatchResult?> WaitForMatchInRoisAsync(
         LastVerifiedConnection connection,
         string? templatePath,

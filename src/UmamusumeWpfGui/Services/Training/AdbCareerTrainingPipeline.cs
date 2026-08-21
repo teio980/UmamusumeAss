@@ -16,6 +16,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         new(StringComparer.OrdinalIgnoreCase)
         {
             "home",
+            "career_continue",
             "scenario_select",
             "legacy_select",
             "trainee_select",
@@ -135,13 +136,18 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         if (settings.SupportDeckMode.Equals("selected", StringComparison.OrdinalIgnoreCase))
         {
-            ValidateSupportCards(settings.SupportCardIds, settings.SupportDeckPreset);
+            ValidateSupportCards(GetSelectedSupportCardIds(settings), settings.SupportDeckPreset);
+            ValidateFriendSupportCard(settings, allowCustomPreset: true);
         }
         else if (settings.SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase)
             && GetRequiredSupportTypes(settings.SupportDeckPreset) is null)
         {
             throw new InvalidOperationException(
                 "Highest-star support selection requires a support deck preset.");
+        }
+        else if (settings.SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase))
+        {
+            ValidateFriendSupportCard(settings);
         }
         var pack = await UraScenarioPackLoader.LoadAsync(settings.ManifestPath, cancellationToken)
             .ConfigureAwait(false);
@@ -152,8 +158,22 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         var scenario = new UraScenarioModule(pack);
         var strategy = UraStrategyRegistry.Create(settings.StrategyId);
         var checkpointStore = new UraCheckpointStore(settings.TraineeId);
-        var state = await checkpointStore.LoadAsync(cancellationToken).ConfigureAwait(false)
-            ?? scenario.CreateInitialState();
+        var checkpoint = await checkpointStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        UraCareerSessionState state;
+        if (!settings.ContinueExistingCareer)
+        {
+            await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
+            state = scenario.CreateInitialState();
+        }
+        else
+        {
+            state = checkpoint ?? scenario.CreateInitialState();
+            // The game is the source of truth for the Resume entry. Preserve
+            // the checkpoint's turn/objective data, but always reopen Career
+            // so the JSON Resume action is used instead of skipping Home.
+            state.CareerEntryOpened = false;
+            state.CareerStarted = false;
+        }
         if (!string.Equals(state.ScenarioId, pack.Manifest.ScenarioId, StringComparison.OrdinalIgnoreCase))
             state = scenario.CreateInitialState();
         if (state.TurnIndex == 0 && !state.CareerStarted)
@@ -173,6 +193,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             state.TurnIndex > 0
                 ? $"Resuming checkpoint at turn {state.TurnIndex}, objective {state.CurrentObjectiveId}."
                 : "Starting a new URA career session.");
+        logSink?.Add(
+            "Career Training",
+            settings.ContinueExistingCareer
+                ? "Existing Career handling selected: Resume."
+                : "Existing Career handling selected: Delete Data.");
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
@@ -374,6 +399,19 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     {
         switch (observation.ScreenId)
         {
+            case "career_continue":
+                var careerContinueAction = settings.ContinueExistingCareer ? "resume" : "delete";
+                logSink?.Add(
+                    "Career Training",
+                    $"Continue Career dialog detected; selecting '{careerContinueAction}'.");
+                return await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_continue",
+                        careerContinueAction,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             case "scenario_select":
                 return await HandleScenarioSelectionAsync(
                         connection,
@@ -488,6 +526,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             connection,
                             pack,
                             settings.SupportDeckPreset,
+                            settings.FriendSupportCardId,
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -530,6 +569,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             connection,
                             pack,
                             settings.SupportCardIds,
+                            settings.FriendSupportCardId,
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -921,6 +961,13 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         var traineeSelectionExpected = state.ScenarioSelected
             && !state.TraineeSelected
             && !state.CareerStarted;
+        // The game keeps the Auto-Fill button on the formation page after an
+        // auto-fill confirmation. Without this context, that page can be
+        // recognized as support_select again before support_ready gets a
+        // chance to handle Start Career.
+        var supportReadyExpected = state.LastScreenId.Equals(
+            "support_autofill_confirmation",
+            StringComparison.OrdinalIgnoreCase);
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
             .Where(screen => !careerEntryFlowActive
@@ -930,24 +977,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 || CareerEntryScreenIds.Contains(screen.ScreenId))
             .Where(screen => !traineeSelectionExpected
                 || string.Equals(screen.ScreenId, "trainee_select", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(screen => screen.ScreenId switch
-            {
-                "home" => 0,
-                "scenario_select" => 1,
-                "trainee_select" => 2,
-                "support_select" => 3,
-                "support_ready" => 4,
-                "career_races_ready" => 5,
-                "career_main" => 6,
-                "training_selection" => 7,
-                "race_day" => 8,
-                "race_list" => 9,
-                "race_details" => 10,
-                "race_attributes" => 11,
-                "race_playback_settings" => 12,
-                "race_playback" => 13,
-                _ => 20,
-            })
+            .Where(screen => !supportReadyExpected
+                || string.Equals(screen.ScreenId, "support_ready", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(screen => GetScreenRecognitionPriority(
+                screen.ScreenId,
+                supportReadyExpected))
             .ToArray();
 
         // Observe a small stable sample once, then score all screen templates
@@ -1012,6 +1046,30 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         return best;
     }
+
+    private static int GetScreenRecognitionPriority(
+        string screenId,
+        bool supportReadyExpected) =>
+        screenId switch
+        {
+            "career_continue" => 0,
+            "home" => 0,
+            "scenario_select" => 1,
+            "trainee_select" => 2,
+            "support_ready" when supportReadyExpected => 3,
+            "support_select" => 4,
+            "support_ready" => 5,
+            "career_races_ready" => 6,
+            "career_main" => 7,
+            "training_selection" => 8,
+            "race_day" => 9,
+            "race_list" => 10,
+            "race_details" => 11,
+            "race_attributes" => 12,
+            "race_playback_settings" => 13,
+            "race_playback" => 14,
+            _ => 20,
+        };
 
     private Task<GrayImage?> LoadTemplateCachedAsync(
         string path,
@@ -1078,31 +1136,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         IReadOnlyList<int> supportCardIds,
+        int? friendSupportCardId,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var resetResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "reset",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (resetResult is not null)
-            return resetResult;
-
-        var resetConfirmResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "reset_confirm",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (resetConfirmResult is not null)
-            return resetConfirmResult;
-
         foreach (var supportCardId in supportCardIds)
         {
             var templatePath = ResolveSupportCardTemplate(pack, supportCardId);
@@ -1125,17 +1162,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             if (openResult is not null)
                 return openResult;
 
-            var scrollTopResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "scroll_top",
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (scrollTopResult is not null)
-                return scrollTopResult;
-
             var result = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -1156,17 +1182,100 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return result;
         }
 
-        // Selecting a support card closes the picker automatically and returns
-        // to the formation screen. Do not click the picker Close button here:
-        // after the last selection it no longer exists and its old coordinate
-        // overlaps the game's Home tab.
-        return null;
+        if (friendSupportCardId is not > 0)
+        {
+            // Selecting a support card closes the picker automatically and
+            // returns to the formation screen. Do not click the picker Close
+            // button here: after the last selection it no longer exists and
+            // its old coordinate overlaps the game's Home tab.
+            return null;
+        }
+
+        if (!_umaDatabase.TryGetSupportCard(friendSupportCardId.Value, out var friendCard)
+            || friendCard is null
+            || !friendCard.Available)
+        {
+            return Failure(
+                $"Configured guest support card {friendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                + "was not found or is unavailable.",
+                "support_select");
+        }
+
+        var openFriendResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "open",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (openFriendResult is not null)
+            return openFriendResult;
+
+        var friendFilterResult = await ConfigureHighestStarFilterAsync(
+                connection,
+                pack,
+                friendCard.Type,
+                rarity: null,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (friendFilterResult is not null)
+            return friendFilterResult;
+
+        var friendTemplatePath = ResolveSupportCardTemplate(
+            pack,
+            friendCard.SupportCardId);
+        if (friendTemplatePath is null)
+        {
+            return Failure(
+                $"Guest support card {friendCard.SupportCardId.ToString(CultureInfo.InvariantCulture)} "
+                + "has no local selection template.",
+                "support_select");
+        }
+
+        // The filtered guest list is sorted by Level descending. The
+        // template matcher therefore picks the highest-level copy.
+        return await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "ranked.select_exact_card",
+                logSink,
+                cancellationToken,
+                new HachimiPipelineRunOptions
+                {
+                    TemplateOverrides = new Dictionary<string, string>(
+                        StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["support_select_support_card_exact"] = friendTemplatePath,
+                    },
+                })
+            .ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<int> GetSelectedSupportCardIds(
+        CareerTrainingSettings settings)
+    {
+        if (settings.FriendSupportCardId is not > 0)
+            return settings.SupportCardIds;
+
+        if (settings.SupportCardIds.Count != 5)
+        {
+            throw new InvalidOperationException(
+                "Selected support deck mode requires 5 own cards when a friend card is configured.");
+        }
+
+        return settings.SupportCardIds
+            .Append(settings.FriendSupportCardId.Value)
+            .ToArray();
     }
 
     private async Task<CareerTrainingResult?> SelectHighestStarSupportCardsAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         string supportDeckPreset,
+        int? friendSupportCardId,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -1178,108 +1287,101 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "support_select");
         }
 
-        var resetResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "reset",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (resetResult is not null)
-            return resetResult;
+        UmaSupportCardRecord? guestCard = null;
+        if (friendSupportCardId is > 0)
+        {
+            if (!_umaDatabase.TryGetSupportCard(
+                    friendSupportCardId.Value,
+                    out guestCard)
+                || guestCard is null
+                || !guestCard.Available)
+            {
+                return Failure(
+                    $"Configured guest support card {friendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                    + "was not found or is unavailable.",
+                    "support_select");
+            }
+        }
+        else
+        {
+            var automaticGuestResult = await SelectAutomaticHighestGuestCardAsync(
+                    connection,
+                    pack,
+                    requiredTypes,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (automaticGuestResult.Failure is not null)
+                return automaticGuestResult.Failure;
 
-        var resetConfirmResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "reset_confirm",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (resetConfirmResult is not null)
-            return resetConfirmResult;
+            guestCard = automaticGuestResult.Card;
+        }
+
+        if (guestCard is null)
+        {
+            return Failure(
+                "Could not identify a highest-level guest support card from the selected preset types.",
+                "support_select");
+        }
+
+        var ownRequiredTypes = GetOwnRequiredSupportTypes(
+            requiredTypes,
+            guestCard);
+        if (ownRequiredTypes is null)
+        {
+            return Failure(
+                $"Guest support card {friendSupportCardId.GetValueOrDefault().ToString(CultureInfo.InvariantCulture)} "
+                + "does not fit the selected support deck preset.",
+                "support_select");
+        }
 
         var pickerOpen = false;
-        foreach (var required in requiredTypes)
+        foreach (var required in ownRequiredTypes)
         {
             var remaining = required.Value;
-            foreach (var rarity in new[] { "SSR", "SR" })
+            while (remaining > 0)
             {
-                while (remaining > 0)
+                if (!pickerOpen)
                 {
-                    if (!pickerOpen)
-                    {
-                        var openResult = await RunScreenActionAsync(
-                                connection,
-                                pack,
-                                "support_select",
-                                "open",
-                                logSink,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                        if (openResult is not null)
-                            return openResult;
-
-                        pickerOpen = true;
-                    }
-
-                    var filterResult = await ConfigureHighestStarFilterAsync(
-                            connection,
-                            pack,
-                            required.Key,
-                            rarity,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (filterResult is not null)
-                        return filterResult;
-
-                    var scrollTopResult = await RunScreenActionAsync(
+                    var openResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "support_select",
-                            "scroll_top",
+                            "open",
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (scrollTopResult is not null)
-                        return scrollTopResult;
+                    if (openResult is not null)
+                        return openResult;
 
-                    var badgePath = ResolveSupportCardRarityBadge(pack, rarity);
-                    if (badgePath is null)
-                    {
-                        return Failure(
-                            $"The {rarity} support-card badge template is missing.",
-                            "support_select");
-                    }
-
-                    var selected = await SelectRankedSupportCardSlotsAsync(
-                            connection,
-                            pack,
-                            badgePath,
-                            1,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (selected.Failure is not null)
-                        return selected.Failure;
-
-                    if (selected.SelectedCount == 0)
-                    {
-                        // No matching card was found in this filtered list.
-                        // The picker is still open, so the next rarity can
-                        // reuse it without tapping an occupied formation slot.
-                        break;
-                    }
-
-                    remaining -= selected.SelectedCount;
-                    // A successful card tap closes the picker automatically.
-                    pickerOpen = false;
+                    pickerOpen = true;
                 }
 
-                if (remaining == 0)
-                    break;
+                // Filter the current slot by type and SSR/SR, sort by Level,
+                // and pick the first card.
+                var filterResult = await ConfigureHighestStarFilterAsync(
+                        connection,
+                        pack,
+                        required.Key,
+                        rarity: null,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (filterResult is not null)
+                    return filterResult;
+
+                var selected = await SelectHighestSupportCardAsync(
+                        connection,
+                        pack,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (selected is not null)
+                    return selected;
+
+                remaining--;
+                // A successful card tap closes the picker automatically.
+                pickerOpen = false;
             }
 
             if (remaining > 0)
@@ -1299,48 +1401,250 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 }
 
                 return Failure(
-                    $"Could not find {remaining} more {required.Key} support card(s) after checking SSR and SR.",
+                    $"Could not find {remaining} more {required.Key} support card(s) after filtering and sorting by Level.",
                     "support_select");
             }
         }
+
+        // The own cards are now filled. The next open targets the Friends slot;
+        // filter it by the configured guest card metadata and select the
+        // highest-level copy of that exact card.
+        if (!pickerOpen)
+        {
+            var openGuestResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "open",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (openGuestResult is not null)
+                return openGuestResult;
+
+            pickerOpen = true;
+        }
+
+        var guestFilterResult = await ConfigureHighestStarFilterAsync(
+                connection,
+                pack,
+                guestCard.Type,
+                rarity: null,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (guestFilterResult is not null)
+            return guestFilterResult;
+
+        if (friendSupportCardId is not > 0)
+        {
+            // With no configured friend card, the filtered/sorted first card
+            // is the highest-level guest. Use the JSON rarity-badge click
+            // path to select that first unselected card; no card-database
+            // identity scan is needed here.
+            var automaticGuestSelection = await SelectHighestSupportCardAsync(
+                    connection,
+                    pack,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return automaticGuestSelection;
+        }
+
+        var guestTemplatePath = ResolveSupportCardTemplate(
+                pack,
+            guestCard.SupportCardId);
+        if (guestTemplatePath is null)
+        {
+            return Failure(
+                $"Guest support card {guestCard.SupportCardId.ToString(CultureInfo.InvariantCulture)} "
+                + "has no local selection template.",
+                "support_select");
+        }
+
+        // The guest list is sorted by Level descending. The template
+        // matcher scans top-to-bottom, so identical copies resolve to the
+        // highest-level guest card.
+        var guestSelectionResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "ranked.select_exact_card",
+                logSink,
+                cancellationToken,
+                new HachimiPipelineRunOptions
+                {
+                    TemplateOverrides = new Dictionary<string, string>(
+                        StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["support_select_support_card_exact"] = guestTemplatePath,
+                    },
+                })
+            .ConfigureAwait(false);
+        if (guestSelectionResult is not null)
+            return guestSelectionResult;
 
         // Every successful card selection closes the picker. The next state
         // recognizer will verify the formation screen before Start Career.
         return null;
     }
 
-    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
+    private async Task<AutomaticGuestCardResult> SelectAutomaticHighestGuestCardAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
-        string supportType,
-        string rarity,
+        IReadOnlyDictionary<string, int> requiredTypes,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var actions = new List<string>
-        {
-            "ranked.display_settings",
-            "ranked.sort_uncap",
-            "ranked.filter_tab",
-            "ranked.filter_reset",
-        };
+        var candidateTypes = requiredTypes.ContainsKey("Friend")
+            ? _umaDatabase.SupportCards
+                .Where(card => card.Available && !string.IsNullOrWhiteSpace(card.Type))
+                .Select(card => card.Type.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+            : requiredTypes.Keys
+                .Where(type => GetSupportFilterKey(type) is not null)
+                .ToArray();
 
-        foreach (var otherRarity in new[] { "R", "SR", "SSR" })
+        if (candidateTypes.Length == 0)
         {
-            if (!otherRarity.Equals(rarity, StringComparison.OrdinalIgnoreCase))
-                actions.Add($"ranked.filter_{otherRarity.ToLowerInvariant()}");
+            return new AutomaticGuestCardResult(
+                null,
+                Failure(
+                    "The selected support preset has no usable type for the automatic guest card.",
+                    "support_select"));
         }
 
-        foreach (var otherType in new[] { "Speed", "Stamina", "Power", "Guts", "Wit", "Friend" })
+        var openResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "open",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (openResult is not null)
+            return new AutomaticGuestCardResult(null, openResult);
+
+        var filterResult = await ConfigureHighestStarFilterAsync(
+                connection,
+                pack,
+                candidateTypes,
+                rarity: null,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (filterResult is not null)
+            return new AutomaticGuestCardResult(null, filterResult);
+
+        // The list is already filtered and sorted by Level descending.
+        // Identify only the first card's type badge instead of probing every
+        // database card image. This keeps the operation template-driven while
+        // reducing dozens of failed identity tasks to at most one per type.
+        // After filtering and sorting, the first card is the highest-level
+        // candidate. This is the only card-position ROI in the ranked path;
+        // the click itself is still performed by the JSON badge template.
+        int[] firstSlotRoi = [35, 130, 165, 280];
+        foreach (var candidateType in candidateTypes)
         {
-            if (!otherType.Equals(supportType, StringComparison.OrdinalIgnoreCase))
-                actions.Add($"ranked.filter_{GetSupportFilterKey(otherType)}");
+            var templatePath = ResolveSupportTypeBadgeTemplate(pack, candidateType);
+            if (templatePath is null)
+                continue;
+
+            var identityResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "support_select",
+                    "ranked.identify_card",
+                    logSink,
+                    cancellationToken,
+                    new HachimiPipelineRunOptions
+                    {
+                        TemplateOverrides = new Dictionary<string, string>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_identity"] = templatePath,
+                        },
+                        RoiOverrides = new Dictionary<string, int[]>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_identity"] = firstSlotRoi,
+                        },
+                    })
+                .ConfigureAwait(false);
+            if (identityResult is null)
+            {
+                var closeResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "support_select",
+                        "close",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                logSink?.Add(
+                    "Career Training",
+                    $"Detected automatic highest-level guest support type '{candidateType}'.");
+                return closeResult is null
+                    ? new AutomaticGuestCardResult(
+                        new UmaSupportCardRecord { Type = candidateType },
+                        null)
+                    : new AutomaticGuestCardResult(null, closeResult);
+            }
+
+            if (!IsExpectedTemplateMiss(
+                    identityResult,
+                    "support_select_support_card_identity"))
+            {
+                return new AutomaticGuestCardResult(null, identityResult);
+            }
         }
 
-        actions.Add("ranked.filter_apply");
-        actions.Add("ranked.sort_desc");
+        var fallbackCloseResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "support_select",
+                "close",
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (fallbackCloseResult is not null)
+            return new AutomaticGuestCardResult(null, fallbackCloseResult);
 
-        foreach (var action in actions)
+        return new AutomaticGuestCardResult(
+            null,
+            Failure(
+                "Could not identify the type of the highest-level automatic guest card.",
+                "support_select"));
+    }
+
+    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string? supportType,
+        string? rarity,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        return await ConfigureHighestStarFilterAsync(
+                connection,
+                pack,
+                supportType is null ? Array.Empty<string>() : [supportType],
+                rarity,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        IReadOnlyList<string> supportTypes,
+        string? rarity,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        foreach (var action in BuildHighestStarFilterActionsForTypes(supportTypes, rarity))
         {
             var result = await RunScreenActionAsync(
                     connection,
@@ -1357,87 +1661,96 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         return null;
     }
 
-    private async Task<RankedSupportSlotResult> SelectRankedSupportCardSlotsAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string badgePath,
-        int requiredCount,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+    internal static IReadOnlyList<string> BuildHighestStarFilterActions(
+        string? supportType,
+        string? rarity)
+        => BuildHighestStarFilterActionsForTypes(
+            supportType is null ? Array.Empty<string>() : [supportType],
+            rarity);
+
+    internal static IReadOnlyList<string> BuildHighestStarFilterActionsForTypes(
+        IEnumerable<string> supportTypes,
+        string? rarity)
     {
-        var selectedCount = 0;
-        var slotRois = GetSupportCardSlotRois();
-        var badgeRois = GetSupportCardBadgeRois();
-        for (var index = 0; index < slotRois.Count; index++)
+        var actions = new List<string>
         {
-            if (selectedCount >= requiredCount)
-                break;
+            "ranked.display_settings",
+            "ranked.filter_tab",
+            "ranked.filter_reset",
+        };
 
-            var selectedMarkerResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "ranked.selected_card",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        RoiOverrides = new Dictionary<string, int[]>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_selected"] = slotRois[index],
-                        },
-                    })
-                .ConfigureAwait(false);
-            if (selectedMarkerResult is null)
-                continue;
-            if (!IsExpectedTemplateMiss(
-                    selectedMarkerResult,
-                    "support_select_support_card_selected"))
-            {
-                return new RankedSupportSlotResult(selectedCount, selectedMarkerResult);
-            }
-
-            var result = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "ranked.select_card_badge",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TemplateOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_badge"] = badgePath,
-                        },
-                        RoiOverrides = new Dictionary<string, int[]>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_badge"] = badgeRois[index],
-                        },
-                    })
-                .ConfigureAwait(false);
-            if (result is null)
-            {
-                selectedCount++;
-                // One card tap closes the picker. The caller will reopen it
-                // for the next card, so never continue scanning old slots.
-                break;
-            }
-
-            if (!IsExpectedTemplateMiss(
-                    result,
-                    "support_select_support_card_badge"))
-                return new RankedSupportSlotResult(selectedCount, result);
-
-            // A missing badge means this sorted slot is empty. Continue to
-            // the next slot so SSR can fall back to SR without guessing.
+        var requestedRarity = GetSupportRarityFilter(rarity);
+        foreach (var availableRarity in requestedRarity is null
+                     ? new[] { "SSR", "SR" }
+                     : new[] { requestedRarity })
+        {
+            actions.Add($"ranked.filter_{availableRarity.ToLowerInvariant()}");
         }
 
-        return new RankedSupportSlotResult(selectedCount, null);
+        foreach (var supportType in supportTypes)
+        {
+            var supportFilterKey = GetSupportFilterKey(supportType);
+            if (supportFilterKey is not null
+                && !actions.Contains($"ranked.filter_{supportFilterKey}", StringComparer.OrdinalIgnoreCase))
+            {
+                actions.Add($"ranked.filter_{supportFilterKey}");
+            }
+        }
+
+        actions.Add("ranked.filter_apply");
+        // Applying the filter returns to the card list and resets the list
+        // display/sort controls on some game builds. Set Level only
+        // after Apply. Re-open the display settings, commit the primary sort,
+        // then switch the list to Desc so the following card scan sees the
+        // highest-level copy first.
+        actions.Add("ranked.display_settings");
+        actions.Add("ranked.sort_level");
+        actions.Add("ranked.sort_apply");
+        actions.Add("ranked.sort_desc");
+        return actions;
     }
+
+    private static Dictionary<string, int>? GetOwnRequiredSupportTypes(
+        IReadOnlyDictionary<string, int> requiredTypes,
+        UmaSupportCardRecord guestCard)
+    {
+        var ownTypes = requiredTypes.ToDictionary(
+            item => item.Key,
+            item => item.Value,
+            StringComparer.OrdinalIgnoreCase);
+
+        // This preset explicitly means five own cards plus one guest card.
+        if (ownTypes.Remove("Friend"))
+            return ownTypes;
+
+        var guestType = guestCard.Type?.Trim();
+        if (string.IsNullOrWhiteSpace(guestType)
+            || !ownTypes.TryGetValue(guestType, out var guestTypeCount)
+            || guestTypeCount <= 0)
+        {
+            return null;
+        }
+
+        if (guestTypeCount == 1)
+            ownTypes.Remove(guestType);
+        else
+            ownTypes[guestType] = guestTypeCount - 1;
+
+        return ownTypes;
+    }
+
+    private Task<CareerTrainingResult?> SelectHighestSupportCardAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken) =>
+        RunScreenActionAsync(
+            connection,
+            pack,
+            "support_select",
+            "ranked.select_highest_card",
+            logSink,
+            cancellationToken);
 
     private static bool IsExpectedTemplateMiss(
         CareerTrainingResult result,
@@ -1447,45 +1760,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             $"Timed out waiting for JSON task '{taskName}'",
             StringComparison.OrdinalIgnoreCase);
 
-    private static string? ResolveSupportCardRarityBadge(
-        UraScenarioPack pack,
-        string rarity)
-    {
-        var path = Path.Combine(
-            pack.RootDirectory,
-            "screens",
-            "templates",
-            "support_cards",
-            rarity.ToLowerInvariant() + "_badge.png");
-        return File.Exists(path) ? path : null;
-    }
-
-    private static List<int[]> GetSupportCardSlotRois()
-    {
-        var rois = new List<int[]>(25);
-        foreach (var y in new[] { 130, 343, 556, 769, 982 })
-        {
-            foreach (var x in new[] { 35, 201, 368, 535, 702 })
-                rois.Add([x, y, 165, 280]);
-        }
-
-        return rois;
-    }
-
-    private static List<int[]> GetSupportCardBadgeRois()
-    {
-        var rois = new List<int[]>(25);
-        foreach (var y in new[] { 140, 353, 566, 779, 992 })
-        {
-            foreach (var x in new[] { 38, 204, 371, 538, 705 })
-                rois.Add([x, y, 75, 80]);
-        }
-
-        return rois;
-    }
-
-    private static string GetSupportFilterKey(string supportType) =>
-        supportType.ToLowerInvariant() switch
+    private static string? GetSupportFilterKey(string? supportType) =>
+        supportType?.Trim().ToLowerInvariant() switch
         {
             "speed" => "speed",
             "stamina" => "stamina",
@@ -1493,9 +1769,31 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             "guts" => "guts",
             "wit" => "wit",
             "friend" => "friend",
-            _ => throw new InvalidOperationException(
-                $"Unsupported support type '{supportType}'."),
+            _ => null,
         };
+
+    private static string? GetSupportRarityFilter(string? rarity) =>
+        rarity?.Trim().ToUpperInvariant() switch
+        {
+            "3" or "SSR" => "SSR",
+            "2" or "SR" => "SR",
+            "1" or "R" => "R",
+            _ => null,
+        };
+
+    private static string? ResolveSupportTypeBadgeTemplate(
+        UraScenarioPack pack,
+        string supportType)
+    {
+        var filterKey = GetSupportFilterKey(supportType);
+        if (filterKey is null)
+            return null;
+
+        var path = UraScenarioResourceResolver.Resolve(
+            pack,
+            $"screens/templates/support_cards/type_{filterKey}.png");
+        return File.Exists(path) ? path : null;
+    }
 
     private string? ResolveSupportCardTemplate(UraScenarioPack pack, int supportCardId)
     {
@@ -1603,14 +1901,52 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         }
     }
 
+    private void ValidateFriendSupportCard(
+        CareerTrainingSettings settings,
+        bool allowCustomPreset = false)
+    {
+        var requiredTypes = GetRequiredSupportTypes(settings.SupportDeckPreset);
+        if (requiredTypes is null && !allowCustomPreset)
+        {
+            return;
+        }
+
+        if (settings.FriendSupportCardId is not > 0)
+            return;
+
+        if (!_umaDatabase.TryGetSupportCard(
+                settings.FriendSupportCardId.Value,
+                out var friendCard)
+            || friendCard is null
+            || !friendCard.Available)
+        {
+            throw new InvalidOperationException(
+                $"Configured guest support card {settings.FriendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                + "was not found or is unavailable.");
+        }
+
+        if (requiredTypes is null || requiredTypes.ContainsKey("Friend"))
+            return;
+
+        var guestType = friendCard.Type?.Trim();
+        if (string.IsNullOrWhiteSpace(guestType)
+            || !requiredTypes.TryGetValue(guestType, out var requiredCount)
+            || requiredCount <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Configured guest support card {settings.FriendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                + $"has type '{friendCard.Type}' which is not part of preset '{settings.SupportDeckPreset}'.");
+        }
+    }
+
     private static CareerTrainingResult Failure(
         string message,
         string lastScreenId,
         int actionsCompleted = 0) =>
         new(false, message, actionsCompleted, lastScreenId);
 
-    private sealed record RankedSupportSlotResult(
-        int SelectedCount,
+    private sealed record AutomaticGuestCardResult(
+        UmaSupportCardRecord? Card,
         CareerTrainingResult? Failure);
 
     private sealed record UraObservation(string ScreenId, double Score);

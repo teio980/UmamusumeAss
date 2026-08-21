@@ -77,6 +77,35 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             baseDirectory,
             searchRois: null,
             minimumScoreGap: 0,
+            cancellationToken: cancellationToken);
+
+    public Task<TemplateMatchResult?> WaitForMatchScaledAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        IReadOnlyList<double> scaleCandidates,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchCoreAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            searchRois: null,
+            minimumScoreGap: 0,
+            scaleCandidates,
             cancellationToken);
 
     public Task<TemplateMatchResult?> WaitForMatchInRoisAsync(
@@ -105,7 +134,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             baseDirectory,
             searchRois,
             minimumScoreGap,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
     private async Task<TemplateMatchResult?> WaitForMatchCoreAsync(
         LastVerifiedConnection connection,
@@ -120,6 +149,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         string baseDirectory,
         IReadOnlyList<int[]>? searchRois,
         double minimumScoreGap,
+        IReadOnlyList<double>? scaleCandidates = null,
         CancellationToken cancellationToken = default)
     {
         var template = await LoadTemplateAsync(
@@ -157,7 +187,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     referenceWidth,
                     referenceHeight,
                     searchRois,
-                    minimumScoreGap);
+                    minimumScoreGap,
+                    scaleCandidates);
                 if (bestMatch is null || match.Score > bestMatch.Score)
                     bestMatch = match;
                 if (match.Found)
@@ -180,39 +211,67 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         int referenceWidth,
         int referenceHeight,
         IReadOnlyList<int[]>? searchRois,
-        double minimumScoreGap)
+        double minimumScoreGap,
+        IReadOnlyList<double>? scaleCandidates)
     {
         if (searchRois is not { Count: > 0 })
         {
-            return TemplateMatcher.Find(
-                screen,
-                template,
-                roi,
-                threshold,
-                referenceWidth,
-                referenceHeight);
+            return scaleCandidates is { Count: > 0 }
+                ? TemplateMatcher.FindScaled(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight,
+                    scaleCandidates)
+                : TemplateMatcher.Find(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight);
         }
 
         var candidates = searchRois
             .Where(candidate => candidate is { Length: >= 4 })
-            .Select(candidate => TemplateMatcher.Find(
-                screen,
-                template,
-                candidate,
-                threshold: 0,
-                referenceWidth,
-                referenceHeight))
+            .Select(candidate => scaleCandidates is { Count: > 0 }
+                ? TemplateMatcher.FindScaled(
+                    screen,
+                    template,
+                    candidate,
+                    threshold: 0,
+                    referenceWidth,
+                    referenceHeight,
+                    scaleCandidates)
+                : TemplateMatcher.Find(
+                    screen,
+                    template,
+                    candidate,
+                    threshold: 0,
+                    referenceWidth,
+                    referenceHeight))
             .OrderByDescending(candidate => candidate.Score)
             .ToArray();
         if (candidates.Length == 0)
         {
-            return TemplateMatcher.Find(
-                screen,
-                template,
-                roi,
-                threshold,
-                referenceWidth,
-                referenceHeight);
+            return scaleCandidates is { Count: > 0 }
+                ? TemplateMatcher.FindScaled(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight,
+                    scaleCandidates)
+                : TemplateMatcher.Find(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight);
         }
 
         var best = candidates[0];

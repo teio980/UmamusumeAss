@@ -311,7 +311,32 @@ public sealed class HachimiJsonPipelineRunner
                 + $"(threshold {task.TemplateThreshold:0.000}, timeout {task.TimeoutMilliseconds}ms, "
                 + $"poll {pollInterval}ms).");
 
-            match = task.SearchRois.Count > 0
+            var scaleCandidates = task.ScaleCandidates
+                .Where(double.IsFinite)
+                .Where(candidate => candidate > 0)
+                .ToArray();
+            var useScaledTemplate = algorithm is "matchtemplatescaled";
+            if (useScaledTemplate && scaleCandidates.Length == 0)
+            {
+                scaleCandidates = [0.80d, 0.85d, 0.90d, 0.95d, 1.00d, 1.05d, 1.10d];
+            }
+
+            match = useScaledTemplate
+                ? await _visualRuntime.WaitForMatchScaledAsync(
+                        connection,
+                        templatePath,
+                        roi,
+                        task.TemplateThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        task.TimeoutMilliseconds,
+                        pollInterval,
+                        taskName,
+                        definition.BaseDirectory,
+                        scaleCandidates,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : task.SearchRois.Count > 0
                 ? await _visualRuntime.WaitForMatchInRoisAsync(
                         connection,
                         templatePath,
@@ -453,6 +478,20 @@ public sealed class HachimiJsonPipelineRunner
                     $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), "
                     + $"score {match.Score:0.000} / threshold {task.TemplateThreshold:0.000}.",
                     LogEntryKind.Success);
+                break;
+
+            case "justreturn":
+                // A template can be used as a read-only state probe.  The
+                // support-card picker uses this to detect an already selected
+                // slot without issuing a tap.
+                if (match is not null)
+                {
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"Detected '{taskName}' without clicking (score {match.Score:0.000}).",
+                        LogEntryKind.Success);
+                }
                 break;
 
             case "swipe":

@@ -98,7 +98,7 @@
 
                                                     ],
                                            "onErrorNext":  [
-
+                                                       "home_home_career_active"
                                                            ],
                                            "exceededNext":  [
 
@@ -110,9 +110,184 @@
 
                                                             ],
                                            "maxTimes":  0,
-                                           "required":  true,
-                                           "success":  false
-                                       },
+                                       "required":  true,
+                                       "success":  false
+                                   },
+                  "home_home_career_active":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/home_home_career_active_label.png",
+                                                       "templThreshold":  0.82,
+                                                       "roi":  [
+                                                                   500,
+                                                                   1230,
+                                                                   390,
+                                                                   220
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "waitMs":  0,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "next":  [
+
+                                                               ],
+                                                       "onErrorNext":  [
+
+                                                                       ],
+                                                       "exceededNext":  [
+
+                                                                        ],
+                                                       "sub":  [
+
+                                                               ],
+                                                       "monitorTasks":  [
+
+                                                                        ],
+                                                       "maxTimes":  0,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
+                  "career_continue_resume":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/career_continue_resume.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [
+                                                                 430,
+                                                                 1030,
+                                                                 430,
+                                                                 190
+                                                             ],
+                                                     "preDelay":  0,
+                                                     "postDelay":  900,
+                                                     "waitMs":  0,
+                                                     "timeoutMs":  12000,
+                                                     "pollIntervalMs":  250,
+                                                     "next":  [
+
+                                                             ],
+                                                     "onErrorNext":  [
+
+                                                                     ],
+                                                     "exceededNext":  [
+
+                                                                      ],
+                                                     "sub":  [
+
+                                                             ],
+                                                     "monitorTasks":  [
+
+                                                                      ],
+                                                     "maxTimes":  0,
+                                                     "required":  true,
+                                                     "success":  false
+                                                 },
+                  "career_continue_delete":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/career_continue_delete.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [
+                                                                 620,
+                                                                 400,
+                                                                 280,
+                                                                 180
+                                                             ],
+                                                     "preDelay":  0,
+                                                     "postDelay":  500,
+                                                     "waitMs":  0,
+                                                     "timeoutMs":  12000,
+                                                     "pollIntervalMs":  250,
+                                                     "next":  [
+                                                                 "career_continue_delete_confirm"
+                                                             ],
+                                                     "onErrorNext":  [
+
+                                                                     ],
+                                                     "exceededNext":  [
+
+                                                                      ],
+                                                     "sub":  [
+
+                                                             ],
+                                                     "monitorTasks":  [
+
+                                                                      ],
+                                                     "maxTimes":  0,
+                                                     "required":  true,
+                                                     "success":  false
+                                                 },
+                  "career_continue_delete_confirm":  {
+                                                             "algorithm":  "MatchTemplate",
+                                                             "action":  "ClickSelf",
+                                                             "template":  "templates/career_continue_delete_confirm.png",
+                                                             "templThreshold":  0.78,
+                                                             "roi":  [
+                                                                         430,
+                                                                         930,
+                                                                         430,
+                                                                         210
+                                                                     ],
+                                                             "preDelay":  0,
+                                                             "postDelay":  900,
+                                                             "waitMs":  0,
+                                                             "timeoutMs":  12000,
+                                                             "pollIntervalMs":  250,
+                                                             "next":  [
+                                                                         "career_continue_delete_close"
+                                                                     ],
+                                                             "onErrorNext":  [
+
+                                                                     ],
+                                                             "exceededNext":  [
+
+                                                                      ],
+                                                                     "sub":  [
+
+                                                                     ],
+                                                             "monitorTasks":  [
+
+                                                                      ],
+                                                             "maxTimes":  0,
+                                                             "required":  true,
+                                                             "success":  false
+                                                 },
+                  "career_continue_delete_close":  {
+                                                             "algorithm":  "MatchTemplate",
+                                                             "action":  "ClickSelf",
+                                                             "template":  "templates/career_continue_delete_close.png",
+                                                             "templThreshold":  0.78,
+                                                             "roi":  [
+                                                                         200,
+                                                                         900,
+                                                                         520,
+                                                                         260
+                                                                     ],
+                                                             "preDelay":  0,
+                                                             "postDelay":  900,
+                                                             "waitMs":  0,
+                                                             "timeoutMs":  12000,
+                                                             "pollIntervalMs":  250,
+                                                             "next":  [
+
+                                                                     ],
+                                                             "onErrorNext":  [
+
+                                                                     ],
+                                                             "exceededNext":  [
+
+                                                                     ],
+                                                             "sub":  [
+
+                                                                     ],
+                                                             "monitorTasks":  [
+
+                                                                     ],
+                                                             "maxTimes":  0,
+                                                             "required":  true,
+                                                             "success":  false
+                                                 },
                   "scenario_select_scenario_next":  {
                                                         "algorithm":  "MatchTemplate",
                                                         "action":  "ClickSelf",
@@ -342,7 +517,7 @@
                                                            "template":  "templates/support_select_support_auto_fill.png",
                                                            "templThreshold":  0.78,
                                                            "preDelay":  0,
-                                                           "postDelay":  650,
+                                                           "postDelay":  100,
                                                            "waitMs":  0,
                                                            "timeoutMs":  12000,
                                                            "pollIntervalMs":  250,
@@ -368,21 +543,61 @@
                   "support_select_support_display_settings":  {
                                                                    "algorithm":  "MatchTemplate",
                                                                    "action":  "ClickSelf",
-                                                                   "template":  "templates/support/display_settings.png",
+                                                                   "template":  "templates/support/display_settings_icon.png",
                                                                    "templThreshold":  0.82,
+                                                                   "roi":  [
+                                                                               450,
+                                                                               1240,
+                                                                               350,
+                                                                               220
+                                                                           ],
                                                                    "timeoutMs":  12000,
                                                                    "pollIntervalMs":  250,
                                                                    "postDelay":  250,
                                                                    "required":  true
                                                                },
-                  "support_select_support_sort_uncap":  {
+                  "support_select_support_sort_level":  {
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "ClickSelf",
-                                                               "template":  "templates/support/sort_uncap.png",
+                                                               "template":  "templates/support/sort_level_live.png",
+                                                               "roi":  [
+                                                                           350,
+                                                                           250,
+                                                                           500,
+                                                                           220
+                                                                       ],
                                                                "templThreshold":  0.82,
                                                                "timeoutMs":  12000,
                                                                "pollIntervalMs":  250,
                                                                "postDelay":  100,
+                                                               "onErrorNext":  [
+                                                                               "support_select_support_sort_level_selected"
+                                                                           ],
+                                                               "required":  true
+                                                           },
+                  "support_select_support_sort_level_selected":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "JustReturn",
+                                                               "template":  "templates/support/sort_level_selected.png",
+                                                               "roi":  [
+                                                                           350,
+                                                                           250,
+                                                                           500,
+                                                                           220
+                                                                       ],
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  1000,
+                                                               "pollIntervalMs":  100,
+                                                               "required":  true
+                                                           },
+                  "support_select_support_sort_apply":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/sort_apply.png",
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
+                                                               "postDelay":  450,
                                                                "required":  true
                                                            },
                   "support_select_support_filter_tab":  {
@@ -508,51 +723,68 @@
                   "support_select_support_sort_asc_click":  {
                                                                  "algorithm":  "MatchTemplate",
                                                                  "action":  "ClickSelf",
-                                                                 "template":  "templates/support_cards/sort_asc.png",
-                                                                 "templThreshold":  0.90,
-                                                                 "timeoutMs":  350,
-                                                                 "pollIntervalMs":  50,
+                                                                 "template":  "templates/support/sort_asc_live.png",
+                                                                 "roi":  [
+                                                                             700,
+                                                                             1240,
+                                                                             200,
+                                                                             220
+                                                                         ],
+                                                                 "templThreshold":  0.82,
+                                                                 "timeoutMs":  12000,
+                                                                 "pollIntervalMs":  250,
                                                                  "postDelay":  350,
                                                                  "required":  false
                                                              },
-                  "support_select_support_card_badge":  {
+                  "support_select_support_top_card_ssr":  {
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "ClickSelf",
                                                                "template":  "templates/support_cards/ssr_badge.png",
-                                                               "templThreshold":  0.86,
-                                                               "timeoutMs":  350,
-                                                               "pollIntervalMs":  50,
-                                                               "postDelay":  250,
+                                                               "templThreshold":  0.72,
+                                                               "roi":  [
+                                                                           35,
+                                                                           130,
+                                                                           165,
+                                                                           280
+                                                                       ],
+                                                               "timeoutMs":  1200,
+                                                               "pollIntervalMs":  60,
+                                                               "postDelay":  450,
+                                                               "onErrorNext":  [
+                                                                               "support_select_support_top_card_sr"
+                                                                           ],
                                                                "required":  true
                                                            },
-                  "support_select_support_card_selected":  {
+                  "support_select_support_top_card_sr":  {
                                                                "algorithm":  "MatchTemplate",
-                                                               "action":  "JustReturn",
-                                                               "template":  "templates/support/selected.png",
-                                                               "templThreshold":  0.82,
-                                                               "timeoutMs":  350,
-                                                               "pollIntervalMs":  50,
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support_cards/sr_badge.png",
+                                                               "templThreshold":  0.72,
+                                                               "roi":  [
+                                                                           35,
+                                                                           130,
+                                                                           165,
+                                                                           280
+                                                                       ],
+                                                               "timeoutMs":  1200,
+                                                               "pollIntervalMs":  60,
+                                                               "postDelay":  450,
                                                                "required":  true
                                                            },
-                  "support_select_support_reset":  {
-                                                        "algorithm":  "MatchTemplate",
-                                                        "action":  "ClickSelf",
-                                                        "template":  "templates/support_select_support_reset.png",
-                                                        "templThreshold":  0.82,
-                                                        "preDelay":  0,
-                                                        "postDelay":  450,
-                                                        "waitMs":  0,
-                                                        "timeoutMs":  12000,
-                                                        "pollIntervalMs":  250,
-                                                        "next":  [],
-                                                        "onErrorNext":  [],
-                                                        "exceededNext":  [],
-                                                        "sub":  [],
-                                                        "monitorTasks":  [],
-                                                        "maxTimes":  0,
-                                                        "required":  true,
-                                                        "success":  false
-                                                    },
+                  "support_select_support_card_identity":  {
+                                                                  "algorithm":  "MatchTemplate",
+                                                                  "action":  "JustReturn",
+                                                                  "template":  "templates/support_cards/30028.png",
+                                                                  "templThreshold":  0.84,
+                                                                  "searchRois":  [],
+                                                                  "minScoreGap":  0.08,
+                                                                  "preDelay":  0,
+                                                                  "postDelay":  0,
+                                                                  "waitMs":  0,
+                                                                  "timeoutMs":  180,
+                                                                  "pollIntervalMs":  40,
+                                                                  "required":  true
+                                                              },
                    "support_select_support_open":  {
                                                         "algorithm":  "MatchTemplate",
                                                         "action":  "ClickSelf",
@@ -595,6 +827,64 @@
                                                        "required":  true,
                                                        "success":  false
                                                    },
+                  "support_select_support_card_exact":  {
+                                                               "algorithm":  "MatchTemplateScaled",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support_cards/30028.png",
+                                                               "templThreshold":  0.78,
+                                                               "searchRois":  [],
+                                                               "minScoreGap":  0.0,
+                                                               "scaleCandidates":  [
+                                                                                       0.80,
+                                                                                       0.85,
+                                                                                       0.90,
+                                                                                       0.95,
+                                                                                       1.0,
+                                                                                       1.05,
+                                                                                       1.10
+                                                                                   ],
+                                                               "preDelay":  0,
+                                                               "postDelay":  450,
+                                                               "waitMs":  0,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
+                                                               "next":  [],
+                                                               "onErrorNext":  [
+                                                                                   "support_select_support_card_exact_scroll"
+                                                                               ],
+                                                               "exceededNext":  [],
+                                                               "sub":  [],
+                                                               "monitorTasks":  [],
+                                                               "maxTimes":  8,
+                                                               "required":  true,
+                                                               "success":  false
+                                                           },
+                   "support_select_support_card_exact_scroll":  {
+                                                                    "algorithm":  "JustReturn",
+                                                                    "action":  "Swipe",
+                                                                    "swipe":  [
+                                                                                  450,
+                                                                                  1300,
+                                                                                  450,
+                                                                                  450,
+                                                                                  600
+                                                                              ],
+                                                                    "preDelay":  0,
+                                                                    "postDelay":  350,
+                                                                    "waitMs":  0,
+                                                                    "timeoutMs":  0,
+                                                                    "pollIntervalMs":  0,
+                                                                    "next":  [
+                                                                                "support_select_support_card_exact"
+                                                                            ],
+                                                                    "onErrorNext":  [],
+                                                                    "exceededNext":  [],
+                                                                    "sub":  [],
+                                                                    "monitorTasks":  [],
+                                                                    "maxTimes":  0,
+                                                                    "required":  true,
+                                                                    "success":  false
+                                                                },
                    "support_select_support_card_scroll":  {
                                                                "algorithm":  "JustReturn",
                                                                "action":  "Swipe",
@@ -621,51 +911,6 @@
                                                                "required":  true,
                                                                "success":  false
                                                            },
-                   "support_select_support_scroll_top":  {
-                                                               "algorithm":  "JustReturn",
-                                                               "action":  "Swipe",
-                                                               "swipe":  [
-                                                                             450,
-                                                                             500,
-                                                                             450,
-                                                                             1350,
-                                                                             600
-                                                                         ],
-                                                               "preDelay":  0,
-                                                               "postDelay":  150,
-                                                               "waitMs":  0,
-                                                               "timeoutMs":  0,
-                                                               "pollIntervalMs":  0,
-                                                               "next":  [
-                                                                           "support_select_support_scroll_top"
-                                                                       ],
-                                                               "onErrorNext":  [],
-                                                               "exceededNext":  [
-                                                                                     "support_select_support_scroll_top_done"
-                                                                                 ],
-                                                               "sub":  [],
-                                                               "monitorTasks":  [],
-                                                               "maxTimes":  3,
-                                                               "required":  true,
-                                                               "success":  false
-                                                           },
-                   "support_select_support_scroll_top_done":  {
-                                                                   "algorithm":  "JustReturn",
-                                                                   "action":  "Wait",
-                                                                   "preDelay":  0,
-                                                                   "postDelay":  0,
-                                                                   "waitMs":  0,
-                                                                   "timeoutMs":  0,
-                                                                   "pollIntervalMs":  0,
-                                                                   "next":  [],
-                                                                   "onErrorNext":  [],
-                                                                   "exceededNext":  [],
-                                                                   "sub":  [],
-                                                                   "monitorTasks":  [],
-                                                                   "maxTimes":  0,
-                                                                   "required":  true,
-                                                                   "success":  true
-                                                               },
                    "support_select_support_close":  {
                                                         "algorithm":  "MatchTemplate",
                                                         "action":  "ClickSelf",
@@ -685,35 +930,6 @@
                                                         "required":  true,
                                                         "success":  false
                                                     },
-                  "support_select_support_reset_confirm":  {
-                                                               "algorithm":  "MatchTemplate",
-                                                               "action":  "ClickSelf",
-                                                               "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",
-                                                               "templThreshold":  0.78,
-                                                               "preDelay":  0,
-                                                               "postDelay":  450,
-                                                               "waitMs":  0,
-                                                               "timeoutMs":  12000,
-                                                               "pollIntervalMs":  250,
-                                                               "next":  [
-
-                                                                        ],
-                                                               "onErrorNext":  [
-
-                                                                       ],
-                                                               "exceededNext":  [
-
-                                                                        ],
-                                                               "sub":  [
-
-                                                                       ],
-                                                               "monitorTasks":  [
-
-                                                                        ],
-                                                               "maxTimes":  0,
-                                                               "required":  true,
-                                                               "success":  false
-                                                           },
                   "support_autofill_confirmation_support_autofill_ok":  {
                                                                             "algorithm":  "MatchTemplate",
                                                                             "action":  "ClickSelf",

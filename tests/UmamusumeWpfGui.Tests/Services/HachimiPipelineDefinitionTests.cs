@@ -6,6 +6,8 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class HachimiPipelineDefinitionTests
 {
+    private static readonly int[] TopCardRoi = [35, 130, 165, 280];
+
     [Theory]
     [InlineData("mail_collection.json", "Home")]
     [InlineData("team_race.json", "RaceTab")]
@@ -26,6 +28,31 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains(expectedTask, definition.Tasks.Keys, StringComparer.OrdinalIgnoreCase);
         Assert.True(definition.ReferenceWidth > 0);
         Assert.True(definition.ReferenceHeight > 0);
+    }
+
+    [Fact]
+    public async Task Career_delete_closes_the_deleted_data_dialog_with_a_template()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+        var deleteConfirm = definition!.GetTask("career_continue_delete_confirm");
+        var close = definition.GetTask("career_continue_delete_close");
+
+        Assert.Equal("career_continue_delete_close", deleteConfirm.Next.Single(), ignoreCase: true);
+        Assert.Equal("ClickSelf", close.Action, ignoreCase: true);
+        Assert.Equal("templates/career_continue_delete_close.png", close.Template);
+        Assert.Equal([200, 900, 520, 260], close.Roi!);
+        Assert.True(File.Exists(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            close.Template!)));
     }
 
     [Fact]
@@ -432,47 +459,28 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Ura_support_reset_confirms_before_opening_card_picker()
+    public void Ura_support_ready_recognition_uses_the_start_template()
     {
         var root = FindSolutionRoot();
-        var executionPath = Path.Combine(
+        var json = File.ReadAllText(Path.Combine(
             root,
             "resource",
             "hachimi",
             "ura",
             "screens",
-            "execution.json");
-        var screenProfilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
-        var confirm = definition!.GetTask("support_select_support_reset_confirm");
-        Assert.Equal("MatchTemplate", confirm.Algorithm, ignoreCase: true);
-        Assert.Equal("ClickSelf", confirm.Action, ignoreCase: true);
-        Assert.Equal(
-            "templates/support_autofill_confirmation_support_autofill_ok.png",
-            confirm.Template);
-        Assert.Null(confirm.Roi);
-
-        using var document = System.Text.Json.JsonDocument.Parse(
-            File.ReadAllText(screenProfilePath));
-        var supportSelect = document.RootElement
+            "screen_profile.json"));
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        var supportReady = document.RootElement
             .GetProperty("screens")
             .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
-        var resetConfirm = supportSelect
-            .GetProperty("actions")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("semanticId").GetString() == "support.reset_confirm");
+            .Single(item => item.GetProperty("screenId").GetString() == "support_ready");
+        var recognition = supportReady.GetProperty("recognition");
+
         Assert.Equal(
-            "support_select_support_reset_confirm",
-            resetConfirm.GetProperty("task").GetString());
+            "templates/support_ready_support_start.png",
+            recognition.GetProperty("template").GetString());
+        Assert.Equal(0.44, recognition.GetProperty("templThreshold").GetDouble());
+        Assert.False(recognition.TryGetProperty("roi", out _));
     }
 
     [Fact]
@@ -487,7 +495,8 @@ public sealed class HachimiPipelineDefinitionTests
         {
             "support_select_support_auto_fill",
             "support_select_support_display_settings",
-            "support_select_support_sort_uncap",
+            "support_select_support_sort_level",
+            "support_select_support_sort_apply",
             "support_select_support_filter_tab",
             "support_select_support_filter_reset",
             "support_select_support_filter_r",
@@ -500,8 +509,8 @@ public sealed class HachimiPipelineDefinitionTests
             "support_select_support_filter_wit",
             "support_select_support_filter_friend",
             "support_select_support_filter_apply",
-            "support_select_support_reset",
-            "support_select_support_reset_confirm",
+            "support_select_support_top_card_ssr",
+            "support_select_support_top_card_sr",
             "support_select_support_open",
             "support_select_support_close",
             "support_select_support_start",
@@ -515,6 +524,71 @@ public sealed class HachimiPipelineDefinitionTests
         }
 
         Assert.Null(definition!.GetTask("support_select_support_card").Roi);
+        var exactCard = definition.GetTask("support_select_support_card_exact");
+        Assert.Equal("MatchTemplateScaled", exactCard.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", exactCard.Action, ignoreCase: true);
+        Assert.False(string.IsNullOrWhiteSpace(exactCard.Template));
+        Assert.Null(exactCard.Roi);
+        Assert.Equal(
+            "support_select_support_card_exact_scroll",
+            exactCard.OnErrorNext.Single());
+        var exactScroll = definition.GetTask("support_select_support_card_exact_scroll");
+        Assert.Equal("Swipe", exactScroll.Action, ignoreCase: true);
+        Assert.Equal(
+            "support_select_support_card_exact",
+            exactScroll.Next.Single());
+        Assert.Equal(
+            "support_select_support_card_exact",
+            GetSupportActionTask(root, "support.ranked.select_exact_card"));
+        var topCard = definition.GetTask("support_select_support_top_card_ssr");
+        Assert.Equal(TopCardRoi, topCard.Roi);
+        Assert.Equal(
+            "support_select_support_top_card_sr",
+            topCard.OnErrorNext.Single());
+        Assert.Equal(
+            "support_select_support_top_card_ssr",
+            GetSupportActionTask(root, "support.ranked.select_highest_card"));
+        Assert.Equal(
+            "templates/support/sort_level_live.png",
+            definition.GetTask("support_select_support_sort_level").Template);
+        Assert.Equal(
+            "support_select_support_sort_level_selected",
+            definition.GetTask("support_select_support_sort_level").OnErrorNext.Single());
+        var selectedSort = definition.GetTask("support_select_support_sort_level_selected");
+        Assert.Equal("JustReturn", selectedSort.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support/sort_level_selected.png",
+            selectedSort.Template);
+        Assert.True(File.Exists(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "support_cards",
+            "r_badge.png")));
+    }
+
+    private static string GetSupportActionTask(string root, string semanticId)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json")));
+        var supportSelect = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
+        return supportSelect
+            .GetProperty("actions")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("semanticId").GetString() == semanticId)
+            .GetProperty("task")
+            .GetString()!;
     }
 
     private static string FindSolutionRoot()

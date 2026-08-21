@@ -43,8 +43,12 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         ["scenarioId"] = Settings.ScenarioId,
         ["manifestPath"] = Settings.ManifestPath,
         ["traineeId"] = Settings.TraineeId,
+        ["continueExistingCareer"] = Settings.ContinueExistingCareer,
         ["supportDeckMode"] = Settings.SupportDeckMode,
         ["supportDeckPreset"] = Settings.SupportDeckPreset,
+        ["friendSupportCardId"] = Settings.FriendSupportCardId is { } friendSupportCardId
+            ? JsonValue.Create(friendSupportCardId)
+            : null,
         ["supportCardIds"] = new JsonArray(Settings.ParseSupportCardIds()
             .Select(id => (JsonNode?)JsonValue.Create(id))
             .ToArray()),
@@ -69,6 +73,10 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         Settings.ManifestPath = MigrateManifestPath(manifestPath ?? Settings.ManifestPath);
         Settings.ScenarioId = ReadString(settings, "scenarioId") ?? Settings.ScenarioId;
         Settings.TraineeId = ReadNullableInt(settings, "traineeId") ?? Settings.TraineeId;
+        Settings.ContinueExistingCareer = ReadBool(
+            settings,
+            "continueExistingCareer",
+            Settings.ContinueExistingCareer);
         var supportCardIds = settings["supportCardIds"] is JsonArray cards
             ? string.Join(",", cards
                 .Select(item => item?.GetValue<int>())
@@ -80,6 +88,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
             ?? (string.IsNullOrWhiteSpace(supportCardIds) ? "auto" : "selected");
         Settings.SupportDeckPreset = ReadString(settings, "supportDeckPreset")
             ?? Settings.SupportDeckPreset;
+        Settings.FriendSupportCardId = ReadNullableInt(settings, "friendSupportCardId");
         Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
         Settings.PauseOnUnknownOutcome = ReadBool(
             settings,
@@ -136,14 +145,23 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
 
         try
         {
+            var continueExistingCareer = Settings.ContinueExistingCareer;
+            context.LogSink?.Add(
+                "Career Training",
+                continueExistingCareer
+                    ? "Career entry policy: Resume existing Career."
+                    : "Career entry policy: Delete Career data, then start fresh.");
+
             var result = await _pipeline.RunAsync(
                     connection,
                     new CareerTrainingSettings(
                         Settings.ManifestPath,
                         Settings.TraineeId!.Value,
+                        continueExistingCareer,
                         Settings.ParseSupportCardIds(),
                         Settings.SupportDeckMode,
                         Settings.SupportDeckPreset,
+                        Settings.FriendSupportCardId,
                         Settings.StrategyId,
                         Settings.PauseOnUnknownOutcome,
                         Settings.AllowOptionalRaces,

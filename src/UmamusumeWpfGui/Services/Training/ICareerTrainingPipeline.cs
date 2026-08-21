@@ -20,9 +20,11 @@ public interface ICareerTrainingPipeline
 public sealed record CareerTrainingSettings(
     string ManifestPath,
     int TraineeId,
+    bool ContinueExistingCareer,
     IReadOnlyList<int> SupportCardIds,
     string SupportDeckMode,
     string SupportDeckPreset,
+    int? FriendSupportCardId,
     string StrategyId,
     bool PauseOnUnknownOutcome,
     bool AllowOptionalRaces,

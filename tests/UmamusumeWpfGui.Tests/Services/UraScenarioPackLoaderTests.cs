@@ -6,7 +6,15 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class UraScenarioPackLoaderTests
 {
     private static readonly string[] SupportedExecutionActions =
-        ["ClickSelf", "ClickRect", "SelectUraTrainee"];
+        [
+            "ClickSelf",
+            "ClickRect",
+            "SelectUraTrainee",
+            "JustReturn",
+            "Swipe",
+            "Wait",
+            "SelectUraLegacy",
+        ];
     private static readonly int[] ScenarioHeaderRoi = [0, 190, 430, 80];
     private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];
     private static readonly int[] ScenarioNextCardRect = [815, 650, 75, 180];
@@ -43,8 +51,39 @@ public sealed class UraScenarioPackLoaderTests
                 task.Action,
                 SupportedExecutionActions));
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "home");
+        Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_continue");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_complete");
         Assert.Equal("home", pack.ScreenProfile.Find("home")?.EntryTask);
+        Assert.Equal(
+            "templates/career_continue_header.png",
+            pack.ScreenProfile.Find("career_continue")?.Recognition.Template);
+        Assert.Equal(
+            "career_continue_resume",
+            pack.ScreenProfile.Find("career_continue")?.FindAction("resume")?.Task);
+        Assert.Equal(
+            "career_continue_delete",
+            pack.ScreenProfile.Find("career_continue")?.FindAction("delete")?.Task);
+        Assert.Equal(
+            "templates/career_continue_resume.png",
+            pack.ExecutionDefinition.Tasks["career_continue_resume"].Template);
+        Assert.Equal(
+            "templates/career_continue_delete.png",
+            pack.ExecutionDefinition.Tasks["career_continue_delete"].Template);
+        Assert.Equal(
+            "templates/career_continue_delete_confirm.png",
+            pack.ExecutionDefinition.Tasks["career_continue_delete_confirm"].Template);
+        Assert.Contains(
+            "career_continue_delete_confirm",
+            pack.ExecutionDefinition.Tasks["career_continue_delete"].Next);
+        Assert.Equal(
+            "support_select_support_display_settings",
+            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.display_settings")?.Task);
+        Assert.Equal(
+            "support_select_support_sort_level",
+            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.sort_level")?.Task);
+        Assert.Equal(
+            "support_select_support_sort_apply",
+            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.sort_apply")?.Task);
         Assert.Equal(
             "templates/scenario_select_header.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.Template);
@@ -86,6 +125,18 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["home"].Next);
         Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["homeAlt"].Next);
+        Assert.Equal(
+            "templates/home_home_career.png",
+            pack.ExecutionDefinition.Tasks["home_home_career"].Template);
+        Assert.Contains(
+            "home_home_career_active",
+            pack.ExecutionDefinition.Tasks["home_home_career"].OnErrorNext);
+        Assert.Equal(
+            "templates/home_home_career_active_label.png",
+            pack.ExecutionDefinition.Tasks["home_home_career_active"].Template);
+        Assert.Equal(
+            "ClickSelf",
+            pack.ExecutionDefinition.Tasks["home_home_career_active"].Action);
     }
 
     [Fact]

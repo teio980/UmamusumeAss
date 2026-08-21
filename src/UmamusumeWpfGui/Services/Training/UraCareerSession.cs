@@ -435,6 +435,12 @@ public sealed class UraDefaultStrategy
 
 public static class UraStrategyRegistry
 {
+    public static bool IsRegistered(string? strategyId) =>
+        string.Equals(
+            strategyId?.Trim(),
+            "default-speed-medium",
+            StringComparison.OrdinalIgnoreCase);
+
     public static UraDefaultStrategy Create(string strategyId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(strategyId);

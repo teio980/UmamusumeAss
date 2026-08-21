@@ -406,13 +406,24 @@ public sealed class UraScreenDefinition
 
     public IReadOnlyList<string> Templates => Recognition.GetTemplates();
 
-    public UraScreenAction? FindAction(string actionId) =>
-        Actions.FirstOrDefault(item =>
-            string.Equals(item.SemanticId, actionId, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(
-                item.SemanticId.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(),
-                actionId,
-                StringComparison.OrdinalIgnoreCase));
+    public UraScreenAction? FindAction(string actionId)
+    {
+        var normalizedActionId = actionId.Trim();
+        if (normalizedActionId.Length == 0)
+            return null;
+
+        return Actions.FirstOrDefault(item =>
+                   string.Equals(item.SemanticId, normalizedActionId, StringComparison.OrdinalIgnoreCase))
+            ?? Actions.FirstOrDefault(item =>
+                item.SemanticId.EndsWith(
+                    "." + normalizedActionId,
+                    StringComparison.OrdinalIgnoreCase))
+            ?? Actions.FirstOrDefault(item =>
+                string.Equals(
+                    item.SemanticId.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(),
+                    normalizedActionId,
+                    StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 public sealed class UraScreenRecognition

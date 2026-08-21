@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
@@ -19,14 +20,18 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _manifestPath = DefaultManifestPath;
     private int? _traineeId = 100601;
     private string _supportCardIdsText = string.Empty;
+    private int? _friendSupportCardId;
     private string _supportDeckMode = "auto";
     private string _supportDeckPreset = "custom";
     private string _supportCardSearchText = string.Empty;
     private string _supportCardTypeFilter = "all";
+    private string _friendSupportCardSearchText = string.Empty;
+    private string _friendSupportCardTypeFilter = "all";
     private bool _updatingSupportCards;
     private string _strategyId = DefaultStrategyId;
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
+    private bool _continueExistingCareer;
     private string _legacySelectionMode = "auto";
     private bool _useLegacyGuest;
     private bool _useCachedLegacy = true;
@@ -35,6 +40,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _isTraineeDropDownOpen;
     private readonly List<CareerTraineeOption> _allTraineeOptions = [];
     private readonly List<CareerSupportCardOption> _allSupportCardOptions = [];
+    private bool _updatingFriendSupportCards;
 
     public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
@@ -52,6 +58,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public ObservableCollection<CareerTraineeOption> FilteredTraineeOptions { get; } = [];
 
     public ObservableCollection<CareerSupportCardOption> FilteredSupportCardOptions { get; } = [];
+
+    public ObservableCollection<CareerFriendSupportCardOption> FriendSupportCardOptions { get; } = [];
+
+    public ObservableCollection<CareerFriendSupportCardOption> FilteredFriendSupportCardOptions { get; } = [];
 
     public ObservableCollection<CareerSupportCardTypeOption> SupportCardTypeOptions { get; } = [];
 
@@ -156,6 +166,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         set => TraineeId = value?.TraineeId;
     }
 
+    public bool ContinueExistingCareer
+    {
+        get => _continueExistingCareer;
+        set => Set(ref _continueExistingCareer, value);
+    }
+
     public string SupportCardIdsText
     {
         get => _supportCardIdsText;
@@ -167,6 +183,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 ApplySupportCardIdsText();
             OnPropertyChanged(nameof(SelectedSupportCardCount));
             OnPropertyChanged(nameof(SelectedSupportCardCountText));
+            OnPropertyChanged(nameof(SupportCardDrawerHeader));
+            OnPropertyChanged(nameof(IsSupportDeckValid));
         }
     }
 
@@ -195,11 +213,22 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 }
                 OnPropertyChanged(nameof(SelectedSupportCardCount));
                 OnPropertyChanged(nameof(SelectedSupportCardCountText));
+                OnPropertyChanged(nameof(SupportCardDrawerHeader));
             }
 
             OnPropertyChanged(nameof(IsManualSupportDeck));
             OnPropertyChanged(nameof(IsSupportPresetMode));
             OnPropertyChanged(nameof(IsHighestStarSupportDeck));
+            OnPropertyChanged(nameof(IsFriendSupportCardSettingEnabled));
+            OnPropertyChanged(nameof(IsSupportDeckValid));
+
+            if (IsHighestStarSupportDeck
+                && SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
+            {
+                SupportDeckPreset = SupportDeckPresets
+                    .First(item => !item.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
+                    .Value;
+            }
         }
     }
 
@@ -211,6 +240,97 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     public bool IsHighestStarSupportDeck =>
         SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsFriendSupportCardSettingEnabled => IsSupportPresetMode;
+
+    public int? FriendSupportCardId
+    {
+        get => _friendSupportCardId;
+        set
+        {
+            var normalized = value is > 0
+                && FriendSupportCardOptions.Any(item => item.SupportCardId == value)
+                ? value
+                : null;
+            if (!Set(ref _friendSupportCardId, normalized))
+                return;
+            SetFriendSupportCardOptionSelection(normalized);
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCount));
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
+            OnPropertyChanged(nameof(FriendSupportCardDrawerHeader));
+            OnPropertyChanged(nameof(IsSupportDeckValid));
+        }
+    }
+
+    public bool IsSupportDeckValid
+    {
+        get
+        {
+            if (SupportDeckMode.Equals("auto", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (IsHighestStarSupportDeck)
+            {
+                if (SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                return IsValidFriendSupportCard();
+            }
+
+            IReadOnlyList<int> ids;
+            try
+            {
+                ids = ParseSupportCardIds();
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+
+            if (ids.Count is not (5 or 6)
+                || _umaDatabase is null
+                || (FriendSupportCardId is > 0 && ids.Count != 5)
+                || !IsValidFriendSupportCard(allowCustomPreset: true))
+                return false;
+
+            var cards = new List<UmaSupportCardRecord>(ids.Count + 1);
+            foreach (var id in ids)
+            {
+                if (!_umaDatabase.TryGetSupportCard(id, out var card)
+                    || card is null
+                    || !card.Available)
+                {
+                    return false;
+                }
+
+                cards.Add(card);
+            }
+
+            if (FriendSupportCardId is > 0
+                && _umaDatabase.TryGetSupportCard(FriendSupportCardId.Value, out var friendCard)
+                && friendCard is not null)
+            {
+                cards.Add(friendCard);
+            }
+
+            var requiredTypes = GetRequiredSupportTypes(SupportDeckPreset);
+            if (requiredTypes is null)
+                return SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase);
+
+            if (cards.Count != 6)
+                return false;
+
+            var actualTypes = cards
+                .GroupBy(card => card.Type, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Count(),
+                    StringComparer.OrdinalIgnoreCase);
+            return requiredTypes.All(required =>
+                actualTypes.TryGetValue(required.Key, out var actual)
+                && actual == required.Value);
+        }
+    }
 
     public string SupportCardSearchText
     {
@@ -241,11 +361,61 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    public string FriendSupportCardSearchText
+    {
+        get => _friendSupportCardSearchText;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (_friendSupportCardSearchText == normalized)
+                return;
+            _friendSupportCardSearchText = normalized;
+            OnPropertyChanged();
+            ApplyFriendSupportCardSearch();
+        }
+    }
+
+    public string FriendSupportCardTypeFilter
+    {
+        get => _friendSupportCardTypeFilter;
+        set
+        {
+            var normalized = SupportCardTypeOptions.Any(item =>
+                    item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ? value
+                : "all";
+            if (!Set(ref _friendSupportCardTypeFilter, normalized))
+                return;
+            ApplyFriendSupportCardSearch();
+        }
+    }
+
     public int SelectedSupportCardCount =>
         _allSupportCardOptions.Count(item => item.IsSelected);
 
     public string SelectedSupportCardCountText =>
-        $"Selected {SelectedSupportCardCount}/6";
+        $"Selected {SelectedSupportCardCount}/5";
+
+    public int SelectedFriendSupportCardCount =>
+        FriendSupportCardOptions.Count(item => item.IsSelected && item.SupportCardId > 0);
+
+    public string SelectedFriendSupportCardCountText =>
+        $"Selected {SelectedFriendSupportCardCount}/1";
+
+    public string FriendSupportCardDrawerHeader
+    {
+        get
+        {
+            var selected = FriendSupportCardOptions.FirstOrDefault(item =>
+                item.IsSelected && item.SupportCardId > 0);
+            return selected is null
+                ? $"Friend support card ({SelectedFriendSupportCardCount}/1): None selected"
+                : $"Friend support card ({SelectedFriendSupportCardCount}/1): {selected.Label}";
+        }
+    }
+
+    public string SupportCardDrawerHeader =>
+        $"Own support cards ({SelectedSupportCardCount}/5)";
 
     public string SupportDeckPreset
     {
@@ -256,7 +426,16 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                     item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
                 ? value
                 : "custom";
-            Set(ref _supportDeckPreset, normalized);
+            if (IsHighestStarSupportDeck
+                && normalized.Equals("custom", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = SupportDeckPresets
+                    .First(item => !item.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
+                    .Value;
+            }
+            if (!Set(ref _supportDeckPreset, normalized))
+                return;
+            OnPropertyChanged(nameof(IsSupportDeckValid));
         }
     }
 
@@ -343,8 +522,88 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(ManifestPath)
+        && ManifestFileExists()
         && TraineeId is > 0
-        && !string.IsNullOrWhiteSpace(StrategyId);
+        && !string.IsNullOrWhiteSpace(StrategyId)
+        && UraStrategyRegistry.IsRegistered(StrategyId)
+        && IsSupportDeckValid;
+
+    private bool ManifestFileExists()
+    {
+        try
+        {
+            return File.Exists(Path.GetFullPath(ManifestPath));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private bool IsValidFriendSupportCard(bool allowCustomPreset = false)
+    {
+        if (FriendSupportCardId is not > 0)
+            return true;
+
+        if (_umaDatabase is null
+            || !_umaDatabase.TryGetSupportCard(FriendSupportCardId.Value, out var card)
+            || card is null
+            || !card.Available)
+        {
+            return false;
+        }
+
+        var requiredTypes = GetRequiredSupportTypes(SupportDeckPreset);
+        if (requiredTypes is null)
+            return allowCustomPreset;
+
+        // The friend1 preset means five own cards plus one guest card, so
+        // the guest may be any available support-card type.
+        if (requiredTypes.ContainsKey("Friend"))
+            return true;
+
+        var guestType = card.Type?.Trim();
+        return !string.IsNullOrWhiteSpace(guestType)
+            && requiredTypes.TryGetValue(guestType, out var requiredCount)
+            && requiredCount > 0;
+    }
+
+    private static Dictionary<string, int>? GetRequiredSupportTypes(
+        string supportDeckPreset) =>
+        supportDeckPreset.ToLowerInvariant() switch
+        {
+            "speed3-stamina3" => new Dictionary<string, int>
+            {
+                ["Speed"] = 3,
+                ["Stamina"] = 3,
+            },
+            "speed3-stamina2-wit1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 3,
+                ["Stamina"] = 2,
+                ["Wit"] = 1,
+            },
+            "speed2-stamina2-power1-wit1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 2,
+                ["Stamina"] = 2,
+                ["Power"] = 1,
+                ["Wit"] = 1,
+            },
+            "speed2-stamina1-power1-wit1-friend1" => new Dictionary<string, int>
+            {
+                ["Speed"] = 2,
+                ["Stamina"] = 1,
+                ["Power"] = 1,
+                ["Wit"] = 1,
+                ["Friend"] = 1,
+            },
+            _ => null,
+        };
 
     internal void SetStatus(string status) => Status = status;
 
@@ -399,6 +658,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         var selectedIds = ParseSupportCardIdSet(_supportCardIdsText);
         _allSupportCardOptions.Clear();
         FilteredSupportCardOptions.Clear();
+        FriendSupportCardOptions.Clear();
+        FilteredFriendSupportCardOptions.Clear();
         SupportCardTypeOptions.Clear();
         SupportCardTypeOptions.Add(new("all", "All types"));
 
@@ -425,7 +686,31 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 };
                 option.PropertyChanged += OnSupportCardOptionChanged;
                 _allSupportCardOptions.Add(option);
+
+                var label = string.IsNullOrWhiteSpace(card.NameEn)
+                    ? $"Support card {card.SupportCardId.ToString(CultureInfo.InvariantCulture)}"
+                    : card.NameEn;
+                var typeLabel = string.IsNullOrWhiteSpace(card.Type)
+                    ? "type unknown"
+                    : card.Type.Trim();
+                var friendOption = new CareerFriendSupportCardOption(
+                    card.SupportCardId,
+                    label,
+                    typeLabel,
+                    GetSupportRarityLabel(card.Rarity),
+                    card.ImageUrl)
+                {
+                    IsSelected = card.SupportCardId == _friendSupportCardId,
+                };
+                friendOption.PropertyChanged += OnFriendSupportCardOptionChanged;
+                FriendSupportCardOptions.Add(friendOption);
             }
+        }
+
+        if (_friendSupportCardId is not > 0
+            || !FriendSupportCardOptions.Any(item => item.SupportCardId == _friendSupportCardId))
+        {
+            _friendSupportCardId = null;
         }
 
         if (!SupportCardTypeOptions.Any(item =>
@@ -435,9 +720,75 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(SupportCardTypeFilter));
         }
 
+        if (!SupportCardTypeOptions.Any(item =>
+                item.Value.Equals(_friendSupportCardTypeFilter, StringComparison.OrdinalIgnoreCase)))
+        {
+            _friendSupportCardTypeFilter = "all";
+            OnPropertyChanged(nameof(FriendSupportCardTypeFilter));
+        }
+
         ApplySupportCardSearch();
+        ApplyFriendSupportCardSearch();
         OnPropertyChanged(nameof(SelectedSupportCardCount));
         OnPropertyChanged(nameof(SelectedSupportCardCountText));
+        OnPropertyChanged(nameof(SupportCardDrawerHeader));
+        OnPropertyChanged(nameof(FriendSupportCardId));
+        OnPropertyChanged(nameof(SelectedFriendSupportCardCount));
+        OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
+        OnPropertyChanged(nameof(FriendSupportCardDrawerHeader));
+        OnPropertyChanged(nameof(IsSupportDeckValid));
+    }
+
+    private void OnFriendSupportCardOptionChanged(
+        object? sender,
+        PropertyChangedEventArgs e)
+    {
+        if (_updatingFriendSupportCards
+            || sender is not CareerFriendSupportCardOption option
+            || e.PropertyName != nameof(CareerFriendSupportCardOption.IsSelected))
+        {
+            return;
+        }
+
+        if (option.IsSelected)
+        {
+            _updatingFriendSupportCards = true;
+            foreach (var item in FriendSupportCardOptions)
+                item.IsSelected = ReferenceEquals(item, option);
+            _updatingFriendSupportCards = false;
+
+            _friendSupportCardId = option.SupportCardId > 0
+                ? option.SupportCardId
+                : null;
+            OnPropertyChanged(nameof(FriendSupportCardId));
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCount));
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
+            OnPropertyChanged(nameof(FriendSupportCardDrawerHeader));
+            OnPropertyChanged(nameof(IsSupportDeckValid));
+            return;
+        }
+
+        if (option.SupportCardId > 0
+            && _friendSupportCardId == option.SupportCardId)
+        {
+            _friendSupportCardId = null;
+            OnPropertyChanged(nameof(FriendSupportCardId));
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCount));
+            OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
+            OnPropertyChanged(nameof(FriendSupportCardDrawerHeader));
+            OnPropertyChanged(nameof(IsSupportDeckValid));
+        }
+    }
+
+    private void SetFriendSupportCardOptionSelection(int? supportCardId)
+    {
+        if (FriendSupportCardOptions.Count == 0)
+            return;
+
+        _updatingFriendSupportCards = true;
+        foreach (var option in FriendSupportCardOptions)
+            option.IsSelected = option.SupportCardId == supportCardId;
+        _updatingFriendSupportCards = false;
     }
 
     private bool HasRunnerTemplate(UmaTraineeRecord trainee) =>
@@ -490,6 +841,24 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    private void ApplyFriendSupportCardSearch()
+    {
+        var query = FriendSupportCardSearchText;
+        var type = FriendSupportCardTypeFilter;
+        FilteredFriendSupportCardOptions.Clear();
+        foreach (var option in FriendSupportCardOptions)
+        {
+            var typeMatches = type.Equals("all", StringComparison.OrdinalIgnoreCase)
+                || option.Type.Equals(type, StringComparison.OrdinalIgnoreCase);
+            var textMatches = string.IsNullOrWhiteSpace(query)
+                || option.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.SupportCardId.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase);
+            if (typeMatches && textMatches)
+                FilteredFriendSupportCardOptions.Add(option);
+        }
+    }
+
     private void ApplySupportCardIdsText()
     {
         var selectedIds = ParseSupportCardIdSet(_supportCardIdsText);
@@ -508,12 +877,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (option.IsSelected && SelectedSupportCardCount > 6)
+        if (option.IsSelected && SelectedSupportCardCount > 5)
         {
             _updatingSupportCards = true;
             option.IsSelected = false;
             _updatingSupportCards = false;
-            SetStatus("A support deck can contain at most 6 cards.");
+            SetStatus("Select up to 5 own support cards here; the Friend card has its own 1/1 selector.");
             return;
         }
 
@@ -523,6 +892,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SupportCardIdsText));
         OnPropertyChanged(nameof(SelectedSupportCardCount));
         OnPropertyChanged(nameof(SelectedSupportCardCountText));
+        OnPropertyChanged(nameof(SupportCardDrawerHeader));
+        OnPropertyChanged(nameof(IsSupportDeckValid));
     }
 
     private static HashSet<int> ParseSupportCardIdSet(string text)
@@ -538,6 +909,15 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
         return result;
     }
+
+    private static string GetSupportRarityLabel(string? rarity) =>
+        rarity?.Trim().ToUpperInvariant() switch
+        {
+            "3" or "SSR" => "SSR",
+            "2" or "SR" => "SR",
+            "1" or "R" => "R",
+            _ => string.IsNullOrWhiteSpace(rarity) ? "rarity unknown" : rarity.Trim(),
+        };
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
@@ -613,6 +993,49 @@ public sealed class CareerSupportCardOption : INotifyPropertyChanged
 }
 
 public sealed record CareerSupportDeckPresetOption(string Value, string Label);
+
+public sealed class CareerFriendSupportCardOption : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public CareerFriendSupportCardOption(
+        int supportCardId,
+        string label,
+        string type,
+        string rarity,
+        string? imageUrl)
+    {
+        SupportCardId = supportCardId;
+        Label = label;
+        Type = type;
+        Rarity = rarity;
+        ImageUrl = imageUrl;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public int SupportCardId { get; }
+
+    public string Label { get; }
+
+    public string Type { get; }
+
+    public string Rarity { get; }
+
+    public string? ImageUrl { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value)
+                return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+}
 
 public sealed record CareerLegacySelectionModeOption(string Value, string Label);
 

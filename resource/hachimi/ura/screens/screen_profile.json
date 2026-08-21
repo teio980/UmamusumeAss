@@ -52,6 +52,30 @@
                                     ]
                     },
                     {
+                        "screenId":  "career_continue",
+                        "recognition":  {
+                                            "template":  "templates/career_continue_header.png",
+                                            "roi":  [
+                                                       0,
+                                                       340,
+                                                       900,
+                                                       150
+                                                   ],
+                                            "templThreshold":  0.82,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.continue.resume",
+                                            "task":  "career_continue_resume"
+                                        },
+                                        {
+                                            "semanticId":  "career.continue.delete",
+                                            "task":  "career_continue_delete"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "scenario_select",
                         "recognition":  {
                                             "template":  "templates/scenario_select_header.png",
@@ -134,8 +158,8 @@
                                             "task":  "support_select_support_display_settings"
                                         },
                                         {
-                                            "semanticId":  "support.ranked.sort_uncap",
-                                            "task":  "support_select_support_sort_uncap"
+                                            "semanticId":  "support.ranked.sort_level",
+                                            "task":  "support_select_support_sort_level"
                                         },
                                         {
                                             "semanticId":  "support.ranked.filter_tab",
@@ -186,24 +210,20 @@
                                             "task":  "support_select_support_filter_apply"
                                         },
                                         {
+                                            "semanticId":  "support.ranked.sort_apply",
+                                            "task":  "support_select_support_sort_apply"
+                                        },
+                                        {
                                             "semanticId":  "support.ranked.sort_desc",
                                             "task":  "support_select_support_sort_asc_click"
                                         },
                                         {
-                                            "semanticId":  "support.ranked.select_card_badge",
-                                            "task":  "support_select_support_card_badge"
+                                            "semanticId":  "support.ranked.select_highest_card",
+                                            "task":  "support_select_support_top_card_ssr"
                                         },
                                         {
-                                            "semanticId":  "support.ranked.selected_card",
-                                            "task":  "support_select_support_card_selected"
-                                        },
-                                        {
-                                            "semanticId":  "support.reset",
-                                            "task":  "support_select_support_reset"
-                                        },
-                                        {
-                                            "semanticId":  "support.reset_confirm",
-                                            "task":  "support_select_support_reset_confirm"
+                                            "semanticId":  "support.ranked.identify_card",
+                                            "task":  "support_select_support_card_identity"
                                         },
                                         {
                                             "semanticId":  "support.open",
@@ -214,8 +234,8 @@
                                             "task":  "support_select_support_card"
                                         },
                                         {
-                                            "semanticId":  "support.scroll_top",
-                                            "task":  "support_select_support_scroll_top"
+                                            "semanticId":  "support.ranked.select_exact_card",
+                                            "task":  "support_select_support_card_exact"
                                         },
                                         {
                                             "semanticId":  "support.close",
@@ -247,7 +267,8 @@
                     {
                         "screenId":  "support_ready",
                         "recognition":  {
-                                            "template":  "captures/support_autofilled_ura.png",
+                                            "template":  "templates/support_ready_support_start.png",
+                                            "templThreshold":  0.44,
                                             "requiredText":  [
                                                                  "Support Formation",
                                                                  "Start Career!"
