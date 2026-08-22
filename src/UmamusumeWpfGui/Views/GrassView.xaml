@@ -205,7 +205,9 @@
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
           <Border Grid.Row="0" Padding="14" Style="{StaticResource PanelBorderStyle}">
-          <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        CanContentScroll="False">
             <StackPanel>
               <TextBlock Text="{DynamicResource GrassSettings}"
                          FontWeight="SemiBold" />
