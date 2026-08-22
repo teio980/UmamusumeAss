@@ -109,21 +109,16 @@
             <TextBlock Margin="0,6,0,0"
                        Text="{Binding SelectedFriendSupportCardCountText}"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="130" />
-              </Grid.ColumnDefinitions>
-              <ui:TextBox Margin="0,0,6,0"
-                          Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+            <StackPanel Margin="0,6,0,0">
+              <ui:TextBox Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
                           PlaceholderText="Search name or ID" />
-              <ComboBox Grid.Column="1"
+              <ComboBox Margin="0,6,0,0"
                         ItemsSource="{Binding SupportCardTypeOptions}"
                         DisplayMemberPath="Label"
                         SelectedValuePath="Value"
                         SelectedValue="{Binding FriendSupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
-            </Grid>
-            <ListBox Height="180"
+            </StackPanel>
+            <ListBox Height="150"
                      Margin="0,6,0,0"
                      BorderThickness="1"
                      ScrollViewer.CanContentScroll="False"
@@ -142,29 +137,39 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Grid MinHeight="58" HorizontalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="*" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="30" />
                       <ColumnDefinition Width="40" />
                       <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <CheckBox Grid.Column="0"
+                    <CheckBox Grid.RowSpan="2"
+                              Grid.Column="0"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsSelected, Mode=TwoWay}" />
-                    <Image Grid.Column="1"
+                    <Image Grid.RowSpan="2"
+                           Grid.Column="1"
                            Width="36"
                            Height="46"
                            Source="{Binding ImageUrl}"
                            Stretch="UniformToFill" />
-                    <TextBlock Grid.Column="2"
-                               Margin="8,0,4,0"
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="2"
+                               Margin="8,4,4,0"
                                VerticalAlignment="Center"
                                Text="{Binding Label}"
+                               TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2"
-                               Margin="8,31,4,0"
-                               VerticalAlignment="Top"
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="2"
+                               Margin="8,0,4,4"
+                               VerticalAlignment="Center"
                                Text="{Binding Type}"
+                               TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Grid>
@@ -181,21 +186,16 @@
             <TextBlock Margin="0,0,0,6"
                        Text="{Binding SelectedSupportCardCountText}"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="130" />
-              </Grid.ColumnDefinitions>
-              <ui:TextBox Margin="0,0,6,0"
-                          Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+            <StackPanel>
+              <ui:TextBox Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
                           PlaceholderText="Search name or ID" />
-              <ComboBox Grid.Column="1"
+              <ComboBox Margin="0,6,0,0"
                         ItemsSource="{Binding SupportCardTypeOptions}"
                         DisplayMemberPath="Label"
                         SelectedValuePath="Value"
                         SelectedValue="{Binding SupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
-            </Grid>
-            <ListBox Height="180"
+            </StackPanel>
+            <ListBox Height="150"
                      Margin="0,6,0,0"
                      BorderThickness="1"
                      ScrollViewer.CanContentScroll="False"
@@ -214,29 +214,39 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Grid MinHeight="58" HorizontalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="*" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="30" />
                       <ColumnDefinition Width="40" />
                       <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <CheckBox Grid.Column="0"
+                    <CheckBox Grid.RowSpan="2"
+                              Grid.Column="0"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsSelected, Mode=TwoWay}" />
-                    <Image Grid.Column="1"
+                    <Image Grid.RowSpan="2"
+                           Grid.Column="1"
                            Width="36"
                            Height="46"
                            Source="{Binding ImageUrl}"
                            Stretch="UniformToFill" />
-                    <TextBlock Grid.Column="2"
-                               Margin="8,0,4,0"
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="2"
+                               Margin="8,4,4,0"
                                VerticalAlignment="Center"
                                Text="{Binding Label}"
+                               TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2"
-                               Margin="8,31,4,0"
-                               VerticalAlignment="Top"
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="2"
+                               Margin="8,0,4,4"
+                               VerticalAlignment="Center"
                                Text="{Binding Type}"
+                               TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Grid>
