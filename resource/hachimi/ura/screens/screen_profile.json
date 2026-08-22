@@ -162,6 +162,10 @@
                                             "task":  "support_select_support_sort_level"
                                         },
                                         {
+                                            "semanticId":  "support.ranked.friend_sort_level",
+                                            "task":  "support_select_support_friend_sort_level"
+                                        },
+                                        {
                                             "semanticId":  "support.ranked.filter_tab",
                                             "task":  "support_select_support_filter_tab"
                                         },
@@ -224,6 +228,10 @@
                                         {
                                             "semanticId":  "support.ranked.select_guest_highest_card",
                                             "task":  "support_select_support_guest_top_card_ssr"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.select_friend_highest_card",
+                                            "task":  "support_select_support_friend_top_card_ssr"
                                         },
                                         {
                                             "semanticId":  "support.ranked.detect_selected_card",

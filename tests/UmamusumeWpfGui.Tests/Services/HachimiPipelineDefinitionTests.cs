@@ -498,6 +498,7 @@ public sealed class HachimiPipelineDefinitionTests
             "support_select_support_auto_fill",
             "support_select_support_display_settings",
             "support_select_support_sort_level",
+            "support_select_support_friend_sort_level",
             "support_select_support_sort_apply",
             "support_select_support_filter_tab",
             "support_select_support_filter_reset",
@@ -515,6 +516,8 @@ public sealed class HachimiPipelineDefinitionTests
             "support_select_support_reset_ok",
             "support_select_support_top_card_ssr",
             "support_select_support_top_card_sr",
+            "support_select_support_friend_top_card_ssr",
+            "support_select_support_friend_top_card_sr",
             "support_select_support_open",
             "support_select_support_close",
             "support_select_support_start",
@@ -637,6 +640,20 @@ public sealed class HachimiPipelineDefinitionTests
             selectedSort.Template);
         Assert.Equal([350, 280, 260, 130], definition.GetTask("support_select_support_sort_level").Roi!);
         Assert.Equal([350, 280, 260, 130], selectedSort.Roi!);
+        var friendSort = definition.GetTask("support_select_support_friend_sort_level");
+        Assert.Equal([20, 400, 230, 130], friendSort.Roi!);
+        Assert.Equal(
+            "support_select_support_friend_sort_level_selected",
+            friendSort.OnErrorNext.Single());
+        Assert.Equal(
+            "templates/support/sort_level_friend_live.png",
+            friendSort.Template);
+        var friendSelectedSort = definition.GetTask(
+            "support_select_support_friend_sort_level_selected");
+        Assert.Equal([20, 400, 230, 130], friendSelectedSort.Roi!);
+        Assert.Equal(
+            "templates/support/sort_level_friend_selected.png",
+            friendSelectedSort.Template);
         var sortDirection = definition.GetTask("support_select_support_sort_asc_click");
         Assert.Equal([700, 1300, 200, 100], sortDirection.Roi!);
         var guestTopCard = definition.GetTask("support_select_support_guest_top_card_ssr");
@@ -645,6 +662,14 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "support_select_support_guest_top_card_ssr",
             GetSupportActionTask(root, "support.ranked.select_guest_highest_card"));
+        var friendTopCard = definition.GetTask("support_select_support_friend_top_card_ssr");
+        Assert.Equal([35, 250, 165, 230], friendTopCard.Roi!);
+        Assert.Equal(
+            "support_select_support_friend_top_card_sr",
+            friendTopCard.OnErrorNext.Single());
+        Assert.Equal(
+            "support_select_support_friend_top_card_ssr",
+            GetSupportActionTask(root, "support.ranked.select_friend_highest_card"));
         Assert.True(File.Exists(Path.Combine(
             root,
             "resource",
@@ -654,6 +679,28 @@ public sealed class HachimiPipelineDefinitionTests
             "templates",
             "support_cards",
             "r_badge.png")));
+        foreach (var filterKey in new[]
+        {
+            "speed",
+            "stamina",
+            "power",
+            "guts",
+            "wit",
+            "friend",
+        })
+        {
+            Assert.True(
+                File.Exists(Path.Combine(
+                    root,
+                    "resource",
+                    "hachimi",
+                    "ura",
+                    "screens",
+                    "templates",
+                    "support_cards",
+                    $"friend_type_{filterKey}.png")),
+                $"Missing friend-page template for {filterKey}.");
+        }
     }
 
     [Fact]

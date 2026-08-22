@@ -590,6 +590,40 @@
                                                                "pollIntervalMs":  100,
                                                                "required":  true
                                                            },
+                  "support_select_support_friend_sort_level":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/sort_level_friend_live.png",
+                                                               "roi":  [
+                                                                           20,
+                                                                           400,
+                                                                           230,
+                                                                           130
+                                                                       ],
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  12000,
+                                                               "pollIntervalMs":  250,
+                                                               "postDelay":  100,
+                                                               "onErrorNext":  [
+                                                                               "support_select_support_friend_sort_level_selected"
+                                                                           ],
+                                                               "required":  true
+                                                           },
+                  "support_select_support_friend_sort_level_selected":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "JustReturn",
+                                                               "template":  "templates/support/sort_level_friend_selected.png",
+                                                               "roi":  [
+                                                                           20,
+                                                                           400,
+                                                                           230,
+                                                                           130
+                                                                       ],
+                                                               "templThreshold":  0.82,
+                                                               "timeoutMs":  1000,
+                                                               "pollIntervalMs":  100,
+                                                               "required":  true
+                                                           },
                   "support_select_support_sort_apply":  {
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "ClickSelf",
@@ -848,7 +882,7 @@
                                                                              100
                                                                          ],
                                                                  "templThreshold":  0.82,
-                                                                 "timeoutMs":  12000,
+                                                                 "timeoutMs":  1500,
                                                                  "pollIntervalMs":  250,
                                                                  "postDelay":  350,
                                                                  "required":  false
@@ -932,6 +966,41 @@
                                                                                 130,
                                                                                 165,
                                                                                 220
+                                                                            ],
+                                                                    "timeoutMs":  1200,
+                                                                    "pollIntervalMs":  60,
+                                                                    "postDelay":  450,
+                                                                    "required":  true
+                                                                },
+                  "support_select_support_friend_top_card_ssr":  {
+                                                                    "algorithm":  "MatchTemplate",
+                                                                    "action":  "ClickSelf",
+                                                                    "template":  "templates/support_cards/ssr_badge.png",
+                                                                    "templThreshold":  0.72,
+                                                                    "roi":  [
+                                                                                35,
+                                                                                250,
+                                                                                165,
+                                                                                230
+                                                                            ],
+                                                                    "timeoutMs":  1200,
+                                                                    "pollIntervalMs":  60,
+                                                                    "postDelay":  450,
+                                                                    "onErrorNext":  [
+                                                                                    "support_select_support_friend_top_card_sr"
+                                                                                ],
+                                                                    "required":  true
+                                                                },
+                  "support_select_support_friend_top_card_sr":  {
+                                                                    "algorithm":  "MatchTemplate",
+                                                                    "action":  "ClickSelf",
+                                                                    "template":  "templates/support_cards/sr_badge.png",
+                                                                    "templThreshold":  0.72,
+                                                                    "roi":  [
+                                                                                35,
+                                                                                250,
+                                                                                165,
+                                                                                230
                                                                             ],
                                                                     "timeoutMs":  1200,
                                                                     "pollIntervalMs":  60,

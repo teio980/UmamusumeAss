@@ -1243,7 +1243,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 friendCard.Type,
                 rarity: null,
                 logSink,
-                cancellationToken)
+                cancellationToken,
+                friendPage: true)
             .ConfigureAwait(false);
         if (friendFilterResult is not null)
             return friendFilterResult;
@@ -1313,7 +1314,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         UmaSupportCardRecord? guestCard = null;
-        var automaticGuestCardSelected = false;
         if (friendSupportCardId is > 0)
         {
             if (!_umaDatabase.TryGetSupportCard(
@@ -1330,18 +1330,22 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         }
         else
         {
-            var automaticGuestResult = await SelectAutomaticHighestGuestCardAsync(
-                    connection,
-                    pack,
-                    requiredTypes,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (automaticGuestResult.Failure is not null)
-                return automaticGuestResult.Failure;
+            var automaticGuestType = GetAutomaticGuestSupportType(requiredTypes);
+            if (automaticGuestType is null)
+            {
+                return Failure(
+                    "The selected support preset has no usable type for the automatic guest card.",
+                    "support_select");
+            }
 
-            guestCard = automaticGuestResult.Card;
-            automaticGuestCardSelected = automaticGuestResult.CardSelected;
+            // Do not click an own-card grid slot to reserve the guest type.
+            // The guest slot opens Borrow Card later and uses its own list
+            // layout. The type is only needed now to leave the correct number
+            // of own cards for the preset.
+            guestCard = new UmaSupportCardRecord
+            {
+                Type = automaticGuestType,
+            };
         }
 
         if (guestCard is null)
@@ -1460,14 +1464,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         // The own cards are now filled. The next open targets the Friends slot;
         // filter it by the configured guest card metadata and select the
         // highest-level copy of that exact card.
-        if (automaticGuestCardSelected)
-        {
-            // The automatic guest was selected immediately after its
-            // single-category filter and sort pass. Its picker tap closed the
-            // picker, so there is no second guest pass to run here.
-            return null;
-        }
-
         if (!pickerOpen)
         {
             var openGuestResult = await RunScreenActionAsync(
@@ -1490,7 +1486,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 guestCard.Type,
                 rarity: null,
                 logSink,
-                cancellationToken)
+                cancellationToken,
+                friendPage: true)
             .ConfigureAwait(false);
         if (guestFilterResult is not null)
             return guestFilterResult;
@@ -1549,12 +1546,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         return null;
     }
 
-    private async Task<AutomaticGuestCardResult> SelectAutomaticHighestGuestCardAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        IReadOnlyDictionary<string, int> requiredTypes,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+    private string? GetAutomaticGuestSupportType(
+        IReadOnlyDictionary<string, int> requiredTypes)
     {
         var candidateTypes = requiredTypes.ContainsKey("Friend")
             ? _umaDatabase.SupportCards
@@ -1566,95 +1559,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 .Where(type => GetSupportFilterKey(type) is not null)
                 .ToArray();
 
-        if (candidateTypes.Length == 0)
-        {
-            return new AutomaticGuestCardResult(
-                null,
-                Failure(
-                    "The selected support preset has no usable type for the automatic guest card.",
-                    "support_select"));
-        }
-
-        var openResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "open",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (openResult is not null)
-            return new AutomaticGuestCardResult(null, openResult);
-
-        // Each candidate category gets its own filter pass. The game filter
-        // is a single-category selector, so never send several categories to
-        // one pass (for example Speed + Stamina together).
-        foreach (var candidateType in candidateTypes)
-        {
-            if (ResolveSupportTypeBadgeTemplate(pack, candidateType) is null)
-                continue;
-
-            logSink?.Add(
-                "Career Training",
-                $"Trying automatic guest category '{candidateType}' with a single-category filter.");
-            var filterResult = await ConfigureHighestStarFilterAsync(
-                    connection,
-                    pack,
-                    candidateType,
-                    rarity: null,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (filterResult is not null)
-                return new AutomaticGuestCardResult(null, filterResult);
-
-            // The current Friend/borrow-card slot uses the same five-column
-            // card grid as the own-card picker. After filtering and sorting,
-            // the first visible card is the highest-level candidate, and its
-            // type badge is the template-driven click target.
-            var guestSelectionResult = await SelectHighestGuestSupportCardAsync(
-                    connection,
-                    pack,
-                    candidateType,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (guestSelectionResult is null)
-            {
-                logSink?.Add(
-                    "Career Training",
-                    $"Selected automatic highest-level guest support type '{candidateType}' from the first visible card.");
-                return new AutomaticGuestCardResult(
-                    new UmaSupportCardRecord { Type = candidateType },
-                    null,
-                    CardSelected: true);
-            }
-
-            if (!IsExpectedTemplateMiss(
-                    guestSelectionResult,
-                    "support_select_support_top_card_ssr",
-                    "support_select_support_top_card_sr"))
-            {
-                return new AutomaticGuestCardResult(null, guestSelectionResult);
-            }
-        }
-
-        var fallbackCloseResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "close",
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (fallbackCloseResult is not null)
-            return new AutomaticGuestCardResult(null, fallbackCloseResult);
-
-        return new AutomaticGuestCardResult(
-            null,
-            Failure(
-                "Could not identify the type of the highest-level automatic guest card.",
-                "support_select"));
+        return candidateTypes.FirstOrDefault();
     }
 
     private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
@@ -1663,7 +1568,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         string? supportType,
         string? rarity,
         IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool friendPage = false)
     {
         return await ConfigureHighestStarFilterAsync(
                 connection,
@@ -1671,7 +1577,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 supportType is null ? Array.Empty<string>() : [supportType],
                 rarity,
                 logSink,
-                cancellationToken)
+                cancellationToken,
+                friendPage)
             .ConfigureAwait(false);
     }
 
@@ -1681,9 +1588,17 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         IReadOnlyList<string> supportTypes,
         string? rarity,
         IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool friendPage = false)
     {
-        foreach (var action in BuildHighestStarFilterActionsForTypes(supportTypes, rarity))
+        var actions = BuildHighestStarFilterActionsForTypes(supportTypes, rarity)
+            .Select(action => friendPage && action.Equals(
+                    "ranked.sort_level",
+                    StringComparison.OrdinalIgnoreCase)
+                ? "ranked.friend_sort_level"
+                : action);
+
+        foreach (var action in actions)
         {
             var result = await RunScreenActionAsync(
                     connection,
@@ -1810,7 +1725,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var typeTemplate = ResolveSupportTypeBadgeTemplate(pack, supportType);
+        var typeTemplate = ResolveFriendSupportTypeBadgeTemplate(pack, supportType);
         if (typeTemplate is null)
         {
             return Task.FromResult<CareerTrainingResult?>(Failure(
@@ -1822,7 +1737,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             connection,
             pack,
             "support_select",
-            "ranked.select_guest_highest_card",
+            "ranked.select_friend_highest_card",
             logSink,
             cancellationToken,
             new HachimiPipelineRunOptions
@@ -1830,8 +1745,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 TemplateOverrides = new Dictionary<string, string>(
                     StringComparer.OrdinalIgnoreCase)
                 {
-                    ["support_select_support_guest_top_card_ssr"] = typeTemplate,
-                    ["support_select_support_guest_top_card_sr"] = typeTemplate,
+                    ["support_select_support_friend_top_card_ssr"] = typeTemplate,
+                    ["support_select_support_friend_top_card_sr"] = typeTemplate,
                 },
             });
     }
@@ -1965,6 +1880,23 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             pack,
             $"screens/templates/support_cards/type_{filterKey}.png");
         return File.Exists(path) ? path : null;
+    }
+
+    private static string? ResolveFriendSupportTypeBadgeTemplate(
+        UraScenarioPack pack,
+        string supportType)
+    {
+        var filterKey = GetSupportFilterKey(supportType);
+        if (filterKey is null)
+            return null;
+
+        var friendPath = UraScenarioResourceResolver.Resolve(
+            pack,
+            $"screens/templates/support_cards/friend_type_{filterKey}.png");
+        // Borrow Card badges include card art behind the icon, so the normal
+        // deck templates are not safe fallbacks here. Require a dedicated
+        // friend-page template for every supported category.
+        return File.Exists(friendPath) ? friendPath : null;
     }
 
     private string? ResolveSupportCardTemplate(UraScenarioPack pack, int supportCardId)
@@ -2116,11 +2048,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         string lastScreenId,
         int actionsCompleted = 0) =>
         new(false, message, actionsCompleted, lastScreenId);
-
-    private sealed record AutomaticGuestCardResult(
-        UmaSupportCardRecord? Card,
-        CareerTrainingResult? Failure,
-        bool CardSelected = false);
 
     private sealed record UraObservation(string ScreenId, double Score);
 }
