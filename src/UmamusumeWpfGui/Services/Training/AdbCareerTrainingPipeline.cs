@@ -242,9 +242,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (observation is null)
             {
+                var legacyToSupportTransition = state.LegacySelected
+                    && state.LastScreenId.Equals(
+                        "legacy_select",
+                        StringComparison.OrdinalIgnoreCase)
+                    && !state.CareerStarted;
+                var setupRetryLimit = legacyToSupportTransition ? 80 : 12;
                 if (state.CareerEntryOpened
                     && !state.CareerStarted
-                    && setupObservationRetryCount < 12)
+                    && setupObservationRetryCount < setupRetryLimit)
                 {
                     setupObservationRetryCount++;
                     await _visualRuntime.DelayAsync(250, cancellationToken)
@@ -993,6 +999,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         var supportReadyExpected = state.LastScreenId.Equals(
             "support_autofill_confirmation",
             StringComparison.OrdinalIgnoreCase);
+        var legacyToSupportTransition = state.LegacySelected
+            && state.LastScreenId.Equals(
+                "legacy_select",
+                StringComparison.OrdinalIgnoreCase)
+            && !state.CareerStarted;
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
             .Where(screen => !careerEntryFlowActive
@@ -1004,6 +1015,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 || string.Equals(screen.ScreenId, "trainee_select", StringComparison.OrdinalIgnoreCase))
             .Where(screen => !supportReadyExpected
                 || string.Equals(screen.ScreenId, "support_ready", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => !legacyToSupportTransition
+                || string.Equals(screen.ScreenId, "support_select", StringComparison.OrdinalIgnoreCase))
             .OrderBy(screen => GetScreenRecognitionPriority(
                 screen.ScreenId,
                 supportReadyExpected))
