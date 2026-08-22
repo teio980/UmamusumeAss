@@ -1,12 +1,14 @@
 using System.IO;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class HachimiPipelineDefinitionTests
 {
-    private static readonly int[] TopCardRoi = [35, 130, 165, 280];
+    private static readonly int[] TopCardRoi = [35, 130, 165, 220];
+    private static readonly int[] FilterTabRoi = [430, 120, 450, 110];
 
     [Theory]
     [InlineData("mail_collection.json", "Home")]
@@ -509,6 +511,8 @@ public sealed class HachimiPipelineDefinitionTests
             "support_select_support_filter_wit",
             "support_select_support_filter_friend",
             "support_select_support_filter_apply",
+            "support_select_support_reset",
+            "support_select_support_reset_ok",
             "support_select_support_top_card_ssr",
             "support_select_support_top_card_sr",
             "support_select_support_open",
@@ -549,6 +553,78 @@ public sealed class HachimiPipelineDefinitionTests
             "support_select_support_top_card_ssr",
             GetSupportActionTask(root, "support.ranked.select_highest_card"));
         Assert.Equal(
+            "templates/support_select_support_reset.png",
+            definition.GetTask("support_select_support_reset").Template);
+        var resetIfNeeded = definition.GetTask("support_select_support_reset_if_needed");
+        Assert.Equal("MatchTemplate", resetIfNeeded.Algorithm, ignoreCase: true);
+        Assert.Equal("JustReturn", resetIfNeeded.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support_select_support_reset_disabled.png",
+            resetIfNeeded.Template);
+        Assert.False(resetIfNeeded.Required);
+        Assert.Equal(
+            "support_select_support_reset_skip",
+            resetIfNeeded.Next.Single());
+        Assert.Equal(
+            "support_select_support_reset",
+            resetIfNeeded.OnErrorNext.Single());
+        Assert.Equal(
+            "support_select_support_reset_if_needed",
+            GetSupportActionTask(root, "support.reset_if_needed"));
+        Assert.Equal(
+            "support_select_support_reset_ok",
+            definition.GetTask("support_select_support_reset").Next.Single());
+        Assert.Equal(
+            "templates/support_select_support_reset_ok.png",
+            definition.GetTask("support_select_support_reset_ok").Template);
+        Assert.Equal(
+            "support_select_support_reset",
+            GetSupportActionTask(root, "support.reset"));
+        var filterTab = definition.GetTask("support_select_support_filter_tab");
+        Assert.Equal(FilterTabRoi, filterTab.Roi);
+        Assert.Equal(
+            "support_select_support_filter_page_probe",
+            filterTab.Next.Single());
+        var filterPageProbe = definition.GetTask("support_select_support_filter_page_probe");
+        Assert.Equal("JustReturn", filterPageProbe.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support/filter_reset.png",
+            filterPageProbe.Template);
+        Assert.Equal(
+            "support_select_support_card_list_probe",
+            definition.GetTask("support_select_support_filter_apply").Next.Single());
+        var cardListProbe = definition.GetTask("support_select_support_card_list_probe");
+        Assert.Equal("JustReturn", cardListProbe.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support/display_settings_icon.png",
+            cardListProbe.Template);
+        foreach (var filterTaskName in new[]
+        {
+            "support_select_support_filter_reset",
+            "support_select_support_filter_r",
+            "support_select_support_filter_sr",
+            "support_select_support_filter_ssr",
+            "support_select_support_filter_speed",
+            "support_select_support_filter_stamina",
+            "support_select_support_filter_power",
+            "support_select_support_filter_guts",
+            "support_select_support_filter_wit",
+            "support_select_support_filter_friend",
+            "support_select_support_filter_apply",
+        })
+        {
+            Assert.NotNull(definition.GetTask(filterTaskName).Roi);
+        }
+        var selectedProbe = definition.GetTask("support_select_support_selected_card");
+        Assert.Equal("MatchTemplate", selectedProbe.Algorithm, ignoreCase: true);
+        Assert.Equal("JustReturn", selectedProbe.Action, ignoreCase: true);
+        Assert.Equal(
+            "templates/support/selected.png",
+            selectedProbe.Template);
+        Assert.Equal(
+            "support_select_support_selected_card",
+            GetSupportActionTask(root, "support.ranked.detect_selected_card"));
+        Assert.Equal(
             "templates/support/sort_level_live.png",
             definition.GetTask("support_select_support_sort_level").Template);
         Assert.Equal(
@@ -559,6 +635,16 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support/sort_level_selected.png",
             selectedSort.Template);
+        Assert.Equal([350, 280, 260, 130], definition.GetTask("support_select_support_sort_level").Roi!);
+        Assert.Equal([350, 280, 260, 130], selectedSort.Roi!);
+        var sortDirection = definition.GetTask("support_select_support_sort_asc_click");
+        Assert.Equal([700, 1300, 200, 100], sortDirection.Roi!);
+        var guestTopCard = definition.GetTask("support_select_support_guest_top_card_ssr");
+        Assert.Equal("ClickSelf", guestTopCard.Action, ignoreCase: true);
+        Assert.Equal([35, 130, 165, 220], guestTopCard.Roi!);
+        Assert.Equal(
+            "support_select_support_guest_top_card_ssr",
+            GetSupportActionTask(root, "support.ranked.select_guest_highest_card"));
         Assert.True(File.Exists(Path.Combine(
             root,
             "resource",
@@ -568,6 +654,23 @@ public sealed class HachimiPipelineDefinitionTests
             "templates",
             "support_cards",
             "r_badge.png")));
+    }
+
+    [Fact]
+    public void Highest_star_filter_accepts_only_one_support_category_per_pass()
+    {
+        var actions = AdbCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
+            ["Speed", "Speed"],
+            rarity: null);
+
+        Assert.Equal(1, actions.Count(action =>
+            action.Equals("ranked.filter_speed", StringComparison.OrdinalIgnoreCase)));
+        Assert.Equal(0, actions.Count(action =>
+            action.Equals("ranked.filter_stamina", StringComparison.OrdinalIgnoreCase)));
+        Assert.Throws<InvalidOperationException>(() =>
+            AdbCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
+                ["Speed", "Stamina"],
+                rarity: null));
     }
 
     private static string GetSupportActionTask(string root, string semanticId)

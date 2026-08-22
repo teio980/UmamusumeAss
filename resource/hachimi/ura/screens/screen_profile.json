@@ -222,8 +222,20 @@
                                             "task":  "support_select_support_top_card_ssr"
                                         },
                                         {
-                                            "semanticId":  "support.ranked.identify_card",
-                                            "task":  "support_select_support_card_identity"
+                                            "semanticId":  "support.ranked.select_guest_highest_card",
+                                            "task":  "support_select_support_guest_top_card_ssr"
+                                        },
+                                        {
+                                            "semanticId":  "support.ranked.detect_selected_card",
+                                            "task":  "support_select_support_selected_card"
+                                        },
+                                        {
+                                            "semanticId":  "support.reset_if_needed",
+                                            "task":  "support_select_support_reset_if_needed"
+                                        },
+                                        {
+                                            "semanticId":  "support.reset",
+                                            "task":  "support_select_support_reset"
                                         },
                                         {
                                             "semanticId":  "support.open",
