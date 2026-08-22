@@ -143,12 +143,13 @@ public sealed class HachimiJsonPipelineRunner
             }
 
             state.IncrementTaskCount(current, task);
+            var effectiveSearchRois = ResolveSearchRois(current, task, state.Options);
             AddTaskLog(
                 logSink,
                 current,
                 $"Run #{taskCount + 1}: algorithm={task.Algorithm}, action={task.Action}, "
                 + $"template={task.Template ?? "none"}, roi={FormatArray(task.Roi)}, "
-                + $"searchRois={task.SearchRois.Count}, minScoreGap={task.MinimumScoreGap:0.000}, "
+                + $"searchRois={effectiveSearchRois.Count}, minScoreGap={task.MinimumScoreGap:0.000}, "
                 + $"threshold={task.TemplateThreshold:0.000}, timeout={task.TimeoutMilliseconds}ms, "
                 + $"preDelay={task.PreDelay}ms, wait={task.WaitMilliseconds}ms, postDelay={task.PostDelay}ms.");
 
@@ -336,7 +337,7 @@ public sealed class HachimiJsonPipelineRunner
                         scaleCandidates,
                         cancellationToken)
                     .ConfigureAwait(false)
-                : task.SearchRois.Count > 0
+                : ResolveSearchRois(taskName, task, runOptions) is { Count: > 0 } searchRois
                 ? await _visualRuntime.WaitForMatchInRoisAsync(
                         connection,
                         templatePath,
@@ -347,7 +348,7 @@ public sealed class HachimiJsonPipelineRunner
                         pollInterval,
                         taskName,
                         definition.BaseDirectory,
-                        task.SearchRois,
+                        searchRois,
                         task.MinimumScoreGap,
                         cancellationToken)
                     .ConfigureAwait(false)
@@ -1062,6 +1063,20 @@ public sealed class HachimiJsonPipelineRunner
         LogEntryKind kind = LogEntryKind.Info) =>
         logSink?.Add(taskName, details, kind);
 
+    private static IReadOnlyList<int[]> ResolveSearchRois(
+        string taskName,
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions options)
+    {
+        if (options.SearchRoiOverrides is not null
+            && options.SearchRoiOverrides.TryGetValue(taskName, out var searchRois))
+        {
+            return searchRois;
+        }
+
+        return task.SearchRois;
+    }
+
     private static string FormatArray(int[]? values) =>
         values is { Length: > 0 }
             ? $"[{string.Join(",", values)}]"
@@ -1134,6 +1149,13 @@ public sealed class HachimiPipelineRunOptions
     /// The task definition keeps the default ROI for backwards compatibility.
     /// </summary>
     public IReadOnlyDictionary<string, int[]>? RoiOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime search-ROI subsets for data-driven layouts. The candidate
+    /// regions remain declared by the JSON task; callers may restrict which
+    /// of those regions are eligible for this invocation.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<int[]>>? SearchRoiOverrides { get; init; }
 
     /// <summary>
     /// Runtime template paths supplied by a caller for data-driven cards.

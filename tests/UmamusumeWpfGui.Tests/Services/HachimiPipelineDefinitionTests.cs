@@ -558,6 +558,9 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support_select_support_reset.png",
             definition.GetTask("support_select_support_reset").Template);
+        Assert.Equal(
+            [20, 1080, 460, 140],
+            definition.GetTask("support_select_support_reset").Roi!);
         var resetIfNeeded = definition.GetTask("support_select_support_reset_if_needed");
         Assert.Equal("MatchTemplate", resetIfNeeded.Algorithm, ignoreCase: true);
         Assert.Equal("JustReturn", resetIfNeeded.Action, ignoreCase: true);
@@ -581,6 +584,9 @@ public sealed class HachimiPipelineDefinitionTests
             "templates/support_select_support_reset_ok.png",
             definition.GetTask("support_select_support_reset_ok").Template);
         Assert.Equal(
+            [450, 950, 420, 220],
+            definition.GetTask("support_select_support_reset_ok").Roi!);
+        Assert.Equal(
             "support_select_support_reset",
             GetSupportActionTask(root, "support.reset"));
         var filterTab = definition.GetTask("support_select_support_filter_tab");
@@ -601,6 +607,10 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support/display_settings_icon.png",
             cardListProbe.Template);
+        Assert.Equal([650, 1270, 120, 120], cardListProbe.Roi!);
+        Assert.Equal(
+            [650, 1270, 120, 120],
+            definition.GetTask("support_select_support_display_settings").Roi!);
         foreach (var filterTaskName in new[]
         {
             "support_select_support_filter_reset",
@@ -624,6 +634,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support/selected.png",
             selectedProbe.Template);
+        Assert.Equal(0.88, selectedProbe.TemplateThreshold);
         Assert.Equal(
             "support_select_support_selected_card",
             GetSupportActionTask(root, "support.ranked.detect_selected_card"));
@@ -656,6 +667,11 @@ public sealed class HachimiPipelineDefinitionTests
             friendSelectedSort.Template);
         var sortDirection = definition.GetTask("support_select_support_sort_asc_click");
         Assert.Equal([700, 1300, 200, 100], sortDirection.Roi!);
+        var supportOpen = definition.GetTask("support_select_support_open");
+        Assert.Equal("templates/support/support_open.png", supportOpen.Template);
+        Assert.Equal(6, supportOpen.SearchRois.Count);
+        Assert.Equal([90, 420, 160, 160], supportOpen.SearchRois[0]);
+        Assert.Equal([630, 770, 160, 160], supportOpen.SearchRois[^1]);
         var guestTopCard = definition.GetTask("support_select_support_guest_top_card_ssr");
         Assert.Equal("ClickSelf", guestTopCard.Action, ignoreCase: true);
         Assert.Equal([35, 130, 165, 220], guestTopCard.Roi!);

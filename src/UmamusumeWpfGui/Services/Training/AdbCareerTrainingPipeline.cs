@@ -1157,6 +1157,42 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private static string ResolveCapture(UraScenarioPack pack, string relativePath) =>
         UraScenarioResourceResolver.Resolve(pack, relativePath);
 
+    private static HachimiPipelineRunOptions SupportPickerOpenOptions(
+        UraScenarioPack pack,
+        bool friendSlotOnly)
+    {
+        var task = pack.ExecutionDefinition.GetTask("support_select_support_open");
+        var configuredRois = task.SearchRois;
+        IReadOnlyList<int[]> searchRois;
+
+        if (configuredRois.Count <= 1)
+        {
+            searchRois = configuredRois;
+        }
+        else if (friendSlotOnly)
+        {
+            // The final JSON search ROI is the Friends slot. It has a
+            // different layout from the five owned-card slots.
+            searchRois = [configuredRois[^1]];
+        }
+        else
+        {
+            // Never allow an owned-card open to compete with the Friends
+            // slot. The template matcher still chooses the actual match
+            // center from these JSON-declared regions.
+            searchRois = configuredRois.Take(configuredRois.Count - 1).ToArray();
+        }
+
+        return new HachimiPipelineRunOptions
+        {
+            SearchRoiOverrides = new Dictionary<string, IReadOnlyList<int[]>>(
+                StringComparer.OrdinalIgnoreCase)
+            {
+                ["support_select_support_open"] = searchRois,
+            },
+        };
+    }
+
     private async Task<CareerTrainingResult?> SelectConfiguredSupportCardsAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
@@ -1182,7 +1218,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     "support_select",
                     "open",
                     logSink,
-                    cancellationToken)
+                    cancellationToken,
+                    SupportPickerOpenOptions(pack, friendSlotOnly: false))
                 .ConfigureAwait(false);
             if (openResult is not null)
                 return openResult;
@@ -1232,7 +1269,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "support_select",
                 "open",
                 logSink,
-                cancellationToken)
+                cancellationToken,
+                SupportPickerOpenOptions(pack, friendSlotOnly: true))
             .ConfigureAwait(false);
         if (openFriendResult is not null)
             return openFriendResult;
@@ -1381,7 +1419,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         "support_select",
                         "open",
                         logSink,
-                        cancellationToken)
+                        cancellationToken,
+                        SupportPickerOpenOptions(pack, friendSlotOnly: false))
                     .ConfigureAwait(false);
                 if (openResult is not null)
                     return openResult;
@@ -1416,7 +1455,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             "support_select",
                             "open",
                             logSink,
-                            cancellationToken)
+                            cancellationToken,
+                            SupportPickerOpenOptions(pack, friendSlotOnly: false))
                         .ConfigureAwait(false);
                     if (openResult is not null)
                         return openResult;
@@ -1472,7 +1512,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     "support_select",
                     "open",
                     logSink,
-                    cancellationToken)
+                    cancellationToken,
+                    SupportPickerOpenOptions(pack, friendSlotOnly: true))
                 .ConfigureAwait(false);
             if (openGuestResult is not null)
                 return openGuestResult;

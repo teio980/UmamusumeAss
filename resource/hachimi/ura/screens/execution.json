@@ -541,16 +541,16 @@
                                                            "success":  false
                                                        },
                   "support_select_support_display_settings":  {
-                                                                   "algorithm":  "MatchTemplate",
-                                                                   "action":  "ClickSelf",
-                                                                   "template":  "templates/support/display_settings_icon.png",
-                                                                   "templThreshold":  0.82,
-                                                                   "roi":  [
-                                                                               450,
-                                                                               1240,
-                                                                               350,
-                                                                               220
-                                                                           ],
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "ClickSelf",
+                                                               "template":  "templates/support/display_settings_icon.png",
+                                                               "templThreshold":  0.82,
+                                                               "roi":  [
+                                                                           650,
+                                                                           1270,
+                                                                           120,
+                                                                           120
+                                                                       ],
                                                                    "timeoutMs":  12000,
                                                                    "pollIntervalMs":  250,
                                                                    "postDelay":  250,
@@ -857,16 +857,16 @@
                                                                  "required":  true
                                                              },
                   "support_select_support_card_list_probe":  {
-                                                                 "algorithm":  "MatchTemplate",
-                                                                 "action":  "JustReturn",
-                                                                 "template":  "templates/support/display_settings_icon.png",
-                                                                 "templThreshold":  0.82,
-                                                                 "roi":  [
-                                                                             450,
-                                                                             1240,
-                                                                             350,
-                                                                             220
-                                                                         ],
+                                                              "algorithm":  "MatchTemplate",
+                                                              "action":  "JustReturn",
+                                                              "template":  "templates/support/display_settings_icon.png",
+                                                              "templThreshold":  0.82,
+                                                              "roi":  [
+                                                                          650,
+                                                                          1270,
+                                                                          120,
+                                                                          120
+                                                                      ],
                                                                  "timeoutMs":  2000,
                                                                  "pollIntervalMs":  100,
                                                                  "required":  true
@@ -882,16 +882,16 @@
                                                                              100
                                                                          ],
                                                                  "templThreshold":  0.82,
-                                                                 "timeoutMs":  1500,
-                                                                 "pollIntervalMs":  250,
-                                                                 "postDelay":  350,
+                                                                 "timeoutMs":  800,
+                                                                 "pollIntervalMs":  100,
+                                                                 "postDelay":  250,
                                                                  "required":  false
                                                              },
                   "support_select_support_selected_card":  {
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "JustReturn",
                                                                "template":  "templates/support/selected.png",
-                                                               "templThreshold":  0.82,
+                                                               "templThreshold":  0.88,
                                                                "roi":  [
                                                                            35,
                                                                            130,
@@ -1012,10 +1012,16 @@
                                                         "action":  "JustReturn",
                                                         "template":  "templates/support_select_support_reset_disabled.png",
                                                         "templThreshold":  0.90,
+                                                        "roi":  [
+                                                                    20,
+                                                                    1080,
+                                                                    460,
+                                                                    140
+                                                                ],
                                                         "preDelay":  0,
                                                         "postDelay":  0,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  350,
+                                                        "timeoutMs":  500,
                                                         "pollIntervalMs":  50,
                                                         "next":  [
                                                                     "support_select_support_reset_skip"
@@ -1041,11 +1047,17 @@
                                                         "action":  "ClickSelf",
                                                         "template":  "templates/support_select_support_reset.png",
                                                         "templThreshold":  0.82,
+                                                        "roi":  [
+                                                                    20,
+                                                                    1080,
+                                                                    460,
+                                                                    140
+                                                                ],
                                                         "preDelay":  0,
-                                                        "postDelay":  500,
+                                                        "postDelay":  300,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  12000,
-                                                        "pollIntervalMs":  250,
+                                                        "timeoutMs":  4000,
+                                                        "pollIntervalMs":  100,
                                                         "next":  [
                                                                     "support_select_support_reset_ok"
                                                                 ],
@@ -1056,11 +1068,17 @@
                                                         "action":  "ClickSelf",
                                                         "template":  "templates/support_select_support_reset_ok.png",
                                                         "templThreshold":  0.82,
+                                                        "roi":  [
+                                                                    450,
+                                                                    950,
+                                                                    420,
+                                                                    220
+                                                                ],
                                                         "preDelay":  0,
-                                                        "postDelay":  650,
+                                                        "postDelay":  400,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  12000,
-                                                        "pollIntervalMs":  250,
+                                                        "timeoutMs":  4000,
+                                                        "pollIntervalMs":  100,
                                                         "required":  true
                                                     },
                    "support_select_support_open":  {
@@ -1068,11 +1086,49 @@
                                                         "action":  "ClickSelf",
                                                         "template":  "templates/support/support_open.png",
                                                         "templThreshold":  0.82,
+                                                        "searchRois":  [
+                                                                    [
+                                                                        90,
+                                                                        420,
+                                                                        160,
+                                                                        160
+                                                                    ],
+                                                                    [
+                                                                        360,
+                                                                        420,
+                                                                        160,
+                                                                        160
+                                                                    ],
+                                                                    [
+                                                                        630,
+                                                                        420,
+                                                                        160,
+                                                                        160
+                                                                    ],
+                                                                    [
+                                                                        90,
+                                                                        770,
+                                                                        160,
+                                                                        160
+                                                                    ],
+                                                                    [
+                                                                        360,
+                                                                        770,
+                                                                        160,
+                                                                        160
+                                                                    ],
+                                                                    [
+                                                                        630,
+                                                                        770,
+                                                                        160,
+                                                                        160
+                                                                    ]
+                                                                ],
                                                         "preDelay":  0,
-                                                        "postDelay":  600,
+                                                        "postDelay":  300,
                                                         "waitMs":  0,
-                                                        "timeoutMs":  12000,
-                                                        "pollIntervalMs":  250,
+                                                        "timeoutMs":  3000,
+                                                        "pollIntervalMs":  100,
                                                         "next":  [],
                                                         "onErrorNext":  [],
                                                         "exceededNext":  [],
