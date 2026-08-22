@@ -14,6 +14,15 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultManifestPath = "resource/hachimi/ura/manifest.json";
     public const string DefaultStrategyId = "default-speed-medium";
+    public const string NormalCareerMode = "normal";
+    public const string IndependentCareerMode = "independent";
+    public const string IndependentTrainingFocusBalanced = "balanced";
+    public const string IndependentTrainingFocusStamina = "stamina";
+    public const string IndependentTrainingFocusSprint = "sprint";
+    public const string IndependentLineupStrategyFront = "front";
+    public const string IndependentLineupStrategyPace = "pace";
+    public const string IndependentLineupStrategyLate = "late";
+    public const string IndependentLineupStrategyEnd = "end";
 
     private readonly IUmaDatabaseService? _umaDatabase;
     private string _scenarioId = "ura";
@@ -32,6 +41,13 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private bool _continueExistingCareer;
+    private string _careerMode = NormalCareerMode;
+    private string _independentTrainingFocus = IndependentTrainingFocusBalanced;
+    private string _independentLineupStrategy = IndependentLineupStrategyPace;
+    private string _independentAgendaSearchText = string.Empty;
+    private string _independentSkillSearchText = string.Empty;
+    private bool _updatingIndependentAgenda;
+    private bool _updatingIndependentSkills;
     private string _legacySelectionMode = "auto";
     private bool _useLegacyGuest;
     private bool _useCachedLegacy = true;
@@ -41,6 +57,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private readonly List<CareerTraineeOption> _allTraineeOptions = [];
     private readonly List<CareerSupportCardOption> _allSupportCardOptions = [];
     private bool _updatingFriendSupportCards;
+    private readonly List<IndependentRaceOption> _allIndependentRaceOptions = [];
+    private readonly List<IndependentSkillOption> _allIndependentSkillOptions = [];
+    private IndependentTrainingCatalog _independentTrainingCatalog =
+        IndependentTrainingCatalog.Load();
 
     public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
@@ -49,6 +69,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         RefreshTrainees();
         RefreshSupportCards();
+        RefreshIndependentTrainingCatalog();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -64,6 +85,35 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public ObservableCollection<CareerFriendSupportCardOption> FilteredFriendSupportCardOptions { get; } = [];
 
     public ObservableCollection<CareerSupportCardTypeOption> SupportCardTypeOptions { get; } = [];
+
+    public ObservableCollection<IndependentRaceOption> FilteredIndependentRaceOptions { get; } = [];
+
+    public ObservableCollection<IndependentSkillOption> FilteredIndependentSkillOptions { get; } = [];
+
+    public IReadOnlyList<IndependentRaceOption> IndependentRaceOptions => _allIndependentRaceOptions;
+
+    public IReadOnlyList<IndependentSkillOption> IndependentSkillOptions => _allIndependentSkillOptions;
+
+    public IReadOnlyList<CareerModeOption> CareerModes { get; } =
+    [
+        new(NormalCareerMode, "Normal Career"),
+        new(IndependentCareerMode, "Independent Training (auto)")
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> IndependentTrainingFocusOptions { get; } =
+    [
+        new(IndependentTrainingFocusBalanced, "Balanced"),
+        new(IndependentTrainingFocusStamina, "Stamina"),
+        new(IndependentTrainingFocusSprint, "Sprint / Power")
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> IndependentLineupStrategyOptions { get; } =
+    [
+        new(IndependentLineupStrategyFront, "Front Runner"),
+        new(IndependentLineupStrategyPace, "Pace Chaser"),
+        new(IndependentLineupStrategyLate, "Late Surger"),
+        new(IndependentLineupStrategyEnd, "End Closer")
+    ];
 
     public IReadOnlyList<CareerSupportDeckPresetOption> SupportDeckPresets { get; } =
     [
@@ -170,6 +220,129 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => _continueExistingCareer;
         set => Set(ref _continueExistingCareer, value);
+    }
+
+    public string CareerMode
+    {
+        get => _careerMode;
+        set
+        {
+            var normalized = string.Equals(value, IndependentCareerMode, StringComparison.OrdinalIgnoreCase)
+                ? IndependentCareerMode
+                : NormalCareerMode;
+            if (!Set(ref _careerMode, normalized))
+                return;
+            OnPropertyChanged(nameof(IsIndependentCareer));
+            OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+        }
+    }
+
+    public bool IsIndependentCareer =>
+        CareerMode.Equals(IndependentCareerMode, StringComparison.OrdinalIgnoreCase);
+
+    public string IndependentTrainingFocus
+    {
+        get => _independentTrainingFocus;
+        set
+        {
+            var normalized = IndependentTrainingFocusOptions.Any(item =>
+                    item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ? value
+                : IndependentTrainingFocusBalanced;
+            if (!Set(ref _independentTrainingFocus, normalized))
+                return;
+            OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+        }
+    }
+
+    public string IndependentLineupStrategy
+    {
+        get => _independentLineupStrategy;
+        set
+        {
+            var normalized = IndependentLineupStrategyOptions.Any(item =>
+                    item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ? value
+                : IndependentLineupStrategyPace;
+            if (!Set(ref _independentLineupStrategy, normalized))
+                return;
+            OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+        }
+    }
+
+    public string IndependentAgendaSearchText
+    {
+        get => _independentAgendaSearchText;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (!Set(ref _independentAgendaSearchText, normalized))
+                return;
+            ApplyIndependentAgendaSearch();
+        }
+    }
+
+    public string IndependentSkillSearchText
+    {
+        get => _independentSkillSearchText;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (!Set(ref _independentSkillSearchText, normalized))
+                return;
+            ApplyIndependentSkillSearch();
+        }
+    }
+
+    public int SelectedIndependentAgendaCount =>
+        _allIndependentRaceOptions.Count(item => item.IsSelected);
+
+    public int SelectedIndependentSkillCount =>
+        _allIndependentSkillOptions.Count(item => item.IsSelected);
+
+    public string SelectedIndependentAgendaCountText =>
+        $"Agenda races selected: {SelectedIndependentAgendaCount}";
+
+    public string SelectedIndependentSkillCountText =>
+        $"Skills to add: {SelectedIndependentSkillCount}";
+
+    /// <summary>
+    /// Stable export format: one agenda key per line, in
+    /// <c>year|MM_HH|race name</c> form. The picker binds to the same
+    /// selection objects, so imported settings and UI edits stay in sync.
+    /// </summary>
+    public string IndependentAgendaSelectionsText
+    {
+        get => string.Join(Environment.NewLine,
+            _allIndependentRaceOptions
+                .Where(item => item.IsSelected)
+                .Select(item => item.Race.Key));
+        set
+        {
+            var selected = ParseIndependentAgendaSelectionKeys(value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _updatingIndependentAgenda = true;
+            foreach (var option in _allIndependentRaceOptions)
+                option.IsSelected = selected.Contains(option.Race.Key);
+            _updatingIndependentAgenda = false;
+            NotifyIndependentAgendaChanged();
+        }
+    }
+
+    public string IndependentSkillIdsText
+    {
+        get => string.Join(",", _allIndependentSkillOptions
+            .Where(item => item.IsSelected)
+            .Select(item => item.Skill.SkillId.ToString(CultureInfo.InvariantCulture)));
+        set
+        {
+            var selected = ParseIndependentSkillIdsSafely(value).ToHashSet();
+            _updatingIndependentSkills = true;
+            foreach (var option in _allIndependentSkillOptions)
+                option.IsSelected = selected.Contains(option.Skill.SkillId);
+            _updatingIndependentSkills = false;
+            NotifyIndependentSkillsChanged();
+        }
     }
 
     public string SupportCardIdsText
@@ -506,6 +679,50 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         return ids;
     }
 
+    public IReadOnlyList<IndependentTrainingAgendaSelection> ParseIndependentAgendaSelections()
+    {
+        return _allIndependentRaceOptions
+            .Where(item => item.IsSelected)
+            .Select(item => new IndependentTrainingAgendaSelection(
+                item.Race.Year,
+                item.Race.Turn,
+                item.Race.RaceName))
+            .ToArray();
+    }
+
+    public IReadOnlyList<int> ParseIndependentSkillIds()
+    {
+        var ids = new List<int>();
+        foreach (var token in IndependentSkillIdsText.Split(
+                     [',', ' ', ';', '\r', '\n', '\t'],
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                || id <= 0)
+            {
+                throw new InvalidOperationException($"Invalid independent skill ID '{token}'.");
+            }
+
+            if (!ids.Contains(id))
+                ids.Add(id);
+        }
+
+        return ids;
+    }
+
+    public static IReadOnlyList<string> ParseIndependentAgendaSelectionKeys(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return [];
+
+        return text
+            .Split(['\r', '\n', ';'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(item => item.Trim())
+            .Where(item => item.Count(character => character == '|') >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public IReadOnlyList<string> ParseLegacyAttributeSparks() =>
         AttributeSparkOptions.Where(item => item.IsSelected).Select(item => item.Key).ToArray();
 
@@ -526,7 +743,52 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         && TraineeId is > 0
         && !string.IsNullOrWhiteSpace(StrategyId)
         && UraStrategyRegistry.IsRegistered(StrategyId)
-        && IsSupportDeckValid;
+        && IsSupportDeckValid
+        && (!IsIndependentCareer || IsIndependentTrainingSettingsValid);
+
+    public bool IsIndependentTrainingSettingsValid
+    {
+        get
+        {
+            if (!IsIndependentCareer)
+                return true;
+
+            if (!_independentTrainingCatalog.IsAvailable
+                || !IndependentTrainingFocusOptions.Any(item =>
+                    item.Value.Equals(IndependentTrainingFocus, StringComparison.OrdinalIgnoreCase))
+                || !IndependentLineupStrategyOptions.Any(item =>
+                    item.Value.Equals(IndependentLineupStrategy, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            var selectedRaces = _allIndependentRaceOptions
+                .Where(item => item.IsSelected)
+                .Select(item => item.Race.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var selectedSkills = _allIndependentSkillOptions
+                .Where(item => item.IsSelected)
+                .Select(item => item.Skill.SkillId)
+                .ToHashSet();
+            var selectedAgendaEntries = _allIndependentRaceOptions
+                .Where(item => item.IsSelected)
+                .Select(item => new IndependentTrainingAgendaSelection(
+                    item.Race.Year,
+                    item.Race.Turn,
+                    item.Race.RaceName))
+                .ToArray();
+            return selectedRaces.All(key => _independentTrainingCatalog.Races.Any(item =>
+                       item.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+                && selectedAgendaEntries.All(item =>
+                    _independentTrainingCatalog.TryGetAgendaPickerEntry(item, out _))
+                && selectedSkills.All(id => _independentTrainingCatalog.Skills.Any(item => item.SkillId == id))
+                && selectedSkills.All(id =>
+                    _independentTrainingCatalog.Skills.Any(item =>
+                        item.SkillId == id
+                        && item.IsGameSearchMapped
+                        && !string.IsNullOrWhiteSpace(item.EffectiveSearchText)));
+        }
+    }
 
     private bool ManifestFileExists()
     {
@@ -739,6 +1001,61 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsSupportDeckValid));
     }
 
+    public void RefreshIndependentTrainingCatalog(string? baseDirectory = null)
+    {
+        var selectedAgenda = ParseIndependentAgendaSelectionKeys(IndependentAgendaSelectionsText)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedSkills = ParseIndependentSkillIdsSafely(IndependentSkillIdsText).ToHashSet();
+
+        _independentTrainingCatalog = IndependentTrainingCatalog.Load(baseDirectory);
+        _allIndependentRaceOptions.Clear();
+        _allIndependentSkillOptions.Clear();
+
+        foreach (var race in _independentTrainingCatalog.Races
+                     .OrderBy(item => item.Year, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.Turn, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.RaceName, StringComparer.OrdinalIgnoreCase))
+        {
+            var raceSelection = new IndependentTrainingAgendaSelection(
+                race.Year,
+                race.Turn,
+                race.RaceName);
+            var option = new IndependentRaceOption(
+                race,
+                _independentTrainingCatalog.TryGetAgendaPickerEntry(raceSelection, out _))
+            {
+                IsSelected = selectedAgenda.Contains(race.Key)
+                    && _independentTrainingCatalog.TryGetAgendaPickerEntry(raceSelection, out _),
+            };
+            option.PropertyChanged += OnIndependentRaceOptionChanged;
+            _allIndependentRaceOptions.Add(option);
+        }
+
+        foreach (var skill in _independentTrainingCatalog.Skills
+                     .OrderBy(item => item.SkillName, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.SkillId))
+        {
+            var option = new IndependentSkillOption(
+                skill,
+                skill.IsGameSearchMapped && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+            {
+                IsSelected = selectedSkills.Contains(skill.SkillId)
+                    && skill.IsGameSearchMapped
+                    && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText),
+            };
+            option.PropertyChanged += OnIndependentSkillOptionChanged;
+            _allIndependentSkillOptions.Add(option);
+        }
+
+        ApplyIndependentAgendaSearch();
+        ApplyIndependentSkillSearch();
+        NotifyIndependentAgendaChanged();
+        NotifyIndependentSkillsChanged();
+        OnPropertyChanged(nameof(IndependentRaceOptions));
+        OnPropertyChanged(nameof(IndependentSkillOptions));
+        OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+    }
+
     private void OnFriendSupportCardOptionChanged(
         object? sender,
         PropertyChangedEventArgs e)
@@ -780,6 +1097,30 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    private void OnIndependentRaceOptionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_updatingIndependentAgenda
+            || sender is not IndependentRaceOption
+            || e.PropertyName != nameof(IndependentRaceOption.IsSelected))
+        {
+            return;
+        }
+
+        NotifyIndependentAgendaChanged();
+    }
+
+    private void OnIndependentSkillOptionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_updatingIndependentSkills
+            || sender is not IndependentSkillOption
+            || e.PropertyName != nameof(IndependentSkillOption.IsSelected))
+        {
+            return;
+        }
+
+        NotifyIndependentSkillsChanged();
+    }
+
     private void SetFriendSupportCardOptionSelection(int? supportCardId)
     {
         if (FriendSupportCardOptions.Count == 0)
@@ -802,6 +1143,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         RefreshTrainees();
         RefreshSupportCards();
+        RefreshIndependentTrainingCatalog();
     }
 
     private void ApplyTraineeSearch()
@@ -857,6 +1199,72 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             if (typeMatches && textMatches)
                 FilteredFriendSupportCardOptions.Add(option);
         }
+    }
+
+    private void ApplyIndependentAgendaSearch()
+    {
+        var query = IndependentAgendaSearchText;
+        FilteredIndependentRaceOptions.Clear();
+        foreach (var option in _allIndependentRaceOptions)
+        {
+            if (string.IsNullOrWhiteSpace(query)
+                || option.Race.DisplayLabel.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Key.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredIndependentRaceOptions.Add(option);
+            }
+        }
+    }
+
+    private void ApplyIndependentSkillSearch()
+    {
+        var query = IndependentSkillSearchText;
+        FilteredIndependentSkillOptions.Clear();
+        foreach (var option in _allIndependentSkillOptions)
+        {
+            if (string.IsNullOrWhiteSpace(query)
+                || option.Skill.DisplayLabel.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Skill.SkillName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Skill.SkillId.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredIndependentSkillOptions.Add(option);
+            }
+        }
+    }
+
+    private void NotifyIndependentAgendaChanged()
+    {
+        OnPropertyChanged(nameof(IndependentAgendaSelectionsText));
+        OnPropertyChanged(nameof(SelectedIndependentAgendaCount));
+        OnPropertyChanged(nameof(SelectedIndependentAgendaCountText));
+        OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+    }
+
+    private void NotifyIndependentSkillsChanged()
+    {
+        OnPropertyChanged(nameof(IndependentSkillIdsText));
+        OnPropertyChanged(nameof(SelectedIndependentSkillCount));
+        OnPropertyChanged(nameof(SelectedIndependentSkillCountText));
+        OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
+    }
+
+    private static int[] ParseIndependentSkillIdsSafely(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return [];
+
+        return text.Split(
+                [',', ' ', ';', '\r', '\n', '\t'],
+                StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => int.TryParse(
+                token,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var id) && id > 0 ? id : 0)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
     }
 
     private void ApplySupportCardIdsText()
@@ -993,6 +1401,82 @@ public sealed class CareerSupportCardOption : INotifyPropertyChanged
 }
 
 public sealed record CareerSupportDeckPresetOption(string Value, string Label);
+
+public sealed record CareerModeOption(string Value, string Label);
+
+public sealed record IndependentTrainingOption(string Value, string Label);
+
+public sealed class IndependentRaceOption : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public IndependentRaceOption(IndependentTrainingRace race, bool isExecutable)
+    {
+        Race = race;
+        IsExecutable = isExecutable;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public IndependentTrainingRace Race { get; }
+
+    public bool IsExecutable { get; }
+
+    public string Label => IsExecutable
+        ? Race.DisplayLabel
+        : $"{Race.DisplayLabel} · no stable Global picker mapping";
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (value && !IsExecutable)
+                return;
+            if (_isSelected == value)
+                return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+}
+
+public sealed class IndependentSkillOption : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public IndependentSkillOption(IndependentTrainingSkill skill, bool isExecutable)
+    {
+        Skill = skill;
+        IsExecutable = isExecutable;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public IndependentTrainingSkill Skill { get; }
+
+    public int SkillId => Skill.SkillId;
+
+    public bool IsExecutable { get; }
+
+    public string Label => IsExecutable
+        ? Skill.DisplayLabel
+        : $"{Skill.DisplayLabel} · no JSON search mapping";
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (value && !IsExecutable)
+                return;
+            if (_isSelected == value)
+                return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+}
 
 public sealed class CareerFriendSupportCardOption : INotifyPropertyChanged
 {

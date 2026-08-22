@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "career-training-execution",
     "schemaVersion":  1,
     "description":  "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
@@ -1297,7 +1297,13 @@
                                                        "algorithm":  "MatchTemplate",
                                                        "action":  "ClickSelf",
                                                        "template":  "templates/support_select_support_start.png",
-                                                       "templThreshold":  0.44,
+                                                       "templThreshold":  0.56,
+                                                       "roi":  [
+                                                                   250,
+                                                                   1260,
+                                                                   500,
+                                                                   180
+                                                               ],
                                                        "preDelay":  0,
                                                        "postDelay":  650,
                                                        "waitMs":  0,
@@ -1326,7 +1332,13 @@
                                                       "algorithm":  "MatchTemplate",
                                                       "action":  "ClickSelf",
                                                       "template":  "templates/support_ready_support_start.png",
-                                                      "templThreshold":  0.44,
+                                                      "templThreshold":  0.56,
+                                                      "roi":  [
+                                                                  250,
+                                                                  1260,
+                                                                  500,
+                                                                  180
+                                                              ],
                                                       "preDelay":  0,
                                                       "postDelay":  650,
                                                       "waitMs":  0,
@@ -1623,6 +1635,921 @@
                                                     "required":  true,
                                                     "success":  false
                                                 },
+                  "independent_mode_select":  {
+                                                   "algorithm":  "ClickRect",
+                                                   "action":  "ClickRect",
+                                                   "specificRect":  [450, 240, 430, 75],
+                                                   "preDelay":  0,
+                                                   "postDelay":  500,
+                                                   "next":  [
+                                                                 "independent_mode_selected_probe"
+                                                             ],
+                                                   "required":  true
+                                               },
+                  "independent_mode_selected_probe":  {
+                                                   "algorithm":  "MatchTemplate",
+                                                   "action":  "JustReturn",
+                                                   "template":  "templates/independent/mode_independent.png",
+                                                   "templThreshold":  0.82,
+                                                   "roi":  [450, 240, 430, 75],
+                                                   "timeoutMs":  12000,
+                                                   "pollIntervalMs":  250,
+                                                   "required":  true
+                                               },
+                  "independent_lineup_expand":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/independent/lineup_collapse.png",
+                                                       "templThreshold":  0.80,
+                                                       "roi":  [760, 380, 120, 120],
+                                                       "postDelay":  350,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "required":  true
+                                                   },
+                  "independent_lineup_expanded_probe":  {
+                                                               "algorithm":  "MatchTemplate",
+                                                               "action":  "JustReturn",
+                                                               "template":  "templates/independent/lineup_expand.png",
+                                                               "templThreshold":  0.80,
+                                                               "roi":  [760, 380, 120, 120],
+                                                               "timeoutMs":  1200,
+                                                               "pollIntervalMs":  150,
+                                                               "onErrorNext":  "independent_lineup_expand",
+                                                               "required":  true
+                                                           },
+                  "independent_lineup_collapse":  {
+                                                          "algorithm":  "MatchTemplate",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/independent/lineup_expand.png",
+                                                          "templThreshold":  0.80,
+                                                          "roi":  [760, 380, 120, 120],
+                                                          "postDelay":  350,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "required":  true
+                                                      },
+                  "independent_lineup_strategy_front":  {
+                                                              "algorithm":  "ClickRect",
+                                                              "action":  "ClickRect",
+                                                              "specificRect":  [90, 610, 180, 120],
+                                                              "postDelay":  350,
+                                                              "required":  true
+                                                          },
+                  "independent_lineup_strategy_pace":  {
+                                                             "algorithm":  "ClickRect",
+                                                             "action":  "ClickRect",
+                                                             "specificRect":  [285, 610, 180, 120],
+                                                             "postDelay": 350,
+                                                             "required":  true
+                                                         },
+                  "independent_lineup_strategy_late":  {
+                                                             "algorithm":  "ClickRect",
+                                                             "action":  "ClickRect",
+                                                             "specificRect":  [480, 610, 180, 120],
+                                                             "postDelay": 350,
+                                                             "required":  true
+                                                         },
+                  "independent_lineup_strategy_end":  {
+                                                            "algorithm":  "ClickRect",
+                                                            "action":  "ClickRect",
+                                                            "specificRect":  [675, 610, 180, 120],
+                                                            "postDelay": 350,
+                                                            "required":  true
+                                                        },
+                  "independent_focus_balanced":  {
+                                                      "algorithm":  "MatchTemplate",
+                                                      "action":  "ClickSelf",
+                                                      "template":  "templates/independent/focus_balanced.png",
+                                                      "templThreshold":  0.80,
+                                                      "roi":  [20, 600, 180, 150],
+                                                      "postDelay": 250,
+                                                      "timeoutMs": 12000,
+                                                      "pollIntervalMs": 250,
+                                                      "required":  true
+                                                  },
+                  "independent_focus_stamina":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/focus_stamina.png",
+                                                     "templThreshold":  0.80,
+                                                     "roi":  [300, 600, 180, 150],
+                                                     "postDelay": 250,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "required":  true
+                                                 },
+                  "independent_focus_sprint":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/independent/focus_sprint.png",
+                                                    "templThreshold":  0.80,
+                                                    "roi":  [590, 600, 180, 150],
+                                                    "postDelay": 250,
+                                                    "timeoutMs": 12000,
+                                                    "pollIntervalMs": 250,
+                                                    "required":  true
+                                                },
+                  "independent_agenda_open":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/independent/agenda_edit.png",
+                                                    "templThreshold":  0.80,
+                                                    "roi":  [680, 700, 210, 150],
+                                                    "postDelay": 450,
+                                                    "timeoutMs": 12000,
+                                                    "pollIntervalMs": 250,
+                                                    "required":  true
+                                                },
+                  "independent_agenda_slot_07_02":  {
+                                                         "algorithm":  "ClickRect",
+                                                         "action":  "ClickRect",
+                                                         "specificRect":  [250, 785, 195, 115],
+                                                         "postDelay": 400,
+                                                         "required":  true
+                                                     },
+                  "independent_agenda_apply":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/agenda_race_hakodate_junior_stakes.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [35, 300, 830, 380],
+                                                     "postDelay": 250,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "next": ["independent_agenda_save"],
+                                                     "required":  true
+                                                 },
+                  "independent_agenda_save":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/agenda_save.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [470, 1400, 360, 160],
+                                                     "postDelay": 450,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "required":  true
+                                                 },
+                  "independent_agenda_close":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/agenda_close.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [250, 1400, 420, 160],
+                                                     "postDelay": 450,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "required":  true
+                                                 },
+                  "independent_skills_open":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/skills_open.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [20, 820, 860, 280],
+                                                     "postDelay": 450,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "required":  true
+                                                 },
+                  "independent_skills_add":  {
+                                                     "algorithm":  "MatchTemplate",
+                                                     "action":  "ClickSelf",
+                                                     "template":  "templates/independent/skill_breath_of_fresh_air.png",
+                                                     "templThreshold":  0.78,
+                                                     "roi":  [20, 650, 860, 500],
+                                                     "postDelay": 250,
+                                                     "timeoutMs": 12000,
+                                                     "pollIntervalMs": 250,
+                                                     "next": ["independent_skills_save"],
+                                                     "required":  true
+                                                 },
+                  "independent_skills_save":  {
+                                                     "algorithm":  "ClickRect",
+                                                     "action":  "ClickRect",
+                                                     "specificRect":  [470, 1400, 360, 160],
+                                                     "postDelay": 450,
+                                                     "required":  true
+                                                 },
+                  "independent_training_start":  {
+                                                         "algorithm":  "MatchTemplate",
+                                                         "action":  "ClickSelf",
+                                                         "template":  "templates/independent/training_start.png",
+                                                         "templThreshold":  0.78,
+                                                         "roi":  [450, 1400, 400, 180],
+                                                         "postDelay": 800,
+                                                         "timeoutMs": 12000,
+                                                         "pollIntervalMs": 250,
+                                                         "required":  true
+                                                     },
+                  "independent_agenda_year_first_year": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [20, 120, 280, 72],
+                                                       "postDelay": 300,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_year_second_year": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [310, 120, 280, 72],
+                                                       "postDelay": 300,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_year_third_year": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [600, 120, 280, 72],
+                                                       "postDelay": 300,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_scroll": {
+                                                       "algorithm": "Swipe",
+                                                       "action": "Swipe",
+                                                       "swipe": [840, 1240, 840, 500, 550],
+                                                       "postDelay": 350,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_1": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 300, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_2": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 480, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_3": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 660, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_4": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 840, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_5": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 1020, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_row_6": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 1200, 820, 165],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_reset": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [680, 1320, 190, 70],
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_focus": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [30, 1320, 635, 70],
+                                                       "postDelay": 150,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_input": {
+                                                       "algorithm": "Input",
+                                                       "action": "Input",
+                                                       "postDelay": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_submit": {
+                                                       "algorithm": "KeyEvent",
+                                                       "action": "KeyEvent",
+                                                       "keyCode": "KEYCODE_ENTER",
+                                                       "postDelay": 500,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 140, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_01_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_01_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_02_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_02_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_03_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_03_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_04_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_04_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_05_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_05_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_06_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_06_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_07_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_07_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_08_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_08_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_09_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_09_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_10_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_10_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_11_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_11_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_12_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_first_year_12_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_01_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_01_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_02_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_02_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_03_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_03_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_04_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_04_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_05_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_05_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_06_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_06_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_07_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_07_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_08_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_08_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_09_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_09_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_10_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_10_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_11_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_11_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_12_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_second_year_12_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_01_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_01_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_02_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_02_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 250, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_03_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_03_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_04_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_04_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 430, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_05_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_05_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_06_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_06_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 610, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_07_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_07_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_08_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_08_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 790, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_09_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_09_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_10_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_10_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 970, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_11_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [40, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_11_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [250, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_12_01": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [460, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_agenda_slot_third_year_12_02": {
+                                                       "algorithm": "ClickRect",
+                                                       "action": "ClickRect",
+                                                       "specificRect": [670, 1150, 190, 115],
+                                                       "postDelay": 400,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_scroll": {
+                                                       "algorithm": "Swipe",
+                                                       "action": "Swipe",
+                                                       "swipe": [840, 1240, 840, 500, 550],
+                                                       "postDelay": 350,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_1": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 140, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_2": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 282, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_3": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 425, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_4": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 567, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_5": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 709, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_6": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 851, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_7": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 992, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
+                  "independent_skills_search_result_row_8": {
+                                                       "algorithm": "MatchTemplate",
+                                                       "action": "ClickSelf",
+                                                       "template": "templates/independent/skill_result_row.png",
+                                                       "templThreshold": 0.70,
+                                                       "roi": [120, 1134, 740, 125],
+                                                       "postDelay": 300,
+                                                       "timeoutMs": 12000,
+                                                       "pollIntervalMs": 250,
+                                                       "required": true
+                                                   },
                   "career_races_ready_action_races":  {
                                                           "algorithm":  "MatchTemplate",
                                                           "action":  "ClickSelf",

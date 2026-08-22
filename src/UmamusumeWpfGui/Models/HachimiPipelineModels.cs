@@ -72,6 +72,18 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("swipe")]
     public int[]? Swipe { get; set; }
 
+    /// <summary>
+    /// Text supplied to the JSON Input action.  The value is kept in the
+    /// definition for simple static tasks; data-driven callers may provide
+    /// an <see cref="HachimiPipelineRunOptions"/> override without putting
+    /// user data or an interaction decision in C#.
+    /// </summary>
+    [JsonPropertyName("inputText")]
+    public string? InputText { get; set; }
+
+    [JsonPropertyName("keyCode")]
+    public string? KeyCode { get; set; }
+
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 

@@ -43,6 +43,15 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         ["scenarioId"] = Settings.ScenarioId,
         ["manifestPath"] = Settings.ManifestPath,
         ["traineeId"] = Settings.TraineeId,
+        ["careerMode"] = Settings.CareerMode,
+        ["independentTrainingFocus"] = Settings.IndependentTrainingFocus,
+        ["independentLineupStrategy"] = Settings.IndependentLineupStrategy,
+        ["independentAgendaSelections"] = new JsonArray(Settings.ParseIndependentAgendaSelections()
+            .Select(item => (JsonNode?)JsonValue.Create(item.Key))
+            .ToArray()),
+        ["independentSkillIds"] = new JsonArray(Settings.ParseIndependentSkillIds()
+            .Select(item => (JsonNode?)JsonValue.Create(item))
+            .ToArray()),
         ["continueExistingCareer"] = Settings.ContinueExistingCareer,
         ["supportDeckMode"] = Settings.SupportDeckMode,
         ["supportDeckPreset"] = Settings.SupportDeckPreset,
@@ -73,6 +82,19 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         Settings.ManifestPath = MigrateManifestPath(manifestPath ?? Settings.ManifestPath);
         Settings.ScenarioId = ReadString(settings, "scenarioId") ?? Settings.ScenarioId;
         Settings.TraineeId = ReadNullableInt(settings, "traineeId") ?? Settings.TraineeId;
+        Settings.CareerMode = ReadString(settings, "careerMode") ?? Settings.CareerMode;
+        Settings.IndependentTrainingFocus = ReadString(
+            settings,
+            "independentTrainingFocus") ?? Settings.IndependentTrainingFocus;
+        Settings.IndependentLineupStrategy = ReadString(
+            settings,
+            "independentLineupStrategy") ?? Settings.IndependentLineupStrategy;
+        Settings.IndependentAgendaSelectionsText = string.Join(
+            Environment.NewLine,
+            ReadStringArray(settings, "independentAgendaSelections"));
+        Settings.IndependentSkillIdsText = string.Join(
+            ",",
+            ReadIntArray(settings, "independentSkillIds"));
         Settings.ContinueExistingCareer = ReadBool(
             settings,
             "continueExistingCareer",
@@ -151,6 +173,12 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
                 continueExistingCareer
                     ? "Career entry policy: Resume existing Career."
                     : "Career entry policy: Delete Career data, then start fresh.");
+            context.LogSink?.Add(
+                "Career Training",
+                $"Career mode selected: {Settings.CareerMode}."
+                    + (Settings.IsIndependentCareer
+                        ? " Independent setup will be applied after support selection."
+                        : " Normal Career will use the final Start action."));
 
             var result = await _pipeline.RunAsync(
                     connection,
@@ -169,7 +197,12 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
                         Settings.UseLegacyGuest,
                         Settings.UseCachedLegacy,
                         Settings.ParseLegacyAttributeSparks(),
-                        Settings.ParseLegacyAptitudeSparks()),
+                        Settings.ParseLegacyAptitudeSparks(),
+                        Settings.CareerMode,
+                        Settings.IndependentTrainingFocus,
+                        Settings.IndependentLineupStrategy,
+                        Settings.ParseIndependentAgendaSelections(),
+                        Settings.ParseIndependentSkillIds()),
                     context.LogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -261,6 +294,23 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Select(item => item!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static int[] ReadIntArray(JsonObject settings, string key)
+    {
+        if (settings[key] is not JsonArray values)
+            return [];
+
+        return values
+            .Select(item =>
+            {
+                try { return item?.GetValue<int>() ?? 0; }
+                catch (InvalidOperationException) { return 0; }
+                catch (FormatException) { return 0; }
+            })
+            .Where(item => item > 0)
+            .Distinct()
             .ToArray();
     }
 

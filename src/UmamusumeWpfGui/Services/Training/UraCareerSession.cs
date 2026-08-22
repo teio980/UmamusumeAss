@@ -60,6 +60,15 @@ public sealed class UraCareerSessionState
     // both the starting point and the terminal destination.
     public bool CareerStarted { get; set; }
     public bool CareerEntryOpened { get; set; }
+    // Independent Training uses the same Final Confirmation surface as the
+    // normal career, but has a separate JSON-driven setup sequence. Persist
+    // each milestone so a stopped run can resume without replaying taps.
+    public bool IndependentModeSelected { get; set; }
+    public bool IndependentLineupConfigured { get; set; }
+    public bool IndependentTrainingFocusConfigured { get; set; }
+    public bool IndependentAgendaConfigured { get; set; }
+    public bool IndependentSkillsConfigured { get; set; }
+    public bool IndependentSetupCompleted { get; set; }
     public UraPlannedAction LastAction { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);

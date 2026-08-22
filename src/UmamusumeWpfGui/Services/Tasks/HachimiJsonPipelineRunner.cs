@@ -386,6 +386,69 @@ public sealed class HachimiJsonPipelineRunner
 
         switch (action)
         {
+            case "input":
+                var inputText = task.InputText;
+                if (runOptions.InputTextOverrides is not null
+                    && runOptions.InputTextOverrides.TryGetValue(taskName, out var inputOverride))
+                {
+                    inputText = inputOverride;
+                }
+
+                if (string.IsNullOrWhiteSpace(inputText))
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses Input but has no text value.");
+                }
+
+                var inputResult = await _adbRuntime.InputTextAsync(
+                        connection.AdbPath,
+                        connection.Serial,
+                        inputText,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (inputResult.Error is not null
+                    || inputResult.TimedOut
+                    || inputResult.ExitCode != 0)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"ADB Input failed for '{taskName}': {inputResult.Stderr}");
+                }
+
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Entered JSON-provided text ({inputText.Length} character(s)).",
+                    LogEntryKind.Success);
+                break;
+
+            case "keyevent":
+                if (string.IsNullOrWhiteSpace(task.KeyCode))
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses KeyEvent but has no keyCode.");
+                }
+
+                var keyEventResult = await _adbRuntime.KeyEventAsync(
+                        connection.AdbPath,
+                        connection.Serial,
+                        task.KeyCode,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                if (keyEventResult.Error is not null
+                    || keyEventResult.TimedOut
+                    || keyEventResult.ExitCode != 0)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"ADB KeyEvent failed for '{taskName}': {keyEventResult.Stderr}");
+                }
+
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Sent JSON key event '{task.KeyCode}'.",
+                    LogEntryKind.Success);
+                break;
+
             case "selectdailyracerunner":
             case "selecturatrainee":
             case "selecturalegacy":
@@ -1162,6 +1225,13 @@ public sealed class HachimiPipelineRunOptions
     /// The JSON task still owns the algorithm and click action.
     /// </summary>
     public IReadOnlyDictionary<string, string>? TemplateOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime text values supplied by a caller for data-driven JSON Input
+    /// tasks. The task definition still owns the input action and all page
+    /// navigation; callers only choose the semantic value to enter.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? InputTextOverrides { get; init; }
 
     public Func<
         LastVerifiedConnection,

@@ -22,6 +22,26 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Career_mode_normalizes_and_preserves_independent_selection()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.NormalCareerMode, settings.CareerMode);
+        Assert.False(settings.IsIndependentCareer);
+
+        settings.CareerMode = "Independent";
+
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.IndependentCareerMode, settings.CareerMode);
+        Assert.True(settings.IsIndependentCareer);
+        Assert.True(settings.IsIndependentTrainingSettingsValid);
+
+        settings.CareerMode = "normal";
+
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.NormalCareerMode, settings.CareerMode);
+        Assert.False(settings.IsIndependentCareer);
+    }
+
+    [Fact]
     public void Guest_support_filter_uses_selected_card_type_not_friend_card_type()
     {
         var actions = AdbCareerTrainingPipeline.BuildHighestStarFilterActions("Speed", "SSR");

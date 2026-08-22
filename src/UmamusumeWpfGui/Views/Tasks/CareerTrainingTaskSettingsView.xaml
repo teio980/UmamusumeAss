@@ -22,6 +22,85 @@
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource TextSecondaryBrush}" />
 
+      <TextBlock Margin="0,14,0,0" Text="Career mode" />
+      <ComboBox Margin="0,6,0,0"
+                ItemsSource="{Binding CareerModes}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      <Expander Margin="0,10,0,0"
+                Header="Independent Training setup"
+                IsEnabled="{Binding IsIndependentCareer}">
+        <StackPanel Margin="6,8,0,0">
+          <TextBlock Text="Line Up Detail · strategy" />
+          <ComboBox Margin="0,6,0,0"
+                    ItemsSource="{Binding IndependentLineupStrategyOptions}"
+                    DisplayMemberPath="Label"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding IndependentLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Margin="0,10,0,0" Text="Training Focus" />
+          <ComboBox Margin="0,6,0,0"
+                    ItemsSource="{Binding IndependentTrainingFocusOptions}"
+                    DisplayMemberPath="Label"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding IndependentTrainingFocus, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+          <TextBlock Margin="0,12,0,0" Text="Agenda · choose a time slot and race" />
+          <ui:TextBox Margin="0,6,0,0"
+                      PlaceholderText="Search race, year, month or surface"
+                      Text="{Binding IndependentAgendaSearchText, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Margin="0,4,0,0"
+                     Text="{Binding SelectedIndependentAgendaCountText}"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBlock Margin="0,4,0,0"
+                     Text="Unavailable rows are shown but disabled until a reviewed JSON/template asset is added."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+          <ListBox Height="190"
+                   Margin="0,6,0,0"
+                   BorderThickness="1"
+                   ScrollViewer.CanContentScroll="False"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ItemsSource="{Binding FilteredIndependentRaceOptions}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <CheckBox Margin="4,3"
+                          Content="{Binding Label}"
+                          IsEnabled="{Binding IsExecutable}"
+                          IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <TextBlock Margin="0,12,0,0" Text="Skill · Add Skill" />
+          <ui:TextBox Margin="0,6,0,0"
+                      PlaceholderText="Search skill name or ID"
+                      Text="{Binding IndependentSkillSearchText, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Margin="0,4,0,0"
+                     Text="{Binding SelectedIndependentSkillCountText}"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+          <ListBox Height="190"
+                   Margin="0,6,0,0"
+                   BorderThickness="1"
+                   ScrollViewer.CanContentScroll="False"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ItemsSource="{Binding FilteredIndependentSkillOptions}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <CheckBox Margin="4,3"
+                          Content="{Binding Label}"
+                          IsEnabled="{Binding IsExecutable}"
+                          IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Margin="0,6,0,0"
+                     Text="Agenda and skills are stored in the task profile and applied through the JSON semantic pipeline."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+      </Expander>
+
       <TextBlock Margin="0,12,0,0" Text="Legacy selection" />
       <ComboBox Margin="0,6,0,0"
                 ItemsSource="{Binding LegacySelectionModes}"

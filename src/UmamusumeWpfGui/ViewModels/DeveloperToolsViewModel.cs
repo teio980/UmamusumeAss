@@ -1175,6 +1175,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             "clickrect",
             "clickself",
             "donothing",
+            "input",
+            "keyevent",
             "runpipeline",
             "screenshot",
             "selectdailyracerunner",
@@ -1205,6 +1207,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 errors.Add($"{name}: ClickRect requires specificRect with 4 values");
             if (action == "swipe" && !HasArray(task.Swipe, 5))
                 errors.Add($"{name}: Swipe requires 5 coordinates");
+            if (action == "keyevent" && string.IsNullOrWhiteSpace(task.KeyCode))
+                errors.Add($"{name}: KeyEvent requires keyCode");
             if (action == "runpipeline" && string.IsNullOrWhiteSpace(task.Pipeline))
                 errors.Add($"{name}: RunPipeline requires pipeline");
             if (algorithm is "parallelmonitor" or "raceresultmonitor"

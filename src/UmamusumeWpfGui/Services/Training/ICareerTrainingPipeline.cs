@@ -32,7 +32,12 @@ public sealed record CareerTrainingSettings(
     bool UseLegacyGuest,
     bool UseCachedLegacy,
     IReadOnlyList<string> LegacyAttributeSparks,
-    IReadOnlyList<string> LegacyAptitudeSparks);
+    IReadOnlyList<string> LegacyAptitudeSparks,
+    string CareerMode = "normal",
+    string IndependentTrainingFocus = "balanced",
+    string IndependentLineupStrategy = "pace",
+    IReadOnlyList<IndependentTrainingAgendaSelection>? IndependentAgendaSelections = null,
+    IReadOnlyList<int>? IndependentSkillIds = null);
 
 public sealed record CareerTrainingResult(
     bool Succeeded,

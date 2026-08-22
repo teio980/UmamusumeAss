@@ -430,8 +430,8 @@ public sealed class HachimiPipelineDefinitionTests
             Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
             Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
             Assert.NotNull(task.Template);
-            Assert.Null(task.Roi);
-            Assert.Equal(0.44, task.TemplateThreshold);
+            Assert.Equal([250, 1260, 500, 180], task.Roi!);
+            Assert.Equal(0.56, task.TemplateThreshold);
         }
     }
 
@@ -456,8 +456,10 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support_select_support_auto_fill.png",
             recognition.GetProperty("template").GetString());
-        Assert.False(recognition.TryGetProperty("roi", out _));
-        Assert.Equal(0.78, recognition.GetProperty("templThreshold").GetDouble());
+        Assert.Equal(
+            [350, 1030, 520, 240],
+            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
+        Assert.Equal(0.92, recognition.GetProperty("templThreshold").GetDouble());
     }
 
     [Fact]
@@ -481,8 +483,10 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support_ready_support_start.png",
             recognition.GetProperty("template").GetString());
-        Assert.Equal(0.44, recognition.GetProperty("templThreshold").GetDouble());
-        Assert.False(recognition.TryGetProperty("roi", out _));
+        Assert.Equal(0.56, recognition.GetProperty("templThreshold").GetDouble());
+        Assert.Equal(
+            [250, 1260, 500, 180],
+            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
     }
 
     [Fact]
