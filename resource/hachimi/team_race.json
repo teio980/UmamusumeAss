@@ -264,6 +264,18 @@
       "next": ["raceagain"],
       "onErrorNext": ["raceagain"]
     },
+    "storyUnlockedClose": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/team_race/story_unlocked_close.png",
+      "roi": [240, 940, 420, 260],
+      "templThreshold": 0.82,
+      "required": false,
+      "timeoutMs": 5000,
+      "postDelay": 800,
+      "next": ["raceagain"],
+      "onErrorNext": ["raceagain"]
+    },
     "resultMonitor": {
       "algorithm": "ParallelMonitor",
       "monitorTasks": [
@@ -273,7 +285,8 @@
         "runRandomShop",
         "MiddleNext",
         "nexttwo",
-        "noticesClose"
+        "noticesClose",
+        "storyUnlockedClose"
       ],
       "successTask": "raceagain",
       "successTasks": ["teamRaceAfterShop"],
