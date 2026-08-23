@@ -196,6 +196,19 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/start_game/notices_close.png",
             definition.GetTask("noticesClose").Template);
+        var storyUnlockedClose = definition.GetTask("storyUnlockedClose");
+        Assert.Equal(
+            "templates/team_race/story_unlocked_close.png",
+            storyUnlockedClose.Template);
+        Assert.Equal("ClickSelf", storyUnlockedClose.Action, ignoreCase: true);
+        Assert.Equal([240, 940, 420, 260], storyUnlockedClose.Roi!);
+        Assert.False(storyUnlockedClose.Required);
+        Assert.Contains("storyUnlockedClose", monitor.MonitorTasks);
+        Assert.True(File.Exists(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            storyUnlockedClose.Template!)));
     }
 
     [Fact]

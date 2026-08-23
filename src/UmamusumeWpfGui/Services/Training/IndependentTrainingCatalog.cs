@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 
@@ -85,11 +86,29 @@ public sealed class IndependentTrainingCatalog
         return asset is not null;
     }
 
+    /// <summary>
+    /// Every agenda race uses the same OCR task.  The caller supplies the
+    /// catalog-derived visible picker header as a runtime target override;
+    /// no race name or screenshot/template identity is encoded in the
+    /// semantic action.
+    /// </summary>
     public static string AgendaSemanticAction(IndependentTrainingAgendaSelection selection) =>
-        $"independent.agenda.race.{SemanticSlug(selection.Year)}.{SemanticSlug(selection.Turn)}.{SemanticSlug(selection.RaceName)}";
+        "independent.agenda.race";
 
+    public static string AgendaRaceVerifySemanticAction() =>
+        "independent.agenda.race.verify";
+
+    // Every agenda cell has its own JSON task/ROI.  The task still uses the
+    // real plus template and ClickSelf; this semantic id only selects the
+    // JSON-declared cell, so the caller never invents a coordinate.
     public static string AgendaSlotSemanticAction(IndependentTrainingAgendaSelection selection) =>
         $"independent.agenda.slot.{SemanticSlug(selection.Year)}.{SemanticSlug(selection.Turn)}";
+
+    public static string AgendaYearSemanticAction() =>
+        "independent.agenda.year";
+
+    public static string AgendaRaceSemanticAction() =>
+        "independent.agenda.race";
 
     public static string AgendaScrollSemanticAction() =>
         "independent.agenda.scroll";
@@ -109,17 +128,20 @@ public sealed class IndependentTrainingCatalog
     public static string SkillSearchSubmitSemanticAction() =>
         "independent.skills.search.submit";
 
-    public static string SkillSearchResultSemanticAction() =>
-        "independent.skills.search.result";
-
-    public static string SkillSearchResultSemanticAction(int rowIndex) =>
-        $"independent.skills.search.result.row.{Math.Clamp(rowIndex, 0, SkillPickerVisibleRows - 1) + 1}";
+    public static string SkillSearchCheckboxSemanticAction() =>
+        "independent.skills.search.checkbox";
 
     public static string SkillSearchScrollSemanticAction() =>
         "independent.skills.search.scroll";
 
-    public static string SkillSemanticAction(int skillId) =>
-        $"independent.skills.search.item.{skillId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+    public static string PostStartMenuSemanticAction() =>
+        "independent.post_start.menu";
+
+    public static string PostStartToHomeSemanticAction() =>
+        "independent.post_start.to_home";
+
+    public static string PostStartHomeProbeSemanticAction() =>
+        "independent.post_start.home_probe";
 
     private static string SemanticSlug(string value)
     {
@@ -354,6 +376,42 @@ public sealed record IndependentTrainingRace(
     bool IsGameAvailable = false)
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
+
+    /// <summary>
+    /// Text rendered in the picker header for this catalog row.  The race
+    /// name is normally rendered inside a decorative image, which is not a
+    /// reliable OCR source; the adjacent course header is ordinary text and
+    /// carries the same race identity through track, surface, distance,
+    /// length and direction.
+    /// </summary>
+    public string PickerHeaderTarget
+    {
+        get
+        {
+            var track = GameTrack.Trim();
+            var ground = string.IsNullOrWhiteSpace(GameGround)
+                ? Type.Trim()
+                : GameGround.Trim();
+            var direction = Location.Contains('⇒')
+                ? "Right"
+                : Location.Contains('⇐')
+                    ? "Left"
+                    : string.Empty;
+            if (track.Length == 0
+                || ground.Length == 0
+                || GameDistance <= 0
+                || direction.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var distance = GameDistance.ToString(CultureInfo.InvariantCulture) + "m";
+            var length = string.IsNullOrWhiteSpace(Length)
+                ? string.Empty
+                : $" ({Length.Trim()})";
+            return $"{track} {ground} {distance}{length} {direction}";
+        }
+    }
 
     public string DisplayLabel =>
         $"{Year} · {Turn} · {RaceName} ({Grade}, {Type} {LengthM})";

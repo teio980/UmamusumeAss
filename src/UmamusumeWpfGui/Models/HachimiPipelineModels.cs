@@ -157,6 +157,58 @@ public sealed class HachimiPipelineTask
 
     [JsonPropertyName("countKey")]
     public string? CountKey { get; set; }
+
+    [JsonPropertyName("targetText")]
+    public string? TargetText { get; set; }
+
+    [JsonPropertyName("ocrLanguage")]
+    public string? OcrLanguage { get; set; }
+
+    [JsonPropertyName("fuzzyThreshold")]
+    public double FuzzyThreshold { get; set; } = 0.86;
+
+    [JsonPropertyName("unique")]
+    public bool Unique { get; set; } = true;
+
+    [JsonPropertyName("clickOffset")]
+    public int[]? ClickOffset { get; set; }
+
+    [JsonPropertyName("rowExpansion")]
+    public int[]? RowExpansion { get; set; }
+
+    [JsonPropertyName("maxScrolls")]
+    public int MaxScrolls { get; set; }
+
+    /// <summary>
+    /// Optional vertical span, in reference pixels, used to combine OCR lines
+    /// that belong to one visual row/card before matching the target text.
+    /// Zero keeps the ordinary one-detection-per-candidate behavior.
+    /// </summary>
+    [JsonPropertyName("ocrGroupRowHeight")]
+    public int OcrGroupRowHeight { get; set; }
+
+    /// <summary>
+    /// Maximum vertical gap, in reference pixels, between adjacent OCR lines
+    /// in one grouped row/card.  Zero derives the allowance from the group
+    /// height.
+    /// </summary>
+    [JsonPropertyName("ocrRowGap")]
+    public int OcrRowGap { get; set; }
+
+    /// <summary>
+    /// OCR matching policy.  The default is line-level fuzzy matching;
+    /// tokenCoverage is an opt-in unordered token policy for multi-line cards.
+    /// </summary>
+    [JsonPropertyName("ocrMatchMode")]
+    public string? OcrMatchMode { get; set; }
+
+    /// <summary>
+    /// Token-coverage tasks normally require every target token to be present
+    /// in the grouped text.  This prevents a same-category card (for example
+    /// another Junior Stakes race) from satisfying a location-specific target.
+    /// </summary>
+    [JsonPropertyName("ocrRequireAllTokens")]
+    public bool OcrRequireAllTokens { get; set; } = true;
 }
 
 public sealed class HachimiPipelineTemplates

@@ -58,6 +58,57 @@ public interface IVisualPipelineRuntime
         double minimumScoreGap,
         CancellationToken cancellationToken = default);
 
+    Task<ScreenTextRecognitionResult?> DetectTextAsync(
+        LastVerifiedConnection connection,
+        int[]? roi,
+        int referenceWidth,
+        int referenceHeight,
+        string? language,
+        string taskName,
+        CancellationToken cancellationToken = default);
+
+    Task<ScreenTextQueryResult?> FindTextAsync(
+        LastVerifiedConnection connection,
+        string targetText,
+        int[]? roi,
+        double fuzzyThreshold,
+        bool unique,
+        int referenceWidth,
+        int referenceHeight,
+        string? language,
+        string taskName,
+        string? matchMode = null,
+        int groupRowHeight = 0,
+        int rowGap = 0,
+        bool requireAllTokens = true,
+        CancellationToken cancellationToken = default);
+
+    Task<ScreenTextQueryResult?> WaitForTextAsync(
+        LastVerifiedConnection connection,
+        string targetText,
+        int[]? roi,
+        double fuzzyThreshold,
+        bool unique,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string? language,
+        string taskName,
+        string? matchMode = null,
+        int groupRowHeight = 0,
+        int rowGap = 0,
+        bool requireAllTokens = true,
+        CancellationToken cancellationToken = default);
+
+    Task TapTextAsync(
+        LastVerifiedConnection connection,
+        ScreenTextCandidate match,
+        int[]? clickOffset,
+        int[]? rowExpansion,
+        string taskName,
+        CancellationToken cancellationToken = default);
+
     Task TapMatchAsync(
         LastVerifiedConnection connection,
         TemplateMatchResult match,

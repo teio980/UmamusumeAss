@@ -35,6 +35,123 @@
                           },
     "screens":  [
                     {
+                        "screenId": "career_final_confirmation",
+                        "recognition": {
+                            "template": "templates/independent/career_final_confirmation_header.png",
+                            "roi": [10,40,880,76],
+                            "templThreshold": 0.80,
+                            "stable": true
+                        },
+                        "actions": [
+                            {"semanticId":"career.start","task":"career_entry_career_start"},
+                            {"semanticId":"independent.select_mode","task":"independent_mode_selected_probe"},
+                            {"semanticId":"independent.lineup.expand","task":"independent_lineup_prepare"},
+                            {"semanticId":"independent.focus.scroll","task":"independent_focus_scroll"},
+                            {"semanticId":"independent.focus.balanced","task":"independent_focus_balanced_probe"},
+                            {"semanticId":"independent.focus.stamina","task":"independent_focus_stamina_probe"},
+                            {"semanticId":"independent.focus.sprint","task":"independent_focus_sprint_probe"},
+                            {"semanticId":"independent.agenda.open","task":"independent_agenda_prepare"},
+                            {"semanticId":"independent.agenda.reset","task":"independent_agenda_reset"},
+                            {"semanticId":"independent.agenda.reset.confirm","task":"independent_agenda_reset_confirm"},
+                            {"semanticId":"independent.agenda.reset.done","task":"independent_agenda_reset_done_close"},
+                            {"semanticId":"independent.agenda.year.first_year","task":"independent_agenda_year_first_year_probe"},
+                            {"semanticId":"independent.agenda.year.second_year","task":"independent_agenda_year_second_year_probe"},
+                            {"semanticId":"independent.agenda.year.third_year","task":"independent_agenda_year_third_year_probe"},
+                            {"semanticId":"independent.agenda.slot.first_year.07_02","task":"independent_agenda_slot_first_year_07_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.07_02","task":"independent_agenda_slot_second_year_07_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.07_02","task":"independent_agenda_slot_third_year_07_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.01_01","task":"independent_agenda_slot_first_year_01_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.01_02","task":"independent_agenda_slot_first_year_01_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.02_01","task":"independent_agenda_slot_first_year_02_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.02_02","task":"independent_agenda_slot_first_year_02_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.03_01","task":"independent_agenda_slot_first_year_03_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.03_02","task":"independent_agenda_slot_first_year_03_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.04_01","task":"independent_agenda_slot_first_year_04_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.04_02","task":"independent_agenda_slot_first_year_04_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.05_01","task":"independent_agenda_slot_first_year_05_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.05_02","task":"independent_agenda_slot_first_year_05_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.06_01","task":"independent_agenda_slot_first_year_06_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.06_02","task":"independent_agenda_slot_first_year_06_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.07_01","task":"independent_agenda_slot_first_year_07_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.08_01","task":"independent_agenda_slot_first_year_08_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.08_02","task":"independent_agenda_slot_first_year_08_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.09_01","task":"independent_agenda_slot_first_year_09_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.09_02","task":"independent_agenda_slot_first_year_09_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.10_01","task":"independent_agenda_slot_first_year_10_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.10_02","task":"independent_agenda_slot_first_year_10_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.11_01","task":"independent_agenda_slot_first_year_11_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.11_02","task":"independent_agenda_slot_first_year_11_02"},
+                            {"semanticId":"independent.agenda.slot.first_year.12_01","task":"independent_agenda_slot_first_year_12_01"},
+                            {"semanticId":"independent.agenda.slot.first_year.12_02","task":"independent_agenda_slot_first_year_12_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.01_01","task":"independent_agenda_slot_second_year_01_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.01_02","task":"independent_agenda_slot_second_year_01_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.02_01","task":"independent_agenda_slot_second_year_02_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.02_02","task":"independent_agenda_slot_second_year_02_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.03_01","task":"independent_agenda_slot_second_year_03_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.03_02","task":"independent_agenda_slot_second_year_03_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.04_01","task":"independent_agenda_slot_second_year_04_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.04_02","task":"independent_agenda_slot_second_year_04_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.05_01","task":"independent_agenda_slot_second_year_05_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.05_02","task":"independent_agenda_slot_second_year_05_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.06_01","task":"independent_agenda_slot_second_year_06_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.06_02","task":"independent_agenda_slot_second_year_06_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.07_01","task":"independent_agenda_slot_second_year_07_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.08_01","task":"independent_agenda_slot_second_year_08_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.08_02","task":"independent_agenda_slot_second_year_08_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.09_01","task":"independent_agenda_slot_second_year_09_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.09_02","task":"independent_agenda_slot_second_year_09_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.10_01","task":"independent_agenda_slot_second_year_10_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.10_02","task":"independent_agenda_slot_second_year_10_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.11_01","task":"independent_agenda_slot_second_year_11_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.11_02","task":"independent_agenda_slot_second_year_11_02"},
+                            {"semanticId":"independent.agenda.slot.second_year.12_01","task":"independent_agenda_slot_second_year_12_01"},
+                            {"semanticId":"independent.agenda.slot.second_year.12_02","task":"independent_agenda_slot_second_year_12_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.01_01","task":"independent_agenda_slot_third_year_01_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.01_02","task":"independent_agenda_slot_third_year_01_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.02_01","task":"independent_agenda_slot_third_year_02_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.02_02","task":"independent_agenda_slot_third_year_02_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.03_01","task":"independent_agenda_slot_third_year_03_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.03_02","task":"independent_agenda_slot_third_year_03_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.04_01","task":"independent_agenda_slot_third_year_04_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.04_02","task":"independent_agenda_slot_third_year_04_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.05_01","task":"independent_agenda_slot_third_year_05_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.05_02","task":"independent_agenda_slot_third_year_05_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.06_01","task":"independent_agenda_slot_third_year_06_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.06_02","task":"independent_agenda_slot_third_year_06_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.07_01","task":"independent_agenda_slot_third_year_07_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.08_01","task":"independent_agenda_slot_third_year_08_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.08_02","task":"independent_agenda_slot_third_year_08_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.09_01","task":"independent_agenda_slot_third_year_09_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.09_02","task":"independent_agenda_slot_third_year_09_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.10_01","task":"independent_agenda_slot_third_year_10_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.10_02","task":"independent_agenda_slot_third_year_10_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.11_01","task":"independent_agenda_slot_third_year_11_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.11_02","task":"independent_agenda_slot_third_year_11_02"},
+                            {"semanticId":"independent.agenda.slot.third_year.12_01","task":"independent_agenda_slot_third_year_12_01"},
+                            {"semanticId":"independent.agenda.slot.third_year.12_02","task":"independent_agenda_slot_third_year_12_02"},
+                            {"semanticId":"independent.agenda.scroll","task":"independent_agenda_scroll"},
+                            {"semanticId":"independent.agenda.race","task":"independent_agenda_race_find"},
+                            {"semanticId":"independent.agenda.race.verify","task":"independent_agenda_race_verify"},
+                            {"semanticId":"independent.agenda.save","task":"independent_agenda_save"},
+                            {"semanticId":"independent.agenda.close","task":"independent_agenda_close"},
+                            {"semanticId":"independent.skills.scroll","task":"independent_skills_scroll"},
+                            {"semanticId":"independent.skills.open","task":"independent_skills_open"},
+                            {"semanticId":"independent.skills.reset","task":"independent_skills_reset_probe"},
+                            {"semanticId":"independent.skills.reset.confirmed","task":"independent_skills_reset_confirmed"},
+                            {"semanticId":"independent.skills.search.reset","task":"independent_skills_search_reset"},
+                            {"semanticId":"independent.skills.search.focus","task":"independent_skills_search_focus"},
+                            {"semanticId":"independent.skills.search.input","task":"independent_skills_search_input"},
+                            {"semanticId":"independent.skills.search.submit","task":"independent_skills_search_submit"},
+                            {"semanticId":"independent.skills.search.scroll","task":"independent_skills_search_scroll"},
+                            {"semanticId":"independent.skills.search.checkbox","task":"independent_skills_search_checkbox"},
+                            {"semanticId":"independent.skills.save","task":"independent_skills_save"},
+                            {"semanticId":"independent.start","task":"independent_training_start"},
+                            {"semanticId":"independent.post_start.menu","task":"independent_post_start_menu"},
+                            {"semanticId":"independent.post_start.to_home","task":"independent_post_start_to_home"},
+                            {"semanticId":"independent.post_start.home_probe","task":"independent_post_start_home_probe"}
+                        ]
+                    },
+                    {
                         "screenId":  "home",
                         "entryTask":  "home",
                         "recognition":  {
@@ -375,509 +492,6 @@
                                         {
                                             "semanticId":  "event.advance",
                                             "task":  "career_intro_event_event_advance"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "career_final_confirmation",
-                        "recognition":  {
-                                            "template":  "templates/independent/career_final_confirmation_header.png",
-                                            "templates":  [
-                                                              "templates/independent/career_final_confirmation_header_normal.png"
-                                                          ],
-                                            "roi":  [
-                                                       0,
-                                                       0,
-                                                       900,
-                                                       240
-                                                   ],
-                                            "templThreshold":  0.90,
-                                            "requiredText":  [
-                                                                 "Final Confirmation",
-                                                                 "Start Career!"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "career.start",
-                                            "task":  "career_entry_career_start"
-                                        },
-                                        {
-                                            "semanticId":  "independent.select_mode",
-                                            "task":  "independent_mode_select"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.expand",
-                                            "task":  "independent_lineup_expanded_probe"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.collapse",
-                                            "task":  "independent_lineup_collapse"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.strategy.front",
-                                            "task":  "independent_lineup_strategy_front"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.strategy.pace",
-                                            "task":  "independent_lineup_strategy_pace"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.strategy.late",
-                                            "task":  "independent_lineup_strategy_late"
-                                        },
-                                        {
-                                            "semanticId":  "independent.lineup.strategy.end",
-                                            "task":  "independent_lineup_strategy_end"
-                                        },
-                                        {
-                                            "semanticId":  "independent.focus.balanced",
-                                            "task":  "independent_focus_balanced"
-                                        },
-                                        {
-                                            "semanticId":  "independent.focus.stamina",
-                                            "task":  "independent_focus_stamina"
-                                        },
-                                        {
-                                            "semanticId":  "independent.focus.sprint",
-                                            "task":  "independent_focus_sprint"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.open",
-                                            "task":  "independent_agenda_open"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.apply",
-                                            "task":  "independent_agenda_apply"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.slot.07_02",
-                                            "task":  "independent_agenda_slot_07_02"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.race.first_year.07_02.hakodate_junior_stakes",
-                                            "task":  "independent_agenda_apply"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.race.first_year.07_02.chukyo_junior_stakes",
-                                            "task":  "independent_agenda_apply"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.close",
-                                            "task":  "independent_agenda_close"
-                                        },
-                                        {
-                                            "semanticId":  "independent.agenda.save",
-                                            "task":  "independent_agenda_save"
-                                        },
-                                        {
-                                            "semanticId":  "independent.skills.open",
-                                            "task":  "independent_skills_open"
-                                        },
-                                        {
-                                            "semanticId":  "independent.skills.add",
-                                            "task":  "independent_skills_add"
-                                        },
-                                        {
-                                            "semanticId":  "independent.skills.save",
-                                            "task":  "independent_skills_save"
-                                        },
-                                        {
-                                            "semanticId":  "independent.skills.item.200381",
-                                            "task":  "independent_skills_add"
-                                        },
-                                        {
-                                            "semanticId":  "independent.start",
-                                            "task":  "independent_training_start"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.year.first_year",
-                                            "task": "independent_agenda_year_first_year"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.year.second_year",
-                                            "task": "independent_agenda_year_second_year"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.year.third_year",
-                                            "task": "independent_agenda_year_third_year"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.01_01",
-                                            "task": "independent_agenda_slot_first_year_01_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.01_02",
-                                            "task": "independent_agenda_slot_first_year_01_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.02_01",
-                                            "task": "independent_agenda_slot_first_year_02_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.02_02",
-                                            "task": "independent_agenda_slot_first_year_02_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.03_01",
-                                            "task": "independent_agenda_slot_first_year_03_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.03_02",
-                                            "task": "independent_agenda_slot_first_year_03_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.04_01",
-                                            "task": "independent_agenda_slot_first_year_04_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.04_02",
-                                            "task": "independent_agenda_slot_first_year_04_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.05_01",
-                                            "task": "independent_agenda_slot_first_year_05_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.05_02",
-                                            "task": "independent_agenda_slot_first_year_05_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.06_01",
-                                            "task": "independent_agenda_slot_first_year_06_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.06_02",
-                                            "task": "independent_agenda_slot_first_year_06_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.07_01",
-                                            "task": "independent_agenda_slot_first_year_07_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.07_02",
-                                            "task": "independent_agenda_slot_first_year_07_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.08_01",
-                                            "task": "independent_agenda_slot_first_year_08_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.08_02",
-                                            "task": "independent_agenda_slot_first_year_08_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.09_01",
-                                            "task": "independent_agenda_slot_first_year_09_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.09_02",
-                                            "task": "independent_agenda_slot_first_year_09_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.10_01",
-                                            "task": "independent_agenda_slot_first_year_10_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.10_02",
-                                            "task": "independent_agenda_slot_first_year_10_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.11_01",
-                                            "task": "independent_agenda_slot_first_year_11_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.11_02",
-                                            "task": "independent_agenda_slot_first_year_11_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.12_01",
-                                            "task": "independent_agenda_slot_first_year_12_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.first_year.12_02",
-                                            "task": "independent_agenda_slot_first_year_12_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.01_01",
-                                            "task": "independent_agenda_slot_second_year_01_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.01_02",
-                                            "task": "independent_agenda_slot_second_year_01_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.02_01",
-                                            "task": "independent_agenda_slot_second_year_02_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.02_02",
-                                            "task": "independent_agenda_slot_second_year_02_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.03_01",
-                                            "task": "independent_agenda_slot_second_year_03_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.03_02",
-                                            "task": "independent_agenda_slot_second_year_03_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.04_01",
-                                            "task": "independent_agenda_slot_second_year_04_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.04_02",
-                                            "task": "independent_agenda_slot_second_year_04_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.05_01",
-                                            "task": "independent_agenda_slot_second_year_05_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.05_02",
-                                            "task": "independent_agenda_slot_second_year_05_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.06_01",
-                                            "task": "independent_agenda_slot_second_year_06_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.06_02",
-                                            "task": "independent_agenda_slot_second_year_06_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.07_01",
-                                            "task": "independent_agenda_slot_second_year_07_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.07_02",
-                                            "task": "independent_agenda_slot_second_year_07_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.08_01",
-                                            "task": "independent_agenda_slot_second_year_08_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.08_02",
-                                            "task": "independent_agenda_slot_second_year_08_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.09_01",
-                                            "task": "independent_agenda_slot_second_year_09_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.09_02",
-                                            "task": "independent_agenda_slot_second_year_09_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.10_01",
-                                            "task": "independent_agenda_slot_second_year_10_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.10_02",
-                                            "task": "independent_agenda_slot_second_year_10_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.11_01",
-                                            "task": "independent_agenda_slot_second_year_11_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.11_02",
-                                            "task": "independent_agenda_slot_second_year_11_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.12_01",
-                                            "task": "independent_agenda_slot_second_year_12_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.second_year.12_02",
-                                            "task": "independent_agenda_slot_second_year_12_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.01_01",
-                                            "task": "independent_agenda_slot_third_year_01_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.01_02",
-                                            "task": "independent_agenda_slot_third_year_01_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.02_01",
-                                            "task": "independent_agenda_slot_third_year_02_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.02_02",
-                                            "task": "independent_agenda_slot_third_year_02_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.03_01",
-                                            "task": "independent_agenda_slot_third_year_03_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.03_02",
-                                            "task": "independent_agenda_slot_third_year_03_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.04_01",
-                                            "task": "independent_agenda_slot_third_year_04_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.04_02",
-                                            "task": "independent_agenda_slot_third_year_04_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.05_01",
-                                            "task": "independent_agenda_slot_third_year_05_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.05_02",
-                                            "task": "independent_agenda_slot_third_year_05_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.06_01",
-                                            "task": "independent_agenda_slot_third_year_06_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.06_02",
-                                            "task": "independent_agenda_slot_third_year_06_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.07_01",
-                                            "task": "independent_agenda_slot_third_year_07_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.07_02",
-                                            "task": "independent_agenda_slot_third_year_07_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.08_01",
-                                            "task": "independent_agenda_slot_third_year_08_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.08_02",
-                                            "task": "independent_agenda_slot_third_year_08_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.09_01",
-                                            "task": "independent_agenda_slot_third_year_09_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.09_02",
-                                            "task": "independent_agenda_slot_third_year_09_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.10_01",
-                                            "task": "independent_agenda_slot_third_year_10_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.10_02",
-                                            "task": "independent_agenda_slot_third_year_10_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.11_01",
-                                            "task": "independent_agenda_slot_third_year_11_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.11_02",
-                                            "task": "independent_agenda_slot_third_year_11_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.12_01",
-                                            "task": "independent_agenda_slot_third_year_12_01"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.slot.third_year.12_02",
-                                            "task": "independent_agenda_slot_third_year_12_02"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.scroll",
-                                            "task": "independent_agenda_scroll"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.1",
-                                            "task": "independent_agenda_row_1"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.2",
-                                            "task": "independent_agenda_row_2"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.3",
-                                            "task": "independent_agenda_row_3"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.4",
-                                            "task": "independent_agenda_row_4"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.5",
-                                            "task": "independent_agenda_row_5"
-                                        },
-                                        {
-                                            "semanticId": "independent.agenda.row.6",
-                                            "task": "independent_agenda_row_6"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.reset",
-                                            "task": "independent_skills_search_reset"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.focus",
-                                            "task": "independent_skills_search_focus"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.input",
-                                            "task": "independent_skills_search_input"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.submit",
-                                            "task": "independent_skills_search_submit"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result",
-                                            "task": "independent_skills_search_result"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.scroll",
-                                            "task": "independent_skills_search_scroll"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.1",
-                                            "task": "independent_skills_search_result_row_1"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.2",
-                                            "task": "independent_skills_search_result_row_2"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.3",
-                                            "task": "independent_skills_search_result_row_3"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.4",
-                                            "task": "independent_skills_search_result_row_4"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.5",
-                                            "task": "independent_skills_search_result_row_5"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.6",
-                                            "task": "independent_skills_search_result_row_6"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.7",
-                                            "task": "independent_skills_search_result_row_7"
-                                        },
-                                        {
-                                            "semanticId": "independent.skills.search.result.row.8",
-                                            "task": "independent_skills_search_result_row_8"
-                                        },
-                                        {
-                                            "semanticId":  "independent.start.legacy",
-                                            "task":  "independent_training_start"
                                         }
                                     ]
                     },

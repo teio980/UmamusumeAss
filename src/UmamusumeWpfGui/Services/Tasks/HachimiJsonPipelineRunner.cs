@@ -253,6 +253,7 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         TemplateMatchResult? match = null;
+        ScreenTextQueryResult? textMatch = null;
         var action = Normalize(task.Action);
         var algorithm = Normalize(task.Algorithm);
 
@@ -283,6 +284,113 @@ public sealed class HachimiJsonPipelineRunner
             }
 
             return monitorResult;
+        }
+
+        var isOcrTask = algorithm is "ocrtext" or "ocr" or "screentext";
+        if (isOcrTask)
+        {
+            var targetText = ResolveTargetText(taskName, task, runOptions);
+            var roi = task.Roi;
+            if (runOptions.RoiOverrides is not null
+                && runOptions.RoiOverrides.TryGetValue(taskName, out var roiOverride))
+            {
+                roi = roiOverride;
+            }
+
+            try
+            {
+                if (action is "detecttext" or "detect")
+                {
+                    var detected = await _visualRuntime.DetectTextAsync(
+                            connection,
+                            roi,
+                            definition.ReferenceWidth,
+                            definition.ReferenceHeight,
+                            task.OcrLanguage,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (detected is null)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"OCR screenshot could not be captured for '{taskName}'.");
+                    }
+
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"OCR language={detected.Language}, roi={FormatArray(roi)}, "
+                        + $"recognized={FormatDetections(detected.Detections)}",
+                        LogEntryKind.Success);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(targetText))
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"OCR task '{taskName}' requires targetText or a runtime target override.");
+                    }
+
+                    var pollInterval = task.PollIntervalMilliseconds > 0
+                        ? task.PollIntervalMilliseconds
+                        : definition.Timing.PollIntervalMilliseconds;
+                    textMatch = await WaitForTextWithScrollAsync(
+                            connection,
+                            definition,
+                            taskName,
+                            task,
+                            targetText,
+                            roi,
+                            pollInterval,
+                            runOptions,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (textMatch is null)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"OCR screenshot could not be captured for '{taskName}'.");
+                    }
+
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"OCR target='{targetText}', roi={FormatArray(roi)}, "
+                        + $"matchMode={task.OcrMatchMode ?? "line"}, "
+                        + $"recognized={textMatch.RecognizedSummary}",
+                        textMatch.Found ? LogEntryKind.Success : LogEntryKind.Info);
+                    if (textMatch.Match is { } ocrMatch
+                        && task.OcrMatchMode?.Equals(
+                            "tokenCoverage",
+                            StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        AddTaskLog(
+                            logSink,
+                            taskName,
+                            $"OCR grouped match='{ocrMatch.Text}' at {ocrMatch.Bounds}, "
+                            + $"tokenScore={ocrMatch.Similarity:0.000}, "
+                            + $"confidence={ocrMatch.Confidence:0.000}.",
+                            LogEntryKind.Success);
+                    }
+                    if (!textMatch.Found)
+                    {
+                        return TaskExecutionResult.Failed(
+                            textMatch.Ambiguous
+                                ? textMatch.Error
+                                    ?? $"OCR target '{targetText}' was ambiguous."
+                                : $"OCR target '{targetText}' was not found before timeout.");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return TaskExecutionResult.Failed(
+                    $"OCR task '{taskName}' failed: {exception.Message}");
+            }
         }
 
         var templatePath = task.Template;
@@ -386,6 +494,53 @@ public sealed class HachimiJsonPipelineRunner
 
         switch (action)
         {
+            case "clicktext":
+                if (textMatch?.Match is not { } textCandidate)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses ClickText but has no OCR match.");
+                }
+
+                await _visualRuntime.TapTextAsync(
+                        connection,
+                        textCandidate,
+                        task.ClickOffset,
+                        task.RowExpansion,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Clicked OCR text '{textCandidate.Text}' at {textCandidate.Bounds}, "
+                    + $"similarity={textCandidate.Similarity:0.000}, "
+                    + $"confidence={textCandidate.Confidence:0.000}.",
+                    LogEntryKind.Success);
+                break;
+
+            case "findtext":
+            case "waitfortext":
+            case "scrollfindtext":
+                if (textMatch?.Match is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' completed without an OCR match.");
+                }
+
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"OCR text verified at {textMatch.Match.Bounds}, "
+                    + $"similarity={textMatch.Match.Similarity:0.000}.",
+                    LogEntryKind.Success);
+                break;
+
+            case "detecttext":
+            case "detect":
+                // Detection and structured OCR logging were completed before
+                // dispatch.  There is intentionally no tap for this action.
+                break;
+
             case "input":
                 var inputText = task.InputText;
                 if (runOptions.InputTextOverrides is not null
@@ -1073,6 +1228,108 @@ public sealed class HachimiJsonPipelineRunner
             .ToLowerInvariant()
         ?? string.Empty;
 
+    private static string ResolveTargetText(
+        string taskName,
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions options)
+    {
+        if (options.TargetTextOverrides is not null
+            && options.TargetTextOverrides.TryGetValue(taskName, out var overrideText)
+            && !string.IsNullOrWhiteSpace(overrideText))
+        {
+            return overrideText.Trim();
+        }
+
+        return task.TargetText?.Trim() ?? string.Empty;
+    }
+
+    private async Task<ScreenTextQueryResult?> WaitForTextWithScrollAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        string targetText,
+        int[]? roi,
+        int pollInterval,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            task.TimeoutMilliseconds,
+            0,
+            10 * 60 * 1000));
+        var started = Stopwatch.GetTimestamp();
+        var scrolls = 0;
+        ScreenTextQueryResult? latest = null;
+        while (true)
+        {
+            latest = await _visualRuntime.FindTextAsync(
+                    connection,
+                    targetText,
+                    roi,
+                    task.FuzzyThreshold,
+                    task.Unique,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    task.OcrLanguage,
+                    taskName,
+                    task.OcrMatchMode,
+                    task.OcrGroupRowHeight,
+                    task.OcrRowGap,
+                    task.OcrRequireAllTokens,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (latest?.Found == true || latest?.Ambiguous == true)
+                return latest;
+
+            if (latest is not null && latest.Candidates.Count > 0)
+            {
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"OCR retry recognized={latest.RecognizedSummary}",
+                    LogEntryKind.Info);
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= timeout)
+                return latest;
+
+            var hasSwipe = task.Swipe is { Length: >= 5 };
+            if (hasSwipe && scrolls < Math.Clamp(task.MaxScrolls, 0, 100))
+            {
+                await _visualRuntime.SwipeAsync(
+                        connection,
+                        task.Swipe!,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                scrolls++;
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"OCR target not visible; scrolled page {scrolls}/{Math.Clamp(task.MaxScrolls, 0, 100)}.",
+                    LogEntryKind.Info);
+            }
+
+            await _visualRuntime.DelayAsync(
+                    Math.Clamp(pollInterval, 50, 10_000),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static string FormatDetections(IReadOnlyList<ScreenTextDetection> detections) =>
+        detections.Count == 0
+            ? "none"
+            : string.Join(
+                "; ",
+                detections.Select(detection =>
+                    $"{detection.Text}@{detection.Bounds} "
+                    + $"conf={detection.Confidence:0.000}"));
+
     private static (int X, int Y)? ResolveRectCenter(
         int[]? rect,
         int referenceWidth,
@@ -1232,6 +1489,13 @@ public sealed class HachimiPipelineRunOptions
     /// navigation; callers only choose the semantic value to enter.
     /// </summary>
     public IReadOnlyDictionary<string, string>? InputTextOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime OCR values for data-driven semantic tasks.  The JSON task
+    /// still owns ROI, matching policy, scroll and click behavior; callers
+    /// only supply the race/card/skill text to find.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? TargetTextOverrides { get; init; }
 
     public Func<
         LastVerifiedConnection,

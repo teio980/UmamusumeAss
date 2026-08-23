@@ -228,13 +228,35 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         var careerEntryFlowStarted = state.CareerEntryOpened;
         if (!state.CareerStarted && !state.CareerEntryOpened)
         {
-            logSink?.Add("Career Training", "Entering Career from the game Home screen.");
-            state.CareerEntryOpened = await EnsureCareerEntryAsync(
+            // Resume runs can be launched while the game is already on the
+            // final confirmation page. Probe that page through JSON before
+            // attempting the Home entry graph; this keeps the entry decision
+            // data-driven and avoids replaying Home taps on a live setup.
+            var finalConfirmationProbe = await _jsonRunner.RunAsync(
                     connection,
-                    pack,
-                    logSink,
-                    cancellationToken)
+                    pack.ExecutionDefinition,
+                    "career_final_confirmation_probe",
+                    logSink: logSink,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+            if (finalConfirmationProbe.Succeeded)
+            {
+                state.CareerEntryOpened = true;
+                state.LastScreenId = CareerFinalConfirmationScreenId;
+                logSink?.Add(
+                    "Career Training",
+                    "Resumed from the JSON-recognized Career Final Confirmation screen.");
+            }
+            else
+            {
+                logSink?.Add("Career Training", "Entering Career from the game Home screen.");
+                state.CareerEntryOpened = await EnsureCareerEntryAsync(
+                        connection,
+                        pack,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             if (!state.CareerEntryOpened)
             {
                 return Failure(
@@ -426,17 +448,32 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     {
         var independentCatalog = IndependentTrainingCatalog.Load();
 
-        // Every catalog row is mapped to a generic JSON navigation plan. A
-        // missing row/order is a data error and is rejected before any tap is
-        // issued; reviewed screenshot assets are intentionally not required.
+        // Agenda cells remain JSON/template driven, while race identity is a
+        // runtime OCR target.  The race catalog supplies text only; it does
+        // not need a per-race screenshot, row, or page mapping.
         foreach (var selection in settings.IndependentAgendaSelections ?? [])
         {
-            if (!independentCatalog.TryGetAgendaPickerEntry(selection, out _))
+            var yearActionId = $"independent.agenda.year.{SemanticYearSlug(selection.Year)}";
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    yearActionId,
+                    out var yearMappingError))
             {
                 return Failure(
-                    $"Independent agenda '{selection.Key}' has no stable Global picker mapping.",
+                    $"Independent agenda '{selection.Key}' cannot run: {yearMappingError}",
                     "career_entry");
             }
+
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    IndependentTrainingCatalog.AgendaSlotSemanticAction(selection),
+                    out var slotMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot run: {slotMappingError}",
+                    "career_entry");
+            }
+
         }
 
         foreach (var skillId in settings.IndependentSkillIds ?? [])
@@ -450,9 +487,22 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             }
         }
 
+        if (settings.IndependentSkillIds is { Count: > 0 }
+            && !TryValidateIndependentTemplateAction(
+                pack,
+                IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
+                out var skillMappingError))
+        {
+            return Failure(
+                $"Configured Independent skills have no reviewed result/checkbox template: {skillMappingError}",
+                "career_entry");
+        }
+
         // The action names below are semantic IDs only. Their templates,
         // regions, transitions, retries and every tap location live in the
-        // scenario JSON profile/execution definition.
+        // scenario JSON profile/execution definition.  Independent setup is
+        // intentionally limited to the controls the user configured: mode,
+        // Lineup Details state, focus, agenda and prioritized skills.
         if (!state.IndependentModeSelected)
         {
             var result = await RunScreenActionAsync(
@@ -482,34 +532,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             if (expandResult is not null)
                 return expandResult;
 
-            var lineupAction = settings.IndependentLineupStrategy.Trim().ToLowerInvariant() switch
-            {
-                "front" => "independent.lineup.strategy.front",
-                "late" => "independent.lineup.strategy.late",
-                "end" => "independent.lineup.strategy.end",
-                _ => "independent.lineup.strategy.pace",
-            };
-            var strategyResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "career_entry",
-                    lineupAction,
+            var focusScrollResult = await RunScreenActionAsync(
+                connection,
+                pack,
+                "career_entry",
+                    "independent.focus.scroll",
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (strategyResult is not null)
-                return strategyResult;
-
-            var collapseResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "career_entry",
-                    "independent.lineup.collapse",
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (collapseResult is not null)
-                return collapseResult;
+            if (focusScrollResult is not null)
+                return focusScrollResult;
             state.IndependentLineupConfigured = true;
             return null;
         }
@@ -551,19 +583,45 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 if (agendaOpenResult is not null)
                     return agendaOpenResult;
 
+                var agendaResetResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.agenda.reset",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (agendaResetResult is not null)
+                    return agendaResetResult;
+
+                var agendaResetConfirmResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.agenda.reset.confirm",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (agendaResetConfirmResult is not null)
+                    return agendaResetConfirmResult;
+
+                var agendaResetDoneResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.agenda.reset.done",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (agendaResetDoneResult is not null)
+                    return agendaResetDoneResult;
+
                 foreach (var selection in settings.IndependentAgendaSelections ?? [])
                 {
-                    if (!independentCatalog.TryGetAgendaPickerEntry(selection, out var race))
-                    {
-                        return Failure(
-                            $"Independent agenda '{selection.Key}' has no stable Global picker mapping.",
-                            "career_entry");
-                    }
-
                     logSink?.Add(
                         "Career Training",
-                        $"Independent agenda requested: {selection.Year} {selection.Turn} {selection.RaceName} "
-                        + $"(picker page {race.PickerPage}, row {race.PickerRow}).");
+                        $"Independent agenda requested: {selection.Year} {selection.Turn} {selection.RaceName}; "
+                        + "race identity will be located by OCR in the selected time.");
 
                     var yearAction = $"independent.agenda.year.{SemanticYearSlug(selection.Year)}";
                     var yearResult = await RunScreenActionAsync(
@@ -588,30 +646,57 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     if (slotResult is not null)
                         return slotResult;
 
-                    for (var page = 0; page < race.PickerPage; page++)
+                    var ocrTarget = selection.RaceName;
+                    if (independentCatalog.TryGetAgendaPickerEntry(
+                            selection,
+                            out var pickerRace)
+                        && !string.IsNullOrWhiteSpace(pickerRace.PickerHeaderTarget))
                     {
-                        var scrollResult = await RunScreenActionAsync(
-                                connection,
-                                pack,
-                                "career_entry",
-                                IndependentTrainingCatalog.AgendaScrollSemanticAction(),
-                                logSink,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                        if (scrollResult is not null)
-                            return scrollResult;
+                        ocrTarget = pickerRace.PickerHeaderTarget;
+                        logSink?.Add(
+                            "Career Training",
+                            $"Independent agenda OCR target uses visible picker header "
+                            + $"'{ocrTarget}' for {selection.RaceName}; "
+                            + "the decorative race-name image remains a fallback identity only.");
                     }
 
-                    var rowResult = await RunScreenActionAsync(
+                    var raceResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "career_entry",
-                            IndependentTrainingCatalog.AgendaRowSemanticAction(race.PickerRow),
+                            IndependentTrainingCatalog.AgendaSemanticAction(selection),
                             logSink,
-                            cancellationToken)
+                            cancellationToken,
+                            new HachimiPipelineRunOptions
+                            {
+                                TargetTextOverrides = new Dictionary<string, string>(
+                                    StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["independent_agenda_race_find"] = ocrTarget,
+                                },
+                            })
                         .ConfigureAwait(false);
-                    if (rowResult is not null)
-                        return rowResult;
+                    if (raceResult is not null)
+                        return raceResult;
+
+                    var verifyResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "career_entry",
+                            IndependentTrainingCatalog.AgendaRaceVerifySemanticAction(),
+                            logSink,
+                            cancellationToken,
+                            new HachimiPipelineRunOptions
+                            {
+                                TargetTextOverrides = new Dictionary<string, string>(
+                                    StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["independent_agenda_race_verify"] = ocrTarget,
+                                },
+                            })
+                        .ConfigureAwait(false);
+                    if (verifyResult is not null)
+                        return verifyResult;
 
                     var saveResult = await RunScreenActionAsync(
                             connection,
@@ -645,6 +730,43 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             if (settings.IndependentSkillIds is { Count: > 0 })
             {
+                var skillsScrollResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.skills.scroll",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (skillsScrollResult is not null)
+                    return skillsScrollResult;
+
+                var skillsResetResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.skills.reset",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (skillsResetResult is not null)
+                    return skillsResetResult;
+
+                // The live Independent picker does not show a second modal
+                // for this control.  Confirm the reset by matching the
+                // post-reset Add Skills state; this is a read-only probe and
+                // never issues an extra tap.
+                var skillsResetConfirmedResult = await RunScreenActionAsync(
+                        connection,
+                        pack,
+                        "career_entry",
+                        "independent.skills.reset.confirmed",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (skillsResetConfirmedResult is not null)
+                    return skillsResetConfirmedResult;
+
                 var skillsOpenResult = await RunScreenActionAsync(
                         connection,
                         pack,
@@ -737,14 +859,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             return scrollResult;
                     }
 
-                    // The generic template is only a card-row existence
-                    // probe. It is deliberately not skill-specific; the
-                    // exact skill is selected by the JSON Input search value.
                     var skillResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "career_entry",
-                            IndependentTrainingCatalog.SkillSearchResultSemanticAction(skill.SearchResultPickerRow),
+                            IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -780,17 +899,52 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (startResult is not null)
                 return startResult;
+
+            var postStartMenuResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    CareerFinalConfirmationScreenId,
+                    IndependentTrainingCatalog.PostStartMenuSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (postStartMenuResult is not null)
+                return postStartMenuResult;
+
+            var postStartToHomeResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    CareerFinalConfirmationScreenId,
+                    IndependentTrainingCatalog.PostStartToHomeSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (postStartToHomeResult is not null)
+                return postStartToHomeResult;
+
+            var postStartHomeProbeResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    CareerFinalConfirmationScreenId,
+                    IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (postStartHomeProbeResult is not null)
+                return postStartHomeProbeResult;
+
             state.IndependentSetupCompleted = true;
             state.CareerStarted = true;
+            state.LastScreenId = "home";
             logSink?.Add(
                 "Career Training",
-                "Independent Training started; the game will complete it asynchronously.",
+                "Independent Training started and returned to game Home.",
                 LogEntryKind.Success);
             return new CareerTrainingResult(
                 true,
-                "Independent Training started.",
+                "Independent Training started and returned to Home.",
                 0,
-                CareerFinalConfirmationScreenId);
+                "home");
         }
 
         return new CareerTrainingResult(
@@ -1593,6 +1747,74 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Validates data-driven Independent controls before the first tap.
+    /// Agenda race identity is deliberately excluded: it is located by the
+    /// shared OCR task with a runtime target supplied by the catalog.
+    /// </summary>
+    private static bool TryValidateIndependentTemplateAction(
+        UraScenarioPack pack,
+        string actionId,
+        out string error)
+    {
+        var screen = pack.ScreenProfile.Find(CareerFinalConfirmationScreenId)
+            ?? pack.ScreenProfile.Find("career_entry");
+        if (screen is null)
+        {
+            error = $"screen '{CareerFinalConfirmationScreenId}' is missing";
+            return false;
+        }
+
+        var action = screen.FindAction(actionId);
+        if (action is null || string.IsNullOrWhiteSpace(action.Task))
+        {
+            error = $"semantic action '{actionId}' is not mapped";
+            return false;
+        }
+
+        var pending = new Queue<string>([action.Task]);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (pending.Count > 0)
+        {
+            var taskName = pending.Dequeue();
+            if (!visited.Add(taskName))
+                continue;
+
+            if (!pack.ExecutionDefinition.TryGetTask(taskName, out var task)
+                || task is null)
+            {
+                error = $"task '{taskName}' is not defined";
+                return false;
+            }
+
+            if (string.Equals(task.Algorithm, "MatchTemplate", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(task.Action, "ClickSelf", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(task.Template)
+                && task.SpecificRect is not { Length: > 0 })
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (string.Equals(task.Algorithm, "MatchTemplate", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(task.Action, "JustReturn", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var next in task.Next.Concat(task.OnErrorNext))
+                {
+                    if (!string.IsNullOrWhiteSpace(next))
+                        pending.Enqueue(next);
+                }
+                continue;
+            }
+
+            error = $"task '{taskName}' is not a template ClickSelf action";
+            return false;
+        }
+
+        error = $"task graph for '{actionId}' has no template ClickSelf action";
+        return false;
     }
 
     private static string SemanticYearSlug(string year) =>

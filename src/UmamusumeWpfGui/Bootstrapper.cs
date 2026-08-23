@@ -49,6 +49,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbRunner>();
         builder.Bind<IAdbRuntime>()
             .To<AdbRuntime>();
+        builder.Bind<IScreenTextRecognizer>()
+            .To<WindowsOcrTextRecognizer>()
+            .InSingletonScope();
         builder.Bind<IAdbTouchRuntime>()
             .To<AdbTouchRuntime>();
         builder.Bind<IVisualPipelineRuntime>()
