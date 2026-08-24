@@ -3015,16 +3015,6 @@
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150
                   },
-                  "independent_focus_balanced_probe": {
-                    "algorithm": "MatchTemplate",
-                    "action": "JustReturn",
-                    "template": "templates/independent/focus_balanced_selected.png",
-                    "templThreshold": 0.82,
-                    "roi": [20,570,290,190],
-                    "timeoutMs": 1400,
-                    "pollIntervalMs": 150,
-                    "onErrorNext": ["independent_focus_balanced_click"]
-                  },
                   "independent_focus_balanced_click": {
                     "algorithm": "MatchTemplate",
                     "action": "ClickSelf",
@@ -3035,16 +3025,6 @@
                     "pollIntervalMs": 250,
                     "postDelay": 300
                   },
-                  "independent_focus_stamina_probe": {
-                    "algorithm": "MatchTemplate",
-                    "action": "JustReturn",
-                    "template": "templates/independent/focus_stamina_selected.png",
-                    "templThreshold": 0.82,
-                    "roi": [300,570,290,190],
-                    "timeoutMs": 1400,
-                    "pollIntervalMs": 150,
-                    "onErrorNext": ["independent_focus_stamina_click"]
-                  },
                   "independent_focus_stamina_click": {
                     "algorithm": "MatchTemplate",
                     "action": "ClickSelf",
@@ -3054,16 +3034,6 @@
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 300
-                  },
-                  "independent_focus_sprint_probe": {
-                    "algorithm": "MatchTemplate",
-                    "action": "JustReturn",
-                    "template": "templates/independent/focus_sprint_selected.png",
-                    "templThreshold": 0.82,
-                    "roi": [580,570,300,190],
-                    "timeoutMs": 1400,
-                    "pollIntervalMs": 150,
-                    "onErrorNext": ["independent_focus_sprint_click"]
                   },
                   "independent_focus_sprint_click": {
                     "algorithm": "MatchTemplate",

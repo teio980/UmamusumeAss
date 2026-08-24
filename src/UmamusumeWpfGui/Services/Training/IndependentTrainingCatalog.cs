@@ -18,21 +18,15 @@ public sealed class IndependentTrainingCatalog
         "resource/hachimi/ura/independent_training/races.global.json";
     public const string DefaultSkillPath =
         "resource/hachimi/ura/independent_training/skills.global.json";
-    public const string DefaultExecutionAssetPath =
-        "resource/hachimi/ura/independent_training/execution_assets.global.json";
 
     private IndependentTrainingCatalog(
         IReadOnlyList<IndependentTrainingRace> races,
         IReadOnlyList<IndependentTrainingSkill> skills,
-        IReadOnlyList<IndependentAgendaExecutionAsset> agendaAssets,
-        IReadOnlyList<IndependentSkillExecutionAsset> skillAssets,
         string raceSourceUrl,
         string skillSourceUrl)
     {
         Races = races;
         Skills = skills;
-        AgendaExecutionAssets = agendaAssets;
-        SkillExecutionAssets = skillAssets;
         RaceSourceUrl = raceSourceUrl;
         SkillSourceUrl = skillSourceUrl;
     }
@@ -41,26 +35,11 @@ public sealed class IndependentTrainingCatalog
 
     public IReadOnlyList<IndependentTrainingSkill> Skills { get; }
 
-    public IReadOnlyList<IndependentAgendaExecutionAsset> AgendaExecutionAssets { get; }
-
-    public IReadOnlyList<IndependentSkillExecutionAsset> SkillExecutionAssets { get; }
-
     public string RaceSourceUrl { get; }
 
     public string SkillSourceUrl { get; }
 
     public bool IsAvailable => Races.Count > 0 && Skills.Count > 0;
-
-    public bool TryGetAgendaExecution(
-        IndependentTrainingAgendaSelection selection,
-        out IndependentAgendaExecutionAsset asset)
-    {
-        asset = AgendaExecutionAssets.FirstOrDefault(item =>
-            item.Year.Equals(selection.Year, StringComparison.OrdinalIgnoreCase)
-            && item.Turn.Equals(selection.Turn, StringComparison.OrdinalIgnoreCase)
-            && item.RaceName.Equals(selection.RaceName, StringComparison.OrdinalIgnoreCase))!;
-        return asset is not null;
-    }
 
     /// <summary>
     /// Resolves a catalog race to the stable row order observed in the
@@ -78,12 +57,6 @@ public sealed class IndependentTrainingCatalog
             && item.RaceName.Equals(selection.RaceName, StringComparison.OrdinalIgnoreCase)
             && item.IsGameAvailable)!;
         return race is not null;
-    }
-
-    public bool TryGetSkillExecution(int skillId, out IndependentSkillExecutionAsset asset)
-    {
-        asset = SkillExecutionAssets.FirstOrDefault(item => item.SkillId == skillId)!;
-        return asset is not null;
     }
 
     /// <summary>
@@ -160,15 +133,11 @@ public sealed class IndependentTrainingCatalog
     {
         var racePath = ResolvePath(DefaultRacePath, baseDirectory);
         var skillPath = ResolvePath(DefaultSkillPath, baseDirectory);
-        var assetPath = ResolvePath(DefaultExecutionAssetPath, baseDirectory);
         var races = ReadRaces(racePath, out var raceSourceUrl);
         var skills = ReadSkills(skillPath, out var skillSourceUrl);
-        ReadExecutionAssets(assetPath, out var agendaAssets, out var skillAssets);
         return new IndependentTrainingCatalog(
             races,
             skills,
-            agendaAssets,
-            skillAssets,
             raceSourceUrl,
             skillSourceUrl);
     }
@@ -281,51 +250,6 @@ public sealed class IndependentTrainingCatalog
         catch (Exception) when (FileNotFoundOrInvalid(path))
         {
             return [];
-        }
-    }
-
-    private static void ReadExecutionAssets(
-        string path,
-        out IReadOnlyList<IndependentAgendaExecutionAsset> agendaAssets,
-        out IReadOnlyList<IndependentSkillExecutionAsset> skillAssets)
-    {
-        agendaAssets = [];
-        skillAssets = [];
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            var root = document.RootElement;
-            if (root.TryGetProperty("agenda", out var agenda)
-                && agenda.ValueKind == JsonValueKind.Array)
-            {
-                agendaAssets = agenda.EnumerateArray()
-                    .Select(item => new IndependentAgendaExecutionAsset(
-                        ReadString(item, "year"),
-                        ReadString(item, "turn"),
-                        ReadString(item, "raceName"),
-                        ReadString(item, "slotAction"),
-                        ReadString(item, "template")))
-                    .Where(item => !string.IsNullOrWhiteSpace(item.RaceName)
-                        && !string.IsNullOrWhiteSpace(item.SlotAction)
-                        && !string.IsNullOrWhiteSpace(item.Template))
-                    .ToArray();
-            }
-
-            if (root.TryGetProperty("skills", out var skills)
-                && skills.ValueKind == JsonValueKind.Array)
-            {
-                skillAssets = skills.EnumerateArray()
-                    .Select(item => new IndependentSkillExecutionAsset(
-                        ReadInt(item, "skillId"),
-                        ReadString(item, "template")))
-                    .Where(item => item.SkillId > 0 && !string.IsNullOrWhiteSpace(item.Template))
-                    .ToArray();
-            }
-        }
-        catch (Exception) when (FileNotFoundOrInvalid(path))
-        {
-            // An absent registry is a safe, empty executable set. The UI and
-            // pipeline then reject selected entries explicitly.
         }
     }
 
@@ -463,15 +387,3 @@ public sealed record IndependentTrainingAgendaSelection(
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
 }
-
-public sealed record IndependentAgendaExecutionAsset(
-    string Year,
-    string Turn,
-    string RaceName,
-    string SlotAction,
-    string Template)
-{
-    public string Key => $"{Year}|{Turn}|{RaceName}";
-}
-
-public sealed record IndependentSkillExecutionAsset(int SkillId, string Template);
