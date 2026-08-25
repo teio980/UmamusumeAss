@@ -84,7 +84,7 @@
                     "template": "templates/independent/career_final_confirmation_header.png",
                     "templThreshold": 0.80,
                     "roi": [10,40,880,76],
-                    "timeoutMs": 1400,
+                    "timeoutMs": 4000,
                     "pollIntervalMs": 150
                   },
                   "home_home_career":  {
@@ -2999,13 +2999,6 @@
                     "pollIntervalMs": 250,
                     "postDelay": 450
                   },
-                  "independent_focus_scroll": {
-                    "algorithm": "JustReturn",
-                    "action": "Swipe",
-                    "swipe": [840,1200,840,500,600],
-                    "postDelay": 450,
-                    "next": ["independent_focus_visible_probe"]
-                  },
                   "independent_focus_visible_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
@@ -4043,6 +4036,36 @@
                     "algorithm": "JustReturn",
                     "action": "Swipe",
                     "swipe": [840,1150,840,650,550],
+                    "postDelay": 350
+                  },
+                  "independent_skills_search_checkbox_ocr": {
+                    "algorithm": "OcrText",
+                    "action": "ClickText",
+                    "roi": [130,120,730,1100],
+                    "ocrLanguage": "en-US",
+                    "fuzzyThreshold": 0.82,
+                    "unique": true,
+                    "ocrMatchMode": "line",
+                    "clickAnchor": [80],
+                    "clickVerification": {
+                      "preCheck": true,
+                      "probeRadius": 10,
+                      "probeOffset": [0,0],
+                      "hueMin": 55,
+                      "hueMax": 150,
+                      "saturationMin": 0.35,
+                      "saturationMax": 1.0,
+                      "valueMin": 0.25,
+                      "valueMax": 1.0,
+                      "minimumMatchRatio": 0.20,
+                      "settleDelayMs": 180,
+                      "verifyTimeoutMs": 1200,
+                      "verifyPollIntervalMs": 120,
+                      "maxRetries": 1,
+                      "retryDelayMs": 250
+                    },
+                    "timeoutMs": 6000,
+                    "pollIntervalMs": 400,
                     "postDelay": 350
                   },
                   "independent_skills_search_checkbox": {

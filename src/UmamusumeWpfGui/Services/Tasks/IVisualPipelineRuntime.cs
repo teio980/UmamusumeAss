@@ -124,6 +124,31 @@ public interface IVisualPipelineRuntime
         string taskName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Samples a reference-space square until its HSV match ratio reaches the
+    /// requested threshold or the timeout expires.  The runtime only provides
+    /// generic pixel evidence; pipeline JSON owns the state-specific bounds.
+    /// </summary>
+    Task<HsvColorProbeResult?> ProbeHsvAsync(
+        LastVerifiedConnection connection,
+        int centerXReference,
+        int centerYReference,
+        int[]? offsetReference,
+        int radiusReference,
+        int referenceWidth,
+        int referenceHeight,
+        double hueMin,
+        double hueMax,
+        double saturationMin,
+        double saturationMax,
+        double valueMin,
+        double valueMax,
+        double minimumMatchRatio,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        CancellationToken cancellationToken = default);
+
     Task SwipeAsync(
         LastVerifiedConnection connection,
         int[] coordinates,

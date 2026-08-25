@@ -785,7 +785,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 && selectedSkills.All(id =>
                     _independentTrainingCatalog.Skills.Any(item =>
                         item.SkillId == id
-                        && item.IsGameSearchMapped
+                        && item.AvailableInGlobal
+                        && item.SingleModeEnabled
                         && !string.IsNullOrWhiteSpace(item.EffectiveSearchText)));
         }
     }
@@ -1037,10 +1038,13 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         {
             var option = new IndependentSkillOption(
                 skill,
-                skill.IsGameSearchMapped && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+                skill.AvailableInGlobal
+                    && skill.SingleModeEnabled
+                    && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
             {
                 IsSelected = selectedSkills.Contains(skill.SkillId)
-                    && skill.IsGameSearchMapped
+                    && skill.AvailableInGlobal
+                    && skill.SingleModeEnabled
                     && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText),
             };
             option.PropertyChanged += OnIndependentSkillOptionChanged;
@@ -1224,7 +1228,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         {
             if (string.IsNullOrWhiteSpace(query)
                 || option.Skill.DisplayLabel.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || option.Skill.SkillName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Skill.SearchTerms.Any(term =>
+                    term.Contains(query, StringComparison.OrdinalIgnoreCase))
                 || option.Skill.SkillId.ToString(CultureInfo.InvariantCulture)
                     .Contains(query, StringComparison.OrdinalIgnoreCase))
             {
@@ -1461,7 +1466,7 @@ public sealed class IndependentSkillOption : INotifyPropertyChanged
 
     public string Label => IsExecutable
         ? Skill.DisplayLabel
-        : $"{Skill.DisplayLabel} · no JSON search mapping";
+        : $"{Skill.DisplayLabel} · unavailable in Global Add Skills";
 
     public bool IsSelected
     {

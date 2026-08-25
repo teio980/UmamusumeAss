@@ -69,3 +69,17 @@ public sealed record ScreenTextQueryResult(
             + $" sim={candidate.Similarity.ToString("0.000", CultureInfo.InvariantCulture)}"
             + $" conf={candidate.Confidence.ToString("0.000", CultureInfo.InvariantCulture)}"));
 }
+
+/// <summary>
+/// Result of a generic HSV probe over a small screenshot region.  The
+/// caller supplies the state-specific HSV bounds; this result contains only
+/// sampling evidence and does not know what UI state was being verified.
+/// </summary>
+public sealed record HsvColorProbeResult(
+    bool Matched,
+    double MatchRatio,
+    int MatchingPixels,
+    int SampledPixels,
+    int CenterX,
+    int CenterY,
+    int Radius);

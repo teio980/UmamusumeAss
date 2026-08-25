@@ -72,6 +72,19 @@ public sealed class AdbRuntimeTests
     }
 
     [Fact]
+    public async Task InputTextPreservesSearchPunctuation()
+    {
+        var runner = new RecordingAdbRunner([SuccessfulCommand()]);
+        var runtime = CreateRuntime(runner);
+
+        await runtime.InputTextAsync("adb.exe", "device", "1,500,000 CC");
+
+        Assert.Equal(
+            ["-s", "device", "shell", "input", "text", "1,500,000%sCC"],
+            runner.Commands[0]);
+    }
+
+    [Fact]
     public async Task ScreenshotFallsBackFromExecOutToShell()
     {
         var runner = new RecordingAdbRunner(

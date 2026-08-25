@@ -501,21 +501,63 @@ public sealed class HachimiJsonPipelineRunner
                         $"JSON task '{taskName}' uses ClickText but has no OCR match.");
                 }
 
-                await _visualRuntime.TapTextAsync(
-                        connection,
-                        textCandidate,
-                        task.ClickOffset,
-                        task.RowExpansion,
+                if (task.ClickAnchor is { Length: >= 1 })
+                {
+                    // TapAsync accepts reference-space coordinates and does
+                    // the single conversion to the actual ADB surface.  Do
+                    // not pass already-scaled values here (that would scale
+                    // twice on non-900x1600 devices).  A missing Y anchor is
+                    // derived from the OCR rectangle's actual pixel center,
+                    // then converted back to reference space once.
+                    var anchorXReference = task.ClickAnchor[0];
+                    var anchorYReference = task.ClickAnchor.Length >= 2
+                        ? task.ClickAnchor[1]
+                        : (int)Math.Round(
+                            textCandidate.Bounds.CenterY
+                            * (double)Math.Max(1, definition.ReferenceHeight)
+                            / Math.Max(1, connection.Height));
+                    var anchorXActual = ScaleReferenceCoordinate(
+                        anchorXReference,
+                        definition.ReferenceWidth,
+                        connection.Width);
+                    var anchorYActual = ScaleReferenceCoordinate(
+                        anchorYReference,
+                        definition.ReferenceHeight,
+                        connection.Height);
+                    var anchoredClickResult = await ExecuteAnchoredOcrClickAsync(
+                            connection,
+                            definition,
+                            taskName,
+                            task,
+                            textCandidate,
+                            anchorXReference,
+                            anchorYReference,
+                            anchorXActual,
+                            anchorYActual,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!anchoredClickResult.Succeeded)
+                        return anchoredClickResult;
+                }
+                else
+                {
+                    await _visualRuntime.TapTextAsync(
+                            connection,
+                            textCandidate,
+                            task.ClickOffset,
+                            task.RowExpansion,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    AddTaskLog(
+                        logSink,
                         taskName,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                AddTaskLog(
-                    logSink,
-                    taskName,
-                    $"Clicked OCR text '{textCandidate.Text}' at {textCandidate.Bounds}, "
-                    + $"similarity={textCandidate.Similarity:0.000}, "
-                    + $"confidence={textCandidate.Confidence:0.000}.",
-                    LogEntryKind.Success);
+                        $"Clicked OCR text '{textCandidate.Text}' at {textCandidate.Bounds}, "
+                        + $"similarity={textCandidate.Similarity:0.000}, "
+                        + $"confidence={textCandidate.Confidence:0.000}.",
+                        LogEntryKind.Success);
+                }
                 break;
 
             case "findtext":
@@ -815,6 +857,216 @@ public sealed class HachimiJsonPipelineRunner
 
         return TaskExecutionResult.Completed(taskName);
     }
+
+    private async Task<TaskExecutionResult> ExecuteAnchoredOcrClickAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        ScreenTextCandidate textCandidate,
+        int anchorXReference,
+        int anchorYReference,
+        int anchorXActual,
+        int anchorYActual,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var verification = task.ClickVerification;
+        if (verification is null)
+        {
+            await _visualRuntime.TapAsync(
+                    connection,
+                    anchorXReference,
+                    anchorYReference,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    taskName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Clicked OCR row anchor ref=({anchorXReference},{anchorYReference}) "
+                + $"actual=({anchorXActual},{anchorYActual}) for '{textCandidate.Text}' "
+                + $"at {textCandidate.Bounds}, "
+                + $"similarity={textCandidate.Similarity:0.000}, "
+                + $"confidence={textCandidate.Confidence:0.000}.",
+                LogEntryKind.Success);
+            return TaskExecutionResult.Completed(taskName);
+        }
+
+        var attempts = 1 + Math.Clamp(verification.MaxRetries, 0, 5);
+        HsvColorProbeResult? latestProbe = null;
+        if (verification.PreCheck)
+        {
+            latestProbe = await ProbeClickStateAsync(
+                    connection,
+                    definition,
+                    taskName,
+                    anchorXReference,
+                    anchorYReference,
+                    verification,
+                    timeoutMilliseconds: 0,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Click verification precheck ref=({anchorXReference},{anchorYReference}) "
+                + $"actual=({anchorXActual},{anchorYActual}) "
+                + FormatProbe(latestProbe) + ".",
+                latestProbe?.Matched == true
+                    ? LogEntryKind.Success
+                    : LogEntryKind.Info);
+            if (latestProbe?.Matched == true)
+            {
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"OCR row already selected at ref=({anchorXReference},{anchorYReference}); "
+                    + "skipped tap to avoid toggling it off.",
+                    LogEntryKind.Success);
+                return TaskExecutionResult.Completed(taskName);
+            }
+        }
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            if (attempt > 1)
+            {
+                await _visualRuntime.DelayAsync(
+                        Math.Clamp(verification.RetryDelayMilliseconds, 0, 10_000),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                latestProbe = await ProbeClickStateAsync(
+                        connection,
+                        definition,
+                        taskName,
+                        anchorXReference,
+                        anchorYReference,
+                        verification,
+                        timeoutMilliseconds: 0,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Click verification retry precheck attempt={attempt} "
+                    + $"ref=({anchorXReference},{anchorYReference}) "
+                    + $"actual=({anchorXActual},{anchorYActual}) "
+                    + FormatProbe(latestProbe) + ".",
+                    latestProbe?.Matched == true
+                        ? LogEntryKind.Success
+                        : LogEntryKind.Info);
+                if (latestProbe?.Matched == true)
+                {
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"OCR row became selected before retry at "
+                        + $"ref=({anchorXReference},{anchorYReference}); skipped tap.",
+                        LogEntryKind.Success);
+                    return TaskExecutionResult.Completed(taskName);
+                }
+            }
+
+            await _visualRuntime.TapAsync(
+                    connection,
+                    anchorXReference,
+                    anchorYReference,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    taskName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Clicked OCR row anchor attempt={attempt}/{attempts} "
+                + $"ref=({anchorXReference},{anchorYReference}) "
+                + $"actual=({anchorXActual},{anchorYActual}) for '{textCandidate.Text}' "
+                + $"at {textCandidate.Bounds}, "
+                + $"similarity={textCandidate.Similarity:0.000}, "
+                + $"confidence={textCandidate.Confidence:0.000}.",
+                LogEntryKind.Info);
+
+            if (verification.SettleDelayMilliseconds > 0)
+            {
+                await _visualRuntime.DelayAsync(
+                        Math.Clamp(verification.SettleDelayMilliseconds, 0, 10_000),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            latestProbe = await ProbeClickStateAsync(
+                    connection,
+                    definition,
+                    taskName,
+                    anchorXReference,
+                    anchorYReference,
+                    verification,
+                    verification.VerifyTimeoutMilliseconds,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Click verification postcheck attempt={attempt}/{attempts} "
+                + $"ref=({anchorXReference},{anchorYReference}) "
+                + $"actual=({anchorXActual},{anchorYActual}) "
+                + FormatProbe(latestProbe) + ".",
+                latestProbe?.Matched == true
+                    ? LogEntryKind.Success
+                    : LogEntryKind.Info);
+            if (latestProbe?.Matched == true)
+            {
+                return TaskExecutionResult.Completed(taskName);
+            }
+        }
+
+        return TaskExecutionResult.Failed(
+            $"OCR row click state was not verified for '{textCandidate.Text}' "
+            + $"after {attempts} attempt(s) at ref=({anchorXReference},{anchorYReference}); "
+            + FormatProbe(latestProbe) + ".");
+    }
+
+    private Task<HsvColorProbeResult?> ProbeClickStateAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        int anchorXReference,
+        int anchorYReference,
+        HachimiClickVerification verification,
+        int timeoutMilliseconds,
+        CancellationToken cancellationToken) =>
+        _visualRuntime.ProbeHsvAsync(
+            connection,
+            anchorXReference,
+            anchorYReference,
+            verification.ProbeOffset,
+            verification.ProbeRadius,
+            definition.ReferenceWidth,
+            definition.ReferenceHeight,
+            verification.HueMin,
+            verification.HueMax,
+            verification.SaturationMin,
+            verification.SaturationMax,
+            verification.ValueMin,
+            verification.ValueMax,
+            verification.MinimumMatchRatio,
+            timeoutMilliseconds,
+            verification.VerifyPollIntervalMilliseconds,
+            taskName,
+            cancellationToken);
+
+    private static string FormatProbe(HsvColorProbeResult? probe) =>
+        probe is null
+            ? "probe=unavailable"
+            : $"probeRatio={probe.MatchRatio:0.000} "
+                + $"pixels={probe.MatchingPixels}/{probe.SampledPixels} "
+                + $"matched={probe.Matched} "
+                + $"probeActual=({probe.CenterX},{probe.CenterY}) "
+                + $"radius={probe.Radius}";
 
     private async Task<TaskExecutionResult> ExecuteParallelMonitorAsync(
         LastVerifiedConnection connection,
@@ -1350,6 +1602,16 @@ public sealed class HachimiJsonPipelineRunner
             Math.Clamp(x, 0, Math.Max(0, actualWidth - 1)),
             Math.Clamp(y, 0, Math.Max(0, actualHeight - 1)));
     }
+
+    private static int ScaleReferenceCoordinate(
+        int value,
+        int reference,
+        int actual) =>
+        Math.Clamp(
+            (int)Math.Round(value * (double)Math.Max(1, actual)
+                / Math.Max(1, reference)),
+            0,
+            Math.Max(0, actual - 1));
 
     private static HachimiPipelineRunResult Succeed(
         RunState state,

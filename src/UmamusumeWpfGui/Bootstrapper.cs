@@ -158,6 +158,25 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         localization.Initialize();
     }
 
+    protected override void Launch()
+    {
+        if (!CliDiagnostics.IsRequested(Args))
+        {
+            base.Launch();
+            return;
+        }
+
+        var exitCode = CliDiagnostics.RunAsync(
+                Args,
+                Container.Get<HachimiJsonPipelineRunner>(),
+                Container.Get<IAdbConnectionSessionFactory>(),
+                Container.Get<IAdbRuntime>(),
+                Container.Get<ISettingsService>())
+            .GetAwaiter()
+            .GetResult();
+        Application.Current.Shutdown(exitCode);
+    }
+
     private static async Task InitializeUmaServicesAsync(
         IUmaService umaService,
         IUmaDatabaseService umaDatabase,

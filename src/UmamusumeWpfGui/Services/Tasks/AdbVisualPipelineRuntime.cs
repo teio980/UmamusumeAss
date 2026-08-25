@@ -541,6 +541,100 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         }
     }
 
+    public async Task<HsvColorProbeResult?> ProbeHsvAsync(
+        LastVerifiedConnection connection,
+        int centerXReference,
+        int centerYReference,
+        int[]? offsetReference,
+        int radiusReference,
+        int referenceWidth,
+        int referenceHeight,
+        double hueMin,
+        double hueMax,
+        double saturationMin,
+        double saturationMax,
+        double valueMin,
+        double valueMax,
+        double minimumMatchRatio,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var offsetX = offsetReference is { Length: >= 1 }
+            ? offsetReference[0]
+            : 0;
+        var offsetY = offsetReference is { Length: >= 2 }
+            ? offsetReference[1]
+            : 0;
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            timeoutMilliseconds,
+            0,
+            60_000));
+        var poll = Math.Clamp(pollIntervalMilliseconds, 50, 5_000);
+        var minimumRatio = Math.Clamp(
+            double.IsFinite(minimumMatchRatio) ? minimumMatchRatio : 0,
+            0,
+            1);
+        var normalizedHueMin = NormalizeHue(hueMin);
+        var normalizedHueMax = NormalizeHue(hueMax);
+        var normalizedSaturationMin = Math.Clamp(
+            double.IsFinite(saturationMin) ? saturationMin : 0,
+            0,
+            1);
+        var normalizedSaturationMax = Math.Clamp(
+            double.IsFinite(saturationMax) ? saturationMax : 1,
+            0,
+            1);
+        var normalizedValueMin = Math.Clamp(
+            double.IsFinite(valueMin) ? valueMin : 0,
+            0,
+            1);
+        var normalizedValueMax = Math.Clamp(
+            double.IsFinite(valueMax) ? valueMax : 1,
+            0,
+            1);
+        var started = Stopwatch.GetTimestamp();
+        HsvColorProbeResult? latest = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var screenshot = await CaptureRawScreenshotAsync(
+                    connection,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (screenshot is not null)
+            {
+                latest = MeasureHsvRegion(
+                    screenshot,
+                    centerXReference + offsetX,
+                    centerYReference + offsetY,
+                    radiusReference,
+                    referenceWidth,
+                    referenceHeight,
+                    normalizedHueMin,
+                    normalizedHueMax,
+                    normalizedSaturationMin,
+                    normalizedSaturationMax,
+                    normalizedValueMin,
+                    normalizedValueMax,
+                    minimumRatio);
+            }
+
+            if (latest?.Matched == true
+                || timeout <= TimeSpan.Zero
+                || Stopwatch.GetElapsedTime(started) >= timeout)
+            {
+                return latest;
+            }
+
+            await DelayAsync(poll, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     public async Task SwipeAsync(
         LastVerifiedConnection connection,
         int[] coordinates,
@@ -639,6 +733,125 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return raw.Value;
+    }
+
+    private static HsvColorProbeResult MeasureHsvRegion(
+        AdbRawScreenshot screenshot,
+        int centerXReference,
+        int centerYReference,
+        int radiusReference,
+        int referenceWidth,
+        int referenceHeight,
+        double hueMin,
+        double hueMax,
+        double saturationMin,
+        double saturationMax,
+        double valueMin,
+        double valueMax,
+        double minimumMatchRatio)
+    {
+        var centerX = ScaleCoordinate(
+            centerXReference,
+            Math.Max(1, referenceWidth),
+            screenshot.Width);
+        var centerY = ScaleCoordinate(
+            centerYReference,
+            Math.Max(1, referenceHeight),
+            screenshot.Height);
+        var radiusX = ScaleLength(
+            Math.Max(0, radiusReference),
+            Math.Max(1, referenceWidth),
+            screenshot.Width);
+        var radiusY = ScaleLength(
+            Math.Max(0, radiusReference),
+            Math.Max(1, referenceHeight),
+            screenshot.Height);
+        var left = Math.Max(0, centerX - radiusX);
+        var right = Math.Min(
+            Math.Max(0, screenshot.Width - 1),
+            centerX + radiusX);
+        var top = Math.Max(0, centerY - radiusY);
+        var bottom = Math.Min(
+            Math.Max(0, screenshot.Height - 1),
+            centerY + radiusY);
+        var sampledPixels = 0;
+        var matchingPixels = 0;
+        var bytes = screenshot.RgbaBytes;
+        for (var y = top; y <= bottom; y++)
+        {
+            for (var x = left; x <= right; x++)
+            {
+                var index = ((long)y * screenshot.Width + x) * 4;
+                if (index < 0 || index + 2 >= bytes.Length)
+                    continue;
+
+                sampledPixels++;
+                var red = bytes[(int)index] / 255d;
+                var green = bytes[(int)index + 1] / 255d;
+                var blue = bytes[(int)index + 2] / 255d;
+                RgbToHsv(red, green, blue, out var hue, out var saturation, out var value);
+                if (IsHueInRange(hue, hueMin, hueMax)
+                    && saturation >= saturationMin
+                    && saturation <= saturationMax
+                    && value >= valueMin
+                    && value <= valueMax)
+                {
+                    matchingPixels++;
+                }
+            }
+        }
+
+        var ratio = sampledPixels == 0
+            ? 0d
+            : matchingPixels / (double)sampledPixels;
+        return new HsvColorProbeResult(
+            ratio >= minimumMatchRatio,
+            ratio,
+            matchingPixels,
+            sampledPixels,
+            centerX,
+            centerY,
+            Math.Max(radiusX, radiusY));
+    }
+
+    private static void RgbToHsv(
+        double red,
+        double green,
+        double blue,
+        out double hue,
+        out double saturation,
+        out double value)
+    {
+        var maximum = Math.Max(red, Math.Max(green, blue));
+        var minimum = Math.Min(red, Math.Min(green, blue));
+        var delta = maximum - minimum;
+        value = maximum;
+        saturation = maximum <= 0 ? 0 : delta / maximum;
+        if (delta <= double.Epsilon)
+        {
+            hue = 0;
+            return;
+        }
+
+        hue = maximum == red
+            ? 60d * ((green - blue) / delta % 6d)
+            : maximum == green
+                ? 60d * ((blue - red) / delta + 2d)
+                : 60d * ((red - green) / delta + 4d);
+        hue = NormalizeHue(hue);
+    }
+
+    private static bool IsHueInRange(double hue, double minimum, double maximum) =>
+        minimum <= maximum
+            ? hue >= minimum && hue <= maximum
+            : hue >= minimum || hue <= maximum;
+
+    private static double NormalizeHue(double hue)
+    {
+        if (!double.IsFinite(hue))
+            return 0;
+        var normalized = hue % 360d;
+        return normalized < 0 ? normalized + 360d : normalized;
     }
 
     private static int[]? ScaleRoi(
@@ -853,15 +1066,45 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         var builder = new System.Text.StringBuilder(value.Length);
         foreach (var character in value.Trim().ToLowerInvariant())
         {
-            if (char.IsLetterOrDigit(character))
-                builder.Append(character);
-            else if (char.IsWhiteSpace(character))
-                builder.Append(' ');
+            // Game skill names use circle/star/cross glyphs to distinguish
+            // variants such as Right-Handed ◎ and Right-Handed ○.  Keeping
+            // those markers as words prevents OCR from treating the variants
+            // as the same candidate while still allowing ASCII adb queries.
+            switch (character)
+            {
+                case '◎':
+                    builder.Append(" doublecircle ");
+                    break;
+                case '○':
+                case '◯':
+                case '〇':
+                    builder.Append(" circle ");
+                    break;
+                case '☆':
+                case '★':
+                    builder.Append(" star ");
+                    break;
+                case '×':
+                case '✕':
+                    builder.Append(" x ");
+                    break;
+                case '♡':
+                case '♥':
+                    builder.Append(" heart ");
+                    break;
+                default:
+                    if (char.IsLetterOrDigit(character))
+                        builder.Append(character);
+                    else if (char.IsWhiteSpace(character))
+                        builder.Append(' ');
+                    break;
+            }
         }
 
-        return string.Join(
-            ' ',
-            builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var tokens = builder.ToString()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token is "o" or "0" ? "circle" : token);
+        return string.Join(' ', tokens);
     }
 
     private static int ScaleCoordinate(int value, int reference, int actual) =>

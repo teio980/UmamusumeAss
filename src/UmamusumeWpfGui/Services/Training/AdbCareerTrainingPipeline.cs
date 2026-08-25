@@ -12,6 +12,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 {
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
+    private const string SupportStartTransitionScreenId = "support_start_transition";
 
     // The ranked picker is a five-column grid. These are search regions only:
     // every selection still comes from a JSON template match inside the region.
@@ -225,6 +226,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
+        // After Start Career is clicked on support_ready, the formation page
+        // can remain visible for a few frames. Keep that transition local to
+        // this run so a stale support_select template cannot restart support
+        // selection while the game is opening Final Confirmation.
+        var supportStartTransitionExpected = false;
         var careerEntryFlowStarted = state.CareerEntryOpened;
         if (!state.CareerStarted && !state.CareerEntryOpened)
         {
@@ -273,7 +279,19 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var observation = await ObserveAsync(connection, pack, state, cancellationToken)
+            var postSupportStartExpected = supportStartTransitionExpected
+                || state.LastScreenId.Equals(
+                    "support_ready",
+                    StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals(
+                    SupportStartTransitionScreenId,
+                    StringComparison.OrdinalIgnoreCase);
+            var observation = await ObserveAsync(
+                    connection,
+                    pack,
+                    state,
+                    postSupportStartExpected,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (observation is null)
             {
@@ -282,7 +300,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         "legacy_select",
                         StringComparison.OrdinalIgnoreCase)
                     && !state.CareerStarted;
-                var setupRetryLimit = legacyToSupportTransition ? 80 : 12;
+                var setupRetryLimit = legacyToSupportTransition
+                    ? 80
+                    : postSupportStartExpected ? 40 : 12;
                 if (state.CareerEntryOpened
                     && !state.CareerStarted
                     && setupObservationRetryCount < setupRetryLimit)
@@ -300,6 +320,21 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             }
 
             setupObservationRetryCount = 0;
+            if (observation.ScreenId.Equals("support_ready", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!supportStartTransitionExpected)
+                {
+                    logSink?.Add(
+                        "Career Training",
+                        "Support setup complete; waiting for Final Confirmation before Independent setup.");
+                }
+
+                supportStartTransitionExpected = true;
+            }
+            else if (postSupportStartExpected)
+            {
+                supportStartTransitionExpected = false;
+            }
             state.LastScreenId = observation.ScreenId;
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -479,16 +514,20 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         foreach (var skillId in settings.IndependentSkillIds ?? [])
         {
             var skill = independentCatalog.Skills.FirstOrDefault(item => item.SkillId == skillId);
-            if (skill is null || !skill.IsGameSearchMapped || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+            if (skill is null
+                || !skill.AvailableInGlobal
+                || !skill.SingleModeEnabled
+                || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
             {
                 return Failure(
-                    $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} has no JSON search mapping.",
+                    $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} is not an explicitly "
+                        + "selectable Global Add Skills entry or has no search text.",
                     "career_entry");
             }
         }
 
         if (settings.IndependentSkillIds is { Count: > 0 }
-            && !TryValidateIndependentTemplateAction(
+            && !TryValidateIndependentSkillAction(
                 pack,
                 IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
                 out var skillMappingError))
@@ -505,6 +544,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         // Lineup Details state, focus, agenda and prioritized skills.
         if (!state.IndependentModeSelected)
         {
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 1/4: switching to the Independent Training tab if needed.");
             var result = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -521,6 +563,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         if (!state.IndependentLineupConfigured)
         {
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 2/4: opening Lineup Details if it is collapsed.");
             var expandResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -532,16 +577,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             if (expandResult is not null)
                 return expandResult;
 
-            var focusScrollResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "career_entry",
-                    "independent.focus.scroll",
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (focusScrollResult is not null)
-                return focusScrollResult;
             state.IndependentLineupConfigured = true;
             return null;
         }
@@ -554,6 +589,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "sprint" => "independent.focus.sprint",
                 _ => "independent.focus.balanced",
             };
+            logSink?.Add(
+                "Career Training",
+                $"Independent setup step 3/4: selecting Training Focus '{settings.IndependentTrainingFocus}'.");
             var focusResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -570,6 +608,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         if (!state.IndependentAgendaConfigured)
         {
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 4/4a: configuring Agenda selections.");
             if (settings.IndependentAgendaSelections is { Count: > 0 })
             {
                 var agendaOpenResult = await RunScreenActionAsync(
@@ -728,6 +769,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         if (!state.IndependentSkillsConfigured)
         {
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 4/4b: configuring prioritized race skills.");
             if (settings.IndependentSkillIds is { Count: > 0 })
             {
                 var skillsScrollResult = await RunScreenActionAsync(
@@ -781,10 +825,14 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 foreach (var skillId in settings.IndependentSkillIds ?? [])
                 {
                     var skill = independentCatalog.Skills.FirstOrDefault(item => item.SkillId == skillId);
-                    if (skill is null || !skill.IsGameSearchMapped || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+                    if (skill is null
+                        || !skill.AvailableInGlobal
+                        || !skill.SingleModeEnabled
+                        || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
                     {
                         return Failure(
-                            $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} has no JSON search mapping.",
+                            $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} is not an explicitly "
+                                + "selectable Global Add Skills entry or has no search text.",
                             "career_entry");
                     }
 
@@ -859,16 +907,55 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             return scrollResult;
                     }
 
+                    // The Global picker can reorder or filter rows between
+                    // client builds.  Locate the actual skill name in the
+                    // current screenshot and let the JSON OCR task click that
+                    // row.  A legacy static row is only attempted when the
+                    // old snapshot explicitly opted into that mapping.
                     var skillResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "career_entry",
                             IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
                             logSink,
-                            cancellationToken)
+                            cancellationToken,
+                            new HachimiPipelineRunOptions
+                            {
+                                TargetTextOverrides = new Dictionary<string, string>(
+                                    StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["independent_skills_search_checkbox_ocr"] = skill.OcrTargetText,
+                                },
+                            })
                         .ConfigureAwait(false);
                     if (skillResult is not null)
-                        return skillResult;
+                    {
+                        if (!skill.IsGameSearchMapped || skill.SearchResultRow <= 0)
+                        {
+                            logSink?.Add(
+                                "Career Training",
+                                $"Independent skill '{skill.SkillName}' OCR result was not found; "
+                                    + "no unverified static row fallback is allowed.",
+                                LogEntryKind.Failure);
+                            return skillResult;
+                        }
+
+                        logSink?.Add(
+                            "Career Training",
+                            $"Independent skill '{skill.SkillName}' OCR lookup failed; "
+                                + $"falling back to its explicitly verified legacy row {skill.SearchResultRow}.",
+                            LogEntryKind.Info);
+                        var fallbackResult = await RunScreenActionAsync(
+                                connection,
+                                pack,
+                                "career_entry",
+                                IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        if (fallbackResult is not null)
+                            return fallbackResult;
+                    }
                 }
 
                 var skillsSaveResult = await RunScreenActionAsync(
@@ -1094,6 +1181,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 {
                     if (state.SupportCardsSelected)
                     {
+                        state.LastScreenId = SupportStartTransitionScreenId;
                         return await RunScreenActionAsync(
                                 connection,
                                 pack,
@@ -1116,6 +1204,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         return rankedSelectionResult;
 
                     state.SupportCardsSelected = true;
+                    state.LastScreenId = SupportStartTransitionScreenId;
                     return await RunScreenActionAsync(
                             connection,
                             pack,
@@ -1137,6 +1226,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
                     if (state.SupportCardsSelected)
                     {
+                        state.LastScreenId = SupportStartTransitionScreenId;
                         return await RunScreenActionAsync(
                                 connection,
                                 pack,
@@ -1159,6 +1249,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         return supportSelectionResult;
 
                     state.SupportCardsSelected = true;
+                    state.LastScreenId = SupportStartTransitionScreenId;
                     return await RunScreenActionAsync(
                             connection,
                             pack,
@@ -1181,6 +1272,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         cancellationToken)
                     .ConfigureAwait(false);
             case "support_ready":
+                state.LastScreenId = SupportStartTransitionScreenId;
                 return await RunScreenActionAsync(
                         connection, pack, "support_ready", "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
@@ -1549,6 +1641,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         UraCareerSessionState state,
+        bool postSupportStartExpected,
         CancellationToken cancellationToken)
     {
         var careerEntryFlowActive = state.CareerEntryOpened && !state.CareerStarted;
@@ -1578,11 +1671,19 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 || string.Equals(screen.ScreenId, "trainee_select", StringComparison.OrdinalIgnoreCase))
             .Where(screen => !supportReadyExpected
                 || string.Equals(screen.ScreenId, "support_ready", StringComparison.OrdinalIgnoreCase))
+            // Start Career has already been tapped. Do not let a stale
+            // formation template win while the game is transitioning to
+            // Final Confirmation, where Independent setup must continue.
+            .Where(screen => !postSupportStartExpected
+                || (screen.ScreenId is not "support_select"
+                    and not "support_ready"
+                    and not "support_autofill_confirmation"))
             .Where(screen => !legacyToSupportTransition
                 || string.Equals(screen.ScreenId, "support_select", StringComparison.OrdinalIgnoreCase))
             .OrderBy(screen => GetScreenRecognitionPriority(
                 screen.ScreenId,
-                supportReadyExpected))
+                supportReadyExpected,
+                postSupportStartExpected))
             .ToArray();
 
         // Observe a small stable sample once, then score all screen templates
@@ -1650,13 +1751,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
     private static int GetScreenRecognitionPriority(
         string screenId,
-        bool supportReadyExpected) =>
+        bool supportReadyExpected,
+        bool postSupportStartExpected) =>
         screenId switch
         {
             "career_continue" => 0,
             "home" => 0,
             "scenario_select" => 1,
             "trainee_select" => 2,
+            CareerFinalConfirmationScreenId when postSupportStartExpected => 0,
             CareerFinalConfirmationScreenId => 3,
             "support_ready" when supportReadyExpected => 4,
             "support_select" => 5,
@@ -1754,6 +1857,44 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     /// Agenda race identity is deliberately excluded: it is located by the
     /// shared OCR task with a runtime target supplied by the catalog.
     /// </summary>
+    private static bool TryValidateIndependentSkillAction(
+        UraScenarioPack pack,
+        string actionId,
+        out string error)
+    {
+        var screen = pack.ScreenProfile.Find(CareerFinalConfirmationScreenId)
+            ?? pack.ScreenProfile.Find("career_entry");
+        if (screen is null)
+        {
+            error = $"screen '{CareerFinalConfirmationScreenId}' is missing";
+            return false;
+        }
+
+        var action = screen.FindAction(actionId);
+        if (action is null || string.IsNullOrWhiteSpace(action.Task))
+        {
+            error = $"semantic action '{actionId}' is not mapped";
+            return false;
+        }
+
+        if (!pack.ExecutionDefinition.TryGetTask(action.Task, out var task)
+            || task is null)
+        {
+            error = $"task '{action.Task}' is not defined";
+            return false;
+        }
+
+        if (task.Algorithm.Equals("OCRText", StringComparison.OrdinalIgnoreCase)
+            && task.Action.Equals("ClickText", StringComparison.OrdinalIgnoreCase))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"task '{action.Task}' must be an OCRText/ClickText task";
+        return false;
+    }
+
     private static bool TryValidateIndependentTemplateAction(
         UraScenarioPack pack,
         string actionId,

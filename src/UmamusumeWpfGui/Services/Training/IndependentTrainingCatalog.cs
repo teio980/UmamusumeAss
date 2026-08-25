@@ -6,8 +6,9 @@ namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
 /// Immutable, offline data used by the Independent Training setup editor.
-/// The JSON files are generated from uma.guide's Global data exports and are
-/// shipped with the application so a run never depends on a live web page.
+/// The race catalog is a checked-in guide snapshot.  The skill catalog is
+/// generated from the installed Global client's master.mdb and is shipped with
+/// the application so a run never depends on a live web page.
 /// </summary>
 public sealed class IndependentTrainingCatalog
 {
@@ -23,12 +24,14 @@ public sealed class IndependentTrainingCatalog
         IReadOnlyList<IndependentTrainingRace> races,
         IReadOnlyList<IndependentTrainingSkill> skills,
         string raceSourceUrl,
-        string skillSourceUrl)
+        string skillSourceUrl,
+        IndependentTrainingSkillSource skillSource)
     {
         Races = races;
         Skills = skills;
         RaceSourceUrl = raceSourceUrl;
         SkillSourceUrl = skillSourceUrl;
+        SkillSource = skillSource;
     }
 
     public IReadOnlyList<IndependentTrainingRace> Races { get; }
@@ -38,6 +41,8 @@ public sealed class IndependentTrainingCatalog
     public string RaceSourceUrl { get; }
 
     public string SkillSourceUrl { get; }
+
+    public IndependentTrainingSkillSource SkillSource { get; }
 
     public bool IsAvailable => Races.Count > 0 && Skills.Count > 0;
 
@@ -104,6 +109,9 @@ public sealed class IndependentTrainingCatalog
     public static string SkillSearchCheckboxSemanticAction() =>
         "independent.skills.search.checkbox";
 
+    public static string SkillSearchCheckboxFallbackSemanticAction() =>
+        "independent.skills.search.checkbox.fallback";
+
     public static string SkillSearchScrollSemanticAction() =>
         "independent.skills.search.scroll";
 
@@ -134,12 +142,13 @@ public sealed class IndependentTrainingCatalog
         var racePath = ResolvePath(DefaultRacePath, baseDirectory);
         var skillPath = ResolvePath(DefaultSkillPath, baseDirectory);
         var races = ReadRaces(racePath, out var raceSourceUrl);
-        var skills = ReadSkills(skillPath, out var skillSourceUrl);
+        var skills = ReadSkills(skillPath, out var skillSourceUrl, out var skillSource);
         return new IndependentTrainingCatalog(
             races,
             skills,
             raceSourceUrl,
-            skillSourceUrl);
+            skillSourceUrl,
+            skillSource);
     }
 
     private static string ResolvePath(string relativePath, string? baseDirectory)
@@ -210,9 +219,11 @@ public sealed class IndependentTrainingCatalog
 
     private static IndependentTrainingSkill[] ReadSkills(
         string path,
-        out string sourceUrl)
+        out string sourceUrl,
+        out IndependentTrainingSkillSource sourceMetadata)
     {
         sourceUrl = "https://uma.guide/skills/";
+        sourceMetadata = IndependentTrainingSkillSource.Unknown;
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -221,6 +232,25 @@ public sealed class IndependentTrainingCatalog
                 && source.ValueKind == JsonValueKind.String)
             {
                 sourceUrl = source.GetString() ?? sourceUrl;
+            }
+
+            if (root.TryGetProperty("source", out var sourceObject)
+                && sourceObject.ValueKind == JsonValueKind.Object)
+            {
+                sourceUrl = ReadString(sourceObject, "sourceUrl");
+                sourceMetadata = new IndependentTrainingSkillSource(
+                    ReadString(sourceObject, "sourceName"),
+                    ReadString(sourceObject, "masterSha256"),
+                    ReadString(sourceObject, "clientVersion"),
+                    ReadString(sourceObject, "region"),
+                    ReadString(sourceObject, "sourceType"));
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceMetadata.Region)
+                && root.TryGetProperty("region", out var region)
+                && region.ValueKind == JsonValueKind.String)
+            {
+                sourceMetadata = sourceMetadata with { Region = region.GetString() ?? string.Empty };
             }
 
             if (!root.TryGetProperty("skills", out var skills)
@@ -243,8 +273,20 @@ public sealed class IndependentTrainingCatalog
                     ReadInt(item, "iconId"),
                     ReadString(item, "searchText"),
                     ReadInt(item, "searchResultRow"),
-                    ReadBool(item, "gameSearchMapped")))
-                .Where(item => item.SkillId > 0 && !string.IsNullOrWhiteSpace(item.SkillName))
+                    ReadBool(item, "gameSearchMapped"),
+                    ReadStringArray(item, "aliases"),
+                    ReadBool(item, "availableInGlobal"),
+                    ReadString(item, "availabilitySource"),
+                    ReadBool(item, "singleModeEnabled"),
+                    ReadInt(item, "skillCategoryId")))
+                // A legacy snapshot may still be present on a user's disk.
+                // Its rows remain parseable for old settings, but are not
+                // exposed as selectable Global skills without an explicit
+                // availability declaration from the Global client.
+                .Where(item => item.SkillId > 0
+                    && !string.IsNullOrWhiteSpace(item.SkillName)
+                    && item.AvailableInGlobal
+                    && item.SingleModeEnabled)
                 .ToArray();
         }
         catch (Exception) when (FileNotFoundOrInvalid(path))
@@ -279,6 +321,22 @@ public sealed class IndependentTrainingCatalog
                && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
             ? value.GetBoolean()
             : false;
+    }
+
+    private static string[] ReadStringArray(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value)
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return value.EnumerateArray()
+            .Where(entry => entry.ValueKind == JsonValueKind.String)
+            .Select(entry => entry.GetString()?.Trim() ?? string.Empty)
+            .Where(entry => entry.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }
 
@@ -362,11 +420,26 @@ public sealed record IndependentTrainingSkill(
     int IconId,
     string SearchText = "",
     int SearchResultRow = 1,
-    bool IsGameSearchMapped = false)
+    bool IsGameSearchMapped = false,
+    IReadOnlyList<string>? Aliases = null,
+    bool AvailableInGlobal = false,
+    string AvailabilitySource = "",
+    bool SingleModeEnabled = false,
+    int SkillCategoryId = 0)
 {
+    public IReadOnlyList<string> SearchAliases => Aliases ?? [];
+
     public string EffectiveSearchText => string.IsNullOrWhiteSpace(SearchText)
         ? SkillName
         : SearchText;
+
+    public string OcrTargetText => SkillName;
+
+    public IEnumerable<string> SearchTerms =>
+        new[] { SkillName, OriginalName, SearchText }
+            .Concat(SearchAliases)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
     public int SearchResultPage => Math.Max(0, SearchResultRow - 1)
         / IndependentTrainingCatalog.SkillPickerVisibleRows;
@@ -386,4 +459,26 @@ public sealed record IndependentTrainingAgendaSelection(
     string RaceName)
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
+}
+
+public sealed record IndependentTrainingSkillSource(
+    string Provenance,
+    string SourceVersion,
+    string ClientVersion,
+    string Region,
+    string SourceType)
+{
+    public static IndependentTrainingSkillSource Unknown { get; } = new(
+        "",
+        "",
+        "",
+        "",
+        "");
+
+    public bool IsExplicitGlobalClient =>
+        Region.Equals("global", StringComparison.OrdinalIgnoreCase)
+        && SourceType.Equals(
+            "game-client-master-db",
+            StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(SourceVersion);
 }

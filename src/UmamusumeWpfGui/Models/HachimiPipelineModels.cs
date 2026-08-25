@@ -173,6 +173,23 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("clickOffset")]
     public int[]? ClickOffset { get; set; }
 
+    /// <summary>
+    /// Optional reference-space anchor for OCR clicks.  When present, the
+    /// runner keeps the OCR match's Y coordinate but taps this X coordinate.
+    /// This is useful for rows whose selectable checkbox is fixed to the
+    /// left of a variable-length label.
+    /// </summary>
+    [JsonPropertyName("clickAnchor")]
+    public int[]? ClickAnchor { get; set; }
+
+    /// <summary>
+    /// Optional, data-driven post-click state verification.  The visual
+    /// runtime probes a small HSV region around the click anchor and retries
+    /// only while the expected state is not observed.
+    /// </summary>
+    [JsonPropertyName("clickVerification")]
+    public HachimiClickVerification? ClickVerification { get; set; }
+
     [JsonPropertyName("rowExpansion")]
     public int[]? RowExpansion { get; set; }
 
@@ -209,6 +226,70 @@ public sealed class HachimiPipelineTask
     /// </summary>
     [JsonPropertyName("ocrRequireAllTokens")]
     public bool OcrRequireAllTokens { get; set; } = true;
+}
+
+/// <summary>
+/// Generic color-state probe settings for an anchored visual click.  Values
+/// are authored in the pipeline's reference coordinate/color space; no skill
+/// names or fixed game coordinates belong in the runner.
+/// </summary>
+public sealed class HachimiClickVerification
+{
+    /// <summary>Probe before the first tap so an already-selected row is not toggled off.</summary>
+    [JsonPropertyName("preCheck")]
+    public bool PreCheck { get; set; } = true;
+
+    /// <summary>Square probe radius in reference pixels.</summary>
+    [JsonPropertyName("probeRadius")]
+    public int ProbeRadius { get; set; } = 8;
+
+    /// <summary>Optional reference-space offset from the click anchor to the probe center.</summary>
+    [JsonPropertyName("probeOffset")]
+    public int[]? ProbeOffset { get; set; }
+
+    /// <summary>Inclusive HSV hue bounds in degrees. Bounds may wrap across 360.</summary>
+    [JsonPropertyName("hueMin")]
+    public double HueMin { get; set; } = 70d;
+
+    [JsonPropertyName("hueMax")]
+    public double HueMax { get; set; } = 170d;
+
+    /// <summary>Inclusive HSV saturation/value bounds, normalized to 0..1.</summary>
+    [JsonPropertyName("saturationMin")]
+    public double SaturationMin { get; set; } = 0.25d;
+
+    [JsonPropertyName("saturationMax")]
+    public double SaturationMax { get; set; } = 1d;
+
+    [JsonPropertyName("valueMin")]
+    public double ValueMin { get; set; } = 0.20d;
+
+    [JsonPropertyName("valueMax")]
+    public double ValueMax { get; set; } = 1d;
+
+    /// <summary>Fraction of sampled pixels that must satisfy the HSV bounds.</summary>
+    [JsonPropertyName("minimumMatchRatio")]
+    public double MinimumMatchRatio { get; set; } = 0.20d;
+
+    /// <summary>Delay after each tap before taking the state probe.</summary>
+    [JsonPropertyName("settleDelayMs")]
+    public int SettleDelayMilliseconds { get; set; } = 150;
+
+    /// <summary>Maximum time to poll for the expected state after a tap.</summary>
+    [JsonPropertyName("verifyTimeoutMs")]
+    public int VerifyTimeoutMilliseconds { get; set; } = 1_000;
+
+    /// <summary>Polling interval used by the post-click state probe.</summary>
+    [JsonPropertyName("verifyPollIntervalMs")]
+    public int VerifyPollIntervalMilliseconds { get; set; } = 100;
+
+    /// <summary>Maximum number of additional taps after the initial tap.</summary>
+    [JsonPropertyName("maxRetries")]
+    public int MaxRetries { get; set; }
+
+    /// <summary>Delay before a retry probe/tap cycle.</summary>
+    [JsonPropertyName("retryDelayMs")]
+    public int RetryDelayMilliseconds { get; set; } = 300;
 }
 
 public sealed class HachimiPipelineTemplates
