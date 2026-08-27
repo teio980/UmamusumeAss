@@ -1,3 +1,4 @@
+using System.IO;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
@@ -7,7 +8,7 @@ using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-public sealed class CareerTrainingTaskModule : IGrassTaskModule
+public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPreflightDiagnostics
 {
     private readonly ILocalizationService _localizationService;
     private readonly ICareerTrainingPipeline _pipeline;
@@ -141,16 +142,77 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule
         _umaDatabase);
 
     public bool CanExecute(GrassTaskExecutionContext context) =>
-        context.Connection is not null
-        && Settings.IsValid
-        && (!Settings.IsManualSupportDeck
-            || Settings.SelectedSupportCardCount is 5 or 6)
-        && (!Settings.IsHighestStarSupportDeck
-            || !Settings.SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
-        && Settings.TraineeId is > 0
-        && _umaDatabase.TryGetTrainee(Settings.TraineeId.Value, out var trainee)
-        && trainee is not null
-        && trainee.Available;
+        GetCannotExecuteReason(context) is null;
+
+    public string? GetCannotExecuteReason(GrassTaskExecutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.Connection is null)
+            return "No verified ADB connection is available.";
+
+        if (string.IsNullOrWhiteSpace(Settings.ManifestPath))
+            return "Career manifest path is empty.";
+
+        try
+        {
+            if (!File.Exists(Path.GetFullPath(Settings.ManifestPath)))
+            {
+                return $"Career manifest was not found at '{Settings.ManifestPath}'.";
+            }
+        }
+        catch (ArgumentException)
+        {
+            return $"Career manifest path is invalid: '{Settings.ManifestPath}'.";
+        }
+        catch (NotSupportedException)
+        {
+            return $"Career manifest path is not supported: '{Settings.ManifestPath}'.";
+        }
+
+        if (Settings.TraineeId is not > 0)
+            return "No trainee is configured.";
+
+        if (string.IsNullOrWhiteSpace(Settings.StrategyId)
+            || !UraStrategyRegistry.IsRegistered(Settings.StrategyId))
+        {
+            return $"URA strategy '{Settings.StrategyId}' is not registered for this build.";
+        }
+
+        if (Settings.IsManualSupportDeck
+            && Settings.SelectedSupportCardCount is not (5 or 6))
+        {
+            return $"Support deck mode 'selected' requires 5 or 6 own support cards; "
+                + $"configured {Settings.SelectedSupportCardCount}.";
+        }
+
+        if (Settings.IsHighestStarSupportDeck
+            && Settings.SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Highest-star support selection requires a support deck preset.";
+        }
+
+        if (!Settings.IsSupportDeckValid)
+            return "Support deck settings are invalid.";
+
+        if (Settings.IsIndependentCareer && !Settings.IsIndependentTrainingSettingsValid)
+        {
+            return $"Independent Training settings are invalid (focus='{Settings.IndependentTrainingFocus}', "
+                + $"lineup='{Settings.IndependentLineupStrategy}', "
+                + $"agenda={Settings.SelectedIndependentAgendaCount}, "
+                + $"skills={Settings.SelectedIndependentSkillCount}).";
+        }
+
+        if (!_umaDatabase.TryGetTrainee(Settings.TraineeId.Value, out var trainee)
+            || trainee is null
+            || !trainee.Available)
+        {
+            return $"Configured trainee ID {Settings.TraineeId.Value.ToString(CultureInfo.InvariantCulture)} "
+                + "was not found or is unavailable.";
+        }
+
+        return null;
+    }
 
     public async Task<GrassTaskExecutionResult> ExecuteAsync(
         GrassTaskExecutionContext context,

@@ -35,7 +35,8 @@
     </Style>
   </UserControl.Resources>
 
-  <Grid Margin="24">
+  <Grid Margin="24"
+        TextElement.FontSize="12">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
@@ -44,7 +45,7 @@
     <Grid Grid.Row="0" Margin="0,0,0,16">
       <StackPanel>
         <TextBlock Text="{DynamicResource GrassTitle}"
-                   FontSize="24"
+                   FontSize="20"
                    FontWeight="SemiBold" />
         <TextBlock Margin="0,4,0,0"
                    Text="{Binding PageStatus}"
@@ -64,8 +65,8 @@
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="0.95*" />
-        <ColumnDefinition Width="1.05*" />
-        <ColumnDefinition Width="1.6*" />
+        <ColumnDefinition Width="1.1*" />
+        <ColumnDefinition Width="1.55*" />
       </Grid.ColumnDefinitions>
 
 
@@ -214,7 +215,7 @@
               <StackPanel Margin="0,18,0,0"
                           Visibility="{Binding IsTaskSettings, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{Binding SelectedTaskTitle}"
-                           FontSize="18"
+                           FontSize="15"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap" />
                 <ContentControl Margin="0,14,0,0"

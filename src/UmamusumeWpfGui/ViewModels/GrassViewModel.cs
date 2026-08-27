@@ -505,11 +505,17 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     if (!task.Module.CanExecute(context))
                     {
                         task.Status = Localize("GrassTaskError", "Error");
+                        var reason = task.Module is IGrassTaskPreflightDiagnostics diagnostics
+                            ? diagnostics.GetCannotExecuteReason(context)
+                            : null;
+                        var details = Localize(
+                            "GrassScriptTaskCannotExecute",
+                            "Task cannot execute with the current configuration");
+                        if (!string.IsNullOrWhiteSpace(reason))
+                            details += $": {reason}";
                         AddScriptLog(
                             task.Name,
-                            Localize(
-                                "GrassScriptTaskCannotExecute",
-                                "Task cannot execute with the current configuration"),
+                            details,
                             LogEntryKind.Failure);
                         continue;
                     }

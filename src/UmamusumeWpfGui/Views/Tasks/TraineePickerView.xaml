@@ -31,7 +31,8 @@
           <TextBlock Grid.Column="1"
                      VerticalAlignment="Center"
                      Text="{Binding SelectedTrainee.Label}"
-                     TextWrapping="Wrap" />
+                     TextWrapping="NoWrap"
+                     TextTrimming="CharacterEllipsis" />
         </Grid>
         <Path Width="10"
               Height="6"
@@ -61,14 +62,34 @@
           <ui:TextBox Margin="0,0,0,8"
                       Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
                       PlaceholderText="{DynamicResource GrassDailyRaceTraineeSearchPlaceholder}" />
-          <ListBox MaxHeight="350"
+          <ListBox Height="350"
                    BorderThickness="0"
+                   HorizontalContentAlignment="Stretch"
+                   ScrollViewer.CanContentScroll="True"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling"
+                   VirtualizingPanel.CacheLength="0"
+                   VirtualizingPanel.CacheLengthUnit="Item"
                    ItemsSource="{Binding FilteredTraineeOptions}"
                    SelectedItem="{Binding SelectedTrainee, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                    PreviewMouseLeftButtonUp="TraineeList_PreviewMouseLeftButtonUp">
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+              </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate>
                 <Grid MinHeight="60"
+                      HorizontalAlignment="Stretch"
                       VerticalAlignment="Center">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -78,7 +99,9 @@
                           Height="52"
                           Margin="0,2,10,2"
                           Background="{DynamicResource SurfaceRaisedBrush}"
-                          CornerRadius="4">
+                          CornerRadius="4"
+                          Visibility="{Binding Thumbnail,
+                                               Converter={StaticResource NullToVisibility}}">
                     <Image Source="{Binding Thumbnail}"
                            Stretch="Uniform" />
                   </Border>

@@ -31,3 +31,8 @@ public interface IGrassTaskModule
         GrassTaskExecutionContext context,
         CancellationToken cancellationToken = default);
 }
+
+public interface IGrassTaskPreflightDiagnostics
+{
+    string? GetCannotExecuteReason(GrassTaskExecutionContext context);
+}

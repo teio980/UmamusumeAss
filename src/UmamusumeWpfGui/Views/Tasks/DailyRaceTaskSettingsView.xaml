@@ -4,7 +4,13 @@
              xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <StackPanel>
+  <UserControl.Resources>
+    <DataTemplate x:Key="ComboOptionTemplate">
+      <TextBlock Text="{Binding Label}"
+                 TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel TextElement.FontSize="12">
       <TextBlock Text="{DynamicResource GrassDailyRaceSettingsTitle}"
                  FontWeight="Medium" />
       <TextBlock Margin="0,14,0,0"
@@ -12,8 +18,9 @@
       <ComboBox
                 Margin="0,6,0,0"
                 HorizontalAlignment="Left"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding Modes}"
-                DisplayMemberPath="Label"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value"
                 SelectedValue="{Binding Mode, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -22,8 +29,9 @@
       <ComboBox
                 Margin="0,6,0,0"
                 HorizontalAlignment="Left"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding Difficulties}"
-                DisplayMemberPath="Label"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value"
                 SelectedValue="{Binding Difficulty, UpdateSourceTrigger=PropertyChanged}" />
 
