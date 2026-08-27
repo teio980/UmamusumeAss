@@ -204,6 +204,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             state.IndependentTrainingFocusConfigured = false;
             state.IndependentAgendaConfigured = false;
             state.IndependentSkillsConfigured = false;
+            state.IndependentLineupCollapsed = false;
+            state.IndependentLineupCollapseVerifiedThisRun = false;
+            state.IndependentStrategyConfigured = false;
             state.IndependentSetupCompleted = false;
             state.ScenarioSelectionAdvanceAttempts = 0;
         }
@@ -483,9 +486,51 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     {
         var independentCatalog = IndependentTrainingCatalog.Load();
 
-        // Agenda cells remain JSON/template driven, while race identity is a
-        // runtime OCR target.  The race catalog supplies text only; it does
-        // not need a per-race screenshot, row, or page mapping.
+        if (!IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
+                settings.IndependentLineupStrategy,
+                out var strategyOptionAction,
+                out var strategyTargetText))
+        {
+            return Failure(
+                $"Independent lineup strategy '{settings.IndependentLineupStrategy}' "
+                    + "is not one of front, pace, late or end.",
+                "independent.strategy.change");
+        }
+
+        foreach (var strategyAction in new[]
+        {
+            IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
+            IndependentTrainingCatalog.StrategyChangeSemanticAction(),
+            IndependentTrainingCatalog.StrategySaveSemanticAction(),
+            IndependentTrainingCatalog.StrategyReturnSemanticAction(),
+        })
+        {
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    strategyAction,
+                    out var strategyMappingError))
+            {
+                return Failure(
+                    $"Independent Strategy action '{strategyAction}' is not executable: "
+                        + strategyMappingError,
+                    "independent.strategy.change");
+            }
+        }
+
+        if (!TryValidateIndependentSkillAction(
+                pack,
+                strategyOptionAction,
+                out var strategyOptionMappingError))
+        {
+            return Failure(
+                $"Independent Strategy option '{strategyOptionAction}' is not executable: "
+                    + strategyOptionMappingError,
+                "independent.strategy.change");
+        }
+
+        // Agenda cells and race identity are JSON/template driven.  The
+        // catalog supplies the stable Race ID used to select the card image;
+        // no OCR text, row number or page position identifies a race.
         foreach (var selection in settings.IndependentAgendaSelections ?? [])
         {
             var yearActionId = $"independent.agenda.year.{SemanticYearSlug(selection.Year)}";
@@ -506,6 +551,26 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             {
                 return Failure(
                     $"Independent agenda '{selection.Key}' cannot run: {slotMappingError}",
+                    "career_entry");
+            }
+
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    IndependentTrainingCatalog.AgendaRaceCardSemanticAction(),
+                    out var cardMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot run: {cardMappingError}",
+                    "career_entry");
+            }
+
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    IndependentTrainingCatalog.AgendaRaceCardVerifySemanticAction(),
+                    out var cardVerifyMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot run: {cardVerifyMappingError}",
                     "career_entry");
             }
 
@@ -537,16 +602,28 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "career_entry");
         }
 
+        if (settings.IndependentSkillIds is { Count: > 0 }
+            && !TryValidateIndependentTemplateAction(
+                pack,
+                IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
+                out var skillFallbackMappingError))
+        {
+            return Failure(
+                $"Configured Independent skills have no verified checkbox fallback: {skillFallbackMappingError}",
+                "career_entry");
+        }
+
         // The action names below are semantic IDs only. Their templates,
         // regions, transitions, retries and every tap location live in the
         // scenario JSON profile/execution definition.  Independent setup is
         // intentionally limited to the controls the user configured: mode,
-        // Lineup Details state, focus, agenda and prioritized skills.
+        // Lineup Details state, focus, agenda, prioritized skills and the
+        // post-skills Strategy dialog.
         if (!state.IndependentModeSelected)
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 1/4: switching to the Independent Training tab if needed.");
+                "Independent setup step 1/7: switching to the Independent Training tab if needed.");
             var result = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -565,7 +642,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 2/4: opening Lineup Details if it is collapsed.");
+                "Independent setup step 2/7: opening Lineup Details if it is collapsed.");
             var expandResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -591,7 +668,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             };
             logSink?.Add(
                 "Career Training",
-                $"Independent setup step 3/4: selecting Training Focus '{settings.IndependentTrainingFocus}'.");
+                $"Independent setup step 3/7: selecting Training Focus '{settings.IndependentTrainingFocus}'.");
             var focusResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -610,7 +687,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 4/4a: configuring Agenda selections.");
+                "Independent setup step 4/7: configuring Agenda selections.");
             if (settings.IndependentAgendaSelections is { Count: > 0 })
             {
                 var agendaOpenResult = await RunScreenActionAsync(
@@ -687,57 +764,68 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     if (slotResult is not null)
                         return slotResult;
 
-                    var ocrTarget = selection.RaceName;
-                    if (independentCatalog.TryGetAgendaPickerEntry(
+                    if (!independentCatalog.TryGetAgendaPickerEntry(
                             selection,
-                            out var pickerRace)
-                        && !string.IsNullOrWhiteSpace(pickerRace.PickerHeaderTarget))
+                            out var pickerRace))
                     {
-                        ocrTarget = pickerRace.PickerHeaderTarget;
-                        logSink?.Add(
-                            "Career Training",
-                            $"Independent agenda OCR target uses visible picker header "
-                            + $"'{ocrTarget}' for {selection.RaceName}; "
-                            + "the decorative race-name image remains a fallback identity only.");
+                        return Failure(
+                            $"Independent agenda race '{selection.RaceName}' has no Global Race ID mapping.",
+                            "independent.agenda.race.card");
                     }
 
-                    var raceResult = await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "career_entry",
-                            IndependentTrainingCatalog.AgendaSemanticAction(selection),
-                            logSink,
-                            cancellationToken,
-                            new HachimiPipelineRunOptions
-                            {
-                                TargetTextOverrides = new Dictionary<string, string>(
-                                    StringComparer.OrdinalIgnoreCase)
-                                {
-                                    ["independent_agenda_race_find"] = ocrTarget,
-                                },
-                            })
-                        .ConfigureAwait(false);
-                    if (raceResult is not null)
-                        return raceResult;
+                    var raceCardPath = IndependentTrainingCatalog.TryResolveRaceCardImagePath(
+                        pickerRace,
+                        pack.ExecutionDefinition.BaseDirectory);
+                    if (raceCardPath is null)
+                    {
+                        return Failure(
+                            $"Independent agenda race '{selection.RaceName}' is missing Race ID "
+                                + $"{pickerRace.RaceId} card asset.",
+                            "independent.agenda.race.card");
+                    }
 
-                    var verifyResult = await RunScreenActionAsync(
+                    logSink?.Add(
+                        "Career Training",
+                        $"Independent agenda race '{selection.RaceName}' uses Race ID "
+                        + $"{pickerRace.RaceId} card detection; OCR is not used for race identity.");
+
+                    var cardResult = await RunScreenActionAsync(
                             connection,
                             pack,
                             "career_entry",
-                            IndependentTrainingCatalog.AgendaRaceVerifySemanticAction(),
+                            IndependentTrainingCatalog.AgendaRaceCardSemanticAction(),
                             logSink,
                             cancellationToken,
                             new HachimiPipelineRunOptions
                             {
-                                TargetTextOverrides = new Dictionary<string, string>(
+                                TemplateOverrides = new Dictionary<string, string>(
                                     StringComparer.OrdinalIgnoreCase)
                                 {
-                                    ["independent_agenda_race_verify"] = ocrTarget,
+                                    ["independent_agenda_race_card_find"] = raceCardPath,
                                 },
                             })
                         .ConfigureAwait(false);
-                    if (verifyResult is not null)
-                        return verifyResult;
+                    if (cardResult is not null)
+                        return cardResult;
+
+                    var cardVerifyResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "career_entry",
+                            IndependentTrainingCatalog.AgendaRaceCardVerifySemanticAction(),
+                            logSink,
+                            cancellationToken,
+                            new HachimiPipelineRunOptions
+                            {
+                                TemplateOverrides = new Dictionary<string, string>(
+                                    StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["independent_agenda_race_card_verify"] = raceCardPath,
+                                },
+                            })
+                        .ConfigureAwait(false);
+                    if (cardVerifyResult is not null)
+                        return cardVerifyResult;
 
                     var saveResult = await RunScreenActionAsync(
                             connection,
@@ -771,7 +859,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 4/4b: configuring prioritized race skills.");
+                "Independent setup step 5/7: configuring prioritized race skills.");
             if (settings.IndependentSkillIds is { Count: > 0 })
             {
                 var skillsScrollResult = await RunScreenActionAsync(
@@ -836,10 +924,23 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             "career_entry");
                     }
 
+                    if (!IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
+                            skill,
+                            out var verifiedPage,
+                            out var verifiedPickerRow))
+                    {
+                        return Failure(
+                            $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} "
+                                + "has no explicit verified search mapping.",
+                            "career_entry");
+                    }
+
                     logSink?.Add(
                         "Career Training",
                         $"Independent skill requested: {skill.SkillName} ({skillId.ToString(CultureInfo.InvariantCulture)}); "
-                        + "searching by the JSON-provided skill name.");
+                            + $"search='{skill.EffectiveSearchText}', OCR target='{skill.OcrTargetText}', "
+                            + $"verified fallback row={skill.SearchResultRow} "
+                            + $"(page={verifiedPage}, visibleRow={verifiedPickerRow}).");
 
                     var resetResult = await RunScreenActionAsync(
                             connection,
@@ -893,7 +994,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     if (submitResult is not null)
                         return submitResult;
 
-                    for (var page = 0; page < skill.SearchResultPage; page++)
+                    for (var page = 0; page < verifiedPage; page++)
                     {
                         var scrollResult = await RunScreenActionAsync(
                                 connection,
@@ -907,11 +1008,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             return scrollResult;
                     }
 
-                    // The Global picker can reorder or filter rows between
-                    // client builds.  Locate the actual skill name in the
-                    // current screenshot and let the JSON OCR task click that
-                    // row.  A legacy static row is only attempted when the
-                    // old snapshot explicitly opted into that mapping.
+                    // Locate the actual skill name in the current screenshot
+                    // first. A static row is only attempted when the catalog
+                    // carries an explicit mapping that was verified in the
+                    // earlier working client; master ordering never creates
+                    // a fallback row.
                     var skillResult = await RunScreenActionAsync(
                             connection,
                             pack,
@@ -930,7 +1031,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         .ConfigureAwait(false);
                     if (skillResult is not null)
                     {
-                        if (!skill.IsGameSearchMapped || skill.SearchResultRow <= 0)
+                        if (!IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
+                                skill,
+                                out _,
+                                out var fallbackPickerRow))
                         {
                             logSink?.Add(
                                 "Career Training",
@@ -943,7 +1047,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         logSink?.Add(
                             "Career Training",
                             $"Independent skill '{skill.SkillName}' OCR lookup failed; "
-                                + $"falling back to its explicitly verified legacy row {skill.SearchResultRow}.",
+                                + $"falling back to its explicitly verified legacy row "
+                                + $"{skill.SearchResultRow} (visible row {fallbackPickerRow}).",
                             LogEntryKind.Info);
                         var fallbackResult = await RunScreenActionAsync(
                                 connection,
@@ -951,7 +1056,17 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                                 "career_entry",
                                 IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
                                 logSink,
-                                cancellationToken)
+                                cancellationToken,
+                                new HachimiPipelineRunOptions
+                                {
+                                    RoiOverrides = new Dictionary<string, int[]>(
+                                        StringComparer.OrdinalIgnoreCase)
+                                    {
+                                        ["independent_skills_search_checkbox"] =
+                                            IndependentTrainingCatalog.GetSkillPickerCheckboxFallbackRoi(
+                                                fallbackPickerRow),
+                                    },
+                                })
                             .ConfigureAwait(false);
                         if (fallbackResult is not null)
                             return fallbackResult;
@@ -972,6 +1087,140 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
             state.IndependentSkillsConfigured = true;
             return null;
+        }
+
+        if (!state.IndependentLineupCollapseVerifiedThisRun)
+        {
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 6/7 (scroll): returning Lineup Details to the top after Skills.");
+            var lineupScrollTopResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.LineupScrollTopSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (lineupScrollTopResult is not null)
+                return lineupScrollTopResult;
+
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 6/7 (locate/click): checking the already-closed probe, locating the expanded arrow, and collapsing Lineup Details.");
+            var lineupCollapseResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.LineupCollapseSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (lineupCollapseResult is not null)
+                return lineupCollapseResult;
+
+            state.IndependentLineupCollapsed = true;
+            state.IndependentLineupCollapseVerifiedThisRun = true;
+            logSink?.Add(
+                "Career Training",
+                "Independent setup step 6/7 (verified): Lineup Details closed-right state was verified "
+                    + "after the already-closed or click/post-click path.");
+            return null;
+        }
+
+        if (!state.IndependentStrategyConfigured)
+        {
+            var lineupClosedGateResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (lineupClosedGateResult is not null)
+            {
+                logSink?.Add(
+                    "Career Training",
+                    "Independent Strategy gate failed; Strategy and Start are blocked.",
+                    LogEntryKind.Failure);
+                return lineupClosedGateResult;
+            }
+
+            logSink?.Add(
+                "Career Training",
+                "Independent Strategy gate (verified): current-run closed-right state confirmed; opening Change.");
+            logSink?.Add(
+                "Career Training",
+                "Independent setup strategy: open Change.");
+            var strategyChangeResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.StrategyChangeSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (strategyChangeResult is not null)
+                return strategyChangeResult;
+
+            logSink?.Add(
+                "Career Training",
+                $"Independent setup step 7/7: selecting Strategy '{strategyTargetText}' "
+                    + $"from IndependentLineupStrategy='{settings.IndependentLineupStrategy}'.");
+            var strategyOptionResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    strategyOptionAction,
+                    logSink,
+                    cancellationToken,
+                    new HachimiPipelineRunOptions
+                    {
+                        TargetTextOverrides = new Dictionary<string, string>(
+                            StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["independent_strategy_option"] = strategyTargetText,
+                        },
+                    })
+                .ConfigureAwait(false);
+            if (strategyOptionResult is not null)
+                return strategyOptionResult;
+
+            logSink?.Add(
+                "Career Training",
+                "Independent setup strategy: save and return.");
+            var strategySaveResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.StrategySaveSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (strategySaveResult is not null)
+                return strategySaveResult;
+
+            var strategyReturnResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    "career_entry",
+                    IndependentTrainingCatalog.StrategyReturnSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (strategyReturnResult is not null)
+                return strategyReturnResult;
+
+            state.IndependentStrategyConfigured = true;
+            return null;
+        }
+
+        if (!state.IndependentLineupCollapseVerifiedThisRun)
+        {
+            return Failure(
+                "Independent Lineup Details has no current-run closed-right post verification; Strategy and Start are blocked.",
+                "career_entry");
         }
 
         if (!state.IndependentSetupCompleted)
@@ -1895,7 +2144,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         return false;
     }
 
-    private static bool TryValidateIndependentTemplateAction(
+    internal static bool TryValidateIndependentTemplateAction(
         UraScenarioPack pack,
         string actionId,
         out string error)
@@ -1930,22 +2179,59 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return false;
             }
 
-            if (string.Equals(task.Algorithm, "MatchTemplate", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(task.Action, "Stop", StringComparison.OrdinalIgnoreCase))
+            {
+                // Stop is a real terminal failure in the JSON runner.  Guard
+                // graphs are allowed to contain it so an unverifiable UI
+                // state can be rejected at runtime without making the
+                // preflight validator reject the entire graph.  It must stay
+                // terminal because the runner does not follow transitions
+                // after Stop.
+                if (task.Next.Count > 0 || task.OnErrorNext.Count > 0)
+                {
+                    error = $"task '{taskName}' uses Stop but has transitions";
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (IsTemplateAlgorithm(task.Algorithm)
                 && string.Equals(task.Action, "ClickSelf", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(task.Template)
                 && task.SpecificRect is not { Length: > 0 })
             {
                 error = string.Empty;
                 return true;
             }
 
-            if (string.Equals(task.Algorithm, "MatchTemplate", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(task.Action, "JustReturn", StringComparison.OrdinalIgnoreCase))
+            var isPureJustReturn =
+                string.Equals(task.Algorithm, "JustReturn", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(task.Action, "JustReturn", StringComparison.OrdinalIgnoreCase);
+            var isTemplateProbe =
+                IsTemplateAlgorithm(task.Algorithm)
+                && string.Equals(task.Action, "JustReturn", StringComparison.OrdinalIgnoreCase);
+            if (isPureJustReturn || isTemplateProbe)
             {
-                foreach (var next in task.Next.Concat(task.OnErrorNext))
+                var transitions = task.Next
+                    .Concat(task.OnErrorNext)
+                    .Where(next => !string.IsNullOrWhiteSpace(next))
+                    .ToArray();
+                if (transitions.Length == 0)
                 {
-                    if (!string.IsNullOrWhiteSpace(next))
-                        pending.Enqueue(next);
+                    if ((isPureJustReturn || isTemplateProbe) && task.Success)
+                    {
+                        error = string.Empty;
+                        return true;
+                    }
+
+                    error =
+                        $"task '{taskName}' is a non-success terminal JustReturn task";
+                    return false;
+                }
+
+                foreach (var next in transitions)
+                {
+                    pending.Enqueue(next);
                 }
                 continue;
             }
@@ -1957,6 +2243,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         error = $"task graph for '{actionId}' has no template ClickSelf action";
         return false;
     }
+
+    private static bool IsTemplateAlgorithm(string? algorithm) =>
+        string.Equals(algorithm, "MatchTemplate", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(algorithm, "MatchTemplateScaled", StringComparison.OrdinalIgnoreCase);
 
     private static string SemanticYearSlug(string year) =>
         year.Trim().ToLowerInvariant() switch

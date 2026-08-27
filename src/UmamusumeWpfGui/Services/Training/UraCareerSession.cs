@@ -68,6 +68,10 @@ public sealed class UraCareerSessionState
     public bool IndependentTrainingFocusConfigured { get; set; }
     public bool IndependentAgendaConfigured { get; set; }
     public bool IndependentSkillsConfigured { get; set; }
+    public bool IndependentLineupCollapsed { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IndependentLineupCollapseVerifiedThisRun { get; set; }
+    public bool IndependentStrategyConfigured { get; set; }
     public bool IndependentSetupCompleted { get; set; }
     public UraPlannedAction LastAction { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]

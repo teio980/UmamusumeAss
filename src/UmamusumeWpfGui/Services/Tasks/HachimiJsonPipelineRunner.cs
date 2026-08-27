@@ -430,49 +430,20 @@ public sealed class HachimiJsonPipelineRunner
                 scaleCandidates = [0.80d, 0.85d, 0.90d, 0.95d, 1.00d, 1.05d, 1.10d];
             }
 
-            match = useScaledTemplate
-                ? await _visualRuntime.WaitForMatchScaledAsync(
-                        connection,
-                        templatePath,
-                        roi,
-                        task.TemplateThreshold,
-                        definition.ReferenceWidth,
-                        definition.ReferenceHeight,
-                        task.TimeoutMilliseconds,
-                        pollInterval,
-                        taskName,
-                        definition.BaseDirectory,
-                        scaleCandidates,
-                        cancellationToken)
-                    .ConfigureAwait(false)
-                : ResolveSearchRois(taskName, task, runOptions) is { Count: > 0 } searchRois
-                ? await _visualRuntime.WaitForMatchInRoisAsync(
-                        connection,
-                        templatePath,
-                        task.TemplateThreshold,
-                        definition.ReferenceWidth,
-                        definition.ReferenceHeight,
-                        task.TimeoutMilliseconds,
-                        pollInterval,
-                        taskName,
-                        definition.BaseDirectory,
-                        searchRois,
-                        task.MinimumScoreGap,
-                        cancellationToken)
-                    .ConfigureAwait(false)
-                : await _visualRuntime.WaitForMatchAsync(
-                        connection,
-                        templatePath,
-                        roi,
-                        task.TemplateThreshold,
-                        definition.ReferenceWidth,
-                        definition.ReferenceHeight,
-                        task.TimeoutMilliseconds,
-                        pollInterval,
-                        taskName,
-                        definition.BaseDirectory,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+            match = await WaitForTemplateWithScrollAsync(
+                    connection,
+                    definition,
+                    taskName,
+                    task,
+                    templatePath,
+                    roi,
+                    useScaledTemplate,
+                    scaleCandidates,
+                    pollInterval,
+                    runOptions,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             if (match is null || !match.Found)
             {
@@ -1471,6 +1442,162 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         return null;
+    }
+
+    private async Task<TemplateMatchResult?> WaitForTemplateWithScrollAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        string templatePath,
+        int[]? roi,
+        bool useScaledTemplate,
+        IReadOnlyList<double> scaleCandidates,
+        int pollInterval,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
+            task.TimeoutMilliseconds,
+            0,
+            10 * 60 * 1000));
+        var started = Stopwatch.GetTimestamp();
+        var scrolls = 0;
+        var maxScrolls = Math.Clamp(task.MaxScrolls, 0, 100);
+        var canScroll = task.Swipe is { Length: >= 5 } && maxScrolls > 0;
+        var searchRois = ResolveSearchRois(taskName, task, runOptions);
+        TemplateMatchResult? latest = null;
+
+        while (true)
+        {
+            var elapsed = Stopwatch.GetElapsedTime(started);
+            var remainingMilliseconds = (int)Math.Clamp(
+                (timeout - elapsed).TotalMilliseconds,
+                0,
+                10 * 60 * 1000);
+            if (remainingMilliseconds <= 0)
+                return latest;
+
+            // A scrolling template search needs short attempts so it can
+            // advance to the next page before the overall task timeout ends.
+            // Once all allowed pages have been visited, let the runtime use
+            // the remaining timeout on the current page.
+            var attemptTimeout = canScroll && scrolls < maxScrolls
+                ? Math.Min(
+                    remainingMilliseconds,
+                    Math.Clamp(pollInterval * 2, 250, 2_000))
+                : remainingMilliseconds;
+            latest = await WaitForTemplateAttemptAsync(
+                    connection,
+                    definition,
+                    taskName,
+                    task,
+                    templatePath,
+                    roi,
+                    useScaledTemplate,
+                    scaleCandidates,
+                    searchRois,
+                    attemptTimeout,
+                    pollInterval,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (latest?.Found == true)
+                return latest;
+
+            if (Stopwatch.GetElapsedTime(started) >= timeout)
+                return latest;
+
+            if (canScroll && scrolls < maxScrolls)
+            {
+                await _visualRuntime.SwipeAsync(
+                        connection,
+                        task.Swipe!,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                scrolls++;
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Template not visible; scrolled page {scrolls}/{maxScrolls}.",
+                    LogEntryKind.Info);
+                await _visualRuntime.DelayAsync(
+                        Math.Clamp(pollInterval, 50, 10_000),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
+
+            return latest;
+        }
+    }
+
+    private async Task<TemplateMatchResult?> WaitForTemplateAttemptAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        string templatePath,
+        int[]? roi,
+        bool useScaledTemplate,
+        IReadOnlyList<double> scaleCandidates,
+        IReadOnlyList<int[]> searchRois,
+        int timeoutMilliseconds,
+        int pollInterval,
+        CancellationToken cancellationToken)
+    {
+        if (useScaledTemplate)
+        {
+            return await _visualRuntime.WaitForMatchScaledAsync(
+                    connection,
+                    templatePath,
+                    roi,
+                    task.TemplateThreshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    timeoutMilliseconds,
+                    pollInterval,
+                    taskName,
+                    definition.BaseDirectory,
+                    scaleCandidates,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (searchRois.Count > 0)
+        {
+            return await _visualRuntime.WaitForMatchInRoisAsync(
+                    connection,
+                    templatePath,
+                    task.TemplateThreshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    timeoutMilliseconds,
+                    pollInterval,
+                    taskName,
+                    definition.BaseDirectory,
+                    searchRois,
+                    task.MinimumScoreGap,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await _visualRuntime.WaitForMatchAsync(
+                connection,
+                templatePath,
+                roi,
+                task.TemplateThreshold,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
+                timeoutMilliseconds,
+                pollInterval,
+                taskName,
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static string Normalize(string? value) =>

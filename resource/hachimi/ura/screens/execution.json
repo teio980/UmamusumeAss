@@ -2957,7 +2957,18 @@
                     "roi": [450,240,430,75],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
-                    "postDelay": 500
+                    "postDelay": 500,
+                    "next": ["independent_mode_select_confirm"]
+                  },
+                  "independent_mode_select_confirm": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/mode_independent_selected.png",
+                    "templThreshold": 0.82,
+                    "roi": [450,240,430,75],
+                    "timeoutMs": 10000,
+                    "pollIntervalMs": 250,
+                    "success": true
                   },
                   "independent_lineup_prepare": {
                     "algorithm": "MatchTemplate",
@@ -2976,8 +2987,12 @@
                     "swipe": [840,500,840,1200,600],
                     "postDelay": 450,
                     "next": ["independent_lineup_prepare"],
-                    "maxTimes": 3,
-                    "exceededNext": ["independent_lineup_expand"]
+                    "maxTimes": 8,
+                    "exceededNext": ["independent_lineup_scroll_to_top_failed"]
+                  },
+                  "independent_lineup_scroll_to_top_failed": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
                   },
                   "independent_lineup_expanded_probe": {
                     "algorithm": "MatchTemplate",
@@ -2998,6 +3013,128 @@
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 450
+                  },
+                  "independent_lineup_collapse_prepare": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_details_header.png",
+                    "templThreshold": 0.78,
+                    "roi": [20,300,840,600],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapsed_probe"]
+                  },
+                  "independent_lineup_collapsed_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapse_expanded_guard"],
+                    "onErrorNext": ["independent_lineup_collapse_expanded_probe"]
+                  },
+                  "independent_lineup_collapse_expanded_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapse"],
+                    "onErrorNext": ["independent_lineup_collapse_invalid_state"]
+                  },
+                  "independent_lineup_collapse_expanded_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapse"],
+                    "onErrorNext": ["independent_lineup_collapse_already_closed_verified"]
+                  },
+                  "independent_lineup_collapse_already_closed_verified": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_lineup_collapse": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 500,
+                    "next": ["independent_lineup_collapse_post_probe"],
+                    "onErrorNext": ["independent_lineup_collapse_invalid_state"]
+                  },
+                  "independent_lineup_collapse_post_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["independent_lineup_collapse_invalid_state"],
+                    "next": ["independent_lineup_collapse_post_expanded_guard"]
+                  },
+                  "independent_lineup_collapse_post_expanded_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapse_invalid_state"],
+                    "onErrorNext": ["independent_lineup_collapse_post_verified"]
+                  },
+                  "independent_lineup_collapse_post_verified": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_lineup_collapse_invalid_state": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
+                  },
+                  "independent_lineup_strategy_precondition": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_strategy_expanded_guard"],
+                    "onErrorNext": ["independent_lineup_strategy_precondition_failed"]
+                  },
+                  "independent_lineup_strategy_expanded_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_strategy_precondition_failed"],
+                    "onErrorNext": ["independent_lineup_strategy_precondition_verified"]
+                  },
+                  "independent_lineup_strategy_precondition_verified": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_lineup_strategy_precondition_failed": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
                   },
                   "independent_focus_visible_probe": {
                     "algorithm": "MatchTemplate",
@@ -3037,6 +3174,49 @@
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 300
+                  },
+                  "independent_strategy_change": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_change.png",
+                    "templThreshold": 0.82,
+                    "roi": [620,600,250,180],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 600
+                  },
+                  "independent_strategy_option": {
+                    "algorithm": "OcrText",
+                    "action": "ClickText",
+                    "roi": [20,250,860,1050],
+                    "ocrLanguage": "en-US",
+                    "fuzzyThreshold": 0.82,
+                    "unique": true,
+                    "ocrMatchMode": "line",
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 300,
+                    "postDelay": 350
+                  },
+                  "independent_strategy_save": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_confirm.png",
+                    "templThreshold": 0.82,
+                    "roi": [430,1070,440,220],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 700
+                  },
+                  "independent_strategy_return_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.82,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 250,
+                    "success": true
                   },
                   "independent_agenda_prepare": {
                     "algorithm": "MatchTemplate",
@@ -3878,35 +4058,27 @@
                     "pollIntervalMs": 250,
                     "postDelay": 450
                   },
-                  "independent_agenda_scroll": {
-                    "algorithm": "JustReturn",
-                    "action": "Swipe",
-                    "swipe": [840,1200,840,500,600],
-                    "postDelay": 450
-                  },
-                  "independent_agenda_race_find": {
-                    "algorithm": "OcrText",
-                    "action": "ClickText",
-                    "roi": [20,260,860,950],
-                    "ocrLanguage": "en-US",
-                    "fuzzyThreshold": 0.78,
-                    "unique": true,
-                    "rowExpansion": [40,35,40,65],
+                  "independent_agenda_race_card_find": {
+                    "algorithm": "MatchTemplateScaled",
+                    "action": "ClickSelf",
+                    "roi": [20,260,300,950],
+                    "scaleCandidates": [0.32,0.36,0.40,0.44,0.48,0.52,0.56],
+                    "templThreshold": 0.62,
                     "swipe": [840,1200,840,500,600],
                     "maxScrolls": 5,
                     "timeoutMs": 15000,
                     "pollIntervalMs": 500,
                     "postDelay": 350
                   },
-                  "independent_agenda_race_verify": {
-                    "algorithm": "OcrText",
-                    "action": "FindText",
-                    "roi": [20,260,860,950],
-                    "ocrLanguage": "en-US",
-                    "fuzzyThreshold": 0.78,
-                    "unique": true,
+                  "independent_agenda_race_card_verify": {
+                    "algorithm": "MatchTemplateScaled",
+                    "action": "JustReturn",
+                    "roi": [20,260,300,950],
+                    "scaleCandidates": [0.32,0.36,0.40,0.44,0.48,0.52,0.56],
+                    "templThreshold": 0.62,
                     "timeoutMs": 5000,
-                    "pollIntervalMs": 500
+                    "pollIntervalMs": 500,
+                    "success": true
                   },
                   "independent_agenda_save": {
                     "algorithm": "MatchTemplate",

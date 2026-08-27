@@ -1021,12 +1021,21 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 race.Year,
                 race.Turn,
                 race.RaceName);
+            var hasPickerEntry = _independentTrainingCatalog.TryGetAgendaPickerEntry(
+                raceSelection,
+                out _);
+            var raceCardImagePath = hasPickerEntry
+                ? IndependentTrainingCatalog.TryResolveRaceCardImagePath(
+                    race,
+                    baseDirectory)
+                : null;
+            var isExecutable = hasPickerEntry && raceCardImagePath is not null;
             var option = new IndependentRaceOption(
                 race,
-                _independentTrainingCatalog.TryGetAgendaPickerEntry(raceSelection, out _))
+                isExecutable,
+                raceCardImagePath)
             {
-                IsSelected = selectedAgenda.Contains(race.Key)
-                    && _independentTrainingCatalog.TryGetAgendaPickerEntry(raceSelection, out _),
+                IsSelected = selectedAgenda.Contains(race.Key) && isExecutable,
             };
             option.PropertyChanged += OnIndependentRaceOptionChanged;
             _allIndependentRaceOptions.Add(option);
@@ -1415,10 +1424,14 @@ public sealed class IndependentRaceOption : INotifyPropertyChanged
 {
     private bool _isSelected;
 
-    public IndependentRaceOption(IndependentTrainingRace race, bool isExecutable)
+    public IndependentRaceOption(
+        IndependentTrainingRace race,
+        bool isExecutable,
+        string? raceCardImagePath = null)
     {
         Race = race;
         IsExecutable = isExecutable;
+        RaceCardImagePath = raceCardImagePath;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -1427,9 +1440,17 @@ public sealed class IndependentRaceOption : INotifyPropertyChanged
 
     public bool IsExecutable { get; }
 
+    public string? RaceCardImagePath { get; }
+
+    public bool HasRaceCardImage => !string.IsNullOrWhiteSpace(RaceCardImagePath);
+
+    public string CardMatchHint => HasRaceCardImage
+        ? $"Card match · Race ID {Race.RaceId}"
+        : $"Card unavailable · Race ID {Race.RaceId}";
+
     public string Label => IsExecutable
         ? Race.DisplayLabel
-        : $"{Race.DisplayLabel} · no stable Global picker mapping";
+        : $"{Race.DisplayLabel} · no Race ID card asset";
 
     public bool IsSelected
     {

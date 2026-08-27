@@ -34,6 +34,15 @@ SKILL_CATEGORY_NAMES = {
     101: "special",
 }
 
+DEFAULT_VERIFIED_MAPPINGS_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "resource"
+    / "hachimi"
+    / "ura"
+    / "independent_training"
+    / "skills.global.verified.json"
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -46,6 +55,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--client-version", default="")
     parser.add_argument("--device", default="")
     parser.add_argument("--retrieved-at-utc", default="")
+    parser.add_argument(
+        "--preserve-mappings-from",
+        type=Path,
+        default=None,
+        help=(
+            "JSON catalog containing independently verified searchText and "
+            "result-row mappings; defaults to the checked-in verified "
+            "mapping source"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -91,6 +110,73 @@ def aliases_for(name: str, query: str) -> list[str]:
     if compact and compact.lower() != query.replace(" ", "").lower():
         values.append(compact)
     return list(dict.fromkeys(item for item in values if item))
+
+
+def read_verified_mappings(path: Path) -> dict[int, dict[str, Any]]:
+    """Load only explicit, positive mappings from a stable verified catalog.
+
+    The master database remains authoritative for which skills are exported.
+    Search text and result rows are interaction metadata and may only be
+    carried forward when the mapping source explicitly marked them verified.
+    """
+
+    if not path.is_file():
+        raise SystemExit(
+            f"Verified mapping source does not exist: {path}. "
+            "Pass --preserve-mappings-from with the reviewed catalog."
+        )
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exception:
+        raise SystemExit(
+            f"Could not read verified mapping source '{path}': {exception}"
+        ) from exception
+
+    values = payload.get("skills", []) if isinstance(payload, dict) else []
+    if not isinstance(values, list):
+        raise SystemExit(
+            f"Verified mapping source '{path}' has no skills array."
+        )
+
+    mappings: dict[int, dict[str, Any]] = {}
+    for item in values:
+        if not isinstance(item, dict):
+            raise SystemExit(
+                f"Verified mapping source '{path}' contains a non-object entry."
+            )
+        if item.get("gameSearchMapped") is not True:
+            raise SystemExit(
+                f"Verified mapping source '{path}' contains an unverified entry."
+            )
+
+        skill_id = item.get("skillId")
+        search_text = item.get("searchText")
+        result_row = item.get("searchResultRow")
+        if (
+            isinstance(skill_id, int)
+            and skill_id > 0
+            and isinstance(search_text, str)
+            and clean_text(search_text)
+            and isinstance(result_row, int)
+            and result_row > 0
+        ):
+            if skill_id in mappings:
+                raise SystemExit(
+                    f"Verified mapping source '{path}' duplicates skill {skill_id}."
+                )
+            mappings[skill_id] = {
+                "searchText": clean_text(search_text),
+                "searchResultRow": result_row,
+            }
+            continue
+
+        raise SystemExit(
+            f"Verified mapping source '{path}' has an invalid mapping entry "
+            f"for skill {skill_id!r}."
+        )
+
+    return mappings
 
 
 def combine_conditions(row: sqlite3.Row) -> str:
@@ -163,12 +249,36 @@ def main() -> None:
             "Global Add Skills selection rule changed: expected rarity=1 rows"
         )
 
+    mapping_path = args.preserve_mappings_from or DEFAULT_VERIFIED_MAPPINGS_PATH
+    verified_mappings = read_verified_mappings(mapping_path)
+
+    missing_mappings = sorted(
+        skill_id for skill_id in skill_ids if skill_id not in verified_mappings
+    )
+    if missing_mappings:
+        preview = ", ".join(str(skill_id) for skill_id in missing_mappings[:12])
+        suffix = "..." if len(missing_mappings) > 12 else ""
+        raise SystemExit(
+            f"Verified mapping source '{mapping_path}' is missing "
+            f"{len(missing_mappings)} current Global skill mapping(s): {preview}{suffix}"
+        )
+
+    preserved_count = sum(
+        int(row["id"]) in verified_mappings
+        for row in rows
+    )
+
     skills: list[dict[str, Any]] = []
     for row in rows:
         name = clean_text(row["skill_name"])
         if not name:
             raise SystemExit(f"skill {row['id']} has no Global client name")
-        query = ascii_query(name) or name
+        mapping = verified_mappings.get(int(row["id"]))
+        query = (
+            mapping["searchText"]
+            if mapping is not None
+            else ascii_query(name) or name
+        )
         skills.append(
             {
                 "skillId": int(row["id"]),
@@ -187,10 +297,10 @@ def main() -> None:
                 "activationCondition": combine_conditions(row),
                 "iconId": int(row["icon_id"] or 0),
                 "searchText": query,
-                # Static result rows are intentionally not guessed.  The JSON
-                # pipeline uses OCR to locate the actual row after filtering.
-                "gameSearchMapped": False,
-                "searchResultRow": 0,
+                # Preserve only rows explicitly verified by a prior catalog;
+                # never infer a static click location from master ordering.
+                "gameSearchMapped": mapping is not None,
+                "searchResultRow": mapping["searchResultRow"] if mapping else 0,
                 "availableInGlobal": True,
                 "availabilitySource": "global-client-master",
                 "singleModeEnabled": True,
@@ -233,11 +343,13 @@ def main() -> None:
             },
         },
         "skills": skills,
+        "verifiedMappingSource": str(mapping_path),
+        "verifiedMappingCount": preserved_count,
         "searchRule": (
-            "searchText is an ASCII-normalized query retaining client-name "
-            "punctuation; "
-            "the actual result row is located and clicked by OCR at runtime. "
-            "gameSearchMapped remains false until a static row is independently verified."
+            "searchText and searchResultRow are preserved by skillId from "
+            "the explicit verified mapping source; OCR locates the actual "
+            "row first and verified static row metadata is used only as a "
+            "safe fallback."
         ),
         "searchSourceUrl": "",
         "searchSourceArray": 0,
@@ -249,7 +361,9 @@ def main() -> None:
     )
     print(
         f"Saved {len(skills)} Global client skills "
-        f"({total_rows} master rows, {total_rows - len(skills)} excluded) to {args.out}"
+        f"({total_rows} master rows, {total_rows - len(skills)} excluded; "
+        f"preserved {preserved_count}/{len(skills)} verified mappings "
+        f"from {mapping_path}) to {args.out}"
     )
 
 

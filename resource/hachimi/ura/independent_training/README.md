@@ -26,6 +26,10 @@ actions; C# passes only the semantic race selection.
   master skill rows. Unique/evolution/character-only rows are not exposed as
   Global Add Skills options.
 - Snapshot: `skills.global.json`, retrieved 2026-08-24 UTC.
+- Verified interaction source: `skills.global.verified.json`, carrying the
+  reviewed `searchText` and `searchResultRow` values from `5e44800^` by
+  `skillId`. The exporter defaults to this stable source and fails closed if a
+  current master skill has no verified mapping.
 
 Each skill has an ASCII-normalized offline search query plus aliases. ASCII
 punctuation from the client name is retained because the game's filter treats

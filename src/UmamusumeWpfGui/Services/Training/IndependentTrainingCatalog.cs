@@ -12,13 +12,20 @@ namespace UmamusumeWpfGui.Services.Training;
 /// </summary>
 public sealed class IndependentTrainingCatalog
 {
-    public const int AgendaPickerVisibleRows = 6;
     public const int SkillPickerVisibleRows = 8;
+    public const int SkillPickerFirstRowTop = 120;
+    public const int SkillPickerRowHeight = 140;
+    public const int SkillPickerCheckboxRoiLeft = 20;
+    public const int SkillPickerCheckboxRoiWidth = 150;
+    public const int SkillPickerCheckboxRoiHeight = 220;
 
     public const string DefaultRacePath =
         "resource/hachimi/ura/independent_training/races.global.json";
     public const string DefaultSkillPath =
         "resource/hachimi/ura/independent_training/skills.global.json";
+
+    public const string RaceCardTemplateDirectory =
+        "templates/independent/race_cards";
 
     private IndependentTrainingCatalog(
         IReadOnlyList<IndependentTrainingRace> races,
@@ -47,10 +54,9 @@ public sealed class IndependentTrainingCatalog
     public bool IsAvailable => Races.Count > 0 && Skills.Count > 0;
 
     /// <summary>
-    /// Resolves a catalog race to the stable row order observed in the
-    /// Global Independent picker. This intentionally does not consult the
-    /// reviewed screenshot registry: row/page navigation is generic JSON
-    /// behavior and covers every mapped catalog entry.
+    /// Resolves the configured year/turn/race name to the catalog row whose
+    /// Race ID supplies the visual card identity.  No row number or page
+    /// position is part of this lookup.
     /// </summary>
     public bool TryGetAgendaPickerEntry(
         IndependentTrainingAgendaSelection selection,
@@ -64,17 +70,105 @@ public sealed class IndependentTrainingCatalog
         return race is not null;
     }
 
-    /// <summary>
-    /// Every agenda race uses the same OCR task.  The caller supplies the
-    /// catalog-derived visible picker header as a runtime target override;
-    /// no race name or screenshot/template identity is encoded in the
-    /// semantic action.
-    /// </summary>
-    public static string AgendaSemanticAction(IndependentTrainingAgendaSelection selection) =>
-        "independent.agenda.race";
+    public static string GetRaceCardTemplatePath(int raceId) =>
+        Path.Combine(
+            RaceCardTemplateDirectory,
+            raceId.ToString(CultureInfo.InvariantCulture) + ".png");
 
-    public static string AgendaRaceVerifySemanticAction() =>
-        "independent.agenda.race.verify";
+    public static string? TryResolveRaceCardImagePath(
+        IndependentTrainingRace race,
+        string? baseDirectory = null)
+    {
+        if (race.RaceId <= 0)
+            return null;
+
+        var relativePath = GetRaceCardTemplatePath(race.RaceId);
+        var packagedRelativePath = Path.Combine(
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            relativePath);
+        var candidates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            candidates.Add(Path.Combine(baseDirectory, relativePath));
+            candidates.Add(Path.Combine(baseDirectory, packagedRelativePath));
+        }
+
+        candidates.Add(Path.Combine(AppContext.BaseDirectory, packagedRelativePath));
+        candidates.Add(Path.GetFullPath(packagedRelativePath));
+
+        var directory = new DirectoryInfo(Environment.CurrentDirectory);
+        while (directory is not null)
+        {
+            candidates.Add(Path.Combine(directory.FullName, packagedRelativePath));
+            directory = directory.Parent;
+        }
+
+        return candidates
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(File.Exists);
+    }
+
+    public static string AgendaRaceCardSemanticAction() =>
+        "independent.agenda.race.card";
+
+    public static string AgendaRaceCardVerifySemanticAction() =>
+        "independent.agenda.race.card.verify";
+
+    public static string LineupScrollTopSemanticAction() =>
+        "independent.lineup.scroll.top";
+
+    public static string LineupCollapseSemanticAction() =>
+        "independent.lineup.collapse";
+
+    public static string LineupClosedVerifySemanticAction() =>
+        "independent.lineup.closed.verify";
+
+    public static string StrategyChangeSemanticAction() =>
+        "independent.strategy.change";
+
+    public static string StrategySaveSemanticAction() =>
+        "independent.strategy.save";
+
+    public static string StrategyOptionSemanticAction() =>
+        "independent.strategy.option";
+
+    public static string StrategyReturnSemanticAction() =>
+        "independent.strategy.return";
+
+    /// <summary>
+    /// Maps the existing IndependentLineupStrategy setting to the text shown
+    /// in the game's Strategy dialog.  This is deliberately separate from
+    /// StrategyId, which selects the offline URA turn strategy and must never
+    /// drive this dialog.
+    /// </summary>
+    public static bool TryGetLineupStrategyUiMapping(
+        string? strategy,
+        out string targetText)
+    {
+        return TryGetLineupStrategyUiMapping(strategy, out _, out targetText);
+    }
+
+    public static bool TryGetLineupStrategyUiMapping(
+        string? strategy,
+        out string semanticAction,
+        out string targetText)
+    {
+        (semanticAction, targetText) = strategy?.Trim().ToLowerInvariant() switch
+        {
+            // The setting labels are the full strategy names, but the live
+            // Strategy dialog renders its four selectable buttons as the
+            // short labels End, Late, Pace and Front.
+            "front" => ("independent.strategy.option.front", "Front"),
+            "pace" => ("independent.strategy.option.pace", "Pace"),
+            "late" => ("independent.strategy.option.late", "Late"),
+            "end" => ("independent.strategy.option.end", "End"),
+            _ => (string.Empty, string.Empty),
+        };
+        return semanticAction.Length > 0 && targetText.Length > 0;
+    }
 
     // Every agenda cell has its own JSON task/ROI.  The task still uses the
     // real plus template and ClickSelf; this semantic id only selects the
@@ -84,15 +178,6 @@ public sealed class IndependentTrainingCatalog
 
     public static string AgendaYearSemanticAction() =>
         "independent.agenda.year";
-
-    public static string AgendaRaceSemanticAction() =>
-        "independent.agenda.race";
-
-    public static string AgendaScrollSemanticAction() =>
-        "independent.agenda.scroll";
-
-    public static string AgendaRowSemanticAction(int rowIndex) =>
-        $"independent.agenda.row.{Math.Clamp(rowIndex, 0, AgendaPickerVisibleRows - 1) + 1}";
 
     public static string SkillSearchResetSemanticAction() =>
         "independent.skills.search.reset";
@@ -111,6 +196,47 @@ public sealed class IndependentTrainingCatalog
 
     public static string SkillSearchCheckboxFallbackSemanticAction() =>
         "independent.skills.search.checkbox.fallback";
+
+    /// <summary>
+    /// Returns the verified page/visible-row position that may be used only
+    /// after the OCR checkbox lookup has failed. The caller must still run
+    /// the OCR action first; this helper only exposes explicit catalog data.
+    /// </summary>
+    public static bool TryGetVerifiedSkillFallback(
+        IndependentTrainingSkill skill,
+        out int page,
+        out int pickerRow)
+    {
+        page = 0;
+        pickerRow = 0;
+        if (!skill.IsGameSearchMapped
+            || skill.SearchResultRow <= 0
+            || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+        {
+            return false;
+        }
+
+        page = skill.SearchResultPage;
+        pickerRow = skill.SearchResultPickerRow;
+        return true;
+    }
+
+    /// <summary>
+    /// Builds the checkbox search ROI for one verified visible picker row.
+    /// The base task remains JSON-owned; this is only a row-specific ROI
+    /// override for the verified OCR fallback path.
+    /// </summary>
+    public static int[] GetSkillPickerCheckboxFallbackRoi(int pickerRow)
+    {
+        var row = Math.Clamp(pickerRow, 0, SkillPickerVisibleRows - 1);
+        return
+        [
+            SkillPickerCheckboxRoiLeft,
+            SkillPickerFirstRowTop + row * SkillPickerRowHeight,
+            SkillPickerCheckboxRoiWidth,
+            SkillPickerCheckboxRoiHeight,
+        ];
+    }
 
     public static string SkillSearchScrollSemanticAction() =>
         "independent.skills.search.scroll";
@@ -203,7 +329,6 @@ public sealed class IndependentTrainingCatalog
                     ReadString(item, "lengthM"),
                     ReadInt(item, "raceId"),
                     ReadInt(item, "sourceOrder"),
-                    ReadInt(item, "gameOrder"),
                     ReadString(item, "gameTrack"),
                     ReadInt(item, "gameDistance"),
                     ReadString(item, "gameGround"),
@@ -351,7 +476,6 @@ public sealed record IndependentTrainingRace(
     string LengthM,
     int RaceId = 0,
     int SourceOrder = -1,
-    int GameOrder = -1,
     string GameTrack = "",
     int GameDistance = 0,
     string GameGround = "",
@@ -359,52 +483,14 @@ public sealed record IndependentTrainingRace(
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
 
-    /// <summary>
-    /// Text rendered in the picker header for this catalog row.  The race
-    /// name is normally rendered inside a decorative image, which is not a
-    /// reliable OCR source; the adjacent course header is ordinary text and
-    /// carries the same race identity through track, surface, distance,
-    /// length and direction.
-    /// </summary>
-    public string PickerHeaderTarget
-    {
-        get
-        {
-            var track = GameTrack.Trim();
-            var ground = string.IsNullOrWhiteSpace(GameGround)
-                ? Type.Trim()
-                : GameGround.Trim();
-            var direction = Location.Contains('⇒')
-                ? "Right"
-                : Location.Contains('⇐')
-                    ? "Left"
-                    : string.Empty;
-            if (track.Length == 0
-                || ground.Length == 0
-                || GameDistance <= 0
-                || direction.Length == 0)
-            {
-                return string.Empty;
-            }
-
-            var distance = GameDistance.ToString(CultureInfo.InvariantCulture) + "m";
-            var length = string.IsNullOrWhiteSpace(Length)
-                ? string.Empty
-                : $" ({Length.Trim()})";
-            return $"{track} {ground} {distance}{length} {direction}";
-        }
-    }
-
     public string DisplayLabel =>
         $"{Year} · {Turn} · {RaceName} ({Grade}, {Type} {LengthM})";
 
-    public int PickerPage => GameOrder < 0
-        ? -1
-        : GameOrder / IndependentTrainingCatalog.AgendaPickerVisibleRows;
+    public string RaceCardTemplatePath =>
+        RaceId > 0
+            ? IndependentTrainingCatalog.GetRaceCardTemplatePath(RaceId)
+            : string.Empty;
 
-    public int PickerRow => GameOrder < 0
-        ? -1
-        : GameOrder % IndependentTrainingCatalog.AgendaPickerVisibleRows;
 }
 
 public sealed record IndependentTrainingSkill(

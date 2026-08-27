@@ -4,11 +4,14 @@
              xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <StackPanel>
-      <TextBlock Text="Career Training Settings" FontWeight="Medium" />
-      <TextBlock Margin="0,12,0,0" Text="Scenario manifest" />
-      <ui:TextBox Margin="0,6,0,0"
-                  Text="{Binding ManifestPath, UpdateSourceTrigger=PropertyChanged}" />
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <DataTemplate x:Key="ComboOptionTemplate">
+      <TextBlock Text="{Binding Label}"
+                 TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel TextElement.FontSize="12">
       <TextBlock Margin="0,12,0,0" Text="Trainee" />
       <taskviews:TraineePickerView Margin="0,6,0,0" />
 
@@ -17,15 +20,11 @@
         <TextBlock Text="Continue existing Career when available (Resume); otherwise delete Career data and start fresh"
                    TextWrapping="Wrap" />
       </CheckBox>
-      <TextBlock Margin="0,4,0,0"
-                 Text="When disabled, the Delete Data confirmation is handled through the visual template flow before a new Career starts."
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
-
       <TextBlock Margin="0,14,0,0" Text="Career mode" />
       <ComboBox Margin="0,6,0,0"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding CareerModes}"
-                DisplayMemberPath="Label"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value"
                 SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
       <Expander Margin="0,10,0,0"
@@ -34,14 +33,16 @@
         <StackPanel Margin="6,8,0,0">
           <TextBlock Text="Line Up Detail · strategy" />
           <ComboBox Margin="0,6,0,0"
+                    HorizontalContentAlignment="Stretch"
                     ItemsSource="{Binding IndependentLineupStrategyOptions}"
-                    DisplayMemberPath="Label"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
                     SelectedValuePath="Value"
                     SelectedValue="{Binding IndependentLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
           <TextBlock Margin="0,10,0,0" Text="Training Focus" />
           <ComboBox Margin="0,6,0,0"
+                    HorizontalContentAlignment="Stretch"
                     ItemsSource="{Binding IndependentTrainingFocusOptions}"
-                    DisplayMemberPath="Label"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
                     SelectedValuePath="Value"
                     SelectedValue="{Binding IndependentTrainingFocus, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -52,22 +53,50 @@
           <TextBlock Margin="0,4,0,0"
                      Text="{Binding SelectedIndependentAgendaCountText}"
                      Foreground="{DynamicResource TextSecondaryBrush}" />
-          <TextBlock Margin="0,4,0,0"
-                     Text="Unavailable rows are shown but disabled until a reviewed JSON/template asset is added."
-                     TextWrapping="Wrap"
-                     Foreground="{DynamicResource TextSecondaryBrush}" />
           <ListBox Height="190"
                    Margin="0,6,0,0"
                    BorderThickness="1"
-                   ScrollViewer.CanContentScroll="False"
+                   HorizontalContentAlignment="Stretch"
+                   ScrollViewer.CanContentScroll="True"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling"
                    ItemsSource="{Binding FilteredIndependentRaceOptions}">
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+              </Style>
+            </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
                 <CheckBox Margin="4,3"
-                          Content="{Binding Label}"
+                          HorizontalContentAlignment="Stretch"
                           IsEnabled="{Binding IsExecutable}"
-                          IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                          IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                  <Grid HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="74" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.Column="0"
+                           Width="68"
+                           Height="34"
+                           Margin="0,0,8,0"
+                           HorizontalAlignment="Left"
+                           Source="{Binding RaceCardImagePath}"
+                           Stretch="UniformToFill"
+                           Visibility="{Binding HasRaceCardImage, Converter={StaticResource BoolToVisibility}}" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+                      <TextBlock Margin="0,2,0,0"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 Text="{Binding CardMatchHint}"
+                                 TextWrapping="Wrap"
+                                 Visibility="{Binding HasRaceCardImage, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                  </Grid>
+                </CheckBox>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
@@ -82,29 +111,39 @@
           <ListBox Height="190"
                    Margin="0,6,0,0"
                    BorderThickness="1"
-                   ScrollViewer.CanContentScroll="False"
+                   HorizontalContentAlignment="Stretch"
+                   ScrollViewer.CanContentScroll="True"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling"
                    ItemsSource="{Binding FilteredIndependentSkillOptions}">
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+              </Style>
+            </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
                 <CheckBox Margin="4,3"
-                          Content="{Binding Label}"
+                          HorizontalContentAlignment="Stretch"
                           IsEnabled="{Binding IsExecutable}"
-                          IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                          IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                  <TextBlock HorizontalAlignment="Stretch"
+                             Text="{Binding Label}"
+                             TextWrapping="Wrap" />
+                </CheckBox>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <TextBlock Margin="0,6,0,0"
-                     Text="Agenda and skills are stored in the task profile and applied through the JSON semantic pipeline."
-                     TextWrapping="Wrap"
-                     Foreground="{DynamicResource TextSecondaryBrush}" />
         </StackPanel>
       </Expander>
 
       <TextBlock Margin="0,12,0,0" Text="Legacy selection" />
       <ComboBox Margin="0,6,0,0"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding LegacySelectionModes}"
-                DisplayMemberPath="Label"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value"
                 SelectedValue="{Binding LegacySelectionMode, UpdateSourceTrigger=PropertyChanged}" />
       <CheckBox Margin="0,8,0,0"
@@ -112,10 +151,6 @@
         <TextBlock Text="Use cached Legacy 1 and Legacy 2 records when available"
                    TextWrapping="Wrap" />
       </CheckBox>
-      <TextBlock Margin="0,4,0,0"
-                 Text="Clear this option to reselect both legacies, even when cached records are detected."
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
       <CheckBox Margin="0,8,0,0"
                 IsChecked="{Binding UseLegacyGuest}">
         <TextBlock Text="Use a guest legacy for Legacy 1"
@@ -157,34 +192,25 @@
 
       <TextBlock Margin="0,12,0,0" Text="Support deck mode" />
       <ComboBox Margin="0,6,0,0"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding SupportDeckModes}"
-                DisplayMemberPath="Label"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value"
                 SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
-      <TextBlock Margin="0,6,0,0"
-                  Text="Auto-Fill uses the game button; Highest-star preset filters by card type and chooses the highest Level; Selected cards lets you choose exact cards."
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
       <StackPanel Margin="0,8,0,0"
                   IsEnabled="{Binding IsSupportPresetMode}">
         <TextBlock Text="Support deck preset" />
         <ComboBox Margin="0,6,0,0"
+                  HorizontalContentAlignment="Stretch"
                   ItemsSource="{Binding SupportDeckPresets}"
-                  DisplayMemberPath="Label"
+                  ItemTemplate="{StaticResource ComboOptionTemplate}"
                   SelectedValuePath="Value"
                   SelectedValue="{Binding SupportDeckPreset, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Margin="0,6,0,0"
-                   Text="Preset checks the selected card types; Custom leaves the composition free."
-                   TextWrapping="Wrap"
-                   Foreground="{DynamicResource TextSecondaryBrush}" />
         <Expander Margin="0,10,0,0"
                   Header="{Binding FriendSupportCardDrawerHeader}"
                   IsExpanded="False"
                   IsEnabled="{Binding IsFriendSupportCardSettingEnabled}">
           <StackPanel Margin="6,6,0,0">
-            <TextBlock Text="Leave it unselected to let the preset choose the friend card. If selected, the game list is filtered and sorted by Level, then the highest-level copy of this card is chosen."
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
             <TextBlock Margin="0,6,0,0"
                        Text="{Binding SelectedFriendSupportCardCountText}"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -192,18 +218,20 @@
               <ui:TextBox Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
                           PlaceholderText="Search name or ID" />
               <ComboBox Margin="0,6,0,0"
+                        HorizontalContentAlignment="Stretch"
                         ItemsSource="{Binding SupportCardTypeOptions}"
-                        DisplayMemberPath="Label"
+                        ItemTemplate="{StaticResource ComboOptionTemplate}"
                         SelectedValuePath="Value"
                         SelectedValue="{Binding FriendSupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
             </StackPanel>
             <ListBox Height="150"
                      Margin="0,6,0,0"
                      BorderThickness="1"
-                     ScrollViewer.CanContentScroll="False"
+                     ScrollViewer.CanContentScroll="True"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     VirtualizingPanel.IsVirtualizing="False"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
                      HorizontalContentAlignment="Stretch"
                      ItemsSource="{Binding FilteredFriendSupportCardOptions}">
               <ListBox.ItemContainerStyle>
@@ -241,15 +269,13 @@
                                Margin="8,4,4,0"
                                VerticalAlignment="Center"
                                Text="{Binding Label}"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <TextBlock Grid.Row="1"
                                Grid.Column="2"
                                Margin="8,0,4,4"
                                VerticalAlignment="Center"
                                Text="{Binding Type}"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Grid>
                 </DataTemplate>
@@ -269,18 +295,20 @@
               <ui:TextBox Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
                           PlaceholderText="Search name or ID" />
               <ComboBox Margin="0,6,0,0"
+                        HorizontalContentAlignment="Stretch"
                         ItemsSource="{Binding SupportCardTypeOptions}"
-                        DisplayMemberPath="Label"
+                        ItemTemplate="{StaticResource ComboOptionTemplate}"
                         SelectedValuePath="Value"
                         SelectedValue="{Binding SupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
             </StackPanel>
             <ListBox Height="150"
                      Margin="0,6,0,0"
                      BorderThickness="1"
-                     ScrollViewer.CanContentScroll="False"
+                     ScrollViewer.CanContentScroll="True"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     VirtualizingPanel.IsVirtualizing="False"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
                      HorizontalContentAlignment="Stretch"
                      ItemsSource="{Binding FilteredSupportCardOptions}">
               <ListBox.ItemContainerStyle>
@@ -318,15 +346,13 @@
                                Margin="8,4,4,0"
                                VerticalAlignment="Center"
                                Text="{Binding Label}"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <TextBlock Grid.Row="1"
                                Grid.Column="2"
                                Margin="8,0,4,4"
                                VerticalAlignment="Center"
                                Text="{Binding Type}"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                   </Grid>
                 </DataTemplate>
