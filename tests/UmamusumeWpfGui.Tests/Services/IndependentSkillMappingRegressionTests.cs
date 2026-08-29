@@ -59,7 +59,7 @@ public sealed class IndependentSkillMappingRegressionTests
     public void Numeric_skill_retains_the_short_verified_query_and_ocr_name()
     {
         var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        var skill = Assert.Single(catalog.Skills.Where(item => item.SkillId == 201412));
+        var skill = Assert.Single(catalog.Skills, item => item.SkillId == 201412);
 
         Assert.Equal("1,500,000 CC", skill.SkillName);
         Assert.Equal("500", skill.EffectiveSearchText);
@@ -74,7 +74,7 @@ public sealed class IndependentSkillMappingRegressionTests
     public void Ocr_failure_can_resolve_the_verified_checkbox_fallback_row()
     {
         var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        var skill = Assert.Single(catalog.Skills.Where(item => item.SkillId == 201412));
+        var skill = Assert.Single(catalog.Skills, item => item.SkillId == 201412);
 
         Assert.True(
             IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
@@ -87,7 +87,7 @@ public sealed class IndependentSkillMappingRegressionTests
             [20, 120, 150, 220],
             IndependentTrainingCatalog.GetSkillPickerCheckboxFallbackRoi(pickerRow));
 
-        var laterRow = Assert.Single(catalog.Skills.Where(item => item.SearchResultRow == 5));
+        var laterRow = Assert.Single(catalog.Skills, item => item.SearchResultRow == 5);
         Assert.True(
             IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
                 laterRow,

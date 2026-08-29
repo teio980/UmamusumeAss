@@ -292,6 +292,7 @@ public sealed class IndependentSkillPickerRecoveryTests
                 "independent_skills_open" => !_pickerOpen && _addVisible,
                 "independent_skills_post_confirm" => !_pickerOpen && _addVisible,
                 "independent_skills_reset_probe" => _residualSkills > 0,
+                "independent_skills_main_reset" => _residualSkills > 0,
                 "independent_skills_search_checkbox" => _pickerOpen,
                 "independent_skills_save" => _pickerOpen && _skillSelected,
                 _ => false,

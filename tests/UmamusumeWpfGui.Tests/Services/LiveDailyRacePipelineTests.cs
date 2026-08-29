@@ -27,7 +27,10 @@ public sealed class LiveDailyRacePipelineTests
             ?? "127.0.0.1:16384";
         var delay = new AsyncDelay();
         var adbRuntime = new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(30)), delay);
-        var visualRuntime = new AdbVisualPipelineRuntime(adbRuntime, delay);
+        var visualRuntime = new AdbVisualPipelineRuntime(
+            adbRuntime,
+            delay,
+            new WindowsOcrTextRecognizer());
         var database = new UmaDatabaseService();
         await database.LoadAsync(Path.Combine(root, "resource"));
         var selector = new DailyRaceRunnerSelector(visualRuntime, database);
@@ -78,7 +81,10 @@ public sealed class LiveDailyRacePipelineTests
             ?? "127.0.0.1:16384";
         var delay = new AsyncDelay();
         var adbRuntime = new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(30)), delay);
-        var visualRuntime = new AdbVisualPipelineRuntime(adbRuntime, delay);
+        var visualRuntime = new AdbVisualPipelineRuntime(
+            adbRuntime,
+            delay,
+            new WindowsOcrTextRecognizer());
         var database = new UmaDatabaseService();
         await database.LoadAsync(Path.Combine(root, "resource"));
         var selector = new DailyRaceRunnerSelector(visualRuntime, database);
@@ -134,7 +140,10 @@ public sealed class LiveDailyRacePipelineTests
             ?? "127.0.0.1:16384";
         var delay = new AsyncDelay();
         var adbRuntime = new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(30)), delay);
-        var visualRuntime = new AdbVisualPipelineRuntime(adbRuntime, delay);
+        var visualRuntime = new AdbVisualPipelineRuntime(
+            adbRuntime,
+            delay,
+            new WindowsOcrTextRecognizer());
         var settingsPath = Path.Combine(
             Path.GetTempPath(),
             $"umamusume-live-resume-settings-{Guid.NewGuid():N}.json");
