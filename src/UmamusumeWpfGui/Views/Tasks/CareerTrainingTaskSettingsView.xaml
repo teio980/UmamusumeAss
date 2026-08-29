@@ -11,26 +11,48 @@
                  TextWrapping="Wrap" />
     </DataTemplate>
   </UserControl.Resources>
-  <StackPanel TextElement.FontSize="12">
-      <TextBlock Margin="0,12,0,0" Text="Trainee" />
-      <taskviews:TraineePickerView Margin="0,6,0,0" />
+  <TabControl TextElement.FontSize="12">
+    <TabItem Header="Basic">
+      <StackPanel Margin="8,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="108" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Text="Trainee" />
+          <taskviews:TraineePickerView Grid.Column="1" Margin="10,0,0,0" />
+        </Grid>
 
-      <CheckBox Margin="0,10,0,0"
-                IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-        <TextBlock Text="Continue existing Career when available (Resume); otherwise delete Career data and start fresh"
-                   TextWrapping="Wrap" />
-      </CheckBox>
-      <TextBlock Margin="0,14,0,0" Text="Career mode" />
-      <ComboBox Margin="0,6,0,0"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding CareerModes}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-      <Expander Margin="0,10,0,0"
-                Header="Independent Training setup"
-                IsEnabled="{Binding IsIndependentCareer}">
-        <StackPanel Margin="6,8,0,0">
+        <CheckBox Margin="0,12,0,0"
+                  IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+          <StackPanel>
+            <TextBlock Text="Continue existing Career" TextWrapping="Wrap" />
+            <TextBlock Margin="0,2,0,0"
+                       Text="If unavailable, delete Career data and start fresh."
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+        </CheckBox>
+
+        <Grid Margin="0,14,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="108" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Text="Career mode" />
+          <ComboBox Grid.Column="1"
+                    Margin="10,0,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding CareerModes}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+      </StackPanel>
+    </TabItem>
+
+    <TabItem Header="Train">
+      <StackPanel Margin="8,10" IsEnabled="{Binding IsIndependentCareer}">
           <TextBlock Text="Line Up Detail · strategy" />
           <ComboBox Margin="0,6,0,0"
                     HorizontalContentAlignment="Stretch"
@@ -160,16 +182,25 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-        </StackPanel>
-      </Expander>
+      </StackPanel>
+    </TabItem>
 
-      <TextBlock Margin="0,12,0,0" Text="Legacy selection" />
-      <ComboBox Margin="0,6,0,0"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding LegacySelectionModes}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding LegacySelectionMode, UpdateSourceTrigger=PropertyChanged}" />
+    <TabItem Header="Legacy">
+      <StackPanel Margin="8,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="108" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Text="Legacy selection" />
+          <ComboBox Grid.Column="1"
+                    Margin="10,0,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding LegacySelectionModes}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding LegacySelectionMode, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
       <CheckBox Margin="0,8,0,0"
                 IsChecked="{Binding UseCachedLegacy}">
         <TextBlock Text="Use cached Legacy 1 and Legacy 2 records when available"
@@ -213,14 +244,25 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </StackPanel>
+      </StackPanel>
+    </TabItem>
 
-      <TextBlock Margin="0,12,0,0" Text="Support deck mode" />
-      <ComboBox Margin="0,6,0,0"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding SupportDeckModes}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
+    <TabItem Header="Cards">
+      <StackPanel Margin="8,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="108" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Text="Support deck mode" />
+          <ComboBox Grid.Column="1"
+                    Margin="10,0,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding SupportDeckModes}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
       <StackPanel Margin="0,8,0,0"
                   IsEnabled="{Binding IsSupportPresetMode}">
         <TextBlock Text="Support deck preset" />
@@ -388,10 +430,21 @@
           </StackPanel>
         </Expander>
       </StackPanel>
+      </StackPanel>
+    </TabItem>
 
-      <TextBlock Margin="0,12,0,0" Text="Strategy ID" />
-      <ui:TextBox Margin="0,6,0,0"
-                  Text="{Binding StrategyId, UpdateSourceTrigger=PropertyChanged}" />
+    <TabItem Header="More">
+      <StackPanel Margin="8,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="108" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Text="Strategy ID" />
+          <ui:TextBox Grid.Column="1"
+                      Margin="10,0,0,0"
+                      Text="{Binding StrategyId, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
 
       <CheckBox Margin="0,12,0,0"
                 IsChecked="{Binding PauseOnUnknownOutcome}">
@@ -407,5 +460,7 @@
                  Text="{Binding Status}"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource TextSecondaryBrush}" />
-  </StackPanel>
+      </StackPanel>
+    </TabItem>
+  </TabControl>
 </UserControl>
