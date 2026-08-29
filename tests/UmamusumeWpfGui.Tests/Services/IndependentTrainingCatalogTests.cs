@@ -50,10 +50,10 @@ public sealed class IndependentTrainingCatalogTests
     }
 
     [Theory]
-    [InlineData("front", "Front Runner")]
-    [InlineData("pace", "Pace Chaser")]
-    [InlineData("late", "Late Surger")]
-    [InlineData("end", "End Closer")]
+    [InlineData("front", "Front")]
+    [InlineData("pace", "Pace")]
+    [InlineData("late", "Late")]
+    [InlineData("end", "End")]
     public void Existing_lineup_strategy_setting_maps_to_the_strategy_dialog(
         string settingValue,
         string expectedTargetText)

@@ -72,7 +72,9 @@ public sealed class IndependentTrainingCatalog
 
     public static string GetRaceCardTemplatePath(int raceId) =>
         Path.Combine(
-            RaceCardTemplateDirectory,
+            "templates",
+            "independent",
+            "race_cards",
             raceId.ToString(CultureInfo.InvariantCulture) + ".png");
 
     public static string? TryResolveRaceCardImagePath(
