@@ -128,11 +128,17 @@ public sealed class IndependentTrainingCatalogTests
                 StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(
+            "independent_lineup_expand_prepare",
+            actions[IndependentTrainingCatalog.LineupExpandSemanticAction()]);
+        Assert.Equal(
             "independent_lineup_scroll_to_top",
             actions[IndependentTrainingCatalog.LineupScrollTopSemanticAction()]);
         Assert.Equal(
             "independent_lineup_collapse_prepare",
             actions[IndependentTrainingCatalog.LineupCollapseSemanticAction()]);
+        Assert.Equal(
+            "independent_lineup_strategy_precondition",
+            actions[IndependentTrainingCatalog.LineupClosedVerifySemanticAction()]);
         Assert.Equal(
             "independent_strategy_change",
             actions[IndependentTrainingCatalog.StrategyChangeSemanticAction()]);

@@ -64,6 +64,7 @@ public sealed class IndependentStrategyFlowContractTests
         var collapseScroll = definition!.GetTask("independent_lineup_scroll_to_top");
         Assert.Equal("Swipe", collapseScroll.Action, ignoreCase: true);
         Assert.Equal([840, 500, 840, 1200, 600], collapseScroll.Swipe!);
+        Assert.Contains("independent_lineup_scroll_header_probe", collapseScroll.Next);
 
         var collapsePrepare = definition.GetTask("independent_lineup_collapse_prepare");
         Assert.Equal("lineup_details_header.png", Path.GetFileName(collapsePrepare.Template));
@@ -75,13 +76,14 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.Contains("independent_lineup_collapse_expanded_probe", collapsedProbe.OnErrorNext);
 
         var expandedGuard = definition.GetTask("independent_lineup_collapse_expanded_guard");
-        Assert.Contains("independent_lineup_collapse", expandedGuard.Next);
-        Assert.Contains("independent_lineup_collapse_already_closed_verified", expandedGuard.OnErrorNext);
+        Assert.Equal("lineup_open_down.png", Path.GetFileName(expandedGuard.Template));
+        Assert.Contains("independent_lineup_collapse_invalid_state", expandedGuard.Next);
+        Assert.Contains("independent_lineup_collapse_already_collapsed_verified", expandedGuard.OnErrorNext);
 
-        var alreadyClosedVerified = definition.GetTask("independent_lineup_collapse_already_closed_verified");
-        Assert.Equal("JustReturn", alreadyClosedVerified.Action, ignoreCase: true);
-        Assert.True(alreadyClosedVerified.Success);
-        Assert.Empty(alreadyClosedVerified.Next);
+        var alreadyCollapsedVerified = definition.GetTask("independent_lineup_collapse_already_collapsed_verified");
+        Assert.Equal("JustReturn", alreadyCollapsedVerified.Action, ignoreCase: true);
+        Assert.True(alreadyCollapsedVerified.Success);
+        Assert.Empty(alreadyCollapsedVerified.Next);
 
         Assert.Contains(
             "independent_lineup_collapse_invalid_state",
@@ -102,11 +104,26 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.Contains("independent_lineup_collapse_post_verified", postExpandedGuard.OnErrorNext);
         Assert.True(definition.GetTask("independent_lineup_collapse_post_verified").Success);
 
+        var expandPrepare = definition.GetTask("independent_lineup_expand_prepare");
+        Assert.Contains("independent_lineup_expanded_probe", expandPrepare.Next);
+        var expandProbe = definition.GetTask("independent_lineup_expanded_probe");
+        Assert.Equal("lineup_open_down.png", Path.GetFileName(expandProbe.Template));
+        Assert.Contains("independent_lineup_expand_collapsed_guard", expandProbe.Next);
+        Assert.Contains("independent_lineup_expand_collapsed_probe", expandProbe.OnErrorNext);
+        var expandClick = definition.GetTask("independent_lineup_expand");
+        Assert.Equal("ClickSelf", expandClick.Action, ignoreCase: true);
+        Assert.Equal("lineup_closed_right.png", Path.GetFileName(expandClick.Template));
+        var expandPostProbe = definition.GetTask("independent_lineup_expand_post_probe");
+        Assert.Equal("lineup_open_down.png", Path.GetFileName(expandPostProbe.Template));
+        Assert.Contains("independent_lineup_expand_post_collapsed_guard", expandPostProbe.Next);
+        Assert.True(definition.GetTask("independent_lineup_expand_post_verified").Success);
+
         var strategyGate = definition.GetTask("independent_lineup_strategy_precondition");
         Assert.Equal("MatchTemplate", strategyGate.Algorithm, ignoreCase: true);
         Assert.Equal("JustReturn", strategyGate.Action, ignoreCase: true);
         Assert.Equal("lineup_closed_right.png", Path.GetFileName(strategyGate.Template));
         Assert.Equal([760, 390, 130, 150], strategyGate.Roi!);
+        Assert.Equal(0.90, strategyGate.TemplateThreshold);
         Assert.Contains("independent_lineup_strategy_precondition_failed", strategyGate.OnErrorNext);
         Assert.Contains("independent_lineup_strategy_precondition_verified", definition.GetTask("independent_lineup_strategy_expanded_guard").OnErrorNext);
 
@@ -187,6 +204,9 @@ public sealed class IndependentStrategyFlowContractTests
                 StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(
+            "independent_lineup_expand_prepare",
+            actions["independent.lineup.expand"]);
+        Assert.Equal(
             "independent_lineup_scroll_to_top",
             actions["independent.lineup.scroll.top"]);
         Assert.Equal(
@@ -217,11 +237,11 @@ public sealed class IndependentStrategyFlowContractTests
         var orderMarkers = new[]
         {
             "state.IndependentSkillsConfigured = true;",
-            "Independent setup step 6/7 (scroll): returning Lineup Details to the top after Skills.",
-            "Independent setup step 6/7 (locate/click): checking the already-closed probe, locating the expanded arrow, and collapsing Lineup Details.",
+            "Independent setup step 6/7 (scroll): returning Lineup Details to the top after its settings.",
+            "Independent setup step 6/7 (close): closing the open-down Lineup Details section.",
             "state.IndependentLineupCollapseVerifiedThisRun = true;",
-            "Independent setup step 6/7 (verified): Lineup Details closed-right state was verified",
-            "Independent Strategy gate (verified): current-run closed-right state confirmed; opening Change.",
+            "Independent setup step 6/7 (verified): Lineup Details closed-right state confirmed.",
+            "Independent Strategy gate (verified): closed-right state confirmed; opening Change.",
             "Independent setup strategy: open Change.",
             "Independent setup step 7/7: selecting Strategy",
             "Independent setup strategy: save and return.",
@@ -247,7 +267,7 @@ public sealed class IndependentStrategyFlowContractTests
             modeGuardPosition,
             StringComparison.Ordinal);
         var lineupCallPosition = pipelineSource.IndexOf(
-            "\"independent.lineup.expand\"",
+            "IndependentTrainingCatalog.LineupExpandSemanticAction()",
             modeCallPosition,
             StringComparison.Ordinal);
         Assert.True(preflightPosition >= 0);
@@ -257,7 +277,83 @@ public sealed class IndependentStrategyFlowContractTests
     }
 
     [Fact]
-    public async Task Strategy_gate_validation_accepts_terminal_stop_and_runner_blocks_expanded_state()
+    public async Task Lineup_collapse_action_transitions_open_down_to_closed_right()
+    {
+        var root = FindSolutionRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(
+            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var connection = new LastVerifiedConnection(
+            "adb", "emulator-5554", "android", "test",
+            900, 1600, 900, 1600, DateTimeOffset.UtcNow);
+        var visual = new LineupStateVisualRuntime(isOpen: true);
+        var runner = new HachimiJsonPipelineRunner(
+            new UmamusumeWpfGui.Services.AdbRuntime(
+                new NoOpAdbRunner(),
+                new UmamusumeWpfGui.Helper.AsyncDelay()),
+            visual,
+            new UmamusumeWpfGui.Services.JsonSettingsService(
+                Path.Combine(Path.GetTempPath(), $"lineup-collapse-{Guid.NewGuid():N}.json")));
+
+        var result = await runner.RunAsync(
+            connection,
+            pack.ExecutionDefinition,
+            "independent_lineup_collapse_prepare");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.False(visual.IsOpen);
+        Assert.Equal(
+            [
+                "independent_lineup_collapse_prepare",
+                "independent_lineup_collapsed_probe",
+                "independent_lineup_collapse_expanded_probe",
+                "independent_lineup_collapse",
+                "independent_lineup_collapse_post_probe",
+                "independent_lineup_collapse_post_expanded_guard",
+            ],
+            visual.WaitedTaskNames);
+        Assert.Equal(["independent_lineup_collapse"], visual.TappedTaskNames);
+    }
+
+    [Fact]
+    public async Task Lineup_expand_action_transitions_closed_right_to_open_down()
+    {
+        var root = FindSolutionRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(
+            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var connection = new LastVerifiedConnection(
+            "adb", "emulator-5554", "android", "test",
+            900, 1600, 900, 1600, DateTimeOffset.UtcNow);
+        var visual = new LineupStateVisualRuntime(isOpen: false);
+        var runner = new HachimiJsonPipelineRunner(
+            new UmamusumeWpfGui.Services.AdbRuntime(
+                new NoOpAdbRunner(),
+                new UmamusumeWpfGui.Helper.AsyncDelay()),
+            visual,
+            new UmamusumeWpfGui.Services.JsonSettingsService(
+                Path.Combine(Path.GetTempPath(), $"lineup-expand-{Guid.NewGuid():N}.json")));
+
+        var result = await runner.RunAsync(
+            connection,
+            pack.ExecutionDefinition,
+            "independent_lineup_expand_prepare");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.True(visual.IsOpen);
+        Assert.Equal(
+            [
+                "independent_lineup_expand_prepare",
+                "independent_lineup_expanded_probe",
+                "independent_lineup_expand_collapsed_probe",
+                "independent_lineup_expand",
+                "independent_lineup_expand_post_probe",
+                "independent_lineup_expand_post_collapsed_guard",
+            ],
+            visual.WaitedTaskNames);
+        Assert.Equal(["independent_lineup_expand"], visual.TappedTaskNames);
+    }
+
+    [Fact]
+    public async Task Strategy_gate_validation_accepts_terminal_stop_and_runner_blocks_open_state()
     {
         var root = FindSolutionRoot();
         var pack = await UraScenarioPackLoader.LoadAsync(
@@ -265,6 +361,8 @@ public sealed class IndependentStrategyFlowContractTests
 
         var strategyPreflightActions = new[]
         {
+            IndependentTrainingCatalog.LineupExpandSemanticAction(),
+            IndependentTrainingCatalog.LineupCollapseSemanticAction(),
             IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
             IndependentTrainingCatalog.StrategyChangeSemanticAction(),
             IndependentTrainingCatalog.StrategySaveSemanticAction(),
@@ -350,7 +448,7 @@ public sealed class IndependentStrategyFlowContractTests
             900,
             1600,
             DateTimeOffset.UtcNow);
-        var visual = new StrategyGateVisualRuntime(expandedState: false);
+        var visual = new LineupStateVisualRuntime(isOpen: false);
         var runner = new HachimiJsonPipelineRunner(
             new UmamusumeWpfGui.Services.AdbRuntime(
                 new NoOpAdbRunner(),
@@ -380,7 +478,7 @@ public sealed class IndependentStrategyFlowContractTests
                 "following onErrorNext 'independent_lineup_strategy_precondition_verified'",
                 StringComparison.Ordinal));
 
-        visual.ExpandedState = true;
+        visual.IsOpen = true;
         visual.WaitedTaskNames.Clear();
         visual.TappedTaskNames.Clear();
         var blockedLog = new RecordingLogSink();
@@ -395,7 +493,6 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.Equal(
             [
                 "independent_lineup_strategy_precondition",
-                "independent_lineup_strategy_expanded_guard",
             ],
             visual.WaitedTaskNames);
         Assert.Empty(visual.TappedTaskNames);
@@ -420,11 +517,11 @@ public sealed class IndependentStrategyFlowContractTests
             string adbPath) => (string.Empty, string.Empty, 0, false, null);
     }
 
-    private sealed class StrategyGateVisualRuntime : IVisualPipelineRuntime
+    private sealed class LineupStateVisualRuntime : IVisualPipelineRuntime
     {
-        public StrategyGateVisualRuntime(bool expandedState) => ExpandedState = expandedState;
+        public LineupStateVisualRuntime(bool isOpen) => IsOpen = isOpen;
 
-        public bool ExpandedState { get; set; }
+        public bool IsOpen { get; set; }
 
         public List<string> WaitedTaskNames { get; } = [];
 
@@ -455,13 +552,26 @@ public sealed class IndependentStrategyFlowContractTests
             CancellationToken cancellationToken = default)
         {
             WaitedTaskNames.Add(taskName);
-            var found = taskName.Equals(
-                "independent_lineup_strategy_precondition",
-                StringComparison.OrdinalIgnoreCase)
-                || taskName.Equals(
-                    "independent_lineup_strategy_expanded_guard",
-                    StringComparison.OrdinalIgnoreCase)
-                    && ExpandedState;
+            var found = taskName.ToLowerInvariant() switch
+            {
+                "independent_lineup_collapse_prepare" => true,
+                "independent_lineup_expand_prepare" => true,
+                "independent_lineup_scroll_header_probe" => true,
+                "independent_lineup_collapsed_probe" => !IsOpen,
+                "independent_lineup_collapse_post_probe" => !IsOpen,
+                "independent_lineup_expand_collapsed_guard" => !IsOpen,
+                "independent_lineup_expand_collapsed_probe" => !IsOpen,
+                "independent_lineup_strategy_precondition" => !IsOpen,
+                "independent_lineup_collapse_expanded_guard" => IsOpen,
+                "independent_lineup_collapse_expanded_probe" => IsOpen,
+                "independent_lineup_collapse_post_expanded_guard" => IsOpen,
+                "independent_lineup_expanded_probe" => IsOpen,
+                "independent_lineup_expand_post_probe" => IsOpen,
+                "independent_lineup_strategy_expanded_guard" => IsOpen,
+                "independent_lineup_collapse" => IsOpen,
+                "independent_lineup_expand" => !IsOpen,
+                _ => false,
+            };
             return Task.FromResult<UmamusumeWpfGui.Models.TemplateMatchResult?>(
                 new(found, found ? 1d : 0d, 0, 0, 10, 10));
         }
@@ -580,6 +690,10 @@ public sealed class IndependentStrategyFlowContractTests
             CancellationToken cancellationToken = default)
         {
             TappedTaskNames.Add(taskName);
+            if (taskName.Equals("independent_lineup_collapse", StringComparison.OrdinalIgnoreCase))
+                IsOpen = false;
+            else if (taskName.Equals("independent_lineup_expand", StringComparison.OrdinalIgnoreCase))
+                IsOpen = true;
             return Task.CompletedTask;
         }
 

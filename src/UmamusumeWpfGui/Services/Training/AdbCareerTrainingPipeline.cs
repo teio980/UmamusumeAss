@@ -499,6 +499,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         foreach (var strategyAction in new[]
         {
+            IndependentTrainingCatalog.LineupCollapseSemanticAction(),
+            IndependentTrainingCatalog.LineupExpandSemanticAction(),
             IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
             IndependentTrainingCatalog.StrategyChangeSemanticAction(),
             IndependentTrainingCatalog.StrategySaveSemanticAction(),
@@ -642,12 +644,12 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 2/7: opening Lineup Details if it is collapsed.");
+                "Independent setup step 2/7: opening Lineup Details if it is closed.");
             var expandResult = await RunScreenActionAsync(
                     connection,
                     pack,
                     "career_entry",
-                    "independent.lineup.expand",
+                    IndependentTrainingCatalog.LineupExpandSemanticAction(),
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -655,6 +657,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return expandResult;
 
             state.IndependentLineupConfigured = true;
+            state.IndependentLineupCollapsed = false;
             return null;
         }
 
@@ -862,6 +865,28 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "Independent setup step 5/7: configuring prioritized race skills.");
             if (settings.IndependentSkillIds is { Count: > 0 })
             {
+                if (!TryValidateIndependentTemplateAction(
+                        pack,
+                        "independent.skills.reset",
+                        out var skillsResetMappingError))
+                {
+                    return Failure(
+                        "Independent skills reset is not executable: "
+                            + skillsResetMappingError,
+                        "career_entry");
+                }
+
+                if (!TryValidateIndependentTemplateAction(
+                        pack,
+                        "independent.skills.post.confirm",
+                        out var skillsPostConfirmMappingError))
+                {
+                    return Failure(
+                        "Independent skills post-confirm recovery is not executable: "
+                            + skillsPostConfirmMappingError,
+                        "career_entry");
+                }
+
                 var skillsScrollResult = await RunScreenActionAsync(
                         connection,
                         pack,
@@ -883,32 +908,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     .ConfigureAwait(false);
                 if (skillsResetResult is not null)
                     return skillsResetResult;
-
-                // The live Independent picker does not show a second modal
-                // for this control.  Confirm the reset by matching the
-                // post-reset Add Skills state; this is a read-only probe and
-                // never issues an extra tap.
-                var skillsResetConfirmedResult = await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "career_entry",
-                        "independent.skills.reset.confirmed",
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (skillsResetConfirmedResult is not null)
-                    return skillsResetConfirmedResult;
-
-                var skillsOpenResult = await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "career_entry",
-                        "independent.skills.open",
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (skillsOpenResult is not null)
-                    return skillsOpenResult;
 
                 foreach (var skillId in settings.IndependentSkillIds ?? [])
                 {
@@ -941,6 +940,21 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             + $"search='{skill.EffectiveSearchText}', OCR target='{skill.OcrTargetText}', "
                             + $"verified fallback row={skill.SearchResultRow} "
                             + $"(page={verifiedPage}, visibleRow={verifiedPickerRow}).");
+
+                    // The game only commits one checked skill per Add Skill
+                    // dialog. Reopen the picker for every configured skill so
+                    // each selection is immediately confirmed before the next
+                    // skill is searched.
+                    var skillsOpenResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "career_entry",
+                            "independent.skills.open",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (skillsOpenResult is not null)
+                        return skillsOpenResult;
 
                     var resetResult = await RunScreenActionAsync(
                             connection,
@@ -1071,18 +1085,38 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         if (fallbackResult is not null)
                             return fallbackResult;
                     }
-                }
 
-                var skillsSaveResult = await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "career_entry",
-                        "independent.skills.save",
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (skillsSaveResult is not null)
-                    return skillsSaveResult;
+                    var skillsSaveResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "career_entry",
+                            "independent.skills.save",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (skillsSaveResult is not null)
+                        return skillsSaveResult;
+
+                    // Confirm closes the picker and inserts the selected skill
+                    // into the main Skills section.  Adding that row changes
+                    // the scrollable content height, so the Add Skills button
+                    // can move below the old ROI (or below the viewport).
+                    // Re-probe the main-page Add Skills control after every
+                    // confirm; its JSON task scrolls downward only when the
+                    // button is not visible and fails if the main section
+                    // cannot be recovered.  This is the synchronization point
+                    // that makes the next loop iteration safe to open.
+                    var skillsPostConfirmResult = await RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "career_entry",
+                            "independent.skills.post.confirm",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (skillsPostConfirmResult is not null)
+                        return skillsPostConfirmResult;
+                }
             }
 
             state.IndependentSkillsConfigured = true;
@@ -1093,7 +1127,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         {
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 6/7 (scroll): returning Lineup Details to the top after Skills.");
+                "Independent setup step 6/7 (scroll): returning Lineup Details to the top after its settings.");
             var lineupScrollTopResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -1107,7 +1141,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 6/7 (locate/click): checking the already-closed probe, locating the expanded arrow, and collapsing Lineup Details.");
+                "Independent setup step 6/7 (close): closing the open-down Lineup Details section.");
             var lineupCollapseResult = await RunScreenActionAsync(
                     connection,
                     pack,
@@ -1123,8 +1157,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             state.IndependentLineupCollapseVerifiedThisRun = true;
             logSink?.Add(
                 "Career Training",
-                "Independent setup step 6/7 (verified): Lineup Details closed-right state was verified "
-                    + "after the already-closed or click/post-click path.");
+                "Independent setup step 6/7 (verified): Lineup Details closed-right state confirmed.");
             return null;
         }
 
@@ -1149,7 +1182,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
             logSink?.Add(
                 "Career Training",
-                "Independent Strategy gate (verified): current-run closed-right state confirmed; opening Change.");
+                "Independent Strategy gate (verified): closed-right state confirmed; opening Change.");
             logSink?.Add(
                 "Career Training",
                 "Independent setup strategy: open Change.");
@@ -2166,6 +2199,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         var pending = new Queue<string>([action.Task]);
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasSuccessfulTemplateProbe = false;
         while (pending.Count > 0)
         {
             var taskName = pending.Dequeue();
@@ -2187,7 +2221,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 // preflight validator reject the entire graph.  It must stay
                 // terminal because the runner does not follow transitions
                 // after Stop.
-                if (task.Next.Count > 0 || task.OnErrorNext.Count > 0)
+                if (task.Next.Count > 0
+                    || task.OnErrorNext.Count > 0
+                    || task.ExceededNext.Count > 0)
                 {
                     error = $"task '{taskName}' uses Stop but has transitions";
                     return false;
@@ -2204,6 +2240,36 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 return true;
             }
 
+            var isSwipe =
+                string.Equals(task.Algorithm, "JustReturn", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(task.Action, "Swipe", StringComparison.OrdinalIgnoreCase);
+            if (isSwipe)
+            {
+                if (task.Swipe is not { Length: >= 5 })
+                {
+                    error = $"task '{taskName}' uses Swipe but has no valid coordinates";
+                    return false;
+                }
+
+                var swipeTransitions = task.Next
+                    .Concat(task.OnErrorNext)
+                    .Concat(task.ExceededNext)
+                    .Where(next => !string.IsNullOrWhiteSpace(next))
+                    .ToArray();
+                if (swipeTransitions.Length == 0)
+                {
+                    error = $"task '{taskName}' is a terminal Swipe task";
+                    return false;
+                }
+
+                foreach (var next in swipeTransitions)
+                {
+                    pending.Enqueue(next);
+                }
+
+                continue;
+            }
+
             var isPureJustReturn =
                 string.Equals(task.Algorithm, "JustReturn", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(task.Action, "JustReturn", StringComparison.OrdinalIgnoreCase);
@@ -2214,6 +2280,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             {
                 var transitions = task.Next
                     .Concat(task.OnErrorNext)
+                    .Concat(task.ExceededNext)
                     .Where(next => !string.IsNullOrWhiteSpace(next))
                     .ToArray();
                 if (transitions.Length == 0)
@@ -2229,6 +2296,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     return false;
                 }
 
+                // A template probe can be the successful terminal outcome
+                // while still carrying an on-error recovery graph. Keep
+                // walking that graph so undefined or malformed recovery
+                // tasks are rejected, then accept the probe when every
+                // transition is valid. Pure JustReturn tasks intentionally
+                // do not get this shortcut: they have no UI state to verify.
+                if (isTemplateProbe && task.Success)
+                    hasSuccessfulTemplateProbe = true;
+
                 foreach (var next in transitions)
                 {
                     pending.Enqueue(next);
@@ -2238,6 +2314,12 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
             error = $"task '{taskName}' is not a template ClickSelf action";
             return false;
+        }
+
+        if (hasSuccessfulTemplateProbe)
+        {
+            error = string.Empty;
+            return true;
         }
 
         error = $"task graph for '{actionId}' has no template ClickSelf action";

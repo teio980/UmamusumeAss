@@ -45,7 +45,7 @@
                         "actions": [
                             {"semanticId":"career.start","task":"career_entry_career_start"},
                             {"semanticId":"independent.select_mode","task":"independent_mode_selected_probe"},
-                            {"semanticId":"independent.lineup.expand","task":"independent_lineup_prepare"},
+                            {"semanticId":"independent.lineup.expand","task":"independent_lineup_expand_prepare"},
                             {"semanticId":"independent.lineup.scroll.top","task":"independent_lineup_scroll_to_top"},
                             {"semanticId":"independent.lineup.collapse","task":"independent_lineup_collapse_prepare"},
                             {"semanticId":"independent.lineup.closed.verify","task":"independent_lineup_strategy_precondition"},
@@ -145,8 +145,8 @@
                             {"semanticId":"independent.agenda.close","task":"independent_agenda_close"},
                             {"semanticId":"independent.skills.scroll","task":"independent_skills_scroll"},
                             {"semanticId":"independent.skills.open","task":"independent_skills_open"},
+                            {"semanticId":"independent.skills.post.confirm","task":"independent_skills_post_confirm"},
                             {"semanticId":"independent.skills.reset","task":"independent_skills_reset_probe"},
-                            {"semanticId":"independent.skills.reset.confirmed","task":"independent_skills_reset_confirmed"},
                             {"semanticId":"independent.skills.search.reset","task":"independent_skills_search_reset"},
                             {"semanticId":"independent.skills.search.focus","task":"independent_skills_search_focus"},
                             {"semanticId":"independent.skills.search.input","task":"independent_skills_search_input"},

@@ -123,6 +123,9 @@ public sealed class IndependentTrainingCatalog
     public static string LineupCollapseSemanticAction() =>
         "independent.lineup.collapse";
 
+    public static string LineupExpandSemanticAction() =>
+        "independent.lineup.expand";
+
     public static string LineupClosedVerifySemanticAction() =>
         "independent.lineup.closed.verify";
 

@@ -2970,7 +2970,16 @@
                     "pollIntervalMs": 250,
                     "success": true
                   },
-                  "independent_lineup_prepare": {
+                  "independent_lineup_scroll_to_top": {
+                    "algorithm": "JustReturn",
+                    "action": "Swipe",
+                    "swipe": [840,500,840,1200,600],
+                    "postDelay": 450,
+                    "next": ["independent_lineup_scroll_header_probe"],
+                    "maxTimes": 8,
+                    "exceededNext": ["independent_lineup_scroll_to_top_failed"]
+                  },
+                  "independent_lineup_scroll_header_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_details_header.png",
@@ -2978,41 +2987,12 @@
                     "roi": [20,300,840,600],
                     "timeoutMs": 1200,
                     "pollIntervalMs": 150,
-                    "next": ["independent_lineup_expanded_probe"],
+                    "success": true,
                     "onErrorNext": ["independent_lineup_scroll_to_top"]
-                  },
-                  "independent_lineup_scroll_to_top": {
-                    "algorithm": "JustReturn",
-                    "action": "Swipe",
-                    "swipe": [840,500,840,1200,600],
-                    "postDelay": 450,
-                    "next": ["independent_lineup_prepare"],
-                    "maxTimes": 8,
-                    "exceededNext": ["independent_lineup_scroll_to_top_failed"]
                   },
                   "independent_lineup_scroll_to_top_failed": {
                     "algorithm": "JustReturn",
                     "action": "Stop"
-                  },
-                  "independent_lineup_expanded_probe": {
-                    "algorithm": "MatchTemplate",
-                    "action": "JustReturn",
-                    "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
-                    "roi": [760,390,130,150],
-                    "timeoutMs": 1400,
-                    "pollIntervalMs": 150,
-                    "onErrorNext": ["independent_lineup_expand"]
-                  },
-                  "independent_lineup_expand": {
-                    "algorithm": "MatchTemplate",
-                    "action": "ClickSelf",
-                    "template": "templates/independent/lineup_closed_right.png",
-                    "templThreshold": 0.82,
-                    "roi": [760,390,130,150],
-                    "timeoutMs": 12000,
-                    "pollIntervalMs": 250,
-                    "postDelay": 450
                   },
                   "independent_lineup_collapse_prepare": {
                     "algorithm": "MatchTemplate",
@@ -3022,42 +3002,43 @@
                     "roi": [20,300,840,600],
                     "timeoutMs": 1200,
                     "pollIntervalMs": 150,
-                    "next": ["independent_lineup_collapsed_probe"]
+                    "next": ["independent_lineup_collapsed_probe"],
+                    "onErrorNext": ["independent_lineup_collapse_invalid_state"]
                   },
                   "independent_lineup_collapsed_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_closed_right.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
                     "next": ["independent_lineup_collapse_expanded_guard"],
                     "onErrorNext": ["independent_lineup_collapse_expanded_probe"]
                   },
+                  "independent_lineup_collapse_expanded_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_collapse_invalid_state"],
+                    "onErrorNext": ["independent_lineup_collapse_already_collapsed_verified"]
+                  },
                   "independent_lineup_collapse_expanded_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
                     "next": ["independent_lineup_collapse"],
                     "onErrorNext": ["independent_lineup_collapse_invalid_state"]
                   },
-                  "independent_lineup_collapse_expanded_guard": {
-                    "algorithm": "MatchTemplate",
-                    "action": "JustReturn",
-                    "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
-                    "roi": [760,390,130,150],
-                    "timeoutMs": 1400,
-                    "pollIntervalMs": 150,
-                    "next": ["independent_lineup_collapse"],
-                    "onErrorNext": ["independent_lineup_collapse_already_closed_verified"]
-                  },
-                  "independent_lineup_collapse_already_closed_verified": {
+                  "independent_lineup_collapse_already_collapsed_verified": {
                     "algorithm": "JustReturn",
                     "action": "JustReturn",
                     "success": true
@@ -3066,7 +3047,7 @@
                     "algorithm": "MatchTemplate",
                     "action": "ClickSelf",
                     "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
@@ -3078,7 +3059,7 @@
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_closed_right.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
@@ -3089,7 +3070,7 @@
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
@@ -3105,11 +3086,103 @@
                     "algorithm": "JustReturn",
                     "action": "Stop"
                   },
+                  "independent_lineup_expand_prepare": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_details_header.png",
+                    "templThreshold": 0.78,
+                    "roi": [20,300,840,600],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expanded_probe"],
+                    "onErrorNext": ["independent_lineup_expand_invalid_state"]
+                  },
+                  "independent_lineup_expanded_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expand_collapsed_guard"],
+                    "onErrorNext": ["independent_lineup_expand_collapsed_probe"]
+                  },
+                  "independent_lineup_expand_collapsed_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expand_invalid_state"],
+                    "onErrorNext": ["independent_lineup_expand_already_expanded_verified"]
+                  },
+                  "independent_lineup_expand_collapsed_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expand"],
+                    "onErrorNext": ["independent_lineup_expand_invalid_state"]
+                  },
+                  "independent_lineup_expand_already_expanded_verified": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_lineup_expand": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 500,
+                    "next": ["independent_lineup_expand_post_probe"],
+                    "onErrorNext": ["independent_lineup_expand_invalid_state"]
+                  },
+                  "independent_lineup_expand_post_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_open_down.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expand_post_collapsed_guard"],
+                    "onErrorNext": ["independent_lineup_expand_invalid_state"]
+                  },
+                  "independent_lineup_expand_post_collapsed_guard": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/lineup_closed_right.png",
+                    "templThreshold": 0.90,
+                    "roi": [760,390,130,150],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "next": ["independent_lineup_expand_invalid_state"],
+                    "onErrorNext": ["independent_lineup_expand_post_verified"]
+                  },
+                  "independent_lineup_expand_post_verified": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_lineup_expand_invalid_state": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
+                  },
                   "independent_lineup_strategy_precondition": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_closed_right.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
@@ -3120,7 +3193,7 @@
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_open_down.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
@@ -3211,7 +3284,7 @@
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/lineup_closed_right.png",
-                    "templThreshold": 0.82,
+                    "templThreshold": 0.90,
                     "roi": [760,390,130,150],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
@@ -4111,45 +4184,82 @@
                     "action": "ClickSelf",
                     "template": "templates/independent/skills_add.png",
                     "templThreshold": 0.80,
-                    "roi": [20,760,860,330],
-                    "timeoutMs": 12000,
+                    "roi": [20,300,860,1250],
+                    "timeoutMs": 1800,
                     "pollIntervalMs": 250,
+                    "onErrorNext": ["independent_skills_open_scroll"],
                     "postDelay": 600
+                  },
+                  "independent_skills_open_scroll": {
+                    "algorithm": "JustReturn",
+                    "action": "Swipe",
+                    "swipe": [450,1100,450,800,300],
+                    "maxTimes": 1,
+                    "next": ["independent_skills_open"],
+                    "exceededNext": ["independent_skills_open_scroll_failed"],
+                    "postDelay": 350
+                  },
+                  "independent_skills_open_scroll_failed": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
+                  },
+                  "independent_skills_post_confirm": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/skills_add.png",
+                    "templThreshold": 0.80,
+                    "roi": [20,300,860,1250],
+                    "timeoutMs": 1800,
+                    "pollIntervalMs": 250,
+                    "onErrorNext": ["independent_skills_post_confirm_scroll"],
+                    "postDelay": 350,
+                    "success": true
+                  },
+                  "independent_skills_post_confirm_scroll": {
+                    "algorithm": "JustReturn",
+                    "action": "Swipe",
+                    "swipe": [450,1100,450,800,300],
+                    "maxTimes": 1,
+                    "next": ["independent_skills_post_confirm"],
+                    "exceededNext": ["independent_skills_post_confirm_scroll_failed"],
+                    "postDelay": 350
+                  },
+                  "independent_skills_post_confirm_scroll_failed": {
+                    "algorithm": "JustReturn",
+                    "action": "Stop"
                   },
                    "independent_skills_reset_probe": {
                      "algorithm": "MatchTemplate",
                      "action": "JustReturn",
                      "template": "templates/independent/skills_main_reset.png",
                      "templThreshold": 0.80,
-                     "roi": [350,680,350,250],
+                     "roi": [300,300,600,700],
                      "timeoutMs": 1400,
                      "pollIntervalMs": 150,
                      "next": ["independent_skills_main_reset"],
-                     "onErrorNext": ["independent_skills_reset_skipped"]
-                   },
-                   "independent_skills_reset_skipped": {
-                     "algorithm": "JustReturn",
-                     "action": "JustReturn"
+                     "onErrorNext": ["independent_skills_reset_done"]
                    },
                    "independent_skills_main_reset": {
                      "algorithm": "MatchTemplate",
                      "action": "ClickSelf",
                      "template": "templates/independent/skills_main_reset.png",
-                    "templThreshold": 0.80,
-                    "roi": [350,680,350,250],
-                     "timeoutMs": 12000,
-                     "pollIntervalMs": 250,
-                     "postDelay": 350
-                   },
-                   "independent_skills_reset_confirmed": {
-                     "algorithm": "MatchTemplate",
-                     "action": "JustReturn",
-                     "template": "templates/independent/skills_reset_confirmed.png",
                      "templThreshold": 0.80,
-                     "roi": [20,860,860,220],
+                     "roi": [300,300,600,700],
                      "timeoutMs": 12000,
                      "pollIntervalMs": 250,
-                     "postDelay": 250
+                     "postDelay": 500,
+                     "next": ["independent_skills_reset_probe"],
+                     "maxTimes": 20,
+                     "exceededNext": ["independent_skills_reset_exceeded"]
+                   },
+                   "independent_skills_reset_done": {
+                     "algorithm": "JustReturn",
+                     "action": "JustReturn",
+                     "success": true
+                   },
+                   "independent_skills_reset_exceeded": {
+                     "algorithm": "JustReturn",
+                     "action": "Stop"
                    },
                    "independent_skills_search_reset": {
                     "algorithm": "MatchTemplate",

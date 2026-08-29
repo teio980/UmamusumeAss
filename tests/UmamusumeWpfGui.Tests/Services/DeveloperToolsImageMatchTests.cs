@@ -428,6 +428,108 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public void Independent_lineup_arrow_templates_are_mutually_exclusive()
+    {
+        var root = FindSolutionRoot();
+        var templateDirectory = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent");
+        var openDown = GrayImageCodec.FromFile(
+            Path.Combine(templateDirectory, "lineup_open_down.png"));
+        var closedRight = GrayImageCodec.FromFile(
+            Path.Combine(templateDirectory, "lineup_closed_right.png"));
+
+        Assert.NotNull(openDown);
+        Assert.NotNull(closedRight);
+        Assert.Equal(40, openDown!.Width);
+        Assert.Equal(40, openDown.Height);
+        Assert.Equal(40, closedRight!.Width);
+        Assert.Equal(40, closedRight.Height);
+
+        var downSelf = TemplateMatcher.Find(
+            openDown,
+            openDown,
+            roi: null,
+            threshold: 0.90,
+            referenceWidth: openDown.Width,
+            referenceHeight: openDown.Height);
+        var rightOnDown = TemplateMatcher.Find(
+            openDown,
+            closedRight,
+            roi: null,
+            threshold: 0.90,
+            referenceWidth: openDown.Width,
+            referenceHeight: openDown.Height);
+        var rightSelf = TemplateMatcher.Find(
+            closedRight,
+            closedRight,
+            roi: null,
+            threshold: 0.90,
+            referenceWidth: closedRight.Width,
+            referenceHeight: closedRight.Height);
+        var downOnRight = TemplateMatcher.Find(
+            closedRight,
+            openDown,
+            roi: null,
+            threshold: 0.90,
+            referenceWidth: closedRight.Width,
+            referenceHeight: closedRight.Height);
+
+        Assert.True(downSelf.Found, $"Open-down self score was {downSelf.Score:0.000}.");
+        Assert.True(rightSelf.Found, $"Closed-right self score was {rightSelf.Score:0.000}.");
+        Assert.False(rightOnDown.Found, $"Closed-right false-positive score was {rightOnDown.Score:0.000}.");
+        Assert.False(downOnRight.Found, $"Open-down false-positive score was {downOnRight.Score:0.000}.");
+        Assert.True(downSelf.Score - rightOnDown.Score >= 0.15);
+        Assert.True(rightSelf.Score - downOnRight.Score >= 0.15);
+    }
+
+    [Fact]
+    public void Independent_lineup_arrow_templates_distinguish_live_adb_captures_when_available()
+    {
+        var root = FindSolutionRoot();
+        var openCapturePath = Path.Combine(root, "debug", "lineup_open_live.png");
+        var closedCapturePath = Path.Combine(root, "debug", "lineup_closed_live.png");
+        if (!File.Exists(openCapturePath) || !File.Exists(closedCapturePath))
+            return;
+
+        var templateDirectory = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent");
+        var openCapture = GrayImageCodec.FromFile(openCapturePath);
+        var closedCapture = GrayImageCodec.FromFile(closedCapturePath);
+        var openDown = GrayImageCodec.FromFile(
+            Path.Combine(templateDirectory, "lineup_open_down.png"));
+        var closedRight = GrayImageCodec.FromFile(
+            Path.Combine(templateDirectory, "lineup_closed_right.png"));
+
+        Assert.NotNull(openCapture);
+        Assert.NotNull(closedCapture);
+        Assert.NotNull(openDown);
+        Assert.NotNull(closedRight);
+
+        int[] roi = [760, 390, 130, 150];
+        var openCorrect = TemplateMatcher.Find(openCapture!, openDown!, roi, 0.90, 900, 1600);
+        var openWrong = TemplateMatcher.Find(openCapture, closedRight!, roi, 0.90, 900, 1600);
+        var closedCorrect = TemplateMatcher.Find(closedCapture!, closedRight, roi, 0.90, 900, 1600);
+        var closedWrong = TemplateMatcher.Find(closedCapture, openDown, roi, 0.90, 900, 1600);
+
+        Assert.True(openCorrect.Found, $"Open-down live score was {openCorrect.Score:0.000}.");
+        Assert.False(openWrong.Found, $"Closed-right live false-positive score was {openWrong.Score:0.000}.");
+        Assert.True(closedCorrect.Found, $"Closed-right live score was {closedCorrect.Score:0.000}.");
+        Assert.False(closedWrong.Found, $"Open-down live false-positive score was {closedWrong.Score:0.000}.");
+    }
+
+    [Fact]
     public async Task Daily_race_matcher_distinguishes_100601_runner_from_an_unrelated_page()
     {
         var root = FindSolutionRoot();
