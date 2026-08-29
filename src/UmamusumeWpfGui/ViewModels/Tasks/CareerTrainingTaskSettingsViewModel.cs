@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -65,6 +66,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
         _umaDatabase = umaDatabase;
+        ResetIndependentAgendaCommand = new RelayCommand(_ => ResetIndependentAgenda());
+        ResetIndependentSkillsCommand = new RelayCommand(_ => ResetIndependentSkills());
         if (_umaDatabase is not null)
             _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         RefreshTrainees();
@@ -93,6 +96,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public IReadOnlyList<IndependentRaceOption> IndependentRaceOptions => _allIndependentRaceOptions;
 
     public IReadOnlyList<IndependentSkillOption> IndependentSkillOptions => _allIndependentSkillOptions;
+
+    public ICommand ResetIndependentAgendaCommand { get; }
+
+    public ICommand ResetIndependentSkillsCommand { get; }
 
     public IReadOnlyList<CareerModeOption> CareerModes { get; } =
     [
@@ -1263,6 +1270,28 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
     }
 
+    private void ResetIndependentAgenda()
+    {
+        _updatingIndependentAgenda = true;
+        foreach (var option in _allIndependentRaceOptions)
+            option.IsSelected = false;
+        _updatingIndependentAgenda = false;
+
+        IndependentAgendaSearchText = string.Empty;
+        NotifyIndependentAgendaChanged();
+    }
+
+    private void ResetIndependentSkills()
+    {
+        _updatingIndependentSkills = true;
+        foreach (var option in _allIndependentSkillOptions)
+            option.IsSelected = false;
+        _updatingIndependentSkills = false;
+
+        IndependentSkillSearchText = string.Empty;
+        NotifyIndependentSkillsChanged();
+    }
+
     private static int[] ParseIndependentSkillIdsSafely(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -1352,6 +1381,26 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private sealed class RelayCommand : ICommand
+    {
+        private readonly Action<object?> _execute;
+
+        public RelayCommand(Action<object?> execute)
+        {
+            _execute = execute;
+        }
+
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => true;
+
+        public void Execute(object? parameter) => _execute(parameter);
+    }
 
     private static void SetSelections(
         IEnumerable<CareerSparkOption> options,

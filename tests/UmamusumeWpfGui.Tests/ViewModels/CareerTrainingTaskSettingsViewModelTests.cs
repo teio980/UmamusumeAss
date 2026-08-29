@@ -8,6 +8,58 @@ namespace UmamusumeWpfGui.Tests.ViewModels;
 public sealed class CareerTrainingTaskSettingsViewModelTests
 {
     [Fact]
+    public void Independent_agenda_reset_clears_only_agenda_selection_and_filter()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+        var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
+        var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
+        agenda.IsSelected = true;
+        skill.IsSelected = true;
+        settings.IndependentAgendaSearchText = "no matching agenda race";
+        settings.IndependentSkillSearchText = skill.Skill.SkillId.ToString();
+        var changedProperties = new List<string?>();
+        settings.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        settings.ResetIndependentAgendaCommand.Execute(null);
+
+        Assert.Equal(string.Empty, settings.IndependentAgendaSearchText);
+        Assert.Empty(settings.IndependentAgendaSelectionsText);
+        Assert.Equal(0, settings.SelectedIndependentAgendaCount);
+        Assert.Equal(settings.IndependentRaceOptions.Count, settings.FilteredIndependentRaceOptions.Count);
+        Assert.True(skill.IsSelected);
+        Assert.Equal(skill.Skill.SkillId.ToString(), settings.IndependentSkillIdsText);
+        Assert.Equal(skill.Skill.SkillId.ToString(), settings.IndependentSkillSearchText);
+        Assert.Contains(nameof(settings.IndependentAgendaSelectionsText), changedProperties);
+        Assert.Contains(nameof(settings.SelectedIndependentAgendaCountText), changedProperties);
+    }
+
+    [Fact]
+    public void Independent_skill_reset_clears_only_skill_selection_and_filter()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+        var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
+        var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
+        agenda.IsSelected = true;
+        skill.IsSelected = true;
+        settings.IndependentAgendaSearchText = agenda.Race.RaceName;
+        settings.IndependentSkillSearchText = "no matching skill";
+        var changedProperties = new List<string?>();
+        settings.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        settings.ResetIndependentSkillsCommand.Execute(null);
+
+        Assert.Equal(string.Empty, settings.IndependentSkillSearchText);
+        Assert.Empty(settings.IndependentSkillIdsText);
+        Assert.Equal(0, settings.SelectedIndependentSkillCount);
+        Assert.Equal(settings.IndependentSkillOptions.Count, settings.FilteredIndependentSkillOptions.Count);
+        Assert.True(agenda.IsSelected);
+        Assert.Equal(agenda.Race.Key, settings.IndependentAgendaSelectionsText);
+        Assert.Equal(agenda.Race.RaceName, settings.IndependentAgendaSearchText);
+        Assert.Contains(nameof(settings.IndependentSkillIdsText), changedProperties);
+        Assert.Contains(nameof(settings.SelectedIndependentSkillCountText), changedProperties);
+    }
+
+    [Fact]
     public void Continue_existing_career_defaults_to_delete_and_round_trips()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();

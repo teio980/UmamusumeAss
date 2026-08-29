@@ -46,7 +46,19 @@
                     SelectedValuePath="Value"
                     SelectedValue="{Binding IndependentTrainingFocus, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-          <TextBlock Margin="0,12,0,0" Text="Agenda · choose a time slot and race" />
+          <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" Text="Agenda · choose a time slot and race" />
+            <ui:Button Grid.Column="1"
+                       Margin="8,0,0,0"
+                       Padding="10,3"
+                       Content="Reset"
+                       Command="{Binding ResetIndependentAgendaCommand}"
+                       Appearance="Secondary" />
+          </Grid>
           <ui:TextBox Margin="0,6,0,0"
                       PlaceholderText="Search race, year, month or surface"
                       Text="{Binding IndependentAgendaSearchText, UpdateSourceTrigger=PropertyChanged}" />
@@ -101,7 +113,19 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <TextBlock Margin="0,12,0,0" Text="Skill · Add Skill" />
+          <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" Text="Skill · Add Skill" />
+            <ui:Button Grid.Column="1"
+                       Margin="8,0,0,0"
+                       Padding="10,3"
+                       Content="Reset"
+                       Command="{Binding ResetIndependentSkillsCommand}"
+                       Appearance="Secondary" />
+          </Grid>
           <ui:TextBox Margin="0,6,0,0"
                       PlaceholderText="Search skill name or ID"
                       Text="{Binding IndependentSkillSearchText, UpdateSourceTrigger=PropertyChanged}" />
