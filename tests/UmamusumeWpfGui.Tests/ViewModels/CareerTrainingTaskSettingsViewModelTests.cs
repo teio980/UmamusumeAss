@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
@@ -16,7 +17,8 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         agenda.IsSelected = true;
         skill.IsSelected = true;
         settings.IndependentAgendaSearchText = "no matching agenda race";
-        settings.IndependentSkillSearchText = skill.Skill.SkillId.ToString();
+        var skillIdText = skill.Skill.SkillId.ToString(CultureInfo.InvariantCulture);
+        settings.IndependentSkillSearchText = skillIdText;
         var changedProperties = new List<string?>();
         settings.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
 
@@ -27,8 +29,8 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.Equal(0, settings.SelectedIndependentAgendaCount);
         Assert.Equal(settings.IndependentRaceOptions.Count, settings.FilteredIndependentRaceOptions.Count);
         Assert.True(skill.IsSelected);
-        Assert.Equal(skill.Skill.SkillId.ToString(), settings.IndependentSkillIdsText);
-        Assert.Equal(skill.Skill.SkillId.ToString(), settings.IndependentSkillSearchText);
+        Assert.Equal(skillIdText, settings.IndependentSkillIdsText);
+        Assert.Equal(skillIdText, settings.IndependentSkillSearchText);
         Assert.Contains(nameof(settings.IndependentAgendaSelectionsText), changedProperties);
         Assert.Contains(nameof(settings.SelectedIndependentAgendaCountText), changedProperties);
     }

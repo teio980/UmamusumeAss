@@ -28,12 +28,12 @@ public sealed class IndependentSkillPickerRecoveryTests
         var postConfirmScroll = definition.GetTask("independent_skills_post_confirm_scroll");
         Assert.Null(open.Swipe);
         Assert.Equal(["independent_skills_open_scroll"], open.OnErrorNext);
-        Assert.Equal([450, 1100, 450, 800, 300], openScroll.Swipe);
+        Assert.Equal([450, 1100, 450, 800, 300], openScroll.Swipe!);
         Assert.Equal(1, openScroll.MaxTimes);
         Assert.Equal(["independent_skills_open"], openScroll.Next);
         Assert.Null(postConfirm.Swipe);
         Assert.Equal(["independent_skills_post_confirm_scroll"], postConfirm.OnErrorNext);
-        Assert.Equal([450, 1100, 450, 800, 300], postConfirmScroll.Swipe);
+        Assert.Equal([450, 1100, 450, 800, 300], postConfirmScroll.Swipe!);
         Assert.Equal(1, postConfirmScroll.MaxTimes);
         Assert.Equal(["independent_skills_post_confirm"], postConfirmScroll.Next);
 
@@ -145,8 +145,8 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.NotNull(definition);
         var resetProbe = definition!.GetTask("independent_skills_reset_probe");
         var resetClick = definition.GetTask("independent_skills_main_reset");
-        Assert.Equal([300, 300, 600, 700], resetProbe.Roi);
-        Assert.Equal([300, 300, 600, 700], resetClick.Roi);
+        Assert.Equal([300, 300, 600, 700], resetProbe.Roi!);
+        Assert.Equal([300, 300, 600, 700], resetClick.Roi!);
         Assert.Equal(["independent_skills_main_reset"], resetProbe.Next);
         Assert.Equal(["independent_skills_reset_done"], resetProbe.OnErrorNext);
         Assert.Equal(["independent_skills_reset_probe"], resetClick.Next);
