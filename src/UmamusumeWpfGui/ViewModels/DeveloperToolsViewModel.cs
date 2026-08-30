@@ -535,7 +535,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             SetPipelineStatus(
                 HasCropRegion
-                    ? "Template crop selected. Save the edited template to update its ROI automatically."
+                    ? "Template crop selected. Saving will preserve the existing search ROI."
                     : "Template crop cleared.");
             return;
         }
@@ -877,9 +877,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 $"{bitmap.PixelWidth} x {bitmap.PixelHeight} | existing pipeline template";
             OnPropertyChanged(nameof(IsEditingPipelineTemplate));
             SetStatus(
-                "Template loaded. Drag a smaller crop in the preview, then save to update the template and ROI.");
+                "Template loaded. Drag a crop in the preview, then save to replace the template while preserving the search ROI.");
             SetPipelineStatus(
-                "Editing the current template. The existing ROI will be scaled to the new crop when saved.");
+                "Editing the current template. Saving will preserve the existing search ROI.");
             NotifyScreenshotPropertiesChanged();
         }
         catch (Exception exception)
@@ -907,8 +907,6 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         string? backupPath = null;
         try
         {
-            var oldWidth = _screenshotImage.PixelWidth;
-            var oldHeight = _screenshotImage.PixelHeight;
             var cropped = new CroppedBitmap(_screenshotImage, crop);
             cropped.Freeze();
 
@@ -917,28 +915,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             UmaImageCodec.Save(cropped, temporaryPath);
             File.Move(temporaryPath, templatePath, overwrite: true);
 
-            var oldRoi = TryParseRect(SelectedPipelineTask.RoiText);
-            var automaticRoi = oldRoi is not null
-                ? MapTemplateCropToRoi(
-                    crop,
-                    oldWidth,
-                    oldHeight,
-                    oldRoi,
-                    ParsePositiveInt(PipelineReferenceWidthText, 900),
-                    ParsePositiveInt(PipelineReferenceHeightText, 1600))
-                : null;
-            if (automaticRoi is not null)
-            {
-                SelectedPipelineTask.RoiText = FormatRect(automaticRoi);
-                OnPropertyChanged(nameof(PipelineRoiText));
-                SetPipelineStatus(
-                    $"Updated template and automatic ROI: {SelectedPipelineTask.RoiText}. Backup: {backupPath}");
-            }
-            else
-            {
-                SetPipelineStatus(
-                    $"Updated template. Existing ROI was empty or invalid, so it was left unchanged. Backup: {backupPath}");
-            }
+            var searchRoi = string.IsNullOrWhiteSpace(SelectedPipelineTask.RoiText)
+                ? "none"
+                : SelectedPipelineTask.RoiText.Trim();
+            SetPipelineStatus(
+                $"Updated template; preserved search ROI: {searchRoi}. Backup: {backupPath}");
 
             CancelPipelineTemplateEditing();
         }
@@ -1304,68 +1285,6 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _captureDetails = string.Empty;
         NotifyScreenshotPropertiesChanged();
     }
-
-    private static int[]? TryParseRect(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return null;
-
-        var values = text
-            .Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-            .ToArray();
-        if (values.Length != 4
-            || !values.All(value => int.TryParse(
-                value,
-                NumberStyles.Integer,
-                CultureInfo.InvariantCulture,
-                out _)))
-        {
-            return null;
-        }
-
-        var rect = values
-            .Select(value => int.Parse(value, CultureInfo.InvariantCulture))
-            .ToArray();
-        return rect[2] > 0 && rect[3] > 0 && rect[0] >= 0 && rect[1] >= 0
-            ? rect
-            : null;
-    }
-
-    private static int[]? MapTemplateCropToRoi(
-        Int32Rect crop,
-        int templateWidth,
-        int templateHeight,
-        int[] oldRoi,
-        int referenceWidth,
-        int referenceHeight)
-    {
-        if (templateWidth <= 0
-            || templateHeight <= 0
-            || oldRoi.Length != 4
-            || oldRoi[2] <= 0
-            || oldRoi[3] <= 0)
-        {
-            return null;
-        }
-
-        var left = oldRoi[0] + (int)Math.Round(
-            crop.X * oldRoi[2] / (double)templateWidth);
-        var top = oldRoi[1] + (int)Math.Round(
-            crop.Y * oldRoi[3] / (double)templateHeight);
-        var right = oldRoi[0] + (int)Math.Round(
-            (crop.X + crop.Width) * oldRoi[2] / (double)templateWidth);
-        var bottom = oldRoi[1] + (int)Math.Round(
-            (crop.Y + crop.Height) * oldRoi[3] / (double)templateHeight);
-
-        left = Math.Clamp(left, 0, Math.Max(0, referenceWidth - 1));
-        top = Math.Clamp(top, 0, Math.Max(0, referenceHeight - 1));
-        right = Math.Clamp(right, left + 1, Math.Max(left + 1, referenceWidth));
-        bottom = Math.Clamp(bottom, top + 1, Math.Max(top + 1, referenceHeight));
-        return [left, top, right - left, bottom - top];
-    }
-
-    private static string FormatRect(IReadOnlyList<int> rect) =>
-        string.Join(", ", rect);
 
     private string GetPipelineDirectory() =>
         _selectedPipelineResource?.Directory ?? GetRuntimePipelineDirectory();

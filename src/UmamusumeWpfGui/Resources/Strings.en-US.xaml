@@ -287,7 +287,7 @@
   <sys:String x:Key="DeveloperToolsPipelineSearchRoisLabel">Search ROIs</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUseRoiButton">Use screenshot ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTemplateButton">Save crop as template</sys:String>
-  <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">Save edited template + auto ROI</sys:String>
+  <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">Save edited template + preserve search ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSpecificRectLabel">Specific rect</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineThresholdLabel">Threshold</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSwipeLabel">Swipe [x1,y1,x2,y2,ms]</sys:String>

@@ -288,7 +288,7 @@
   <sys:String x:Key="DeveloperToolsPipelineSearchRoisLabel">搜索区域（每行一个）</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineUseRoiButton">使用截图ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineTemplateButton">裁剪并保存模板</sys:String>
-  <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">保存修改模板并自动更新ROI</sys:String>
+  <sys:String x:Key="DeveloperToolsPipelineSaveEditedTemplateButton">保存修改模板并保留搜索ROI</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSpecificRectLabel">指定矩形</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineThresholdLabel">阈值</sys:String>
   <sys:String x:Key="DeveloperToolsPipelineSwipeLabel">滑动 [x1,y1,x2,y2,毫秒]</sys:String>
