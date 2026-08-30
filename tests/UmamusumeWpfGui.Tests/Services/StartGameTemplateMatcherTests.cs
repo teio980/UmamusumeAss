@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Tests.Services;
@@ -8,7 +9,7 @@ public sealed class StartGameTemplateMatcherTests
     [Theory]
     [InlineData("debug/cold_8.png", "templates/start_game/logo_skip.png", 56, 612, 794, 249, 0.86)]
     [InlineData("debug/cold_7.png", "templates/start_game/startnotice_skip.png", 68, 444, 764, 369, 0.84)]
-    [InlineData("debug/user_repro_current.png", "templates/start_game/tap_to_start.png", 146, 1088, 648, 76, 0.84)]
+    [InlineData("debug/user_repro_current.png", "templates/start_game/tap_to_start.png", 80, 1000, 740, 220, 0.84)]
     public void Startup_template_matches_saved_screen(
         string screenName,
         string templateName,
@@ -34,6 +35,30 @@ public sealed class StartGameTemplateMatcherTests
             referenceHeight: 1600);
 
         Assert.True(result.Found, $"Template score was {result.Score:0.000}.");
+    }
+
+    [Fact]
+    public void Check_tap_to_start_roi_keeps_search_margin_around_template()
+    {
+        var root = FindSolutionRoot();
+        var definition = JsonSerializer.Deserialize<StartGamePipelineDefinition>(
+            File.ReadAllText(Path.Combine(root, "resource", "hachimi", "start_game.json")));
+        Assert.NotNull(definition);
+        var task = definition!.Tasks["CheckTapToStart"];
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            task.Template!));
+
+        Assert.NotNull(template);
+        Assert.NotNull(task.Roi);
+        Assert.True(
+            task.Roi!.Length >= 4
+            && task.Roi[2] > template!.Width
+            && task.Roi[3] > template.Height,
+            $"CheckTapToStart ROI [{string.Join(", ", task.Roi ?? [])}] must be larger than "
+            + $"the {template?.Width}x{template?.Height} template in both dimensions.");
     }
 
     private static string FindSolutionRoot()
