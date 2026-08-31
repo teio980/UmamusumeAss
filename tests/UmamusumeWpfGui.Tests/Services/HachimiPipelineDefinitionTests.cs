@@ -140,7 +140,7 @@ public sealed class HachimiPipelineDefinitionTests
         foreach (var closeTaskName in new[] { "dailyClose", "mainClose", "titlesClose", "specialClose" })
         {
             Assert.Equal(
-                [250, 1000, 450, 600],
+                [250, 850, 450, 750],
                 definition.GetTask(closeTaskName).Roi!);
         }
     }
