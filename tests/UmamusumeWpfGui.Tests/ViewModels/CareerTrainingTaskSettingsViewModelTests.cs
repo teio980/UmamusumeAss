@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Xml.Linq;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels.Tasks;
@@ -79,20 +80,103 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     public void Career_mode_normalizes_and_preserves_independent_selection()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();
+        var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
+        var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
+        var changedProperties = new List<string?>();
+        settings.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
 
         Assert.Equal(CareerTrainingTaskSettingsViewModel.NormalCareerMode, settings.CareerMode);
         Assert.False(settings.IsIndependentCareer);
 
         settings.CareerMode = "Independent";
+        settings.IndependentLineupStrategy = "front";
+        settings.IndependentTrainingFocus = "stamina";
+        agenda.IsSelected = true;
+        skill.IsSelected = true;
 
         Assert.Equal(CareerTrainingTaskSettingsViewModel.IndependentCareerMode, settings.CareerMode);
         Assert.True(settings.IsIndependentCareer);
         Assert.True(settings.IsIndependentTrainingSettingsValid);
+        Assert.Contains(nameof(settings.IsIndependentCareer), changedProperties);
 
         settings.CareerMode = "normal";
 
         Assert.Equal(CareerTrainingTaskSettingsViewModel.NormalCareerMode, settings.CareerMode);
         Assert.False(settings.IsIndependentCareer);
+
+        settings.CareerMode = "independent";
+
+        Assert.Equal("front", settings.IndependentLineupStrategy);
+        Assert.Equal("stamina", settings.IndependentTrainingFocus);
+        Assert.Equal(agenda.Race.Key, settings.IndependentAgendaSelectionsText);
+        Assert.Equal(skill.Skill.SkillId.ToString(CultureInfo.InvariantCulture), settings.IndependentSkillIdsText);
+    }
+
+    [Fact]
+    public void Independent_train_settings_are_nested_under_career_mode_in_view()
+    {
+        var root = FindSolutionRoot();
+        var view = XDocument.Load(Path.Combine(
+            root,
+            "src",
+            "UmamusumeWpfGui",
+            "Views",
+            "Tasks",
+            "CareerTrainingTaskSettingsView.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        var tabs = view.Descendants(presentation + "TabItem").ToArray();
+        var basic = Assert.Single(tabs, tab => (string?)tab.Attribute("Header") == "Basic");
+        Assert.DoesNotContain(tabs, tab => (string?)tab.Attribute("Header") == "Train");
+
+        var trainSettings = Assert.Single(basic.Descendants(presentation + "Expander"), element =>
+            (string?)element.Attribute("Header") == "Independent Training (auto) · Train settings");
+        Assert.Equal("True", (string?)trainSettings.Attribute("IsExpanded"));
+        Assert.Equal(
+            "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
+            (string?)trainSettings.Attribute("Visibility"));
+
+        var modePicker = Assert.Single(basic.Descendants(presentation + "ComboBox"), element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding CareerModes}");
+        Assert.Same(modePicker.Parent, trainSettings.ElementsBeforeSelf().Last());
+
+        foreach (var source in new[]
+        {
+            "IndependentLineupStrategyOptions",
+            "IndependentTrainingFocusOptions",
+            "FilteredIndependentRaceOptions",
+            "FilteredIndependentSkillOptions",
+        })
+        {
+            var control = Assert.Single(view.Descendants(), element =>
+                (string?)element.Attribute("ItemsSource") == $"{{Binding {source}}}");
+            Assert.Contains(trainSettings, control.Ancestors());
+        }
+    }
+
+    [Fact]
+    public void Career_settings_host_keeps_expanded_train_settings_vertically_scrollable()
+    {
+        var host = XDocument.Load(Path.Combine(
+            FindSolutionRoot(), "src", "UmamusumeWpfGui", "Views", "GrassView.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace taskViews = "clr-namespace:UmamusumeWpfGui.Views.Tasks";
+        var careerView = Assert.Single(host.Descendants(taskViews + "CareerTrainingTaskSettingsView"));
+        var scroll = Assert.Single(careerView.Ancestors(presentation + "ScrollViewer"));
+
+        Assert.Equal("Auto", (string?)scroll.Attribute("VerticalScrollBarVisibility"));
+        Assert.Equal("Disabled", (string?)scroll.Attribute("HorizontalScrollBarVisibility"));
+    }
+
+    [Theory]
+    [InlineData("normal", "start")]
+    [InlineData("independent", "independent.select_mode")]
+    public void Career_mode_selects_the_expected_final_confirmation_flow(
+        string careerMode,
+        string expectedAction)
+    {
+        Assert.Equal(
+            expectedAction,
+            AdbCareerTrainingPipeline.ResolveCareerFinalConfirmationFirstSemanticAction(careerMode));
     }
 
     [Fact]

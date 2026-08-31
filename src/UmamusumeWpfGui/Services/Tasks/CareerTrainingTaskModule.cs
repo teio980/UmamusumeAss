@@ -112,15 +112,11 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         Settings.SupportDeckPreset = ReadString(settings, "supportDeckPreset")
             ?? Settings.SupportDeckPreset;
         Settings.FriendSupportCardId = ReadNullableInt(settings, "friendSupportCardId");
-        Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
-        Settings.PauseOnUnknownOutcome = ReadBool(
-            settings,
-            "pauseOnUnknownOutcome",
-            Settings.PauseOnUnknownOutcome);
-        Settings.AllowOptionalRaces = ReadBool(
-            settings,
-            "allowOptionalRaces",
-            Settings.AllowOptionalRaces);
+        // Advanced career controls are not exposed yet. Ignore legacy values so
+        // an empty or experimental saved strategy cannot make the task unusable.
+        Settings.StrategyId = CareerTrainingTaskSettingsViewModel.DefaultStrategyId;
+        Settings.PauseOnUnknownOutcome = true;
+        Settings.AllowOptionalRaces = false;
         Settings.LegacySelectionMode = ReadString(settings, "legacySelectionMode")
             ?? Settings.LegacySelectionMode;
         Settings.UseLegacyGuest = ReadBool(

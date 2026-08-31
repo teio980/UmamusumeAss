@@ -48,11 +48,16 @@
                     SelectedValuePath="Value"
                     SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
-      </StackPanel>
-    </TabItem>
 
-    <TabItem Header="Train">
-      <StackPanel Margin="8,10" IsEnabled="{Binding IsIndependentCareer}">
+        <Expander Margin="0,14,0,0"
+                  Header="Independent Training (auto) · Train settings"
+                  IsExpanded="True"
+                  Visibility="{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel Margin="8,10">
+          <TextBlock Margin="0,0,0,10"
+                     Text="These settings are applied by the Independent Training auto setup."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
           <TextBlock Text="Line Up Detail · strategy" />
           <ComboBox Margin="0,6,0,0"
                     HorizontalContentAlignment="Stretch"
@@ -182,6 +187,8 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+          </StackPanel>
+        </Expander>
       </StackPanel>
     </TabItem>
 
@@ -433,34 +440,5 @@
       </StackPanel>
     </TabItem>
 
-    <TabItem Header="More">
-      <StackPanel Margin="8,10">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="108" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBlock VerticalAlignment="Center" Text="Strategy ID" />
-          <ui:TextBox Grid.Column="1"
-                      Margin="10,0,0,0"
-                      Text="{Binding StrategyId, UpdateSourceTrigger=PropertyChanged}" />
-        </Grid>
-
-      <CheckBox Margin="0,12,0,0"
-                IsChecked="{Binding PauseOnUnknownOutcome}">
-        <TextBlock Text="Pause on unknown screen/outcome"
-                   TextWrapping="Wrap" />
-      </CheckBox>
-      <CheckBox Margin="0,8,0,0"
-                IsChecked="{Binding AllowOptionalRaces}">
-        <TextBlock Text="Allow optional races"
-                   TextWrapping="Wrap" />
-      </CheckBox>
-      <TextBlock Margin="0,10,0,0"
-                 Text="{Binding Status}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
-      </StackPanel>
-    </TabItem>
   </TabControl>
 </UserControl>
