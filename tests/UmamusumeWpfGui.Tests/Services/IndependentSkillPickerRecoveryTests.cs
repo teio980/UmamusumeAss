@@ -23,15 +23,21 @@ public sealed class IndependentSkillPickerRecoveryTests
 
         Assert.NotNull(definition);
         var open = definition!.GetTask("independent_skills_open");
+        var openVerify = definition.GetTask("independent_skills_picker_open_verify");
         var openScroll = definition.GetTask("independent_skills_open_scroll");
         var postConfirm = definition.GetTask("independent_skills_post_confirm");
         var postConfirmScroll = definition.GetTask("independent_skills_post_confirm_scroll");
         Assert.Null(open.Swipe);
+        Assert.Equal([300, 500, 300, 800], open.Roi!);
+        Assert.Equal(["independent_skills_picker_open_verify"], open.Next);
         Assert.Equal(["independent_skills_open_scroll"], open.OnErrorNext);
+        Assert.Equal([600, 1318, 60, 60], openVerify.Roi!);
+        Assert.True(openVerify.Success);
         Assert.Equal([450, 1100, 450, 800, 300], openScroll.Swipe!);
         Assert.Equal(1, openScroll.MaxTimes);
         Assert.Equal(["independent_skills_open"], openScroll.Next);
         Assert.Null(postConfirm.Swipe);
+        Assert.Equal([300, 500, 300, 800], postConfirm.Roi!);
         Assert.Equal(["independent_skills_post_confirm_scroll"], postConfirm.OnErrorNext);
         Assert.Equal([450, 1100, 450, 800, 300], postConfirmScroll.Swipe!);
         Assert.Equal(1, postConfirmScroll.MaxTimes);
@@ -117,11 +123,13 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.Equal(
             [
                 "independent_skills_open",
+                "independent_skills_picker_open_verify",
                 "independent_skills_search_checkbox",
                 "independent_skills_save",
                 "independent_skills_post_confirm",
                 "independent_skills_post_confirm",
                 "independent_skills_open",
+                "independent_skills_picker_open_verify",
                 "independent_skills_search_checkbox",
                 "independent_skills_save",
                 "independent_skills_post_confirm",
@@ -131,7 +139,7 @@ public sealed class IndependentSkillPickerRecoveryTests
     }
 
     [Fact]
-    public async Task Main_skill_reset_repeats_until_three_residual_rows_are_gone()
+    public async Task Main_skill_reset_repeats_past_the_old_limit_until_every_row_is_gone()
     {
         var root = FindSolutionRoot();
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
@@ -145,15 +153,15 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.NotNull(definition);
         var resetProbe = definition!.GetTask("independent_skills_reset_probe");
         var resetClick = definition.GetTask("independent_skills_main_reset");
-        Assert.Equal([300, 300, 600, 700], resetProbe.Roi!);
-        Assert.Equal([300, 300, 600, 700], resetClick.Roi!);
+        Assert.Equal([400, 600, 360, 500], resetProbe.Roi!);
+        Assert.Equal([400, 600, 360, 500], resetClick.Roi!);
         Assert.Equal(["independent_skills_main_reset"], resetProbe.Next);
         Assert.Equal(["independent_skills_reset_done"], resetProbe.OnErrorNext);
         Assert.Equal(["independent_skills_reset_probe"], resetClick.Next);
-        Assert.Equal(20, resetClick.MaxTimes);
+        Assert.Equal(0, resetClick.MaxTimes);
         Assert.Equal(["independent_skills_reset_exceeded"], resetClick.ExceededNext);
 
-        var visual = new SkillPickerVisualRuntime(residualSkills: 3);
+        var visual = new SkillPickerVisualRuntime(residualSkills: 25);
         var runner = new HachimiJsonPipelineRunner(
             new AdbRuntime(new NoOpAdbRunner(), new AsyncDelay()),
             visual,
@@ -177,16 +185,12 @@ public sealed class IndependentSkillPickerRecoveryTests
             "independent_skills_reset_probe");
 
         Assert.True(result.Succeeded, result.Message);
-        Assert.Equal(3, visual.ResetClicks);
-        Assert.Equal(4, visual.ResetProbeCount);
+        Assert.Equal(25, visual.ResetClicks);
+        Assert.Equal(26, visual.ResetProbeCount);
         Assert.Equal(0, visual.ResidualSkills);
-        Assert.Equal(
-            [
-                "independent_skills_main_reset",
-                "independent_skills_main_reset",
-                "independent_skills_main_reset",
-            ],
-            visual.TappedTaskNames);
+        Assert.All(
+            visual.TappedTaskNames,
+            taskName => Assert.Equal("independent_skills_main_reset", taskName));
     }
 
     [Fact]
@@ -234,16 +238,65 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.Equal(1, visual.ResidualSkills);
     }
 
+    [Fact]
+    public async Task Main_skill_reset_uses_button_disappearance_as_the_only_completion_condition()
+    {
+        var root = FindSolutionRoot();
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "execution.json"));
+
+        Assert.NotNull(definition);
+
+        var visual = new SkillPickerVisualRuntime(
+            residualSkills: 3,
+            returnUnchangedScreenshot: true);
+        var runner = new HachimiJsonPipelineRunner(
+            new AdbRuntime(new NoOpAdbRunner(), new AsyncDelay()),
+            visual,
+            new JsonSettingsService(Path.Combine(
+                Path.GetTempPath(),
+                $"independent-skill-reset-no-change-{Guid.NewGuid():N}.json")));
+        var connection = new LastVerifiedConnection(
+            "adb",
+            "emulator-5554",
+            "android",
+            "test",
+            900,
+            1600,
+            900,
+            1600,
+            DateTimeOffset.UtcNow);
+
+        var result = await runner.RunAsync(
+            connection,
+            definition!,
+            "independent_skills_reset_probe");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(3, visual.ResetClicks);
+        Assert.Equal(4, visual.ResetProbeCount);
+        Assert.Equal(0, visual.ResidualSkills);
+    }
+
     private sealed class SkillPickerVisualRuntime : IVisualPipelineRuntime
     {
         private bool _pickerOpen;
         private bool _addVisible = true;
         private bool _skillSelected;
         private int _residualSkills;
+        private readonly bool _returnUnchangedScreenshot;
 
-        public SkillPickerVisualRuntime(int residualSkills = 0)
+        public SkillPickerVisualRuntime(
+            int residualSkills = 0,
+            bool returnUnchangedScreenshot = false)
         {
             _residualSkills = Math.Max(0, residualSkills);
+            _returnUnchangedScreenshot = returnUnchangedScreenshot;
         }
 
         public int ConfirmedSkills { get; private set; }
@@ -265,7 +318,9 @@ public sealed class IndependentSkillPickerRecoveryTests
         public Task<GrayImage?> CaptureGrayAsync(
             LastVerifiedConnection connection,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<GrayImage?>(null);
+            Task.FromResult<GrayImage?>(_returnUnchangedScreenshot
+                ? new GrayImage(1, 1, [128])
+                : null);
 
         public Task<GrayImage?> LoadTemplateAsync(
             string? templatePath,
@@ -290,6 +345,7 @@ public sealed class IndependentSkillPickerRecoveryTests
             var found = taskName switch
             {
                 "independent_skills_open" => !_pickerOpen && _addVisible,
+                "independent_skills_picker_open_verify" => _pickerOpen,
                 "independent_skills_post_confirm" => !_pickerOpen && _addVisible,
                 "independent_skills_reset_probe" => _residualSkills > 0,
                 "independent_skills_main_reset" => _residualSkills > 0,

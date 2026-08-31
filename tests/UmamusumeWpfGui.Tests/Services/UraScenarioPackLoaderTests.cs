@@ -9,6 +9,8 @@ public sealed class UraScenarioPackLoaderTests
         [
             "ClickSelf",
             "ClickRect",
+            "ClickText",
+            "FindText",
             "SelectUraTrainee",
             "JustReturn",
             "Swipe",
@@ -16,6 +18,7 @@ public sealed class UraScenarioPackLoaderTests
             "SelectUraLegacy",
             "Input",
             "KeyEvent",
+            "Stop",
         ];
     private static readonly int[] ScenarioHeaderRoi = [0, 190, 430, 80];
     private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];

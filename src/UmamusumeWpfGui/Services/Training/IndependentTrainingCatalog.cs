@@ -70,6 +70,39 @@ public sealed class IndependentTrainingCatalog
         return race is not null;
     }
 
+    /// <summary>
+    /// A visible course header is not a race identity when another available
+    /// race in the same agenda slot has the same header. Check the complete
+    /// catalog slot, not only the rows that OCR happens to see on one page.
+    /// </summary>
+    public bool TryGetAgendaPickerOcrTarget(
+        IndependentTrainingRace race,
+        out string targetText)
+    {
+        ArgumentNullException.ThrowIfNull(race);
+        targetText = string.Empty;
+        var header = race.PickerHeaderTarget;
+        if (!race.IsGameAvailable || race.RaceId <= 0 || string.IsNullOrWhiteSpace(header))
+            return false;
+
+        var slotRaces = Races.Where(item =>
+            item.IsGameAvailable
+            && item.Year.Equals(race.Year, StringComparison.OrdinalIgnoreCase)
+            && item.Turn.Equals(race.Turn, StringComparison.OrdinalIgnoreCase));
+        if (!slotRaces.Any(item =>
+                item.RaceId == race.RaceId
+                && item.PickerHeaderTarget.Equals(header, StringComparison.OrdinalIgnoreCase))
+            || slotRaces.Any(item =>
+                item.RaceId != race.RaceId
+                && item.PickerHeaderTarget.Equals(header, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        targetText = header;
+        return true;
+    }
+
     public static string GetRaceCardTemplatePath(int raceId) =>
         Path.Combine(
             "templates",
@@ -119,6 +152,12 @@ public sealed class IndependentTrainingCatalog
     public static string AgendaRaceCardVerifySemanticAction() =>
         "independent.agenda.race.card.verify";
 
+    public static string AgendaRaceSemanticAction() =>
+        "independent.agenda.race";
+
+    public static string AgendaRaceVerifySemanticAction() =>
+        "independent.agenda.race.verify";
+
     public static string LineupScrollTopSemanticAction() =>
         "independent.lineup.scroll.top";
 
@@ -136,9 +175,6 @@ public sealed class IndependentTrainingCatalog
 
     public static string StrategySaveSemanticAction() =>
         "independent.strategy.save";
-
-    public static string StrategyOptionSemanticAction() =>
-        "independent.strategy.option";
 
     public static string StrategyReturnSemanticAction() =>
         "independent.strategy.return";
@@ -490,6 +526,35 @@ public sealed record IndependentTrainingRace(
 
     public string DisplayLabel =>
         $"{Year} · {Turn} · {RaceName} ({Grade}, {Type} {LengthM})";
+
+    public string PickerHeaderTarget
+    {
+        get
+        {
+            var track = GameTrack.Trim();
+            var ground = string.IsNullOrWhiteSpace(GameGround)
+                ? Type.Trim()
+                : GameGround.Trim();
+            var direction = Location.Contains('\u21d2')
+                ? "Right"
+                : Location.Contains('\u21d0')
+                    ? "Left"
+                    : string.Empty;
+            if (track.Length == 0
+                || ground.Length == 0
+                || GameDistance <= 0
+                || direction.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var distance = GameDistance.ToString(CultureInfo.InvariantCulture) + "m";
+            var length = string.IsNullOrWhiteSpace(Length)
+                ? string.Empty
+                : $" ({Length.Trim()})";
+            return $"{track} {ground} {distance}{length} {direction}";
+        }
+    }
 
     public string RaceCardTemplatePath =>
         RaceId > 0

@@ -10,6 +10,227 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class DeveloperToolsImageMatchTests
 {
     [Fact]
+    public void Independent_add_skills_fixture_matches_the_real_text_not_the_old_blank_coordinate()
+    {
+        var root = FindSolutionRoot();
+        var screen = LoadIndependentFixture(root, "skills-final-confirmation-add.png");
+        var template = LoadIndependentTemplate(root, "skills_add.png");
+
+        var result = TemplateMatcher.FindButton(
+            screen,
+            template,
+            roi: [300, 500, 300, 800],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Console.WriteLine($"Add Skills fixture match: found={result.Found}, score={result.Score:0.000000}, center={result.CenterX},{result.CenterY}");
+        Assert.True(result.Found, $"Template score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 420, 480);
+        Assert.InRange(result.CenterY, 930, 985);
+        Assert.False(
+            result.CenterX is >= 415 and <= 455 && result.CenterY is >= 1190 and <= 1235,
+            "The known blank click around (435,1214) must never be accepted.");
+    }
+
+    [Fact]
+    public void Independent_add_skills_template_is_absent_after_the_picker_opens()
+    {
+        var root = FindSolutionRoot();
+        var screen = LoadIndependentFixture(root, "skills-picker-open.png");
+        var template = LoadIndependentTemplate(root, "skills_add.png");
+
+        var result = TemplateMatcher.FindButton(
+            screen,
+            template,
+            roi: [300, 500, 300, 800],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Assert.False(result.Found, $"Picker page produced a false Add Skills score of {result.Score:0.000}.");
+    }
+
+    [Fact]
+    public void Independent_picker_fixture_contains_search_icon_in_the_verification_roi()
+    {
+        var root = FindSolutionRoot();
+        var screen = LoadIndependentFixture(root, "skills-picker-open.png");
+        var template = LoadIndependentTemplate(root, "skills_search_field.png");
+
+        var result = TemplateMatcher.Find(
+            screen,
+            template,
+            roi: [600, 1318, 60, 60],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Assert.True(result.Found, $"Search field verification score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 625, 655);
+        Assert.InRange(result.CenterY, 1340, 1365);
+    }
+
+    [Fact]
+    public void Independent_picker_fixture_contains_disabled_search_reset_in_the_tight_roi()
+    {
+        var root = FindSolutionRoot();
+        var screen = LoadIndependentFixture(root, "skills-picker-open.png");
+        var template = LoadIndependentTemplate(root, "skills_search_reset.png");
+
+        var result = TemplateMatcher.Find(
+            screen,
+            template,
+            roi: [650, 1300, 240, 120],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Console.WriteLine($"Picker Reset match: found={result.Found}, score={result.Score:0.000000}, center={result.CenterX},{result.CenterY}");
+        Assert.True(result.Found, $"Picker Reset score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 755, 805);
+        Assert.InRange(result.CenterY, 1335, 1380);
+    }
+
+    [Fact]
+    public void Independent_skills_reset_fixture_reports_the_real_button_not_the_false_high_score()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "tests",
+            "UmamusumeWpfGui.Tests",
+            "Fixtures",
+            "Independent",
+            "skills-final-confirmation-reset.png"));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent",
+            "skills_main_reset.png"));
+
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.FindButton(
+            screen!,
+            template!,
+            roi: [400, 600, 360, 500],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Console.WriteLine($"Reset fixture match: found={result.Found}, score={result.Score:0.000000}, xy={result.X},{result.Y}, size={result.Width}x{result.Height}");
+
+        Assert.True(result.Found, $"Template score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 540, 590);
+        Assert.InRange(result.CenterY, 810, 845);
+        Assert.InRange(result.Score, 0.80, 1.0);
+        Assert.False(
+            result.X + result.Width / 2 == 697
+                && result.Y + result.Height / 2 == 546,
+            "The known false match coordinate must never be accepted.");
+    }
+
+    [Fact]
+    public void Independent_skills_reset_click_guard_rejects_unchanged_frame_and_accepts_row_change()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "tests",
+            "UmamusumeWpfGui.Tests",
+            "Fixtures",
+            "Independent",
+            "skills-final-confirmation-reset.png"));
+
+        Assert.NotNull(screen);
+
+        var match = new TemplateMatchResult(
+            Found: true,
+            Score: 0.91,
+            X: 460,
+            Y: 786,
+            Width: 210,
+            Height: 85);
+        Assert.False(
+            TemplateMatcher.HasMeaningfulChange(screen!, screen!, match),
+            "A stale click must not be treated as a successful Reset transition.");
+
+        var changedPixels = screen!.Pixels.ToArray();
+        // Simulate the selected skill row disappearing after Reset.
+        for (var y = 650; y < 760; y++)
+        {
+            for (var x = 40; x < 450; x++)
+                changedPixels[y * screen.Width + x] = 240;
+        }
+
+        var changed = new GrayImage(screen.Width, screen.Height, changedPixels);
+        Assert.True(
+            TemplateMatcher.HasMeaningfulChange(screen, changed, match),
+            "Removing the selected row must count as a successful Reset transition.");
+
+        Assert.True(
+            TemplateMatcher.HasPersistentChange(screen, changed, changed, match),
+            "A row removal that remains in two settled frames is a valid Reset transition.");
+
+        var pressed = screen.Pixels.ToArray();
+        for (var y = match.Y; y < match.Y + match.Height; y++)
+        {
+            for (var x = match.X; x < match.X + match.Width; x++)
+                pressed[y * screen.Width + x] = (byte)Math.Max(0, pressed[y * screen.Width + x] - 40);
+        }
+
+        var pressedFrame = new GrayImage(screen.Width, screen.Height, pressed);
+        Assert.False(
+            TemplateMatcher.HasPersistentChange(screen, pressedFrame, screen, match),
+            "A transient pressed frame must not count as a persistent Reset transition.");
+    }
+
+    [Fact]
+    public void Independent_skills_reset_no_reset_fixture_rejects_the_header_decoration()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "tests",
+            "UmamusumeWpfGui.Tests",
+            "Fixtures",
+            "Independent",
+            "skills-final-confirmation-no-reset.png"));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent",
+            "skills_main_reset.png"));
+
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.FindButton(
+            screen!,
+            template!,
+            roi: [400, 600, 360, 500],
+            threshold: 0.80,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Console.WriteLine($"No-reset fixture match: found={result.Found}, score={result.Score:0.000000}, xy={result.X},{result.Y}");
+        Assert.False(result.Found, "A no-Reset page must not produce a clickable match.");
+        Assert.False(
+            result.CenterX is >= 790 and <= 820 && result.CenterY is >= 710 and <= 740,
+            "The known header decoration must never become the Reset click.");
+    }
+
+    [Fact]
     public void Current_page_contains_the_selected_crop_template()
     {
         var screen = new GrayImage(
@@ -719,6 +940,32 @@ public sealed class DeveloperToolsImageMatchTests
                 photoFalsePositive.Found,
                 $"{name} matched Photo mode at {photoFalsePositive.Score:0.000}.");
         }
+    }
+
+    private static GrayImage LoadIndependentFixture(string root, string name)
+    {
+        var image = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "tests",
+            "UmamusumeWpfGui.Tests",
+            "Fixtures",
+            "Independent",
+            name));
+        return image ?? throw new InvalidOperationException($"Fixture '{name}' could not be loaded.");
+    }
+
+    private static GrayImage LoadIndependentTemplate(string root, string name)
+    {
+        var image = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent",
+            name));
+        return image ?? throw new InvalidOperationException($"Template '{name}' could not be loaded.");
     }
 
     private static string FindSolutionRoot()

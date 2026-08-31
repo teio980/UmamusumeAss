@@ -192,7 +192,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     referenceHeight,
                     searchRois,
                     minimumScoreGap,
-                    scaleCandidates);
+                    scaleCandidates,
+                    useButtonTemplate: IsStructuralButtonTask(taskName));
                 if (bestMatch is null || match.Score > bestMatch.Score)
                     bestMatch = match;
                 if (match.Found)
@@ -207,6 +208,20 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         }
     }
 
+    private static bool IsStructuralButtonTask(string taskName) =>
+        taskName.Equals(
+            "independent_skills_reset_probe",
+            StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals(
+            "independent_skills_main_reset",
+            StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals(
+            "independent_skills_open",
+            StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals(
+            "independent_skills_post_confirm",
+            StringComparison.OrdinalIgnoreCase);
+
     private static TemplateMatchResult FindBestMatch(
         GrayImage screen,
         GrayImage template,
@@ -216,10 +231,22 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         int referenceHeight,
         IReadOnlyList<int[]>? searchRois,
         double minimumScoreGap,
-        IReadOnlyList<double>? scaleCandidates)
+        IReadOnlyList<double>? scaleCandidates,
+        bool useButtonTemplate = false)
     {
         if (searchRois is not { Count: > 0 })
         {
+            if (useButtonTemplate && scaleCandidates is not { Count: > 0 })
+            {
+                return TemplateMatcher.FindButton(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight);
+            }
+
             return scaleCandidates is { Count: > 0 }
                 ? TemplateMatcher.FindScaled(
                     screen,

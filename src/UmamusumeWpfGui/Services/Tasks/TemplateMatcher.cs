@@ -23,9 +23,9 @@ internal static class TemplateMatcher
         int referenceHeight,
         IReadOnlyList<double> scaleCandidates,
         // The coarse pass only locates the correlation basin. FindAtSize
-        // refines the winning area at pixel precision, so an 8-pixel coarse
-        // stride keeps the same final match while avoiding a large amount of
-        // redundant work across the runner grid.
+        // refines the winning area at pixel precision; the cross-scale local
+        // pass below also recovers narrow peaks without scanning the full
+        // runner grid at pixel precision.
         int candidateStep = 8,
         int sampleWidth = 16,
         int sampleHeight = 16)
@@ -61,7 +61,7 @@ internal static class TemplateMatcher
         var bestHeight = template.Height;
         var bestScale = double.NaN;
 
-        void EvaluateScale(double scale)
+        void EvaluateScale(double scale, RoiBounds? searchBounds = null, int? searchStep = null)
         {
             if (!double.IsFinite(scale) || scale <= 0)
                 return;
@@ -78,10 +78,10 @@ internal static class TemplateMatcher
             var match = FindAtSize(
                 screen,
                 template,
-                bounds,
+                searchBounds ?? bounds,
                 targetWidth,
                 targetHeight,
-                candidateStep,
+                searchStep ?? candidateStep,
                 sampleWidth,
                 sampleHeight);
             if (match.Score > bestScore)
@@ -104,8 +104,30 @@ internal static class TemplateMatcher
         // supplied scale list landed 2-3 pixels away from its display size.
         if (double.IsFinite(bestScale))
         {
+            var coarseScale = bestScale;
             for (var offset = -4; offset <= 4; offset++)
-                EvaluateScale(bestScale + offset * 0.01d);
+                EvaluateScale(coarseScale + offset * 0.01d);
+        }
+
+        // A text-heavy card can have a narrow correlation peak between the
+        // coarse grid points. Repeating the same grid at more scales cannot
+        // recover that peak. On a miss, refine only around the best location
+        // at pixel precision, keeping the expensive full-ROI scan coarse.
+        if (double.IsFinite(bestScale) && bestScore < Math.Clamp(threshold, 0, 1))
+        {
+            var localScale = bestScale;
+            var padding = Math.Clamp(candidateStep, 1, 32);
+            var localX = Math.Max(bounds.X, bestX - padding);
+            var localY = Math.Max(bounds.Y, bestY - padding);
+            var largestWidth = (int)Math.Ceiling(template.Width * referenceScale * (localScale + 0.04d));
+            var largestHeight = (int)Math.Ceiling(template.Height * referenceScale * (localScale + 0.04d));
+            var localBounds = new RoiBounds(
+                localX,
+                localY,
+                Math.Min(bounds.X + bounds.Width - localX, largestWidth + padding * 2),
+                Math.Min(bounds.Y + bounds.Height - localY, largestHeight + padding * 2));
+            for (var offset = -4; offset <= 4; offset++)
+                EvaluateScale(localScale + offset * 0.01d, localBounds, searchStep: 1);
         }
 
         if (bestScore == double.MinValue)
@@ -503,6 +525,380 @@ internal static class TemplateMatcher
             template.Height);
     }
 
+    /// <summary>
+    /// Matches a small button using the button's stroke/text edges instead of
+    /// allowing a large flat crop background to dominate the correlation.
+    ///
+    /// Reset is a particularly important caller: its reference crop includes
+    /// a grey page background around the rounded button.  Pearson correlation
+    /// over that crop can therefore return a stable high score for unrelated
+    /// page content.  The edge mask below is authored from the template and
+    /// only scores locations where the template actually has a visible
+    /// stroke or glyph.
+    /// </summary>
+    public static TemplateMatchResult FindButton(
+        GrayImage screen,
+        GrayImage template,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(template);
+
+        if (template.Width > screen.Width || template.Height > screen.Height)
+            return new TemplateMatchResult(false, 0, 0, 0, template.Width, template.Height);
+
+        var bounds = ScaleRoi(
+            roi,
+            screen.Width,
+            screen.Height,
+            referenceWidth,
+            referenceHeight);
+        var maxX = Math.Min(
+            screen.Width - template.Width,
+            bounds.X + bounds.Width - template.Width);
+        var maxY = Math.Min(
+            screen.Height - template.Height,
+            bounds.Y + bounds.Height - template.Height);
+        if (bounds.X > maxX || bounds.Y > maxY)
+            return new TemplateMatchResult(false, 0, 0, 0, template.Width, template.Height);
+
+        // A 32x16 grid is enough to retain the rounded outline and Reset
+        // glyph while keeping the matcher cheap enough for polling.
+        var sampleWidth = Math.Min(32, template.Width);
+        var sampleHeight = Math.Min(16, template.Height);
+        var features = BuildButtonFeatures(template, sampleWidth, sampleHeight);
+        if (features.Length < 8)
+            return Find(screen, template, roi, threshold, referenceWidth, referenceHeight);
+
+        // The cropped Reset reference is brown text on a light button.  A
+        // white decoration (such as the slash at the end of Prioritized
+        // Skills) can share a few edge directions with the glyphs, but it
+        // cannot provide the dark ink samples. Keep this as a structural
+        // gate, rather than trying to fix the false hit by moving a score
+        // threshold.
+        var darkFeatureCount = features.Count(static feature => feature.IsDark);
+        var minimumDarkFeatures = Math.Max(8, (int)Math.Ceiling(darkFeatureCount * 0.20d));
+        var backgroundSamples = BuildButtonBackgroundSamples(template);
+        var minimumBrightBackgroundSamples = Math.Max(
+            8,
+            (int)Math.Ceiling(backgroundSamples.Length * 0.70d));
+        var inkSamples = BuildButtonInkSamples(template);
+
+        const int candidateStep = 2;
+        var bestScore = double.MinValue;
+        var bestX = bounds.X;
+        var bestY = bounds.Y;
+        for (var y = bounds.Y; y <= maxY; y += candidateStep)
+        {
+            for (var x = bounds.X; x <= maxX; x += candidateStep)
+            {
+                var score = CompareButtonFeatures(
+                    screen,
+                    x,
+                    y,
+                    features,
+                    minimumDarkFeatures,
+                    backgroundSamples,
+                    minimumBrightBackgroundSamples,
+                    inkSamples);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+
+        return new TemplateMatchResult(
+            bestScore >= Math.Clamp(threshold, 0, 1),
+            Math.Max(0, bestScore),
+            bestX,
+            bestY,
+            template.Width,
+            template.Height);
+    }
+
+    /// <summary>
+    /// Returns whether a click anchored at <paramref name="match">match</paramref>
+    /// produced a meaningful visual change in the surrounding skill row.
+    /// This is a safety stop for a stale/false button match: a successful ADB
+    /// tap alone does not prove that the Reset control actually responded.
+    /// </summary>
+    public static bool HasMeaningfulChange(
+        GrayImage before,
+        GrayImage after,
+        TemplateMatchResult match)
+    {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(after);
+
+        if (before.Width != after.Width || before.Height != after.Height)
+            return true;
+        if (before.Pixels.Length < before.Width * before.Height
+            || after.Pixels.Length < after.Width * after.Height)
+        {
+            return false;
+        }
+
+        // The selected skill row is immediately above Reset. Include a little
+        // below it for button pressed-state transitions, but avoid the rest of
+        // the page where unrelated animations can create noise.
+        var paddingX = Math.Max(1, match.Width * 2);
+        var paddingTop = Math.Max(1, match.Height * 3);
+        var paddingBottom = Math.Max(1, match.Height * 3);
+        var left = Math.Clamp(match.X - paddingX, 0, before.Width - 1);
+        var top = Math.Clamp(match.Y - paddingTop, 0, before.Height - 1);
+        var right = Math.Clamp(
+            match.X + match.Width + paddingX,
+            left + 1,
+            before.Width);
+        var bottom = Math.Clamp(
+            match.Y + match.Height + paddingBottom,
+            top + 1,
+            before.Height);
+
+        long difference = 0;
+        var changedPixels = 0;
+        var sampledPixels = 0;
+        // Downsampling keeps the post-click guard inexpensive while still
+        // covering the full row and Reset button.
+        for (var y = top; y < bottom; y += 2)
+        {
+            var row = y * before.Width;
+            for (var x = left; x < right; x += 2)
+            {
+                var delta = Math.Abs(before.Pixels[row + x] - after.Pixels[row + x]);
+                difference += delta;
+                if (delta >= 8)
+                    changedPixels++;
+                sampledPixels++;
+            }
+        }
+
+        if (sampledPixels == 0)
+            return false;
+
+        var meanDifference = difference / (double)sampledPixels;
+        var changedRatio = changedPixels / (double)sampledPixels;
+        return meanDifference >= 3.0d || changedRatio >= 0.015d;
+    }
+
+    /// <summary>
+    /// Requires a change to remain visible in two settled frames. This
+    /// prevents the short pressed-button animation from being mistaken for a
+    /// successful Reset and then causing another tap on the same stale match.
+    /// </summary>
+    public static bool HasPersistentChange(
+        GrayImage before,
+        GrayImage firstAfter,
+        GrayImage settledAfter,
+        TemplateMatchResult match)
+    {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(firstAfter);
+        ArgumentNullException.ThrowIfNull(settledAfter);
+
+        return HasMeaningfulChange(before, firstAfter, match)
+            && HasMeaningfulChange(before, settledAfter, match)
+            && !HasMeaningfulChange(firstAfter, settledAfter, match);
+    }
+
+    private static ButtonFeature[] BuildButtonFeatures(
+        GrayImage template,
+        int sampleWidth,
+        int sampleHeight)
+    {
+        var features = new List<ButtonFeature>(sampleWidth * sampleHeight);
+        for (var sampleY = 1; sampleY < sampleHeight - 1; sampleY++)
+        {
+            var y = Math.Clamp(
+                sampleY * template.Height / sampleHeight,
+                1,
+                template.Height - 2);
+            for (var sampleX = 1; sampleX < sampleWidth - 1; sampleX++)
+            {
+                var x = Math.Clamp(
+                    sampleX * template.Width / sampleWidth,
+                    1,
+                    template.Width - 2);
+                var center = template.Pixels[y * template.Width + x];
+                var dx = template.Pixels[y * template.Width + x + 1]
+                    - template.Pixels[y * template.Width + x - 1];
+                var dy = template.Pixels[(y + 1) * template.Width + x]
+                    - template.Pixels[(y - 1) * template.Width + x];
+                var magnitude = Math.Abs(dx) + Math.Abs(dy);
+                // Ignore the flat grey margin and the nearly flat button fill;
+                // keep strokes, rounded borders, and the Reset glyph.
+                if (magnitude < 16)
+                    continue;
+
+                features.Add(new ButtonFeature(
+                    x,
+                    y,
+                    center,
+                    dx,
+                    dy,
+                    center <= 130));
+            }
+        }
+
+        return features.ToArray();
+    }
+
+    private static double CompareButtonFeatures(
+        GrayImage screen,
+        int screenX,
+        int screenY,
+        IReadOnlyList<ButtonFeature> features,
+        int minimumDarkFeatures,
+        IReadOnlyList<ButtonBackgroundSample> backgroundSamples,
+        int minimumBrightBackgroundSamples,
+        IReadOnlyList<ButtonInkSample> inkSamples)
+    {
+        var edgeError = 0d;
+        var intensityError = 0d;
+        var darkFeatureCount = 0;
+        foreach (var feature in features)
+        {
+            var x = screenX + feature.X;
+            var y = screenY + feature.Y;
+            var center = screen.Pixels[y * screen.Width + x];
+            var dx = screen.Pixels[y * screen.Width + x + 1]
+                - screen.Pixels[y * screen.Width + x - 1];
+            var dy = screen.Pixels[(y + 1) * screen.Width + x]
+                - screen.Pixels[(y - 1) * screen.Width + x];
+            edgeError += Math.Min(
+                510,
+                Math.Abs(dx - feature.Dx) + Math.Abs(dy - feature.Dy));
+            intensityError += Math.Abs(center - feature.Center);
+            if (feature.IsDark && center <= 130)
+                darkFeatureCount++;
+        }
+
+        if (darkFeatureCount < minimumDarkFeatures)
+            return double.MinValue;
+
+        // The text-only crop deliberately omits the outer button. Recover
+        // that missing semantic context from the light bands immediately
+        // above and below the glyphs. This rejects dark card text and the
+        // green header's white slash even when their edge directions happen
+        // to correlate with a few letters.
+        var brightBackgroundCount = 0;
+        var backgroundError = 0d;
+        foreach (var sample in backgroundSamples)
+        {
+            var value = screen.Pixels[(screenY + sample.Y) * screen.Width + screenX + sample.X];
+            if (value >= 200)
+                brightBackgroundCount++;
+            backgroundError += Math.Abs(value - sample.Center);
+        }
+
+        if (brightBackgroundCount < minimumBrightBackgroundSamples)
+            return double.MinValue;
+
+        var matchedInkPixels = 0;
+        var unexpectedInkPixels = 0;
+        var templateInkPixels = 0;
+        foreach (var sample in inkSamples)
+        {
+            var value = screen.Pixels[(screenY + sample.Y) * screen.Width + screenX + sample.X];
+            var isDark = value <= 130;
+            if (sample.ExpectedDark)
+            {
+                templateInkPixels++;
+                if (isDark)
+                    matchedInkPixels++;
+            }
+            else if (isDark)
+            {
+                unexpectedInkPixels++;
+            }
+        }
+
+        var inkF1 = 2d * matchedInkPixels
+            / Math.Max(
+                1,
+                2 * matchedInkPixels
+                    + unexpectedInkPixels
+                    + templateInkPixels - matchedInkPixels);
+        // A whole-word mask is what distinguishes Reset from another brown
+        // word in the instructional paragraph. Edge correlation alone gave
+        // that unrelated word a score of ~0.802 on the no-Reset fixture.
+        if (inkF1 < 0.72d)
+            return double.MinValue;
+
+        var edgeScore = 1d - edgeError / (features.Count * 510d);
+        var intensityScore = 1d - intensityError / (features.Count * 255d);
+        // Keep the ink gate explicit, while retaining edge/intensity scoring
+        // for the final placement of the complete word.
+        var darkCoverageScore = Math.Clamp(
+            darkFeatureCount / (double)Math.Max(1, features.Count(static feature => feature.IsDark)),
+            0d,
+            1d);
+        var backgroundScore = 1d - backgroundError
+            / (Math.Max(1, backgroundSamples.Count) * 255d);
+        return Math.Clamp(
+            edgeScore * 0.50d
+                + intensityScore * 0.15d
+                + darkCoverageScore * 0.20d
+                + backgroundScore * 0.10d
+                + inkF1 * 0.05d,
+            -1d,
+            1d);
+    }
+
+    private static ButtonBackgroundSample[] BuildButtonBackgroundSamples(
+        GrayImage template)
+    {
+        var samples = new List<ButtonBackgroundSample>();
+        var topBandEnd = Math.Min(6, template.Height);
+        var bottomBandStart = Math.Max(0, template.Height - 6);
+        for (var y = 1; y < topBandEnd; y++)
+        {
+            for (var x = 3; x < template.Width - 3; x += 3)
+            {
+                var center = template.Pixels[y * template.Width + x];
+                if (center >= 200)
+                    samples.Add(new ButtonBackgroundSample(x, y, center));
+            }
+        }
+
+        for (var y = bottomBandStart; y < template.Height - 1; y++)
+        {
+            for (var x = 3; x < template.Width - 3; x += 3)
+            {
+                var center = template.Pixels[y * template.Width + x];
+                if (center >= 200)
+                    samples.Add(new ButtonBackgroundSample(x, y, center));
+            }
+        }
+
+        return samples.ToArray();
+    }
+
+    private static ButtonInkSample[] BuildButtonInkSamples(GrayImage template)
+    {
+        var samples = new List<ButtonInkSample>(template.Width * template.Height);
+        for (var y = 0; y < template.Height; y++)
+        {
+            for (var x = 0; x < template.Width; x++)
+            {
+                var expectedDark = template.Pixels[y * template.Width + x] <= 130;
+                // Keep every dark glyph pixel for recall. Sample the light
+                // area at 2px spacing so extra words are penalized without
+                // making every polling pass needlessly expensive.
+                if (expectedDark || ((x & 1) == 0 && (y & 1) == 0))
+                    samples.Add(new ButtonInkSample(x, y, expectedDark));
+            }
+        }
+
+        return samples.ToArray();
+    }
+
     private static TemplateMatchResult FindAtSize(
         GrayImage screen,
         GrayImage template,
@@ -855,6 +1251,24 @@ internal static class TemplateMatcher
         int Height,
         byte[] Pixels,
         byte[] Mask);
+
+    private readonly record struct ButtonFeature(
+        int X,
+        int Y,
+        byte Center,
+        int Dx,
+        int Dy,
+        bool IsDark);
+
+    private readonly record struct ButtonBackgroundSample(
+        int X,
+        int Y,
+        byte Center);
+
+    private readonly record struct ButtonInkSample(
+        int X,
+        int Y,
+        bool ExpectedDark);
 
     private readonly record struct RoiBounds(int X, int Y, int Width, int Height);
 }

@@ -50,6 +50,61 @@ public sealed class IndependentTrainingCatalogTests
     }
 
     [Theory]
+    [InlineData("Second Year", "01_01", "Fairy Stakes", "Junior Cup")]
+    [InlineData("Second Year", "03_02", "Flower Cup", "Spring Stakes")]
+    [InlineData("First Year", "12_01", "Asahi Hai Futurity Stakes", "Hanshin Juvenile Fillies")]
+    public void Picker_ocr_rejects_same_slot_course_headers_shared_by_different_races(
+        string year,
+        string turn,
+        string firstRaceName,
+        string secondRaceName)
+    {
+        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new IndependentTrainingAgendaSelection(year, turn, firstRaceName), out var first));
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new IndependentTrainingAgendaSelection(year, turn, secondRaceName), out var second));
+        Assert.NotEqual(first.RaceId, second.RaceId);
+        Assert.Equal(first.PickerHeaderTarget, second.PickerHeaderTarget);
+
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(first, out var firstTarget));
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(second, out var secondTarget));
+        Assert.Empty(firstTarget);
+        Assert.Empty(secondTarget);
+    }
+
+    [Fact]
+    public void Picker_ocr_accepts_header_unique_in_its_slot_even_if_other_slots_share_it()
+    {
+        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new IndependentTrainingAgendaSelection(
+                "First Year", "10_01", "Saudi Arabia Royal Cup"), out var race));
+        Assert.Contains(catalog.Races, other =>
+            other.IsGameAvailable
+            && other.RaceId != race.RaceId
+            && other.PickerHeaderTarget == race.PickerHeaderTarget
+            && (other.Year != race.Year || other.Turn != race.Turn));
+
+        Assert.True(catalog.TryGetAgendaPickerOcrTarget(race, out var target));
+        Assert.Equal("Tokyo Turf 1600m (Mile) Left", target);
+    }
+
+    [Fact]
+    public void Picker_ocr_rejects_missing_header_unavailable_and_unknown_races()
+    {
+        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new IndependentTrainingAgendaSelection(
+                "First Year", "10_01", "Saudi Arabia Royal Cup"), out var race));
+
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { GameTrack = "" }, out _));
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { IsGameAvailable = false }, out _));
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { RaceId = -1 }, out _));
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { RaceId = int.MaxValue }, out _));
+    }
+
+    [Theory]
     [InlineData("front", "Front")]
     [InlineData("pace", "Pace")]
     [InlineData("late", "Late")]
@@ -143,9 +198,6 @@ public sealed class IndependentTrainingCatalogTests
             "independent_strategy_change",
             actions[IndependentTrainingCatalog.StrategyChangeSemanticAction()]);
         Assert.Equal(
-            "independent_strategy_option",
-            actions[IndependentTrainingCatalog.StrategyOptionSemanticAction()]);
-        Assert.Equal(
             "independent_strategy_save",
             actions[IndependentTrainingCatalog.StrategySaveSemanticAction()]);
         Assert.Equal(
@@ -158,7 +210,9 @@ public sealed class IndependentTrainingCatalogTests
                     strategyValue,
                     out var strategyAction,
                     out _));
-            Assert.Equal("independent_strategy_option", actions[strategyAction]);
+            Assert.Equal(
+                $"independent_strategy_option_{strategyValue}_pre",
+                actions[strategyAction]);
         }
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);

@@ -3258,17 +3258,133 @@
                     "pollIntervalMs": 250,
                     "postDelay": 600
                   },
-                  "independent_strategy_option": {
-                    "algorithm": "OcrText",
-                    "action": "ClickText",
-                    "roi": [20,250,860,1050],
-                    "ocrLanguage": "en-US",
-                    "fuzzyThreshold": 0.82,
-                    "unique": true,
-                    "ocrMatchMode": "line",
+                  "independent_strategy_option_front_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [645,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["independent_strategy_option_front_click"],
+                    "success": true
+                  },
+                  "independent_strategy_option_front_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_front.png",
+                    "templThreshold": 0.90,
+                    "roi": [670,930,120,85],
                     "timeoutMs": 12000,
-                    "pollIntervalMs": 300,
-                    "postDelay": 350
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["independent_strategy_option_front_post"]
+                  },
+                  "independent_strategy_option_front_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [645,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "independent_strategy_option_pace_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [450,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["independent_strategy_option_pace_click"],
+                    "success": true
+                  },
+                  "independent_strategy_option_pace_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_pace.png",
+                    "templThreshold": 0.90,
+                    "roi": [480,930,110,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["independent_strategy_option_pace_post"]
+                  },
+                  "independent_strategy_option_pace_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [450,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "independent_strategy_option_late_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [260,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["independent_strategy_option_late_click"],
+                    "success": true
+                  },
+                  "independent_strategy_option_late_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_late.png",
+                    "templThreshold": 0.90,
+                    "roi": [290,930,100,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["independent_strategy_option_late_post"]
+                  },
+                  "independent_strategy_option_late_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [260,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "independent_strategy_option_end_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [70,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["independent_strategy_option_end_click"],
+                    "success": true
+                  },
+                  "independent_strategy_option_end_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_end.png",
+                    "templThreshold": 0.90,
+                    "roi": [100,930,130,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["independent_strategy_option_end_post"]
+                  },
+                  "independent_strategy_option_end_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [70,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
                   },
                   "independent_strategy_save": {
                     "algorithm": "MatchTemplate",
@@ -4139,9 +4255,51 @@
                     "templThreshold": 0.62,
                     "swipe": [840,1200,840,500,600],
                     "maxScrolls": 5,
+                    "timeoutMs": 60000,
+                    "pollIntervalMs": 500,
+                    "postDelay": 350
+                  },
+                  "independent_agenda_race_scroll_top": {
+                    "algorithm": "JustReturn",
+                    "action": "Swipe",
+                    "swipe": [840,500,840,1200,600],
+                    "postDelay": 450,
+                    "maxTimes": 5,
+                    "next": ["independent_agenda_race_scroll_top"],
+                    "exceededNext": ["independent_agenda_race_scroll_top_done"]
+                  },
+                  "independent_agenda_race_scroll_top_done": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "independent_agenda_race_find": {
+                    "algorithm": "OcrText",
+                    "action": "ClickText",
+                    "roi": [20,260,860,950],
+                    "ocrLanguage": "en-US",
+                    "fuzzyThreshold": 1.0,
+                    "ocrMatchMode": "tokenCoverage",
+                    "ocrRequireAllTokens": true,
+                    "unique": true,
+                    "rowExpansion": [40,35,40,65],
+                    "swipe": [840,1200,840,500,600],
+                    "maxScrolls": 5,
                     "timeoutMs": 15000,
                     "pollIntervalMs": 500,
                     "postDelay": 350
+                  },
+                  "independent_agenda_race_verify": {
+                    "algorithm": "OcrText",
+                    "action": "FindText",
+                    "roi": [20,260,860,950],
+                    "ocrLanguage": "en-US",
+                    "fuzzyThreshold": 1.0,
+                    "ocrMatchMode": "tokenCoverage",
+                    "ocrRequireAllTokens": true,
+                    "unique": true,
+                    "timeoutMs": 5000,
+                    "pollIntervalMs": 500
                   },
                   "independent_agenda_race_card_verify": {
                     "algorithm": "MatchTemplateScaled",
@@ -4184,11 +4342,22 @@
                     "action": "ClickSelf",
                     "template": "templates/independent/skills_add.png",
                     "templThreshold": 0.80,
-                    "roi": [20,300,860,1250],
+                    "roi": [300,500,300,800],
                     "timeoutMs": 1800,
                     "pollIntervalMs": 250,
+                    "next": ["independent_skills_picker_open_verify"],
                     "onErrorNext": ["independent_skills_open_scroll"],
                     "postDelay": 600
+                  },
+                  "independent_skills_picker_open_verify": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/skills_search_field.png",
+                    "templThreshold": 0.80,
+                    "roi": [600,1318,60,60],
+                    "timeoutMs": 4000,
+                    "pollIntervalMs": 200,
+                    "success": true
                   },
                   "independent_skills_open_scroll": {
                     "algorithm": "JustReturn",
@@ -4208,7 +4377,7 @@
                     "action": "JustReturn",
                     "template": "templates/independent/skills_add.png",
                     "templThreshold": 0.80,
-                    "roi": [20,300,860,1250],
+                    "roi": [300,500,300,800],
                     "timeoutMs": 1800,
                     "pollIntervalMs": 250,
                     "onErrorNext": ["independent_skills_post_confirm_scroll"],
@@ -4233,7 +4402,7 @@
                      "action": "JustReturn",
                      "template": "templates/independent/skills_main_reset.png",
                      "templThreshold": 0.80,
-                     "roi": [300,300,600,700],
+                     "roi": [400,600,360,500],
                      "timeoutMs": 1400,
                      "pollIntervalMs": 150,
                      "next": ["independent_skills_main_reset"],
@@ -4244,12 +4413,12 @@
                      "action": "ClickSelf",
                      "template": "templates/independent/skills_main_reset.png",
                      "templThreshold": 0.80,
-                     "roi": [300,300,600,700],
+                     "roi": [400,600,360,500],
                      "timeoutMs": 12000,
                      "pollIntervalMs": 250,
                      "postDelay": 500,
                      "next": ["independent_skills_reset_probe"],
-                     "maxTimes": 20,
+                     "maxTimes": 0,
                      "exceededNext": ["independent_skills_reset_exceeded"]
                    },
                    "independent_skills_reset_done": {
@@ -4261,12 +4430,12 @@
                      "algorithm": "JustReturn",
                      "action": "Stop"
                    },
-                   "independent_skills_search_reset": {
+                  "independent_skills_search_reset": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
                     "template": "templates/independent/skills_search_reset.png",
                     "templThreshold": 0.80,
-                    "roi": [640,1260,250,180],
+                    "roi": [650,1300,240,120],
                     "timeoutMs": 1400,
                     "pollIntervalMs": 150,
                     "next": ["independent_skills_search_reset_click"],
@@ -4277,7 +4446,7 @@
                     "action": "ClickSelf",
                     "template": "templates/independent/skills_search_reset.png",
                     "templThreshold": 0.80,
-                    "roi": [640,1260,250,180],
+                    "roi": [650,1300,240,120],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 250
@@ -4287,7 +4456,7 @@
                     "action": "ClickSelf",
                     "template": "templates/independent/skills_search_reset_active.png",
                     "templThreshold": 0.80,
-                    "roi": [640,1260,250,180],
+                    "roi": [650,1300,240,120],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 250
@@ -4297,7 +4466,7 @@
                     "action": "ClickSelf",
                     "template": "templates/independent/skills_search_field.png",
                     "templThreshold": 0.80,
-                    "roi": [0,1260,680,180],
+                    "roi": [600,1318,60,60],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 150

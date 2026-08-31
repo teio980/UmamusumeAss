@@ -489,7 +489,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         if (!IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
                 settings.IndependentLineupStrategy,
                 out var strategyOptionAction,
-                out var strategyTargetText))
+                out _))
         {
             return Failure(
                 $"Independent lineup strategy '{settings.IndependentLineupStrategy}' "
@@ -519,7 +519,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             }
         }
 
-        if (!TryValidateIndependentSkillAction(
+        if (!TryValidateIndependentTemplateAction(
                 pack,
                 strategyOptionAction,
                 out var strategyOptionMappingError))
@@ -530,9 +530,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 "independent.strategy.change");
         }
 
-        // Agenda cells and race identity are JSON/template driven.  The
-        // catalog supplies the stable Race ID used to select the card image;
-        // no OCR text, row number or page position identifies a race.
+        // Agenda cells stay JSON/template driven. Race identity tries the
+        // visible picker header by OCR first, then falls back to the stable
+        // Race ID card image when OCR cannot find the row.
         foreach (var selection in settings.IndependentAgendaSelections ?? [])
         {
             var yearActionId = $"independent.agenda.year.{SemanticYearSlug(selection.Year)}";
@@ -556,6 +556,29 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     "career_entry");
             }
 
+            if (!TryValidateIndependentOcrAction(
+                    pack,
+                    IndependentTrainingCatalog.AgendaRaceSemanticAction(),
+                    "ClickText",
+                    out var ocrMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot run OCR race lookup: {ocrMappingError}",
+                    "career_entry");
+            }
+
+            if (!TryValidateIndependentOcrAction(
+                    pack,
+                    IndependentTrainingCatalog.AgendaRaceVerifySemanticAction(),
+                    "FindText",
+                    out var ocrVerifyMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot run OCR race verification: "
+                        + ocrVerifyMappingError,
+                    "career_entry");
+            }
+
             if (!TryValidateIndependentTemplateAction(
                     pack,
                     IndependentTrainingCatalog.AgendaRaceCardSemanticAction(),
@@ -573,6 +596,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             {
                 return Failure(
                     $"Independent agenda '{selection.Key}' cannot run: {cardVerifyMappingError}",
+                    "career_entry");
+            }
+
+            if (!TryValidateIndependentTemplateAction(
+                    pack,
+                    "independent.agenda.race.scroll.top",
+                    out var rewindMappingError))
+            {
+                return Failure(
+                    $"Independent agenda '{selection.Key}' cannot rewind for card fallback: {rewindMappingError}",
                     "career_entry");
             }
 
@@ -776,6 +809,97 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             "independent.agenda.race.card");
                     }
 
+                    if (!independentCatalog.TryGetAgendaPickerOcrTarget(pickerRace, out var ocrTarget))
+                    {
+                        logSink?.Add(
+                            "Career Training",
+                            $"Independent agenda race '{selection.RaceName}' has no unique OCR picker header target; "
+                                + "using Race ID card fallback.",
+                            LogEntryKind.Info);
+                    }
+                    else
+                    {
+                        logSink?.Add(
+                            "Career Training",
+                            $"Independent agenda OCR target uses visible picker header '{ocrTarget}' "
+                                + $"for {selection.RaceName}; Race ID card remains fallback.");
+
+                        var ocrRaceResult = await RunScreenActionAsync(
+                                connection,
+                                pack,
+                                "career_entry",
+                                IndependentTrainingCatalog.AgendaRaceSemanticAction(),
+                                logSink,
+                                cancellationToken,
+                                new HachimiPipelineRunOptions
+                                {
+                                    TargetTextOverrides = new Dictionary<string, string>(
+                                        StringComparer.OrdinalIgnoreCase)
+                                    {
+                                        ["independent_agenda_race_find"] = ocrTarget,
+                                    },
+                                })
+                            .ConfigureAwait(false);
+                        if (ocrRaceResult is null)
+                        {
+                            var ocrVerifyResult = await RunScreenActionAsync(
+                                    connection,
+                                    pack,
+                                    "career_entry",
+                                    IndependentTrainingCatalog.AgendaRaceVerifySemanticAction(),
+                                    logSink,
+                                    cancellationToken,
+                                    new HachimiPipelineRunOptions
+                                    {
+                                        TargetTextOverrides = new Dictionary<string, string>(
+                                            StringComparer.OrdinalIgnoreCase)
+                                        {
+                                            ["independent_agenda_race_verify"] = ocrTarget,
+                                        },
+                                    })
+                                .ConfigureAwait(false);
+                            if (ocrVerifyResult is null)
+                            {
+                                var saveAfterOcrResult = await RunScreenActionAsync(
+                                        connection,
+                                        pack,
+                                        "career_entry",
+                                        "independent.agenda.save",
+                                        logSink,
+                                        cancellationToken)
+                                    .ConfigureAwait(false);
+                                if (saveAfterOcrResult is not null)
+                                    return saveAfterOcrResult;
+
+                                continue;
+                            }
+
+                            // ClickText already changed selection. A second card tap
+                            // could toggle it off, so a failed verification must stop.
+                            return ocrVerifyResult;
+                        }
+                        else
+                        {
+                            if (!IsAgendaOcrRecognitionMiss(ocrRaceResult.Message, ocrTarget))
+                                return ocrRaceResult;
+
+                            logSink?.Add(
+                                "Career Training",
+                                $"Independent agenda OCR lookup for '{selection.RaceName}' failed; "
+                                    + "falling back to Race ID card detection.",
+                                LogEntryKind.Info);
+                        }
+
+                        // OCR may have reached the bottom; fallback must rescan
+                        // from the same origin instead of missing earlier rows.
+                        var rewindResult = await RunScreenActionAsync(
+                                connection, pack, "career_entry",
+                                "independent.agenda.race.scroll.top", logSink, cancellationToken)
+                            .ConfigureAwait(false);
+                        if (rewindResult is not null)
+                            return rewindResult;
+                    }
+
                     var raceCardPath = IndependentTrainingCatalog.TryResolveRaceCardImagePath(
                         pickerRace,
                         pack.ExecutionDefinition.BaseDirectory);
@@ -790,7 +914,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     logSink?.Add(
                         "Career Training",
                         $"Independent agenda race '{selection.RaceName}' uses Race ID "
-                        + $"{pickerRace.RaceId} card detection; OCR is not used for race identity.");
+                        + $"{pickerRace.RaceId} card detection fallback.");
 
                     var cardResult = await RunScreenActionAsync(
                             connection,
@@ -1199,23 +1323,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
             logSink?.Add(
                 "Career Training",
-                $"Independent setup step 7/7: selecting Strategy '{strategyTargetText}' "
-                    + $"from IndependentLineupStrategy='{settings.IndependentLineupStrategy}'.");
+                $"Independent setup step 7/7: selecting Strategy "
+                    + $"'{settings.IndependentLineupStrategy}'.");
             var strategyOptionResult = await RunScreenActionAsync(
                     connection,
                     pack,
                     "career_entry",
                     strategyOptionAction,
                     logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TargetTextOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["independent_strategy_option"] = strategyTargetText,
-                        },
-                    })
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (strategyOptionResult is not null)
                 return strategyOptionResult;
@@ -2134,14 +2250,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         return null;
     }
 
-    /// <summary>
-    /// Validates data-driven Independent controls before the first tap.
-    /// Agenda race identity is deliberately excluded: it is located by the
-    /// shared OCR task with a runtime target supplied by the catalog.
-    /// </summary>
-    private static bool TryValidateIndependentSkillAction(
+    internal static bool IsAgendaOcrRecognitionMiss(string message, string targetText) =>
+        message.EndsWith(
+            $"OCR target '{targetText}' was not found before timeout.", StringComparison.Ordinal)
+        || (message.Contains($"OCR target '{targetText}' matched ", StringComparison.Ordinal)
+            && message.EndsWith(" candidates.", StringComparison.Ordinal));
+
+    private static bool TryValidateIndependentOcrAction(
         UraScenarioPack pack,
         string actionId,
+        string expectedAction,
         out string error)
     {
         var screen = pack.ScreenProfile.Find(CareerFinalConfirmationScreenId)
@@ -2167,15 +2285,24 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         if (task.Algorithm.Equals("OCRText", StringComparison.OrdinalIgnoreCase)
-            && task.Action.Equals("ClickText", StringComparison.OrdinalIgnoreCase))
+            && task.Action.Equals(expectedAction, StringComparison.OrdinalIgnoreCase))
         {
             error = string.Empty;
             return true;
         }
 
-        error = $"task '{action.Task}' must be an OCRText/ClickText task";
+        error = $"task '{action.Task}' must be an OCRText/{expectedAction} task";
         return false;
     }
+
+    /// <summary>
+    /// Validates data-driven Independent controls before the first tap.
+    /// </summary>
+    private static bool TryValidateIndependentSkillAction(
+        UraScenarioPack pack,
+        string actionId,
+        out string error) =>
+        TryValidateIndependentOcrAction(pack, actionId, "ClickText", out error);
 
     internal static bool TryValidateIndependentTemplateAction(
         UraScenarioPack pack,

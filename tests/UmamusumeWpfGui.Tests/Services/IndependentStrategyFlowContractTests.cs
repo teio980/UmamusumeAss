@@ -40,6 +40,124 @@ public sealed class IndependentStrategyFlowContractTests
     }
 
     [Fact]
+    public async Task Independent_agenda_race_picker_uses_ocr_before_card_fallback()
+    {
+        var root = FindSolutionRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(
+            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var finalConfirmation = pack.ScreenProfile.Find("career_final_confirmation");
+
+        Assert.NotNull(finalConfirmation);
+        var ocrFind = finalConfirmation!.FindAction(
+            IndependentTrainingCatalog.AgendaRaceSemanticAction());
+        var ocrVerify = finalConfirmation.FindAction(
+            IndependentTrainingCatalog.AgendaRaceVerifySemanticAction());
+        var cardFind = finalConfirmation.FindAction(
+            IndependentTrainingCatalog.AgendaRaceCardSemanticAction());
+        var cardVerify = finalConfirmation.FindAction(
+            IndependentTrainingCatalog.AgendaRaceCardVerifySemanticAction());
+
+        Assert.Equal("independent_agenda_race_find", ocrFind?.Task);
+        Assert.Equal("independent_agenda_race_verify", ocrVerify?.Task);
+        Assert.Equal("independent_agenda_race_card_find", cardFind?.Task);
+        Assert.Equal("independent_agenda_race_card_verify", cardVerify?.Task);
+
+        Assert.Equal("OcrText", pack.ExecutionDefinition.GetTask(ocrFind!.Task).Algorithm);
+        Assert.Equal("ClickText", pack.ExecutionDefinition.GetTask(ocrFind.Task).Action);
+        Assert.Equal("OcrText", pack.ExecutionDefinition.GetTask(ocrVerify!.Task).Algorithm);
+        Assert.Equal("FindText", pack.ExecutionDefinition.GetTask(ocrVerify.Task).Action);
+        foreach (var taskName in new[] { ocrFind.Task, ocrVerify.Task })
+        {
+            var task = pack.ExecutionDefinition.GetTask(taskName);
+            Assert.Equal("tokenCoverage", task.OcrMatchMode);
+            Assert.Equal(1d, task.FuzzyThreshold);
+            Assert.True(task.OcrRequireAllTokens);
+            Assert.True(task.Unique);
+        }
+        Assert.Equal("MatchTemplateScaled", pack.ExecutionDefinition.GetTask(cardFind!.Task).Algorithm);
+        Assert.Equal("ClickSelf", pack.ExecutionDefinition.GetTask(cardFind.Task).Action);
+        // Give five template scrolls enough time without weakening recognition.
+        Assert.Equal(0.62d, pack.ExecutionDefinition.GetTask(cardFind.Task).TemplateThreshold);
+        Assert.Equal(60_000, pack.ExecutionDefinition.GetTask(cardFind.Task).TimeoutMilliseconds);
+        Assert.Equal("MatchTemplateScaled", pack.ExecutionDefinition.GetTask(cardVerify!.Task).Algorithm);
+        Assert.Equal("JustReturn", pack.ExecutionDefinition.GetTask(cardVerify.Task).Action);
+
+        var pipelineSource = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "UmamusumeWpfGui",
+            "Services",
+            "Training",
+            "AdbCareerTrainingPipeline.cs"));
+        // Check the execution branch, not the earlier preflight declarations.
+        var lookupIndex = pipelineSource.IndexOf("var ocrRaceResult =", StringComparison.Ordinal);
+        Assert.True(lookupIndex >= 0);
+        var ocrIndex = pipelineSource.IndexOf(
+            "IndependentTrainingCatalog.AgendaRaceSemanticAction()",
+            lookupIndex, StringComparison.Ordinal);
+        var cardIndex = pipelineSource.IndexOf(
+            "IndependentTrainingCatalog.AgendaRaceCardSemanticAction()",
+            lookupIndex, StringComparison.Ordinal);
+        Assert.True(ocrIndex >= 0);
+        Assert.True(cardIndex > ocrIndex);
+        var verificationFailure = pipelineSource.IndexOf(
+            "return ocrVerifyResult;", ocrIndex, StringComparison.Ordinal);
+        var rewindIndex = pipelineSource.IndexOf(
+            "\"independent.agenda.race.scroll.top\"", ocrIndex, StringComparison.Ordinal);
+        Assert.InRange(verificationFailure, ocrIndex, cardIndex);
+        Assert.InRange(rewindIndex, ocrIndex, cardIndex);
+
+        var rewindAction = finalConfirmation.FindAction("independent.agenda.race.scroll.top");
+        Assert.NotNull(rewindAction);
+        Assert.True(AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            pack, "independent.agenda.race.scroll.top", out var rewindError), rewindError);
+        var rewind = pack.ExecutionDefinition.GetTask(rewindAction!.Task);
+        Assert.Equal("JustReturn", rewind.Algorithm);
+        Assert.Equal("Swipe", rewind.Action);
+        Assert.Equal([840, 500, 840, 1200, 600], rewind.Swipe!);
+        Assert.Equal([rewindAction.Task], rewind.Next);
+        Assert.True(rewind.MaxTimes >= pack.ExecutionDefinition.GetTask(ocrFind.Task).MaxScrolls);
+        var done = pack.ExecutionDefinition.GetTask(Assert.Single(rewind.ExceededNext));
+        Assert.Equal("JustReturn", done.Action);
+        Assert.True(done.Success);
+        Assert.Empty(done.Next);
+    }
+
+    [Theory]
+    [InlineData("OCR target 'race' was not found before timeout.", true)]
+    [InlineData("Could not execute JSON task 'find': OCR target 'race' matched 2 candidates.", true)]
+    [InlineData("OCR screenshot could not be captured for 'find'.", false)]
+    [InlineData("OCR task 'find' failed: ADB swipe failed.", false)]
+    [InlineData("OCR task 'find' requires targetText or a runtime target override.", false)]
+    [InlineData("Screen action is missing from screen_profile.json.", false)]
+    [InlineData("OCR target 'another race' was not found before timeout.", false)]
+    public void Agenda_fallback_only_accepts_recognition_misses(string message, bool expected)
+    {
+        Assert.Equal(expected, AdbCareerTrainingPipeline.IsAgendaOcrRecognitionMiss(message, "race"));
+    }
+
+    [Fact]
+    public void Independent_agenda_race_ocr_target_uses_picker_header_text()
+    {
+        var race = new IndependentTrainingRace(
+            "Saudi Arabia Royal Cup",
+            "G3",
+            "First Year",
+            "10_01",
+            "Turf",
+            "Tokyo \u21d0",
+            "Mile",
+            "1600m",
+            RaceId: 3057,
+            GameTrack: "Tokyo",
+            GameDistance: 1600,
+            GameGround: "Turf",
+            IsGameAvailable: true);
+
+        Assert.Equal("Tokyo Turf 1600m (Mile) Left", race.PickerHeaderTarget);
+    }
+
+    [Fact]
     public async Task Profile_and_pipeline_contract_keeps_skills_collapse_strategy_save_start_order()
     {
         var root = FindSolutionRoot();
@@ -174,9 +292,111 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.Equal("strategy_change.png", Path.GetFileName(change.Template));
         Assert.Equal([620, 600, 250, 180], change.Roi!);
 
-        var option = definition.GetTask("independent_strategy_option");
-        Assert.Equal("OcrText", option.Algorithm, ignoreCase: true);
-        Assert.Equal("ClickText", option.Action, ignoreCase: true);
+        var strategyFixture = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "tests",
+            "UmamusumeWpfGui.Tests",
+            "Fixtures",
+            "strategy_live_current.png"));
+        Assert.NotNull(strategyFixture);
+        Assert.Equal(900, strategyFixture!.Width);
+        Assert.Equal(1600, strategyFixture.Height);
+        var strategyTemplateDefinitions = new Dictionary<string, (string Template, int[] Roi)>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ["front"] = ("strategy_option_front.png", [670,930,120,85]),
+            ["pace"] = ("strategy_option_pace.png", [480,930,110,85]),
+            ["late"] = ("strategy_option_late.png", [290,930,100,85]),
+            ["end"] = ("strategy_option_end.png", [100,930,130,85]),
+        };
+        var selectedCorner = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "independent",
+            "strategy_selected_corner.png"));
+        Assert.NotNull(selectedCorner);
+        var selectedCornerRois = new Dictionary<string, int[]>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ["front"] = [645,895,60,60],
+            ["pace"] = [450,895,60,60],
+            ["late"] = [260,895,60,60],
+            ["end"] = [70,895,60,60],
+        };
+        foreach (var (strategy, definitionInfo) in strategyTemplateDefinitions)
+        {
+            var templatePath = Path.Combine(
+                root,
+                "resource",
+                "hachimi",
+                "ura",
+                "screens",
+                "templates",
+                "independent",
+                definitionInfo.Template);
+            var template = GrayImageCodec.FromFile(templatePath);
+            Assert.NotNull(template);
+            Assert.True(
+                template!.Width > 0 && template.Height > 0,
+                $"{strategy} strategy template is empty.");
+            var match = TemplateMatcher.Find(
+                strategyFixture,
+                template,
+                definitionInfo.Roi,
+                threshold: 0.90,
+                referenceWidth: 900,
+                referenceHeight: 1600);
+            Assert.True(
+                match.Found,
+                $"{strategy} template did not match the live Strategy dialog: {match.Score:0.000}.");
+
+            var taskPrefix = $"independent_strategy_option_{strategy}";
+            var pre = definition.GetTask($"{taskPrefix}_pre");
+            var click = definition.GetTask($"{taskPrefix}_click");
+            var post = definition.GetTask($"{taskPrefix}_post");
+            Assert.Equal("MatchTemplate", pre.Algorithm, ignoreCase: true);
+            Assert.Equal("JustReturn", pre.Action, ignoreCase: true);
+            Assert.Equal("strategy_selected_corner.png", Path.GetFileName(pre.Template));
+            Assert.Equal(selectedCornerRois[strategy], pre.Roi!);
+            Assert.True(pre.Success);
+            Assert.Equal($"{taskPrefix}_click", Assert.Single(pre.OnErrorNext));
+            Assert.Equal("MatchTemplate", click.Algorithm, ignoreCase: true);
+            Assert.Equal("ClickSelf", click.Action, ignoreCase: true);
+            Assert.Equal(definitionInfo.Template, Path.GetFileName(click.Template));
+            Assert.Equal(definitionInfo.Roi, click.Roi!);
+            Assert.Equal($"{taskPrefix}_post", Assert.Single(click.Next));
+            Assert.Equal("MatchTemplate", post.Algorithm, ignoreCase: true);
+            Assert.Equal("JustReturn", post.Action, ignoreCase: true);
+            Assert.Equal("strategy_selected_corner.png", Path.GetFileName(post.Template));
+            Assert.Equal(selectedCornerRois[strategy], post.Roi!);
+            Assert.True(post.Success);
+        }
+
+        var selectedMatch = TemplateMatcher.Find(
+            strategyFixture,
+            selectedCorner!,
+            selectedCornerRois["late"],
+            threshold: 0.90,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+        Assert.True(selectedMatch.Found);
+        foreach (var strategy in new[] { "front", "pace", "end" })
+        {
+            var notSelectedMatch = TemplateMatcher.Find(
+                strategyFixture,
+                selectedCorner!,
+                selectedCornerRois[strategy],
+                threshold: 0.90,
+                referenceWidth: 900,
+                referenceHeight: 1600);
+            Assert.False(
+                notSelectedMatch.Found,
+                $"Selected-corner marker falsely matched {strategy}: {notSelectedMatch.Score:0.000}.");
+        }
 
         var save = definition.GetTask("independent_strategy_save");
         Assert.Equal("MatchTemplate", save.Algorithm, ignoreCase: true);
@@ -220,11 +440,18 @@ public sealed class IndependentStrategyFlowContractTests
             actions["independent.select_mode"]);
         Assert.Equal("independent_strategy_change", actions["independent.strategy.change"]);
         Assert.Equal("independent_strategy_save", actions["independent.strategy.save"]);
-        Assert.All(
-            StrategyValues,
-            value => Assert.Equal(
-                "independent_strategy_option",
-                actions[$"independent.strategy.option.{value}"]));
+        Assert.Equal(
+            "independent_strategy_option_front_pre",
+            actions["independent.strategy.option.front"]);
+        Assert.Equal(
+            "independent_strategy_option_pace_pre",
+            actions["independent.strategy.option.pace"]);
+        Assert.Equal(
+            "independent_strategy_option_late_pre",
+            actions["independent.strategy.option.late"]);
+        Assert.Equal(
+            "independent_strategy_option_end_pre",
+            actions["independent.strategy.option.end"]);
 
         var pipelineSource = await File.ReadAllTextAsync(
             Path.Combine(
@@ -376,6 +603,15 @@ public sealed class IndependentStrategyFlowContractTests
                     strategyAction,
                     out var validationError),
                 $"{strategyAction}: {validationError}");
+        }
+        foreach (var strategyValue in StrategyValues)
+        {
+            Assert.True(
+                AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+                    pack,
+                    $"independent.strategy.option.{strategyValue}",
+                    out var validationError),
+                $"independent.strategy.option.{strategyValue}: {validationError}");
         }
 
         var agendaRaceCardVerifyAction =
