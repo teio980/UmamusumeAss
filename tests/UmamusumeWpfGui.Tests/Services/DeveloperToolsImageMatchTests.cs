@@ -10,6 +10,43 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class DeveloperToolsImageMatchTests
 {
     [Fact]
+    public void Support_autofill_confirmation_fixture_matches_the_fixed_ok_button_in_its_roi()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "captures",
+            "support_autofill_prompt_ura.png"));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "support_autofill_confirmation_support_autofill_ok.png"));
+
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.Find(
+            screen!,
+            template!,
+            roi: [430, 940, 440, 220],
+            threshold: 0.78,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Assert.True(result.Found, $"Auto-Fill confirmation score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 600, 700);
+        Assert.InRange(result.CenterY, 1000, 1100);
+    }
+
+    [Fact]
     public void Independent_add_skills_fixture_matches_the_real_text_not_the_old_blank_coordinate()
     {
         var root = FindSolutionRoot();

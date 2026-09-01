@@ -157,7 +157,10 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.Equal([400, 600, 360, 500], resetClick.Roi!);
         Assert.Equal(["independent_skills_main_reset"], resetProbe.Next);
         Assert.Equal(["independent_skills_reset_done"], resetProbe.OnErrorNext);
+        Assert.Equal(0.82, resetProbe.TemplateThreshold);
         Assert.Equal(["independent_skills_reset_probe"], resetClick.Next);
+        Assert.Equal(["independent_skills_reset_done"], resetClick.OnErrorNext);
+        Assert.Equal(0.82, resetClick.TemplateThreshold);
         Assert.Equal(0, resetClick.MaxTimes);
         Assert.Equal(["independent_skills_reset_exceeded"], resetClick.ExceededNext);
 

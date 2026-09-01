@@ -168,6 +168,8 @@ public sealed class IndependentTrainingCatalogTests
             "ura",
             "screens",
             "execution.json");
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
+        Assert.NotNull(definition);
 
         using var profile = JsonDocument.Parse(await File.ReadAllTextAsync(profilePath));
         var actions = profile.RootElement
@@ -203,6 +205,12 @@ public sealed class IndependentTrainingCatalogTests
         Assert.Equal(
             "independent_strategy_return_probe",
             actions[IndependentTrainingCatalog.StrategyReturnSemanticAction()]);
+        Assert.Equal(
+            "independent_post_start_ok",
+            actions[IndependentTrainingCatalog.PostStartOkSemanticAction()]);
+        Assert.Equal(
+            "templates/support_autofill_confirmation_support_autofill_ok.png",
+            definition!.GetTask("independent_post_start_ok").Template);
         foreach (var strategyValue in new[] { "front", "pace", "late", "end" })
         {
             Assert.True(
@@ -215,7 +223,6 @@ public sealed class IndependentTrainingCatalogTests
                 actions[strategyAction]);
         }
 
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
         Assert.Equal(
             "Swipe",
             definition!.GetTask("independent_lineup_scroll_to_top").Action,

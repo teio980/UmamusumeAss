@@ -158,6 +158,7 @@
                             {"semanticId":"independent.skills.search.checkbox.fallback","task":"independent_skills_search_checkbox"},
                             {"semanticId":"independent.skills.save","task":"independent_skills_save"},
                             {"semanticId":"independent.start","task":"independent_training_start"},
+                            {"semanticId":"independent.post_start.ok","task":"independent_post_start_ok"},
                             {"semanticId":"independent.post_start.menu","task":"independent_post_start_menu"},
                             {"semanticId":"independent.post_start.to_home","task":"independent_post_start_to_home"},
                             {"semanticId":"independent.post_start.home_probe","task":"independent_post_start_home_probe"}
@@ -405,11 +406,14 @@
                     {
                         "screenId":  "support_autofill_confirmation",
                         "recognition":  {
-                                            "template":  "captures/support_autofill_prompt_ura.png",
-                                            "requiredText":  [
-                                                                 "Auto-Select",
-                                                                 "OK"
-                                                             ],
+                                            "template":  "templates/support_autofill_confirmation_support_autofill_ok.png",
+                                            "roi":  [
+                                                       430,
+                                                       940,
+                                                       440,
+                                                       220
+                                                   ],
+                                            "templThreshold":  0.78,
                                             "stable":  true
                                         },
                         "actions":  [

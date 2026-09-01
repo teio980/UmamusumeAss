@@ -285,6 +285,9 @@ public sealed class IndependentTrainingCatalog
     public static string PostStartMenuSemanticAction() =>
         "independent.post_start.menu";
 
+    public static string PostStartOkSemanticAction() =>
+        "independent.post_start.ok";
+
     public static string PostStartToHomeSemanticAction() =>
         "independent.post_start.to_home";
 

@@ -476,6 +476,33 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public void Ura_support_autofill_confirmation_recognition_uses_the_fixed_ok_button()
+    {
+        var root = FindSolutionRoot();
+        var json = File.ReadAllText(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json"));
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        var confirmation = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "support_autofill_confirmation");
+        var recognition = confirmation.GetProperty("recognition");
+
+        Assert.Equal(
+            "templates/support_autofill_confirmation_support_autofill_ok.png",
+            recognition.GetProperty("template").GetString());
+        Assert.Equal(
+            [430, 940, 440, 220],
+            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
+        Assert.Equal(0.78, recognition.GetProperty("templThreshold").GetDouble());
+    }
+
+    [Fact]
     public void Ura_support_ready_recognition_uses_the_start_template()
     {
         var root = FindSolutionRoot();

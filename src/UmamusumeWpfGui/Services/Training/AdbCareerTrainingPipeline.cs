@@ -1385,6 +1385,17 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             if (startResult is not null)
                 return startResult;
 
+            var postStartOkResult = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    CareerFinalConfirmationScreenId,
+                    IndependentTrainingCatalog.PostStartOkSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (postStartOkResult is not null)
+                return postStartOkResult;
+
             var postStartMenuResult = await RunScreenActionAsync(
                     connection,
                     pack,

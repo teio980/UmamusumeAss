@@ -4401,7 +4401,7 @@
                      "algorithm": "MatchTemplate",
                      "action": "JustReturn",
                      "template": "templates/independent/skills_main_reset.png",
-                     "templThreshold": 0.80,
+                     "templThreshold": 0.82,
                      "roi": [400,600,360,500],
                      "timeoutMs": 1400,
                      "pollIntervalMs": 150,
@@ -4412,12 +4412,13 @@
                      "algorithm": "MatchTemplate",
                      "action": "ClickSelf",
                      "template": "templates/independent/skills_main_reset.png",
-                     "templThreshold": 0.80,
+                     "templThreshold": 0.82,
                      "roi": [400,600,360,500],
                      "timeoutMs": 12000,
                      "pollIntervalMs": 250,
                      "postDelay": 500,
                      "next": ["independent_skills_reset_probe"],
+                     "onErrorNext": ["independent_skills_reset_done"],
                      "maxTimes": 0,
                      "exceededNext": ["independent_skills_reset_exceeded"]
                    },
@@ -4548,6 +4549,16 @@
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 900
+                  },
+                  "independent_post_start_ok": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/support_autofill_confirmation_support_autofill_ok.png",
+                    "templThreshold": 0.78,
+                    "roi": [430,850,440,400],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 650
                   },
                   "independent_post_start_menu": {
                     "algorithm": "MatchTemplate",
