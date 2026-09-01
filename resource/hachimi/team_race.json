@@ -256,7 +256,7 @@
     },
     "noticesClose": {
       "template": "templates/start_game/notices_close.png",
-      "roi": [240, 940, 450, 220],
+      "roi": [250, 1100, 400, 100],
       "templThreshold": 0.82,
       "required": false,
       "timeoutMs": 5000,
