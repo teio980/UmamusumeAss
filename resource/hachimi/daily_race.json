@@ -149,10 +149,10 @@
       "template": "templates/daily_race/monies_card.png",
       "templThreshold": 0.86,
       "roi": [
-        250,
-        740,
-        650,
-        280
+        300,
+        770,
+        550,
+        230
       ],
       "preDelay": 0,
       "postDelay": 1800,
@@ -178,10 +178,10 @@
       "template": "templates/daily_race/supportpoint_card.png",
       "templThreshold": 0.86,
       "roi": [
-        250,
-        920,
-        650,
-        280
+        300,
+        950,
+        550,
+        230
       ],
       "preDelay": 0,
       "postDelay": 1800,
