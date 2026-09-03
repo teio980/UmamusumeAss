@@ -190,6 +190,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     threshold,
                     referenceWidth,
                     referenceHeight,
+                    taskName,
                     searchRois,
                     minimumScoreGap,
                     scaleCandidates,
@@ -222,6 +223,13 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             "independent_skills_post_confirm",
             StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsMissionTabTask(string taskName) =>
+        taskName.Equals("dailySelected", StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals("dailyUnselected", StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals("mainTab", StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals("titlesTab", StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals("specialTab", StringComparison.OrdinalIgnoreCase);
+
     private static TemplateMatchResult FindBestMatch(
         GrayImage screen,
         GrayImage template,
@@ -229,6 +237,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         double threshold,
         int referenceWidth,
         int referenceHeight,
+        string taskName,
         IReadOnlyList<int[]>? searchRois,
         double minimumScoreGap,
         IReadOnlyList<double>? scaleCandidates,
@@ -262,7 +271,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     roi,
                     threshold,
                     referenceWidth,
-                    referenceHeight);
+                    referenceHeight,
+                    candidateStepOverride: IsMissionTabTask(taskName) ? 1 : null);
         }
 
         var candidates = searchRois
@@ -282,7 +292,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     candidate,
                     threshold: 0,
                     referenceWidth,
-                    referenceHeight))
+                    referenceHeight,
+                    candidateStepOverride: IsMissionTabTask(taskName) ? 1 : null))
             .OrderByDescending(candidate => candidate.Score)
             .ToArray();
         if (candidates.Length == 0)
@@ -302,7 +313,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     roi,
                     threshold,
                     referenceWidth,
-                    referenceHeight);
+                    referenceHeight,
+                    candidateStepOverride: IsMissionTabTask(taskName) ? 1 : null);
         }
 
         var best = candidates[0];

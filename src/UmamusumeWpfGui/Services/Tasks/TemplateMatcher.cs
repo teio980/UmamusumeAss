@@ -460,7 +460,8 @@ internal static class TemplateMatcher
         int[]? roi,
         double threshold,
         int referenceWidth,
-        int referenceHeight)
+        int referenceHeight,
+        int? candidateStepOverride = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(template);
@@ -490,7 +491,10 @@ internal static class TemplateMatcher
         var sampleHeight = Math.Min(32, template.Height);
         // Small button crops are cheap enough to scan at pixel precision;
         // larger state markers use a two-pixel stride to keep polling bounded.
-        var candidateStep = template.Width <= 160 ? 1 : 2;
+        var candidateStep = candidateStepOverride is > 0
+            ? candidateStepOverride.Value
+            : template.Width <= 160 ? 1 : 2;
+        candidateStep = Math.Clamp(candidateStep, 1, 32);
         var bestScore = double.MinValue;
         var bestX = bounds.X;
         var bestY = bounds.Y;
