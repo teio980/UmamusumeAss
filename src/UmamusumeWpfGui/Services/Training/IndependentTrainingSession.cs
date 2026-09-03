@@ -60,8 +60,6 @@ public sealed class IndependentTrainingSessionState
     public int? CurrentSkillId { get; set; }
 
     public string LastConfirmedScreen { get; set; } = "unknown";
-    public int RetryCount { get; set; }
-    public int ActionsCompleted { get; set; }
 
     public string Serialize() => JsonSerializer.Serialize(this, CheckpointJsonOptions);
 
@@ -70,6 +68,7 @@ public sealed class IndependentTrainingSessionState
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
 
         using var document = JsonDocument.Parse(json);
+        RejectFutureVersion(document.RootElement);
         if (HasProperty(document.RootElement, "ConfigurationStep"))
         {
             return DeserializePreviousIndependentCheckpoint(document.RootElement);
@@ -85,6 +84,7 @@ public sealed class IndependentTrainingSessionState
 
     public void NormalizeForResume()
     {
+        RejectFutureVersion(Version);
         if (Version != CurrentCheckpointVersion)
             Version = CurrentCheckpointVersion;
         if (!Enum.IsDefined(Stage))
@@ -92,8 +92,6 @@ public sealed class IndependentTrainingSessionState
 
         AgendaIndex = Math.Max(0, AgendaIndex);
         SkillIndex = Math.Max(0, SkillIndex);
-        RetryCount = Math.Max(0, RetryCount);
-        ActionsCompleted = Math.Max(0, ActionsCompleted);
         LastConfirmedScreen = string.IsNullOrWhiteSpace(LastConfirmedScreen)
             ? "unknown"
             : LastConfirmedScreen.Trim();
@@ -113,6 +111,46 @@ public sealed class IndependentTrainingSessionState
             SkillIndex = 0;
             CurrentSkillId = null;
         }
+    }
+
+    private static void RejectFutureVersion(JsonElement root)
+    {
+        if (TryGetVersion(root, out var version))
+            RejectFutureVersion(version);
+    }
+
+    private static void RejectFutureVersion(int version)
+    {
+        if (version > CurrentCheckpointVersion)
+        {
+            throw new InvalidDataException(
+                $"Independent checkpoint version {version} is newer than the "
+                + $"supported version {CurrentCheckpointVersion}; update the application "
+                + "before resuming this checkpoint.");
+        }
+    }
+
+    private static bool TryGetVersion(JsonElement root, out int version)
+    {
+        version = default;
+        if (root.ValueKind != JsonValueKind.Object)
+            return false;
+
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!property.Name.Equals("Version", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (property.Value.ValueKind is JsonValueKind.Number
+                && property.Value.TryGetInt32(out version))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     private static bool HasProperty(JsonElement element, string propertyName)
@@ -140,8 +178,6 @@ public sealed class IndependentTrainingSessionState
             LastConfirmedScreen = string.IsNullOrWhiteSpace(previous.LastScreenId)
                 ? "unknown"
                 : previous.LastScreenId,
-            RetryCount = previous.RetryCount,
-            ActionsCompleted = previous.ActionsCompleted,
             Stage = MapPreviousStage(previous),
         };
         state.NormalizeForResume();
@@ -201,8 +237,33 @@ public sealed class IndependentTrainingSessionState
         public int Stage { get; set; }
         public int ConfigurationStep { get; set; }
         public string? LastScreenId { get; set; }
-        public int RetryCount { get; set; }
-        public int ActionsCompleted { get; set; }
+    }
+}
+
+/// <summary>
+/// Per-run counters for Independent Training. This object is deliberately
+/// separate from <see cref="IndependentTrainingSessionState"/> so counters
+/// always start at zero after a process restart and can never enter a
+/// checkpoint JSON document.
+/// </summary>
+public sealed class IndependentTrainingRuntimeContext
+{
+    public int RetryCount { get; private set; }
+    public int ActionsCompleted { get; private set; }
+
+    public void AdoptEntryProgress(CareerEntryNavigationState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        RetryCount = Math.Max(0, state.RetryCount);
+        ActionsCompleted = Math.Max(0, state.ActionsCompleted);
+    }
+
+    public void RecordActionFailure() => RetryCount++;
+
+    public void RecordActionSuccess()
+    {
+        RetryCount = 0;
+        ActionsCompleted++;
     }
 }
 
@@ -333,6 +394,7 @@ public sealed class IndependentCheckpointStore
         }
         catch (Exception exception) when (
             exception is not OperationCanceledException
+            && exception is not InvalidDataException
             && File.Exists(_path))
         {
             return null;

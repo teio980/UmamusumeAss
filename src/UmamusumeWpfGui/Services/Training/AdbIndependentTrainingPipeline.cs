@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
@@ -110,6 +111,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             "Independent Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
 
+        var runtime = new IndependentTrainingRuntimeContext();
         var checkpointStore = new IndependentCheckpointStore(settings.TraineeId);
         IndependentTrainingSessionState state;
         if (!settings.ContinueExistingCareer)
@@ -122,8 +124,17 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         }
         else
         {
-            var newCheckpoint = await checkpointStore.LoadAsync(cancellationToken)
-                .ConfigureAwait(false);
+            IndependentTrainingSessionState? newCheckpoint;
+            try
+            {
+                newCheckpoint = await checkpointStore.LoadAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (InvalidDataException exception)
+            {
+                logSink?.Add("Independent Training", exception.Message, LogEntryKind.Failure);
+                return Failure(exception.Message, "checkpoint");
+            }
             var migrated = newCheckpoint is null
                 ? await checkpointStore.LoadLegacyAsync(cancellationToken).ConfigureAwait(false)
                 : null;
@@ -144,7 +155,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             return new IndependentTrainingResult(
                 true,
                 "Independent Training is already completed.",
-                state.ActionsCompleted,
+                runtime.ActionsCompleted,
                 state.LastConfirmedScreen);
         }
 
@@ -154,8 +165,6 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             {
                 Step = ToEntryNavigationStep(state.Stage),
                 LastScreenId = state.LastConfirmedScreen,
-                RetryCount = state.RetryCount,
-                ActionsCompleted = state.ActionsCompleted,
             };
 
             async Task SaveEntryProgressAsync(CareerEntryNavigationState progress)
@@ -167,8 +176,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     ? IndependentTrainingStage.OpenFinalConfirmation
                     : FromEntryNavigationStep(progress.Step);
                 state.LastConfirmedScreen = progress.LastScreenId;
-                state.RetryCount = progress.RetryCount;
-                state.ActionsCompleted = progress.ActionsCompleted;
+                runtime.AdoptEntryProgress(progress);
                 await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             }
 
@@ -182,13 +190,12 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     cancellationToken)
                 .ConfigureAwait(false);
             state.LastConfirmedScreen = entry.LastScreenId;
-            state.RetryCount = entryState.RetryCount;
-            state.ActionsCompleted = entry.ActionsCompleted;
+            runtime.AdoptEntryProgress(entryState);
             if (!entry.Succeeded)
             {
                 state.Stage = FromEntryScreen(entry.LastScreenId, entryState.Step);
                 await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-                return Failure(entry.Message, state.LastConfirmedScreen, state.ActionsCompleted);
+                return Failure(entry.Message, state.LastConfirmedScreen, runtime.ActionsCompleted);
             }
 
             state.Stage = IndependentTrainingStage.SelectIndependentMode;
@@ -203,6 +210,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     pack,
                     settings,
                     state,
+                    runtime,
                     checkpointStore,
                     logSink,
                     cancellationToken)
@@ -217,6 +225,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     checkpointStore,
                     logSink,
                     cancellationToken)
@@ -235,7 +244,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         return new IndependentTrainingResult(
             true,
             "Independent Training started and returned to Home.",
-            state.ActionsCompleted,
+            runtime.ActionsCompleted,
             state.LastConfirmedScreen);
     }
 
@@ -244,6 +253,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         UraScenarioPack pack,
         IndependentTrainingSettings settings,
         IndependentTrainingSessionState state,
+        IndependentTrainingRuntimeContext runtime,
         IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -251,7 +261,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         if (state.Stage == IndependentTrainingStage.SelectIndependentMode)
         {
             var result = await RunIndependentActionAsync(
-                    connection, pack, state, "independent.select_mode", logSink, cancellationToken)
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    "independent.select_mode",
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
@@ -265,6 +281,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.LineupExpandSemanticAction(),
                     logSink,
                     cancellationToken)
@@ -284,7 +301,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 _ => "independent.focus.balanced",
             };
             var result = await RunIndependentActionAsync(
-                    connection, pack, state, focusAction, logSink, cancellationToken)
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    focusAction,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
@@ -299,6 +322,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     pack,
                     settings,
                     state,
+                    runtime,
                     checkpointStore,
                     logSink,
                     cancellationToken)
@@ -316,6 +340,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     pack,
                     settings,
                     state,
+                    runtime,
                     checkpointStore,
                     logSink,
                     cancellationToken)
@@ -332,6 +357,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.LineupScrollTopSemanticAction(),
                     logSink,
                     cancellationToken)
@@ -342,6 +368,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.LineupCollapseSemanticAction(),
                     logSink,
                     cancellationToken)
@@ -352,6 +379,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
                     logSink,
                     cancellationToken)
@@ -372,7 +400,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return Failure(
                     $"Independent lineup strategy '{settings.LineupStrategy}' is invalid.",
                     state.LastConfirmedScreen,
-                    state.ActionsCompleted);
+                    runtime.ActionsCompleted);
             }
 
             foreach (var action in new[]
@@ -384,7 +412,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             })
             {
                 var result = await RunIndependentActionAsync(
-                        connection, pack, state, action, logSink, cancellationToken)
+                        connection,
+                        pack,
+                        state,
+                        runtime,
+                        action,
+                        logSink,
+                        cancellationToken)
                     .ConfigureAwait(false);
                 if (result is not null)
                     return result;
@@ -401,6 +435,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         UraScenarioPack pack,
         IndependentTrainingSettings settings,
         IndependentTrainingSessionState state,
+        IndependentTrainingRuntimeContext runtime,
         IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -422,7 +457,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         foreach (var action in openActions)
         {
             var result = await RunIndependentActionAsync(
-                    connection, pack, state, action, logSink, cancellationToken)
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    action,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
@@ -438,12 +479,18 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return Failure(
                     $"Independent agenda race '{selection.RaceName}' has no Global Race ID mapping.",
                     state.LastConfirmedScreen,
-                    state.ActionsCompleted);
+                    runtime.ActionsCompleted);
             }
 
             var yearAction = $"independent.agenda.year.{Slug(selection.Year)}";
             var year = await RunIndependentActionAsync(
-                    connection, pack, state, yearAction, logSink, cancellationToken)
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    yearAction,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (year is not null)
                 return year;
@@ -451,6 +498,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.AgendaSlotSemanticAction(selection),
                     logSink,
                     cancellationToken)
@@ -465,6 +513,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         IndependentTrainingCatalog.AgendaRaceSemanticAction(),
                         logSink,
                         cancellationToken,
@@ -483,6 +532,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                             connection,
                             pack,
                             state,
+                            runtime,
                             IndependentTrainingCatalog.AgendaRaceVerifySemanticAction(),
                             logSink,
                             cancellationToken,
@@ -511,6 +561,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         "independent.agenda.race.scroll.top",
                         logSink,
                         cancellationToken)
@@ -525,7 +576,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     return Failure(
                         $"Independent agenda race '{selection.RaceName}' has no Race ID card asset.",
                         state.LastConfirmedScreen,
-                        state.ActionsCompleted);
+                        runtime.ActionsCompleted);
                 }
                 foreach (var action in new[]
                 {
@@ -537,6 +588,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                             connection,
                             pack,
                             state,
+                            runtime,
                             action,
                             logSink,
                             cancellationToken,
@@ -557,7 +609,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             }
 
             var save = await RunIndependentActionAsync(
-                    connection, pack, state, "independent.agenda.save", logSink, cancellationToken)
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    "independent.agenda.save",
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (save is not null)
                 return save;
@@ -567,7 +625,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         }
 
         return await RunIndependentActionAsync(
-                connection, pack, state, "independent.agenda.close", logSink, cancellationToken)
+                connection,
+                pack,
+                state,
+                runtime,
+                "independent.agenda.close",
+                logSink,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -576,6 +640,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         UraScenarioPack pack,
         IndependentTrainingSettings settings,
         IndependentTrainingSessionState state,
+        IndependentTrainingRuntimeContext runtime,
         IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -593,6 +658,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 connection,
                 pack,
                 state,
+                runtime,
                 IndependentTrainingCatalog.SkillSearchScrollSemanticAction(),
                 logSink,
                 cancellationToken)
@@ -600,7 +666,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         if (scroll is not null)
             return scroll;
         var reset = await RunIndependentActionAsync(
-                connection, pack, state, "independent.skills.reset", logSink, cancellationToken)
+                connection,
+                pack,
+                state,
+                runtime,
+                "independent.skills.reset",
+                logSink,
+                cancellationToken)
             .ConfigureAwait(false);
         if (reset is not null)
             return reset;
@@ -622,7 +694,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return Failure(
                     $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} is not selectable.",
                     state.LastConfirmedScreen,
-                    state.ActionsCompleted);
+                    runtime.ActionsCompleted);
             }
             if (!IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
                     skill,
@@ -632,7 +704,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return Failure(
                     $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} has no verified search mapping.",
                     state.LastConfirmedScreen,
-                    state.ActionsCompleted);
+                    runtime.ActionsCompleted);
             }
 
             foreach (var action in new[]
@@ -643,7 +715,13 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             })
             {
                 var result = await RunIndependentActionAsync(
-                        connection, pack, state, action, logSink, cancellationToken)
+                        connection,
+                        pack,
+                        state,
+                        runtime,
+                        action,
+                        logSink,
+                        cancellationToken)
                     .ConfigureAwait(false);
                 if (result is not null)
                     return result;
@@ -652,6 +730,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.SkillSearchInputSemanticAction(),
                     logSink,
                     cancellationToken,
@@ -670,6 +749,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.SkillSearchSubmitSemanticAction(),
                     logSink,
                     cancellationToken)
@@ -682,6 +762,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         IndependentTrainingCatalog.SkillSearchScrollSemanticAction(),
                         logSink,
                         cancellationToken)
@@ -694,6 +775,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
                     logSink,
                     cancellationToken,
@@ -712,6 +794,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
                         logSink,
                         cancellationToken,
@@ -733,6 +816,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     "independent.skills.save",
                     logSink,
                     cancellationToken)
@@ -752,6 +836,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         IndependentTrainingSessionState state,
+        IndependentTrainingRuntimeContext runtime,
         IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -767,6 +852,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         "independent.start",
                         logSink,
                         cancellationToken)
@@ -793,6 +879,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         connection,
                         pack,
                         state,
+                        runtime,
                         action,
                         logSink,
                         cancellationToken,
@@ -814,6 +901,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     connection,
                     pack,
                     state,
+                    runtime,
                     IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
                     logSink,
                     cancellationToken)
@@ -832,6 +920,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         IndependentTrainingSessionState state,
+        IndependentTrainingRuntimeContext runtime,
         string action,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken,
@@ -850,12 +939,11 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
-            state.RetryCount++;
-            return Failure(result.Message, state.LastConfirmedScreen, state.ActionsCompleted);
+            runtime.RecordActionFailure();
+            return Failure(result.Message, state.LastConfirmedScreen, runtime.ActionsCompleted);
         }
         state.LastConfirmedScreen = result.LastScreenId;
-        state.RetryCount = 0;
-        state.ActionsCompleted++;
+        runtime.RecordActionSuccess();
         return null;
     }
 

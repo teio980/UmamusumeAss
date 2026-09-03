@@ -1,10 +1,21 @@
 using System.IO;
+using System.Text.Json;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class IndependentTrainingSessionTests
 {
+    private static readonly string[] ExpectedCheckpointFields =
+    {
+        "agendaIndex",
+        "currentSkillId",
+        "lastConfirmedScreen",
+        "skillIndex",
+        "stage",
+        "version",
+    };
+
     private static readonly string[] ExpectedStageNames =
     {
         "EnterCareer",
@@ -34,7 +45,7 @@ public sealed class IndependentTrainingSessionTests
     }
 
     [Fact]
-    public void Session_serialization_contains_resume_cursors_and_no_flag_model()
+    public void Session_serialization_contains_only_checkpoint_fields()
     {
         var state = new IndependentTrainingSessionState
         {
@@ -44,26 +55,76 @@ public sealed class IndependentTrainingSessionTests
             CurrentSkillId = 12345,
             LastConfirmedScreen = "career_final_confirmation",
             Version = IndependentTrainingSessionState.CurrentCheckpointVersion,
-            RetryCount = 2,
-            ActionsCompleted = 7,
         };
 
         var json = state.Serialize();
         var roundTrip = IndependentTrainingSessionState.Deserialize(json);
+        using var document = JsonDocument.Parse(json);
+        var fields = document.RootElement
+            .EnumerateObject()
+            .Select(property => property.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
 
-        Assert.Contains("\"stage\":\"ConfigureSkills\"", json);
-        Assert.Contains("\"agendaIndex\":3", json);
-        Assert.Contains("\"skillIndex\":5", json);
-        Assert.Contains("\"currentSkillId\":12345", json);
-        Assert.Contains("\"lastConfirmedScreen\":\"career_final_confirmation\"", json);
-        Assert.Contains("\"version\":1", json);
-        Assert.DoesNotContain("ConfigurationStep", json);
-        Assert.DoesNotContain("IndependentModeSelected", json);
-        Assert.DoesNotContain("TurnIndex", json);
+        Assert.Equal(
+            ExpectedCheckpointFields,
+            fields);
         Assert.Equal(IndependentTrainingStage.ConfigureSkills, roundTrip.Stage);
         Assert.Equal(3, roundTrip.AgendaIndex);
         Assert.Equal(5, roundTrip.SkillIndex);
         Assert.Equal(12345, roundTrip.CurrentSkillId);
+    }
+
+    [Fact]
+    public void Legacy_runtime_counters_are_ignored_and_not_written_back()
+    {
+        var state = IndependentTrainingSessionState.Deserialize(
+            "{\"Version\":1,\"Stage\":\"ConfigureSkills\","
+            + "\"AgendaIndex\":3,\"SkillIndex\":5,\"CurrentSkillId\":12345,"
+            + "\"LastConfirmedScreen\":\"career_final_confirmation\","
+            + "\"RetryCount\":9,\"ActionsCompleted\":42}");
+
+        Assert.Equal(IndependentTrainingStage.ConfigureSkills, state.Stage);
+        Assert.Equal(3, state.AgendaIndex);
+        Assert.Equal(5, state.SkillIndex);
+        Assert.Equal(12345, state.CurrentSkillId);
+        var rewritten = state.Serialize();
+        Assert.DoesNotContain("RetryCount", rewritten);
+        Assert.DoesNotContain("ActionsCompleted", rewritten);
+        Assert.DoesNotContain("retryCount", rewritten);
+        Assert.DoesNotContain("actionsCompleted", rewritten);
+    }
+
+    [Fact]
+    public void Runtime_context_starts_at_zero_for_each_run()
+    {
+        var runtime = new IndependentTrainingRuntimeContext();
+        runtime.AdoptEntryProgress(new CareerEntryNavigationState
+        {
+            RetryCount = 3,
+            ActionsCompleted = 8,
+        });
+        runtime.RecordActionFailure();
+
+        Assert.Equal(4, runtime.RetryCount);
+        Assert.Equal(8, runtime.ActionsCompleted);
+
+        var restarted = new IndependentTrainingRuntimeContext();
+        Assert.Equal(0, restarted.RetryCount);
+        Assert.Equal(0, restarted.ActionsCompleted);
+    }
+
+    [Fact]
+    public void Future_checkpoint_version_is_rejected_without_downgrade()
+    {
+        var exception = Assert.Throws<InvalidDataException>(() =>
+            IndependentTrainingSessionState.Deserialize(
+                "{\"Version\":2,\"Stage\":\"ConfigureSkills\","
+                + "\"AgendaIndex\":3,\"SkillIndex\":5,\"CurrentSkillId\":12345,"
+                + "\"LastConfirmedScreen\":\"career_final_confirmation\"}"));
+
+        Assert.Contains("version 2", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("supported version 1", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -95,7 +156,7 @@ public sealed class IndependentTrainingSessionTests
 
         Assert.Equal(IndependentTrainingStage.ConfigureSkills, state.Stage);
         Assert.Equal("career_entry", state.LastConfirmedScreen);
-        Assert.Equal(7, state.ActionsCompleted);
+        Assert.DoesNotContain("ActionsCompleted", state.Serialize());
     }
 
     [Fact]
@@ -118,7 +179,6 @@ public sealed class IndependentTrainingSessionTests
             {
                 Stage = IndependentTrainingStage.Completed,
                 LastConfirmedScreen = "home",
-                ActionsCompleted = 12,
             };
             await store.SaveAsync(completed);
 

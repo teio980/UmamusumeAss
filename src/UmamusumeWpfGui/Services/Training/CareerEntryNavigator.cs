@@ -120,6 +120,9 @@ public enum CareerEntryNavigationStep
 
 public sealed class CareerEntryNavigationState
 {
+    // This state belongs to one navigation invocation. RetryCount and
+    // ActionsCompleted are runtime counters; checkpoint callers should only
+    // project Step and LastScreenId into persistent state.
     public CareerEntryNavigationStep Step { get; set; } = CareerEntryNavigationStep.Home;
     public string LastScreenId { get; set; } = "unknown";
     public int RetryCount { get; set; }
