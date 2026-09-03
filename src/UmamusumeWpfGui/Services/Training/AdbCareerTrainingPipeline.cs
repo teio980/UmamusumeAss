@@ -13,6 +13,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
     private const string SupportStartTransitionScreenId = "support_start_transition";
+    private const string CareerStartTransitionScreenId = "career_start_transition";
 
     // The ranked picker is a five-column grid. These are search regions only:
     // every selection still comes from a JSON template match inside the region.
@@ -289,11 +290,15 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 || state.LastScreenId.Equals(
                     SupportStartTransitionScreenId,
                     StringComparison.OrdinalIgnoreCase);
+            var careerStartTransitionExpected = state.LastScreenId.Equals(
+                CareerStartTransitionScreenId,
+                StringComparison.OrdinalIgnoreCase);
             var observation = await ObserveAsync(
                     connection,
                     pack,
                     state,
                     postSupportStartExpected,
+                    careerStartTransitionExpected,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (observation is null)
@@ -305,7 +310,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     && !state.CareerStarted;
                 var setupRetryLimit = legacyToSupportTransition
                     ? 80
-                    : postSupportStartExpected ? 40 : 12;
+                    : postSupportStartExpected || careerStartTransitionExpected ? 40 : 12;
                 if (state.CareerEntryOpened
                     && !state.CareerStarted
                     && setupObservationRetryCount < setupRetryLimit)
@@ -1391,7 +1396,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     CareerFinalConfirmationScreenId,
                     IndependentTrainingCatalog.PostStartOkSemanticAction(),
                     logSink,
-                    cancellationToken)
+                    cancellationToken,
+                     allowVisualMiss: true)
                 .ConfigureAwait(false);
             if (postStartOkResult is not null)
                 return postStartOkResult;
@@ -1402,7 +1408,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     CareerFinalConfirmationScreenId,
                     IndependentTrainingCatalog.PostStartMenuSemanticAction(),
                     logSink,
-                    cancellationToken)
+                    cancellationToken,
+                     allowVisualMiss: true)
                 .ConfigureAwait(false);
             if (postStartMenuResult is not null)
                 return postStartMenuResult;
@@ -1413,7 +1420,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     CareerFinalConfirmationScreenId,
                     IndependentTrainingCatalog.PostStartToHomeSemanticAction(),
                     logSink,
-                    cancellationToken)
+                    cancellationToken,
+                     allowVisualMiss: true)
                 .ConfigureAwait(false);
             if (postStartToHomeResult is not null)
                 return postStartToHomeResult;
@@ -1695,6 +1703,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         cancellationToken)
                     .ConfigureAwait(false);
             case "career_intro_event":
+                // Keep the post-start filter active until the first Career
+                // screen is reached; the intro event itself may take more
+                // than one frame to advance.
+                state.LastScreenId = CareerStartTransitionScreenId;
                 return await RunScreenActionAsync(
                         connection, pack, "career_intro_event", "advance", logSink, cancellationToken)
                     .ConfigureAwait(false);
@@ -1703,6 +1715,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                         connection, pack, scenario, strategy, state, logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "career_races_ready":
+                state.LastScreenId = CareerStartTransitionScreenId;
                 return await RunScreenActionAsync(
                         connection, pack, "career_races_ready", "races", logSink, cancellationToken)
                     .ConfigureAwait(false);
@@ -1719,6 +1732,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                             cancellationToken)
                         .ConfigureAwait(false);
                 }
+                // The final Start click leaves the old formation page visible
+                // for a short transition. Mark that transition before the
+                // JSON click so the next observation cannot restart support
+                // selection from a stale template.
+                state.LastScreenId = CareerStartTransitionScreenId;
                 return await RunScreenActionAsync(
                         connection, pack, CareerFinalConfirmationScreenId, "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
@@ -2051,6 +2069,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         UraScenarioPack pack,
         UraCareerSessionState state,
         bool postSupportStartExpected,
+        bool careerStartTransitionExpected,
         CancellationToken cancellationToken)
     {
         var careerEntryFlowActive = state.CareerEntryOpened && !state.CareerStarted;
@@ -2087,12 +2106,20 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 || (screen.ScreenId is not "support_select"
                     and not "support_ready"
                     and not "support_autofill_confirmation"))
+            // Normal Career has already received its final Start click. Only
+            // accept the first screens that can legitimately follow it; the
+            // formation templates from the previous page must not win here.
+            .Where(screen => !careerStartTransitionExpected
+                || screen.ScreenId is "career_intro_event"
+                    or "career_main"
+                    or "career_races_ready")
             .Where(screen => !legacyToSupportTransition
                 || string.Equals(screen.ScreenId, "support_select", StringComparison.OrdinalIgnoreCase))
             .OrderBy(screen => GetScreenRecognitionPriority(
                 screen.ScreenId,
                 supportReadyExpected,
-                postSupportStartExpected))
+                postSupportStartExpected,
+                careerStartTransitionExpected))
             .ToArray();
 
         // Observe a small stable sample once, then score all screen templates
@@ -2161,7 +2188,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private static int GetScreenRecognitionPriority(
         string screenId,
         bool supportReadyExpected,
-        bool postSupportStartExpected) =>
+        bool postSupportStartExpected,
+        bool careerStartTransitionExpected) =>
         screenId switch
         {
             "career_continue" => 0,
@@ -2170,6 +2198,9 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             "trainee_select" => 2,
             CareerFinalConfirmationScreenId when postSupportStartExpected => 0,
             CareerFinalConfirmationScreenId => 3,
+            "career_intro_event" when careerStartTransitionExpected => 0,
+            "career_main" when careerStartTransitionExpected => 1,
+            "career_races_ready" when careerStartTransitionExpected => 2,
             "support_ready" when supportReadyExpected => 4,
             "support_select" => 5,
             "support_ready" => 6,
@@ -2215,7 +2246,8 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         string actionId,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null)
+        HachimiPipelineRunOptions? options = null,
+        bool allowVisualMiss = false)
     {
         // Keep checkpoints written by versions that called the old semantic
         // screen id usable after the final-confirmation screen was split out.
@@ -2253,6 +2285,16 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
+            if (allowVisualMiss && IsVisualTaskTimeout(result.Message))
+            {
+                logSink?.Add(
+                    "Career Training",
+                    $"Optional post-start action '{screenId}.{actionId}' was not visible; "
+                        + "continuing with the next fallback.",
+                    LogEntryKind.Info);
+                return null;
+            }
+
             return Failure(
                 $"Could not execute JSON task '{action.Task}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
@@ -2260,6 +2302,11 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
 
         return null;
     }
+
+    private static bool IsVisualTaskTimeout(string message) =>
+        message.StartsWith(
+            "Timed out waiting for JSON task '",
+            StringComparison.Ordinal);
 
     internal static bool IsAgendaOcrRecognitionMiss(string message, string targetText) =>
         message.EndsWith(
