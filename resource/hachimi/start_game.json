@@ -65,7 +65,7 @@
     "CheckStartNoticeSkip": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/startnotice_skip.png",
-      "templThreshold": 0.75,
+      "templThreshold": 0.70,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 68, 444, 764, 369 ],
