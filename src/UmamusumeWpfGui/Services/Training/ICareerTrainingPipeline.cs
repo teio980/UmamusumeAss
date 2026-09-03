@@ -32,12 +32,25 @@ public sealed record CareerTrainingSettings(
     bool UseLegacyGuest,
     bool UseCachedLegacy,
     IReadOnlyList<string> LegacyAttributeSparks,
-    IReadOnlyList<string> LegacyAptitudeSparks,
-    string CareerMode = "normal",
-    string IndependentTrainingFocus = "balanced",
-    string IndependentLineupStrategy = "pace",
-    IReadOnlyList<IndependentTrainingAgendaSelection>? IndependentAgendaSelections = null,
-    IReadOnlyList<int>? IndependentSkillIds = null);
+    IReadOnlyList<string> LegacyAptitudeSparks) : ICareerEntrySelectionSettings;
+
+/// <summary>
+/// Settings needed by the shared Home-to-Final-Confirmation navigation.
+/// </summary>
+public interface ICareerEntrySelectionSettings
+{
+    int TraineeId { get; }
+    bool ContinueExistingCareer { get; }
+    IReadOnlyList<int> SupportCardIds { get; }
+    string SupportDeckMode { get; }
+    string SupportDeckPreset { get; }
+    int? FriendSupportCardId { get; }
+    string LegacySelectionMode { get; }
+    bool UseLegacyGuest { get; }
+    bool UseCachedLegacy { get; }
+    IReadOnlyList<string> LegacyAttributeSparks { get; }
+    IReadOnlyList<string> LegacyAptitudeSparks { get; }
+}
 
 public sealed record CareerTrainingResult(
     bool Succeeded,

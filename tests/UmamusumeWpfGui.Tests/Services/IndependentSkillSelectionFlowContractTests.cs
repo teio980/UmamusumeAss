@@ -14,15 +14,15 @@ public sealed class IndependentSkillSelectionFlowContractTests
             "UmamusumeWpfGui",
             "Services",
             "Training",
-            "AdbCareerTrainingPipeline.cs"));
+            "AdbIndependentTrainingPipeline.cs"));
 
         var skillsSectionStart = pipelineSource.IndexOf(
-            "if (!state.IndependentSkillsConfigured)",
+            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Skills)",
             StringComparison.Ordinal);
         Assert.True(skillsSectionStart >= 0);
 
         var loopStart = pipelineSource.IndexOf(
-            "foreach (var skillId in settings.IndependentSkillIds ?? [])",
+            "foreach (var skillId in skillIds)",
             skillsSectionStart,
             StringComparison.Ordinal);
         Assert.True(loopStart >= 0);

@@ -11,19 +11,23 @@ namespace UmamusumeWpfGui.Services.Tasks;
 public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPreflightDiagnostics
 {
     private readonly ILocalizationService _localizationService;
-    private readonly ICareerTrainingPipeline _pipeline;
+    private readonly ICareerTrainingPipeline _normalPipeline;
+    private readonly IIndependentTrainingPipeline _independentPipeline;
     private readonly IUmaDatabaseService _umaDatabase;
 
     public CareerTrainingTaskModule(
         ILocalizationService localizationService,
-        ICareerTrainingPipeline pipeline,
+        ICareerTrainingPipeline normalPipeline,
+        IIndependentTrainingPipeline independentPipeline,
         IUmaDatabaseService umaDatabase)
     {
         ArgumentNullException.ThrowIfNull(localizationService);
-        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(normalPipeline);
+        ArgumentNullException.ThrowIfNull(independentPipeline);
         ArgumentNullException.ThrowIfNull(umaDatabase);
         _localizationService = localizationService;
-        _pipeline = pipeline;
+        _normalPipeline = normalPipeline;
+        _independentPipeline = independentPipeline;
         _umaDatabase = umaDatabase;
         Settings = new CareerTrainingTaskSettingsViewModel(_umaDatabase);
     }
@@ -112,11 +116,18 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         Settings.SupportDeckPreset = ReadString(settings, "supportDeckPreset")
             ?? Settings.SupportDeckPreset;
         Settings.FriendSupportCardId = ReadNullableInt(settings, "friendSupportCardId");
-        // Advanced career controls are not exposed yet. Ignore legacy values so
-        // an empty or experimental saved strategy cannot make the task unusable.
-        Settings.StrategyId = CareerTrainingTaskSettingsViewModel.DefaultStrategyId;
-        Settings.PauseOnUnknownOutcome = true;
-        Settings.AllowOptionalRaces = false;
+        // Keep both mode-specific settings round-trippable. Normal-only values
+        // are ignored by the Independent pipeline but remain available when a
+        // saved profile explicitly selects Normal Career.
+        Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
+        Settings.PauseOnUnknownOutcome = ReadBool(
+            settings,
+            "pauseOnUnknownOutcome",
+            Settings.PauseOnUnknownOutcome);
+        Settings.AllowOptionalRaces = ReadBool(
+            settings,
+            "allowOptionalRaces",
+            Settings.AllowOptionalRaces);
         Settings.LegacySelectionMode = ReadString(settings, "legacySelectionMode")
             ?? Settings.LegacySelectionMode;
         Settings.UseLegacyGuest = ReadBool(
@@ -134,7 +145,8 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
     public IGrassTaskModule CreateInstance() => new CareerTrainingTaskModule(
         _localizationService,
-        _pipeline,
+        _normalPipeline,
+        _independentPipeline,
         _umaDatabase);
 
     public bool CanExecute(GrassTaskExecutionContext context) =>
@@ -169,8 +181,14 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         if (Settings.TraineeId is not > 0)
             return "No trainee is configured.";
 
-        if (string.IsNullOrWhiteSpace(Settings.StrategyId)
-            || !UraStrategyRegistry.IsRegistered(Settings.StrategyId))
+        if (!Settings.IsKnownCareerMode)
+        {
+            return $"Unknown Career mode '{Settings.CareerMode}'.";
+        }
+
+        if (!Settings.IsIndependentCareer
+            && (string.IsNullOrWhiteSpace(Settings.StrategyId)
+                || !UraStrategyRegistry.IsRegistered(Settings.StrategyId)))
         {
             return $"URA strategy '{Settings.StrategyId}' is not registered for this build.";
         }
@@ -214,11 +232,12 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         GrassTaskExecutionContext context,
         CancellationToken cancellationToken = default)
     {
-        if (!CanExecute(context) || context.Connection is not { } connection)
+        var cannotExecuteReason = GetCannotExecuteReason(context);
+        if (cannotExecuteReason is not null || context.Connection is not { } connection)
         {
-            var message = Localize(
-                "GrassCareerTrainingConnectionRequired",
-                "Connect a device and configure a valid career training profile first.");
+            var message = cannotExecuteReason ?? Localize(
+                    "GrassCareerTrainingConnectionRequired",
+                    "Connect a device and configure a valid career training profile first.");
             Settings.SetStatus(message);
             return new GrassTaskExecutionResult(false, false, message);
         }
@@ -238,9 +257,39 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                         ? " Independent setup will be applied after support selection."
                         : " Normal Career will use the final Start action."));
 
-            var result = await _pipeline.RunAsync(
+            if (!Settings.IsIndependentCareer)
+            {
+                var normalResult = await _normalPipeline.RunAsync(
+                        connection,
+                        new CareerTrainingSettings(
+                            Settings.ManifestPath,
+                            Settings.TraineeId!.Value,
+                            continueExistingCareer,
+                            Settings.ParseSupportCardIds(),
+                            Settings.SupportDeckMode,
+                            Settings.SupportDeckPreset,
+                            Settings.FriendSupportCardId,
+                            Settings.StrategyId,
+                            Settings.PauseOnUnknownOutcome,
+                            Settings.AllowOptionalRaces,
+                            Settings.LegacySelectionMode,
+                            Settings.UseLegacyGuest,
+                            Settings.UseCachedLegacy,
+                            Settings.ParseLegacyAttributeSparks(),
+                            Settings.ParseLegacyAptitudeSparks()),
+                        context.LogSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                Settings.SetStatus(normalResult.Message);
+                return new GrassTaskExecutionResult(
+                    normalResult.Succeeded,
+                    false,
+                    normalResult.Message);
+            }
+
+            var result = await _independentPipeline.RunAsync(
                     connection,
-                    new CareerTrainingSettings(
+                    new IndependentTrainingSettings(
                         Settings.ManifestPath,
                         Settings.TraineeId!.Value,
                         continueExistingCareer,
@@ -248,15 +297,11 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                         Settings.SupportDeckMode,
                         Settings.SupportDeckPreset,
                         Settings.FriendSupportCardId,
-                        Settings.StrategyId,
-                        Settings.PauseOnUnknownOutcome,
-                        Settings.AllowOptionalRaces,
                         Settings.LegacySelectionMode,
                         Settings.UseLegacyGuest,
                         Settings.UseCachedLegacy,
                         Settings.ParseLegacyAttributeSparks(),
                         Settings.ParseLegacyAptitudeSparks(),
-                        Settings.CareerMode,
                         Settings.IndependentTrainingFocus,
                         Settings.IndependentLineupStrategy,
                         Settings.ParseIndependentAgendaSelections(),
@@ -292,18 +337,38 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                 Localize("GrassCareerTrainingStopRequested", "Career training stop requested."));
         }
 
-        return await StopPipelineAsync(connection, context.LogSink, cancellationToken)
+        if (!Settings.IsKnownCareerMode)
+        {
+            var message = $"Unknown Career mode '{Settings.CareerMode}'.";
+            Settings.SetStatus(message);
+            return new GrassTaskExecutionResult(false, false, message);
+        }
+
+        return await StopPipelineAsync(
+                Settings.IsIndependentCareer ? _independentPipeline : _normalPipeline,
+                connection,
+                context.LogSink,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async Task<GrassTaskExecutionResult> StopPipelineAsync(
+    private static async Task<GrassTaskExecutionResult> StopPipelineAsync(
+        object pipeline,
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var result = await _pipeline.StopAsync(connection, logSink, cancellationToken)
+        if (pipeline is IIndependentTrainingPipeline independentPipeline)
+        {
+            var result = await independentPipeline.StopAsync(connection, logSink, cancellationToken)
+                .ConfigureAwait(false);
+            return new GrassTaskExecutionResult(result.Succeeded, false, result.Message);
+        }
+
+        var normalResult = await ((ICareerTrainingPipeline)pipeline)
+            .StopAsync(connection, logSink, cancellationToken)
             .ConfigureAwait(false);
-        return new GrassTaskExecutionResult(result.Succeeded, false, result.Message);
+        return new GrassTaskExecutionResult(normalResult.Succeeded, false, normalResult.Message);
     }
 
     private string Localize(string key, string fallback)

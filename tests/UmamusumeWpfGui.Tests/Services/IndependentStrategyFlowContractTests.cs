@@ -88,9 +88,9 @@ public sealed class IndependentStrategyFlowContractTests
             "UmamusumeWpfGui",
             "Services",
             "Training",
-            "AdbCareerTrainingPipeline.cs"));
+            "AdbIndependentTrainingPipeline.cs"));
         // Check the execution branch, not the earlier preflight declarations.
-        var lookupIndex = pipelineSource.IndexOf("var ocrRaceResult =", StringComparison.Ordinal);
+        var lookupIndex = pipelineSource.IndexOf("var selected = false;", StringComparison.Ordinal);
         Assert.True(lookupIndex >= 0);
         var ocrIndex = pipelineSource.IndexOf(
             "IndependentTrainingCatalog.AgendaRaceSemanticAction()",
@@ -101,7 +101,7 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.True(ocrIndex >= 0);
         Assert.True(cardIndex > ocrIndex);
         var verificationFailure = pipelineSource.IndexOf(
-            "return ocrVerifyResult;", ocrIndex, StringComparison.Ordinal);
+            "return verify;", ocrIndex, StringComparison.Ordinal);
         var rewindIndex = pipelineSource.IndexOf(
             "\"independent.agenda.race.scroll.top\"", ocrIndex, StringComparison.Ordinal);
         Assert.InRange(verificationFailure, ocrIndex, cardIndex);
@@ -109,7 +109,7 @@ public sealed class IndependentStrategyFlowContractTests
 
         var rewindAction = finalConfirmation.FindAction("independent.agenda.race.scroll.top");
         Assert.NotNull(rewindAction);
-        Assert.True(AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+        Assert.True(IndependentTrainingContracts.TryValidateIndependentTemplateAction(
             pack, "independent.agenda.race.scroll.top", out var rewindError), rewindError);
         var rewind = pack.ExecutionDefinition.GetTask(rewindAction!.Task);
         Assert.Equal("JustReturn", rewind.Algorithm);
@@ -133,7 +133,7 @@ public sealed class IndependentStrategyFlowContractTests
     [InlineData("OCR target 'another race' was not found before timeout.", false)]
     public void Agenda_fallback_only_accepts_recognition_misses(string message, bool expected)
     {
-        Assert.Equal(expected, AdbCareerTrainingPipeline.IsAgendaOcrRecognitionMiss(message, "race"));
+        Assert.Equal(expected, IndependentTrainingContracts.IsAgendaOcrRecognitionMiss(message, "race"));
     }
 
     [Fact]
@@ -460,19 +460,18 @@ public sealed class IndependentStrategyFlowContractTests
                 "UmamusumeWpfGui",
                 "Services",
                 "Training",
-                "AdbCareerTrainingPipeline.cs"));
+                "AdbIndependentTrainingPipeline.cs"));
         var orderMarkers = new[]
         {
-            "state.IndependentSkillsConfigured = true;",
-            "Independent setup step 6/7 (scroll): returning Lineup Details to the top after its settings.",
-            "Independent setup step 6/7 (close): closing the open-down Lineup Details section.",
-            "state.IndependentLineupCollapseVerifiedThisRun = true;",
-            "Independent setup step 6/7 (verified): Lineup Details closed-right state confirmed.",
-            "Independent Strategy gate (verified): closed-right state confirmed; opening Change.",
-            "Independent setup strategy: open Change.",
-            "Independent setup step 7/7: selecting Strategy",
-            "Independent setup strategy: save and return.",
-            "var strategyReturnResult",
+            "state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupPrepared;",
+            "IndependentTrainingCatalog.LineupScrollTopSemanticAction()",
+            "IndependentTrainingCatalog.LineupCollapseSemanticAction()",
+            "IndependentTrainingCatalog.LineupClosedVerifySemanticAction()",
+            "state.LineupCollapseVerifiedThisRun = true;",
+            "IndependentTrainingCatalog.StrategyChangeSemanticAction()",
+            "IndependentTrainingCatalog.StrategySaveSemanticAction()",
+            "IndependentTrainingCatalog.StrategyReturnSemanticAction()",
+            "state.Stage = IndependentTrainingStage.Start;",
             "\"independent.start\"",
         };
         var positions = orderMarkers
@@ -484,10 +483,10 @@ public sealed class IndependentStrategyFlowContractTests
             string.Join(" -> ", positions));
 
         var preflightPosition = pipelineSource.IndexOf(
-            "TryValidateIndependentTemplateAction(",
+            "ValidateSettings(settings);",
             StringComparison.Ordinal);
         var modeGuardPosition = pipelineSource.IndexOf(
-            "if (!state.IndependentModeSelected)",
+            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Mode)",
             StringComparison.Ordinal);
         var modeCallPosition = pipelineSource.IndexOf(
             "\"independent.select_mode\"",
@@ -598,7 +597,7 @@ public sealed class IndependentStrategyFlowContractTests
         foreach (var strategyAction in strategyPreflightActions)
         {
             Assert.True(
-                AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+                IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                     pack,
                     strategyAction,
                     out var validationError),
@@ -607,7 +606,7 @@ public sealed class IndependentStrategyFlowContractTests
         foreach (var strategyValue in StrategyValues)
         {
             Assert.True(
-                AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+                IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                     pack,
                     $"independent.strategy.option.{strategyValue}",
                     out var validationError),
@@ -617,7 +616,7 @@ public sealed class IndependentStrategyFlowContractTests
         var agendaRaceCardVerifyAction =
             IndependentTrainingCatalog.AgendaRaceCardVerifySemanticAction();
         Assert.True(
-            AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                 pack,
                 agendaRaceCardVerifyAction,
                 out var agendaRaceCardVerifyError),
@@ -632,7 +631,7 @@ public sealed class IndependentStrategyFlowContractTests
                 Task = "independent_lineup_strategy_precondition_verified",
             });
         Assert.True(
-            AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                 pack,
                 "test.pure.success",
                 out var terminalSuccessError),
@@ -650,7 +649,7 @@ public sealed class IndependentStrategyFlowContractTests
                 Task = "test.pure.failure",
             });
         Assert.False(
-            AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                 pack,
                 "test.pure.failure",
                 out _));
@@ -669,7 +668,7 @@ public sealed class IndependentStrategyFlowContractTests
                 Task = "test.pure.success.with.stop",
             });
         Assert.False(
-            AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                 pack,
                 "test.pure.success.with.stop",
                 out _));

@@ -325,4 +325,5 @@
   <sys:String x:Key="GrassCareerTrainingConnectionRequired">请连接设备并配置有效的 Career 育成设置。</sys:String>
   <sys:String x:Key="GrassCareerTrainingCanceled">Career 育成已取消。</sys:String>
   <sys:String x:Key="GrassCareerTrainingStopRequested">已请求停止 Career 育成。</sys:String>
+  <sys:String x:Key="GrassNormalCareerNotImplemented">普通育成暂未完成。</sys:String>
 </ResourceDictionary>

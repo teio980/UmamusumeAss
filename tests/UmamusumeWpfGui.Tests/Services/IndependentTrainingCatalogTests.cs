@@ -268,9 +268,9 @@ public sealed class IndependentTrainingCatalogTests
             "UmamusumeWpfGui",
             "Services",
             "Training",
-            "AdbCareerTrainingPipeline.cs"));
+            "AdbIndependentTrainingPipeline.cs"));
         var skillsIndex = pipelineSource.IndexOf(
-            "if (!state.IndependentSkillsConfigured)",
+            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Skills)",
             StringComparison.Ordinal);
         var scrollIndex = pipelineSource.IndexOf(
             "LineupScrollTopSemanticAction()",
@@ -285,7 +285,7 @@ public sealed class IndependentTrainingCatalogTests
             collapseIndex,
             StringComparison.Ordinal);
         var startIndex = pipelineSource.IndexOf(
-            "if (!state.IndependentSetupCompleted)",
+            "var start = await RunIndependentActionAsync(",
             strategyIndex,
             StringComparison.Ordinal);
 
@@ -294,10 +294,59 @@ public sealed class IndependentTrainingCatalogTests
         Assert.True(scrollIndex < collapseIndex);
         Assert.True(collapseIndex < strategyIndex);
         Assert.True(strategyIndex < startIndex);
-        Assert.Contains("settings.IndependentLineupStrategy", pipelineSource);
+        Assert.Contains("settings.LineupStrategy", pipelineSource);
         Assert.Contains("TryGetLineupStrategyUiMapping", pipelineSource);
-        Assert.Contains("IndependentLineupCollapsed", pipelineSource);
-        Assert.Contains("IndependentStrategyConfigured", pipelineSource);
+        Assert.Contains("LineupCollapseVerifiedThisRun", pipelineSource);
+        Assert.Contains("IndependentTrainingStage.Start", pipelineSource);
+    }
+
+    [Fact]
+    public async Task Career_entry_runs_home_entry_task_before_observing_entry_screens()
+    {
+        var root = FindSolutionRoot();
+        var source = await File.ReadAllTextAsync(Path.Combine(
+            root,
+            "src",
+            "UmamusumeWpfGui",
+            "Services",
+            "Training",
+            "CareerEntryNavigator.cs"));
+
+        var navigateIndex = source.IndexOf(
+            "public async Task<CareerEntryNavigationResult> NavigateAsync",
+            StringComparison.Ordinal);
+        var homeEntryIndex = source.IndexOf(
+            "home.EntryTask",
+            navigateIndex,
+            StringComparison.Ordinal);
+        var observeIndex = source.IndexOf(
+            "ObserveAsync(connection, pack, state, cancellationToken)",
+            navigateIndex,
+            StringComparison.Ordinal);
+
+        Assert.True(navigateIndex >= 0);
+        Assert.True(homeEntryIndex >= 0);
+        Assert.True(observeIndex > homeEntryIndex);
+        Assert.Contains(
+            "RunTaskAsync(",
+            source[homeEntryIndex..observeIndex],
+            StringComparison.Ordinal);
+
+        var traineeCaseIndex = source.IndexOf(
+            "case \"trainee_select\":",
+            navigateIndex,
+            StringComparison.Ordinal);
+        var directLegacyIndex = source.IndexOf(
+            "continuing directly into Legacy Select",
+            traineeCaseIndex,
+            StringComparison.Ordinal);
+        var legacyCallIndex = source.IndexOf(
+            "HandleLegacySelectionAsync(",
+            traineeCaseIndex,
+            StringComparison.Ordinal);
+        Assert.True(traineeCaseIndex >= 0);
+        Assert.True(directLegacyIndex > traineeCaseIndex);
+        Assert.True(legacyCallIndex > directLegacyIndex);
     }
 
     private static string FindSolutionRoot()

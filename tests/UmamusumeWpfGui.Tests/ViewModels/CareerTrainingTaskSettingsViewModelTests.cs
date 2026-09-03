@@ -85,8 +85,8 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         var changedProperties = new List<string?>();
         settings.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
 
-        Assert.Equal(CareerTrainingTaskSettingsViewModel.NormalCareerMode, settings.CareerMode);
-        Assert.False(settings.IsIndependentCareer);
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.IndependentCareerMode, settings.CareerMode);
+        Assert.True(settings.IsIndependentCareer);
 
         settings.CareerMode = "Independent";
         settings.IndependentLineupStrategy = "front";
@@ -97,7 +97,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.Equal(CareerTrainingTaskSettingsViewModel.IndependentCareerMode, settings.CareerMode);
         Assert.True(settings.IsIndependentCareer);
         Assert.True(settings.IsIndependentTrainingSettingsValid);
-        Assert.Contains(nameof(settings.IsIndependentCareer), changedProperties);
+        Assert.Contains(nameof(settings.IsIndependentTrainingSettingsValid), changedProperties);
 
         settings.CareerMode = "normal";
 
@@ -176,7 +176,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     {
         Assert.Equal(
             expectedAction,
-            AdbCareerTrainingPipeline.ResolveCareerFinalConfirmationFirstSemanticAction(careerMode));
+            IndependentTrainingContracts.ResolveCareerFinalConfirmationFirstSemanticAction(careerMode));
     }
 
     [Fact]
@@ -218,8 +218,11 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.True(settings.IsValid);
 
         settings.StrategyId = "not-registered";
+        Assert.True(settings.IsValid);
+        settings.CareerMode = CareerTrainingTaskSettingsViewModel.NormalCareerMode;
         Assert.False(settings.IsValid);
         settings.StrategyId = CareerTrainingTaskSettingsViewModel.DefaultStrategyId;
+        settings.CareerMode = CareerTrainingTaskSettingsViewModel.IndependentCareerMode;
 
         settings.SupportDeckMode = "highest-star";
         Assert.NotEqual("custom", settings.SupportDeckPreset);

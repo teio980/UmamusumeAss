@@ -59,7 +59,7 @@ public sealed class UraLegacySelector
     public async Task<UraLegacySelectionResult> SelectAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        CareerTrainingSettings settings,
+        ICareerEntrySelectionSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken = default)
     {
@@ -269,7 +269,7 @@ public sealed class UraLegacySelector
     private async Task<UraLegacySelectionResult> SelectManuallyAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        CareerTrainingSettings settings,
+        ICareerEntrySelectionSettings settings,
         (LegacySlotState Legacy1, LegacySlotState Legacy2) slotStates,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -323,7 +323,7 @@ public sealed class UraLegacySelector
         int slot,
         bool useGuest,
         LegacySlotState slotState,
-        CareerTrainingSettings settings,
+        ICareerEntrySelectionSettings settings,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -445,7 +445,7 @@ public sealed class UraLegacySelector
     private async Task<bool> ConfigureDisplayAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        CareerTrainingSettings settings,
+        ICareerEntrySelectionSettings settings,
         CancellationToken cancellationToken)
     {
         var off = await FindTemplateAsync(

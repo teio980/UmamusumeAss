@@ -324,4 +324,5 @@
   <sys:String x:Key="GrassCareerTrainingConnectionRequired">Connect a device and configure a valid career training profile first.</sys:String>
   <sys:String x:Key="GrassCareerTrainingCanceled">Career training canceled.</sys:String>
   <sys:String x:Key="GrassCareerTrainingStopRequested">Career training stop requested.</sys:String>
+  <sys:String x:Key="GrassNormalCareerNotImplemented">Normal Career is not completed yet.</sys:String>
 </ResourceDictionary>

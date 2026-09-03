@@ -42,7 +42,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private bool _continueExistingCareer;
-    private string _careerMode = NormalCareerMode;
+    private string _careerMode = IndependentCareerMode;
     private string _independentTrainingFocus = IndependentTrainingFocusBalanced;
     private string _independentLineupStrategy = IndependentLineupStrategyPace;
     private string _independentAgendaSearchText = string.Empty;
@@ -234,18 +234,23 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         get => _careerMode;
         set
         {
-            var normalized = string.Equals(value, IndependentCareerMode, StringComparison.OrdinalIgnoreCase)
-                ? IndependentCareerMode
-                : NormalCareerMode;
+            var normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (normalized.Length == 0)
+                normalized = IndependentCareerMode;
             if (!Set(ref _careerMode, normalized))
                 return;
             OnPropertyChanged(nameof(IsIndependentCareer));
+            OnPropertyChanged(nameof(IsKnownCareerMode));
             OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
         }
     }
 
     public bool IsIndependentCareer =>
         CareerMode.Equals(IndependentCareerMode, StringComparison.OrdinalIgnoreCase);
+
+    public bool IsKnownCareerMode =>
+        CareerMode.Equals(NormalCareerMode, StringComparison.OrdinalIgnoreCase)
+        || CareerMode.Equals(IndependentCareerMode, StringComparison.OrdinalIgnoreCase);
 
     public string IndependentTrainingFocus
     {
@@ -748,8 +753,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         !string.IsNullOrWhiteSpace(ManifestPath)
         && ManifestFileExists()
         && TraineeId is > 0
-        && !string.IsNullOrWhiteSpace(StrategyId)
-        && UraStrategyRegistry.IsRegistered(StrategyId)
+        && IsKnownCareerMode
+        && (IsIndependentCareer
+            || (!string.IsNullOrWhiteSpace(StrategyId)
+                && UraStrategyRegistry.IsRegistered(StrategyId)))
         && IsSupportDeckValid
         && (!IsIndependentCareer || IsIndependentTrainingSettingsValid);
 

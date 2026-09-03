@@ -85,6 +85,15 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<ICareerTrainingPipeline>()
             .To<AdbCareerTrainingPipeline>()
             .InSingletonScope();
+        builder.Bind<CareerJsonActionExecutor>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<CareerEntryNavigator>()
+            .ToSelf()
+            .InSingletonScope();
+        builder.Bind<IIndependentTrainingPipeline>()
+            .To<AdbIndependentTrainingPipeline>()
+            .InSingletonScope();
         builder.Bind<UraTraineeSelector>()
             .ToSelf()
             .InSingletonScope();

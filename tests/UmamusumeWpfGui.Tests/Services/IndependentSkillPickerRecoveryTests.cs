@@ -47,7 +47,7 @@ public sealed class IndependentSkillPickerRecoveryTests
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
         Assert.NotNull(pack);
         Assert.True(
-            AdbCareerTrainingPipeline.TryValidateIndependentTemplateAction(
+            IndependentTrainingContracts.TryValidateIndependentTemplateAction(
                 pack!,
                 "independent.skills.post.confirm",
                 out var mappingError),
