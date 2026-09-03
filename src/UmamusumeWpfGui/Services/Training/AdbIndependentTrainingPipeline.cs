@@ -18,7 +18,8 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
     private readonly CareerEntryNavigator _entryNavigator;
-    private readonly CareerJsonActionExecutor _actions;
+    private readonly ICareerActionExecutor _actions;
+    private readonly Func<int, IndependentCheckpointStore> _checkpointStoreFactory;
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
 
@@ -27,11 +28,28 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         IUmaDatabaseService umaDatabase,
         CareerEntryNavigator entryNavigator,
         CareerJsonActionExecutor actions)
+        : this(
+            visualRuntime,
+            umaDatabase,
+            entryNavigator,
+            actions,
+            traineeId => new IndependentCheckpointStore(traineeId))
+    {
+    }
+
+    internal AdbIndependentTrainingPipeline(
+        IVisualPipelineRuntime visualRuntime,
+        IUmaDatabaseService umaDatabase,
+        CareerEntryNavigator entryNavigator,
+        ICareerActionExecutor actions,
+        Func<int, IndependentCheckpointStore> checkpointStoreFactory)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
         _umaDatabase = umaDatabase ?? throw new ArgumentNullException(nameof(umaDatabase));
         _entryNavigator = entryNavigator ?? throw new ArgumentNullException(nameof(entryNavigator));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _checkpointStoreFactory = checkpointStoreFactory
+            ?? throw new ArgumentNullException(nameof(checkpointStoreFactory));
     }
 
     public async Task<IndependentTrainingResult> RunAsync(
@@ -112,7 +130,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
 
         var runtime = new IndependentTrainingRuntimeContext();
-        var checkpointStore = new IndependentCheckpointStore(settings.TraineeId);
+        var checkpointStore = _checkpointStoreFactory(settings.TraineeId);
         IndependentTrainingSessionState state;
         if (!settings.ContinueExistingCareer)
         {

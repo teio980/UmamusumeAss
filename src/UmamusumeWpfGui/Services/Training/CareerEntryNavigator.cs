@@ -17,10 +17,35 @@ public sealed record CareerActionExecutionResult(
 }
 
 /// <summary>
+/// Internal seam for behavior tests. Production callers continue to use the
+/// public <see cref="CareerJsonActionExecutor"/> constructor path.
+/// </summary>
+internal interface ICareerActionExecutor
+{
+    Task<CareerActionExecutionResult> RunAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string screenId,
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken,
+        HachimiPipelineRunOptions? options = null,
+        bool allowVisualMiss = false);
+
+    Task<CareerActionExecutionResult> RunTaskAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string taskName,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken,
+        HachimiPipelineRunOptions? options = null);
+}
+
+/// <summary>
 /// The small JSON action adapter shared by the entry navigator and
 /// Independent setup. It owns no career strategy or session state.
 /// </summary>
-public sealed class CareerJsonActionExecutor
+public sealed class CareerJsonActionExecutor : ICareerActionExecutor
 {
     private readonly HachimiJsonPipelineRunner _jsonRunner;
 
@@ -163,7 +188,7 @@ public sealed class CareerEntryNavigator
     private readonly IUmaDatabaseService _umaDatabase;
     private readonly UraTraineeSelector _traineeSelector;
     private readonly UraLegacySelector _legacySelector;
-    private readonly CareerJsonActionExecutor _actions;
+    private readonly ICareerActionExecutor _actions;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
         StringComparer.OrdinalIgnoreCase);
 
@@ -173,6 +198,21 @@ public sealed class CareerEntryNavigator
         UraTraineeSelector traineeSelector,
         UraLegacySelector legacySelector,
         CareerJsonActionExecutor actions)
+        : this(
+            visualRuntime,
+            umaDatabase,
+            traineeSelector,
+            legacySelector,
+            (ICareerActionExecutor)actions)
+    {
+    }
+
+    internal CareerEntryNavigator(
+        IVisualPipelineRuntime visualRuntime,
+        IUmaDatabaseService umaDatabase,
+        UraTraineeSelector traineeSelector,
+        UraLegacySelector legacySelector,
+        ICareerActionExecutor actions)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
         _umaDatabase = umaDatabase ?? throw new ArgumentNullException(nameof(umaDatabase));
