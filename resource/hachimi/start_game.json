@@ -11,7 +11,6 @@
         "CheckNotices",
         "CheckGameHome",
         "CheckHomeTabOnOtherPage",
-        "back",
         "CheckStartNoticeSkip"
       ],
       "triggerTask": "CheckStartNoticeSkip",
@@ -49,13 +48,6 @@
       "pollIntervalMs": 200,
       "success": false
     },
-    "back": {
-      "algorithm": "JustReturn",
-      "action": "Back",
-      "postDelay": 600,
-      "maxTimes": 3,
-      "required": false
-    },
     "CheckLogoSkip": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/logo_skip.png",
@@ -73,7 +65,7 @@
     "CheckStartNoticeSkip": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/startnotice_skip.png",
-      "templThreshold": 0.5,
+      "templThreshold": 0.75,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 68, 444, 764, 369 ],
