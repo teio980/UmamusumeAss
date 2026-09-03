@@ -145,37 +145,58 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 true,
                 "Independent Training is already completed.",
                 state.ActionsCompleted,
-                state.LastScreenId);
+                state.LastConfirmedScreen);
         }
 
-        if (state.Stage == IndependentTrainingStage.EntryConfiguration)
+        if (IsEntryStage(state.Stage))
         {
             var entryState = new CareerEntryNavigationState
             {
-                LastScreenId = state.LastScreenId,
+                Step = ToEntryNavigationStep(state.Stage),
+                LastScreenId = state.LastConfirmedScreen,
+                RetryCount = state.RetryCount,
                 ActionsCompleted = state.ActionsCompleted,
             };
+
+            async Task SaveEntryProgressAsync(CareerEntryNavigationState progress)
+            {
+                state.Stage = progress.Step == CareerEntryNavigationStep.Support
+                    && progress.LastScreenId.Equals(
+                        "support_start_transition",
+                        StringComparison.OrdinalIgnoreCase)
+                    ? IndependentTrainingStage.OpenFinalConfirmation
+                    : FromEntryNavigationStep(progress.Step);
+                state.LastConfirmedScreen = progress.LastScreenId;
+                state.RetryCount = progress.RetryCount;
+                state.ActionsCompleted = progress.ActionsCompleted;
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            }
+
             var entry = await _entryNavigator.NavigateAsync(
                     connection,
                     pack,
                     settings,
                     entryState,
                     logSink,
+                    SaveEntryProgressAsync,
                     cancellationToken)
                 .ConfigureAwait(false);
-            state.LastScreenId = entry.LastScreenId;
+            state.LastConfirmedScreen = entry.LastScreenId;
+            state.RetryCount = entryState.RetryCount;
             state.ActionsCompleted = entry.ActionsCompleted;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             if (!entry.Succeeded)
-                return Failure(entry.Message, state.LastScreenId, state.ActionsCompleted);
+            {
+                state.Stage = FromEntryScreen(entry.LastScreenId, entryState.Step);
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+                return Failure(entry.Message, state.LastConfirmedScreen, state.ActionsCompleted);
+            }
 
-            state.Stage = IndependentTrainingStage.IndependentConfiguration;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Mode;
-            state.LineupCollapseVerifiedThisRun = false;
+            state.Stage = IndependentTrainingStage.SelectIndependentMode;
+            state.LastConfirmedScreen = FinalConfirmationScreenId;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.Stage == IndependentTrainingStage.IndependentConfiguration)
+        if (IsIndependentConfigurationStage(state.Stage))
         {
             var configurationFailure = await ConfigureIndependentAsync(
                     connection,
@@ -190,7 +211,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return configurationFailure;
         }
 
-        if (state.Stage == IndependentTrainingStage.Start)
+        if (IsStartStage(state.Stage))
         {
             var startFailure = await StartIndependentAsync(
                     connection,
@@ -205,7 +226,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         }
 
         state.Stage = IndependentTrainingStage.Completed;
-        state.LastScreenId = "home";
+        state.LastConfirmedScreen = "home";
         await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         logSink?.Add(
             "Independent Training",
@@ -215,7 +236,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             true,
             "Independent Training started and returned to Home.",
             state.ActionsCompleted,
-            state.LastScreenId);
+            state.LastConfirmedScreen);
     }
 
     private async Task<IndependentTrainingResult?> ConfigureIndependentAsync(
@@ -227,18 +248,18 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Mode)
+        if (state.Stage == IndependentTrainingStage.SelectIndependentMode)
         {
             var result = await RunIndependentActionAsync(
                     connection, pack, state, "independent.select_mode", logSink, cancellationToken)
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupExpanded;
+            state.Stage = IndependentTrainingStage.ExpandLineup;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.LineupExpanded)
+        if (state.Stage == IndependentTrainingStage.ExpandLineup)
         {
             var result = await RunIndependentActionAsync(
                     connection,
@@ -250,11 +271,11 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Focus;
+            state.Stage = IndependentTrainingStage.ConfigureFocus;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Focus)
+        if (state.Stage == IndependentTrainingStage.ConfigureFocus)
         {
             var focusAction = settings.TrainingFocus.Trim().ToLowerInvariant() switch
             {
@@ -267,33 +288,45 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Agenda;
+            state.Stage = IndependentTrainingStage.ConfigureAgenda;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Agenda)
+        if (state.Stage == IndependentTrainingStage.ConfigureAgenda)
         {
             var agendaError = await ConfigureAgendaAsync(
-                    connection, pack, settings, state, logSink, cancellationToken)
+                    connection,
+                    pack,
+                    settings,
+                    state,
+                    checkpointStore,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (agendaError is not null)
                 return agendaError;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Skills;
+            state.Stage = IndependentTrainingStage.ConfigureSkills;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Skills)
+        if (state.Stage == IndependentTrainingStage.ConfigureSkills)
         {
             var skillError = await ConfigureSkillsAsync(
-                    connection, pack, settings, state, logSink, cancellationToken)
+                    connection,
+                    pack,
+                    settings,
+                    state,
+                    checkpointStore,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (skillError is not null)
                 return skillError;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupPrepared;
+            state.Stage = IndependentTrainingStage.CollapseLineup;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.LineupPrepared)
+        if (state.Stage == IndependentTrainingStage.CollapseLineup)
         {
             var scroll = await RunIndependentActionAsync(
                     connection,
@@ -315,14 +348,6 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (collapse is not null)
                 return collapse;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupVerified;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-        }
-
-        // This probe is always performed in the current run. The persisted
-        // step never substitutes for live evidence after a restart.
-        if (!state.LineupCollapseVerifiedThisRun)
-        {
             var verification = await RunIndependentActionAsync(
                     connection,
                     pack,
@@ -333,12 +358,11 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (verification is not null)
                 return verification;
-            state.LineupCollapseVerifiedThisRun = true;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupVerified;
+            state.Stage = IndependentTrainingStage.ConfigureStrategy;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.LineupVerified)
+        if (state.Stage == IndependentTrainingStage.ConfigureStrategy)
         {
             if (!IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
                     settings.LineupStrategy,
@@ -347,7 +371,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             {
                 return Failure(
                     $"Independent lineup strategy '{settings.LineupStrategy}' is invalid.",
-                    state.LastScreenId,
+                    state.LastConfirmedScreen,
                     state.ActionsCompleted);
             }
 
@@ -365,8 +389,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 if (result is not null)
                     return result;
             }
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Strategy;
-            state.Stage = IndependentTrainingStage.Start;
+            state.Stage = IndependentTrainingStage.StartTraining;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
@@ -378,6 +401,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         UraScenarioPack pack,
         IndependentTrainingSettings settings,
         IndependentTrainingSessionState state,
+        IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -386,13 +410,16 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             return null;
 
         var catalog = IndependentTrainingCatalog.Load();
-        foreach (var action in new[]
-        {
-            "independent.agenda.open",
-            "independent.agenda.reset",
-            "independent.agenda.reset.confirm",
-            "independent.agenda.reset.done",
-        })
+        var openActions = state.AgendaIndex == 0
+            ? new[]
+            {
+                "independent.agenda.open",
+                "independent.agenda.reset",
+                "independent.agenda.reset.confirm",
+                "independent.agenda.reset.done",
+            }
+            : new[] { "independent.agenda.open" };
+        foreach (var action in openActions)
         {
             var result = await RunIndependentActionAsync(
                     connection, pack, state, action, logSink, cancellationToken)
@@ -401,13 +428,16 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return result;
         }
 
-        foreach (var selection in selections)
+        var startIndex = Math.Min(state.AgendaIndex, selections.Count);
+        state.AgendaIndex = startIndex;
+        for (var index = startIndex; index < selections.Count; index++)
         {
+            var selection = selections[index];
             if (!catalog.TryGetAgendaPickerEntry(selection, out var pickerRace))
             {
                 return Failure(
                     $"Independent agenda race '{selection.RaceName}' has no Global Race ID mapping.",
-                    state.LastScreenId,
+                    state.LastConfirmedScreen,
                     state.ActionsCompleted);
             }
 
@@ -494,7 +524,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 {
                     return Failure(
                         $"Independent agenda race '{selection.RaceName}' has no Race ID card asset.",
-                        state.LastScreenId,
+                        state.LastConfirmedScreen,
                         state.ActionsCompleted);
                 }
                 foreach (var action in new[]
@@ -531,6 +561,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (save is not null)
                 return save;
+
+            state.AgendaIndex = index + 1;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         return await RunIndependentActionAsync(
@@ -543,12 +576,17 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         UraScenarioPack pack,
         IndependentTrainingSettings settings,
         IndependentTrainingSessionState state,
+        IndependentCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
         var skillIds = settings.EffectiveSkillIds;
         if (skillIds.Count == 0)
+        {
+            state.SkillIndex = 0;
+            state.CurrentSkillId = null;
             return null;
+        }
 
         var catalog = IndependentTrainingCatalog.Load();
         var scroll = await RunIndependentActionAsync(
@@ -567,14 +605,23 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         if (reset is not null)
             return reset;
 
-        foreach (var skillId in skillIds)
+        var startIndex = Math.Min(state.SkillIndex, skillIds.Count);
+        state.SkillIndex = startIndex;
+        if (startIndex == skillIds.Count)
+            state.CurrentSkillId = null;
+        for (var index = startIndex; index < skillIds.Count; index++)
         {
+            var skillId = skillIds[index];
+            state.SkillIndex = index;
+            state.CurrentSkillId = skillId;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+
             var skill = catalog.Skills.FirstOrDefault(item => item.SkillId == skillId);
             if (skill is null || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
             {
                 return Failure(
                     $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} is not selectable.",
-                    state.LastScreenId,
+                    state.LastConfirmedScreen,
                     state.ActionsCompleted);
             }
             if (!IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
@@ -584,7 +631,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             {
                 return Failure(
                     $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} has no verified search mapping.",
-                    state.LastScreenId,
+                    state.LastConfirmedScreen,
                     state.ActionsCompleted);
             }
 
@@ -629,7 +676,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (submit is not null)
                 return submit;
-            for (var index = 0; index < page; index++)
+            for (var pageIndex = 0; pageIndex < page; pageIndex++)
             {
                 var pageScroll = await RunIndependentActionAsync(
                         connection,
@@ -692,6 +739,10 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (save is not null)
                 return save;
+
+            state.SkillIndex = index + 1;
+            state.CurrentSkillId = null;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         return null;
@@ -705,86 +756,75 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        // Start checkpoints are resumed at the same top-level stage, but a
-        // collapse observation is never trusted across a process boundary.
-        var startIssued = state.LastScreenId.Equals(
-            StartIssuedScreenId,
-            StringComparison.OrdinalIgnoreCase);
-        if (!startIssued && !state.LineupCollapseVerifiedThisRun)
+        if (state.Stage == IndependentTrainingStage.StartTraining)
+        {
+            var startIssued = state.LastConfirmedScreen.Equals(
+                StartIssuedScreenId,
+                StringComparison.OrdinalIgnoreCase);
+            if (!startIssued)
+            {
+                var start = await RunIndependentActionAsync(
+                        connection,
+                        pack,
+                        state,
+                        "independent.start",
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (start is not null)
+                    return start;
+                state.LastConfirmedScreen = StartIssuedScreenId;
+            }
+
+            state.Stage = IndependentTrainingStage.HandlePostStartDialog;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.Stage == IndependentTrainingStage.HandlePostStartDialog)
         {
             foreach (var action in new[]
             {
-                IndependentTrainingCatalog.LineupScrollTopSemanticAction(),
-                IndependentTrainingCatalog.LineupCollapseSemanticAction(),
-                IndependentTrainingCatalog.LineupClosedVerifySemanticAction(),
+                IndependentTrainingCatalog.PostStartOkSemanticAction(),
+                IndependentTrainingCatalog.PostStartMenuSemanticAction(),
+                IndependentTrainingCatalog.PostStartToHomeSemanticAction(),
             })
             {
-                var lineup = await RunIndependentActionAsync(
+                var result = await RunIndependentActionAsync(
                         connection,
                         pack,
                         state,
                         action,
                         logSink,
-                        cancellationToken)
+                        cancellationToken,
+                        allowVisualMiss: true)
                     .ConfigureAwait(false);
-                if (lineup is not null)
-                    return lineup;
+                if (result is not null)
+                    return result;
+                state.LastConfirmedScreen = StartIssuedScreenId;
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             }
-            state.LineupCollapseVerifiedThisRun = true;
+
+            state.Stage = IndependentTrainingStage.ReturnHome;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
-        if (!startIssued)
+        if (state.Stage == IndependentTrainingStage.ReturnHome)
         {
-            var start = await RunIndependentActionAsync(
+            var home = await RunIndependentActionAsync(
                     connection,
                     pack,
                     state,
-                    "independent.start",
+                    IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (start is not null)
-                return start;
-            state.LastScreenId = StartIssuedScreenId;
+            if (home is not null)
+                return home;
+
+            state.Stage = IndependentTrainingStage.Completed;
+            state.LastConfirmedScreen = "home";
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
-
-        foreach (var action in new[]
-        {
-            IndependentTrainingCatalog.PostStartOkSemanticAction(),
-            IndependentTrainingCatalog.PostStartMenuSemanticAction(),
-            IndependentTrainingCatalog.PostStartToHomeSemanticAction(),
-        })
-        {
-            var result = await RunIndependentActionAsync(
-                    connection,
-                    pack,
-                    state,
-                    action,
-                    logSink,
-                    cancellationToken,
-                    allowVisualMiss: true)
-                .ConfigureAwait(false);
-            if (result is not null)
-                return result;
-            state.LastScreenId = StartIssuedScreenId;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-        }
-
-        var home = await RunIndependentActionAsync(
-                connection,
-                pack,
-                state,
-                IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (home is not null)
-            return home;
-
-        state.LastScreenId = "home";
-        await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         return null;
     }
 
@@ -808,16 +848,67 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 options,
                 allowVisualMiss)
             .ConfigureAwait(false);
-        state.LastScreenId = result.LastScreenId;
         if (!result.Succeeded)
         {
             state.RetryCount++;
-            return Failure(result.Message, state.LastScreenId, state.ActionsCompleted);
+            return Failure(result.Message, state.LastConfirmedScreen, state.ActionsCompleted);
         }
+        state.LastConfirmedScreen = result.LastScreenId;
         state.RetryCount = 0;
         state.ActionsCompleted++;
         return null;
     }
+
+    private static bool IsEntryStage(IndependentTrainingStage stage) =>
+        (int)stage <= (int)IndependentTrainingStage.OpenFinalConfirmation;
+
+    private static bool IsIndependentConfigurationStage(IndependentTrainingStage stage) =>
+        (int)stage >= (int)IndependentTrainingStage.SelectIndependentMode
+        && (int)stage <= (int)IndependentTrainingStage.ConfigureStrategy;
+
+    private static bool IsStartStage(IndependentTrainingStage stage) =>
+        (int)stage >= (int)IndependentTrainingStage.StartTraining
+        && (int)stage <= (int)IndependentTrainingStage.ReturnHome;
+
+    private static CareerEntryNavigationStep ToEntryNavigationStep(
+        IndependentTrainingStage stage) => stage switch
+    {
+        IndependentTrainingStage.HandleExistingCareer => CareerEntryNavigationStep.Continue,
+        IndependentTrainingStage.SelectScenario => CareerEntryNavigationStep.Scenario,
+        IndependentTrainingStage.SelectTrainee => CareerEntryNavigationStep.Trainee,
+        IndependentTrainingStage.SelectLegacy => CareerEntryNavigationStep.Legacy,
+        IndependentTrainingStage.SelectSupportDeck
+            or IndependentTrainingStage.OpenFinalConfirmation => CareerEntryNavigationStep.Support,
+        _ => CareerEntryNavigationStep.Home,
+    };
+
+    private static IndependentTrainingStage FromEntryNavigationStep(
+        CareerEntryNavigationStep step) => step switch
+        {
+            CareerEntryNavigationStep.Continue => IndependentTrainingStage.HandleExistingCareer,
+            CareerEntryNavigationStep.Scenario => IndependentTrainingStage.SelectScenario,
+            CareerEntryNavigationStep.Trainee => IndependentTrainingStage.SelectTrainee,
+            CareerEntryNavigationStep.Legacy => IndependentTrainingStage.SelectLegacy,
+            CareerEntryNavigationStep.Support => IndependentTrainingStage.SelectSupportDeck,
+            CareerEntryNavigationStep.FinalConfirmation => IndependentTrainingStage.OpenFinalConfirmation,
+            _ => IndependentTrainingStage.EnterCareer,
+        };
+
+    private static IndependentTrainingStage FromEntryScreen(
+        string screenId,
+        CareerEntryNavigationStep fallbackStep) =>
+        screenId.Trim().ToLowerInvariant() switch
+        {
+            "home" => IndependentTrainingStage.EnterCareer,
+            "career_continue" => IndependentTrainingStage.HandleExistingCareer,
+            "scenario_select" => IndependentTrainingStage.SelectScenario,
+            "trainee_select" => IndependentTrainingStage.SelectTrainee,
+            "legacy_select" => IndependentTrainingStage.SelectLegacy,
+            "support_select" or "support_autofill_confirmation" or "support_ready"
+                or "support_start_transition" => IndependentTrainingStage.SelectSupportDeck,
+            FinalConfirmationScreenId => IndependentTrainingStage.OpenFinalConfirmation,
+            _ => FromEntryNavigationStep(fallbackStep),
+        };
 
     private static void ValidateSettings(IndependentTrainingSettings settings)
     {

@@ -184,6 +184,7 @@ public sealed class CareerEntryNavigator
         ICareerEntrySelectionSettings settings,
         CareerEntryNavigationState state,
         IGrassTaskLogSink? logSink,
+        Func<CareerEntryNavigationState, Task>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -220,6 +221,7 @@ public sealed class CareerEntryNavigator
             state.Step = CareerEntryNavigationStep.Continue;
             state.LastScreenId = "home";
             state.ActionsCompleted++;
+            await NotifyProgressAsync(progressCallback, state).ConfigureAwait(false);
         }
 
         for (var attempt = 0; attempt < 160; attempt++)
@@ -245,15 +247,22 @@ public sealed class CareerEntryNavigator
                     state,
                     observation,
                     logSink,
+                    progressCallback,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (result is not null)
                 return result;
             state.ActionsCompleted++;
+            await NotifyProgressAsync(progressCallback, state).ConfigureAwait(false);
         }
 
         return Failure("Career entry exceeded the safety action limit.", state);
     }
+
+    private static Task NotifyProgressAsync(
+        Func<CareerEntryNavigationState, Task>? progressCallback,
+        CareerEntryNavigationState state) =>
+        progressCallback is null ? Task.CompletedTask : progressCallback(state);
 
     private static void RestoreStepFromCheckpoint(CareerEntryNavigationState state)
     {
@@ -280,6 +289,7 @@ public sealed class CareerEntryNavigator
         CareerEntryNavigationState state,
         EntryObservation observation,
         IGrassTaskLogSink? logSink,
+        Func<CareerEntryNavigationState, Task>? progressCallback,
         CancellationToken cancellationToken)
     {
         switch (observation.ScreenId)
@@ -383,6 +393,7 @@ public sealed class CareerEntryNavigator
                 logSink?.Add(
                     "Career Training",
                     "Trainee selection and Next succeeded; continuing directly into Legacy Select.");
+                await NotifyProgressAsync(progressCallback, state).ConfigureAwait(false);
                 // The trainee_select_pick JSON task chains the Next click. The
                 // live flow enters Legacy immediately after that click, so
                 // invoke the Legacy selector directly instead of waiting for

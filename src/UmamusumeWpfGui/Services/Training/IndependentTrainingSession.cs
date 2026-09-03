@@ -5,29 +5,30 @@ using System.Text.Json.Serialization;
 namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
-/// Monotonic top-level progress for an Independent Training run.
+/// The single ordered progress model for an Independent Training run.
+/// Keeping entry, configuration, start, and post-start handling in one enum
+/// makes a checkpoint self-describing and prevents contradictory flags.
 /// </summary>
 public enum IndependentTrainingStage
 {
-    EntryConfiguration = 0,
-    IndependentConfiguration = 1,
-    Start = 2,
-    Completed = 3,
-}
-
-/// <summary>
-/// Monotonic progress inside the Independent configuration page.
-/// </summary>
-public enum IndependentTrainingConfigurationStep
-{
-    Mode = 0,
-    LineupExpanded = 1,
-    Focus = 2,
-    Agenda = 3,
-    Skills = 4,
-    LineupPrepared = 5,
-    LineupVerified = 6,
-    Strategy = 7,
+    EnterCareer,
+    HandleExistingCareer,
+    SelectScenario,
+    SelectTrainee,
+    SelectLegacy,
+    SelectSupportDeck,
+    OpenFinalConfirmation,
+    SelectIndependentMode,
+    ExpandLineup,
+    ConfigureFocus,
+    ConfigureAgenda,
+    ConfigureSkills,
+    CollapseLineup,
+    ConfigureStrategy,
+    StartTraining,
+    HandlePostStartDialog,
+    ReturnHome,
+    Completed,
 }
 
 /// <summary>
@@ -36,89 +37,195 @@ public enum IndependentTrainingConfigurationStep
 /// </summary>
 public sealed class IndependentTrainingSessionState
 {
+    public const int CurrentCheckpointVersion = 1;
+
+    private static readonly JsonSerializerOptions CheckpointJsonOptions =
+        new(JsonSerializerDefaults.Web)
+        {
+            Converters = { new JsonStringEnumConverter() },
+        };
+
+    private static readonly JsonSerializerOptions LegacyJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public int Version { get; set; } = CurrentCheckpointVersion;
+
     public IndependentTrainingStage Stage { get; set; } =
-        IndependentTrainingStage.EntryConfiguration;
+        IndependentTrainingStage.EnterCareer;
 
-    public IndependentTrainingConfigurationStep ConfigurationStep { get; set; } =
-        IndependentTrainingConfigurationStep.Mode;
+    public int AgendaIndex { get; set; }
+    public int SkillIndex { get; set; }
+    public int? CurrentSkillId { get; set; }
 
-    public string LastScreenId { get; set; } = "unknown";
+    public string LastConfirmedScreen { get; set; } = "unknown";
     public int RetryCount { get; set; }
     public int ActionsCompleted { get; set; }
 
-    /// <summary>
-    /// This is deliberately runtime-only. A persisted collapsed flag is not
-    /// trusted after a restart; the Lineup page is collapsed and verified in
-    /// the live UI again before Strategy or Start is allowed.
-    /// </summary>
-    [JsonIgnore]
-    public bool LineupCollapseVerifiedThisRun { get; set; }
+    public string Serialize() => JsonSerializer.Serialize(this, CheckpointJsonOptions);
 
-    public string Serialize() => JsonSerializer.Serialize(this);
+    public static IndependentTrainingSessionState Deserialize(string json)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(json);
 
-    public static IndependentTrainingSessionState Deserialize(string json) =>
-        JsonSerializer.Deserialize<IndependentTrainingSessionState>(json)
-        ?? throw new InvalidDataException("Independent checkpoint is empty.");
+        using var document = JsonDocument.Parse(json);
+        if (HasProperty(document.RootElement, "ConfigurationStep"))
+        {
+            return DeserializePreviousIndependentCheckpoint(document.RootElement);
+        }
+
+        var state = JsonSerializer.Deserialize<IndependentTrainingSessionState>(
+            json,
+            CheckpointJsonOptions)
+            ?? throw new InvalidDataException("Independent checkpoint is empty.");
+        state.NormalizeForResume();
+        return state;
+    }
 
     public void NormalizeForResume()
     {
+        if (Version != CurrentCheckpointVersion)
+            Version = CurrentCheckpointVersion;
         if (!Enum.IsDefined(Stage))
-            Stage = IndependentTrainingStage.EntryConfiguration;
-        if (!Enum.IsDefined(ConfigurationStep))
-            ConfigurationStep = IndependentTrainingConfigurationStep.Mode;
+            Stage = IndependentTrainingStage.EnterCareer;
 
-        Stage = Stage switch
-        {
-            IndependentTrainingStage.EntryConfiguration => IndependentTrainingStage.EntryConfiguration,
-            IndependentTrainingStage.IndependentConfiguration => IndependentTrainingStage.IndependentConfiguration,
-            IndependentTrainingStage.Start => IndependentTrainingStage.Start,
-            IndependentTrainingStage.Completed => IndependentTrainingStage.Completed,
-            _ => IndependentTrainingStage.EntryConfiguration,
-        };
-        ConfigurationStep = (IndependentTrainingConfigurationStep)Math.Clamp(
-            (int)ConfigurationStep,
-            (int)IndependentTrainingConfigurationStep.Mode,
-            (int)IndependentTrainingConfigurationStep.Strategy);
+        AgendaIndex = Math.Max(0, AgendaIndex);
+        SkillIndex = Math.Max(0, SkillIndex);
         RetryCount = Math.Max(0, RetryCount);
         ActionsCompleted = Math.Max(0, ActionsCompleted);
+        LastConfirmedScreen = string.IsNullOrWhiteSpace(LastConfirmedScreen)
+            ? "unknown"
+            : LastConfirmedScreen.Trim();
 
-        // A checkpoint that got as far as Lineup must always perform a fresh
-        // closed-right verification on the next process/run boundary.
-        if (Stage == IndependentTrainingStage.IndependentConfiguration
-            && ConfigurationStep >= IndependentTrainingConfigurationStep.LineupPrepared)
+        if (CurrentSkillId is <= 0)
+            CurrentSkillId = null;
+
+        // A cursor is meaningful only after its stage has been reached. Clear
+        // stale values so a torn or hand-edited checkpoint cannot affect a
+        // later stage.
+        if ((int)Stage < (int)IndependentTrainingStage.ConfigureAgenda)
+            AgendaIndex = 0;
+        if (Stage != IndependentTrainingStage.ConfigureSkills)
+            CurrentSkillId = null;
+        if ((int)Stage < (int)IndependentTrainingStage.ConfigureSkills)
         {
-            ConfigurationStep = IndependentTrainingConfigurationStep.LineupPrepared;
+            SkillIndex = 0;
+            CurrentSkillId = null;
+        }
+    }
+
+    private static bool HasProperty(JsonElement element, string propertyName)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                return true;
         }
 
-        // Stage and substep are written together, but a torn or hand-edited
-        // checkpoint must never allow a later stage to skip an untrusted
-        // suffix. Rewind to the last coherent boundary instead.
-        if (Stage == IndependentTrainingStage.EntryConfiguration)
+        return false;
+    }
+
+    private static IndependentTrainingSessionState DeserializePreviousIndependentCheckpoint(
+        JsonElement root)
+    {
+        var previous = root.Deserialize<PreviousIndependentCheckpointDto>(
+            LegacyJsonOptions);
+        if (previous is null)
+            throw new InvalidDataException("Independent checkpoint is empty.");
+
+        var state = new IndependentTrainingSessionState
         {
-            ConfigurationStep = IndependentTrainingConfigurationStep.Mode;
-        }
-        else if (Stage == IndependentTrainingStage.IndependentConfiguration
-            && ConfigurationStep == IndependentTrainingConfigurationStep.Strategy)
+            Version = CurrentCheckpointVersion,
+            LastConfirmedScreen = string.IsNullOrWhiteSpace(previous.LastScreenId)
+                ? "unknown"
+                : previous.LastScreenId,
+            RetryCount = previous.RetryCount,
+            ActionsCompleted = previous.ActionsCompleted,
+            Stage = MapPreviousStage(previous),
+        };
+        state.NormalizeForResume();
+        return state;
+    }
+
+    private static IndependentTrainingStage MapPreviousStage(
+        PreviousIndependentCheckpointDto previous)
+    {
+        if (previous.Stage <= 0)
         {
-            Stage = IndependentTrainingStage.Start;
-        }
-        else if ((Stage is IndependentTrainingStage.Start or IndependentTrainingStage.Completed)
-            && ConfigurationStep < IndependentTrainingConfigurationStep.Strategy)
-        {
-            Stage = IndependentTrainingStage.IndependentConfiguration;
+            return MapEntryScreen(previous.LastScreenId);
         }
 
-        LineupCollapseVerifiedThisRun = false;
+        if (previous.Stage == 1)
+        {
+            return previous.ConfigurationStep switch
+            {
+                <= 0 => IndependentTrainingStage.SelectIndependentMode,
+                1 => IndependentTrainingStage.ExpandLineup,
+                2 => IndependentTrainingStage.ConfigureFocus,
+                3 => IndependentTrainingStage.ConfigureAgenda,
+                4 => IndependentTrainingStage.ConfigureSkills,
+                5 or 6 => IndependentTrainingStage.CollapseLineup,
+                _ => IndependentTrainingStage.StartTraining,
+            };
+        }
+
+        if (previous.Stage == 2)
+            return IndependentTrainingStage.StartTraining;
+
+        return previous.ConfigurationStep >= 7
+            ? IndependentTrainingStage.Completed
+            : IndependentTrainingStage.ConfigureStrategy;
+    }
+
+    private static IndependentTrainingStage MapEntryScreen(string? screenId) =>
+        screenId?.Trim().ToLowerInvariant() switch
+        {
+            "career_continue" => IndependentTrainingStage.HandleExistingCareer,
+            "scenario_select" => IndependentTrainingStage.SelectScenario,
+            "trainee_select" => IndependentTrainingStage.SelectTrainee,
+            "legacy_select" => IndependentTrainingStage.SelectLegacy,
+            "support_select" or "support_autofill_confirmation" or "support_ready"
+                or "support_start_transition" => IndependentTrainingStage.SelectSupportDeck,
+            "career_final_confirmation" => IndependentTrainingStage.OpenFinalConfirmation,
+            _ => IndependentTrainingStage.EnterCareer,
+        };
+
+    /// <summary>
+    /// The previous refactor persisted a top-level stage plus a configuration
+    /// sub-step. Read it once and immediately convert it to the single-stage
+    /// model; no compatibility fields are kept on the live state.
+    /// </summary>
+    private sealed class PreviousIndependentCheckpointDto
+    {
+        public int Stage { get; set; }
+        public int ConfigurationStep { get; set; }
+        public string? LastScreenId { get; set; }
+        public int RetryCount { get; set; }
+        public int ActionsCompleted { get; set; }
     }
 }
 
 /// <summary>
 /// The old URA checkpoint is intentionally read through this DTO, so
 /// Independent remains independent of the URA session engine while still
-/// offering best-effort migration.
+/// offering best-effort migration. These booleans are legacy input only;
+/// they are never part of the active checkpoint state.
 /// </summary>
 internal sealed class IndependentLegacyCheckpointDto
 {
+    private static readonly string[] LegacyPropertyNames =
+    {
+        nameof(IndependentModeSelected),
+        nameof(IndependentLineupConfigured),
+        nameof(IndependentTrainingFocusConfigured),
+        nameof(IndependentAgendaConfigured),
+        nameof(IndependentSkillsConfigured),
+        nameof(IndependentLineupCollapsed),
+        nameof(IndependentStrategyConfigured),
+        nameof(IndependentSetupCompleted),
+    };
+
     public bool IndependentModeSelected { get; set; }
     public bool IndependentLineupConfigured { get; set; }
     public bool IndependentTrainingFocusConfigured { get; set; }
@@ -132,42 +239,49 @@ internal sealed class IndependentLegacyCheckpointDto
     {
         try
         {
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.EnumerateObject().Any(property =>
+                    LegacyPropertyNames.Contains(
+                        property.Name,
+                        StringComparer.OrdinalIgnoreCase)))
+            {
+                return null;
+            }
+
             var dto = JsonSerializer.Deserialize<IndependentLegacyCheckpointDto>(json);
             if (dto is null)
                 return null;
 
-            // A later true flag cannot make an earlier false flag true. This
-            // turns contradictory old checkpoints into the last trusted
-            // monotonic step instead of replaying an unsafe suffix.
-            var state = new IndependentTrainingSessionState();
+            var state = new IndependentTrainingSessionState
+            {
+                // The old flags were only written on the final confirmation
+                // flow, so the first missing flag maps to the corresponding
+                // new stage rather than pretending entry was incomplete.
+                Stage = IndependentTrainingStage.SelectIndependentMode,
+            };
             if (!dto.IndependentModeSelected)
                 return state;
-
-            state.Stage = IndependentTrainingStage.IndependentConfiguration;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupExpanded;
+            state.Stage = IndependentTrainingStage.ExpandLineup;
             if (!dto.IndependentLineupConfigured)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Focus;
+            state.Stage = IndependentTrainingStage.ConfigureFocus;
             if (!dto.IndependentTrainingFocusConfigured)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Agenda;
+            state.Stage = IndependentTrainingStage.ConfigureAgenda;
             if (!dto.IndependentAgendaConfigured)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Skills;
+            state.Stage = IndependentTrainingStage.ConfigureSkills;
             if (!dto.IndependentSkillsConfigured)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupPrepared;
+            state.Stage = IndependentTrainingStage.CollapseLineup;
             if (!dto.IndependentLineupCollapsed)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupVerified;
+            state.Stage = IndependentTrainingStage.ConfigureStrategy;
             if (!dto.IndependentStrategyConfigured)
                 return state;
-            state.ConfigurationStep = IndependentTrainingConfigurationStep.Strategy;
+            state.Stage = IndependentTrainingStage.StartTraining;
             if (!dto.IndependentSetupCompleted)
-            {
-                state.Stage = IndependentTrainingStage.Start;
                 return state;
-            }
 
             state.Stage = IndependentTrainingStage.Completed;
             return state;
@@ -215,9 +329,7 @@ public sealed class IndependentCheckpointStore
         {
             var json = await File.ReadAllTextAsync(_path, cancellationToken)
                 .ConfigureAwait(false);
-            var state = IndependentTrainingSessionState.Deserialize(json);
-            state.NormalizeForResume();
-            return state;
+            return IndependentTrainingSessionState.Deserialize(json);
         }
         catch (Exception exception) when (
             exception is not OperationCanceledException
@@ -254,6 +366,7 @@ public sealed class IndependentCheckpointStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(state);
+        state.NormalizeForResume();
         var temporaryPath = _path + ".tmp";
         await File.WriteAllTextAsync(
                 temporaryPath,

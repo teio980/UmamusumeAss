@@ -5,58 +5,97 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class IndependentTrainingSessionTests
 {
+    private static readonly string[] ExpectedStageNames =
+    {
+        "EnterCareer",
+        "HandleExistingCareer",
+        "SelectScenario",
+        "SelectTrainee",
+        "SelectLegacy",
+        "SelectSupportDeck",
+        "OpenFinalConfirmation",
+        "SelectIndependentMode",
+        "ExpandLineup",
+        "ConfigureFocus",
+        "ConfigureAgenda",
+        "ConfigureSkills",
+        "CollapseLineup",
+        "ConfigureStrategy",
+        "StartTraining",
+        "HandlePostStartDialog",
+        "ReturnHome",
+        "Completed",
+    };
+
     [Fact]
-    public void Session_serialization_contains_only_independent_progress_data()
+    public void Stage_is_the_single_ordered_progress_model()
+    {
+        Assert.Equal(ExpectedStageNames, Enum.GetNames<IndependentTrainingStage>());
+    }
+
+    [Fact]
+    public void Session_serialization_contains_resume_cursors_and_no_flag_model()
     {
         var state = new IndependentTrainingSessionState
         {
-            Stage = IndependentTrainingStage.IndependentConfiguration,
-            ConfigurationStep = IndependentTrainingConfigurationStep.LineupVerified,
-            LastScreenId = "career_entry",
+            Stage = IndependentTrainingStage.ConfigureSkills,
+            AgendaIndex = 3,
+            SkillIndex = 5,
+            CurrentSkillId = 12345,
+            LastConfirmedScreen = "career_final_confirmation",
+            Version = IndependentTrainingSessionState.CurrentCheckpointVersion,
             RetryCount = 2,
             ActionsCompleted = 7,
         };
 
         var json = state.Serialize();
+        var roundTrip = IndependentTrainingSessionState.Deserialize(json);
 
-        Assert.Contains("\"Stage\":1", json);
-        Assert.Contains("\"ConfigurationStep\":6", json);
+        Assert.Contains("\"stage\":\"ConfigureSkills\"", json);
+        Assert.Contains("\"agendaIndex\":3", json);
+        Assert.Contains("\"skillIndex\":5", json);
+        Assert.Contains("\"currentSkillId\":12345", json);
+        Assert.Contains("\"lastConfirmedScreen\":\"career_final_confirmation\"", json);
+        Assert.Contains("\"version\":1", json);
+        Assert.DoesNotContain("ConfigurationStep", json);
+        Assert.DoesNotContain("IndependentModeSelected", json);
         Assert.DoesNotContain("TurnIndex", json);
-        Assert.DoesNotContain("Energy", json);
-        Assert.DoesNotContain("HasPendingRace", json);
-        Assert.DoesNotContain("CurrentObjectiveId", json);
-        Assert.DoesNotContain("FinaleStageIndex", json);
+        Assert.Equal(IndependentTrainingStage.ConfigureSkills, roundTrip.Stage);
+        Assert.Equal(3, roundTrip.AgendaIndex);
+        Assert.Equal(5, roundTrip.SkillIndex);
+        Assert.Equal(12345, roundTrip.CurrentSkillId);
     }
 
     [Fact]
-    public void Resume_forces_live_lineup_verification_after_lineup_progress()
+    public void Resume_keeps_the_current_skill_cursor_only_for_skill_stage()
     {
         var state = new IndependentTrainingSessionState
         {
-            Stage = IndependentTrainingStage.IndependentConfiguration,
-            ConfigurationStep = IndependentTrainingConfigurationStep.Strategy,
-            LineupCollapseVerifiedThisRun = true,
+            Stage = IndependentTrainingStage.ConfigureSkills,
+            SkillIndex = 5,
+            CurrentSkillId = 12345,
         };
 
         state.NormalizeForResume();
 
-        Assert.Equal(IndependentTrainingConfigurationStep.LineupPrepared, state.ConfigurationStep);
-        Assert.False(state.LineupCollapseVerifiedThisRun);
+        Assert.Equal(5, state.SkillIndex);
+        Assert.Equal(12345, state.CurrentSkillId);
+
+        state.Stage = IndependentTrainingStage.ConfigureStrategy;
+        state.NormalizeForResume();
+
+        Assert.Null(state.CurrentSkillId);
     }
 
     [Fact]
-    public void Resume_rewinds_incoherent_later_stage_to_last_trusted_stage()
+    public void Previous_two_part_checkpoint_is_migrated_to_one_stage()
     {
-        var state = new IndependentTrainingSessionState
-        {
-            Stage = IndependentTrainingStage.Completed,
-            ConfigurationStep = IndependentTrainingConfigurationStep.Agenda,
-        };
+        var state = IndependentTrainingSessionState.Deserialize(
+            "{\"Stage\":1,\"ConfigurationStep\":4,\"LastScreenId\":\"career_entry\",\"ActionsCompleted\":7}");
 
-        state.NormalizeForResume();
-
-        Assert.Equal(IndependentTrainingStage.IndependentConfiguration, state.Stage);
-        Assert.Equal(IndependentTrainingConfigurationStep.Agenda, state.ConfigurationStep);
+        Assert.Equal(IndependentTrainingStage.ConfigureSkills, state.Stage);
+        Assert.Equal("career_entry", state.LastConfirmedScreen);
+        Assert.Equal(7, state.ActionsCompleted);
     }
 
     [Fact]
@@ -73,14 +112,12 @@ public sealed class IndependentTrainingSessionTests
 
             var migrated = await store.LoadLegacyAsync();
             Assert.NotNull(migrated);
-            Assert.Equal(IndependentTrainingStage.IndependentConfiguration, migrated!.Stage);
-            Assert.Equal(IndependentTrainingConfigurationStep.LineupExpanded, migrated.ConfigurationStep);
+            Assert.Equal(IndependentTrainingStage.ExpandLineup, migrated!.Stage);
 
             var completed = new IndependentTrainingSessionState
             {
                 Stage = IndependentTrainingStage.Completed,
-                ConfigurationStep = IndependentTrainingConfigurationStep.Strategy,
-                LastScreenId = "home",
+                LastConfirmedScreen = "home",
                 ActionsCompleted = 12,
             };
             await store.SaveAsync(completed);
@@ -88,7 +125,7 @@ public sealed class IndependentTrainingSessionTests
             var loaded = await store.LoadAsync();
             Assert.NotNull(loaded);
             Assert.Equal(IndependentTrainingStage.Completed, loaded!.Stage);
-            Assert.Equal("home", loaded.LastScreenId);
+            Assert.Equal("home", loaded.LastConfirmedScreen);
 
             await store.ClearAsync();
             Assert.False(File.Exists(store.CheckpointPath));

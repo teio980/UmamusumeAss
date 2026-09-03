@@ -241,6 +241,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                     settings,
                     entryState,
                     logSink,
+                    progressCallback: null,
                     cancellationToken)
                 .ConfigureAwait(false);
             actionCount = entry.ActionsCompleted;
