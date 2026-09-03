@@ -17,12 +17,12 @@ public sealed class IndependentSkillSelectionFlowContractTests
             "AdbIndependentTrainingPipeline.cs"));
 
         var skillsSectionStart = pipelineSource.IndexOf(
-            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Skills)",
+            "if (state.Stage == IndependentTrainingStage.ConfigureSkills)",
             StringComparison.Ordinal);
         Assert.True(skillsSectionStart >= 0);
 
         var loopStart = pipelineSource.IndexOf(
-            "foreach (var skillId in skillIds)",
+            "for (var index = startIndex; index < skillIds.Count; index++)",
             skillsSectionStart,
             StringComparison.Ordinal);
         Assert.True(loopStart >= 0);

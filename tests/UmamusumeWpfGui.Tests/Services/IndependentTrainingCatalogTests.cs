@@ -270,7 +270,7 @@ public sealed class IndependentTrainingCatalogTests
             "Training",
             "AdbIndependentTrainingPipeline.cs"));
         var skillsIndex = pipelineSource.IndexOf(
-            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Skills)",
+            "if (state.Stage == IndependentTrainingStage.ConfigureSkills)",
             StringComparison.Ordinal);
         var scrollIndex = pipelineSource.IndexOf(
             "LineupScrollTopSemanticAction()",
@@ -296,8 +296,8 @@ public sealed class IndependentTrainingCatalogTests
         Assert.True(strategyIndex < startIndex);
         Assert.Contains("settings.LineupStrategy", pipelineSource);
         Assert.Contains("TryGetLineupStrategyUiMapping", pipelineSource);
-        Assert.Contains("LineupCollapseVerifiedThisRun", pipelineSource);
-        Assert.Contains("IndependentTrainingStage.Start", pipelineSource);
+        Assert.Contains("IndependentTrainingStage.ConfigureStrategy", pipelineSource);
+        Assert.Contains("IndependentTrainingStage.StartTraining", pipelineSource);
     }
 
     [Fact]

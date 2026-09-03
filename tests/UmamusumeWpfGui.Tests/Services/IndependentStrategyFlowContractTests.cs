@@ -463,15 +463,15 @@ public sealed class IndependentStrategyFlowContractTests
                 "AdbIndependentTrainingPipeline.cs"));
         var orderMarkers = new[]
         {
-            "state.ConfigurationStep = IndependentTrainingConfigurationStep.LineupPrepared;",
+            "state.Stage == IndependentTrainingStage.CollapseLineup",
             "IndependentTrainingCatalog.LineupScrollTopSemanticAction()",
             "IndependentTrainingCatalog.LineupCollapseSemanticAction()",
             "IndependentTrainingCatalog.LineupClosedVerifySemanticAction()",
-            "state.LineupCollapseVerifiedThisRun = true;",
+            "state.Stage = IndependentTrainingStage.ConfigureStrategy;",
             "IndependentTrainingCatalog.StrategyChangeSemanticAction()",
             "IndependentTrainingCatalog.StrategySaveSemanticAction()",
             "IndependentTrainingCatalog.StrategyReturnSemanticAction()",
-            "state.Stage = IndependentTrainingStage.Start;",
+            "state.Stage = IndependentTrainingStage.StartTraining;",
             "\"independent.start\"",
         };
         var positions = orderMarkers
@@ -486,7 +486,7 @@ public sealed class IndependentStrategyFlowContractTests
             "ValidateSettings(settings);",
             StringComparison.Ordinal);
         var modeGuardPosition = pipelineSource.IndexOf(
-            "if (state.ConfigurationStep <= IndependentTrainingConfigurationStep.Mode)",
+            "if (state.Stage == IndependentTrainingStage.SelectIndependentMode)",
             StringComparison.Ordinal);
         var modeCallPosition = pipelineSource.IndexOf(
             "\"independent.select_mode\"",
