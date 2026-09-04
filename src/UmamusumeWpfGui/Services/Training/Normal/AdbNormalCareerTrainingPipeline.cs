@@ -8,7 +8,7 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
+public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 {
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
@@ -55,7 +55,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
 
-    public AdbCareerTrainingPipeline(
+    public AdbNormalCareerTrainingPipeline(
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
         UraTraineeSelector traineeSelector,

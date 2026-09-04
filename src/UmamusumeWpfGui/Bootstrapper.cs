@@ -83,7 +83,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .ToSelf()
             .InSingletonScope();
         builder.Bind<ICareerTrainingPipeline>()
-            .To<AdbCareerTrainingPipeline>()
+            .To<AdbNormalCareerTrainingPipeline>()
             .InSingletonScope();
         builder.Bind<CareerJsonActionExecutor>()
             .ToSelf()

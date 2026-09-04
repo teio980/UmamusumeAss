@@ -202,7 +202,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Guest_support_filter_uses_selected_card_type_not_friend_card_type()
     {
-        var actions = AdbCareerTrainingPipeline.BuildHighestStarFilterActions("Speed", "SSR");
+        var actions = AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActions("Speed", "SSR");
 
         Assert.Contains("ranked.filter_speed", actions);
         Assert.Contains("ranked.filter_ssr", actions);
@@ -213,7 +213,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Highest_star_filter_selects_ssr_and_sr_when_rarity_is_unspecified()
     {
-        var actions = AdbCareerTrainingPipeline.BuildHighestStarFilterActions(
+        var actions = AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActions(
             "Speed",
             rarity: null);
 

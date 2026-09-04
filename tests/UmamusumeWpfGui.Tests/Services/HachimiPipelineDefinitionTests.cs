@@ -766,7 +766,7 @@ public sealed class HachimiPipelineDefinitionTests
     [Fact]
     public void Highest_star_filter_accepts_only_one_support_category_per_pass()
     {
-        var actions = AdbCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
+        var actions = AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
             ["Speed", "Speed"],
             rarity: null);
 
@@ -775,7 +775,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(0, actions.Count(action =>
             action.Equals("ranked.filter_stamina", StringComparison.OrdinalIgnoreCase)));
         Assert.Throws<InvalidOperationException>(() =>
-            AdbCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
+            AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
                 ["Speed", "Stamina"],
                 rarity: null));
     }
