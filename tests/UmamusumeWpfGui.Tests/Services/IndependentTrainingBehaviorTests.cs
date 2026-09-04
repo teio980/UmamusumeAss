@@ -82,6 +82,46 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.DoesNotContain(harness.Actions.Calls, call => call.Contains("scenario_select", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("auto", "custom", "support_select.auto_fill")]
+    [InlineData("selected", "custom", "support_select.start")]
+    [InlineData("highest-star", "speed3-stamina3", "support_select.start")]
+    public async Task Entry_navigation_support_deck_modes_reach_final_confirmation(
+        string supportDeckMode,
+        string supportDeckPreset,
+        string expectedFinalAction)
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        var supportCardIds = supportDeckMode == "selected"
+            ? harness.Database.SupportCards
+                .Where(card => card.Available)
+                .Take(5)
+                .Select(card => card.SupportCardId)
+                .ToArray()
+            : [];
+
+        var state = new CareerEntryNavigationState();
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(
+                root,
+                continueExistingCareer: false,
+                supportDeckMode: supportDeckMode,
+                supportDeckPreset: supportDeckPreset,
+                supportCardIds: supportCardIds),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal(CareerEntryNavigationStep.FinalConfirmation, state.Step);
+        Assert.Equal("career_final_confirmation", result.LastScreenId);
+        Assert.Contains(expectedFinalAction, harness.Actions.Calls);
+        Assert.Equal(expectedFinalAction, harness.Actions.Calls[^1]);
+    }
+
     [Fact]
     public async Task Pipeline_records_the_complete_independent_stage_order()
     {
@@ -325,6 +365,45 @@ public sealed class IndependentTrainingBehaviorTests
         }
     }
 
+    [Theory]
+    [InlineData(IndependentTrainingStage.SelectSupportDeck, "support_select", "support_select.auto_fill")]
+    [InlineData(IndependentTrainingStage.OpenFinalConfirmation, "career_final_confirmation", "independent.select_mode")]
+    public async Task Final_confirmation_checkpoint_resumes_without_replaying_entry(
+        IndependentTrainingStage stage,
+        string screen,
+        string expectedFirstAction)
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = stage,
+            LastConfirmedScreen = screen,
+        });
+        harness.Actions.SetScreen(screen);
+
+        var previousDirectory = Environment.CurrentDirectory;
+        Environment.CurrentDirectory = root;
+        try
+        {
+            var result = await harness.Pipeline.RunAsync(
+                Connection,
+                CreateSettings(root, continueExistingCareer: true),
+                null);
+
+            Assert.True(result.Succeeded, result.Message);
+            Assert.Equal(expectedFirstAction, harness.Actions.Calls[0]);
+            Assert.DoesNotContain("task:home", harness.Actions.Calls);
+            Assert.DoesNotContain("career_continue.resume", harness.Actions.Calls);
+            Assert.DoesNotContain("scenario_select.next", harness.Actions.Calls);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = previousDirectory;
+        }
+    }
+
     private static async Task<BehaviorHarness> CreateHarnessAsync(string root, string checkpointRoot)
     {
         var visual = new RecordingVisualRuntime();
@@ -355,22 +434,27 @@ public sealed class IndependentTrainingBehaviorTests
             actions,
             navigator,
             pipeline,
-            new IndependentCheckpointStore(TraineeId, checkpointRoot));
+            new IndependentCheckpointStore(TraineeId, checkpointRoot),
+            database);
     }
 
     private static IndependentTrainingSettings CreateSettings(
         string root,
         bool continueExistingCareer,
         IReadOnlyList<IndependentTrainingAgendaSelection>? agenda = null,
-        IReadOnlyList<int>? skillIds = null) =>
+        IReadOnlyList<int>? skillIds = null,
+        string supportDeckMode = "auto",
+        string supportDeckPreset = "custom",
+        IReadOnlyList<int>? supportCardIds = null,
+        int? friendSupportCardId = null) =>
         new(
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"),
             TraineeId,
             continueExistingCareer,
-            [],
-            "auto",
-            "custom",
-            null,
+            supportCardIds ?? [],
+            supportDeckMode,
+            supportDeckPreset,
+            friendSupportCardId,
             "auto",
             false,
             false,
@@ -422,7 +506,8 @@ public sealed class IndependentTrainingBehaviorTests
         RecordingActionExecutor Actions,
         CareerEntryNavigator Navigator,
         AdbIndependentTrainingPipeline Pipeline,
-        IndependentCheckpointStore Store);
+        IndependentCheckpointStore Store,
+        UmaDatabaseService Database);
 
     private sealed class TestScope : IAsyncDisposable
     {
@@ -456,6 +541,8 @@ public sealed class IndependentTrainingBehaviorTests
         public string? BlockAction { get; set; }
         public TaskCompletionSource<bool> BlockEntered { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void SetScreen(string screen) => _visual.SetScreen(screen);
 
         public async Task<CareerActionExecutionResult> RunAsync(
             LastVerifiedConnection connection,
