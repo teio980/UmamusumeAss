@@ -716,7 +716,7 @@ public sealed class CareerEntryNavigator
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var requiredTypes = GetSupportPresetTypes(settings.SupportDeckPreset);
+        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(settings.SupportDeckPreset);
         if (requiredTypes is null)
         {
             return new(false,
@@ -881,7 +881,7 @@ public sealed class CareerEntryNavigator
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var filterKey = GetSupportFilterKey(supportType);
+        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
         if (filterKey is null)
         {
             return new(false,
@@ -929,7 +929,7 @@ public sealed class CareerEntryNavigator
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var filterKey = GetSupportFilterKey(supportType);
+        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
         var templatePrefix = friendPage
             ? "friend_type_"
             : "type_";
@@ -1000,50 +1000,6 @@ public sealed class CareerEntryNavigator
                 })
             .ConfigureAwait(false);
     }
-
-    private static string? GetSupportFilterKey(string? supportType) =>
-        supportType?.Trim().ToLowerInvariant() switch
-        {
-            "speed" => "speed",
-            "stamina" => "stamina",
-            "power" => "power",
-            "guts" => "guts",
-            "wit" => "wit",
-            "friend" => "friend",
-            _ => null,
-        };
-
-    private static Dictionary<string, int>? GetSupportPresetTypes(string preset) =>
-        preset.Trim().ToLowerInvariant() switch
-        {
-            "speed3-stamina3" => new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 3,
-            },
-            "speed3-stamina2-wit1" => new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 2,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina2-power1-wit1" => new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 2,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina1-power1-wit1-friend1" => new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 1,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-                ["Friend"] = 1,
-            },
-            _ => null,
-        };
 
     private async Task<CareerActionExecutionResult> HandleScenarioAsync(
         LastVerifiedConnection connection,

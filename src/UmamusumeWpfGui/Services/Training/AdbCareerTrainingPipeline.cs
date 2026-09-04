@@ -158,7 +158,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             ValidateFriendSupportCard(settings, allowCustomPreset: true);
         }
         else if (settings.SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase)
-            && GetRequiredSupportTypes(settings.SupportDeckPreset) is null)
+            && SupportDeckPresetCatalog.GetRequiredTypes(settings.SupportDeckPreset) is null)
         {
             throw new InvalidOperationException(
                 "Highest-star support selection requires a support deck preset.");
@@ -1458,7 +1458,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var requiredTypes = GetRequiredSupportTypes(supportDeckPreset);
+        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(supportDeckPreset);
         if (requiredTypes is null)
         {
             return Failure(
@@ -1712,7 +1712,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray()
             : requiredTypes.Keys
-                .Where(type => GetSupportFilterKey(type) is not null)
+                .Where(type => SupportDeckPresetCatalog.GetFilterKey(type) is not null)
                 .ToArray();
 
         return candidateTypes.FirstOrDefault();
@@ -1783,7 +1783,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         string? rarity)
     {
         var supportFilterKeys = supportTypes
-            .Select(GetSupportFilterKey)
+            .Select(SupportDeckPresetCatalog.GetFilterKey)
             .Where(key => key is not null)
             .Select(key => key!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -2003,18 +2003,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             $"Timed out waiting for JSON task '{taskName}'",
             StringComparison.OrdinalIgnoreCase));
 
-    private static string? GetSupportFilterKey(string? supportType) =>
-        supportType?.Trim().ToLowerInvariant() switch
-        {
-            "speed" => "speed",
-            "stamina" => "stamina",
-            "power" => "power",
-            "guts" => "guts",
-            "wit" => "wit",
-            "friend" => "friend",
-            _ => null,
-        };
-
     private static string? GetSupportRarityFilter(string? rarity) =>
         rarity?.Trim().ToUpperInvariant() switch
         {
@@ -2028,7 +2016,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         UraScenarioPack pack,
         string supportType)
     {
-        var filterKey = GetSupportFilterKey(supportType);
+        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
         if (filterKey is null)
             return null;
 
@@ -2042,7 +2030,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         UraScenarioPack pack,
         string supportType)
     {
-        var filterKey = GetSupportFilterKey(supportType);
+        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
         if (filterKey is null)
             return null;
 
@@ -2080,39 +2068,6 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         return File.Exists(fallback) ? fallback : null;
     }
 
-    private static Dictionary<string, int>? GetRequiredSupportTypes(
-        string supportDeckPreset) =>
-        supportDeckPreset.ToLowerInvariant() switch
-        {
-            "speed3-stamina3" => new Dictionary<string, int>
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 3,
-            },
-            "speed3-stamina2-wit1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 2,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina2-power1-wit1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 2,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina1-power1-wit1-friend1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 1,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-                ["Friend"] = 1,
-            },
-            _ => null,
-        };
-
     private void ValidateSupportCards(
         IReadOnlyList<int> supportCardIds,
         string supportDeckPreset)
@@ -2136,7 +2091,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
             cards.Add(card);
         }
 
-        var requiredTypes = GetRequiredSupportTypes(supportDeckPreset);
+        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(supportDeckPreset);
         if (requiredTypes is null)
             return;
 
@@ -2146,18 +2101,12 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 $"Support deck preset '{supportDeckPreset}' requires exactly 6 cards.");
         }
 
-        var actualTypes = cards
-            .GroupBy(card => card.Type, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
-        foreach (var required in requiredTypes)
+        if (!SupportDeckPresetCatalog.IsValidDeck(
+                supportDeckPreset,
+                cards.Select(card => card.Type)))
         {
-            if (!actualTypes.TryGetValue(required.Key, out var actual)
-                || actual != required.Value)
-            {
-                throw new InvalidOperationException(
-                    $"Support deck does not match preset '{supportDeckPreset}': "
-                    + $"expected {required.Value} {required.Key}, got {actual}.");
-            }
+            throw new InvalidOperationException(
+                $"Support deck does not match preset '{supportDeckPreset}'.");
         }
     }
 
@@ -2165,7 +2114,7 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
         CareerTrainingSettings settings,
         bool allowCustomPreset = false)
     {
-        var requiredTypes = GetRequiredSupportTypes(settings.SupportDeckPreset);
+        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(settings.SupportDeckPreset);
         if (requiredTypes is null && !allowCustomPreset)
         {
             return;
@@ -2185,13 +2134,10 @@ public sealed class AdbCareerTrainingPipeline : ICareerTrainingPipeline
                 + "was not found or is unavailable.");
         }
 
-        if (requiredTypes is null || requiredTypes.ContainsKey("Friend"))
-            return;
-
-        var guestType = friendCard.Type?.Trim();
-        if (string.IsNullOrWhiteSpace(guestType)
-            || !requiredTypes.TryGetValue(guestType, out var requiredCount)
-            || requiredCount <= 0)
+        if (!SupportDeckPresetCatalog.IsValidFriendCardType(
+                settings.SupportDeckPreset,
+                friendCard.Type,
+                allowCustomPreset))
         {
             throw new InvalidOperationException(
                 $"Configured guest support card {settings.FriendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "

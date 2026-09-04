@@ -123,13 +123,9 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     ];
 
     public IReadOnlyList<CareerSupportDeckPresetOption> SupportDeckPresets { get; } =
-    [
-        new("custom", "Custom"),
-        new("speed3-stamina3", "3 Speed / 3 Stamina"),
-        new("speed3-stamina2-wit1", "3 Speed / 2 Stamina / 1 Wit"),
-        new("speed2-stamina2-power1-wit1", "2 Speed / 2 Stamina / 1 Power / 1 Wit"),
-        new("speed2-stamina1-power1-wit1-friend1", "2 Speed / 1 Stamina / 1 Power / 1 Wit / 1 Friend"),
-    ];
+        SupportDeckPresetCatalog.Presets
+            .Select(item => new CareerSupportDeckPresetOption(item.Value, item.Label))
+            .ToArray();
 
     public IReadOnlyList<CareerSupportDeckModeOption> SupportDeckModes { get; } =
     [
@@ -498,22 +494,16 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 cards.Add(friendCard);
             }
 
-            var requiredTypes = GetRequiredSupportTypes(SupportDeckPreset);
+            var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(SupportDeckPreset);
             if (requiredTypes is null)
                 return SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase);
 
             if (cards.Count != 6)
                 return false;
 
-            var actualTypes = cards
-                .GroupBy(card => card.Type, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.Count(),
-                    StringComparer.OrdinalIgnoreCase);
-            return requiredTypes.All(required =>
-                actualTypes.TryGetValue(required.Key, out var actual)
-                && actual == required.Value);
+            return SupportDeckPresetCatalog.IsValidDeck(
+                SupportDeckPreset,
+                cards.Select(card => card.Type));
         }
     }
 
@@ -834,53 +824,17 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             return false;
         }
 
-        var requiredTypes = GetRequiredSupportTypes(SupportDeckPreset);
+        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(SupportDeckPreset);
         if (requiredTypes is null)
             return allowCustomPreset;
 
         // The friend1 preset means five own cards plus one guest card, so
         // the guest may be any available support-card type.
-        if (requiredTypes.ContainsKey("Friend"))
-            return true;
-
-        var guestType = card.Type?.Trim();
-        return !string.IsNullOrWhiteSpace(guestType)
-            && requiredTypes.TryGetValue(guestType, out var requiredCount)
-            && requiredCount > 0;
+        return SupportDeckPresetCatalog.IsValidFriendCardType(
+            SupportDeckPreset,
+            card.Type,
+            allowCustomPreset);
     }
-
-    private static Dictionary<string, int>? GetRequiredSupportTypes(
-        string supportDeckPreset) =>
-        supportDeckPreset.ToLowerInvariant() switch
-        {
-            "speed3-stamina3" => new Dictionary<string, int>
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 3,
-            },
-            "speed3-stamina2-wit1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 3,
-                ["Stamina"] = 2,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina2-power1-wit1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 2,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-            },
-            "speed2-stamina1-power1-wit1-friend1" => new Dictionary<string, int>
-            {
-                ["Speed"] = 2,
-                ["Stamina"] = 1,
-                ["Power"] = 1,
-                ["Wit"] = 1,
-                ["Friend"] = 1,
-            },
-            _ => null,
-        };
 
     internal void SetStatus(string status) => Status = status;
 
