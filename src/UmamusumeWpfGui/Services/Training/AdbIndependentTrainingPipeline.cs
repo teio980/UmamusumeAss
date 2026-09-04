@@ -170,6 +170,24 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
         if (state.Stage == IndependentTrainingStage.Completed)
         {
+            var completionProbe = await RunIndependentActionAsync(
+                    connection,
+                    pack,
+                    state,
+                    runtime,
+                    IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (completionProbe is not null)
+                return completionProbe;
+
+            state.LastConfirmedScreen = "home";
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            logSink?.Add(
+                "Independent Training",
+                "Completed checkpoint verified by the Training Independently marker.",
+                LogEntryKind.Info);
             return new IndependentTrainingResult(
                 true,
                 "Independent Training is already completed.",

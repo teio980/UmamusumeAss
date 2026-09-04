@@ -207,6 +207,55 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Completed_checkpoint_rechecks_the_training_marker_before_success()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.Completed,
+            LastConfirmedScreen = "home",
+        });
+
+        var result = await harness.Pipeline.RunAsync(
+            Connection,
+            CreateSettings(root, continueExistingCareer: true),
+            null);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Contains(
+            IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(),
+            harness.Actions.Calls);
+        Assert.Equal(1, result.ActionsCompleted);
+    }
+
+    [Fact]
+    public async Task Completed_checkpoint_probe_failure_does_not_claim_success()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.Completed,
+            LastConfirmedScreen = "home",
+        });
+        harness.Actions.FailWhen = call =>
+            call == IndependentTrainingCatalog.PostStartHomeProbeSemanticAction();
+
+        var result = await harness.Pipeline.RunAsync(
+            Connection,
+            CreateSettings(root, continueExistingCareer: true),
+            null);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(
+            [IndependentTrainingCatalog.PostStartHomeProbeSemanticAction()],
+            harness.Actions.Calls);
+    }
+
+    [Fact]
     public async Task Failed_stage_is_saved_and_resume_does_not_repeat_completed_stages()
     {
         var root = FindSolutionRoot();
