@@ -144,6 +144,7 @@ public sealed class IndependentTrainingBehaviorTests
             var checkpoint = await harness.Store.LoadAsync();
             Assert.NotNull(checkpoint);
             Assert.Equal(IndependentTrainingStage.Completed, checkpoint!.Stage);
+            Assert.True(checkpoint.CompletionVerified);
             Assert.Equal(2, checkpoint.AgendaIndex);
             Assert.Equal(2, checkpoint.SkillIndex);
             Assert.Null(checkpoint.CurrentSkillId);
@@ -207,29 +208,48 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
-    public async Task Independent_restart_resets_only_its_checkpoint_and_keeps_career_resume()
+    public async Task Unverified_completed_checkpoint_is_restarted_automatically()
     {
         var root = FindSolutionRoot();
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
-        await harness.Store.SaveAsync(new IndependentTrainingSessionState
-        {
-            Stage = IndependentTrainingStage.Completed,
-            LastConfirmedScreen = "home",
-        });
+        await File.WriteAllTextAsync(
+            harness.Store.CheckpointPath,
+            "{\"Version\":1,\"Stage\":\"Completed\",\"LastConfirmedScreen\":\"home\"}");
 
         var result = await harness.Pipeline.RunAsync(
             Connection,
             CreateSettings(
                 root,
-                continueExistingCareer: false,
-                restartIndependentTraining: true),
+                continueExistingCareer: true),
             null);
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Contains("career_continue.resume", harness.Actions.Calls);
         Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
         Assert.Contains("independent.start", harness.Actions.Calls);
+        Assert.True((await harness.Store.LoadAsync())!.CompletionVerified);
+    }
+
+    [Fact]
+    public async Task Verified_completed_checkpoint_remains_idempotent()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await File.WriteAllTextAsync(
+            harness.Store.CheckpointPath,
+            "{\"Version\":2,\"Stage\":\"Completed\","
+                + "\"LastConfirmedScreen\":\"home\",\"CompletionVerified\":true}");
+
+        var result = await harness.Pipeline.RunAsync(
+            Connection,
+            CreateSettings(root, continueExistingCareer: true),
+            null);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal("Independent Training is already completed.", result.Message);
+        Assert.Empty(harness.Actions.Calls);
     }
 
     [Fact]
@@ -472,8 +492,7 @@ public sealed class IndependentTrainingBehaviorTests
         string supportDeckMode = "auto",
         string supportDeckPreset = "custom",
         IReadOnlyList<int>? supportCardIds = null,
-        int? friendSupportCardId = null,
-        bool restartIndependentTraining = false) =>
+        int? friendSupportCardId = null) =>
         new(
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"),
             TraineeId,
@@ -490,8 +509,7 @@ public sealed class IndependentTrainingBehaviorTests
             "balanced",
             "pace",
             agenda,
-            skillIds,
-            restartIndependentTraining);
+            skillIds);
 
     private static IndependentTrainingAgendaSelection[] SelectAgenda(
         IndependentTrainingCatalog catalog,

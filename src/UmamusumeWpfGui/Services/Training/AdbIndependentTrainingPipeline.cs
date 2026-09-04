@@ -131,20 +131,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
         var runtime = new IndependentTrainingRuntimeContext();
         var checkpointStore = _checkpointStoreFactory(settings.TraineeId);
-        var restartIndependentTraining = settings.RestartIndependentTraining;
-        var continueExistingCareer = settings.ContinueExistingCareer
-            || restartIndependentTraining;
+        var continueExistingCareer = settings.ContinueExistingCareer;
         IndependentTrainingSessionState state;
-        if (restartIndependentTraining)
-        {
-            await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-            state = new IndependentTrainingSessionState();
-            logSink?.Add(
-                "Independent Training",
-                "Independent restart selected; only the Independent checkpoint was reset. "
-                    + "Existing Career data is preserved.");
-        }
-        else if (!continueExistingCareer)
+        if (!continueExistingCareer)
         {
             await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
             state = new IndependentTrainingSessionState();
@@ -182,11 +171,22 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
         if (state.Stage == IndependentTrainingStage.Completed)
         {
-            return new IndependentTrainingResult(
-                true,
-                "Independent Training is already completed.",
-                runtime.ActionsCompleted,
-                state.LastConfirmedScreen);
+            // NormalizeForResume normally moves an unverified Completed
+            // checkpoint back to EnterCareer. Keep this defensive guard so a
+            // state assembled in memory can never bypass device verification.
+            if (!state.CompletionVerified)
+            {
+                state.Stage = IndependentTrainingStage.EnterCareer;
+                state.LastConfirmedScreen = "unknown";
+            }
+            else
+            {
+                return new IndependentTrainingResult(
+                    true,
+                    "Independent Training is already completed.",
+                    runtime.ActionsCompleted,
+                    state.LastConfirmedScreen);
+            }
         }
 
         if (IsEntryStage(state.Stage))
@@ -213,9 +213,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             var entry = await _entryNavigator.NavigateAsync(
                     connection,
                     pack,
-                    continueExistingCareer == settings.ContinueExistingCareer
-                        ? settings
-                        : settings with { ContinueExistingCareer = continueExistingCareer },
+                    settings,
                     entryState,
                     logSink,
                     SaveEntryProgressAsync,
@@ -266,12 +264,20 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 return startFailure;
         }
 
+        if (!state.CompletionVerified)
+        {
+            return Failure(
+                "Independent Training completion was not verified on the device.",
+                state.LastConfirmedScreen,
+                runtime.ActionsCompleted);
+        }
+
         state.Stage = IndependentTrainingStage.Completed;
         state.LastConfirmedScreen = "home";
         await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         logSink?.Add(
             "Independent Training",
-            "Independent Training started and the Home screen was verified.",
+            "Independent Training started; the post-start 'Training Independently' marker was verified.",
             LogEntryKind.Success);
         return new IndependentTrainingResult(
             true,
@@ -941,6 +947,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             if (home is not null)
                 return home;
 
+            state.CompletionVerified = true;
             state.Stage = IndependentTrainingStage.Completed;
             state.LastConfirmedScreen = "home";
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);

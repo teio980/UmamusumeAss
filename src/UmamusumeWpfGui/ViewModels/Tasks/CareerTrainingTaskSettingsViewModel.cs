@@ -42,7 +42,6 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private bool _continueExistingCareer;
-    private bool _restartIndependentTraining;
     private string _careerMode = IndependentCareerMode;
     private string _independentTrainingFocus = IndependentTrainingFocusBalanced;
     private string _independentLineupStrategy = IndependentLineupStrategyPace;
@@ -224,12 +223,6 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => _continueExistingCareer;
         set => Set(ref _continueExistingCareer, value);
-    }
-
-    public bool RestartIndependentTraining
-    {
-        get => _restartIndependentTraining;
-        set => Set(ref _restartIndependentTraining, value);
     }
 
     public string CareerMode

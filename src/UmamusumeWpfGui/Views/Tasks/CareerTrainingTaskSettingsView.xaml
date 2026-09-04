@@ -58,16 +58,6 @@
                      Text="These settings are applied by the Independent Training auto setup."
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource TextSecondaryBrush}" />
-          <CheckBox Margin="0,0,0,10"
-                    IsChecked="{Binding RestartIndependentTraining, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-            <StackPanel>
-              <TextBlock Text="Restart Independent Training (keep Career)" TextWrapping="Wrap" />
-              <TextBlock Margin="0,2,0,0"
-                         Text="Resets only the Independent checkpoint; it does not delete Career data."
-                         TextWrapping="Wrap"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
-            </StackPanel>
-          </CheckBox>
           <TextBlock Text="Line Up Detail · strategy" />
           <ComboBox Margin="0,6,0,0"
                     HorizontalContentAlignment="Stretch"
