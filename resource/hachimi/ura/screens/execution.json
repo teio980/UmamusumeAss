@@ -4583,9 +4583,9 @@
                   "independent_post_start_home_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
-                    "template": "templates/independent/training_independently_available.png",
-                    "templThreshold": 0.82,
-                    "roi": [480,1180,400,180],
+                    "template": "templates/independent/home_returned_home_tab.png",
+                    "templThreshold": 0.80,
+                    "roi": [250,1370,400,220],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 250

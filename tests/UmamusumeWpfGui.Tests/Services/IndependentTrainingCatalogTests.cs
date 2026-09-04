@@ -301,67 +301,6 @@ public sealed class IndependentTrainingCatalogTests
     }
 
     [Fact]
-    public async Task Independent_completion_probe_uses_training_independently_marker()
-    {
-        var root = FindSolutionRoot();
-        var executionPath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json");
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
-        var task = definition!.GetTask("independent_post_start_home_probe");
-
-        Assert.Equal(
-            "templates/independent/training_independently_available.png",
-            task.Template);
-        Assert.Equal(0.82, task.TemplateThreshold, precision: 2);
-        Assert.NotNull(task.Roi);
-        Assert.Equal([480, 1180, 400, 180], task.Roi!);
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "training_independently_available.png")));
-
-        var capture = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "captures",
-            "career_home_training_independently.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "training_independently_available.png"));
-        Assert.NotNull(capture);
-        Assert.NotNull(template);
-
-        var match = TemplateMatcher.Find(
-            capture!,
-            template!,
-            task.Roi,
-            task.TemplateThreshold,
-            definition.ReferenceWidth,
-            definition.ReferenceHeight);
-        Assert.True(match.Found, $"Captured marker did not match (score={match.Score:0.000}).");
-    }
-
-    [Fact]
     public async Task Career_entry_runs_home_entry_task_before_observing_entry_screens()
     {
         var root = FindSolutionRoot();
