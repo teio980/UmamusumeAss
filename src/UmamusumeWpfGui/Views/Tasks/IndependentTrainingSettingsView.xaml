@@ -1,0 +1,83 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.IndependentTrainingSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <DataTemplate x:Key="ComboOptionTemplate">
+      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <Expander Header="Independent Training (auto) · Train settings"
+            IsExpanded="True"
+            Visibility="{Binding IsCareerModeActive, Converter={StaticResource BoolToVisibility}}">
+    <StackPanel Margin="8,10">
+      <TextBlock Margin="0,0,0,10"
+                 Text="These settings are applied by the Independent Training auto setup."
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+      <TextBlock Text="Line Up Detail · strategy" />
+      <ComboBox Margin="0,6,0,0"
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding LineupStrategyOptions}"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding LineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,10,0,0" Text="Training Focus" />
+      <ComboBox Margin="0,6,0,0"
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding TrainingFocusOptions}"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding TrainingFocus, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+      <Grid Margin="0,12,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Text="Agenda · choose a time slot and race" />
+        <ui:Button Grid.Column="1" Margin="8,0,0,0" Padding="10,3" Content="Reset" Command="{Binding ResetIndependentAgendaCommand}" Appearance="Secondary" />
+      </Grid>
+      <ui:TextBox Margin="0,6,0,0" PlaceholderText="Search race, year, month or surface" Text="{Binding AgendaSearchText, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,4,0,0" Text="{Binding SelectedAgendaCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
+      <ListBox Height="190" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+               ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
+               VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredIndependentRaceOptions}">
+        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style></ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <CheckBox Margin="4,3" HorizontalContentAlignment="Stretch" IsEnabled="{Binding IsExecutable}" IsChecked="{Binding IsSelected, Mode=TwoWay}">
+              <Grid HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="74" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Image Grid.Column="0" Width="68" Height="34" Margin="0,0,8,0" HorizontalAlignment="Left" Source="{Binding RaceCardImagePath}" Stretch="UniformToFill" Visibility="{Binding HasRaceCardImage, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+                  <TextBlock Margin="0,2,0,0" Foreground="{DynamicResource TextSecondaryBrush}" Text="{Binding CardMatchHint}" TextWrapping="Wrap" Visibility="{Binding HasRaceCardImage, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+              </Grid>
+            </CheckBox>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Grid Margin="0,12,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Text="Skill · Add Skill" />
+        <ui:Button Grid.Column="1" Margin="8,0,0,0" Padding="10,3" Content="Reset" Command="{Binding ResetIndependentSkillsCommand}" Appearance="Secondary" />
+      </Grid>
+      <ui:TextBox Margin="0,6,0,0" PlaceholderText="Search skill name or ID" Text="{Binding SkillSearchText, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Margin="0,4,0,0" Text="{Binding SelectedSkillCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
+      <ListBox Height="190" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+               ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
+               VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredIndependentSkillOptions}">
+        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style></ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <CheckBox Margin="4,3" HorizontalContentAlignment="Stretch" IsEnabled="{Binding IsExecutable}" IsChecked="{Binding IsSelected, Mode=TwoWay}"><TextBlock HorizontalAlignment="Stretch" Text="{Binding Label}" TextWrapping="Wrap" /></CheckBox>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </StackPanel>
+  </Expander>
+</UserControl>

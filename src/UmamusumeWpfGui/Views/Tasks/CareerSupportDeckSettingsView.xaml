@@ -1,0 +1,77 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.CareerSupportDeckSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ComboOptionTemplate"><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /></DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Margin="8,10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="108" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <TextBlock VerticalAlignment="Center" Text="Support deck mode" />
+      <ComboBox Grid.Column="1" Margin="10,0,0,0" HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding SupportDeckModes}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                SelectedValuePath="Value" SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
+    </Grid>
+    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding IsSupportPresetMode}">
+      <TextBlock Text="Support deck preset" />
+      <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding SupportDeckPresets}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                SelectedValuePath="Value" SelectedValue="{Binding SupportDeckPreset, UpdateSourceTrigger=PropertyChanged}" />
+      <Expander Margin="0,10,0,0" Header="{Binding FriendSupportCardDrawerHeader}" IsExpanded="False"
+                IsEnabled="{Binding IsFriendSupportCardSettingEnabled}">
+        <StackPanel Margin="6,6,0,0">
+          <TextBlock Margin="0,6,0,0" Text="{Binding SelectedFriendSupportCardCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <ui:TextBox Margin="0,6,0,0" Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search name or ID" />
+          <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding SupportCardTypeOptions}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}" SelectedValuePath="Value"
+                    SelectedValue="{Binding FriendSupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
+          <ListBox Height="150" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+                   ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredFriendSupportCardOptions}">
+            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0" /></Style></ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid MinHeight="58" HorizontalAlignment="Stretch">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                  <CheckBox Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                  <Image Grid.Column="1" Width="36" Height="46" Source="{Binding ImageUrl}" Stretch="UniformToFill" />
+                  <StackPanel Grid.Column="2" Margin="8,4,4,4"><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /><TextBlock Margin="0,2,0,0" Text="{Binding Type}" Foreground="{DynamicResource TextSecondaryBrush}" /></StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Expander>
+      <Expander Margin="0,8,0,0" Header="{Binding SupportCardDrawerHeader}" IsExpanded="False" IsEnabled="{Binding IsManualSupportDeck}">
+        <StackPanel Margin="6,6,0,0">
+          <TextBlock Margin="0,0,0,6" Text="{Binding SelectedSupportCardCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <ui:TextBox Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search name or ID" />
+          <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding SupportCardTypeOptions}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}" SelectedValuePath="Value"
+                    SelectedValue="{Binding SupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
+          <ListBox Height="150" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+                   ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredSupportCardOptions}">
+            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0" /></Style></ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid MinHeight="58" HorizontalAlignment="Stretch">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                  <CheckBox Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                  <Image Grid.Column="1" Width="36" Height="46" Source="{Binding ImageUrl}" Stretch="UniformToFill" />
+                  <StackPanel Grid.Column="2" Margin="8,4,4,4"><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /><TextBlock Margin="0,2,0,0" Text="{Binding Type}" Foreground="{DynamicResource TextSecondaryBrush}" /></StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Margin="0,8,0,0" Text="Manual card IDs (optional; comma-separated)" />
+          <ui:TextBox Margin="0,6,0,0" Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Expander>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

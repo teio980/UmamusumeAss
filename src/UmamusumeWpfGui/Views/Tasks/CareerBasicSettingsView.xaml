@@ -1,0 +1,54 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.CareerBasicSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ComboOptionTemplate">
+      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Margin="8,10">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="108" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock VerticalAlignment="Center" Text="Trainee" />
+      <taskviews:TraineePickerView Grid.Column="1"
+                                   Margin="10,0,0,0"
+                                   DataContext="{Binding Entry}" />
+    </Grid>
+
+    <CheckBox Margin="0,12,0,0"
+              IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+      <StackPanel>
+        <TextBlock Text="Continue existing Career" TextWrapping="Wrap" />
+        <TextBlock Margin="0,2,0,0"
+                   Text="If unavailable, delete Career data and start fresh."
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </StackPanel>
+    </CheckBox>
+
+    <Grid Margin="0,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="108" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock VerticalAlignment="Center" Text="Career mode" />
+      <ComboBox Grid.Column="1"
+                Margin="10,0,0,0"
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding CareerModes}"
+                ItemTemplate="{StaticResource ComboOptionTemplate}"
+                SelectedValuePath="Value"
+                SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+    </Grid>
+
+    <taskviews:IndependentTrainingSettingsView
+        Margin="0,14,0,0"
+        DataContext="{Binding Independent}" />
+  </StackPanel>
+</UserControl>

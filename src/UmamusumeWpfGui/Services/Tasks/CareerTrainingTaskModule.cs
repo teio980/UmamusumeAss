@@ -1,6 +1,5 @@
 using System.IO;
 using System.Globalization;
-using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
@@ -43,105 +42,9 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
     object IGrassTaskModule.Settings => Settings;
 
-    public JsonObject ExportSettings() => new()
-    {
-        ["scenarioId"] = Settings.ScenarioId,
-        ["manifestPath"] = Settings.ManifestPath,
-        ["traineeId"] = Settings.TraineeId,
-        ["careerMode"] = Settings.CareerMode,
-        ["independentTrainingFocus"] = Settings.IndependentTrainingFocus,
-        ["independentLineupStrategy"] = Settings.IndependentLineupStrategy,
-        ["independentAgendaSelections"] = new JsonArray(Settings.ParseIndependentAgendaSelections()
-            .Select(item => (JsonNode?)JsonValue.Create(item.Key))
-            .ToArray()),
-        ["independentSkillIds"] = new JsonArray(Settings.ParseIndependentSkillIds()
-            .Select(item => (JsonNode?)JsonValue.Create(item))
-            .ToArray()),
-        ["continueExistingCareer"] = Settings.ContinueExistingCareer,
-        ["supportDeckMode"] = Settings.SupportDeckMode,
-        ["supportDeckPreset"] = Settings.SupportDeckPreset,
-        ["friendSupportCardId"] = Settings.FriendSupportCardId is { } friendSupportCardId
-            ? JsonValue.Create(friendSupportCardId)
-            : null,
-        ["supportCardIds"] = new JsonArray(Settings.ParseSupportCardIds()
-            .Select(id => (JsonNode?)JsonValue.Create(id))
-            .ToArray()),
-        ["strategyId"] = Settings.StrategyId,
-        ["pauseOnUnknownOutcome"] = Settings.PauseOnUnknownOutcome,
-        ["allowOptionalRaces"] = Settings.AllowOptionalRaces,
-        ["legacySelectionMode"] = Settings.LegacySelectionMode,
-        ["useLegacyGuest"] = Settings.UseLegacyGuest,
-        ["useCachedLegacy"] = Settings.UseCachedLegacy,
-        ["legacyAttributeSparks"] = new JsonArray(Settings.ParseLegacyAttributeSparks()
-            .Select(item => (JsonNode?)JsonValue.Create(item))
-            .ToArray()),
-        ["legacyAptitudeSparks"] = new JsonArray(Settings.ParseLegacyAptitudeSparks()
-            .Select(item => (JsonNode?)JsonValue.Create(item))
-            .ToArray()),
-    };
+    public System.Text.Json.Nodes.JsonObject ExportSettings() => CareerTaskSettingsSerializer.Export(Settings);
 
-    public void ImportSettings(JsonObject settings)
-    {
-        ArgumentNullException.ThrowIfNull(settings);
-        var manifestPath = ReadString(settings, "manifestPath");
-        Settings.ManifestPath = MigrateManifestPath(manifestPath ?? Settings.ManifestPath);
-        Settings.ScenarioId = ReadString(settings, "scenarioId") ?? Settings.ScenarioId;
-        Settings.TraineeId = ReadNullableInt(settings, "traineeId") ?? Settings.TraineeId;
-        Settings.CareerMode = ReadString(settings, "careerMode") ?? Settings.CareerMode;
-        Settings.IndependentTrainingFocus = ReadString(
-            settings,
-            "independentTrainingFocus") ?? Settings.IndependentTrainingFocus;
-        Settings.IndependentLineupStrategy = ReadString(
-            settings,
-            "independentLineupStrategy") ?? Settings.IndependentLineupStrategy;
-        Settings.IndependentAgendaSelectionsText = string.Join(
-            Environment.NewLine,
-            ReadStringArray(settings, "independentAgendaSelections"));
-        Settings.IndependentSkillIdsText = string.Join(
-            ",",
-            ReadIntArray(settings, "independentSkillIds"));
-        Settings.ContinueExistingCareer = ReadBool(
-            settings,
-            "continueExistingCareer",
-            Settings.ContinueExistingCareer);
-        var supportCardIds = settings["supportCardIds"] is JsonArray cards
-            ? string.Join(",", cards
-                .Select(item => item?.GetValue<int>())
-                .Where(item => item is > 0))
-            : string.Empty;
-        Settings.SupportCardIdsText = supportCardIds;
-        var savedSupportDeckMode = ReadString(settings, "supportDeckMode");
-        Settings.SupportDeckMode = savedSupportDeckMode
-            ?? (string.IsNullOrWhiteSpace(supportCardIds) ? "auto" : "selected");
-        Settings.SupportDeckPreset = ReadString(settings, "supportDeckPreset")
-            ?? Settings.SupportDeckPreset;
-        Settings.FriendSupportCardId = ReadNullableInt(settings, "friendSupportCardId");
-        // Keep both mode-specific settings round-trippable. Normal-only values
-        // are ignored by the Independent pipeline but remain available when a
-        // saved profile explicitly selects Normal Career.
-        Settings.StrategyId = ReadString(settings, "strategyId") ?? Settings.StrategyId;
-        Settings.PauseOnUnknownOutcome = ReadBool(
-            settings,
-            "pauseOnUnknownOutcome",
-            Settings.PauseOnUnknownOutcome);
-        Settings.AllowOptionalRaces = ReadBool(
-            settings,
-            "allowOptionalRaces",
-            Settings.AllowOptionalRaces);
-        Settings.LegacySelectionMode = ReadString(settings, "legacySelectionMode")
-            ?? Settings.LegacySelectionMode;
-        Settings.UseLegacyGuest = ReadBool(
-            settings,
-            "useLegacyGuest",
-            Settings.UseLegacyGuest);
-        Settings.UseCachedLegacy = ReadBool(
-            settings,
-            "useCachedLegacy",
-            Settings.UseCachedLegacy);
-        Settings.SetLegacySparkSelections(
-            ReadStringArray(settings, "legacyAttributeSparks"),
-            ReadStringArray(settings, "legacyAptitudeSparks"));
-    }
+    public void ImportSettings(System.Text.Json.Nodes.JsonObject settings) => CareerTaskSettingsSerializer.Import(Settings, settings);
 
     public IGrassTaskModule CreateInstance() => new CareerTrainingTaskModule(
         _localizationService,
@@ -261,22 +164,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             {
                 var normalResult = await _normalPipeline.RunAsync(
                         connection,
-                        new CareerTrainingSettings(
-                            Settings.ManifestPath,
-                            Settings.TraineeId!.Value,
-                            continueExistingCareer,
-                            Settings.ParseSupportCardIds(),
-                            Settings.SupportDeckMode,
-                            Settings.SupportDeckPreset,
-                            Settings.FriendSupportCardId,
-                            Settings.StrategyId,
-                            Settings.PauseOnUnknownOutcome,
-                            Settings.AllowOptionalRaces,
-                            Settings.LegacySelectionMode,
-                            Settings.UseLegacyGuest,
-                            Settings.UseCachedLegacy,
-                            Settings.ParseLegacyAttributeSparks(),
-                            Settings.ParseLegacyAptitudeSparks()),
+                        CareerTaskSettingsMapper.ToNormalSettings(Settings),
                         context.LogSink,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -289,23 +177,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
             var result = await _independentPipeline.RunAsync(
                     connection,
-                    new IndependentTrainingSettings(
-                        Settings.ManifestPath,
-                        Settings.TraineeId!.Value,
-                        continueExistingCareer,
-                        Settings.ParseSupportCardIds(),
-                        Settings.SupportDeckMode,
-                        Settings.SupportDeckPreset,
-                        Settings.FriendSupportCardId,
-                        Settings.LegacySelectionMode,
-                        Settings.UseLegacyGuest,
-                        Settings.UseCachedLegacy,
-                        Settings.ParseLegacyAttributeSparks(),
-                        Settings.ParseLegacyAptitudeSparks(),
-                        Settings.IndependentTrainingFocus,
-                        Settings.IndependentLineupStrategy,
-                        Settings.ParseIndependentAgendaSelections(),
-                        Settings.ParseIndependentSkillIds()),
+                    CareerTaskSettingsMapper.ToIndependentSettings(Settings),
                     context.LogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -344,29 +216,14 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             return new GrassTaskExecutionResult(false, false, message);
         }
 
-        return await StopPipelineAsync(
-                Settings.IsIndependentCareer ? _independentPipeline : _normalPipeline,
-                connection,
-                context.LogSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private static async Task<GrassTaskExecutionResult> StopPipelineAsync(
-        object pipeline,
-        LastVerifiedConnection connection,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        if (pipeline is IIndependentTrainingPipeline independentPipeline)
+        if (Settings.IsIndependentCareer)
         {
-            var result = await independentPipeline.StopAsync(connection, logSink, cancellationToken)
+            var result = await _independentPipeline.StopAsync(connection, context.LogSink, cancellationToken)
                 .ConfigureAwait(false);
             return new GrassTaskExecutionResult(result.Succeeded, false, result.Message);
         }
 
-        var normalResult = await ((ICareerTrainingPipeline)pipeline)
-            .StopAsync(connection, logSink, cancellationToken)
+        var normalResult = await _normalPipeline.StopAsync(connection, context.LogSink, cancellationToken)
             .ConfigureAwait(false);
         return new GrassTaskExecutionResult(normalResult.Succeeded, false, normalResult.Message);
     }
@@ -377,78 +234,4 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         return string.IsNullOrWhiteSpace(value) || value == key ? fallback : value;
     }
 
-    private static string? ReadString(JsonObject settings, string key)
-    {
-        try { return settings[key]?.GetValue<string>(); }
-        catch (InvalidOperationException) { return null; }
-        catch (FormatException) { return null; }
-    }
-
-    private static int? ReadNullableInt(JsonObject settings, string key)
-    {
-        try
-        {
-            var value = settings[key];
-            return value is null ? null : Math.Max(1, value.GetValue<int>());
-        }
-        catch (InvalidOperationException) { return null; }
-        catch (FormatException) { return null; }
-    }
-
-    private static bool ReadBool(JsonObject settings, string key, bool fallback)
-    {
-        try { return settings[key]?.GetValue<bool>() ?? fallback; }
-        catch (InvalidOperationException) { return fallback; }
-        catch (FormatException) { return fallback; }
-    }
-
-    private static string[] ReadStringArray(JsonObject settings, string key)
-    {
-        if (settings[key] is not JsonArray values)
-            return [];
-
-        return values
-            .Select(item =>
-            {
-                try { return item?.GetValue<string>(); }
-                catch (InvalidOperationException) { return null; }
-                catch (FormatException) { return null; }
-            })
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .Select(item => item!.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static int[] ReadIntArray(JsonObject settings, string key)
-    {
-        if (settings[key] is not JsonArray values)
-            return [];
-
-        return values
-            .Select(item =>
-            {
-                try { return item?.GetValue<int>() ?? 0; }
-                catch (InvalidOperationException) { return 0; }
-                catch (FormatException) { return 0; }
-            })
-            .Where(item => item > 0)
-            .Distinct()
-            .ToArray();
-    }
-
-    private static string MigrateManifestPath(string path)
-    {
-        var normalized = path.Trim().Replace('\\', '/');
-        const string legacyPrefix = "resource/uma/scenarios/ura/";
-        var isLegacyRelative = normalized.StartsWith(
-            legacyPrefix,
-            StringComparison.OrdinalIgnoreCase);
-        var isLegacyAbsolute = normalized.EndsWith(
-            "/resource/uma/scenarios/ura/manifest.json",
-            StringComparison.OrdinalIgnoreCase);
-        return isLegacyRelative || isLegacyAbsolute
-            ? CareerTrainingTaskSettingsViewModel.DefaultManifestPath
-            : path.Trim();
-    }
 }

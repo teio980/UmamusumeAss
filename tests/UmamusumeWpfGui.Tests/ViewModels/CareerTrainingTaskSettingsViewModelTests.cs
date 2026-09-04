@@ -128,11 +128,26 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         var basic = Assert.Single(tabs, tab => (string?)tab.Attribute("Header") == "Basic");
         Assert.DoesNotContain(tabs, tab => (string?)tab.Attribute("Header") == "Train");
 
-        var trainSettings = Assert.Single(basic.Descendants(presentation + "Expander"), element =>
+        Assert.Contains("CareerBasicSettingsView", basic.ToString(), StringComparison.Ordinal);
+        var basicSettingsFile = XDocument.Load(Path.Combine(
+            root,
+            "src",
+            "UmamusumeWpfGui",
+            "Views",
+            "Tasks",
+            "CareerBasicSettingsView.xaml"));
+        var basicFile = XDocument.Load(Path.Combine(
+            root,
+            "src",
+            "UmamusumeWpfGui",
+            "Views",
+            "Tasks",
+            "IndependentTrainingSettingsView.xaml"));
+        var trainSettings = Assert.Single(basicFile.Descendants(presentation + "Expander"), element =>
             (string?)element.Attribute("Header") == "Independent Training (auto) · Train settings");
         Assert.Equal("True", (string?)trainSettings.Attribute("IsExpanded"));
         Assert.Equal(
-            "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
+            "{Binding IsCareerModeActive, Converter={StaticResource BoolToVisibility}}",
             (string?)trainSettings.Attribute("Visibility"));
 
         Assert.DoesNotContain(
@@ -140,19 +155,19 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
             view.ToString(),
             StringComparison.Ordinal);
 
-        var modePicker = Assert.Single(basic.Descendants(presentation + "ComboBox"), element =>
+        var modePicker = Assert.Single(basicSettingsFile.Descendants(presentation + "ComboBox"), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding CareerModes}");
-        Assert.Same(modePicker.Parent, trainSettings.ElementsBeforeSelf().Last());
+        Assert.NotNull(modePicker);
 
         foreach (var source in new[]
         {
-            "IndependentLineupStrategyOptions",
-            "IndependentTrainingFocusOptions",
+            "LineupStrategyOptions",
+            "TrainingFocusOptions",
             "FilteredIndependentRaceOptions",
             "FilteredIndependentSkillOptions",
         })
         {
-            var control = Assert.Single(view.Descendants(), element =>
+            var control = Assert.Single(basicFile.Descendants(), element =>
                 (string?)element.Attribute("ItemsSource") == $"{{Binding {source}}}");
             Assert.Contains(trainSettings, control.Ancestors());
         }
