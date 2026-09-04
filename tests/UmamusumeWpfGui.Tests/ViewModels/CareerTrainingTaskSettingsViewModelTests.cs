@@ -135,6 +135,11 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
             "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
             (string?)trainSettings.Attribute("Visibility"));
 
+        Assert.DoesNotContain(
+            "RestartIndependentTraining",
+            view.ToString(),
+            StringComparison.Ordinal);
+
         var modePicker = Assert.Single(basic.Descendants(presentation + "ComboBox"), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding CareerModes}");
         Assert.Same(modePicker.Parent, trainSettings.ElementsBeforeSelf().Last());

@@ -9,6 +9,7 @@ public sealed class IndependentTrainingSessionTests
     private static readonly string[] ExpectedCheckpointFields =
     {
         "agendaIndex",
+        "completionVerified",
         "currentSkillId",
         "lastConfirmedScreen",
         "skillIndex",
@@ -119,12 +120,12 @@ public sealed class IndependentTrainingSessionTests
     {
         var exception = Assert.Throws<InvalidDataException>(() =>
             IndependentTrainingSessionState.Deserialize(
-                "{\"Version\":2,\"Stage\":\"ConfigureSkills\","
+                "{\"Version\":3,\"Stage\":\"ConfigureSkills\","
                 + "\"AgendaIndex\":3,\"SkillIndex\":5,\"CurrentSkillId\":12345,"
                 + "\"LastConfirmedScreen\":\"career_final_confirmation\"}"));
 
-        Assert.Contains("version 2", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("supported version 1", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("version 3", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("supported version 2", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -179,6 +180,7 @@ public sealed class IndependentTrainingSessionTests
             {
                 Stage = IndependentTrainingStage.Completed,
                 LastConfirmedScreen = "home",
+                CompletionVerified = true,
             };
             await store.SaveAsync(completed);
 
@@ -186,6 +188,7 @@ public sealed class IndependentTrainingSessionTests
             Assert.NotNull(loaded);
             Assert.Equal(IndependentTrainingStage.Completed, loaded!.Stage);
             Assert.Equal("home", loaded.LastConfirmedScreen);
+            Assert.True(loaded.CompletionVerified);
 
             await store.ClearAsync();
             Assert.False(File.Exists(store.CheckpointPath));
@@ -196,5 +199,16 @@ public sealed class IndependentTrainingSessionTests
             if (Directory.Exists(root))
                 Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Completed_checkpoint_without_device_proof_is_moved_back_to_entry()
+    {
+        var state = IndependentTrainingSessionState.Deserialize(
+            "{\"Version\":1,\"Stage\":\"Completed\",\"LastConfirmedScreen\":\"home\"}");
+
+        Assert.Equal(IndependentTrainingStage.EnterCareer, state.Stage);
+        Assert.Equal("unknown", state.LastConfirmedScreen);
+        Assert.False(state.CompletionVerified);
     }
 }

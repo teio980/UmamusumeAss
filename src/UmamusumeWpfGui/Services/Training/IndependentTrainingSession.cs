@@ -37,7 +37,7 @@ public enum IndependentTrainingStage
 /// </summary>
 public sealed class IndependentTrainingSessionState
 {
-    public const int CurrentCheckpointVersion = 1;
+    public const int CurrentCheckpointVersion = 2;
 
     private static readonly JsonSerializerOptions CheckpointJsonOptions =
         new(JsonSerializerDefaults.Web)
@@ -60,6 +60,13 @@ public sealed class IndependentTrainingSessionState
     public int? CurrentSkillId { get; set; }
 
     public string LastConfirmedScreen { get; set; } = "unknown";
+
+    /// <summary>
+    /// True only after the post-start Home probe has succeeded. A Completed
+    /// stage without this proof is an old or incomplete checkpoint and must
+    /// never be reported as a successful run.
+    /// </summary>
+    public bool CompletionVerified { get; set; }
 
     public string Serialize() => JsonSerializer.Serialize(this, CheckpointJsonOptions);
 
@@ -89,6 +96,19 @@ public sealed class IndependentTrainingSessionState
             Version = CurrentCheckpointVersion;
         if (!Enum.IsDefined(Stage))
             Stage = IndependentTrainingStage.EnterCareer;
+
+        if (Stage == IndependentTrainingStage.Completed && !CompletionVerified)
+        {
+            // Older checkpoints could mark the run complete merely because
+            // the process was already on Home. Resume from the entry flow so
+            // the device must perform a real Independent start and proof.
+            Stage = IndependentTrainingStage.EnterCareer;
+            LastConfirmedScreen = "unknown";
+        }
+        else if (Stage != IndependentTrainingStage.Completed)
+        {
+            CompletionVerified = false;
+        }
 
         AgendaIndex = Math.Max(0, AgendaIndex);
         SkillIndex = Math.Max(0, SkillIndex);
