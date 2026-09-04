@@ -58,6 +58,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             .Select(item => (JsonNode?)JsonValue.Create(item))
             .ToArray()),
         ["continueExistingCareer"] = Settings.ContinueExistingCareer,
+        ["restartIndependentTraining"] = Settings.RestartIndependentTraining,
         ["supportDeckMode"] = Settings.SupportDeckMode,
         ["supportDeckPreset"] = Settings.SupportDeckPreset,
         ["friendSupportCardId"] = Settings.FriendSupportCardId is { } friendSupportCardId
@@ -104,6 +105,10 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             settings,
             "continueExistingCareer",
             Settings.ContinueExistingCareer);
+        Settings.RestartIndependentTraining = ReadBool(
+            settings,
+            "restartIndependentTraining",
+            Settings.RestartIndependentTraining);
         var supportCardIds = settings["supportCardIds"] is JsonArray cards
             ? string.Join(",", cards
                 .Select(item => item?.GetValue<int>())
@@ -244,10 +249,15 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
         try
         {
-            var continueExistingCareer = Settings.ContinueExistingCareer;
+            var restartIndependentTraining = Settings.IsIndependentCareer
+                && Settings.RestartIndependentTraining;
+            var continueExistingCareer = Settings.ContinueExistingCareer
+                || restartIndependentTraining;
             context.LogSink?.Add(
                 "Career Training",
-                continueExistingCareer
+                restartIndependentTraining
+                    ? "Independent restart policy: preserve existing Career and reset only Independent progress."
+                    : continueExistingCareer
                     ? "Career entry policy: Resume existing Career."
                     : "Career entry policy: Delete Career data, then start fresh.");
             context.LogSink?.Add(
@@ -305,7 +315,8 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                         Settings.IndependentTrainingFocus,
                         Settings.IndependentLineupStrategy,
                         Settings.ParseIndependentAgendaSelections(),
-                        Settings.ParseIndependentSkillIds()),
+                        Settings.ParseIndependentSkillIds(),
+                        restartIndependentTraining),
                     context.LogSink,
                     cancellationToken)
                 .ConfigureAwait(false);

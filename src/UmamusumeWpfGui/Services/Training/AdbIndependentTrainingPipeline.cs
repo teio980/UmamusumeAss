@@ -131,8 +131,20 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
         var runtime = new IndependentTrainingRuntimeContext();
         var checkpointStore = _checkpointStoreFactory(settings.TraineeId);
+        var restartIndependentTraining = settings.RestartIndependentTraining;
+        var continueExistingCareer = settings.ContinueExistingCareer
+            || restartIndependentTraining;
         IndependentTrainingSessionState state;
-        if (!settings.ContinueExistingCareer)
+        if (restartIndependentTraining)
+        {
+            await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
+            state = new IndependentTrainingSessionState();
+            logSink?.Add(
+                "Independent Training",
+                "Independent restart selected; only the Independent checkpoint was reset. "
+                    + "Existing Career data is preserved.");
+        }
+        else if (!continueExistingCareer)
         {
             await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
             state = new IndependentTrainingSessionState();
@@ -201,7 +213,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             var entry = await _entryNavigator.NavigateAsync(
                     connection,
                     pack,
-                    settings,
+                    continueExistingCareer == settings.ContinueExistingCareer
+                        ? settings
+                        : settings with { ContinueExistingCareer = continueExistingCareer },
                     entryState,
                     logSink,
                     SaveEntryProgressAsync,

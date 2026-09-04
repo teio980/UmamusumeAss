@@ -36,7 +36,8 @@ public sealed record IndependentTrainingSettings(
     string TrainingFocus = "balanced",
     string LineupStrategy = "pace",
     IReadOnlyList<IndependentTrainingAgendaSelection>? AgendaSelections = null,
-    IReadOnlyList<int>? SkillIds = null) : ICareerEntrySelectionSettings
+    IReadOnlyList<int>? SkillIds = null,
+    bool RestartIndependentTraining = false) : ICareerEntrySelectionSettings
 {
     public string IndependentTrainingFocus => TrainingFocus;
     public string IndependentLineupStrategy => LineupStrategy;

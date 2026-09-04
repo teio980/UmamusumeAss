@@ -68,12 +68,16 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         var settings = new CareerTrainingTaskSettingsViewModel();
 
         Assert.False(settings.ContinueExistingCareer);
+        Assert.False(settings.RestartIndependentTraining);
 
         settings.ContinueExistingCareer = true;
         Assert.True(settings.ContinueExistingCareer);
 
         settings.ContinueExistingCareer = false;
         Assert.False(settings.ContinueExistingCareer);
+
+        settings.RestartIndependentTraining = true;
+        Assert.True(settings.RestartIndependentTraining);
     }
 
     [Fact]
@@ -134,6 +138,15 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.Equal(
             "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
             (string?)trainSettings.Attribute("Visibility"));
+
+        var restartIndependent = Assert.Single(
+            trainSettings.Descendants(presentation + "CheckBox"),
+            element => (string?)element.Attribute("IsChecked")
+                == "{Binding RestartIndependentTraining, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}");
+        Assert.Contains(
+            "keep Career",
+            restartIndependent.ToString(),
+            StringComparison.OrdinalIgnoreCase);
 
         var modePicker = Assert.Single(basic.Descendants(presentation + "ComboBox"), element =>
             (string?)element.Attribute("ItemsSource") == "{Binding CareerModes}");

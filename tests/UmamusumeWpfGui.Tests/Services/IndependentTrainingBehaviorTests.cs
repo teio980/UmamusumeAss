@@ -207,6 +207,32 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Independent_restart_resets_only_its_checkpoint_and_keeps_career_resume()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.Completed,
+            LastConfirmedScreen = "home",
+        });
+
+        var result = await harness.Pipeline.RunAsync(
+            Connection,
+            CreateSettings(
+                root,
+                continueExistingCareer: false,
+                restartIndependentTraining: true),
+            null);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Contains("career_continue.resume", harness.Actions.Calls);
+        Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
+        Assert.Contains("independent.start", harness.Actions.Calls);
+    }
+
+    [Fact]
     public async Task Failed_stage_is_saved_and_resume_does_not_repeat_completed_stages()
     {
         var root = FindSolutionRoot();
@@ -446,7 +472,8 @@ public sealed class IndependentTrainingBehaviorTests
         string supportDeckMode = "auto",
         string supportDeckPreset = "custom",
         IReadOnlyList<int>? supportCardIds = null,
-        int? friendSupportCardId = null) =>
+        int? friendSupportCardId = null,
+        bool restartIndependentTraining = false) =>
         new(
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"),
             TraineeId,
@@ -463,7 +490,8 @@ public sealed class IndependentTrainingBehaviorTests
             "balanced",
             "pace",
             agenda,
-            skillIds);
+            skillIds,
+            restartIndependentTraining);
 
     private static IndependentTrainingAgendaSelection[] SelectAgenda(
         IndependentTrainingCatalog catalog,
