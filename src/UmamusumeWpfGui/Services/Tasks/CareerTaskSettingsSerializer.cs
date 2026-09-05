@@ -14,7 +14,6 @@ public static class CareerTaskSettingsSerializer
         ArgumentNullException.ThrowIfNull(settings);
         return new JsonObject
         {
-            ["scenarioId"] = settings.ScenarioId,
             ["manifestPath"] = settings.ManifestPath,
             ["traineeId"] = settings.TraineeId,
             ["careerMode"] = settings.CareerMode,
@@ -52,7 +51,9 @@ public static class CareerTaskSettingsSerializer
 
         var manifestPath = ReadString(values, "manifestPath");
         settings.ManifestPath = MigrateManifestPath(manifestPath ?? settings.ManifestPath);
-        settings.ScenarioId = ReadString(values, "scenarioId") ?? settings.ScenarioId;
+        // Legacy profiles may still contain scenarioId. The active scenario
+        // is defined by the manifest, so the obsolete value is intentionally
+        // ignored while remaining harmless during import.
         settings.TraineeId = ReadNullableInt(values, "traineeId") ?? settings.TraineeId;
         settings.CareerMode = ReadString(values, "careerMode") ?? settings.CareerMode;
         settings.IndependentTrainingFocus = ReadString(values, "independentTrainingFocus")

@@ -11,7 +11,7 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// <summary>
 /// Support deck selection, filtering, and validation for every Career mode.
 /// </summary>
-public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged
+public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly IUmaDatabaseService? _umaDatabase;
     private string _supportCardIdsText = string.Empty;
@@ -24,13 +24,14 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged
     private string _friendSupportCardTypeFilter = "all";
     private bool _updatingSupportCards;
     private bool _updatingFriendSupportCards;
+    private bool _databaseLoadedSubscribed;
+    private bool _disposed;
     private readonly List<CareerSupportCardOption> _allSupportCardOptions = [];
 
     public SupportDeckSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
         _umaDatabase = umaDatabase;
-        if (_umaDatabase is not null)
-            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
+        SubscribeToDatabaseLoadedIfNeeded();
 
         RefreshSupportCards();
     }
@@ -192,18 +193,9 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged
                 cards.Add(friendCard);
             }
 
-            var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(SupportDeckPreset);
-            if (requiredTypes is null)
-                return SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase);
-            if (cards.Count != 6)
-                return false;
-
-            var actualTypes = cards
-                .GroupBy(card => card.Type, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
-            return requiredTypes.All(required =>
-                actualTypes.TryGetValue(required.Key, out var actual)
-                && actual == required.Value);
+            return SupportDeckPresetCatalog.IsValidDeck(
+                SupportDeckPreset,
+                cards.Select(card => card.Type));
         }
     }
 
@@ -413,15 +405,11 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged
             return false;
         }
 
-        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(SupportDeckPreset);
-        if (requiredTypes is null)
-            return allowCustomPreset;
-        if (requiredTypes.ContainsKey("Friend"))
-            return true;
         var guestType = card.Type?.Trim();
-        return !string.IsNullOrWhiteSpace(guestType)
-            && requiredTypes.TryGetValue(guestType, out var requiredCount)
-            && requiredCount > 0;
+        return SupportDeckPresetCatalog.IsValidFriendCardType(
+            SupportDeckPreset,
+            guestType,
+            allowCustomPreset);
     }
 
     private void OnFriendSupportCardOptionChanged(object? sender, PropertyChangedEventArgs e)
@@ -532,7 +520,52 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    private void OnDatabaseLoaded(object? sender, EventArgs e) => RefreshSupportCards();
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        UnsubscribeFromDatabaseLoaded();
+
+        foreach (var option in _allSupportCardOptions)
+            option.PropertyChanged -= OnSupportCardOptionChanged;
+        foreach (var option in FriendSupportCardOptions)
+            option.PropertyChanged -= OnFriendSupportCardOptionChanged;
+    }
+
+    private void SubscribeToDatabaseLoadedIfNeeded()
+    {
+        if (_umaDatabase is null || _umaDatabase.IsLoaded)
+            return;
+
+        _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
+        _databaseLoadedSubscribed = true;
+
+        // Loading can complete between the IsLoaded check and the event
+        // subscription. The initial refresh observes the loaded data, while
+        // this stale one-shot subscription is removed.
+        if (_umaDatabase.IsLoaded)
+            UnsubscribeFromDatabaseLoaded();
+    }
+
+    private void UnsubscribeFromDatabaseLoaded()
+    {
+        if (!_databaseLoadedSubscribed || _umaDatabase is null)
+            return;
+
+        _umaDatabase.DatabaseLoaded -= OnDatabaseLoaded;
+        _databaseLoadedSubscribed = false;
+    }
+
+    private void OnDatabaseLoaded(object? sender, EventArgs e)
+    {
+        // Unsubscribe before refreshing so the database cannot retain this
+        // task instance after the one required refresh.
+        UnsubscribeFromDatabaseLoaded();
+        if (!_disposed)
+            RefreshSupportCards();
+    }
 
     private void NotifySupportCardState()
     {

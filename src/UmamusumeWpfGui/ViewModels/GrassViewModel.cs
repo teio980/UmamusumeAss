@@ -281,7 +281,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _queueOperationCts?.Dispose();
         _queueOperationCts = null;
         foreach (var task in Tasks)
+        {
             DetachTaskEvents(task);
+            DisposeTaskModule(task);
+        }
     }
 
     private GrassTaskExecutionContext CurrentContext =>
@@ -316,6 +319,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
         var index = Tasks.IndexOf(SelectedTask);
         DetachTaskEvents(SelectedTask);
+        DisposeTaskModule(SelectedTask);
         Tasks.Remove(SelectedTask);
         SelectedTask = Tasks.ElementAtOrDefault(Math.Max(0, index - 1));
         SaveTaskQueueCache();
@@ -658,6 +662,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             }
             catch (Exception exception)
             {
+                DisposeTaskModule(module);
                 AddScriptLog(
                     Localize("GrassScriptQueue", "Task queue"),
                     $"Could not restore task '{taskId}': {exception.Message}",
@@ -789,6 +794,31 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         task.PropertyChanged -= OnTaskPropertyChanged;
         if (task.Settings is INotifyPropertyChanged settings)
             settings.PropertyChanged -= OnTaskSettingsPropertyChanged;
+    }
+
+    private static void DisposeTaskModule(GrassTaskItemViewModel task)
+    {
+        if (task.Module is IDisposable module)
+        {
+            module.Dispose();
+            return;
+        }
+
+        // Most task modules do not own disposable state, but Career settings
+        // subscribe to the singleton database and must be released when a
+        // task is removed or cannot be restored.
+        (task.Settings as IDisposable)?.Dispose();
+    }
+
+    private static void DisposeTaskModule(IGrassTaskModule module)
+    {
+        if (module is IDisposable disposable)
+        {
+            disposable.Dispose();
+            return;
+        }
+
+        (module.Settings as IDisposable)?.Dispose();
     }
 
     private async Task<bool> IsCachedConnectionReadyAsync(

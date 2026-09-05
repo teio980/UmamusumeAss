@@ -13,7 +13,7 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// forwarding properties so existing task profiles and bindings keep working
 /// while the UI migrates to child view models.
 /// </summary>
-public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
+public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     public const string DefaultManifestPath = "resource/hachimi/ura/manifest.json";
     public const string DefaultStrategyId = "default-speed-medium";
@@ -32,6 +32,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private string _status = string.Empty;
+    private bool _disposed;
 
     public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
@@ -108,7 +109,6 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     // Common entry compatibility properties.
     public string ManifestPath { get => Entry.ManifestPath; set => Entry.ManifestPath = value; }
-    public string ScenarioId { get => Entry.ScenarioId; set => Entry.ScenarioId = value; }
     public int? TraineeId { get => Entry.TraineeId; set => Entry.TraineeId = value; }
     public CareerTraineeOption? SelectedTrainee { get => Entry.SelectedTrainee; set => Entry.SelectedTrainee = value; }
     public bool ContinueExistingCareer { get => Entry.ContinueExistingCareer; set => Entry.ContinueExistingCareer = value; }
@@ -196,6 +196,19 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public void RefreshSupportCards() => SupportDeck.RefreshSupportCards();
     public void RefreshIndependentTrainingCatalog(string? baseDirectory = null) => Independent.RefreshCatalog(baseDirectory);
     internal void SetStatus(string status) => Status = status;
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        Entry.PropertyChanged -= OnChildPropertyChanged;
+        SupportDeck.PropertyChanged -= OnChildPropertyChanged;
+        Independent.PropertyChanged -= OnChildPropertyChanged;
+        Entry.Dispose();
+        SupportDeck.Dispose();
+    }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

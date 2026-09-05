@@ -13,10 +13,9 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// Settings that describe the common Career entry flow. This view model does
 /// not know which Career mode will run after entry.
 /// </summary>
-public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged
+public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly IUmaDatabaseService? _umaDatabase;
-    private string _scenarioId = "ura";
     private string _manifestPath = CareerTrainingTaskSettingsViewModel.DefaultManifestPath;
     private int? _traineeId = 100601;
     private bool _continueExistingCareer;
@@ -25,13 +24,14 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged
     private bool _useCachedLegacy = true;
     private string _traineeSearchText = string.Empty;
     private bool _isTraineeDropDownOpen;
+    private bool _databaseLoadedSubscribed;
+    private bool _disposed;
     private readonly List<CareerTraineeOption> _allTraineeOptions = [];
 
     public CareerEntrySettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
         _umaDatabase = umaDatabase;
-        if (_umaDatabase is not null)
-            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
+        SubscribeToDatabaseLoadedIfNeeded();
 
         RefreshTrainees();
     }
@@ -75,12 +75,6 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged
     {
         get => _manifestPath;
         set => Set(ref _manifestPath, value?.Trim() ?? string.Empty);
-    }
-
-    public string ScenarioId
-    {
-        get => _scenarioId;
-        set => Set(ref _scenarioId, value?.Trim() ?? string.Empty);
     }
 
     public int? TraineeId
@@ -241,7 +235,47 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged
         || File.Exists(_umaDatabase.GetTraineeLiveOutfitReferenceImagePath(trainee.BaseCharacterId))
         || File.Exists(_umaDatabase.GetTraineeLiveOutfitImagePath(trainee.BaseCharacterId));
 
-    private void OnDatabaseLoaded(object? sender, EventArgs e) => RefreshTrainees();
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        UnsubscribeFromDatabaseLoaded();
+    }
+
+    private void SubscribeToDatabaseLoadedIfNeeded()
+    {
+        if (_umaDatabase is null || _umaDatabase.IsLoaded)
+            return;
+
+        _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
+        _databaseLoadedSubscribed = true;
+
+        // Loading can complete between the IsLoaded check and the event
+        // subscription. In that case the initial refresh below observes the
+        // loaded data, while the stale one-shot subscription is removed.
+        if (_umaDatabase.IsLoaded)
+            UnsubscribeFromDatabaseLoaded();
+    }
+
+    private void UnsubscribeFromDatabaseLoaded()
+    {
+        if (!_databaseLoadedSubscribed || _umaDatabase is null)
+            return;
+
+        _umaDatabase.DatabaseLoaded -= OnDatabaseLoaded;
+        _databaseLoadedSubscribed = false;
+    }
+
+    private void OnDatabaseLoaded(object? sender, EventArgs e)
+    {
+        // Unsubscribe before doing any work so a long refresh cannot retain
+        // this task instance through the singleton database service.
+        UnsubscribeFromDatabaseLoaded();
+        if (!_disposed)
+            RefreshTrainees();
+    }
 
     private void ApplyTraineeSearch()
     {

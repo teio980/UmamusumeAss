@@ -296,6 +296,50 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.False(settings.IsValid);
     }
 
+    [Fact]
+    public async Task Support_deck_settings_use_catalog_rules_for_selected_cards()
+    {
+        var root = FindSolutionRoot();
+        var database = new UmaDatabaseService();
+        await database.LoadAsync(Path.Combine(root, "resource"));
+
+        var speed = database.SupportCards
+            .Where(item => item.Available && item.Type.Equals("Speed", StringComparison.OrdinalIgnoreCase))
+            .Take(3)
+            .ToArray();
+        var stamina = database.SupportCards
+            .Where(item => item.Available && item.Type.Equals("Stamina", StringComparison.OrdinalIgnoreCase))
+            .Take(3)
+            .ToArray();
+        Assert.Equal(3, speed.Length);
+        Assert.Equal(3, stamina.Length);
+
+        var settings = new CareerTrainingTaskSettingsViewModel(database)
+        {
+            SupportDeckMode = "selected",
+            SupportDeckPreset = "speed3-stamina3",
+            SupportCardIdsText = string.Join(",", speed.Concat(stamina).Select(item => item.SupportCardId)),
+        };
+
+        var validTypes = speed.Concat(stamina).Select(item => item.Type).ToArray();
+        Assert.Equal(
+            SupportDeckPresetCatalog.IsValidDeck(settings.SupportDeckPreset, validTypes),
+            settings.IsSupportDeckValid);
+
+        var invalidTypes = speed.Skip(1).Concat(stamina).Append(
+            database.SupportCards.First(item => item.Available
+                && item.Type.Equals("Power", StringComparison.OrdinalIgnoreCase)))
+            .Select(item => item.Type)
+            .ToArray();
+        settings.SupportCardIdsText = string.Join(",", speed.Skip(1).Concat(stamina).Select(item => item.SupportCardId)
+            .Append(database.SupportCards.First(item => item.Available
+                && item.Type.Equals("Power", StringComparison.OrdinalIgnoreCase)).SupportCardId));
+
+        Assert.Equal(
+            SupportDeckPresetCatalog.IsValidDeck(settings.SupportDeckPreset, invalidTypes),
+            settings.IsSupportDeckValid);
+    }
+
     private static string FindSolutionRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
