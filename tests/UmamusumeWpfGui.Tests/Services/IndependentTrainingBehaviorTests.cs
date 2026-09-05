@@ -208,14 +208,15 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
-    public async Task Unverified_completed_checkpoint_is_restarted_automatically()
+    public async Task Completed_checkpoint_is_restarted_automatically()
     {
         var root = FindSolutionRoot();
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
         await File.WriteAllTextAsync(
             harness.Store.CheckpointPath,
-            "{\"Version\":1,\"Stage\":\"Completed\",\"LastConfirmedScreen\":\"home\"}");
+            "{\"Version\":2,\"Stage\":\"Completed\","
+                + "\"LastConfirmedScreen\":\"home\",\"CompletionVerified\":true}");
 
         var result = await harness.Pipeline.RunAsync(
             Connection,
@@ -229,27 +230,6 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
         Assert.Contains("independent.start", harness.Actions.Calls);
         Assert.True((await harness.Store.LoadAsync())!.CompletionVerified);
-    }
-
-    [Fact]
-    public async Task Verified_completed_checkpoint_remains_idempotent()
-    {
-        var root = FindSolutionRoot();
-        await using var scope = new TestScope();
-        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
-        await File.WriteAllTextAsync(
-            harness.Store.CheckpointPath,
-            "{\"Version\":2,\"Stage\":\"Completed\","
-                + "\"LastConfirmedScreen\":\"home\",\"CompletionVerified\":true}");
-
-        var result = await harness.Pipeline.RunAsync(
-            Connection,
-            CreateSettings(root, continueExistingCareer: true),
-            null);
-
-        Assert.True(result.Succeeded, result.Message);
-        Assert.Equal("Independent Training is already completed.", result.Message);
-        Assert.Empty(harness.Actions.Calls);
     }
 
     [Fact]

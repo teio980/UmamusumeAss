@@ -312,12 +312,12 @@ public sealed class IndependentTrainingCatalogTests
             "Training",
             "AdbIndependentTrainingPipeline.cs"));
 
-        var completedIndex = source.IndexOf(
-            "if (state.Stage == IndependentTrainingStage.Completed)",
+        var loadedCompletedIndex = source.IndexOf(
+            "if (loadedCompletedCheckpoint)",
             StringComparison.Ordinal);
         var entryIndex = source.IndexOf(
             "if (IsEntryStage(state.Stage))",
-            completedIndex,
+            loadedCompletedIndex,
             StringComparison.Ordinal);
         var returnHomeIndex = source.IndexOf(
             "if (state.Stage == IndependentTrainingStage.ReturnHome)",
@@ -327,11 +327,11 @@ public sealed class IndependentTrainingCatalogTests
             returnHomeIndex,
             StringComparison.Ordinal);
 
-        Assert.True(completedIndex >= 0);
-        Assert.True(entryIndex > completedIndex);
+        Assert.True(loadedCompletedIndex >= 0);
+        Assert.True(entryIndex > loadedCompletedIndex);
         Assert.DoesNotContain(
             "PostStartHomeProbeSemanticAction()",
-            source[completedIndex..entryIndex],
+            source[loadedCompletedIndex..entryIndex],
             StringComparison.Ordinal);
         Assert.True(returnHomeIndex >= 0);
         Assert.True(homeProbeIndex > returnHomeIndex);

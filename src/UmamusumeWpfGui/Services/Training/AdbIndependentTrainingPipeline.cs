@@ -157,8 +157,20 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             var migrated = newCheckpoint is null
                 ? await checkpointStore.LoadLegacyAsync(cancellationToken).ConfigureAwait(false)
                 : null;
+            var loadedCompletedCheckpoint = newCheckpoint?.Stage == IndependentTrainingStage.Completed
+                || migrated?.Stage == IndependentTrainingStage.Completed;
             state = newCheckpoint ?? migrated ?? new IndependentTrainingSessionState();
             state.NormalizeForResume();
+            if (loadedCompletedCheckpoint)
+            {
+                // A cached Completed state is never proof of the current
+                // device state. Always re-enter Career on the next run so
+                // Home cannot produce a zero-action false positive.
+                state.Stage = IndependentTrainingStage.EnterCareer;
+                state.LastConfirmedScreen = "unknown";
+                state.CompletionVerified = false;
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            }
             if (migrated is not null)
             {
                 logSink?.Add(
@@ -166,26 +178,6 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     "No new Independent checkpoint found; migrated the old URA checkpoint best-effort.",
                     LogEntryKind.Info);
                 await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        if (state.Stage == IndependentTrainingStage.Completed)
-        {
-            // NormalizeForResume normally moves an unverified Completed
-            // checkpoint back to EnterCareer. Keep this defensive guard so a
-            // state assembled in memory can never bypass device verification.
-            if (!state.CompletionVerified)
-            {
-                state.Stage = IndependentTrainingStage.EnterCareer;
-                state.LastConfirmedScreen = "unknown";
-            }
-            else
-            {
-                return new IndependentTrainingResult(
-                    true,
-                    "Independent Training is already completed.",
-                    runtime.ActionsCompleted,
-                    state.LastConfirmedScreen);
             }
         }
 
