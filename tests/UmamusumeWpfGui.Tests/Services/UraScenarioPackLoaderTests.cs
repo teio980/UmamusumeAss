@@ -108,7 +108,7 @@ public sealed class UraScenarioPackLoaderTests
             0.88,
             pack.ScreenProfile.Find("trainee_select")?.Recognition.TemplateThreshold);
         Assert.Contains(
-            "captures/scenario_select_ura.png",
+            "templates/runtime_frames/scenario_select_ura.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates
                 ?? []);
         Assert.Equal("ura", pack.ScreenProfile.ScenarioSelection?.ScenarioId);
@@ -122,10 +122,10 @@ public sealed class UraScenarioPackLoaderTests
             ScenarioNextCardRect,
             pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].SpecificRect);
         Assert.Equal(
-            "../../templates/start_game/game_home_selected.png",
+            "../../pipelines/templates/start_game/game_home_selected.png",
             pack.ExecutionDefinition.Tasks["home"].Template);
         Assert.Equal(
-            "../../templates/start_game/game_home_unselected.png",
+            "../../pipelines/templates/start_game/game_home_unselected.png",
             pack.ExecutionDefinition.Tasks["homeAlt"].Template);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["home"].Next);
         Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
@@ -180,8 +180,8 @@ public sealed class UraScenarioPackLoaderTests
             var profilePath = Path.Combine(tempRoot, "screens", "screen_profile.json");
             var profile = await File.ReadAllTextAsync(profilePath);
             profile = profile.Replace(
-                "captures/ura_prelim_races_active.png",
-                "captures/does-not-exist.png",
+                "templates/runtime_frames/ura_prelim_races_active.png",
+                "templates/runtime_frames/does-not-exist.png",
                 StringComparison.Ordinal);
             await File.WriteAllTextAsync(profilePath, profile);
 

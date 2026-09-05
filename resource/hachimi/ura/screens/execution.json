@@ -11,7 +11,7 @@
                   "home":  {
                               "algorithm":  "MatchTemplate",
                               "action":  "ClickSelf",
-                              "template":  "../../templates/start_game/game_home_selected.png",
+                              "template":  "../../pipelines/templates/start_game/game_home_selected.png",
                               "templThreshold":  0.8,
                               "roi":  [
                                           250,
@@ -46,7 +46,7 @@
                   "homeAlt":  {
                                  "algorithm":  "MatchTemplate",
                                  "action":  "ClickSelf",
-                                 "template":  "../../templates/start_game/game_home_unselected.png",
+                                 "template":  "../../pipelines/templates/start_game/game_home_unselected.png",
                                  "templThreshold":  0.8,
                                  "roi":  [
                                              250,

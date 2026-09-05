@@ -21,7 +21,7 @@ public sealed class HachimiPipelineDefinitionTests
         string expectedTask)
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", fileName);
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", fileName);
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -61,7 +61,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Mail_collection_clicks_close_after_collecting_all()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "mail_collection.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "mail_collection.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -79,14 +79,14 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("templates/mail_collection/close.png", close.Template);
         Assert.NotNull(close.Roi);
         Assert.Equal([0, 0, 900, 1600], close.Roi!);
-        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", close.Template!)));
+        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", "pipelines", close.Template!)));
     }
 
     [Fact]
     public async Task Team_race_exposes_the_shop_pipeline_to_the_parallel_result_monitor()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "team_race.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -125,7 +125,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Mission_collection_checks_each_tab_and_returns_home()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "mission_collection.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "mission_collection.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -149,7 +149,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Team_race_uses_parallel_result_monitor_until_race_again()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "team_race.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "team_race.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -208,6 +208,7 @@ public sealed class HachimiPipelineDefinitionTests
             root,
             "resource",
             "hachimi",
+            "pipelines",
             storyUnlockedClose.Template!)));
     }
 
@@ -215,7 +216,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Shop_pipeline_skips_sold_out_items_and_returns_with_back()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "shop.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "shop.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -230,7 +231,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopComplete", back.Next.Single());
         Assert.Equal("shopAndroidBack", back.OnErrorNext.Single());
         Assert.True(definition.GetTask("shopComplete").Success);
-        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", back.Template!)));
+        Assert.True(File.Exists(Path.Combine(root, "resource", "hachimi", "pipelines", back.Template!)));
     }
 
     [Fact]
@@ -262,7 +263,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Shop_task_enters_daily_sales_and_calls_shared_shop_pipeline()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "shop_task.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "shop_task.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -280,7 +281,7 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Daily_race_enables_multi_race_and_configures_ticket_count()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "daily_race.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "daily_race.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
@@ -409,7 +410,7 @@ public sealed class HachimiPipelineDefinitionTests
     public void Start_game_keeps_its_special_monitor_and_trigger_chain_definition()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "start_game.json");
+        var path = Path.Combine(root, "resource", "hachimi", "pipelines", "start_game.json");
         var json = File.ReadAllText(path);
         var definition = System.Text.Json.JsonSerializer.Deserialize<StartGamePipelineDefinition>(json);
 

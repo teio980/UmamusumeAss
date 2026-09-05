@@ -1,12 +1,13 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
 public sealed class TeamRaceTaskSettingsViewModel : INotifyPropertyChanged
 {
-    public const string DefaultDefinitionPath = "resource/hachimi/team_race.json";
+    public const string DefaultDefinitionPath = HachimiResourcePaths.TeamRaceDefinition;
     public const int MinimumRaceCount = 1;
     public const int MaximumRaceCount = 5;
 

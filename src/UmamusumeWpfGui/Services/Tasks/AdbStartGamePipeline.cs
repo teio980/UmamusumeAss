@@ -32,9 +32,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             asyncDelay,
             Path.Combine(
                 AppContext.BaseDirectory,
-                "resource",
-                "hachimi",
-                "start_game.json"))
+                HachimiResourcePaths.StartGameDefinition.Replace('/', Path.DirectorySeparatorChar)))
     {
     }
 
@@ -636,9 +634,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                 return new PipelineTaskResult(false, "ADB screenshot failed while running the pipeline.");
 
             var debugPath = Path.Combine(
-                Path.GetDirectoryName(_definitionPath)!,
-                "debug",
+                HachimiResourcePaths.GetDebugDirectory("start_game"),
                 "last_screenshot.png");
+            Directory.CreateDirectory(Path.GetDirectoryName(debugPath)!);
             await Task.Run(
                 () => GrayImageCodec.SaveScreenshot(screenshot, debugPath),
                 cancellationToken).ConfigureAwait(false);

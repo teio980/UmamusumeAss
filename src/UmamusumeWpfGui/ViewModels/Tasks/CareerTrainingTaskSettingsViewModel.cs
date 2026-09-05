@@ -15,7 +15,7 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// </summary>
 public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
-    public const string DefaultManifestPath = "resource/hachimi/ura/manifest.json";
+    public const string DefaultManifestPath = HachimiResourcePaths.UraManifest;
     public const string DefaultStrategyId = "default-speed-medium";
     public const string NormalCareerMode = "normal";
     public const string IndependentCareerMode = "independent";

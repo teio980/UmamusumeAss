@@ -727,9 +727,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
 
         var directory = Directory.Exists(definitionPath)
             ? definitionPath
-            : Path.Combine(
-                Path.GetDirectoryName(definitionPath) ?? AppContext.BaseDirectory,
-                "debug");
+            : HachimiResourcePaths.GetDebugDirectory("pipeline");
         var path = Path.Combine(directory, $"{name}.png");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 

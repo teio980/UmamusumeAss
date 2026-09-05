@@ -34,7 +34,7 @@ public sealed class LiveDailyRacePipelineTests
         var database = new UmaDatabaseService();
         await database.LoadAsync(Path.Combine(root, "resource"));
         var selector = new DailyRaceRunnerSelector(visualRuntime, database);
-        var definitionPath = Path.Combine(root, "resource", "hachimi", "daily_race.json");
+        var definitionPath = Path.Combine(root, "resource", "hachimi", "pipelines", "daily_race.json");
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(definitionPath);
         Assert.NotNull(definition);
 
@@ -110,7 +110,7 @@ public sealed class LiveDailyRacePipelineTests
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         var result = await pipeline.RunWithTraineeAsync(
             connection,
-            Path.Combine(root, "resource", "hachimi", "daily_race.json"),
+            Path.Combine(root, "resource", "hachimi", "pipelines", "daily_race.json"),
             "monies",
             "hard",
             1,
@@ -167,7 +167,7 @@ public sealed class LiveDailyRacePipelineTests
             ?? "racePlaybackResult";
         var result = await runner.RunAsync(
             connection,
-            Path.Combine(root, "resource", "hachimi", "daily_race.json"),
+            Path.Combine(root, "resource", "hachimi", "pipelines", "daily_race.json"),
             entry,
             new HachimiPipelineRunOptions
             {

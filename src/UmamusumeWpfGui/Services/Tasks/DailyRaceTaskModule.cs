@@ -53,7 +53,12 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
     public void ImportSettings(JsonObject settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        Settings.DefinitionPath = ReadString(settings, "definitionPath") ?? Settings.DefinitionPath;
+        var definitionPath = ReadString(settings, "definitionPath");
+        if (definitionPath is not null)
+        {
+            Settings.DefinitionPath =
+                HachimiResourcePaths.MigrateLegacyDefinitionPath(definitionPath);
+        }
         Settings.Mode = ReadString(settings, "mode") ?? Settings.Mode;
         Settings.Difficulty = ReadString(settings, "difficulty") ?? Settings.Difficulty;
         Settings.RaceCountText = ReadInt(

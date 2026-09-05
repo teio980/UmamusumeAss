@@ -1,12 +1,12 @@
 # Hachimi Start Game pipeline
 
 The Start Game task launches the configured Android package, then follows the
-editable task graph in `start_game.json` until the real game home screen is
+editable task graph in `pipelines/start_game.json` until the real game home screen is
 detected. The current Umamusume flow handles the startup title, the first-run
 data confirmation, promotional skip button, Notices close button, and the
 final Home tab.
 
-The captured templates in `templates/` were taken from the configured MuMu
+The captured templates in `pipelines/templates/` were taken from the configured MuMu
 device at 900x1600 portrait resolution. Tasks use small visual templates in a
 restricted ROI; the matched rectangle is clicked and no page-sized screenshot
 is used for Team Race interaction.
@@ -16,18 +16,18 @@ Supported actions include `Screenshot`, `Wait`, `TapToStart`, `ClickSelf`,
 
 ## Team Race flow
 
-`team_race.json` contains the MAA-style button templates, per-button ROIs,
+`pipelines/team_race.json` contains the MAA-style button templates, per-button ROIs,
 thresholds, and timing used by the implemented `AdbTeamRacePipeline`. The
 executor enters Race > Team Trials > Team Race, selects an opponent, starts
 each race, optionally skips the playback intro, waits for the final score
 marker, and repeats the same routine for the configured count. The UI accepts
-1–5 races. Team Race templates belong under `templates/team_race/`.
+1–5 races. Team Race templates belong under `pipelines/templates/team_race/`.
 The optional random-shop branch is enabled only when a client-specific shop
 template and close-button template are configured.
 
 ## Daily Race flow
 
-`daily_race.json` follows the captured game path Race > Daily Program > Daily
+`pipelines/daily_race.json` follows the captured game path Race > Daily Program > Daily
 Races. The task settings choose either the Monies event (Moonlight Sho) or the
 Support Points event (Jupiter Cup) and clamp the requested count to 1–6. The
 shared graph selects the configured difficulty card (Very Hard, Hard, Normal,
@@ -42,33 +42,41 @@ Monies and Support Points share one difficulty-row template; the settings-driven
 ROI selects the requested row.
 
 The ticket dialog currently uses placeholder templates under
-`templates/daily_race/`: `multi_race_ticket_dialog.png`,
+`pipelines/templates/daily_race/`: `multi_race_ticket_dialog.png`,
 `multi_race_ticket_minus.png`, `multi_race_ticket_plus.png`, and
 `multi_race_ticket_confirm.png`, and `multi_race_complete.png`. These were
 captured from the target device's 900×1600 screen.
 
-Daily Race templates belong under `templates/daily_race/`; they were captured
+Daily Race templates belong under `pipelines/templates/daily_race/`; they were captured
 from the configured 900x1600 MuMu device and cropped to stable cards/buttons.
 The Multi-Race state checks use the smaller `multi_race_on_text.png` and
 `multi_race_off_text.png` templates so the detector matches only the state word,
 not the animated button background.
 
+## URA resource layout
+
+The URA package remains under `ura/`. Its 94 runtime screen frames are stored
+under `ura/screens/templates/runtime_frames/`; the screen profile, event
+evidence, and observed race outcomes all resolve those paths. Other raw ADB
+captures are kept in `testdata/hachimi/ura/captures/` and are not shipped.
+The shared ordinary-flow templates are under `pipelines/templates/`.
+
 ## Pipeline schema
 
-`mail_collection.json` and `team_race.json` use the shared ordinary-pipeline
+`pipelines/mail_collection.json` and `pipelines/team_race.json` use the shared ordinary-pipeline
 schema: the root uses `tasks`, visual thresholds use MAA's `templThreshold`,
 and both definitions use schema version `1`. Their visual matching, tapping,
 waiting, screenshot, and delay operations are executed by the shared
 `AdbVisualPipelineRuntime`.
 
-`start_game.json` intentionally remains on its compatibility schema. Its
+`pipelines/start_game.json` intentionally remains on its compatibility schema. Its
 `StartupMonitor`, same-frame candidate priority, `triggerTask`, and
 `triggerChain` behavior are specific to game startup and are not routed
 through the ordinary task runner.
 
 ## Ordinary JSON structure
 
-The ordinary pipeline files (`mail_collection.json` and `team_race.json`)
+The ordinary pipeline files (`pipelines/mail_collection.json` and `pipelines/team_race.json`)
 share this top-level shape:
 
 ```json
@@ -149,14 +157,16 @@ default value.
 When adding or changing an ordinary task:
 
 1. Put the required screenshot template under the corresponding
-   `templates/<pipeline>/` directory.
+   `pipelines/templates/<pipeline>/` directory.
 2. Add or update the named entry under `tasks` with its template, ROI,
    threshold, timeout, and polling interval.
 3. Add flow-specific waits under `timing` only when the state transition needs
    a delay; visual waiting belongs to the task's timeout and polling fields.
 4. Keep the business sequence in the pipeline class. It retrieves a task by
    name and delegates screenshot, matching, tapping, waiting, delay, and debug
-   screenshot operations to `AdbVisualPipelineRuntime`.
+   screenshot operations to `AdbVisualPipelineRuntime`. Runtime debug captures
+   are written under `%LOCALAPPDATA%\\UmamusumeAss\\debug\\hachimi\\` and
+   are not part of the shipped resource tree.
 5. If a low-level visual operation is useful to multiple pipelines, extend
    `IVisualPipelineRuntime` and its implementation instead of copying the
    operation into another pipeline.

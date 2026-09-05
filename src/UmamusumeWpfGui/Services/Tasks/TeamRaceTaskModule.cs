@@ -52,8 +52,12 @@ public sealed class TeamRaceTaskModule : IGrassTaskModule
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        Settings.DefinitionPath = ReadString(settings, "definitionPath")
-            ?? Settings.DefinitionPath;
+        var definitionPath = ReadString(settings, "definitionPath");
+        if (definitionPath is not null)
+        {
+            Settings.DefinitionPath =
+                HachimiResourcePaths.MigrateLegacyDefinitionPath(definitionPath);
+        }
         Settings.RaceCountText = ReadInt(settings, "raceCount", Settings.RaceCount)
             .ToString(CultureInfo.InvariantCulture);
         Settings.StopWhenTicketsEmpty = ReadBool(

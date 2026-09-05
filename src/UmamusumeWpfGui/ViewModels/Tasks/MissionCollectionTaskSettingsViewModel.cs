@@ -1,11 +1,12 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
 public sealed class MissionCollectionTaskSettingsViewModel : INotifyPropertyChanged
 {
-    public const string DefaultDefinitionPath = "resource/hachimi/mission_collection.json";
+    public const string DefaultDefinitionPath = HachimiResourcePaths.MissionCollectionDefinition;
 
     private string _definitionPath = DefaultDefinitionPath;
     private string _status = string.Empty;

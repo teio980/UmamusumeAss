@@ -115,20 +115,30 @@ if ($proc.ExitCode -ne 0) {
 }
 
 $uraSource = Join-Path $SolutionRoot "resource\hachimi\ura"
+$pipelineSource = Join-Path $SolutionRoot "resource\hachimi\pipelines"
 $uraPublish = Join-Path $PublishDir "resource\hachimi\ura"
+$pipelinePublish = Join-Path $PublishDir "resource\hachimi\pipelines"
 $uraPublishParent = Join-Path $PublishDir "resource\hachimi"
 if (-not (Test-Path -LiteralPath $uraSource)) {
     throw "URA scenario source package is incomplete: $uraSource"
 }
-New-Item -ItemType Directory -Path $uraPublishParent -Force | Out-Null
-Copy-Item -LiteralPath $uraSource -Destination $uraPublishParent -Recurse -Force
+if (-not (Test-Path -LiteralPath $pipelineSource)) {
+    throw "Hachimi pipeline source package is incomplete: $pipelineSource"
+}
+if (-not (Test-Path -LiteralPath $pipelinePublish)) {
+    throw "Hachimi pipeline resources were not staged into publish output: $pipelinePublish"
+}
+if (-not (Test-Path -LiteralPath $uraPublish)) {
+    New-Item -ItemType Directory -Path $uraPublishParent -Force | Out-Null
+    Copy-Item -LiteralPath $uraSource -Destination $uraPublishParent -Recurse -Force
+}
 if (-not (Test-Path -LiteralPath $uraPublish)) {
     throw "URA scenario package was not staged into publish output: $uraPublish"
 }
 $uraFiles = @(Get-ChildItem -LiteralPath $uraSource -File -Recurse)
 $missingUraFiles = @(
     foreach ($uraFile in $uraFiles) {
-        $relativePath = [System.IO.Path]::GetRelativePath($uraSource, $uraFile.FullName)
+        $relativePath = $uraFile.FullName.Substring($uraSource.Length + 1)
         $publishedPath = Join-Path $uraPublish $relativePath
         if (-not (Test-Path -LiteralPath $publishedPath)) {
             $relativePath

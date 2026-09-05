@@ -40,8 +40,12 @@ public sealed class MissionCollectionTaskModule : IGrassTaskModule
     public void ImportSettings(JsonObject settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        Settings.DefinitionPath = ReadString(settings, "definitionPath")
-            ?? Settings.DefinitionPath;
+        var definitionPath = ReadString(settings, "definitionPath");
+        if (definitionPath is not null)
+        {
+            Settings.DefinitionPath =
+                HachimiResourcePaths.MigrateLegacyDefinitionPath(definitionPath);
+        }
     }
 
     public IGrassTaskModule CreateInstance() => new MissionCollectionTaskModule(

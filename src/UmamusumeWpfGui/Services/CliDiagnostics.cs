@@ -15,8 +15,7 @@ public static class CliDiagnostics
 {
     private const string Switch = "--diagnostics";
     private const string DefaultTask = "independent_skills_search_checkbox_ocr";
-    private const string DefaultDefinition =
-        "resource/hachimi/ura/screens/execution.json";
+    private const string DefaultDefinition = HachimiResourcePaths.UraExecution;
 
     public static bool IsRequested(IReadOnlyList<string> args) =>
         args.Any(argument => argument.Equals(Switch, StringComparison.OrdinalIgnoreCase));

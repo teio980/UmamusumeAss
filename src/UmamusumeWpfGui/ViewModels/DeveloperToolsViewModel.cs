@@ -577,10 +577,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                     directory,
                     "*.json",
                     SearchOption.TopDirectoryOnly);
-            var scenarioManifests = Directory.EnumerateFiles(
-                    directory,
-                    "manifest.json",
-                    SearchOption.AllDirectories);
+            var hachimiRoot = Directory.GetParent(directory)?.FullName;
+            var scenarioManifest = hachimiRoot is null
+                ? null
+                : Path.Combine(hachimiRoot, "ura", "manifest.json");
+            IEnumerable<string> scenarioManifests = scenarioManifest is not null
+                && File.Exists(scenarioManifest)
+                ? new[] { scenarioManifest! }
+                : [];
             foreach (var path in ordinaryPipelines
                          .Concat(scenarioManifests)
                          .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1290,14 +1294,18 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _selectedPipelineResource?.Directory ?? GetRuntimePipelineDirectory();
 
     private static string GetRuntimePipelineDirectory() =>
-        Path.Combine(AppContext.BaseDirectory, "resource", "hachimi");
+        Path.Combine(
+            AppContext.BaseDirectory,
+            HachimiResourcePaths.PipelinesRoot.Replace('/', Path.DirectorySeparatorChar));
 
     private static string? FindSourcePipelineDirectory()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            var candidate = Path.Combine(directory.FullName, "resource", "hachimi");
+            var candidate = Path.Combine(
+                directory.FullName,
+                HachimiResourcePaths.PipelinesRoot.Replace('/', Path.DirectorySeparatorChar));
             if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json"))
                 && Directory.Exists(candidate))
             {
@@ -1312,12 +1320,18 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private static bool IsProjectBuildOutput(string sourcePipelineDirectory)
     {
-        var sourceRoot = Directory.GetParent(sourcePipelineDirectory)?.Parent?.FullName;
-        if (string.IsNullOrWhiteSpace(sourceRoot))
+        var sourceRoot = new DirectoryInfo(sourcePipelineDirectory);
+        while (sourceRoot is not null
+            && !File.Exists(Path.Combine(sourceRoot.FullName, "CMakePresets.json")))
+        {
+            sourceRoot = sourceRoot.Parent;
+        }
+
+        if (sourceRoot is null)
             return false;
 
         var buildOutputRoot = Path.Combine(
-            sourceRoot,
+            sourceRoot.FullName,
             "src",
             "UmamusumeWpfGui",
             "bin");

@@ -7,9 +7,9 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class StartGameTemplateMatcherTests
 {
     [Theory]
-    [InlineData("debug/cold_8.png", "templates/start_game/logo_skip.png", 56, 612, 794, 249, 0.86)]
-    [InlineData("debug/cold_7.png", "templates/start_game/startnotice_skip.png", 68, 444, 764, 369, 0.70)]
-    [InlineData("debug/user_repro_current.png", "templates/start_game/tap_to_start.png", 80, 1000, 740, 220, 0.84)]
+    [InlineData("cold_8.png", "templates/start_game/logo_skip.png", 56, 612, 794, 249, 0.86)]
+    [InlineData("cold_7.png", "templates/start_game/startnotice_skip.png", 68, 444, 764, 369, 0.70)]
+    [InlineData("user_repro_current.png", "templates/start_game/tap_to_start.png", 80, 1000, 740, 220, 0.84)]
     public void Startup_template_matches_saved_screen(
         string screenName,
         string templateName,
@@ -20,8 +20,10 @@ public sealed class StartGameTemplateMatcherTests
         double threshold)
     {
         var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi", screenName));
-        var template = GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi", templateName));
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root, "testdata", "hachimi", "start_game", screenName));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root, "resource", "hachimi", "pipelines", templateName));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -42,13 +44,15 @@ public sealed class StartGameTemplateMatcherTests
     {
         var root = FindSolutionRoot();
         var definition = JsonSerializer.Deserialize<StartGamePipelineDefinition>(
-            File.ReadAllText(Path.Combine(root, "resource", "hachimi", "start_game.json")));
+            File.ReadAllText(Path.Combine(
+                root, "resource", "hachimi", "pipelines", "start_game.json")));
         Assert.NotNull(definition);
         var task = definition!.Tasks["CheckTapToStart"];
         var template = GrayImageCodec.FromFile(Path.Combine(
             root,
             "resource",
             "hachimi",
+            "pipelines",
             task.Template!));
 
         Assert.NotNull(template);

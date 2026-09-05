@@ -1,11 +1,12 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
 public sealed class MailCollectionTaskSettingsViewModel : INotifyPropertyChanged
 {
-    public const string DefaultDefinitionPath = "resource/hachimi/mail_collection.json";
+    public const string DefaultDefinitionPath = HachimiResourcePaths.MailCollectionDefinition;
 
     private string _definitionPath = DefaultDefinitionPath;
     private string _status = string.Empty;

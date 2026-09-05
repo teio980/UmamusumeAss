@@ -5,7 +5,7 @@ namespace UmamusumeWpfGui.Services.Tasks;
 
 public sealed class ShopTaskModule : IGrassTaskModule
 {
-    private const string DefinitionPath = "resource/hachimi/shop_task.json";
+    private const string DefinitionPath = HachimiResourcePaths.ShopTaskDefinition;
     private readonly HachimiJsonPipelineRunner _runner;
 
     public ShopTaskModule(HachimiJsonPipelineRunner runner)

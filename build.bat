@@ -59,6 +59,8 @@ if not exist "%PUBLISH_DIR%\UmamusumeAss.exe" goto :err_dotnet_build
 
 rem Stage the complete URA scenario package explicitly so every build contains
 rem the same resource tree as the source. Do not validate a single capture here.
+if not exist "resource\hachimi\pipelines\daily_race.json" goto :err_resources
+if not exist "%PUBLISH_DIR%\resource\hachimi\pipelines\daily_race.json" goto :err_resources
 if not exist "resource\hachimi\ura\" goto :err_resources
 if not exist "%PUBLISH_DIR%\resource\hachimi\ura" mkdir "%PUBLISH_DIR%\resource\hachimi\ura"
 xcopy /e /i /y /q "resource\hachimi\ura\*" "%PUBLISH_DIR%\resource\hachimi\ura\" >nul
@@ -74,6 +76,7 @@ copy /y "%NATIVE_DLL%" "%OUT_DIR%\UmamusumeCore.dll" >nul
 if errorlevel 1 goto :err_copy_native
 if not exist "%OUT_DIR%\UmamusumeCore.dll" goto :err_copy_native
 if not exist "%OUT_DIR%\resource\connection.json" goto :err_resources
+if not exist "%OUT_DIR%\resource\hachimi\pipelines\daily_race.json" goto :err_resources
 if not exist "%OUT_DIR%\resource\hachimi\ura\" goto :err_resources
 
 if exist "build\publish" rmdir /s /q "build\publish"

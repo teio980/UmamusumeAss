@@ -11,7 +11,7 @@
       "fieldSize": 9,
       "held": {"year": "junior", "phase": "debut"},
       "rewardFans": 3000,
-      "observedOutcome": {"placement": 1, "capture": "captures/debut_race_result_wait.png"}
+      "observedOutcome": {"placement": 1, "capture": "screens/templates/runtime_frames/debut_race_result_wait.png"}
     },
     {
       "raceId": "nhk_mile_cup",
@@ -20,7 +20,7 @@
       "course": {"surface": "turf", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
       "held": {"year": "classic", "phase": "spring"},
       "objectiveReference": "nhk_mile_cup",
-      "observedOutcome": {"placement": 1, "capture": "captures/year2_nhk_result_detail.png"}
+      "observedOutcome": {"placement": 1, "capture": "screens/templates/runtime_frames/year2_nhk_result_detail.png"}
     },
     {
       "raceId": "mile_championship",
@@ -29,7 +29,7 @@
       "course": {"surface": "turf", "distance": 1600, "distanceBand": "mile", "venue": "Kyoto"},
       "held": {"year": "classic", "phase": "late_year"},
       "objectiveReference": "mile_championship",
-      "observedOutcome": {"placement": 1, "capture": "captures/classic_milech_race_result.png"}
+      "observedOutcome": {"placement": 1, "capture": "screens/templates/runtime_frames/classic_milech_race_result.png"}
     },
     {
       "raceId": "kawasaki_kinen",
@@ -38,7 +38,7 @@
       "course": {"surface": "dirt", "distance": 2100, "distanceBand": "medium", "direction": "left", "venue": "Kawasaki"},
       "fieldSize": 14,
       "held": {"year": "senior", "phase": "early_february"},
-      "observedOutcome": {"placement": 1, "capture": "captures/senior_kawasaki_result_detail.png"}
+      "observedOutcome": {"placement": 1, "capture": "screens/templates/runtime_frames/senior_kawasaki_result_detail.png"}
     },
     {
       "raceId": "february_stakes",
@@ -47,7 +47,7 @@
       "course": {"surface": "dirt", "distance": 1600, "distanceBand": "mile", "direction": "left", "venue": "Tokyo"},
       "fieldSize": 16,
       "held": {"year": "senior", "phase": "late_february"},
-      "observedOutcome": {"placement": 1, "capture": "captures/senior_february_result_detail.png"}
+      "observedOutcome": {"placement": 1, "capture": "screens/templates/runtime_frames/senior_february_result_detail.png"}
     },
     {
       "raceId": "tenno_sho_autumn",
@@ -56,7 +56,7 @@
       "course": {"surface": "turf", "distance": 2000, "distanceBand": "medium", "direction": "left", "venue": "Tokyo"},
       "fieldSize": 18,
       "held": {"year": "senior", "phase": "late_october"},
-      "observedOutcome": {"placement": 1, "time": "1:56.6", "capture": "captures/ura_tenno_result.png"},
+      "observedOutcome": {"placement": 1, "time": "1:56.6", "capture": "screens/templates/runtime_frames/ura_tenno_result.png"},
       "objectiveReference": "tenno_sho_autumn"
     },
     {
@@ -67,7 +67,7 @@
       "fieldSize": 16,
       "held": {"year": "senior", "phase": "late_december"},
       "retryPolicy": {"enabled": true, "observedAttempts": 4, "maxRetryCount": 3},
-      "observedOutcome": {"placement": 1, "time": "2:28.9", "capture": "captures/ura_arima_last_retry_finish3.png"},
+      "observedOutcome": {"placement": 1, "time": "2:28.9", "capture": "screens/templates/runtime_frames/ura_arima_last_retry_finish3.png"},
       "objectiveReference": "arima_kinen_goal"
     },
     {
@@ -79,7 +79,7 @@
       "held": {"phase": "finale_underway"},
       "rewardFans": 7000,
       "advancesTo": "ura_finale_semifinal",
-      "observedOutcome": {"placement": 1, "time": "1:44.7", "capture": "captures/ura_prelim_finish.png"}
+      "observedOutcome": {"placement": 1, "time": "1:44.7", "capture": "screens/templates/runtime_frames/ura_prelim_finish.png"}
     },
     {
       "raceId": "ura_finale_semifinal",
@@ -90,7 +90,7 @@
       "held": {"phase": "finale_underway"},
       "rewardFans": 10000,
       "advancesTo": "ura_finale_finals",
-      "observedOutcome": {"placement": 1, "time": "1:45.3", "capture": "captures/ura_semifinal_result.png"}
+      "observedOutcome": {"placement": 1, "time": "1:45.3", "capture": "screens/templates/runtime_frames/ura_semifinal_result.png"}
     },
     {
       "raceId": "ura_finale_finals",
@@ -101,7 +101,7 @@
       "held": {"phase": "finale_underway"},
       "rewardFans": 30000,
       "advancesTo": "scenario_complete",
-      "observedOutcome": {"placement": 1, "time": "1:30.1", "capture": "captures/ura_final_finish.png"}
+      "observedOutcome": {"placement": 1, "time": "1:30.1", "capture": "screens/templates/runtime_frames/ura_final_finish.png"}
     }
   ]
 }

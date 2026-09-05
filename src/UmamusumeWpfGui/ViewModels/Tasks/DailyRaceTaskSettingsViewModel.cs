@@ -11,7 +11,7 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 
 public sealed class DailyRaceTaskSettingsViewModel : INotifyPropertyChanged
 {
-    public const string DefaultDefinitionPath = "resource/hachimi/daily_race.json";
+    public const string DefaultDefinitionPath = HachimiResourcePaths.DailyRaceDefinition;
     public const string MoniesMode = "monies";
     public const string SupportPointMode = "supportpoint";
     public const string VeryHardDifficulty = "veryhard";

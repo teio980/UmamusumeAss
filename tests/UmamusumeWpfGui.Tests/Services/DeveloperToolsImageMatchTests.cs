@@ -928,7 +928,7 @@ public sealed class DeveloperToolsImageMatchTests
         var photoModePath = Path.Combine(debug, "repeat_after_false_pass.png");
         var cases = new[]
         {
-            ("pre-race", Path.Combine(root, "resource", "hachimi", "templates", "daily_race", "pre_race.png"),
+            ("pre-race", Path.Combine(root, "resource", "hachimi", "pipelines", "templates", "daily_race", "pre_race.png"),
                 "pre_race_start_button.png", new[] { 400, 1370, 350, 200 }, 0.82),
             ("playback roster", Path.Combine(debug, "daily_race_multirace_after_loading.png"),
                 "playback_race_button.png", new[] { 200, 1370, 500, 200 }, 0.82),

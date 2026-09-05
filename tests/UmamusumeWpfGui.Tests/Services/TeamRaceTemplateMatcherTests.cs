@@ -14,7 +14,7 @@ public sealed class TeamRaceTemplateMatcherTests
     {
         var root = FindSolutionRoot();
         var template = GrayImageCodec.FromFile(
-            Path.Combine(root, "resource", "hachimi", "templates", "team_race", templateName));
+            Path.Combine(root, "resource", "hachimi", "pipelines", "templates", "team_race", templateName));
 
         Assert.NotNull(template);
 

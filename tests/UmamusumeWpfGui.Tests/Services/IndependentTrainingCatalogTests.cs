@@ -370,10 +370,9 @@ public sealed class IndependentTrainingCatalogTests
 
         var capture = GrayImageCodec.FromFile(Path.Combine(
             root,
-            "resource",
+            "testdata",
             "hachimi",
             "ura",
-            "screens",
             "captures",
             "career_home_training_independently.png"));
         var template = GrayImageCodec.FromFile(Path.Combine(
