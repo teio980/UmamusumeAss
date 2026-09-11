@@ -221,6 +221,23 @@ public sealed class UmaService : IUmaService
         return operation.Completion.Task;
     }
 
+    public Task ReloadResourceAsync(
+        string compositeBaseDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string canonical = ValidateBaseDirectory(compositeBaseDirectory);
+        _ = GetInitializedHandle();
+        lock (_operationLock)
+        {
+            if (_startingOperation is not null || _activeOperation is not null)
+                throw new InvalidOperationException("Native operations must be idle before reloading resources.");
+        }
+        RequireSuccess(_native.LoadResource(canonical), "UmaLoadResource");
+        ResourcePath = Path.Combine(canonical, "resource");
+        return Task.CompletedTask;
+    }
+
     public Task CancelOperationAsync(ulong operationId, CancellationToken cancellationToken = default)
     {
         _ = GetInitializedHandle();

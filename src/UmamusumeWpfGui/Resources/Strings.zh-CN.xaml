@@ -171,6 +171,13 @@
   <sys:String x:Key="AutoStartEmulatorLabel">模拟器未运行时自动启动</sys:String>
   <sys:String x:Key="EmulatorExecutablePathHint">模拟器 EXE 或快捷方式路径</sys:String>
   <sys:String x:Key="AutoStartEmulatorWaitSecondsLabel">启动后等待（秒）</sys:String>
+  <sys:String x:Key="UpdatesTitle">更新</sys:String>
+  <sys:String x:Key="StartupUpdateCheckLabel">启动时检查更新</sys:String>
+  <sys:String x:Key="CheckForUpdatesButton">检查更新</sys:String>
+  <sys:String x:Key="DownloadUpdateButton">下载</sys:String>
+  <sys:String x:Key="InstallUpdateButton">安装并重启</sys:String>
+  <sys:String x:Key="CancelUpdateButton">取消下载</sys:String>
+  <sys:String x:Key="SkipUpdateButton">跳过此版本一次</sys:String>
   <sys:String x:Key="ProfileLabel">配置文件</sys:String>
   <sys:String x:Key="ConnectButton">连接</sys:String>
   <sys:String x:Key="CancelButton">取消</sys:String>

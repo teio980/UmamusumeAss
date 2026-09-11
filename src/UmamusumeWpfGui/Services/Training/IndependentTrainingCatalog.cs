@@ -131,7 +131,7 @@ public sealed class IndependentTrainingCatalog
             candidates.Add(Path.Combine(baseDirectory, packagedRelativePath));
         }
 
-        candidates.Add(Path.Combine(AppContext.BaseDirectory, packagedRelativePath));
+        candidates.Add(ResourcePathRuntime.Resolve(packagedRelativePath));
         candidates.Add(Path.GetFullPath(packagedRelativePath));
 
         var directory = new DirectoryInfo(Environment.CurrentDirectory);

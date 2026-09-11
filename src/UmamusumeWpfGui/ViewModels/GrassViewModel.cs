@@ -22,6 +22,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private readonly ISettingsService? _settingsService;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly IAdbRuntime? _adbRuntime;
+    private readonly IActivityRegistry? _activityRegistry;
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
@@ -66,7 +67,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         IConnectionStateService? connectionState,
         ISettingsService? settingsService,
         SettingsViewModel? settingsViewModel,
-        IAdbRuntime? adbRuntime = null)
+        IAdbRuntime? adbRuntime = null,
+        IActivityRegistry? activityRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -77,6 +79,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _settingsService = settingsService;
         _settingsViewModel = settingsViewModel;
         _adbRuntime = adbRuntime;
+        _activityRegistry = activityRegistry;
         HachimiShopSettings = new HachimiShopSettingsViewModel(settingsService);
 
         Tasks = [];
@@ -367,6 +370,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     {
         if (!CanStartQueue)
             return;
+
+        using var activityLease = _activityRegistry?.Acquire(ActivityKind.Queue);
 
         var queuedTasks = Tasks.Where(task => task.IsEnabled).ToList();
         _queueOperationCts?.Dispose();

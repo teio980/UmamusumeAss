@@ -182,6 +182,13 @@
   <sys:String x:Key="AutoStartEmulatorLabel">Start emulator automatically when it is not running</sys:String>
   <sys:String x:Key="EmulatorExecutablePathHint">Emulator executable or shortcut path</sys:String>
   <sys:String x:Key="AutoStartEmulatorWaitSecondsLabel">Wait after startup (seconds)</sys:String>
+  <sys:String x:Key="UpdatesTitle">Updates</sys:String>
+  <sys:String x:Key="StartupUpdateCheckLabel">Check for updates at startup</sys:String>
+  <sys:String x:Key="CheckForUpdatesButton">Check for updates</sys:String>
+  <sys:String x:Key="DownloadUpdateButton">Download</sys:String>
+  <sys:String x:Key="InstallUpdateButton">Install and restart</sys:String>
+  <sys:String x:Key="CancelUpdateButton">Cancel download</sys:String>
+  <sys:String x:Key="SkipUpdateButton">Skip this version once</sys:String>
   <sys:String x:Key="ProfileLabel">Profile</sys:String>
   <sys:String x:Key="ConnectButton">Connect</sys:String>
   <sys:String x:Key="CancelButton">Cancel</sys:String>

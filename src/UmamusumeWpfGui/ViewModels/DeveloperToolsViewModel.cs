@@ -84,13 +84,16 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private PipelineEditorSnapshot? _pipelineHistoryBaseline;
     private bool _pipelineHistoryInitialized;
     private bool _isRestoringPipelineHistory;
+    private readonly IActivityRegistry? _activityRegistry;
+    private IDisposable? _busyActivityLease;
 
     public DeveloperToolsViewModel(
         IAdbRuntime adbRuntime,
         IConnectionStateService connectionState,
         SettingsViewModel settingsViewModel,
         IUmaDatabaseService umaDatabase,
-        HachimiJsonPipelineRunner pipelineRunner)
+        HachimiJsonPipelineRunner pipelineRunner,
+        IActivityRegistry? activityRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(connectionState);
@@ -103,6 +106,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _settingsViewModel = settingsViewModel;
         _umaDatabase = umaDatabase;
         _pipelineRunner = pipelineRunner;
+        _activityRegistry = activityRegistry;
         ExistingImages = new ReadOnlyObservableCollection<DeveloperToolsImageItem>(_existingImages);
         PipelineFiles = new ReadOnlyObservableCollection<string>(_pipelineFiles);
         ScenarioPackageFiles = new ReadOnlyObservableCollection<ScenarioPackageFileEditorItem>(
@@ -840,11 +844,12 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 _pipelineDefinition.BaseDirectory,
                 "templates",
                 pipelineSlug);
-            Directory.CreateDirectory(templateDirectory);
             var absolutePath = Path.Combine(templateDirectory, $"{taskSlug}.png");
+            var writePath = ResourcePathRuntime.ResolveWritePath(absolutePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(writePath)!);
             var cropped = new CroppedBitmap(_screenshotImage, region);
             cropped.Freeze();
-            ScreenshotBitmapCodec.SavePng(cropped, absolutePath);
+            ScreenshotBitmapCodec.SavePng(cropped, writePath);
             SelectedPipelineTask.Template =
                 Path.GetRelativePath(_pipelineDefinition.BaseDirectory, absolutePath)
                     .Replace(Path.DirectorySeparatorChar, '/');
@@ -904,20 +909,22 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         }
 
         var templatePath = _pipelineTemplateEditPath;
-        var temporaryPath = Path.Combine(
+        var temporaryPath = ResourcePathRuntime.ResolveWritePath(Path.Combine(
             Path.GetDirectoryName(templatePath) ?? _pipelineDefinition.BaseDirectory,
             $".{Path.GetFileNameWithoutExtension(templatePath)}.{Guid.NewGuid():N}.tmp"
-                + Path.GetExtension(templatePath));
+                + Path.GetExtension(templatePath)));
+        var writeTemplatePath = ResourcePathRuntime.ResolveWritePath(templatePath);
         string? backupPath = null;
         try
         {
             var cropped = new CroppedBitmap(_screenshotImage, crop);
             cropped.Freeze();
 
-            backupPath = CreateBackupPath(templatePath);
+            backupPath = ResourcePathRuntime.ResolveWritePath(CreateBackupPath(templatePath));
             File.Copy(templatePath, backupPath);
             UmaImageCodec.Save(cropped, temporaryPath);
-            File.Move(temporaryPath, templatePath, overwrite: true);
+            Directory.CreateDirectory(Path.GetDirectoryName(writeTemplatePath)!);
+            File.Move(temporaryPath, writeTemplatePath, overwrite: true);
 
             var searchRoi = string.IsNullOrWhiteSpace(SelectedPipelineTask.RoiText)
                 ? "none"
@@ -980,8 +987,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             path = Path.GetFullPath(path);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(definition, PipelineJsonOptions));
+            var writePath = ResourcePathRuntime.ResolveWritePath(path);
+            Directory.CreateDirectory(Path.GetDirectoryName(writePath)!);
+            File.WriteAllText(writePath, JsonSerializer.Serialize(definition, PipelineJsonOptions));
             _pipelineDefinition = definition;
             _pipelineDefinitionPath = path;
             SelectedPipelineFile = _loadedScenarioManifestPath ?? path;
@@ -1090,7 +1098,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             using var document = JsonDocument.Parse(file.JsonText);
             var formatted = JsonSerializer.Serialize(document.RootElement, PipelineJsonOptions);
-            File.WriteAllText(file.FullPath, formatted);
+            File.WriteAllText(ResourcePathRuntime.ResolveWritePath(file.FullPath), formatted);
             file.JsonText = formatted;
             _scenarioPackageStatusText = $"Saved {file.RelativePath}.";
             OnPropertyChanged(nameof(ScenarioPackageStatusText));
@@ -1294,9 +1302,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _selectedPipelineResource?.Directory ?? GetRuntimePipelineDirectory();
 
     private static string GetRuntimePipelineDirectory() =>
-        Path.Combine(
-            AppContext.BaseDirectory,
-            HachimiResourcePaths.PipelinesRoot.Replace('/', Path.DirectorySeparatorChar));
+        ResourcePathRuntime.Resolve(HachimiResourcePaths.PipelinesRoot);
 
     private static string? FindSourcePipelineDirectory()
     {
@@ -2273,6 +2279,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _pipelineRunCancellation?.Cancel();
         _pipelineRunCancellation?.Dispose();
         _pipelineRunCancellation = null;
+        _busyActivityLease?.Dispose();
+        _busyActivityLease = null;
         _scenarioPackageFiles.Clear();
         _selectedScenarioPackageFile = null;
         _connectionState.StateChanged -= OnConnectionStateChanged;
@@ -2359,10 +2367,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             ? "live outfit crop"
             : "system reference image";
         var hasExistingReference = File.Exists(referencePath);
+        var writeReferencePath = ResourcePathRuntime.ResolveWritePath(referencePath);
         var backupPath = hasExistingReference
-            ? CreateBackupPath(referencePath)
+            ? ResourcePathRuntime.ResolveWritePath(CreateBackupPath(referencePath))
             : null;
-        var temporaryPath = referencePath + $".{Guid.NewGuid():N}.tmp";
+        var temporaryPath = ResourcePathRuntime.ResolveWritePath(referencePath) + $".{Guid.NewGuid():N}.tmp";
         _isSavingImage = true;
         RaiseCommandStates();
         try
@@ -2375,7 +2384,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             UmaImageCodec.Save(cropped, temporaryPath);
-            File.Move(temporaryPath, referencePath, overwrite: true);
+            Directory.CreateDirectory(Path.GetDirectoryName(writeReferencePath)!);
+            File.Move(temporaryPath, writeReferencePath, overwrite: true);
 
             await RefreshExistingImagesAsync().ConfigureAwait(true);
             SetCropRegion(null);
@@ -2500,7 +2510,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             var liveCandidates = new[]
             {
                 _umaDatabase.GetTraineeLiveOutfitReferenceImagePath(selectedImage.BaseCharacterId),
-                Path.Combine(AppContext.BaseDirectory, "resource", "uma", "system_reference", liveFileName),
+                ResourcePathRuntime.Resolve($"resource/uma/system_reference/{liveFileName}"),
                 Path.Combine(Directory.GetCurrentDirectory(), "resource", "uma", "system_reference", liveFileName),
             };
             return liveCandidates.FirstOrDefault(File.Exists);
@@ -2514,9 +2524,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             _umaDatabase.GetMaintenanceTraineeReferenceImagePath(traineeId),
             _umaDatabase.GetTraineeReferenceImagePath(traineeId),
-            Path.Combine(AppContext.BaseDirectory, "resource", "uma", "system_reference", fileName),
+            ResourcePathRuntime.Resolve($"resource/uma/system_reference/{fileName}"),
             Path.Combine(Directory.GetCurrentDirectory(), "resource", "uma", "system_reference", fileName),
-            Path.Combine(AppContext.BaseDirectory, "resource", "uma", "maintenance", "system_reference", fileName),
+            ResourcePathRuntime.Resolve($"resource/uma/maintenance/system_reference/{fileName}"),
         };
         return candidates.FirstOrDefault(File.Exists);
     }
@@ -2668,6 +2678,13 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private void SetBusy(bool busy)
     {
+        if (busy && _busyActivityLease is null)
+            _busyActivityLease = _activityRegistry?.Acquire(ActivityKind.DeveloperPipeline);
+        else if (!busy)
+        {
+            _busyActivityLease?.Dispose();
+            _busyActivityLease = null;
+        }
         _isBusy = busy;
         OnPropertyChanged(nameof(IsBusy));
         RaiseCommandStates();

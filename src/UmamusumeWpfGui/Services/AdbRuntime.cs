@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
+using ActivityKind = UmamusumeWpfGui.Models.ActivityKind;
 
 namespace UmamusumeWpfGui.Services;
 
@@ -36,16 +37,19 @@ public sealed class AdbRuntime : IAdbRuntime
     private readonly IAdbRunner _adbRunner;
     private readonly IAsyncDelay _asyncDelay;
     private readonly AdbRuntimeOptions _options;
+    private readonly IActivityRegistry? _activityRegistry;
     private readonly ConcurrentDictionary<string, AdbScreenshotMethod> _screenshotMethods = new();
 
     public AdbRuntime(
         IAdbRunner adbRunner,
-        IAsyncDelay asyncDelay)
+        IAsyncDelay asyncDelay,
+        IActivityRegistry? activityRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(adbRunner);
         ArgumentNullException.ThrowIfNull(asyncDelay);
         _adbRunner = adbRunner;
         _asyncDelay = asyncDelay;
+        _activityRegistry = activityRegistry;
         _options = AdbRuntimeOptions.Default;
     }
 
@@ -53,10 +57,8 @@ public sealed class AdbRuntime : IAdbRuntime
         string adbPath,
         CancellationToken cancellationToken = default)
     {
-        var result = await _adbRunner.RunAsync(
-            RequireAdbPath(adbPath),
-            ["devices", "-l"],
-            cancellationToken).ConfigureAwait(false);
+        var result = await RunAsync(adbPath, ["devices", "-l"], cancellationToken)
+            .ConfigureAwait(false);
         return new AdbDeviceListResult(ParseDevices(result.Stdout), result);
     }
 
@@ -877,11 +879,15 @@ public sealed class AdbRuntime : IAdbRuntime
             commandResult);
     }
 
-    private Task<AdbCommandResult> RunAsync(
+    private async Task<AdbCommandResult> RunAsync(
         string adbPath,
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken) =>
-        _adbRunner.RunAsync(RequireAdbPath(adbPath), arguments, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        using var activityLease = _activityRegistry?.Acquire(ActivityKind.NativeOperation);
+        return await _adbRunner.RunAsync(
+            RequireAdbPath(adbPath), arguments, cancellationToken).ConfigureAwait(false);
+    }
 
     private Task<AdbCommandResult> RunShellAsync(
         string adbPath,

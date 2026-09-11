@@ -918,7 +918,7 @@ public sealed class UraScenarioPackLoader
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var resolved = Path.IsPathRooted(path)
             ? path
-            : Path.Combine(Environment.CurrentDirectory, path);
+            : ResourcePathRuntime.Resolve(path);
         return Path.GetFullPath(resolved);
     }
 

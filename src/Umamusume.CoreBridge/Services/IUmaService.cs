@@ -11,6 +11,9 @@ public interface IUmaService : IAsyncDisposable
         string appBaseDir,
         string appDataDir,
         CancellationToken cancellationToken = default);
+    Task ReloadResourceAsync(
+        string compositeBaseDirectory,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task<ConnectionTerminalEvent> ConnectAsync(
         string adbPath,
         string serial,

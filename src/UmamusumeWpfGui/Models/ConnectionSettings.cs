@@ -87,6 +87,10 @@ public sealed class ConnectionSettings
 
     public List<string> TargetPackageIds { get; set; } = [];
 
+    public bool StartupUpdateCheck { get; set; } = true;
+
+    public string? SkippedProgramVersion { get; set; }
+
 
 
 

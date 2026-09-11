@@ -14,6 +14,7 @@ using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.ViewModels.Dialogs;
 using UmamusumeWpfGui.Views.Dialogs;
+using UmamusumeWpfGui.Services.Update;
 
 namespace UmamusumeWpfGui.ViewModels;
 
@@ -45,6 +46,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private readonly IEmulatorLauncher _emulatorLauncher;
     private readonly IAsyncDelay _asyncDelay;
     private readonly IConnectionHealthMonitor _healthMonitor;
+    private readonly IUpdateService? _updateService;
+    private readonly IActivityRegistry? _activityRegistry;
 
 
 
@@ -66,6 +69,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private CancellationTokenSource? _connectCts;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private bool _disposed;
+    private CancellationTokenSource? _updateCts;
+    private UpdatePlan? _pendingUpdatePlan;
+    private UpdateScope _pendingUpdateScope = UpdateScope.Program;
+    private StagedUpdate? _stagedUpdate;
+    private string _updateStatus = "Updates are ready to check.";
 
 
 
@@ -84,7 +92,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         IWinAdapter winAdapter,
         IEmulatorLauncher emulatorLauncher,
         IAsyncDelay asyncDelay,
-        IConnectionHealthMonitor healthMonitor)
+        IConnectionHealthMonitor healthMonitor,
+        IUpdateService? updateService = null,
+        IActivityRegistry? activityRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(umaService);
         ArgumentNullException.ThrowIfNull(connectionState);
@@ -103,6 +113,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _emulatorLauncher = emulatorLauncher;
         _asyncDelay = asyncDelay;
         _healthMonitor = healthMonitor;
+        _updateService = updateService;
+        _activityRegistry = activityRegistry;
         _healthMonitor.Failed += OnHealthMonitorFailed;
 
 
@@ -151,6 +163,24 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         ForgetCommand = new RelayCommand(
             _ => Forget(),
             _ => !_disposed);
+
+        CheckForUpdatesCommand = new RelayCommand(
+            _ => _ = CheckForUpdatesAsync(),
+            _ => !_disposed && !IsUpdateBusy);
+        DownloadUpdateCommand = new RelayCommand(
+            _ => _ = DownloadUpdateAsync(),
+            _ => !_disposed && !IsUpdateBusy && _pendingUpdatePlan is not null);
+        CancelUpdateCommand = new RelayCommand(
+            _ => CancelUpdate(),
+            _ => !_disposed && IsUpdateBusy);
+        InstallUpdateCommand = new RelayCommand(
+            _ => _ = InstallUpdateAsync(),
+            _ => !_disposed && !IsUpdateBusy && _stagedUpdate is not null);
+        SkipUpdateCommand = new RelayCommand(
+            _ => SkipUpdate(),
+            _ => !_disposed
+                && _pendingUpdateScope == UpdateScope.Program
+                && _pendingUpdatePlan is not null);
     }
 
 
@@ -404,12 +434,33 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
     public string LastDetectedEmulator => _lastDetectedEmulator;
 
+    public string UpdateStatus => _updateStatus;
+
+    public bool IsUpdateBusy => _updateCts is not null;
+
+    public bool StartupUpdateCheck
+    {
+        get => _draft.StartupUpdateCheck;
+        set
+        {
+            if (_draft.StartupUpdateCheck == value) return;
+            _draft.StartupUpdateCheck = value;
+            OnPropertyChanged();
+        }
+    }
+
 
 
 
 
 
     public ICommand ForgetCommand { get; }
+
+    public ICommand CheckForUpdatesCommand { get; }
+    public ICommand DownloadUpdateCommand { get; }
+    public ICommand CancelUpdateCommand { get; }
+    public ICommand InstallUpdateCommand { get; }
+    public ICommand SkipUpdateCommand { get; }
 
 
 
@@ -529,6 +580,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         var operationAcquired = false;
         try
         {
+            using var activityLease = _activityRegistry?.Acquire(ActivityKind.Connection);
             operationAcquired = await _operationGate.WaitAsync(
                 TimeSpan.FromSeconds(10),
                 cancellationToken).ConfigureAwait(true);
@@ -765,6 +817,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draft.EmulatorExecutablePath = DraftEmulatorExecutablePath;
         _draft.AutoStartEmulatorWaitSeconds = DraftAutoStartEmulatorWaitSeconds;
         _draft.Language = DraftLanguage;
+        _draft.StartupUpdateCheck = StartupUpdateCheck;
 
 
 
@@ -776,6 +829,130 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _draft.Hachimi = latest.Hachimi;
 
         _settingsService.Save(_draft);
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateService is null || _disposed || IsUpdateBusy) return;
+        using var cts = new CancellationTokenSource();
+        _updateCts = cts;
+        SetUpdateStatus("Checking for updates...");
+        RaiseUpdateCommands();
+        try
+        {
+            var result = await _updateService.CheckAsync(UpdateScope.All, cts.Token).ConfigureAwait(true);
+            if (result.Error is not null)
+            {
+                SetUpdateStatus($"Update check failed: {result.Error}");
+                return;
+            }
+            _pendingUpdateScope = UpdateScope.Program;
+            _pendingUpdatePlan = result.Program is null
+                ? null
+                : _updateService.SelectProgram(result.Program);
+            if (_pendingUpdatePlan is null && result.Resource is not null)
+            {
+                _pendingUpdateScope = UpdateScope.Resource;
+                _pendingUpdatePlan = _updateService.SelectResource(result.Resource);
+            }
+            if (_pendingUpdatePlan is null)
+                SetUpdateStatus("You are up to date.");
+            else if (string.Equals(_draft.SkippedProgramVersion, _pendingUpdatePlan.Manifest.Version,
+                         StringComparison.Ordinal))
+                SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} skipped once.");
+            else
+                SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} is available.");
+        }
+        catch (Exception exception)
+        {
+            SetUpdateStatus($"Update check failed: {exception.Message}");
+        }
+        finally
+        {
+            _updateCts = null;
+            RaiseUpdateCommands();
+        }
+    }
+
+    private async Task DownloadUpdateAsync()
+    {
+        if (_updateService is null || _pendingUpdatePlan is null || _disposed || IsUpdateBusy) return;
+        using var cts = new CancellationTokenSource();
+        _updateCts = cts;
+        SetUpdateStatus("Downloading update...");
+        RaiseUpdateCommands();
+        try
+        {
+            _stagedUpdate = await _updateService.DownloadAsync(
+                _pendingUpdatePlan, _pendingUpdateScope, cancellationToken: cts.Token).ConfigureAwait(true);
+            if (_stagedUpdate.Scope == UpdateScope.Resource)
+            {
+                SetUpdateStatus("Resource downloaded. Applying when the app is idle...");
+                await _updateService.ApplyResourceWhenIdleAsync(_stagedUpdate, cts.Token)
+                    .ConfigureAwait(true);
+                _stagedUpdate = null;
+                SetUpdateStatus("Resource update applied.");
+            }
+            else
+            {
+                SetUpdateStatus("Update downloaded. It will install when you confirm restart.");
+            }
+        }
+        catch (Exception exception)
+        {
+            SetUpdateStatus($"Download failed: {exception.Message}");
+        }
+        finally
+        {
+            _updateCts = null;
+            RaiseUpdateCommands();
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updateService is null || _stagedUpdate is null || _disposed || IsUpdateBusy) return;
+        try
+        {
+            if (_stagedUpdate.Scope == UpdateScope.Program)
+                await _updateService.RequestProgramRestartAsync(_stagedUpdate).ConfigureAwait(true);
+            else
+                await _updateService.ApplyResourceWhenIdleAsync(_stagedUpdate).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            SetUpdateStatus($"Install failed: {exception.Message}");
+        }
+    }
+
+    private void CancelUpdate()
+    {
+        _updateCts?.Cancel();
+        SetUpdateStatus("Update canceled.");
+    }
+
+    private void SkipUpdate()
+    {
+        if (_pendingUpdatePlan is null) return;
+        _draft.SkippedProgramVersion = _pendingUpdatePlan.Manifest.Version;
+        SaveSettings();
+        SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} skipped once.");
+    }
+
+    private void SetUpdateStatus(string status)
+    {
+        _updateStatus = status;
+        OnPropertyChanged(nameof(UpdateStatus));
+    }
+
+    private void RaiseUpdateCommands()
+    {
+        (CheckForUpdatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DownloadUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CancelUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (InstallUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (SkipUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(IsUpdateBusy));
     }
 
 
@@ -1144,6 +1321,9 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _connectCts?.Cancel();
         _connectCts?.Dispose();
         _connectCts = null;
+        _updateCts?.Cancel();
+        _updateCts?.Dispose();
+        _updateCts = null;
         _healthMonitor.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 

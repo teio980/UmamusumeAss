@@ -41,6 +41,8 @@ public sealed class HachimiJsonPipelineRunner
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(entryTask);
 
+        definitionPath = ResourcePathRuntime.Resolve(definitionPath);
+
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(
                 definitionPath,
                 cancellationToken)

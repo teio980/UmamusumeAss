@@ -203,6 +203,42 @@
                      Text="{Binding DraftAdbPath}" />
           <TextBlock Margin="0,8,0,0"
                      Text="{Binding LastDetectedEmulator}" />
+          <TextBlock Margin="0,24,0,0"
+                     Text="{DynamicResource UpdatesTitle}"
+                     FontSize="20"
+                     FontWeight="Medium" />
+          <CheckBox Margin="0,12,0,0"
+                    IsChecked="{Binding StartupUpdateCheck}"
+                    Content="{DynamicResource StartupUpdateCheckLabel}" />
+          <TextBlock Margin="0,8,0,0"
+                     Text="{Binding UpdateStatus}"
+                     TextWrapping="Wrap" />
+          <WrapPanel Margin="0,12,0,0">
+            <ui:Button Margin="0,0,8,0"
+                       Content="{DynamicResource CheckForUpdatesButton}"
+                       Command="{Binding CheckForUpdatesCommand}"
+                       Appearance="Secondary"
+                       Icon="ArrowSync24" />
+            <ui:Button Margin="0,0,8,0"
+                       Content="{DynamicResource DownloadUpdateButton}"
+                       Command="{Binding DownloadUpdateCommand}"
+                       Appearance="Secondary"
+                       Icon="ArrowDownload24" />
+            <ui:Button Margin="0,0,8,0"
+                       Content="{DynamicResource InstallUpdateButton}"
+                       Command="{Binding InstallUpdateCommand}"
+                       Appearance="Primary"
+                       Icon="ArrowRestart24" />
+            <ui:Button Content="{DynamicResource CancelUpdateButton}"
+                       Command="{Binding CancelUpdateCommand}"
+                       Appearance="Secondary"
+                       Icon="DismissCircle24" />
+          </WrapPanel>
+          <ui:Button Margin="0,8,0,0"
+                     HorizontalAlignment="Left"
+                     Content="{DynamicResource SkipUpdateButton}"
+                     Command="{Binding SkipUpdateCommand}"
+                     Appearance="Secondary" />
             </StackPanel>
           </TabItem>
         </TabControl>

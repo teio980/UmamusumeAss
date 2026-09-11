@@ -67,7 +67,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
         try
         {
-            if (!File.Exists(Path.GetFullPath(Settings.ManifestPath)))
+            if (!File.Exists(ResourcePathRuntime.Resolve(Settings.ManifestPath)))
             {
                 return $"Career manifest was not found at '{Settings.ManifestPath}'.";
             }

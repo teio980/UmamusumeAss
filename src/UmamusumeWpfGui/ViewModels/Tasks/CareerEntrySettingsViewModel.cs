@@ -170,7 +170,7 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
             return false;
         try
         {
-            return File.Exists(Path.GetFullPath(ManifestPath));
+            return File.Exists(ResourcePathRuntime.Resolve(ManifestPath));
         }
         catch (ArgumentException)
         {

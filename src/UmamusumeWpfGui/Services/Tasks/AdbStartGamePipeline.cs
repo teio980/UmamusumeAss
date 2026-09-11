@@ -30,9 +30,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         : this(
             adbRuntime,
             asyncDelay,
-            Path.Combine(
-                AppContext.BaseDirectory,
-                HachimiResourcePaths.StartGameDefinition.Replace('/', Path.DirectorySeparatorChar)))
+            ResourcePathRuntime.Resolve(HachimiResourcePaths.StartGameDefinition))
     {
     }
 
