@@ -137,6 +137,28 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("returnHome", definition.GetTask("specialRed").OnErrorNext.Single());
         Assert.True(definition.GetTask("homeVerify").Success);
 
+        var tabRects = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dailySelected"] = [20, 570, 215, 75],
+            ["dailyUnselected"] = [20, 570, 215, 75],
+            ["mainTab"] = [235, 570, 215, 75],
+            ["titlesTab"] = [450, 570, 215, 75],
+            ["specialTab"] = [665, 570, 215, 75],
+        };
+        foreach (var (taskName, expectedRect) in tabRects)
+        {
+            var tab = definition.GetTask(taskName);
+            Assert.Equal("ClickRect", tab.Action, ignoreCase: true);
+            Assert.Equal(expectedRect, tab.SpecificRect);
+            Assert.Null(tab.Template);
+        }
+
+        var returnHome = definition.GetTask("returnHome");
+        Assert.Equal("ClickRect", returnHome.Action, ignoreCase: true);
+        Assert.Equal([20, 1300, 150, 100], returnHome.SpecificRect!);
+        Assert.Null(returnHome.Template);
+        Assert.Equal("homeVerify", returnHome.Next.Single(), ignoreCase: true);
+
         foreach (var closeTaskName in new[] { "dailyClose", "mainClose", "titlesClose", "specialClose" })
         {
             Assert.Equal(

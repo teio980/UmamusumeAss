@@ -35,24 +35,16 @@
       "next": ["dailySelected"]
     },
     "dailySelected": {
-      "template": "templates/mission_collection/daily_tab_selected.png",
-      "roi": [0, 570, 235, 75],
-      "templThreshold": 0.86,
-      "timeoutMs": 5000,
-      "pollIntervalMs": 300,
+      "action": "ClickRect",
+      "specificRect": [20, 570, 215, 75],
       "postDelay": 500,
-      "next": ["dailyRed"],
-      "onErrorNext": ["dailyUnselected"]
+      "next": ["dailyRed"]
     },
     "dailyUnselected": {
-      "template": "templates/mission_collection/daily_tab_unselected.png",
-      "roi": [0, 570, 235, 75],
-      "templThreshold": 0.86,
-      "timeoutMs": 5000,
-      "pollIntervalMs": 300,
+      "action": "ClickRect",
+      "specificRect": [20, 570, 215, 75],
       "postDelay": 500,
-      "next": ["dailyRed"],
-      "onErrorNext": ["stop"]
+      "next": ["dailyRed"]
     },
     "dailyRed": {
       "action": "DoNothing",
@@ -84,14 +76,10 @@
       "next": ["mainTab"]
     },
     "mainTab": {
-      "template": "templates/mission_collection/main_tab.png",
-      "roi": [220, 570, 230, 80],
-      "templThreshold": 0.86,
-      "timeoutMs": 8000,
-      "pollIntervalMs": 300,
+      "action": "ClickRect",
+      "specificRect": [235, 570, 215, 75],
       "postDelay": 500,
-      "next": ["mainRed"],
-      "onErrorNext": ["stop"]
+      "next": ["mainRed"]
     },
     "mainRed": {
       "action": "DoNothing",
@@ -123,14 +111,10 @@
       "next": ["titlesTab"]
     },
     "titlesTab": {
-      "template": "templates/mission_collection/titles_tab.png",
-      "roi": [435, 570, 230, 80],
-      "templThreshold": 0.86,
-      "timeoutMs": 8000,
-      "pollIntervalMs": 300,
+      "action": "ClickRect",
+      "specificRect": [450, 570, 215, 75],
       "postDelay": 500,
-      "next": ["titlesRed"],
-      "onErrorNext": ["stop"]
+      "next": ["titlesRed"]
     },
     "titlesRed": {
       "action": "DoNothing",
@@ -162,14 +146,10 @@
       "next": ["specialTab"]
     },
     "specialTab": {
-      "template": "templates/mission_collection/special_tab.png",
-      "roi": [650, 570, 250, 80],
-      "templThreshold": 0.86,
-      "timeoutMs": 8000,
-      "pollIntervalMs": 300,
+      "action": "ClickRect",
+      "specificRect": [665, 570, 215, 75],
       "postDelay": 500,
-      "next": ["specialRed"],
-      "onErrorNext": ["stop"]
+      "next": ["specialRed"]
     },
     "specialRed": {
       "action": "DoNothing",
@@ -201,14 +181,11 @@
       "next": ["returnHome"]
     },
     "returnHome": {
-      "template": "templates/mission_collection/home_tab_unselected.png",
-      "roi": [300, 1400, 300, 180],
-      "templThreshold": 0.86,
-      "timeoutMs": 8000,
-      "pollIntervalMs": 300,
-      "postDelay": 1500,
+      "action": "ClickRect",
+      "specificRect": [20, 1300, 150, 100],
+      "postDelay": 1000,
       "next": ["homeVerify"],
-      "onErrorNext": ["back"]
+      "onErrorNext": ["stop"]
     },
     "homeVerify": {
       "action": "DoNothing",
