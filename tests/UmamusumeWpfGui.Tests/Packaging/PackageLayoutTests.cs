@@ -152,12 +152,15 @@ public sealed class PackageLayoutTests : IDisposable
     private static readonly string[] RequiredEntries =
     [
         "UmamusumeAss.exe",
+        "UmamusumeAss.Updater.exe",
         "UmamusumeCore.dll",
         "Umamusume.CoreBridge.dll",
         "resource/hachimi/pipelines/daily_race.json",
         "resource/hachimi/pipelines/templates/daily_race/daily_program.png",
         "resource/hachimi/ura/manifest.json",
         "resource/hachimi/ura/screens/templates/runtime_frames/debut_race_result_wait.png",
+        "resource.inventory.json",
+        "app-version.json",
     ];
 
 
@@ -298,5 +301,13 @@ public sealed class PackageLayoutTests : IDisposable
             string.Equals(e.FullName.Replace('\\', '/'), "UmamusumeCore.dll", StringComparison.Ordinal));
         Assert.True(coreDll is not null, "UmamusumeCore.dll must be at archive root.");
         Assert.True(coreDll!.Length > 0, "UmamusumeCore.dll must not be empty.");
+
+        var appVersion = entries.First(e => e.FullName.Replace('\\', '/') == "app-version.json");
+        using (var reader = new StreamReader(appVersion.Open()))
+        {
+            var text = reader.ReadToEnd();
+            Assert.Contains("\"version\"", text, StringComparison.Ordinal);
+            Assert.Contains("0.2.0", text, StringComparison.Ordinal);
+        }
     }
 }

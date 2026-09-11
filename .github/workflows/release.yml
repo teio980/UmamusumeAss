@@ -1,0 +1,188 @@
+name: Release
+
+on:
+  # Publishing is deliberate: ordinary pushes never create or mutate Releases.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact stable version.txt value, for example 0.2.0'
+        required: true
+        type: string
+      resource_version:
+        description: 'Resource revision (required for resource/both), for example 2026.09.11.1'
+        required: false
+        default: ''
+        type: string
+      release_kind:
+        description: 'Which channel to publish'
+        required: true
+        default: both
+        type: choice
+        options:
+          - program
+          - resource
+          - both
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version sources
+        shell: pwsh
+        run: |
+          $v = (Get-Content version.txt -Raw).Trim()
+          if ($v -ne '${{ inputs.version }}') { throw "version.txt is $v, not the requested version" }
+          if ($v -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'version.txt is not stable semver' }
+          if ('${{ inputs.release_kind }}' -ne 'program' -and '${{ inputs.resource_version }}' -notmatch '^\d{4}\.\d{2}\.\d{2}\.\d+$') { throw 'resource_version must be YYYY.MM.DD.N for resource/both releases' }
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build and test native code
+        shell: pwsh
+        run: |
+          cmake -S . -B build/release -G 'Visual Studio 17 2022' -A x64 -DUMA_BUILD_TESTS=ON
+          cmake --build build/release --config Release
+          ctest --test-dir build/release -C Release --output-on-failure
+      - name: Test managed code
+        shell: pwsh
+        run: |
+          dotnet restore tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj
+          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore
+      - name: Package portable program ZIP
+        shell: pwsh
+        run: ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion '${{ inputs.resource_version }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-input
+          path: |
+            dist/*.zip
+            build/publish
+
+  publish-drafts:
+    needs: build-test-package
+    runs-on: windows-latest
+    environment: update-signing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-input
+          path: release-input
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Generate program and resource full packages plus latest-three direct deltas
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ inputs.version }}'
+          $rv = '${{ inputs.resource_version }}'
+          $kind = '${{ inputs.release_kind }}'
+          $needProgram = $kind -in @('program', 'both')
+          $needResource = $kind -in @('resource', 'both')
+          $release = New-Item -ItemType Directory -Path release -Force
+          $all = gh release list --limit 100 --json tagName,isDraft,isPrerelease | ConvertFrom-Json
+
+          if ($needProgram) {
+          $programZip = Get-ChildItem release-input -Recurse -File -Filter "*v$v*full.zip" | Select-Object -First 1
+          if ($null -eq $programZip) { throw 'Full portable package was not downloaded' }
+          $programRows = @($all | Where-Object {
+            $_.tagName -match '^v\d+\.\d+\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease
+          } | ForEach-Object {
+            [pscustomobject]@{ Tag = $_.tagName; Version = [version]$_.tagName.Substring(1) }
+          } | Where-Object { $_.Version -lt [version]$v } | Sort-Object Version -Descending | Select-Object -First 3)
+          $programPackages = @(); $programVersions = @(); $programManifests = @()
+          foreach ($row in $programRows) {
+            $dir = Join-Path $release "previous-program-$($row.Version)"
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            gh release download $row.Tag --pattern '*full.zip' --pattern 'program-manifest-*.json' --dir $dir
+            if ($LASTEXITCODE -ne 0) { continue }
+            $zip = Get-ChildItem $dir -File -Filter '*full.zip' | Select-Object -First 1
+            $manifest = Get-ChildItem $dir -File -Filter 'program-manifest-*.json' | Select-Object -First 1
+            if ($null -ne $zip -and $null -ne $manifest) {
+              $programPackages += $zip.FullName; $programVersions += $row.Version.ToString(); $programManifests += $manifest.FullName
+            }
+          }
+          $programParameters = @{
+            Version = $v; ReleaseTag = "v$v"; Kind = 'program'; PackagePath = $programZip.FullName; OutputDirectory = $release.FullName
+          }
+          if ($programPackages.Count -gt 0) {
+            $programParameters.PreviousPackagePath = $programPackages
+            $programParameters.FromVersion = $programVersions
+            $programParameters.PreviousManifestPath = $programManifests
+          }
+          & ./tools/generate-update-manifest.ps1 @programParameters
+          if ($LASTEXITCODE -ne 0) { throw 'Program manifest generation failed' }
+          }
+
+          if ($needResource) {
+          # Resource ZIPs intentionally contain the resource directory's
+          # contents at their root; inventory paths and ResourceStore's base
+          # hash therefore use exactly the same root (foo/bar, not resource/foo/bar).
+          $resourceZipPath = Join-Path $release "UmamusumeAss-resource-v$rv-win-x64-full.zip"
+          if (Test-Path $resourceZipPath) { Remove-Item $resourceZipPath -Force }
+          Compress-Archive -Path (Join-Path $PWD 'resource\*') -DestinationPath $resourceZipPath -CompressionLevel Optimal
+          $resourceRows = @($all | Where-Object {
+            $_.tagName -match '^resource-v\d{4}\.\d{2}\.\d{2}\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease
+          } | ForEach-Object {
+            $parts = $_.tagName.Substring(10).Split('.')
+            [pscustomobject]@{ Tag = $_.tagName; Version = [int[]]$parts }
+          } | Where-Object {
+            $newParts = [int[]]$rv.Split('.')
+            for ($j = 0; $j -lt 4; $j++) {
+              if ($_.Version[$j] -ne $newParts[$j]) { return $_.Version[$j] -lt $newParts[$j] }
+            }
+            return $false
+          } | Sort-Object @{Expression={$_.Version[0]};Descending=$true},@{Expression={$_.Version[1]};Descending=$true},@{Expression={$_.Version[2]};Descending=$true},@{Expression={$_.Version[3]};Descending=$true} | Select-Object -First 3)
+          $resourcePackages = @(); $resourceVersions = @(); $resourceManifests = @()
+          foreach ($row in $resourceRows) {
+            $dir = Join-Path $release "previous-resource-$($row.Tag.Substring(10))"
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            gh release download $row.Tag --pattern '*resource*full.zip' --pattern 'resource-manifest-*.json' --dir $dir
+            if ($LASTEXITCODE -ne 0) { continue }
+            $zip = Get-ChildItem $dir -File -Filter '*resource*full.zip' | Select-Object -First 1
+            $manifest = Get-ChildItem $dir -File -Filter 'resource-manifest-*.json' | Select-Object -First 1
+            if ($null -ne $zip -and $null -ne $manifest) {
+              $resourcePackages += $zip.FullName; $resourceVersions += $row.Tag.Substring(10); $resourceManifests += $manifest.FullName
+            }
+          }
+          $resourceParameters = @{
+            Version = $rv; ReleaseTag = "resource-v$rv"; Kind = 'resource'; PackagePath = $resourceZipPath; OutputDirectory = $release.FullName; BundledResourceVersion = $v
+          }
+          if ($resourcePackages.Count -gt 0) {
+            $resourceParameters.PreviousPackagePath = $resourcePackages
+            $resourceParameters.FromVersion = $resourceVersions
+            $resourceParameters.PreviousManifestPath = $resourceManifests
+          }
+          & ./tools/generate-update-manifest.ps1 @resourceParameters
+          if ($LASTEXITCODE -ne 0) { throw 'Resource manifest generation failed' }
+          }
+      - name: Sign deterministic manifests with protected P-256 key
+        shell: pwsh
+        env:
+          UMA_UPDATE_SIGNING_KEY_PEM: ${{ secrets.UMA_UPDATE_SIGNING_KEY_PEM }}
+        run: |
+          $v = '${{ inputs.version }}'; $rv = '${{ inputs.resource_version }}'
+          if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
+            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj --configuration Release -- release/program-manifest-$v.json release/program-manifest-$v.sig
+          }
+          if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
+            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj --configuration Release -- release/resource-manifest-$rv.json release/resource-manifest-$rv.sig
+          }
+      - name: Create both draft Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ inputs.version }}'; $rv = '${{ inputs.resource_version }}'
+          if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
+            gh release create "v$v" release/UmamusumeAss-v*.zip release/program-manifest-$v.json release/program-manifest-$v.sig --draft --title "UmamusumeAss v$v" --notes "Review tests, inventory, and signature before publishing."
+          }
+          if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
+            gh release create "resource-v$rv" release/UmamusumeAss-resource-v*.zip release/resource-manifest-$rv.json release/resource-manifest-$rv.sig --draft --title "UmamusumeAss resources $rv" --notes "Review tests, inventory, and signature before publishing."
+          }

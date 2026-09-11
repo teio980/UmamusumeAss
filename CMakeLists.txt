@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.28)
-project(UmamusumeAss VERSION 0.1.0 LANGUAGES C CXX)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.txt" UMA_VERSION_RAW)
+string(STRIP "${UMA_VERSION_RAW}" UMA_VERSION)
+if(NOT UMA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+  message(FATAL_ERROR "version.txt must contain a stable semantic version")
+endif()
+project(UmamusumeAss VERSION ${UMA_VERSION} LANGUAGES C CXX)
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/UmaVersion.hpp.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/UmaVersion.hpp"
+  @ONLY)
 
 
 set(CMAKE_CXX_STANDARD 20)
@@ -39,6 +49,7 @@ FetchContent_MakeAvailable(Catch2)
 
 
 add_subdirectory(src/UmaAssistantCore)
+add_subdirectory(src/UmamusumeAssUpdater)
 add_subdirectory(tools)
 
 

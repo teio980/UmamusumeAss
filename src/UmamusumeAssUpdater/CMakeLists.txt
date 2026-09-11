@@ -1,0 +1,7 @@
+add_executable(UmamusumeAss.Updater main.cpp)
+set_target_properties(UmamusumeAss.Updater PROPERTIES OUTPUT_NAME "UmamusumeAss.Updater")
+set_property(TARGET UmamusumeAss.Updater PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+target_compile_definitions(UmamusumeAss.Updater PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(UmamusumeAss.Updater PRIVATE /W4 /WX /utf-8)
+target_link_libraries(UmamusumeAss.Updater PRIVATE nlohmann_json::nlohmann_json bcrypt user32 advapi32)
+install(TARGETS UmamusumeAss.Updater RUNTIME DESTINATION .)

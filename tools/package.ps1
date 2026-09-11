@@ -22,7 +22,10 @@
 param(
 
     [Parameter(Mandatory = $false)]
-    [string]$OutputDirectory = (Join-Path -Path $PSScriptRoot -ChildPath "..\dist")
+    [string]$OutputDirectory = (Join-Path -Path $PSScriptRoot -ChildPath "..\dist"),
+
+    [Parameter(Mandatory = $false)]
+    [string]$BundledResourceVersion = ""
 )
 
 Set-StrictMode -Version Latest
@@ -40,11 +43,37 @@ if (-not $OutputDir) {
     $OutputDir = (New-Item -ItemType Directory -Path $OutputDirectory -Force).FullName
 }
 
+$versionFile = Join-Path $SolutionRoot "version.txt"
+if (-not (Test-Path -LiteralPath $versionFile)) {
+    throw "Version source not found: $versionFile"
+}
+$Version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+    throw "version.txt must contain a stable semantic version: $Version"
+}
+if ([string]::IsNullOrWhiteSpace($BundledResourceVersion)) {
+    $BundledResourceVersion = $Version
+}
+
 $ZipPath = Join-Path -Path $OutputDir -ChildPath "UmamusumeAss-win-x64.zip"
+$VersionedZipPath = Join-Path -Path $OutputDir -ChildPath "UmamusumeAss-v$Version-win-x64-full.zip"
+
+function Get-Sha256Hex([string]$Path) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToUpperInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
 
 Write-Host "=== UmamusumeAss Packaging ==="
 Write-Host "Solution root:    $SolutionRoot"
 Write-Host "Output directory: $OutputDir"
+Write-Host "Version:          $Version"
 Write-Host ""
 
 
@@ -162,6 +191,13 @@ if (-not (Test-Path -LiteralPath $nativeCoreDll)) {
 Copy-Item -LiteralPath $nativeCoreDll -Destination $PublishDir -Force
 Write-Host "  Copied UmamusumeCore.dll"
 
+$updaterExe = Join-Path -Path $NativeStaging -ChildPath "UmamusumeAss.Updater.exe"
+if (-not (Test-Path -LiteralPath $updaterExe)) {
+    throw "Updater artifact not found: $updaterExe"
+}
+Copy-Item -LiteralPath $updaterExe -Destination $PublishDir -Force
+Write-Host "  Copied UmamusumeAss.Updater.exe"
+
 
 $bridgeDll = Join-Path -Path $PublishDir -ChildPath "Umamusume.CoreBridge.dll"
 if (-not (Test-Path -LiteralPath $bridgeDll)) {
@@ -182,6 +218,38 @@ if (-not (Test-Path -LiteralPath $uraPublish)) {
 }
 Write-Host "  Verified URA scenario resource tree ($($uraFiles.Count) files)"
 
+$resourceInventory = @(
+    Get-ChildItem -LiteralPath (Join-Path $PublishDir "resource") -File -Recurse |
+        ForEach-Object {
+            $relative = $_.FullName.Substring((Join-Path $PublishDir "resource").Length + 1).Replace('\', '/')
+            [ordered]@{
+                path = $relative
+                size = $_.Length
+                sha256 = Get-Sha256Hex $_.FullName
+            }
+        } |
+        Sort-Object -Property path
+)
+$inventoryDocument = [ordered]@{
+    schemaVersion = 1
+    version = $Version
+    files = $resourceInventory
+}
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText(
+    (Join-Path $PublishDir "resource.inventory.json"),
+    ($inventoryDocument | ConvertTo-Json -Depth 8),
+    $utf8NoBom)
+$appVersionDocument = [ordered]@{
+    schemaVersion = 1
+    version = $Version
+    bundledResourceVersion = $BundledResourceVersion
+}
+[System.IO.File]::WriteAllText(
+    (Join-Path $PublishDir "app-version.json"),
+    ($appVersionDocument | ConvertTo-Json -Depth 4),
+    $utf8NoBom)
+
 Write-Host "OK"
 Write-Host ""
 
@@ -201,6 +269,9 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (-not (Test-Path -LiteralPath $ZipPath)) {
     throw "ZIP creation failed: $ZipPath not found after compression"
 }
+
+Copy-Item -LiteralPath $ZipPath -Destination $VersionedZipPath -Force
+Write-Host "Versioned archive: $VersionedZipPath"
 
 $zipSize = (Get-Item -LiteralPath $ZipPath).Length
 Write-Host "OK - $ZipPath ($zipSize bytes)"

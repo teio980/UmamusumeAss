@@ -24,6 +24,7 @@ target_include_directories(UmaAssistantCoreObjects
   PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore
+    ${CMAKE_BINARY_DIR}/generated
 )
 
 uma_add_strict_warnings(UmaAssistantCoreObjects)
@@ -57,6 +58,7 @@ target_include_directories(UmaAssistantCore
     ${CMAKE_SOURCE_DIR}/include
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore
+    ${CMAKE_BINARY_DIR}/generated
 )
 
 target_compile_definitions(UmaAssistantCore PRIVATE
