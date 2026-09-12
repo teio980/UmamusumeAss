@@ -2,8 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 const string expectedPublicKey =
-    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1JYRq0FJhM8DOCRjp1/iu61WAh1k" +
-    "sO7RrbvAjrF6ApeTdMr93ttNG0gmhv2h52d+KgEZ6TQx+RVOKh23z2g00g==";
+    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEXSfrguQVvVr+DJuU3j8ZN0/mZgOvf94JVT9uCeuScWtBYZtubqOEJK0ESOP8PgCzSkih8yjGnWjY1W04//QxqQ==";
 
 if (args.Length >= 1 && args[0].Equals("--generate-key", StringComparison.Ordinal))
 {
