@@ -263,8 +263,13 @@ public sealed class UpdateCoordinator : IUpdateService
         // mutable check-cache path from being substituted after staging.
         var manifestPath = Path.Combine(operationRoot, "manifest.json");
         var signaturePath = Path.Combine(operationRoot, "manifest.sig");
-        File.Copy(update.ManifestPath, manifestPath, overwrite: true);
-        File.Copy(update.SignaturePath, signaturePath, overwrite: true);
+        // PackageStager already writes these files into operationRoot. When
+        // the user clicks "Install and restart", copying them again to the
+        // same path makes Windows report that manifest.json is in use. Reuse
+        // the staged files when the paths are identical; this also keeps the
+        // signed bytes unchanged until the native updater takes over.
+        CopyIfDifferent(update.ManifestPath, manifestPath);
+        CopyIfDifferent(update.SignaturePath, signaturePath);
         string? sourceManifestPath = null;
         string? sourceSignaturePath = null;
         if (update.Asset.Type.Equals("delta", StringComparison.OrdinalIgnoreCase))
@@ -335,6 +340,15 @@ public sealed class UpdateCoordinator : IUpdateService
         startInfo.ArgumentList.Add(update.OperationId);
         Process.Start(startInfo);
         Application.Current?.Shutdown();
+    }
+
+    internal static void CopyIfDifferent(string sourcePath, string destinationPath)
+    {
+        var source = Path.GetFullPath(sourcePath);
+        var destination = Path.GetFullPath(destinationPath);
+        if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+            return;
+        File.Copy(source, destination, overwrite: true);
     }
 
     private async Task<(UpdateManifest?, byte[]?, byte[]?)> ReadManifestAsync(

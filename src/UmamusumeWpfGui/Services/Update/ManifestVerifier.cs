@@ -7,6 +7,11 @@ namespace UmamusumeWpfGui.Services.Update;
 
 public sealed class ManifestVerifier
 {
+    private static readonly JsonSerializerOptions ManifestJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     // P-256 SPKI public key. Release signing is performed only by the
     // protected release environment; this value is never downloaded.
     private const string EmbeddedPublicKey =
@@ -126,7 +131,7 @@ public sealed class ManifestVerifier
 
     public static UpdateManifest Deserialize(ReadOnlySpan<byte> bytes)
     {
-        var manifest = JsonSerializer.Deserialize<UpdateManifest>(bytes)
+        var manifest = JsonSerializer.Deserialize<UpdateManifest>(bytes, ManifestJsonOptions)
             ?? throw new InvalidDataException("Manifest was empty.");
         return manifest;
     }

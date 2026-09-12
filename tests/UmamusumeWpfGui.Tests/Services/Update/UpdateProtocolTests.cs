@@ -11,6 +11,31 @@ namespace UmamusumeWpfGui.Tests.Services.Update;
 
 public sealed class UpdateProtocolTests
 {
+    private static readonly JsonSerializerOptions CamelCaseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    [Fact]
+    public async Task CopyIfDifferentSkipsAlreadyStagedManifestPath()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var manifestPath = Path.Combine(root, "manifest.json");
+        await File.WriteAllTextAsync(manifestPath, "signed-manifest");
+
+        try
+        {
+            UpdateCoordinator.CopyIfDifferent(manifestPath, manifestPath);
+
+            Assert.Equal("signed-manifest", await File.ReadAllTextAsync(manifestPath));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     [Fact]
     public void SelectorRequiresBothSignedSourceHashesForDelta()
     {
@@ -159,6 +184,65 @@ public sealed class UpdateProtocolTests
         };
 
         Assert.True(ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag));
+    }
+
+    [Fact]
+    public void DeserializeReadsCamelCaseReleaseManifestAndPreservesSignedBytes()
+    {
+        var source = new UpdateManifest
+        {
+            Version = "0.3.0",
+            ReleaseTag = "v0.3.0",
+            BundledResourceVersion = "2026.09.11.1",
+            Assets =
+            [
+                new UpdateAsset
+                {
+                    Type = "full",
+                    AssetName = "program-full.zip",
+                    Size = 123,
+                    Sha256 = new string('A', 64),
+                    TargetTreeSha256 = new string('B', 64),
+                    Files =
+                    [
+                        new UpdateFileEntry
+                        {
+                            Path = "app.dll",
+                            Size = 42,
+                            Sha256 = new string('C', 64),
+                        },
+                    ],
+                },
+            ],
+        };
+        var manifestJson = JsonSerializer.Serialize(
+            source,
+            CamelCaseJsonOptions);
+        Assert.Contains("\"schemaVersion\"", manifestJson);
+        Assert.Contains("\"assetName\"", manifestJson);
+        var manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
+
+        var manifest = ManifestVerifier.Deserialize(manifestBytes);
+
+        Assert.Equal(1, manifest.SchemaVersion);
+        Assert.Equal("0.3.0", manifest.Version);
+        Assert.Equal("v0.3.0", manifest.ReleaseTag);
+        var asset = Assert.Single(manifest.Assets);
+        Assert.Equal("program-full.zip", asset.AssetName);
+        Assert.Equal(123, asset.Size);
+        var file = Assert.Single(asset.Files);
+        Assert.Equal("app.dll", file.Path);
+        Assert.Equal(42, file.Size);
+        Assert.True(ManifestVerifier.IsCanonicalManifest(manifest, "v0.3.0"));
+
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var verifier = new ManifestVerifier(signer.ExportSubjectPublicKeyInfo());
+        var signature = signer.SignData(
+            manifestBytes,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        Assert.True(verifier.Verify(manifestBytes, signature));
+        Assert.False(verifier.Verify(JsonSerializer.SerializeToUtf8Bytes(manifest), signature));
     }
 
     [Theory]
