@@ -358,7 +358,10 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("templates/daily_race/multi_race_ticket_dialog.png", ticketDialog.Template);
         Assert.Equal("multiRaceTicketMinus", ticketDialog.Next.Single());
         Assert.Equal("templates/daily_race/multi_race_ticket_minus.png", ticketMinus.Template);
-        Assert.Equal("multiRaceTicketPlus", ticketMinus.Next.Single());
+        // The minus step intentionally loops while tickets are above the
+        // minimum. It falls through to the plus step only when the matcher
+        // can no longer find the minus button (or its max-times guard trips).
+        Assert.Equal("multiRaceTicketMinus", ticketMinus.Next.Single());
         Assert.Equal("multiRaceTicketPlus", ticketMinus.OnErrorNext.Single());
         Assert.Equal("multiRaceTicketPlus", ticketMinus.ExceededNext.Single());
         Assert.Equal(6, ticketMinus.MaxTimes);

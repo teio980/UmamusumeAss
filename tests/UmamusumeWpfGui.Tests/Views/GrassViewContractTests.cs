@@ -14,8 +14,8 @@ public sealed class GrassViewContractTests
         var content = File.ReadAllText(GrassViewPath);
 
         Assert.Contains("Width=\"0.95*\"", content);
-        Assert.Contains("Width=\"1.05*\"", content);
-        Assert.Contains("Width=\"1.6*\"", content);
+        Assert.Contains("Width=\"1.35*\"", content);
+        Assert.Contains("Width=\"1.3*\"", content);
         Assert.Contains("GrassTaskQueue", content);
         Assert.Contains("GrassSettings", content);
         Assert.Contains("GrassLogs", content);
