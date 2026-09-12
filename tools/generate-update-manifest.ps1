@@ -118,8 +118,8 @@ try {
         $sourceMap = @{}; foreach ($entry in $sourceInventory) { $sourceMap[$entry.path] = $entry }
         $targetMap = @{}; foreach ($entry in $fullInventory) { $targetMap[$entry.path] = $entry }
         foreach ($entry in $fullInventory) {
-            if ($Kind -eq 'program' -and $entry.path.StartsWith('resource/', [StringComparison]::OrdinalIgnoreCase)
-                -and -not $includeBundledResource) { continue }
+            $isProgramResource = ($Kind -eq 'program') -and $entry.path.StartsWith('resource/', [StringComparison]::OrdinalIgnoreCase)
+            if ($isProgramResource -and -not $includeBundledResource) { continue }
             if (-not $sourceMap.ContainsKey($entry.path) -or $sourceMap[$entry.path].sha256 -ne $entry.sha256) {
                 $sourceFile = Join-Path $targetTree ($entry.path.Replace('/', '\'))
                 $destFile = Join-Path $deltaTree ($entry.path.Replace('/', '\'))
@@ -128,9 +128,8 @@ try {
             }
         }
         $deletes = @($sourceInventory | Where-Object {
-            (-not $targetMap.ContainsKey($_.path)) -and
-            -not ($Kind -eq 'program' -and $_.path.StartsWith('resource/', [StringComparison]::OrdinalIgnoreCase)
-                -and -not $includeBundledResource)
+            $isProgramResource = ($Kind -eq 'program') -and $_.path.StartsWith('resource/', [StringComparison]::OrdinalIgnoreCase)
+            (-not $targetMap.ContainsKey($_.path)) -and -not ($isProgramResource -and -not $includeBundledResource)
         } | ForEach-Object { $_.path })
         $deltaInventory = @(Get-Inventory $deltaTree)
         if ($deltaInventory.Count -eq 0 -and $deletes.Count -eq 0) {
