@@ -461,7 +461,10 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             if (!TryCreateHardLink(target, file))
                 File.Copy(file, target, overwrite: true);
-            await Task.Yield();
+            // Do not use Task.Yield here: startup waits synchronously for
+            // resource initialization before the WPF dispatcher is running.
+            // Yielding to that dispatcher would deadlock after the first file.
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -491,7 +494,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             if (File.Exists(targetPath)) File.Delete(targetPath);
             if (!TryCreateHardLink(targetPath, file))
                 File.Copy(file, targetPath, overwrite: true);
-            await Task.Yield();
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -509,7 +512,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             if (File.Exists(target)) File.Delete(target);
             if (!TryCreateHardLink(target, file)) File.Copy(file, target, overwrite: true);
-            await Task.Yield();
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
         foreach (var deleted in deletes ?? [])
         {

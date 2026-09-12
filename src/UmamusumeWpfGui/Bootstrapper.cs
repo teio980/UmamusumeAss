@@ -226,12 +226,14 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         try
         {
             var bundledResource = Path.Combine(appBaseDir, "resource");
-            await resourceStore.InitializeAsync(bundledResource);
+            // Launch() waits for this task synchronously. Keep the whole
+            // startup chain off the WPF dispatcher or that wait deadlocks.
+            await resourceStore.InitializeAsync(bundledResource).ConfigureAwait(false);
             if (!IsActiveResourceCompatible(resourceStore, updateState, manifestVerifier))
-                await resourceStore.UseBundledFallbackAsync(bundledResource);
+                await resourceStore.UseBundledFallbackAsync(bundledResource).ConfigureAwait(false);
             await umaService.InitializeAsync(
                 resourceStore.ActiveCompositeBaseDirectory,
-                appDataDir);
+                appDataDir).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -244,7 +246,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         {
             var resourceRoot = umaService.ResourcePath
                 ?? Path.Combine(appBaseDir, "resource");
-            await umaDatabase.LoadAsync(resourceRoot);
+            await umaDatabase.LoadAsync(resourceRoot).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
