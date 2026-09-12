@@ -19,13 +19,12 @@ if errorlevel 1 goto :err_cmake
 where dotnet >nul 2>&1
 if errorlevel 1 goto :err_dotnet
 
-if not exist "%BUILD_DIR%\CMakeCache.txt" (
-    echo [1/6] Configuring native release build...
-    cmake --preset release
-    if errorlevel 1 goto :err_cmake_config
-) else (
-    echo [1/6] Native release build already configured.
-)
+rem Always create a fresh CMake configuration from version.txt. The project
+rem version is read during configure, so reusing CMakeCache.txt can otherwise
+rem build the native core with an old version.
+echo [1/6] Configuring fresh native release build from version.txt...
+cmake --fresh --preset release
+if errorlevel 1 goto :err_cmake_config
 
 echo [2/6] Building UmamusumeCore.dll...
 cmake --build "%BUILD_DIR%" --config Release --target UmaAssistantCore --parallel
@@ -62,6 +61,12 @@ dotnet publish "%PROJECT%" -c Release -r win-x64 --self-contained true ^
     -o "%PUBLISH_DIR%" --nologo
 if errorlevel 1 goto :err_dotnet_build
 if not exist "%PUBLISH_DIR%\UmamusumeAss.exe" goto :err_dotnet_build
+
+rem Keep the canonical application version beside the executable. This is
+rem intentionally copied after publish so it cannot come from stale output.
+copy /y "version.txt" "%PUBLISH_DIR%\version.txt" >nul
+if errorlevel 1 goto :err_version_metadata
+if not exist "%PUBLISH_DIR%\version.txt" goto :err_version_metadata
 
 rem Stage the complete URA scenario package explicitly so every build contains
 rem the same resource tree as the source. Do not validate a single capture here.
@@ -133,6 +138,9 @@ echo [ERROR] Could not clean the old output directory. Close any process using i
 goto :end_err
 :err_dotnet_build
 echo [ERROR] .NET publish failed.
+goto :end_err
+:err_version_metadata
+echo [ERROR] Could not place the canonical version.txt beside the application.
 goto :end_err
 :err_copy_native
 echo [ERROR] Could not place UmamusumeCore.dll beside the application.
