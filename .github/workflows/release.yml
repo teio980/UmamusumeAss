@@ -32,7 +32,7 @@ jobs:
     # so a windows-latest migration cannot remove that toolchain.
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate version sources
         shell: pwsh
         run: |
@@ -40,7 +40,7 @@ jobs:
           if ($v -ne '${{ inputs.version }}') { throw "version.txt is $v, not the requested version" }
           if ($v -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'version.txt is not stable semver' }
           if ('${{ inputs.release_kind }}' -ne 'program' -and '${{ inputs.resource_version }}' -notmatch '^\d{4}\.\d{2}\.\d{2}\.\d+$') { throw 'resource_version must be YYYY.MM.DD.N for resource/both releases' }
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Build and test native code
@@ -57,7 +57,7 @@ jobs:
       - name: Package portable program ZIP
         shell: pwsh
         run: ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion '${{ inputs.resource_version }}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-input
           path: |
@@ -69,12 +69,12 @@ jobs:
     runs-on: windows-2022
     environment: update-signing
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
         with:
           name: release-input
           path: release-input
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Generate program and resource full packages plus latest-three direct deltas
@@ -93,6 +93,10 @@ jobs:
           if ($needProgram) {
           $programZip = Get-ChildItem release-input -Recurse -File -Filter "*v$v*full.zip" | Select-Object -First 1
           if ($null -eq $programZip) { throw 'Full portable package was not downloaded' }
+          # Keep every asset named by the manifest in one directory. The
+          # downloaded full ZIP otherwise remains under release-input only.
+          $programReleaseZip = Join-Path $release $programZip.Name
+          Copy-Item -LiteralPath $programZip.FullName -Destination $programReleaseZip -Force
           $programRows = @($all | Where-Object {
             $_.tagName -match '^v\d+\.\d+\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease
           } | ForEach-Object {
@@ -111,7 +115,7 @@ jobs:
             }
           }
           $programParameters = @{
-            Version = $v; ReleaseTag = "v$v"; Kind = 'program'; PackagePath = $programZip.FullName; OutputDirectory = $release.FullName
+            Version = $v; ReleaseTag = "v$v"; Kind = 'program'; PackagePath = $programReleaseZip; OutputDirectory = $release.FullName
           }
           if ($programPackages.Count -gt 0) {
             $programParameters.PreviousPackagePath = $programPackages
@@ -176,15 +180,34 @@ jobs:
           if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
             dotnet run --project tools/UpdateSigner/UpdateSigner.csproj --configuration Release -- release/resource-manifest-$rv.json release/resource-manifest-$rv.sig
           }
-      - name: Create both draft Releases
+      - name: Create requested draft Releases
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $v = '${{ inputs.version }}'; $rv = '${{ inputs.resource_version }}'
+          function Get-ReleaseAssetPaths([string]$manifestPath, [string]$signaturePath) {
+            $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+            $paths = @($manifest.assets | ForEach-Object {
+              $assetPath = Join-Path 'release' ([string]$_.assetName)
+              if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+                throw "Manifest asset is missing: $assetPath"
+              }
+              (Resolve-Path -LiteralPath $assetPath).Path
+            })
+            $paths += (Resolve-Path -LiteralPath $manifestPath).Path
+            $paths += (Resolve-Path -LiteralPath $signaturePath).Path
+            return $paths
+          }
           if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
-            gh release create "v$v" release/UmamusumeAss-v*.zip release/program-manifest-$v.json release/program-manifest-$v.sig --draft --title "UmamusumeAss v$v" --notes "Review tests, inventory, and signature before publishing."
+            $programManifest = "release/program-manifest-$v.json"
+            $programAssets = @(Get-ReleaseAssetPaths $programManifest "release/program-manifest-$v.sig")
+            gh release create "v$v" @programAssets --draft --title "UmamusumeAss v$v" --notes "Review tests, inventory, and signature before publishing."
+            if ($LASTEXITCODE -ne 0) { throw 'Program draft Release creation failed' }
           }
           if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
-            gh release create "resource-v$rv" release/UmamusumeAss-resource-v*.zip release/resource-manifest-$rv.json release/resource-manifest-$rv.sig --draft --title "UmamusumeAss resources $rv" --notes "Review tests, inventory, and signature before publishing."
+            $resourceManifest = "release/resource-manifest-$rv.json"
+            $resourceAssets = @(Get-ReleaseAssetPaths $resourceManifest "release/resource-manifest-$rv.sig")
+            gh release create "resource-v$rv" @resourceAssets --draft --title "UmamusumeAss resources $rv" --notes "Review tests, inventory, and signature before publishing."
+            if ($LASTEXITCODE -ne 0) { throw 'Resource draft Release creation failed' }
           }
