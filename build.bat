@@ -7,6 +7,7 @@ set "OUT_DIR=src\UmamusumeWpfGui\bin\Release\net10.0-windows10.0.17763.0"
 set "BUILD_DIR=build\release"
 set "NATIVE_STAGING=build\native-staging"
 set "NATIVE_DLL=%NATIVE_STAGING%\UmamusumeCore.dll"
+set "UPDATER_EXE=%NATIVE_STAGING%\UmamusumeAss.Updater.exe"
 set "PUBLISH_DIR=build\publish\win-x64"
 set "PROJECT=src\UmamusumeWpfGui\UmamusumeWpfGui.csproj"
 
@@ -19,24 +20,29 @@ where dotnet >nul 2>&1
 if errorlevel 1 goto :err_dotnet
 
 if not exist "%BUILD_DIR%\CMakeCache.txt" (
-    echo [1/5] Configuring native release build...
+    echo [1/6] Configuring native release build...
     cmake --preset release
     if errorlevel 1 goto :err_cmake_config
 ) else (
-    echo [1/5] Native release build already configured.
+    echo [1/6] Native release build already configured.
 )
 
-echo [2/5] Building UmamusumeCore.dll...
+echo [2/6] Building UmamusumeCore.dll...
 cmake --build "%BUILD_DIR%" --config Release --target UmaAssistantCore --parallel
 if errorlevel 1 goto :err_native
 
-echo [3/5] Staging native DLL...
+echo [3/6] Building UmamusumeAss.Updater.exe...
+cmake --build "%BUILD_DIR%" --config Release --target UmamusumeAss.Updater --parallel
+if errorlevel 1 goto :err_updater
+
+echo [4/6] Staging native files...
 if exist "%NATIVE_STAGING%" rmdir /s /q "%NATIVE_STAGING%"
 cmake --install "%BUILD_DIR%" --prefix "%NATIVE_STAGING%" --config Release
 if errorlevel 1 goto :err_install
 if not exist "%NATIVE_DLL%" goto :err_install
+if not exist "%UPDATER_EXE%" goto :err_updater
 
-echo [4/5] Cleaning old application output...
+echo [5/6] Cleaning old application output...
 if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
 if exist "%OUT_DIR%\*" del /f /q "%OUT_DIR%\*" >nul 2>&1
 for /d %%D in ("%OUT_DIR%\*") do rmdir /s /q "%%~fD" >nul 2>&1
@@ -74,7 +80,10 @@ if exist "%OUT_DIR%\win-x64" rmdir /s /q "%OUT_DIR%\win-x64"
 if exist "%OUT_DIR%\win-x64" goto :err_output_clean
 copy /y "%NATIVE_DLL%" "%OUT_DIR%\UmamusumeCore.dll" >nul
 if errorlevel 1 goto :err_copy_native
+copy /y "%UPDATER_EXE%" "%OUT_DIR%\UmamusumeAss.Updater.exe" >nul
+if errorlevel 1 goto :err_copy_updater
 if not exist "%OUT_DIR%\UmamusumeCore.dll" goto :err_copy_native
+if not exist "%OUT_DIR%\UmamusumeAss.Updater.exe" goto :err_copy_updater
 if not exist "%OUT_DIR%\resource\connection.json" goto :err_resources
 if not exist "%OUT_DIR%\resource\hachimi\pipelines\daily_race.json" goto :err_resources
 if not exist "%OUT_DIR%\resource\hachimi\ura\" goto :err_resources
@@ -113,6 +122,9 @@ goto :end_err
 :err_native
 echo [ERROR] Native library build failed.
 goto :end_err
+:err_updater
+echo [ERROR] Updater build or staging failed.
+goto :end_err
 :err_install
 echo [ERROR] Native install/staging failed.
 goto :end_err
@@ -124,6 +136,9 @@ echo [ERROR] .NET publish failed.
 goto :end_err
 :err_copy_native
 echo [ERROR] Could not place UmamusumeCore.dll beside the application.
+goto :end_err
+:err_copy_updater
+echo [ERROR] Could not place UmamusumeAss.Updater.exe beside the application.
 goto :end_err
 :err_copy_publish
 echo [ERROR] Could not copy the publish output to the application directory.
