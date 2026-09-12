@@ -124,7 +124,9 @@ public sealed class PackageLayoutTests : IDisposable
         var stdoutTask = Task.Run(() => process.StandardOutput.ReadToEnd());
         var stderrTask = Task.Run(() => process.StandardError.ReadToEnd());
 
-        var timeoutMs = (int)TimeSpan.FromMinutes(10).TotalMilliseconds;
+        // This is a clean self-contained package integration test; the
+        // first build on a runner can legitimately take several minutes.
+        var timeoutMs = (int)TimeSpan.FromMinutes(20).TotalMilliseconds;
         if (!process.WaitForExit(timeoutMs))
         {
             try { process.Kill(entireProcessTree: true); }
@@ -134,7 +136,7 @@ public sealed class PackageLayoutTests : IDisposable
             Task.WaitAll([stdoutTask, stderrTask], TimeSpan.FromSeconds(30));
 
             throw new TimeoutException(
-                $"Process timed out after 10 minutes: {executable} {arguments}\n" +
+                $"Process timed out after 20 minutes: {executable} {arguments}\n" +
                 $"Partial STDOUT:\n{stdoutTask.Result}\n" +
                 $"Partial STDERR:\n{stderrTask.Result}");
         }
