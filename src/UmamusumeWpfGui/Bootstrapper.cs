@@ -606,8 +606,12 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         try
         {
             var hasPendingOperation = Directory.EnumerateDirectories(updatesRoot)
-                .Any(path => !Path.GetFileName(path).Equals(
-                    "checks", StringComparison.OrdinalIgnoreCase));
+                .Any(path =>
+                {
+                    var name = Path.GetFileName(path);
+                    return !name.Equals("checks", StringComparison.OrdinalIgnoreCase)
+                        && !name.Equals("current-program", StringComparison.OrdinalIgnoreCase);
+                });
             if (!hasPendingOperation)
                 Directory.Delete(updatesRoot, recursive: true);
         }
