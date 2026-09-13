@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows;
+using System.Windows.Threading;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Models;
 using ActivityKind = UmamusumeWpfGui.Models.ActivityKind;
@@ -10,6 +12,12 @@ namespace UmamusumeWpfGui.Services.Update;
 
 public sealed class UpdateCoordinator : IUpdateService
 {
+    private static readonly JsonSerializerOptions UpdaterPlanJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     private readonly GitHubReleaseClient _github;
     private readonly ManifestVerifier _verifier;
     private readonly PackageStager _stager;
@@ -110,6 +118,7 @@ public sealed class UpdateCoordinator : IUpdateService
                 scope,
                 rawManifest,
                 signature,
+                progress,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -249,11 +258,6 @@ public sealed class UpdateCoordinator : IUpdateService
         await _activities.WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
         using var lease = _activities.Acquire(ActivityKind.Shutdown);
 
-        // Quiesce the application before launching the helper. In particular,
-        // unload the native bridge while this process still owns its lifetime;
-        // OnExit remains an idempotent safety net for normal window closes.
-        await _uma.DisposeAsync().ConfigureAwait(false);
-
         var operationRoot = Path.Combine(_appDataRoot, "updates", update.OperationId);
         var backupRoot = Path.Combine(operationRoot, "backup");
         var statusPath = Path.Combine(operationRoot, "status.txt");
@@ -286,11 +290,19 @@ public sealed class UpdateCoordinator : IUpdateService
             File.Copy(current.SignedSignaturePath, sourceSignaturePath, overwrite: true);
         }
         var installRoot = Path.GetFullPath(AppContext.BaseDirectory);
-        var updaterSource = Path.Combine(installRoot, "UmamusumeAss.Updater.exe");
-        if (!File.Exists(updaterSource))
-            throw new FileNotFoundException("The installed updater executable is missing.", updaterSource);
+        var installedUpdater = Path.Combine(installRoot, "UmamusumeAss.Updater.exe");
+        var stagedUpdater = Path.Combine(update.PayloadRoot, "UmamusumeAss.Updater.exe");
+        // A release may repair the helper, but a previously published target
+        // may also contain a stale helper. Try the installed and staged copies
+        // independently; only a helper that verifies the plan and reports
+        // ready is allowed to take ownership of the update.
+        var updaterSources = new[] { installedUpdater, stagedUpdater }
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (updaterSources.Length == 0)
+            throw new FileNotFoundException("No update helper executable is available.");
         var updaterCopy = Path.Combine(operationRoot, "UmamusumeAss.Updater.exe");
-        File.Copy(updaterSource, updaterCopy, overwrite: true);
 
         var plan = new
         {
@@ -306,7 +318,7 @@ public sealed class UpdateCoordinator : IUpdateService
         };
         await File.WriteAllTextAsync(
             planPath,
-            JsonSerializer.Serialize(plan),
+            SerializeUpdaterPlan(plan),
             cancellationToken).ConfigureAwait(false);
         _state.Update(programState =>
         {
@@ -338,8 +350,191 @@ public sealed class UpdateCoordinator : IUpdateService
         startInfo.ArgumentList.Add(statusPath);
         startInfo.ArgumentList.Add("--operation-id");
         startInfo.ArgumentList.Add(update.OperationId);
-        Process.Start(startInfo);
-        Application.Current?.Shutdown();
+
+        var application = Application.Current
+            ?? throw new InvalidOperationException("The WPF application is unavailable.");
+
+        Process? updater = null;
+        try
+        {
+            // Start the helper before tearing down the native runtime. Each
+            // candidate validates the signed plan and writes "ready" before
+            // waiting for this process. A rejected candidate is stopped while
+            // the current app is still fully usable, then the next is tried.
+            for (var index = 0; index < updaterSources.Length; index++)
+            {
+                try
+                {
+                    File.Copy(updaterSources[index], updaterCopy, overwrite: true);
+                    File.WriteAllText(statusPath, "starting\n");
+                    updater = Process.Start(startInfo)
+                        ?? throw new InvalidOperationException("The update helper could not be started.");
+                    await WaitForUpdaterReadyAsync(updater, statusPath, cancellationToken)
+                        .ConfigureAwait(false);
+                    break;
+                }
+                catch (Exception exception) when (
+                    exception is not OperationCanceledException
+                    && index < updaterSources.Length - 1)
+                {
+                    StopUpdater(updater);
+                    updater?.Dispose();
+                    updater = null;
+                    File.WriteAllText(statusPath, "retrying-helper\n" + exception.Message);
+                }
+            }
+
+            if (updater is null)
+                throw new InvalidOperationException("No update helper accepted the signed update plan.");
+
+            // The helper is now safely waiting on our PID. Release native
+            // resources while the current process still owns them, then ask
+            // WPF to shut down on its owning dispatcher thread.
+            await _uma.DisposeAsync().ConfigureAwait(false);
+            await RequestApplicationShutdownAsync(application).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            // If the helper itself reported a failure, leave its error dialog
+            // alive. Otherwise stop a helper that would otherwise wait forever
+            // for a parent which is intentionally staying open.
+            if (!HasUpdaterFailed(statusPath))
+            {
+                StopUpdater(updater);
+                TryWriteHandoffFailure(statusPath, exception.Message);
+            }
+            _state.Update(failedState =>
+            {
+                failedState.Stage = "failed-handoff";
+                failedState.Error = exception.Message;
+            });
+            throw;
+        }
+        finally
+        {
+            updater?.Dispose();
+        }
+    }
+
+    internal static string SerializeUpdaterPlan(object plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return JsonSerializer.Serialize(plan, UpdaterPlanJsonOptions);
+    }
+
+    private static void TryWriteHandoffFailure(string statusPath, string reason)
+    {
+        try
+        {
+            File.WriteAllText(statusPath, "failed\n" + reason);
+        }
+        catch (IOException)
+        {
+            // The status file is diagnostic; the exception is still surfaced
+            // to the settings view and the persisted update state above.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // The status file is diagnostic; the exception is still surfaced
+            // to the settings view and the persisted update state above.
+        }
+    }
+
+    private static async Task WaitForUpdaterReadyAsync(
+        Process updater,
+        string statusPath,
+        CancellationToken cancellationToken)
+    {
+        var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 30;
+        while (Stopwatch.GetTimestamp() < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(statusPath))
+            {
+                try
+                {
+                    var status = await File.ReadAllTextAsync(statusPath, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (status.StartsWith("ready", StringComparison.OrdinalIgnoreCase))
+                        return;
+                    if (status.StartsWith("failed", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException(
+                            "The update helper rejected the update plan. See the updater error dialog.");
+                }
+                catch (IOException)
+                {
+                    // The helper may still be closing the status file. Retry
+                    // rather than treating this short hand-off race as a
+                    // failed update.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Retry transient antivirus/indexer sharing interference.
+                }
+            }
+
+            if (updater.HasExited)
+                throw new InvalidOperationException("The update helper exited before taking ownership of the update.");
+            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new TimeoutException("The update helper did not become ready.");
+    }
+
+    private static bool HasUpdaterFailed(string statusPath)
+    {
+        try
+        {
+            return File.Exists(statusPath)
+                && File.ReadAllText(statusPath).StartsWith(
+                    "failed", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static void StopUpdater(Process? updater)
+    {
+        if (updater is null)
+            return;
+        try
+        {
+            if (!updater.HasExited)
+            {
+                updater.Kill();
+                updater.WaitForExit(5_000);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // The helper exited between the checks.
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // The helper may already have terminated or been blocked by policy.
+        }
+    }
+
+    private static Task RequestApplicationShutdownAsync(Application application)
+    {
+        if (application.Dispatcher.CheckAccess())
+        {
+            application.Shutdown();
+            return Task.CompletedTask;
+        }
+
+        // Shutdown is a DispatcherObject operation. InvokeAsync ensures the
+        // request is actually executed on the WPF UI thread before this method
+        // completes; BeginInvoke alone allowed the caller to race the exit path.
+        return application.Dispatcher
+            .InvokeAsync(application.Shutdown, DispatcherPriority.Send)
+            .Task;
     }
 
     internal static void CopyIfDifferent(string sourcePath, string destinationPath)

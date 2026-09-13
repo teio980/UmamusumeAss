@@ -20,16 +20,16 @@ using json = nlohmann::json;
 namespace {
 
 constexpr std::array<unsigned char, 32> kPublicX = {
-    0xd4, 0x96, 0x11, 0xab, 0x41, 0x49, 0x84, 0xcf,
-    0x03, 0x38, 0x24, 0x63, 0xa7, 0x5f, 0xe2, 0xbb,
-    0xad, 0x56, 0x02, 0x1d, 0x64, 0xb0, 0xee, 0xd1,
-    0xad, 0xbb, 0xc0, 0x8e, 0xb1, 0x7a, 0x02, 0x97,
+    0x5d, 0x27, 0xeb, 0x82, 0xe4, 0x15, 0xbd, 0x5a,
+    0xfe, 0x0c, 0x9b, 0x94, 0xde, 0x3f, 0x19, 0x37,
+    0x4f, 0xe6, 0x66, 0x03, 0xaf, 0x7f, 0xde, 0x09,
+    0x55, 0x3f, 0x6e, 0x09, 0xeb, 0x92, 0x71, 0x6b,
 };
 constexpr std::array<unsigned char, 32> kPublicY = {
-    0x93, 0x74, 0xca, 0xfd, 0xde, 0xdb, 0x4d, 0x1b,
-    0x48, 0x26, 0x86, 0xfd, 0xa1, 0xe7, 0x67, 0x7e,
-    0x2a, 0x01, 0x19, 0xe9, 0x34, 0x31, 0xf9, 0x15,
-    0x4e, 0x2a, 0x1d, 0xb7, 0xcf, 0x68, 0x34, 0xd2,
+    0x41, 0x61, 0x9b, 0x6e, 0x6e, 0xa3, 0x84, 0x24,
+    0xad, 0x04, 0x48, 0xe3, 0xfc, 0x3e, 0x00, 0xb3,
+    0x4a, 0x48, 0xa1, 0xf3, 0x28, 0xc6, 0x9d, 0x68,
+    0xd8, 0xd5, 0x6d, 0x38, 0xff, 0xf4, 0x31, 0xa9,
 };
 
 struct Args {
@@ -331,10 +331,44 @@ bool WriteText(fs::path const& path, std::string const& text)
     return output.good();
 }
 
+bool ParentHasExited(DWORD pid)
+{
+    HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    if (!process) return GetLastError() == ERROR_INVALID_PARAMETER;
+    auto result = WaitForSingleObject(process, 0);
+    CloseHandle(process);
+    return result == WAIT_OBJECT_0;
+}
+
+bool RelaunchInstalledApp(Args const& args)
+{
+    auto executable = args.installRoot / L"UmamusumeAss.exe";
+    if (!fs::is_regular_file(executable)) return false;
+
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    std::wstring command = L"\"" + executable.wstring() + L"\"";
+    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr,
+                        args.installRoot.wstring().c_str(), &startup, &process))
+        return false;
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return true;
+}
+
 void WriteFailure(Args const& args, std::string const& reason)
 {
+    bool parentExited = ParentHasExited(args.parentPid);
     WriteText(args.statusPath, "failed\n" + reason);
     MessageBoxW(nullptr, ToWide(reason).c_str(), L"UmamusumeAss 更新失败", MB_OK | MB_ICONERROR);
+    if (parentExited)
+        RelaunchInstalledApp(args);
+}
+
+bool WriteReady(Args const& args)
+{
+    return WriteText(args.statusPath, "ready\n");
 }
 
 bool WaitForParent(DWORD pid)
@@ -542,6 +576,7 @@ int Run(Args const& args)
         }
     }
 
+    if (!WriteReady(args)) { WriteFailure(args, "无法写入更新器就绪状态。"); return 2; }
     if (!WaitForParent(args.parentPid)) { WriteFailure(args, "无法等待主程序退出。"); return 2; }
     fs::create_directories(args.backupRoot);
     std::vector<JournalEntry> journal;

@@ -387,32 +387,36 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         var ackPath = GetArgumentValue("--update-ack");
         if (string.IsNullOrWhiteSpace(ackPath))
             return;
-        var temporary = ackPath + ".tmp-" + Guid.NewGuid().ToString("N");
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ackPath))!);
-        await File.WriteAllTextAsync(temporary, "healthy\n").ConfigureAwait(true);
-        File.Move(temporary, ackPath, overwrite: true);
         var operationId = GetArgumentValue("--update-operation");
-        if (!string.IsNullOrWhiteSpace(operationId))
+        if (string.IsNullOrWhiteSpace(operationId))
+            return;
+
+        try
         {
-            try
-            {
-                var stateStore = Container.Get<UpdateStateStore>();
-                var manifestPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "UmamusumeAss", "updates", operationId, "manifest.json");
-                if (File.Exists(manifestPath))
-                {
-                    var manifest = ManifestVerifier.Deserialize(await File.ReadAllBytesAsync(manifestPath));
-                    var signaturePath = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "UmamusumeAss", "updates", operationId, "manifest.sig");
-                    PersistProgramHealthState(stateStore, manifestPath, signaturePath, manifest);
-                }
-            }
-            catch (Exception exception)
-            {
-                Debug.WriteLine($"Failed to persist update health state: {exception.Message}");
-            }
+            var stateStore = Container.Get<UpdateStateStore>();
+            var appDataRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "UmamusumeAss");
+            var manifestPath = Path.Combine(appDataRoot, "updates", operationId, "manifest.json");
+            var signaturePath = Path.Combine(appDataRoot, "updates", operationId, "manifest.sig");
+            if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
+                throw new FileNotFoundException("The installed update manifest is missing.");
+
+            // Persist the trusted baseline before acknowledging health. If this
+            // fails, the updater must keep its backup and roll back instead of
+            // deleting the only recovery copy.
+            var manifest = ManifestVerifier.Deserialize(await File.ReadAllBytesAsync(manifestPath));
+            PersistProgramHealthState(stateStore, manifestPath, signaturePath, manifest);
+
+            var temporary = ackPath + ".tmp-" + Guid.NewGuid().ToString("N");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ackPath))!);
+            await File.WriteAllTextAsync(temporary, "healthy\n").ConfigureAwait(true);
+            File.Move(temporary, ackPath, overwrite: true);
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Failed to persist update health state: {exception.Message}");
+            return;
         }
     }
 

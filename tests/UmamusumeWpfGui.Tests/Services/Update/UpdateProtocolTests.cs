@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using UmamusumeWpfGui;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -245,6 +246,63 @@ public sealed class UpdateProtocolTests
         Assert.False(verifier.Verify(JsonSerializer.SerializeToUtf8Bytes(manifest), signature));
     }
 
+    [Fact]
+    public void ManagedSignerAndNativeUpdaterEmbedTheSamePublicKey()
+    {
+        var root = FindSolutionRoot();
+        var expected = File.ReadAllText(Path.Combine(root, "update-public.txt")).Trim();
+        Assert.False(string.IsNullOrWhiteSpace(expected));
+
+        var verifierSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeWpfGui", "Services", "Update", "ManifestVerifier.cs"));
+        var signerSource = File.ReadAllText(Path.Combine(
+            root, "tools", "UpdateSigner", "Program.cs"));
+        Assert.Equal(expected, ExtractConstant(verifierSource, "EmbeddedPublicKey"));
+        Assert.Equal(expected, ExtractConstant(signerSource, "expectedPublicKey"));
+
+        var nativeSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeAssUpdater", "main.cpp"));
+        var nativeX = ExtractNativeBytes(nativeSource, "kPublicX");
+        var nativeY = ExtractNativeBytes(nativeSource, "kPublicY");
+        using var ecdsa = ECDsa.Create();
+        ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(expected), out _);
+        var parameters = ecdsa.ExportParameters(false);
+        Assert.Equal(parameters.Q.X, nativeX);
+        Assert.Equal(parameters.Q.Y, nativeY);
+    }
+
+    [Fact]
+    public void UpdaterPlanUsesNativeProtocolFieldNames()
+    {
+        var plan = new
+        {
+            manifest = new
+            {
+                selectedAsset = new UpdateAsset
+                {
+                    Type = "full",
+                    AssetName = "program-full.zip",
+                },
+            },
+            replace = new[]
+            {
+                new UpdateFileEntry { Path = "app.dll", Size = 42 },
+            },
+        };
+
+        using var document = JsonDocument.Parse(UpdateCoordinator.SerializeUpdaterPlan(plan));
+        var asset = document.RootElement
+            .GetProperty("manifest")
+            .GetProperty("selectedAsset");
+        Assert.Equal("full", asset.GetProperty("type").GetString());
+        Assert.Equal("program-full.zip", asset.GetProperty("assetName").GetString());
+        Assert.False(asset.TryGetProperty("fromVersion", out _));
+        Assert.False(asset.TryGetProperty("AssetName", out _));
+        Assert.Equal(
+            "app.dll",
+            document.RootElement.GetProperty("replace")[0].GetProperty("path").GetString());
+    }
+
     [Theory]
     [InlineData("../escape")]
     [InlineData("C:/absolute")]
@@ -343,5 +401,45 @@ public sealed class UpdateProtocolTests
                 hash.AppendData(buffer.AsSpan(0, read));
         }
         return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private static string ExtractConstant(string source, string name)
+    {
+        var declaration = Regex.Match(
+            source,
+            Regex.Escape(name) + @"\s*=\s*(?<value>(?:""[^""]*""\s*\+?\s*)+);",
+            RegexOptions.CultureInvariant);
+        Assert.True(declaration.Success, $"Could not locate {name} in source.");
+        return string.Concat(
+            Regex.Matches(declaration.Groups["value"].Value, "\"([^\"]*)\"")
+                .Select(match => match.Groups[1].Value));
+    }
+
+    private static byte[] ExtractNativeBytes(string source, string name)
+    {
+        var declaration = Regex.Match(
+            source,
+            $@"{Regex.Escape(name)}\s*=\s*\{{(?<value>[^}}]*)\}};",
+            RegexOptions.CultureInvariant | RegexOptions.Singleline);
+        Assert.True(declaration.Success, $"Could not locate {name} in native source.");
+        return Regex.Matches(declaration.Groups["value"].Value, @"0x([0-9a-fA-F]{2})")
+            .Select(match => Convert.ToByte(match.Groups[1].Value, 16))
+            .ToArray();
+    }
+
+    private static string FindSolutionRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "update-public.txt"))
+                && File.Exists(Path.Combine(
+                    directory.FullName, "src", "UmamusumeAssUpdater", "main.cpp")))
+                return directory.FullName;
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException(
+            $"Could not locate solution root from {AppContext.BaseDirectory}");
     }
 }
