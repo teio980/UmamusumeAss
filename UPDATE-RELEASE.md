@@ -35,6 +35,18 @@ location: old binaries intentionally stop trusting manifests signed by a key
 they do not embed. Keep the old key private and archived according to the
 project's secret-retention policy, but never place it in this repository.
 
+There is one important one-release bootstrap boundary: an installation whose
+WPF executable already trusts the new key but whose installed native helper
+still embeds the old key cannot repair itself if that WPF executable predates
+the staged-helper handoff. The old helper will reject the new-key manifest, and
+one ECDSA signature cannot satisfy both keys. Do not weaken verification by
+accepting an untrusted fallback key. Recover such an installation by closing
+the app and installing the complete portable package for the repaired release
+(or replacing the helper from that package after independently verifying the
+release manifest and package hash); the next in-app update then starts the
+helper copied from the already verified payload. This limitation is deliberate
+and should be called out in release notes whenever a signing key is rotated.
+
 ## Manifest/package contract
 
 Program tags are exactly `vX.Y.Z`; resource tags are exactly
