@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,6 +17,86 @@ public sealed class UpdateProtocolTests
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+
+    [Fact]
+    public async Task VerifiedDownloadedProgramCanBeRestoredAfterRestart()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        var updatesRoot = Path.Combine(root, "updates");
+        var operationId = Guid.NewGuid().ToString("N");
+        var operationRoot = Path.Combine(updatesRoot, operationId);
+        var sourceRoot = Path.Combine(root, "source");
+        var payloadRoot = Path.Combine(operationRoot, "payload");
+        Directory.CreateDirectory(sourceRoot);
+        Directory.CreateDirectory(payloadRoot);
+
+        try
+        {
+            var sourceFile = Path.Combine(sourceRoot, "app.dll");
+            await File.WriteAllTextAsync(sourceFile, "cached program payload");
+            File.Copy(sourceFile, Path.Combine(payloadRoot, "app.dll"));
+            var packagePath = Path.Combine(operationRoot, "program-full.zip");
+            ZipFile.CreateFromDirectory(sourceRoot, packagePath);
+
+            var manifest = new UpdateManifest
+            {
+                Version = "9.9.9",
+                ReleaseTag = "v9.9.9",
+                Assets =
+                [
+                    new UpdateAsset
+                    {
+                        Type = "full",
+                        AssetName = "program-full.zip",
+                        Size = new FileInfo(packagePath).Length,
+                        Sha256 = ManifestVerifier.Sha256File(packagePath),
+                        TargetTreeSha256 = new string('A', 64),
+                        Files =
+                        [
+                            new UpdateFileEntry
+                            {
+                                Path = "app.dll",
+                                Size = new FileInfo(sourceFile).Length,
+                                Sha256 = ManifestVerifier.Sha256File(sourceFile),
+                            },
+                        ],
+                    },
+                ],
+            };
+            var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, CamelCaseJsonOptions);
+            using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var signature = signer.SignData(
+                manifestBytes,
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            await File.WriteAllBytesAsync(Path.Combine(operationRoot, "manifest.json"), manifestBytes);
+            await File.WriteAllTextAsync(
+                Path.Combine(operationRoot, "manifest.sig"),
+                Convert.ToBase64String(signature));
+
+            var verifier = new ManifestVerifier(signer.ExportSubjectPublicKeyInfo());
+            var stager = new PackageStager(new GitHubReleaseClient(), verifier, updatesRoot);
+
+            var restored = stager.TryRestore(
+                operationId,
+                UpdateScope.Program,
+                "program-full.zip");
+
+            Assert.NotNull(restored);
+            Assert.Equal("9.9.9", restored!.Manifest.Version);
+            Assert.Equal(packagePath, restored.PackagePath);
+
+            await File.WriteAllTextAsync(Path.Combine(payloadRoot, "app.dll"), "tampered payload");
+            Assert.Null(stager.TryRestore(
+                operationId,
+                UpdateScope.Program,
+                "program-full.zip"));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
 
     [Fact]
     public async Task CopyIfDifferentSkipsAlreadyStagedManifestPath()
@@ -83,6 +164,9 @@ public sealed class UpdateProtocolTests
                 CurrentTreeSha256 = "PROGRAM-TREE",
                 SignedManifestPath = "program.json",
                 SignedSignaturePath = "program.sig",
+                StagedProgramOperationId = "program-operation",
+                StagedProgramVersion = "0.3.0",
+                StagedProgramAssetName = "program-full.zip",
             });
             store.Update(state =>
             {
@@ -97,6 +181,9 @@ public sealed class UpdateProtocolTests
             Assert.Equal("PROGRAM-MANIFEST", retained.ManifestSha256);
             Assert.Equal("PROGRAM-TREE", retained.CurrentTreeSha256);
             Assert.Equal("RESOURCE-MANIFEST", retained.ResourceManifestSha256);
+            Assert.Equal("program-operation", retained.StagedProgramOperationId);
+            Assert.Equal("0.3.0", retained.StagedProgramVersion);
+            Assert.Equal("program-full.zip", retained.StagedProgramAssetName);
         }
         finally
         {
@@ -139,6 +226,9 @@ public sealed class UpdateProtocolTests
                 ResourceManifestSha256 = "RESOURCE-MANIFEST",
                 ResourceManifestPath = "resource.json",
                 ResourceSignaturePath = "resource.sig",
+                StagedProgramOperationId = "completed-operation",
+                StagedProgramVersion = "0.3.0",
+                StagedProgramAssetName = "program-full.zip",
             });
 
             Bootstrapper.PersistProgramHealthState(
@@ -154,6 +244,9 @@ public sealed class UpdateProtocolTests
             Assert.Equal(ManifestVerifier.Sha256File(manifestPath), state.ManifestSha256);
             Assert.Equal(new string('A', 64), state.CurrentTreeSha256);
             Assert.Equal("RESOURCE-MANIFEST", state.ResourceManifestSha256);
+            Assert.Null(state.StagedProgramOperationId);
+            Assert.Null(state.StagedProgramVersion);
+            Assert.Null(state.StagedProgramAssetName);
         }
         finally
         {

@@ -170,7 +170,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _ => !_disposed && !IsUpdateBusy);
         DownloadUpdateCommand = new RelayCommand(
             _ => _ = DownloadUpdateAsync(),
-            _ => !_disposed && !IsUpdateBusy && _pendingUpdatePlan is not null);
+            _ => !_disposed
+                && !IsUpdateBusy
+                && _pendingUpdatePlan is not null
+                && _stagedUpdate is null);
         CancelUpdateCommand = new RelayCommand(
             _ => CancelUpdate(),
             _ => !_disposed && IsUpdateBusy);
@@ -182,6 +185,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _ => !_disposed
                 && _pendingUpdateScope == UpdateScope.Program
                 && _pendingUpdatePlan is not null);
+
+        _stagedUpdate = _updateService?.RestoreStagedProgram();
+        if (_stagedUpdate is not null)
+            _updateStatus = $"Version {_stagedUpdate.Manifest.Version} is downloaded and ready to install.";
     }
 
 
@@ -871,13 +878,25 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 _pendingUpdateScope = UpdateScope.Resource;
                 _pendingUpdatePlan = _updateService.SelectResource(result.Resource);
             }
-            if (_pendingUpdatePlan is null)
+            if (_pendingUpdatePlan is null && _stagedUpdate is not null)
+                SetUpdateStatus($"Version {_stagedUpdate.Manifest.Version} is already downloaded and ready to install.");
+            else if (_pendingUpdatePlan is null)
                 SetUpdateStatus("You are up to date.");
+            else if (_stagedUpdate is not null
+                && _stagedUpdate.Manifest.Version.Equals(
+                    _pendingUpdatePlan.Manifest.Version, StringComparison.Ordinal)
+                && _stagedUpdate.Asset.AssetName.Equals(
+                    _pendingUpdatePlan.Asset.AssetName, StringComparison.Ordinal))
+                SetUpdateStatus($"Version {_stagedUpdate.Manifest.Version} is already downloaded and ready to install.");
             else if (string.Equals(_draft.SkippedProgramVersion, _pendingUpdatePlan.Manifest.Version,
                          StringComparison.Ordinal))
                 SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} skipped once.");
             else
+            {
+                if (_stagedUpdate is not null)
+                    _stagedUpdate = null;
                 SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} is available.");
+            }
         }
         catch (Exception exception)
         {

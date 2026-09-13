@@ -117,6 +117,96 @@ public sealed class PackageStager
             signaturePath);
     }
 
+    public StagedUpdate? TryRestore(
+        string operationId,
+        UpdateScope scope,
+        string assetName)
+    {
+        if (!Guid.TryParseExact(operationId, "N", out _)
+            || scope == UpdateScope.All
+            || string.IsNullOrWhiteSpace(assetName))
+            return null;
+
+        try
+        {
+            var operationRoot = Path.Combine(_updatesRoot, operationId);
+            var manifestPath = Path.Combine(operationRoot, "manifest.json");
+            var signaturePath = Path.Combine(operationRoot, "manifest.sig");
+            if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
+                return null;
+
+            var manifestBytes = File.ReadAllBytes(manifestPath);
+            var signature = ManifestVerifier.DecodeSignature(File.ReadAllText(signaturePath));
+            if (!_verifier.Verify(manifestBytes, signature))
+                return null;
+
+            var manifest = ManifestVerifier.Deserialize(manifestBytes);
+            var expectedKind = scope == UpdateScope.Resource ? "resource" : "program";
+            if (!manifest.Kind.Equals(expectedKind, StringComparison.Ordinal)
+                || !ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag))
+                return null;
+
+            var asset = manifest.Assets.FirstOrDefault(item =>
+                item.AssetName.Equals(assetName, StringComparison.Ordinal));
+            if (asset is null)
+                return null;
+
+            var packagePath = Path.Combine(operationRoot, asset.AssetName);
+            var payloadRoot = Path.Combine(operationRoot, "payload");
+            if (!File.Exists(packagePath)
+                || !Directory.Exists(payloadRoot)
+                || new FileInfo(packagePath).Length != asset.Size
+                || !ManifestVerifier.Sha256File(packagePath).Equals(
+                    asset.Sha256, StringComparison.OrdinalIgnoreCase)
+                || !VerifyPayload(payloadRoot, asset))
+                return null;
+
+            return new StagedUpdate(
+                operationId,
+                scope,
+                manifest,
+                asset,
+                packagePath,
+                payloadRoot,
+                manifestPath,
+                signaturePath);
+        }
+        catch (Exception)
+        {
+            // A cache is only an optimization. Any incomplete, stale, or
+            // tampered entry is ignored and the normal download path remains.
+            return null;
+        }
+    }
+
+    private static bool VerifyPayload(string payloadRoot, UpdateAsset asset)
+    {
+        var expectedPaths = asset.Files
+            .Select(file => file.Path)
+            .ToHashSet(StringComparer.Ordinal);
+        var actualPaths = Directory
+            .EnumerateFiles(payloadRoot, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(payloadRoot, path).Replace('\\', '/'))
+            .ToHashSet(StringComparer.Ordinal);
+        if (!actualPaths.SetEquals(expectedPaths))
+            return false;
+
+        foreach (var file in asset.Files)
+        {
+            var path = UpdatePathSafety.ResolveUnderRoot(payloadRoot, file.Path);
+            var info = new FileInfo(path);
+            if (!info.Exists
+                || info.Length != file.Size
+                || !ManifestVerifier.Sha256File(path).Equals(
+                    file.Sha256, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        foreach (var deleted in asset.Deletes)
+            UpdatePathSafety.ValidateRelative(deleted);
+        return true;
+    }
+
     private sealed class ForwardingProgress(
         IProgress<UpdateProgress> target,
         long total) : IProgress<long>

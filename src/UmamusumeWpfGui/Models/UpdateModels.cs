@@ -119,4 +119,7 @@ public sealed class UpdateState
     public string? ResourceManifestSha256 { get; set; }
     public string? ResourceManifestPath { get; set; }
     public string? ResourceSignaturePath { get; set; }
+    public string? StagedProgramOperationId { get; set; }
+    public string? StagedProgramVersion { get; set; }
+    public string? StagedProgramAssetName { get; set; }
 }

@@ -112,7 +112,7 @@ public sealed class UpdateCoordinator : IUpdateService
         var signature = scope == UpdateScope.Resource ? _resourceSignature : _programSignature;
         if (rawManifest is null || signature is null)
             throw new InvalidOperationException("The signed manifest is not staged.");
-        return await _stager.StageAsync(
+        var staged = await _stager.StageAsync(
                 plan,
                 asset,
                 scope,
@@ -121,6 +121,66 @@ public sealed class UpdateCoordinator : IUpdateService
                 progress,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (scope == UpdateScope.Program)
+        {
+            _state.Update(state =>
+            {
+                state.StagedProgramOperationId = staged.OperationId;
+                state.StagedProgramVersion = staged.Manifest.Version;
+                state.StagedProgramAssetName = staged.Asset.AssetName;
+            });
+        }
+        return staged;
+    }
+
+    public StagedUpdate? RestoreStagedProgram()
+    {
+        try
+        {
+            var state = _state.Load();
+            if (string.IsNullOrWhiteSpace(state.StagedProgramOperationId)
+                || string.IsNullOrWhiteSpace(state.StagedProgramVersion)
+                || string.IsNullOrWhiteSpace(state.StagedProgramAssetName))
+                return null;
+
+            var staged = _stager.TryRestore(
+                state.StagedProgramOperationId,
+                UpdateScope.Program,
+                state.StagedProgramAssetName);
+            if (staged is not null
+                && staged.Manifest.Version.Equals(
+                    state.StagedProgramVersion, StringComparison.Ordinal)
+                && SemVersion.TryParse(staged.Manifest.Version, out var stagedVersion)
+                && SemVersion.TryParse(UpdateVersionInfo.CurrentVersion, out var currentVersion)
+                && stagedVersion > currentVersion)
+                return staged;
+
+            ClearStagedProgram(state.StagedProgramOperationId);
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void ClearStagedProgram(string operationId)
+    {
+        _state.Update(state =>
+        {
+            if (!string.Equals(
+                    state.StagedProgramOperationId,
+                    operationId,
+                    StringComparison.Ordinal))
+                return;
+            state.StagedProgramOperationId = null;
+            state.StagedProgramVersion = null;
+            state.StagedProgramAssetName = null;
+        });
     }
 
     public UpdatePlan? SelectProgram(UpdateManifest manifest)
@@ -735,6 +795,7 @@ public interface IUpdateService
     UpdatePlan? SelectProgram(UpdateManifest manifest);
     UpdatePlan? SelectResource(UpdateManifest manifest);
     Task<StagedUpdate> DownloadAsync(UpdatePlan plan, UpdateScope scope, IProgress<UpdateProgress>? progress = null, CancellationToken cancellationToken = default);
+    StagedUpdate? RestoreStagedProgram();
     Task ApplyResourceWhenIdleAsync(StagedUpdate update, CancellationToken cancellationToken = default);
     Task RequestProgramRestartAsync(StagedUpdate update, CancellationToken cancellationToken = default);
 }

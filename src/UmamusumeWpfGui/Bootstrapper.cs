@@ -316,11 +316,23 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             if (!settings.StartupUpdateCheck)
                 return;
             var updates = Container.Get<IUpdateService>();
+            var cachedProgram = updates.RestoreStagedProgram();
             var result = await updates.CheckAsync(UpdateScope.All)
                 .ConfigureAwait(true);
             if (result.Error is not null)
             {
                 Debug.WriteLine($"Startup update check failed: {result.Error}");
+                if (cachedProgram is not null)
+                {
+                    var restartCached = MessageBox.Show(
+                        Application.Current?.MainWindow,
+                        $"Version {cachedProgram.Manifest.Version} is already downloaded. Restart now to install it?",
+                        "UmamusumeAss update",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
+                    if (restartCached == MessageBoxResult.Yes)
+                        await updates.RequestProgramRestartAsync(cachedProgram).ConfigureAwait(true);
+                }
                 return;
             }
 
@@ -331,21 +343,32 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
                     program.Manifest.Version,
                     StringComparison.Ordinal))
             {
-                var download = MessageBox.Show(
-                    Application.Current?.MainWindow,
-                    $"Version {program.Manifest.Version} is available. Download it now?",
-                    "UmamusumeAss update",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Information);
-                if (download == MessageBoxResult.Yes)
+                var staged = cachedProgram is not null
+                    && cachedProgram.Manifest.Version.Equals(
+                        program.Manifest.Version, StringComparison.Ordinal)
+                    && cachedProgram.Asset.AssetName.Equals(
+                        program.Asset.AssetName, StringComparison.Ordinal)
+                        ? cachedProgram
+                        : null;
+                if (staged is null)
                 {
-                    var staged = await updates.DownloadAsync(program, UpdateScope.Program)
-                        .ConfigureAwait(true);
+                    var download = MessageBox.Show(
+                        Application.Current?.MainWindow,
+                        $"Version {program.Manifest.Version} is available. Download it now?",
+                        "UmamusumeAss update",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
+                    if (download == MessageBoxResult.Yes)
+                        staged = await updates.DownloadAsync(program, UpdateScope.Program)
+                            .ConfigureAwait(true);
+                }
+                if (staged is not null)
+                {
                     await Container.Get<IActivityRegistry>().WaitForIdleAsync()
                         .ConfigureAwait(true);
                     var restart = MessageBox.Show(
                         Application.Current?.MainWindow,
-                        "The update is downloaded. Restart now when the current work is idle?",
+                        $"Version {staged.Manifest.Version} is downloaded. Restart now when the current work is idle?",
                         "UmamusumeAss update",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Information);
@@ -444,6 +467,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             state.ManifestSha256 = manifestHash;
             state.CurrentTreeSha256 = targetTreeHash;
             state.ForceFull = false;
+            state.StagedProgramOperationId = null;
+            state.StagedProgramVersion = null;
+            state.StagedProgramAssetName = null;
         });
     }
 
