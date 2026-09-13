@@ -155,7 +155,9 @@ public sealed class UpdateCoordinator : IUpdateService
                 && stagedVersion > currentVersion)
                 return staged;
 
-            ClearStagedProgram(state.StagedProgramOperationId);
+            var staleOperationId = state.StagedProgramOperationId;
+            ClearStagedProgram(staleOperationId);
+            TryDeleteStagedOperation(staleOperationId);
             return null;
         }
         catch (IOException)
@@ -166,6 +168,17 @@ public sealed class UpdateCoordinator : IUpdateService
         {
             return null;
         }
+    }
+
+    public void DiscardStagedProgram()
+    {
+        var state = _state.Load();
+        var operationId = state.StagedProgramOperationId;
+        if (string.IsNullOrWhiteSpace(operationId))
+            return;
+
+        ClearStagedProgram(operationId);
+        TryDeleteStagedOperation(operationId);
     }
 
     private void ClearStagedProgram(string operationId)
@@ -181,6 +194,13 @@ public sealed class UpdateCoordinator : IUpdateService
             state.StagedProgramVersion = null;
             state.StagedProgramAssetName = null;
         });
+    }
+
+    private void TryDeleteStagedOperation(string operationId)
+    {
+        if (!Guid.TryParseExact(operationId, "N", out _))
+            return;
+        TryDeleteOperationRoot(Path.Combine(_appDataRoot, "updates", operationId));
     }
 
     public UpdatePlan? SelectProgram(UpdateManifest manifest)
@@ -279,6 +299,7 @@ public sealed class UpdateCoordinator : IUpdateService
                 resourceState.ResourceManifestPath = resourceManifestPath;
                 resourceState.ResourceSignaturePath = resourceSignaturePath;
             });
+            TryDeleteOperationRoot(Path.GetDirectoryName(update.ManifestPath)!);
         }
         catch
         {
@@ -480,6 +501,23 @@ public sealed class UpdateCoordinator : IUpdateService
     {
         ArgumentNullException.ThrowIfNull(plan);
         return JsonSerializer.Serialize(plan, UpdaterPlanJsonOptions);
+    }
+
+    private static void TryDeleteOperationRoot(string operationRoot)
+    {
+        try
+        {
+            if (Directory.Exists(operationRoot))
+                Directory.Delete(operationRoot, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Update data is cache; a later startup can retry cleanup.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Update data is cache; a later startup can retry cleanup.
+        }
     }
 
     private static void TryWriteHandoffFailure(string statusPath, string reason)
@@ -796,6 +834,7 @@ public interface IUpdateService
     UpdatePlan? SelectResource(UpdateManifest manifest);
     Task<StagedUpdate> DownloadAsync(UpdatePlan plan, UpdateScope scope, IProgress<UpdateProgress>? progress = null, CancellationToken cancellationToken = default);
     StagedUpdate? RestoreStagedProgram();
+    void DiscardStagedProgram();
     Task ApplyResourceWhenIdleAsync(StagedUpdate update, CancellationToken cancellationToken = default);
     Task RequestProgramRestartAsync(StagedUpdate update, CancellationToken cancellationToken = default);
 }

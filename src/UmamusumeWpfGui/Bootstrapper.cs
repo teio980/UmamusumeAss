@@ -197,6 +197,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             // Stylet's Launch hook is synchronous, so complete the explicit
             // startup barrier before constructing any resource-dependent view.
             _startupInitialization?.GetAwaiter().GetResult();
+            CleanupCompletedUpdateCaches(Container.Get<UpdateStateStore>());
             base.Launch();
             _ = CompleteHealthAckAsync();
             _ = StartStartupUpdateCheckAsync();
@@ -312,81 +313,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
     {
         try
         {
-            var settings = Container.Get<ISettingsService>().Load();
-            if (!settings.StartupUpdateCheck)
-                return;
-            var updates = Container.Get<IUpdateService>();
-            var cachedProgram = updates.RestoreStagedProgram();
-            var result = await updates.CheckAsync(UpdateScope.All)
+            await Container.Get<SettingsViewModel>()
+                .RunStartupUpdateCheckAsync()
                 .ConfigureAwait(true);
-            if (result.Error is not null)
-            {
-                Debug.WriteLine($"Startup update check failed: {result.Error}");
-                if (cachedProgram is not null)
-                {
-                    var restartCached = MessageBox.Show(
-                        Application.Current?.MainWindow,
-                        $"Version {cachedProgram.Manifest.Version} is already downloaded. Restart now to install it?",
-                        "UmamusumeAss update",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information);
-                    if (restartCached == MessageBoxResult.Yes)
-                        await updates.RequestProgramRestartAsync(cachedProgram).ConfigureAwait(true);
-                }
-                return;
-            }
-
-            var program = result.Program is null ? null : updates.SelectProgram(result.Program);
-            if (program is not null
-                && !string.Equals(
-                    settings.SkippedProgramVersion,
-                    program.Manifest.Version,
-                    StringComparison.Ordinal))
-            {
-                var staged = cachedProgram is not null
-                    && cachedProgram.Manifest.Version.Equals(
-                        program.Manifest.Version, StringComparison.Ordinal)
-                    && cachedProgram.Asset.AssetName.Equals(
-                        program.Asset.AssetName, StringComparison.Ordinal)
-                        ? cachedProgram
-                        : null;
-                if (staged is null)
-                {
-                    var download = MessageBox.Show(
-                        Application.Current?.MainWindow,
-                        $"Version {program.Manifest.Version} is available. Download it now?",
-                        "UmamusumeAss update",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information);
-                    if (download == MessageBoxResult.Yes)
-                        staged = await updates.DownloadAsync(program, UpdateScope.Program)
-                            .ConfigureAwait(true);
-                }
-                if (staged is not null)
-                {
-                    await Container.Get<IActivityRegistry>().WaitForIdleAsync()
-                        .ConfigureAwait(true);
-                    var restart = MessageBox.Show(
-                        Application.Current?.MainWindow,
-                        $"Version {staged.Manifest.Version} is downloaded. Restart now when the current work is idle?",
-                        "UmamusumeAss update",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information);
-                    if (restart == MessageBoxResult.Yes)
-                        await updates.RequestProgramRestartAsync(staged).ConfigureAwait(true);
-                }
-            }
-
-            var resource = result.Resource is null ? null : updates.SelectResource(result.Resource);
-            if (resource is not null)
-            {
-                // Resource updates never restart the process: the coordinator
-                // waits for an idle lease, swaps the composite pointer, and
-                // reloads native/database snapshots atomically.
-                var staged = await updates.DownloadAsync(resource, UpdateScope.Resource)
-                    .ConfigureAwait(true);
-                await updates.ApplyResourceWhenIdleAsync(staged).ConfigureAwait(true);
-            }
         }
         catch (Exception exception)
         {
@@ -420,21 +349,35 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             var appDataRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "UmamusumeAss");
-            var manifestPath = Path.Combine(appDataRoot, "updates", operationId, "manifest.json");
-            var signaturePath = Path.Combine(appDataRoot, "updates", operationId, "manifest.sig");
-            if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
+            var operationRoot = Path.Combine(appDataRoot, "updates", operationId);
+            var operationManifestPath = Path.Combine(operationRoot, "manifest.json");
+            var operationSignaturePath = Path.Combine(operationRoot, "manifest.sig");
+            if (!File.Exists(operationManifestPath) || !File.Exists(operationSignaturePath))
                 throw new FileNotFoundException("The installed update manifest is missing.");
 
             // Persist the trusted baseline before acknowledging health. If this
             // fails, the updater must keep its backup and roll back instead of
             // deleting the only recovery copy.
-            var manifest = ManifestVerifier.Deserialize(await File.ReadAllBytesAsync(manifestPath));
-            PersistProgramHealthState(stateStore, manifestPath, signaturePath, manifest);
+            var manifest = ManifestVerifier.Deserialize(
+                await File.ReadAllBytesAsync(operationManifestPath));
+            var trustedPaths = PersistTrustedProgramManifest(
+                operationManifestPath,
+                operationSignaturePath,
+                appDataRoot);
+            PersistProgramHealthState(
+                stateStore,
+                trustedPaths.ManifestPath,
+                trustedPaths.SignaturePath,
+                manifest);
 
             var temporary = ackPath + ".tmp-" + Guid.NewGuid().ToString("N");
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ackPath))!);
             await File.WriteAllTextAsync(temporary, "healthy\n").ConfigureAwait(true);
             File.Move(temporary, ackPath, overwrite: true);
+            await CleanupCompletedProgramOperationAsync(
+                    operationRoot,
+                    Path.Combine(operationRoot, "status.txt"))
+                .ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -467,10 +410,268 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             state.ManifestSha256 = manifestHash;
             state.CurrentTreeSha256 = targetTreeHash;
             state.ForceFull = false;
+            state.BackupPath = null;
+            state.Error = null;
             state.StagedProgramOperationId = null;
             state.StagedProgramVersion = null;
             state.StagedProgramAssetName = null;
         });
+    }
+
+    private static string UpdatesRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "UmamusumeAss", "updates");
+
+    private static string AppDataRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "UmamusumeAss");
+
+    private static string TrustedProgramManifestRoot => AppDataRoot;
+
+    private static (string ManifestPath, string SignaturePath) PersistTrustedProgramManifest(
+        string operationManifestPath,
+        string operationSignaturePath,
+        string appDataRoot)
+    {
+        var trustedRoot = appDataRoot;
+        Directory.CreateDirectory(trustedRoot);
+        var manifestPath = Path.Combine(trustedRoot, "program-manifest.json");
+        var signaturePath = Path.Combine(trustedRoot, "program-manifest.sig");
+        CopyFileAtomically(operationManifestPath, manifestPath);
+        CopyFileAtomically(operationSignaturePath, signaturePath);
+        return (manifestPath, signaturePath);
+    }
+
+    private static void CopyFileAtomically(string sourcePath, string destinationPath)
+    {
+        var temporaryPath = destinationPath + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            File.Copy(sourcePath, temporaryPath, overwrite: true);
+            File.Move(temporaryPath, destinationPath, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
+            catch (IOException)
+            {
+                // A stale temporary file is harmless and is cleaned on the next run.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // A stale temporary file is harmless and is cleaned on the next run.
+            }
+        }
+    }
+
+    private static void CleanupCompletedUpdateCaches(UpdateStateStore stateStore)
+    {
+        var updatesRoot = UpdatesRoot;
+        if (!Directory.Exists(updatesRoot))
+            return;
+
+        try
+        {
+            MigrateTrustedProgramManifest(stateStore, updatesRoot);
+            CleanupVersionedManifestCaches(updatesRoot);
+            foreach (var operationRoot in Directory.EnumerateDirectories(updatesRoot))
+            {
+                var directoryName = Path.GetFileName(operationRoot);
+                if (directoryName.Equals("checks", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var statusPath = Path.Combine(operationRoot, "status.txt");
+                if (!File.Exists(statusPath)
+                    || !File.ReadAllText(statusPath).StartsWith(
+                        "health-succeeded", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                TryDeleteOperationRoot(operationRoot);
+            }
+            TryDeleteUpdatesRootIfNoPendingOperation(updatesRoot);
+        }
+        catch (IOException)
+        {
+            // Cache cleanup is best effort and must never block startup.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Cache cleanup is best effort and must never block startup.
+        }
+    }
+
+    private static void CleanupVersionedManifestCaches(string updatesRoot)
+    {
+        var checksRoot = Path.Combine(updatesRoot, "checks");
+        if (!Directory.Exists(checksRoot))
+            return;
+
+        foreach (var path in Directory.EnumerateFiles(checksRoot))
+        {
+            var name = Path.GetFileName(path);
+            if (!name.StartsWith("program-manifest-", StringComparison.OrdinalIgnoreCase)
+                && !name.StartsWith("resource-manifest-", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                File.Delete(path);
+            }
+            catch (IOException)
+            {
+                // A concurrent update check can still be using this file.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // A concurrent update check can still be using this file.
+            }
+        }
+    }
+
+    private static void MigrateTrustedProgramManifest(
+        UpdateStateStore stateStore,
+        string updatesRoot)
+    {
+        var state = stateStore.Load();
+        var manifestPath = state.SignedManifestPath;
+        var signaturePath = state.SignedSignaturePath;
+        var hasTrustedFiles = state.CurrentManifestSigned
+            && !string.IsNullOrWhiteSpace(manifestPath)
+            && !string.IsNullOrWhiteSpace(signaturePath)
+            && File.Exists(manifestPath)
+            && File.Exists(signaturePath);
+
+        if (hasTrustedFiles
+            && (!IsPathUnderRoot(manifestPath!, updatesRoot)
+                || !IsPathUnderRoot(signaturePath!, updatesRoot)))
+            return;
+
+        if (hasTrustedFiles
+            && (!IsPathUnderRoot(manifestPath!, TrustedProgramManifestRoot)
+                || !IsPathUnderRoot(signaturePath!, TrustedProgramManifestRoot)))
+        {
+            var trustedPaths = PersistTrustedProgramManifest(
+                manifestPath!,
+                signaturePath!,
+                AppDataRoot);
+            stateStore.Update(current =>
+            {
+                current.SignedManifestPath = trustedPaths.ManifestPath;
+                current.SignedSignaturePath = trustedPaths.SignaturePath;
+                current.ManifestSha256 = ManifestVerifier.Sha256File(trustedPaths.ManifestPath);
+            });
+            state = stateStore.Load();
+        }
+
+        if (state.CurrentManifestSigned
+            && (string.IsNullOrWhiteSpace(state.SignedManifestPath)
+                || string.IsNullOrWhiteSpace(state.SignedSignaturePath)
+                || !File.Exists(state.SignedManifestPath)
+                || !File.Exists(state.SignedSignaturePath)))
+        {
+            // The previous build could leave state pointing into a deleted
+            // operation directory. Force a full update rather than retrying a
+            // broken delta forever.
+            stateStore.Update(current =>
+            {
+                current.CurrentManifestSigned = false;
+                current.ForceFull = true;
+                current.SignedManifestPath = null;
+                current.SignedSignaturePath = null;
+                current.ManifestSha256 = string.Empty;
+                current.CurrentTreeSha256 = null;
+                current.BackupPath = null;
+                current.Error = null;
+            });
+        }
+    }
+
+    private static bool IsPathUnderRoot(string path, string root)
+    {
+        var fullPath = Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullRoot = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void TryDeleteUpdatesRootIfNoPendingOperation(string updatesRoot)
+    {
+        if (!Directory.Exists(updatesRoot))
+            return;
+
+        try
+        {
+            var hasPendingOperation = Directory.EnumerateDirectories(updatesRoot)
+                .Any(path => !Path.GetFileName(path).Equals(
+                    "checks", StringComparison.OrdinalIgnoreCase));
+            if (!hasPendingOperation)
+                Directory.Delete(updatesRoot, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Cache cleanup is best effort and will retry on the next launch.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Cache cleanup is best effort and will retry on the next launch.
+        }
+    }
+
+    private static async Task CleanupCompletedProgramOperationAsync(
+        string operationRoot,
+        string statusPath)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                if (File.Exists(statusPath)
+                    && File.ReadAllText(statusPath).StartsWith(
+                        "health-succeeded", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (TryDeleteOperationRoot(operationRoot))
+                    {
+                        TryDeleteUpdatesRootIfNoPendingOperation(UpdatesRoot);
+                        return;
+                    }
+                }
+            }
+            catch (IOException)
+            {
+                // The updater may still be writing the status file.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The updater may still be releasing its file handles.
+            }
+
+            await Task.Delay(100).ConfigureAwait(true);
+        }
+    }
+
+    private static bool TryDeleteOperationRoot(string operationRoot)
+    {
+        if (!Directory.Exists(operationRoot))
+            return true;
+
+        try
+        {
+            Directory.Delete(operationRoot, recursive: true);
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private async Task ShutdownAsync(ExitEventArgs e)

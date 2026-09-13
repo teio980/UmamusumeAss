@@ -58,63 +58,71 @@ public sealed class PackageStager
         var payloadRoot = Path.Combine(operationRoot, "payload");
         Directory.CreateDirectory(payloadRoot);
 
-        var packagePath = Path.Combine(operationRoot, asset.Name);
-        var partialPath = packagePath + ".part";
-        progress?.Report(new UpdateProgress(
-            "Downloading update",
-            File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0,
-            asset.Size));
-        var downloadProgress = progress is null
-            ? null
-            : new ForwardingProgress(progress, asset.Size);
-        await _releases.DownloadAssetFileAsync(
-                asset,
-                packagePath,
-                progress: downloadProgress,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        progress?.Report(new UpdateProgress("Verifying update", 0, 0));
-        if (!string.IsNullOrWhiteSpace(plan.Asset.Sha256)
-            && !plan.Asset.Sha256.Equals(ManifestVerifier.Sha256File(packagePath), StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("Release package SHA-256 did not match its manifest.");
-        if (plan.Asset.Size > 0 && new FileInfo(packagePath).Length != plan.Asset.Size)
-            throw new InvalidDataException("Release package size did not match its manifest.");
-
-        var extractedPaths = await ExtractSafeAsync(packagePath, payloadRoot, cancellationToken)
-            .ConfigureAwait(false);
-        var expectedPaths = plan.Asset.Files.Select(file => file.Path)
-            .ToHashSet(StringComparer.Ordinal);
-        if (!extractedPaths.SetEquals(expectedPaths))
-            throw new InvalidDataException("Update package file set does not match the signed manifest.");
-        foreach (var file in plan.Asset.Files)
+        try
         {
-            var source = UpdatePathSafety.ResolveUnderRoot(payloadRoot, file.Path);
-            if (!File.Exists(source))
-                throw new InvalidDataException($"Package is missing manifest file: {file.Path}");
-            var info = new FileInfo(source);
-            if (info.Length != file.Size || !file.Sha256.Equals(
-                    ManifestVerifier.Sha256File(source), StringComparison.OrdinalIgnoreCase))
-                throw new CryptographicException($"Package file hash mismatch: {file.Path}");
-        }
-        foreach (var deleted in plan.Asset.Deletes)
-            UpdatePathSafety.ValidateRelative(deleted);
+            var packagePath = Path.Combine(operationRoot, asset.Name);
+            var partialPath = packagePath + ".part";
+            progress?.Report(new UpdateProgress(
+                "Downloading update",
+                File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0,
+                asset.Size));
+            var downloadProgress = progress is null
+                ? null
+                : new ForwardingProgress(progress, asset.Size);
+            await _releases.DownloadAssetFileAsync(
+                    asset,
+                    packagePath,
+                    progress: downloadProgress,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            progress?.Report(new UpdateProgress("Verifying update", 0, 0));
+            if (!string.IsNullOrWhiteSpace(plan.Asset.Sha256)
+                && !plan.Asset.Sha256.Equals(ManifestVerifier.Sha256File(packagePath), StringComparison.OrdinalIgnoreCase))
+                throw new CryptographicException("Release package SHA-256 did not match its manifest.");
+            if (plan.Asset.Size > 0 && new FileInfo(packagePath).Length != plan.Asset.Size)
+                throw new InvalidDataException("Release package size did not match its manifest.");
 
-        var manifestPath = Path.Combine(operationRoot, "manifest.json");
-        var signaturePath = Path.Combine(operationRoot, "manifest.sig");
-        await File.WriteAllBytesAsync(manifestPath, manifestBytes.ToArray(), cancellationToken)
-            .ConfigureAwait(false);
-        await File.WriteAllTextAsync(signaturePath, Convert.ToBase64String(signature.ToArray()), cancellationToken)
-            .ConfigureAwait(false);
-        progress?.Report(new UpdateProgress("Update ready", asset.Size, asset.Size));
-        return new StagedUpdate(
-            operationId,
-            scope,
-            plan.Manifest,
-            plan.Asset,
-            packagePath,
-            payloadRoot,
-            manifestPath,
-            signaturePath);
+            var extractedPaths = await ExtractSafeAsync(packagePath, payloadRoot, cancellationToken)
+                .ConfigureAwait(false);
+            var expectedPaths = plan.Asset.Files.Select(file => file.Path)
+                .ToHashSet(StringComparer.Ordinal);
+            if (!extractedPaths.SetEquals(expectedPaths))
+                throw new InvalidDataException("Update package file set does not match the signed manifest.");
+            foreach (var file in plan.Asset.Files)
+            {
+                var source = UpdatePathSafety.ResolveUnderRoot(payloadRoot, file.Path);
+                if (!File.Exists(source))
+                    throw new InvalidDataException($"Package is missing manifest file: {file.Path}");
+                var info = new FileInfo(source);
+                if (info.Length != file.Size || !file.Sha256.Equals(
+                        ManifestVerifier.Sha256File(source), StringComparison.OrdinalIgnoreCase))
+                    throw new CryptographicException($"Package file hash mismatch: {file.Path}");
+            }
+            foreach (var deleted in plan.Asset.Deletes)
+                UpdatePathSafety.ValidateRelative(deleted);
+
+            var manifestPath = Path.Combine(operationRoot, "manifest.json");
+            var signaturePath = Path.Combine(operationRoot, "manifest.sig");
+            await File.WriteAllBytesAsync(manifestPath, manifestBytes.ToArray(), cancellationToken)
+                .ConfigureAwait(false);
+            await File.WriteAllTextAsync(signaturePath, Convert.ToBase64String(signature.ToArray()), cancellationToken)
+                .ConfigureAwait(false);
+            progress?.Report(new UpdateProgress("Update ready", asset.Size, asset.Size));
+            return new StagedUpdate(
+                operationId,
+                scope,
+                plan.Manifest,
+                plan.Asset,
+                packagePath,
+                payloadRoot,
+                manifestPath,
+                signaturePath);
+        }
+        catch
+        {
+            TryDeleteOperationRoot(operationRoot);
+            throw;
+        }
     }
 
     public StagedUpdate? TryRestore(
@@ -205,6 +213,23 @@ public sealed class PackageStager
         foreach (var deleted in asset.Deletes)
             UpdatePathSafety.ValidateRelative(deleted);
         return true;
+    }
+
+    private static void TryDeleteOperationRoot(string operationRoot)
+    {
+        try
+        {
+            if (Directory.Exists(operationRoot))
+                Directory.Delete(operationRoot, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A partial download is cache; a later startup can retry cleanup.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // A partial download is cache; a later startup can retry cleanup.
+        }
     }
 
     private sealed class ForwardingProgress(

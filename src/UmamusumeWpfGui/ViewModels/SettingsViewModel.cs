@@ -853,6 +853,75 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _settingsService.Save(_draft);
     }
 
+    public async Task RunStartupUpdateCheckAsync()
+    {
+        if (_updateService is null || _disposed || IsUpdateBusy)
+            return;
+
+        var settings = _settingsService.Load();
+        if (!settings.StartupUpdateCheck)
+            return;
+
+        _stagedUpdate = _updateService.RestoreStagedProgram();
+        _pendingUpdatePlan = null;
+        _pendingUpdateScope = UpdateScope.Program;
+
+        await CheckForUpdatesAsync().ConfigureAwait(true);
+        if (_pendingUpdatePlan is null)
+            return;
+
+        if (_pendingUpdateScope == UpdateScope.Program
+            && string.Equals(
+                settings.SkippedProgramVersion,
+                _pendingUpdatePlan.Manifest.Version,
+                StringComparison.Ordinal))
+            return;
+
+        if (_pendingUpdateScope == UpdateScope.Program && _stagedUpdate is null)
+        {
+            var download = MessageBox.Show(
+                Application.Current?.MainWindow,
+                $"Version {_pendingUpdatePlan.Manifest.Version} is available. Download it now?",
+                "UmamusumeAss update",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+            if (download == MessageBoxResult.Yes)
+            {
+                var downloaded = await DownloadUpdateAsync().ConfigureAwait(true);
+                if (!downloaded)
+                {
+                    MessageBox.Show(
+                        Application.Current?.MainWindow,
+                        UpdateStatus,
+                        "UmamusumeAss update",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return;
+                }
+            }
+        }
+
+        if (_pendingUpdateScope != UpdateScope.Program || _stagedUpdate is null)
+            return;
+
+        var restart = MessageBox.Show(
+            Application.Current?.MainWindow,
+            $"Version {_stagedUpdate.Manifest.Version} is downloaded. Restart now when the current work is idle?",
+            "UmamusumeAss update",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+        if (restart == MessageBoxResult.Yes
+            && !await InstallUpdateAsync().ConfigureAwait(true))
+        {
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                UpdateStatus,
+                "UmamusumeAss update",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private async Task CheckForUpdatesAsync()
     {
         if (_updateService is null || _disposed || IsUpdateBusy) return;
@@ -909,9 +978,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    private async Task DownloadUpdateAsync()
+    private async Task<bool> DownloadUpdateAsync()
     {
-        if (_updateService is null || _pendingUpdatePlan is null || _disposed || IsUpdateBusy) return;
+        if (_updateService is null || _pendingUpdatePlan is null || _disposed || IsUpdateBusy)
+            return false;
         using var cts = new CancellationTokenSource();
         _updateCts = cts;
         SetUpdateProgress(null);
@@ -937,15 +1007,18 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             {
                 SetUpdateStatus("Update downloaded. It will install when you confirm restart.");
             }
+            return true;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
             SetUpdateProgress(null);
             SetUpdateStatus("Update canceled.");
+            return false;
         }
         catch (Exception exception)
         {
             SetUpdateStatus($"Download failed: {exception.Message}");
+            return false;
         }
         finally
         {
@@ -954,19 +1027,27 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         }
     }
 
-    private async Task InstallUpdateAsync()
+    private async Task<bool> InstallUpdateAsync()
     {
-        if (_updateService is null || _stagedUpdate is null || _disposed || IsUpdateBusy) return;
+        if (_updateService is null || _stagedUpdate is null || _disposed || IsUpdateBusy)
+            return false;
         try
         {
             if (_stagedUpdate.Scope == UpdateScope.Program)
                 await _updateService.RequestProgramRestartAsync(_stagedUpdate).ConfigureAwait(true);
             else
                 await _updateService.ApplyResourceWhenIdleAsync(_stagedUpdate).ConfigureAwait(true);
+            return true;
         }
         catch (Exception exception)
         {
+            if (_stagedUpdate.Scope == UpdateScope.Program)
+            {
+                _updateService.DiscardStagedProgram();
+                _stagedUpdate = null;
+            }
             SetUpdateStatus($"Install failed: {exception.Message}");
+            return false;
         }
     }
 
