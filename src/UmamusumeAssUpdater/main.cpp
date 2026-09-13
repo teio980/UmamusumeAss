@@ -371,6 +371,41 @@ bool WriteReady(Args const& args)
     return WriteText(args.statusPath, "ready\n");
 }
 
+void ScheduleCacheCleanup(fs::path const& updatesRoot)
+{
+    if (updatesRoot.empty()) return;
+
+    std::wstring escapedPath;
+    auto path = updatesRoot.wstring();
+    for (auto character : path) {
+        if (character == L'\'') escapedPath += L"''";
+        else escapedPath += character;
+    }
+
+    std::wstring command =
+        L"-NoProfile -WindowStyle Hidden -Command \""
+        L"Start-Sleep -Milliseconds 750; "
+        L"for ($i = 0; $i -lt 30; $i++) { "
+        L"try { Remove-Item -LiteralPath '" + escapedPath +
+        L"' -Recurse -Force -ErrorAction Stop; break } "
+        L"catch { Start-Sleep -Milliseconds 500 } }\"";
+
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESHOWWINDOW;
+    startup.wShowWindow = SW_HIDE;
+    PROCESS_INFORMATION process{};
+    wchar_t temporaryDirectory[MAX_PATH]{};
+    DWORD length = GetTempPathW(MAX_PATH, temporaryDirectory);
+    LPCWSTR workingDirectory = length > 0 ? temporaryDirectory : nullptr;
+    if (CreateProcessW(L"powershell.exe", command.data(), nullptr, nullptr, FALSE,
+                       CREATE_NO_WINDOW, nullptr, workingDirectory,
+                       &startup, &process)) {
+        CloseHandle(process.hThread);
+        CloseHandle(process.hProcess);
+    }
+}
+
 bool WaitForParent(DWORD pid)
 {
     HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, pid);
@@ -636,6 +671,7 @@ int Run(Args const& args)
         std::error_code cleanupError;
         fs::remove_all(args.backupRoot, cleanupError);
         WriteText(args.statusPath, "health-succeeded\n");
+        ScheduleCacheCleanup(args.statusPath.parent_path().parent_path());
         return 0;
     }
     bool processExited = WaitForSingleObject(process.hProcess, 0) == WAIT_OBJECT_0;
