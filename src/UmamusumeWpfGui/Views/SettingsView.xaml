@@ -16,7 +16,8 @@
         <TabControl x:Name="SettingsTabs"
                     SelectedIndex="{Binding SelectedMenuIndex, Mode=TwoWay}"
                     SelectionChanged="OnSettingsTabSelectionChanged">
-          <TabItem Header="{DynamicResource NavConnection}">
+          <TabItem Margin="-6,0,0,0"
+                   Header="{DynamicResource NavConnection}">
             <StackPanel Margin="0,18,0,0">
           <TextBlock Text="{DynamicResource ConnectionTitle}"
                      FontSize="20"
