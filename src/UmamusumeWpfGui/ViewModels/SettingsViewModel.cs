@@ -74,6 +74,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     private UpdateScope _pendingUpdateScope = UpdateScope.Program;
     private StagedUpdate? _stagedUpdate;
     private string _updateStatus = "Updates are ready to check.";
+    private UpdateProgress? _updateProgress;
 
 
 
@@ -437,6 +438,20 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     public string UpdateStatus => _updateStatus;
 
     public bool IsUpdateBusy => _updateCts is not null;
+
+    public bool IsUpdateProgressVisible => _updateProgress is not null;
+
+    public bool IsUpdateProgressIndeterminate => _updateProgress is not { Total: > 0 };
+
+    public double UpdateProgressPercentage => _updateProgress is not { Total: > 0 } progress
+        ? 0
+        : Math.Clamp(progress.Completed * 100d / progress.Total, 0d, 100d);
+
+    public string UpdateProgressText => _updateProgress is not { } progress
+        ? string.Empty
+        : progress.Total > 0
+            ? $"{progress.Stage} · {progress.Completed:N0} / {progress.Total:N0} bytes ({UpdateProgressPercentage:0}%)"
+            : progress.Stage;
 
     public bool StartupUpdateCheck
     {
@@ -836,6 +851,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         if (_updateService is null || _disposed || IsUpdateBusy) return;
         using var cts = new CancellationTokenSource();
         _updateCts = cts;
+        SetUpdateProgress(null);
         SetUpdateStatus("Checking for updates...");
         RaiseUpdateCommands();
         try
@@ -879,12 +895,17 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         if (_updateService is null || _pendingUpdatePlan is null || _disposed || IsUpdateBusy) return;
         using var cts = new CancellationTokenSource();
         _updateCts = cts;
+        SetUpdateProgress(null);
         SetUpdateStatus("Downloading update...");
         RaiseUpdateCommands();
         try
         {
+            var progress = new Progress<UpdateProgress>(SetUpdateProgress);
             _stagedUpdate = await _updateService.DownloadAsync(
-                _pendingUpdatePlan, _pendingUpdateScope, cancellationToken: cts.Token).ConfigureAwait(true);
+                _pendingUpdatePlan,
+                _pendingUpdateScope,
+                progress: progress,
+                cancellationToken: cts.Token).ConfigureAwait(true);
             if (_stagedUpdate.Scope == UpdateScope.Resource)
             {
                 SetUpdateStatus("Resource downloaded. Applying when the app is idle...");
@@ -897,6 +918,11 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             {
                 SetUpdateStatus("Update downloaded. It will install when you confirm restart.");
             }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            SetUpdateProgress(null);
+            SetUpdateStatus("Update canceled.");
         }
         catch (Exception exception)
         {
@@ -943,6 +969,15 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     {
         _updateStatus = status;
         OnPropertyChanged(nameof(UpdateStatus));
+    }
+
+    private void SetUpdateProgress(UpdateProgress? progress)
+    {
+        _updateProgress = progress;
+        OnPropertyChanged(nameof(IsUpdateProgressVisible));
+        OnPropertyChanged(nameof(IsUpdateProgressIndeterminate));
+        OnPropertyChanged(nameof(UpdateProgressPercentage));
+        OnPropertyChanged(nameof(UpdateProgressText));
     }
 
     private void RaiseUpdateCommands()

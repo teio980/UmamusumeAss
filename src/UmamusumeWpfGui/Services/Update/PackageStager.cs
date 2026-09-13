@@ -29,6 +29,7 @@ public sealed class PackageStager
         UpdateScope scope,
         ReadOnlyMemory<byte> manifestBytes,
         ReadOnlyMemory<byte> signature,
+        IProgress<UpdateProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -58,8 +59,21 @@ public sealed class PackageStager
         Directory.CreateDirectory(payloadRoot);
 
         var packagePath = Path.Combine(operationRoot, asset.Name);
-        await _releases.DownloadAssetFileAsync(asset, packagePath, cancellationToken: cancellationToken)
+        var partialPath = packagePath + ".part";
+        progress?.Report(new UpdateProgress(
+            "Downloading update",
+            File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0,
+            asset.Size));
+        var downloadProgress = progress is null
+            ? null
+            : new ForwardingProgress(progress, asset.Size);
+        await _releases.DownloadAssetFileAsync(
+                asset,
+                packagePath,
+                progress: downloadProgress,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+        progress?.Report(new UpdateProgress("Verifying update", 0, 0));
         if (!string.IsNullOrWhiteSpace(plan.Asset.Sha256)
             && !plan.Asset.Sha256.Equals(ManifestVerifier.Sha256File(packagePath), StringComparison.OrdinalIgnoreCase))
             throw new CryptographicException("Release package SHA-256 did not match its manifest.");
@@ -91,6 +105,7 @@ public sealed class PackageStager
             .ConfigureAwait(false);
         await File.WriteAllTextAsync(signaturePath, Convert.ToBase64String(signature.ToArray()), cancellationToken)
             .ConfigureAwait(false);
+        progress?.Report(new UpdateProgress("Update ready", asset.Size, asset.Size));
         return new StagedUpdate(
             operationId,
             scope,
@@ -100,6 +115,14 @@ public sealed class PackageStager
             payloadRoot,
             manifestPath,
             signaturePath);
+    }
+
+    private sealed class ForwardingProgress(
+        IProgress<UpdateProgress> target,
+        long total) : IProgress<long>
+    {
+        public void Report(long completed) => target.Report(
+            new UpdateProgress("Downloading update", completed, total));
     }
 
     private static async Task<HashSet<string>> ExtractSafeAsync(
