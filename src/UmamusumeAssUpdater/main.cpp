@@ -7,6 +7,7 @@
 #include <array>
 #include <cctype>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <optional>
 #include <set>
@@ -366,45 +367,79 @@ void WriteFailure(Args const& args, std::string const& reason)
         RelaunchInstalledApp(args);
 }
 
-bool WriteReady(Args const& args)
+bool PathExists(fs::path const& path)
 {
-    return WriteText(args.statusPath, "ready\n");
+    return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
-void ScheduleOperationCleanup(fs::path const& operationRoot)
+bool RetryFileOperation(std::function<bool()> const& operation,
+                        int maxAttempts = 5,
+                        DWORD initialDelayMilliseconds = 200)
 {
-    if (operationRoot.empty()) return;
+    for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
+        if (operation()) return true;
+        auto error = GetLastError();
+        if (error != ERROR_SHARING_VIOLATION
+            && error != ERROR_LOCK_VIOLATION
+            && error != ERROR_ACCESS_DENIED)
+            return false;
+        if (attempt < maxAttempts)
+            Sleep(initialDelayMilliseconds * static_cast<DWORD>(1 << (attempt - 1)));
+    }
+    return false;
+}
 
-    std::wstring escapedPath;
-    auto path = operationRoot.wstring();
-    for (auto character : path) {
-        if (character == L'\'') escapedPath += L"''";
-        else escapedPath += character;
+fs::path RenameLockedFile(fs::path const& path)
+{
+    static volatile LONG counter = 0;
+    auto renamed = path;
+    renamed += L"." + std::to_wstring(GetTickCount64()) + L"."
+        + std::to_wstring(InterlockedIncrement(&counter)) + L".pendingdelete";
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        if (MoveFileExW(path.c_str(), renamed.c_str(), MOVEFILE_REPLACE_EXISTING))
+            return renamed;
+        Sleep(100);
+        renamed += L"." + std::to_wstring(attempt);
+    }
+    return {};
+}
+
+bool ForceDeleteFile(fs::path const& path)
+{
+    if (RetryFileOperation([&] { return DeleteFileW(path.c_str()) != FALSE; }))
+        return true;
+    if (!PathExists(path)) return true;
+
+    auto renamed = RenameLockedFile(path);
+    if (!renamed.empty()) {
+        RetryFileOperation(
+            [&] { return DeleteFileW(renamed.c_str()) != FALSE; }, 3, 500);
+        return true;
     }
 
-    std::wstring command =
-        L"powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -Command \""
-        L"Wait-Process -Id " + std::to_wstring(GetCurrentProcessId()) +
-        L" -Timeout 60 -ErrorAction SilentlyContinue; "
-        L"for ($i = 0; $i -lt 60; $i++) { "
-        L"try { Remove-Item -LiteralPath '" + escapedPath +
-        L"' -Recurse -Force -ErrorAction Stop; break } "
-        L"catch { Start-Sleep -Milliseconds 500 } }\"";
+    return MoveFileExW(path.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT) != FALSE;
+}
 
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESHOWWINDOW;
-    startup.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION process{};
-    wchar_t temporaryDirectory[MAX_PATH]{};
-    DWORD length = GetTempPathW(MAX_PATH, temporaryDirectory);
-    LPCWSTR workingDirectory = length > 0 ? temporaryDirectory : nullptr;
-    if (CreateProcessW(L"powershell.exe", command.data(), nullptr, nullptr, FALSE,
-                       CREATE_NO_WINDOW, nullptr, workingDirectory,
-                       &startup, &process)) {
-        CloseHandle(process.hThread);
-        CloseHandle(process.hProcess);
+bool ForceRemoveDirectoryRecursive(fs::path const& directory)
+{
+    if (!PathExists(directory)) return true;
+    auto pattern = directory / L"*";
+    WIN32_FIND_DATAW data{};
+    HANDLE find = FindFirstFileW(pattern.c_str(), &data);
+    if (find != INVALID_HANDLE_VALUE) {
+        do {
+            if (wcscmp(data.cFileName, L".") == 0
+                || wcscmp(data.cFileName, L"..") == 0)
+                continue;
+            auto child = directory / data.cFileName;
+            if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+                ForceRemoveDirectoryRecursive(child);
+            else
+                ForceDeleteFile(child);
+        } while (FindNextFileW(find, &data));
+        FindClose(find);
     }
+    return RemoveDirectoryW(directory.c_str()) != FALSE || !PathExists(directory);
 }
 
 bool WaitForParent(DWORD pid)
@@ -505,6 +540,7 @@ int Run(Args const& args)
     std::ifstream planInput(args.planPath);
     json plan;
     try { planInput >> plan; } catch (...) { WriteFailure(args, "更新计划无效。"); return 2; }
+    planInput.close();
     auto manifestPath = fs::path(plan.value("manifestPath", ""));
     auto signaturePath = fs::path(plan.value("signaturePath", ""));
     if (manifestPath.empty()) manifestPath = args.planPath.parent_path() / "manifest.json";
@@ -526,6 +562,7 @@ int Run(Args const& args)
     try { signedInput >> signedManifest; } catch (...) {
         WriteFailure(args, "更新清单 JSON 无效。"); return 2;
     }
+    signedInput.close();
     if (plan.value("operationId", "") != args.operationId) {
         WriteFailure(args, "更新操作 ID 不匹配。"); return 2;
     }
@@ -612,7 +649,6 @@ int Run(Args const& args)
         }
     }
 
-    if (!WriteReady(args)) { WriteFailure(args, "无法写入更新器就绪状态。"); return 2; }
     if (!WaitForParent(args.parentPid)) { WriteFailure(args, "无法等待主程序退出。"); return 2; }
     fs::create_directories(args.backupRoot);
     std::vector<JournalEntry> journal;
@@ -646,70 +682,18 @@ int Run(Args const& args)
     if (!VerifyManagedTree(args.installRoot, targetFull,
                            targetFull.value("targetTreeSha256", "")))
         return fail("更新后文件与目标签名 inventory 不一致。");
-    if (!WriteText(args.statusPath, "succeeded\n")) return fail("写入更新状态失败。");
 
-    auto installRoot = args.installRoot.wstring();
-    auto executable = args.installRoot / L"UmamusumeAss.exe";
-    auto ack = args.statusPath.parent_path() / L"health.ack";
-    STARTUPINFOW startup{}; startup.cb = sizeof(startup);
-    PROCESS_INFORMATION process{};
-    std::wstring command = L"\"" + executable.wstring() + L"\" --update-operation \"" +
-                           std::wstring(args.operationId.begin(), args.operationId.end()) +
-                           L"\" --update-ack \"" + ack.wstring() + L"\"";
-    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr,
-                        installRoot.c_str(), &startup, &process)) {
-        return fail("更新完成但重启主程序失败。");
-    }
-    CloseHandle(process.hThread);
-    auto healthDeadline = GetTickCount64() + 60'000;
-    bool acknowledged = false;
-    while (GetTickCount64() < healthDeadline) {
-        if (fs::exists(ack)) { acknowledged = true; break; }
-        if (WaitForSingleObject(process.hProcess, 250) == WAIT_OBJECT_0) break;
-    }
-    if (acknowledged) {
-        CloseHandle(process.hProcess);
-        std::error_code cleanupError;
-        fs::remove_all(args.backupRoot, cleanupError);
-        WriteText(args.statusPath, "health-succeeded\n");
-        // Only this completed operation is cache. The restarted application
-        // may already be using updates/checks for its startup update check, so
-        // deleting the shared updates root races with normal application I/O.
-        ScheduleOperationCleanup(args.statusPath.parent_path());
-        return 0;
-    }
-    bool processExited = WaitForSingleObject(process.hProcess, 0) == WAIT_OBJECT_0;
-    auto decision = processExited
-        ? IDYES
-        : MessageBoxW(nullptr,
-            L"新版本未在规定时间内完成初始化。\n\n是：终止新版本并回滚\n否：保留新版并保留备份",
-            L"UmamusumeAss 更新健康检查", MB_YESNO | MB_ICONWARNING);
-    if (decision == IDYES) {
-        if (!processExited) {
-            if (!TerminateProcess(process.hProcess, 1)
-                || WaitForSingleObject(process.hProcess, 10'000) != WAIT_OBJECT_0) {
-                CloseHandle(process.hProcess);
-                WriteText(args.statusPath, "health-timeout-preserved\n");
-                MessageBoxW(nullptr,
-                    L"新版本仍在运行，无法安全回滚。请关闭程序后重试。",
-                    L"UmamusumeAss 更新失败", MB_OK | MB_ICONERROR);
-                return 2;
-            }
-        }
-        CloseHandle(process.hProcess);
-        Rollback(journal);
-        WriteText(args.statusPath, "health-rollback\n");
-        STARTUPINFOW oldStartup{}; oldStartup.cb = sizeof(oldStartup);
-        PROCESS_INFORMATION oldProcess{};
-        std::wstring oldCommand = L"\"" + executable.wstring() + L"\"";
-        CreateProcessW(executable.c_str(), oldCommand.data(), nullptr, nullptr, FALSE, 0, nullptr,
-                       installRoot.c_str(), &oldStartup, &oldProcess);
-        if (oldProcess.hThread) CloseHandle(oldProcess.hThread);
-        if (oldProcess.hProcess) CloseHandle(oldProcess.hProcess);
+    // Same finish order as MAA: remove the downloaded update data first,
+    // then launch the installed application. This updater runs outside the
+    // updates directory, so it never tries to delete itself.
+    auto updatesRoot = args.statusPath.parent_path().parent_path();
+    ForceRemoveDirectoryRecursive(updatesRoot);
+    if (!RelaunchInstalledApp(args)) {
+        MessageBoxW(nullptr,
+            L"更新已完成，但重新启动程序失败。请手动启动 UmamusumeAss。",
+            L"UmamusumeAss", MB_OK | MB_ICONERROR);
         return 2;
     }
-    CloseHandle(process.hProcess);
-    WriteText(args.statusPath, "health-timeout-preserved\n");
     return 0;
 }
 

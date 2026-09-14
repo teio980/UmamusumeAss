@@ -112,6 +112,9 @@ public sealed class UpdateCoordinator : IUpdateService
         var signature = scope == UpdateScope.Resource ? _resourceSignature : _programSignature;
         if (rawManifest is null || signature is null)
             throw new InvalidOperationException("The signed manifest is not staged.");
+        var previousProgramOperationId = scope == UpdateScope.Program
+            ? _state.Load().StagedProgramOperationId
+            : null;
         var staged = await _stager.StageAsync(
                 plan,
                 asset,
@@ -129,6 +132,10 @@ public sealed class UpdateCoordinator : IUpdateService
                 state.StagedProgramVersion = staged.Manifest.Version;
                 state.StagedProgramAssetName = staged.Asset.AssetName;
             });
+            if (!string.IsNullOrWhiteSpace(previousProgramOperationId)
+                && !previousProgramOperationId.Equals(
+                    staged.OperationId, StringComparison.Ordinal))
+                TryDeleteStagedOperation(previousProgramOperationId);
         }
         return staged;
     }
@@ -181,6 +188,90 @@ public sealed class UpdateCoordinator : IUpdateService
         TryDeleteStagedOperation(operationId);
     }
 
+    public Task ClearAllUpdateCacheAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            var updatesRoot = Path.Combine(_appDataRoot, "updates");
+            var checksRoot = Path.Combine(_appDataRoot, "update-checks");
+            PreserveTrustedProgramManifest();
+            DeleteCacheDirectory(updatesRoot, cancellationToken);
+            DeleteCacheDirectory(checksRoot, cancellationToken);
+            _state.Update(state =>
+            {
+                state.StagedProgramOperationId = null;
+                state.StagedProgramVersion = null;
+                state.StagedProgramAssetName = null;
+                state.BackupPath = null;
+                if (IsPathUnderRoot(state.SignedManifestPath, updatesRoot))
+                {
+                    state.CurrentManifestSigned = false;
+                    state.SignedManifestPath = null;
+                    state.SignedSignaturePath = null;
+                    state.ManifestSha256 = string.Empty;
+                    state.CurrentTreeSha256 = null;
+                    state.ForceFull = true;
+                }
+            });
+        }, cancellationToken);
+    }
+
+    private void PreserveTrustedProgramManifest()
+    {
+        var state = _state.Load();
+        if (!TryLoadTrustedProgramBaseline(state, out _, out _))
+            return;
+        var manifestPath = Path.Combine(_appDataRoot, "program-manifest.json");
+        var signaturePath = Path.Combine(_appDataRoot, "program-manifest.sig");
+        File.Copy(state.SignedManifestPath!, manifestPath, overwrite: true);
+        File.Copy(state.SignedSignaturePath!, signaturePath, overwrite: true);
+        state.SignedManifestPath = manifestPath;
+        state.SignedSignaturePath = signaturePath;
+        state.ManifestSha256 = ManifestVerifier.Sha256File(manifestPath);
+        _state.Save(state);
+    }
+
+    internal static void DeleteCacheDirectory(
+        string directory,
+        CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Directory.Exists(directory))
+                return;
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                return;
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                foreach (var file in Directory.EnumerateFiles(
+                             directory, "*", SearchOption.AllDirectories))
+                {
+                    try { File.SetAttributes(file, FileAttributes.Normal); }
+                    catch (Exception attributeException) when (
+                        attributeException is IOException or UnauthorizedAccessException) { }
+                }
+                if (attempt == 4)
+                    throw;
+                Thread.Sleep(100 << attempt);
+            }
+        }
+    }
+
+    private static bool IsPathUnderRoot(string? path, string root)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+        var rootPrefix = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void ClearStagedProgram(string operationId)
     {
         _state.Update(state =>
@@ -200,9 +291,7 @@ public sealed class UpdateCoordinator : IUpdateService
     {
         if (!Guid.TryParseExact(operationId, "N", out _))
             return;
-        TryDeleteOperationRoot(UpdateCachePaths.GetOperationRoot(
-            operationId,
-            Path.Combine(_appDataRoot, "updates")));
+        TryDeleteOperationRoot(Path.Combine(_appDataRoot, "updates", operationId));
     }
 
     public UpdatePlan? SelectProgram(UpdateManifest manifest)
@@ -341,9 +430,7 @@ public sealed class UpdateCoordinator : IUpdateService
         await _activities.WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
         using var lease = _activities.Acquire(ActivityKind.Shutdown);
 
-        var operationRoot = UpdateCachePaths.GetOperationRoot(
-            update.OperationId,
-            Path.Combine(_appDataRoot, "updates"));
+        var operationRoot = Path.Combine(_appDataRoot, "updates", update.OperationId);
         var backupRoot = Path.Combine(operationRoot, "backup");
         var statusPath = Path.Combine(operationRoot, "status.txt");
         var planPath = Path.Combine(operationRoot, "plan.json");
@@ -377,17 +464,21 @@ public sealed class UpdateCoordinator : IUpdateService
         var installRoot = Path.GetFullPath(AppContext.BaseDirectory);
         var installedUpdater = Path.Combine(installRoot, "UmamusumeAss.Updater.exe");
         var stagedUpdater = Path.Combine(update.PayloadRoot, "UmamusumeAss.Updater.exe");
-        // A release may repair the helper, but a previously published target
-        // may also contain a stale helper. Try the installed and staged copies
-        // independently; only a helper that verifies the plan and reports
-        // ready is allowed to take ownership of the update.
-        var updaterSources = new[] { installedUpdater, stagedUpdater }
-            .Where(File.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (updaterSources.Length == 0)
+        var updaterSource = File.Exists(stagedUpdater)
+            ? stagedUpdater
+            : installedUpdater;
+        if (!File.Exists(updaterSource))
             throw new FileNotFoundException("No update helper executable is available.");
-        var updaterCopy = Path.Combine(operationRoot, "UmamusumeAss.Updater.exe");
+        var updaterCopy = Path.Combine(_appDataRoot, "updater", "UmamusumeAss.Updater.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(updaterCopy)!);
+
+        // Keep the signed target baseline outside the disposable update cache.
+        // If installation fails, its version/tree check will reject it and the
+        // next attempt falls back to a full package.
+        var trustedManifestPath = Path.Combine(_appDataRoot, "program-manifest.json");
+        var trustedSignaturePath = Path.Combine(_appDataRoot, "program-manifest.sig");
+        File.Copy(manifestPath, trustedManifestPath, overwrite: true);
+        File.Copy(signaturePath, trustedSignaturePath, overwrite: true);
 
         var plan = new
         {
@@ -412,12 +503,19 @@ public sealed class UpdateCoordinator : IUpdateService
             programState.Stage = "launching-updater";
             programState.TargetVersion = update.Manifest.Version;
             programState.BackupPath = backupRoot;
+            programState.CurrentManifestSigned = true;
+            programState.SignedManifestPath = trustedManifestPath;
+            programState.SignedSignaturePath = trustedSignaturePath;
+            programState.ManifestSha256 = ManifestVerifier.Sha256File(trustedManifestPath);
+            programState.CurrentTreeSha256 = update.Asset.TargetTreeSha256;
+            programState.ForceFull = false;
+            programState.Error = null;
         });
 
         var startInfo = new ProcessStartInfo
         {
             FileName = updaterCopy,
-            WorkingDirectory = operationRoot,
+            WorkingDirectory = installRoot,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -442,52 +540,18 @@ public sealed class UpdateCoordinator : IUpdateService
         Process? updater = null;
         try
         {
-            // Start the helper before tearing down the native runtime. Each
-            // candidate validates the signed plan and writes "ready" before
-            // waiting for this process. A rejected candidate is stopped while
-            // the current app is still fully usable, then the next is tried.
-            for (var index = 0; index < updaterSources.Length; index++)
-            {
-                try
-                {
-                    File.Copy(updaterSources[index], updaterCopy, overwrite: true);
-                    File.WriteAllText(statusPath, "starting\n");
-                    updater = Process.Start(startInfo)
-                        ?? throw new InvalidOperationException("The update helper could not be started.");
-                    await WaitForUpdaterReadyAsync(updater, statusPath, cancellationToken)
-                        .ConfigureAwait(false);
-                    break;
-                }
-                catch (Exception exception) when (
-                    exception is not OperationCanceledException
-                    && index < updaterSources.Length - 1)
-                {
-                    StopUpdater(updater);
-                    updater?.Dispose();
-                    updater = null;
-                    File.WriteAllText(statusPath, "retrying-helper\n" + exception.Message);
-                }
-            }
-
-            if (updater is null)
-                throw new InvalidOperationException("No update helper accepted the signed update plan.");
-
-            // The helper is now safely waiting on our PID. Release native
-            // resources while the current process still owns them, then ask
-            // WPF to shut down on its owning dispatcher thread.
+            // Same hand-off as MAA: copy the updater out of the disposable
+            // cache, start it, close the app, then let it wait for this PID.
+            File.Copy(updaterSource, updaterCopy, overwrite: true);
+            File.WriteAllText(statusPath, "starting\n");
+            updater = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("The update helper could not be started.");
             await _uma.DisposeAsync().ConfigureAwait(false);
             await RequestApplicationShutdownAsync(application).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
-            // If the helper itself reported a failure, leave its error dialog
-            // alive. Otherwise stop a helper that would otherwise wait forever
-            // for a parent which is intentionally staying open.
-            if (!HasUpdaterFailed(statusPath))
-            {
-                StopUpdater(updater);
-                TryWriteHandoffFailure(statusPath, exception.Message);
-            }
+            StopUpdater(updater);
             _state.Update(failedState =>
             {
                 failedState.Stage = "failed-handoff";
@@ -513,6 +577,9 @@ public sealed class UpdateCoordinator : IUpdateService
         {
             if (Directory.Exists(operationRoot))
                 Directory.Delete(operationRoot, recursive: true);
+            var updatesRoot = Directory.GetParent(operationRoot)?.FullName;
+            if (updatesRoot is not null && Directory.Exists(updatesRoot))
+                Directory.Delete(updatesRoot, recursive: false);
         }
         catch (IOException)
         {
@@ -521,83 +588,6 @@ public sealed class UpdateCoordinator : IUpdateService
         catch (UnauthorizedAccessException)
         {
             // Update data is cache; a later startup can retry cleanup.
-        }
-    }
-
-    private static void TryWriteHandoffFailure(string statusPath, string reason)
-    {
-        try
-        {
-            File.WriteAllText(statusPath, "failed\n" + reason);
-        }
-        catch (IOException)
-        {
-            // The status file is diagnostic; the exception is still surfaced
-            // to the settings view and the persisted update state above.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // The status file is diagnostic; the exception is still surfaced
-            // to the settings view and the persisted update state above.
-        }
-    }
-
-    private static async Task WaitForUpdaterReadyAsync(
-        Process updater,
-        string statusPath,
-        CancellationToken cancellationToken)
-    {
-        var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 30;
-        while (Stopwatch.GetTimestamp() < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (File.Exists(statusPath))
-            {
-                try
-                {
-                    var status = await File.ReadAllTextAsync(statusPath, cancellationToken)
-                        .ConfigureAwait(false);
-                    if (status.StartsWith("ready", StringComparison.OrdinalIgnoreCase))
-                        return;
-                    if (status.StartsWith("failed", StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException(
-                            "The update helper rejected the update plan. See the updater error dialog.");
-                }
-                catch (IOException)
-                {
-                    // The helper may still be closing the status file. Retry
-                    // rather than treating this short hand-off race as a
-                    // failed update.
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Retry transient antivirus/indexer sharing interference.
-                }
-            }
-
-            if (updater.HasExited)
-                throw new InvalidOperationException("The update helper exited before taking ownership of the update.");
-            await Task.Delay(50, cancellationToken).ConfigureAwait(false);
-        }
-
-        throw new TimeoutException("The update helper did not become ready.");
-    }
-
-    private static bool HasUpdaterFailed(string statusPath)
-    {
-        try
-        {
-            return File.Exists(statusPath)
-                && File.ReadAllText(statusPath).StartsWith(
-                    "failed", StringComparison.OrdinalIgnoreCase);
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
         }
     }
 
@@ -660,7 +650,7 @@ public sealed class UpdateCoordinator : IUpdateService
             && item.Name.EndsWith(".sig", StringComparison.OrdinalIgnoreCase));
         if (manifestAsset is null || signatureAsset is null)
             throw new InvalidDataException($"Release {release.Tag} does not contain a signed manifest.");
-        var directory = Path.Combine(_appDataRoot, "updates", "checks");
+        var directory = Path.Combine(_appDataRoot, "update-checks");
         Directory.CreateDirectory(directory);
         var manifestPath = Path.Combine(directory, manifestAsset.Name);
         var signaturePath = Path.Combine(directory, signatureAsset.Name);
@@ -687,8 +677,7 @@ public sealed class UpdateCoordinator : IUpdateService
         var statusPath = Path.Combine(Directory.GetParent(state.BackupPath)!.FullName, "status.txt");
         if (!File.Exists(statusPath)) return;
         var status = File.ReadAllText(statusPath);
-        if (!status.StartsWith("failed", StringComparison.OrdinalIgnoreCase)
-            && !status.StartsWith("health-rollback", StringComparison.OrdinalIgnoreCase))
+        if (!status.StartsWith("failed", StringComparison.OrdinalIgnoreCase))
             return;
         if (state.ForceFull) return;
         state.ForceFull = true;
@@ -839,6 +828,7 @@ public interface IUpdateService
     Task<StagedUpdate> DownloadAsync(UpdatePlan plan, UpdateScope scope, IProgress<UpdateProgress>? progress = null, CancellationToken cancellationToken = default);
     StagedUpdate? RestoreStagedProgram();
     void DiscardStagedProgram();
+    Task ClearAllUpdateCacheAsync(CancellationToken cancellationToken = default);
     Task ApplyResourceWhenIdleAsync(StagedUpdate update, CancellationToken cancellationToken = default);
     Task RequestProgramRestartAsync(StagedUpdate update, CancellationToken cancellationToken = default);
 }

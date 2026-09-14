@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using UmamusumeWpfGui;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Update;
@@ -119,38 +118,29 @@ public sealed class UpdateProtocolTests
     }
 
     [Fact]
-    public void UpdateCachePathUsesRuntimeProfileAndOperationId()
+    public async Task ManualCacheDeletionRemovesEntireDirectoryTree()
     {
-        var operationId = Guid.NewGuid().ToString("N");
-        var profileRoots = new[]
-        {
-            Path.Combine(Path.GetTempPath(), "profile on another drive"),
-            Path.Combine(Path.GetTempPath(), "用户配置"),
-        };
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        var cacheRoot = Path.Combine(root, "updates");
+        var nested = Path.Combine(cacheRoot, Guid.NewGuid().ToString("N"), "payload");
+        Directory.CreateDirectory(nested);
+        var cachedPackage = Path.Combine(nested, "package.zip");
+        await File.WriteAllTextAsync(cachedPackage, "cache");
+        File.SetAttributes(cachedPackage, FileAttributes.ReadOnly);
 
-        foreach (var localAppData in profileRoots)
+        try
         {
-            var updatesRoot = UpdateCachePaths.GetUpdatesRoot(localAppData);
-            var operationRoot = UpdateCachePaths.GetOperationRoot(operationId, updatesRoot);
+            UpdateCoordinator.DeleteCacheDirectory(cacheRoot);
 
-            Assert.Equal(
-                Path.GetFullPath(Path.Combine(
-                    localAppData,
-                    "UmamusumeAss",
-                    "updates",
-                    operationId)),
-                operationRoot);
+            Assert.False(Directory.Exists(cacheRoot));
         }
-    }
-
-    [Theory]
-    [InlineData("../other-directory")]
-    [InlineData("fixed-operation")]
-    [InlineData("")]
-    public void UpdateCachePathRejectsNonGuidOperationId(string operationId)
-    {
-        Assert.Throws<ArgumentException>(() =>
-            UpdateCachePaths.GetOperationRoot(operationId, Path.GetTempPath()));
+        finally
+        {
+            if (File.Exists(cachedPackage))
+                File.SetAttributes(cachedPackage, FileAttributes.Normal);
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -219,69 +209,6 @@ public sealed class UpdateProtocolTests
             Assert.Equal("program-operation", retained.StagedProgramOperationId);
             Assert.Equal("0.3.0", retained.StagedProgramVersion);
             Assert.Equal("program-full.zip", retained.StagedProgramAssetName);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, true);
-        }
-    }
-
-    [Fact]
-    public async Task ProgramHealthAckPersistsManifestHashAndClearsForceFull()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        var manifestPath = Path.Combine(root, "manifest.json");
-        var signaturePath = Path.Combine(root, "manifest.sig");
-        var manifest = new UpdateManifest
-        {
-            Version = "0.3.0",
-            ReleaseTag = "v0.3.0",
-            Assets =
-            [
-                new UpdateAsset
-                {
-                    Type = "full",
-                    AssetName = "program-full.zip",
-                    TargetTreeSha256 = new string('A', 64),
-                },
-            ],
-        };
-        await File.WriteAllBytesAsync(
-            manifestPath,
-            JsonSerializer.SerializeToUtf8Bytes(manifest));
-        await File.WriteAllTextAsync(signaturePath, "signature");
-
-        try
-        {
-            var store = new UpdateStateStore(root);
-            store.Save(new UpdateState
-            {
-                ForceFull = true,
-                ResourceManifestSha256 = "RESOURCE-MANIFEST",
-                ResourceManifestPath = "resource.json",
-                ResourceSignaturePath = "resource.sig",
-                StagedProgramOperationId = "completed-operation",
-                StagedProgramVersion = "0.3.0",
-                StagedProgramAssetName = "program-full.zip",
-            });
-
-            Bootstrapper.PersistProgramHealthState(
-                store,
-                manifestPath,
-                signaturePath,
-                manifest);
-
-            var state = store.Load();
-            Assert.False(state.ForceFull);
-            Assert.True(state.CurrentManifestSigned);
-            Assert.Equal("health-succeeded", state.Stage);
-            Assert.Equal(ManifestVerifier.Sha256File(manifestPath), state.ManifestSha256);
-            Assert.Equal(new string('A', 64), state.CurrentTreeSha256);
-            Assert.Equal("RESOURCE-MANIFEST", state.ResourceManifestSha256);
-            Assert.Null(state.StagedProgramOperationId);
-            Assert.Null(state.StagedProgramVersion);
-            Assert.Null(state.StagedProgramAssetName);
         }
         finally
         {
@@ -400,23 +327,45 @@ public sealed class UpdateProtocolTests
     }
 
     [Fact]
-    public void NativeUpdaterCleansOnlyTheCompletedOperationDirectory()
+    public void NativeUpdaterUsesMaaStyleDirectCacheCleanup()
     {
         var root = FindSolutionRoot();
         var nativeSource = File.ReadAllText(Path.Combine(
             root, "src", "UmamusumeAssUpdater", "main.cpp"));
+        var coordinatorSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeWpfGui", "Services", "Update",
+            "UpdateCoordinatorService.cs"));
+        var githubClientSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeWpfGui", "Services", "Update",
+            "GitHubReleaseClient.cs"));
+        var bootstrapperSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeWpfGui", "Bootstrapper.cs"));
 
         Assert.Contains(
-            "ScheduleOperationCleanup(args.statusPath.parent_path());",
+            "ForceRemoveDirectoryRecursive(updatesRoot);",
             nativeSource,
             StringComparison.Ordinal);
         Assert.DoesNotContain(
-            "ScheduleOperationCleanup(args.statusPath.parent_path().parent_path());",
+            "\"updates\", \"checks\"",
+            coordinatorSource + githubClientSource,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("health.ack", nativeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("CompleteHealthAckAsync", bootstrapperSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "powershell.exe",
+            nativeSource,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "ScheduleOperationCleanup",
             nativeSource,
             StringComparison.Ordinal);
         Assert.Contains(
-            "Wait-Process -Id ",
-            nativeSource,
+            "Path.Combine(_appDataRoot, \"updater\", \"UmamusumeAss.Updater.exe\")",
+            coordinatorSource,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Path.Combine(operationRoot, \"UmamusumeAss.Updater.exe\")",
+            coordinatorSource,
             StringComparison.Ordinal);
     }
 

@@ -26,7 +26,7 @@ public sealed class GitHubReleaseClient
         _http = httpClient ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
         _releaseCacheDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "UmamusumeAss", "updates", "checks");
+            "UmamusumeAss", "update-checks");
         if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("UmamusumeAss-Updater/0.2");
     }

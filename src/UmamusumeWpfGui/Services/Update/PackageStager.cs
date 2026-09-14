@@ -18,7 +18,9 @@ public sealed class PackageStager
     {
         _releases = releases ?? throw new ArgumentNullException(nameof(releases));
         _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
-        _updatesRoot = Path.GetFullPath(updatesRoot ?? UpdateCachePaths.GetUpdatesRoot());
+        _updatesRoot = Path.GetFullPath(updatesRoot ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "UmamusumeAss", "updates"));
     }
 
     public async Task<StagedUpdate> StageAsync(
@@ -52,7 +54,7 @@ public sealed class PackageStager
         // copy that only happened to share its name and package hash.
         plan = plan with { Asset = signedAsset };
         var operationId = Guid.NewGuid().ToString("N");
-        var operationRoot = UpdateCachePaths.GetOperationRoot(operationId, _updatesRoot);
+        var operationRoot = Path.Combine(_updatesRoot, operationId);
         var payloadRoot = Path.Combine(operationRoot, "payload");
         Directory.CreateDirectory(payloadRoot);
 
@@ -135,7 +137,7 @@ public sealed class PackageStager
 
         try
         {
-            var operationRoot = UpdateCachePaths.GetOperationRoot(operationId, _updatesRoot);
+            var operationRoot = Path.Combine(_updatesRoot, operationId);
             var manifestPath = Path.Combine(operationRoot, "manifest.json");
             var signaturePath = Path.Combine(operationRoot, "manifest.sig");
             if (!File.Exists(manifestPath) || !File.Exists(signaturePath))
