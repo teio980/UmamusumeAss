@@ -7,11 +7,6 @@
     <ResourceDictionary Source="Themes/Light.xaml" />
   </ResourceDictionary.MergedDictionaries>
 
-
-
-
-
-
   <SolidColorBrush x:Key="AccentButtonBackground"
                    Color="{DynamicResource SystemAccentColorPrimary}" />
   <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver"

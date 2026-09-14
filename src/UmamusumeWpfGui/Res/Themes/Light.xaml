@@ -7,23 +7,31 @@
 
 
 
-  <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#F6F5F8" />
-  <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="#EEEAF3" />
+  <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#F4F7FB" />
+  <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="#F8FAFD" />
   <SolidColorBrush x:Key="SurfacePanelBrush" Color="#FFFFFF" />
-  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#FBFAFD" />
+  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#F9FBFE" />
+  <SolidColorBrush x:Key="SidebarHoverBrush" Color="{DynamicResource SystemAccentColorPrimary}" />
+  <SolidColorBrush x:Key="SidebarSelectedBrush" Color="{DynamicResource SystemAccentColorTertiary}" />
+  <SolidColorBrush x:Key="SidebarPressedBrush" Color="{DynamicResource SystemAccentColorSecondary}" />
+  <DropShadowEffect x:Key="SidebarIndicatorGlowEffect"
+                    Color="{DynamicResource SystemAccentColorPrimary}"
+                    BlurRadius="8"
+                    ShadowDepth="0"
+                    Opacity="0.85" />
 
 
-  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#24212A" />
-  <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6D6875" />
-  <SolidColorBrush x:Key="TextDisabledBrush" Color="#9A94A3" />
+  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1D2533" />
+  <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7687" />
+  <SolidColorBrush x:Key="TextDisabledBrush" Color="#A3ADBA" />
 
 
-  <SolidColorBrush x:Key="BorderDefaultBrush" Color="#DCD7E2" />
-  <SolidColorBrush x:Key="BorderSubtleBrush" Color="#ECE8F0" />
+  <SolidColorBrush x:Key="BorderDefaultBrush" Color="#DDE4EE" />
+  <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E9EEF5" />
 
 
-  <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#7653A6" />
-  <SolidColorBrush x:Key="AccentHoverBrush" Color="#65458F" />
+  <SolidColorBrush x:Key="AccentPrimaryBrush" Color="{DynamicResource SystemAccentColorPrimary}" />
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource SystemAccentColorSecondary}" />
 
 
   <SolidColorBrush x:Key="StatusSuccessBrush" Color="#317B62" />

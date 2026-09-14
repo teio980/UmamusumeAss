@@ -60,7 +60,7 @@ public sealed class ThemeResourceTests
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
         var brush = GetSolidColorBrush(resources, "AccentPrimaryBrush");
-        Assert.Equal("#7653A6", brush.color, ignoreCase: true);
+        Assert.Equal("{DynamicResource SystemAccentColorPrimary}", brush.color);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class ThemeResourceTests
     {
         var resources = GetResources(Path.Combine(ThemesDir, "Light.xaml"));
         var brush = GetSolidColorBrush(resources, "SurfaceCanvasBrush");
-        Assert.Equal("#F6F5F8", brush.color, ignoreCase: true);
+        Assert.Equal("#F4F7FB", brush.color, ignoreCase: true);
     }
 
     [Fact]

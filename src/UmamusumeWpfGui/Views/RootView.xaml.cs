@@ -13,6 +13,13 @@ namespace UmamusumeWpfGui.Views;
 
 public sealed partial class RootView : FluentWindow
 {
+    public static readonly DependencyProperty IsActiveVisualProperty =
+        DependencyProperty.RegisterAttached(
+            "IsActiveVisual",
+            typeof(bool),
+            typeof(RootView),
+            new FrameworkPropertyMetadata(false));
+
     private readonly DispatcherTimer _navigationDebounceTimer;
     private readonly DispatcherTimer _navigationInputGateTimer;
     private int? _pendingNavigationIndex;
@@ -46,9 +53,18 @@ public sealed partial class RootView : FluentWindow
     {
         if (RootNavigation.SelectedItem is null && RootNavigation.MenuItems.Count > 0)
         {
+            var firstItem = RootNavigation.MenuItems[0] as NavigationViewItem;
             RootNavigation.SetCurrentValue(
                 System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
-                RootNavigation.MenuItems[0]);
+                firstItem);
+            if (firstItem is not null)
+            {
+                SetActiveNavigationItem(firstItem);
+            }
+        }
+        else if (RootNavigation.SelectedItem is NavigationViewItem selectedItem)
+        {
+            SetActiveNavigationItem(selectedItem);
         }
     }
 
@@ -88,7 +104,37 @@ public sealed partial class RootView : FluentWindow
         RootNavigation.SetCurrentValue(
             System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
             item);
+        SetActiveNavigationItem(item);
         QueueNavigationItem(item);
+    }
+
+    private void SetActiveNavigationItem(NavigationViewItem activeItem)
+    {
+        foreach (var rawItem in RootNavigation.MenuItems)
+        {
+            if (rawItem is NavigationViewItem item)
+            {
+                SetIsActiveVisual(item, ReferenceEquals(item, activeItem));
+            }
+        }
+
+        foreach (var rawItem in RootNavigation.FooterMenuItems)
+        {
+            if (rawItem is NavigationViewItem item)
+            {
+                SetIsActiveVisual(item, ReferenceEquals(item, activeItem));
+            }
+        }
+    }
+
+    public static void SetIsActiveVisual(DependencyObject element, bool value)
+    {
+        element.SetValue(IsActiveVisualProperty, value);
+    }
+
+    public static bool GetIsActiveVisual(DependencyObject element)
+    {
+        return (bool)element.GetValue(IsActiveVisualProperty);
     }
 
     private void QueueNavigationItem(NavigationViewItem item)
