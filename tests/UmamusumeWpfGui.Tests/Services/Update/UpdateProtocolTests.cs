@@ -119,6 +119,41 @@ public sealed class UpdateProtocolTests
     }
 
     [Fact]
+    public void UpdateCachePathUsesRuntimeProfileAndOperationId()
+    {
+        var operationId = Guid.NewGuid().ToString("N");
+        var profileRoots = new[]
+        {
+            Path.Combine(Path.GetTempPath(), "profile on another drive"),
+            Path.Combine(Path.GetTempPath(), "用户配置"),
+        };
+
+        foreach (var localAppData in profileRoots)
+        {
+            var updatesRoot = UpdateCachePaths.GetUpdatesRoot(localAppData);
+            var operationRoot = UpdateCachePaths.GetOperationRoot(operationId, updatesRoot);
+
+            Assert.Equal(
+                Path.GetFullPath(Path.Combine(
+                    localAppData,
+                    "UmamusumeAss",
+                    "updates",
+                    operationId)),
+                operationRoot);
+        }
+    }
+
+    [Theory]
+    [InlineData("../other-directory")]
+    [InlineData("fixed-operation")]
+    [InlineData("")]
+    public void UpdateCachePathRejectsNonGuidOperationId(string operationId)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            UpdateCachePaths.GetOperationRoot(operationId, Path.GetTempPath()));
+    }
+
+    [Fact]
     public void SelectorRequiresBothSignedSourceHashesForDelta()
     {
         var manifest = new UpdateManifest
@@ -362,6 +397,27 @@ public sealed class UpdateProtocolTests
         var parameters = ecdsa.ExportParameters(false);
         Assert.Equal(parameters.Q.X, nativeX);
         Assert.Equal(parameters.Q.Y, nativeY);
+    }
+
+    [Fact]
+    public void NativeUpdaterCleansOnlyTheCompletedOperationDirectory()
+    {
+        var root = FindSolutionRoot();
+        var nativeSource = File.ReadAllText(Path.Combine(
+            root, "src", "UmamusumeAssUpdater", "main.cpp"));
+
+        Assert.Contains(
+            "ScheduleOperationCleanup(args.statusPath.parent_path());",
+            nativeSource,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ScheduleOperationCleanup(args.statusPath.parent_path().parent_path());",
+            nativeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Wait-Process -Id ",
+            nativeSource,
+            StringComparison.Ordinal);
     }
 
     [Fact]

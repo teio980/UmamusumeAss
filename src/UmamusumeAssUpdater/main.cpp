@@ -371,21 +371,22 @@ bool WriteReady(Args const& args)
     return WriteText(args.statusPath, "ready\n");
 }
 
-void ScheduleCacheCleanup(fs::path const& updatesRoot)
+void ScheduleOperationCleanup(fs::path const& operationRoot)
 {
-    if (updatesRoot.empty()) return;
+    if (operationRoot.empty()) return;
 
     std::wstring escapedPath;
-    auto path = updatesRoot.wstring();
+    auto path = operationRoot.wstring();
     for (auto character : path) {
         if (character == L'\'') escapedPath += L"''";
         else escapedPath += character;
     }
 
     std::wstring command =
-        L"-NoProfile -WindowStyle Hidden -Command \""
-        L"Start-Sleep -Milliseconds 750; "
-        L"for ($i = 0; $i -lt 30; $i++) { "
+        L"powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -Command \""
+        L"Wait-Process -Id " + std::to_wstring(GetCurrentProcessId()) +
+        L" -Timeout 60 -ErrorAction SilentlyContinue; "
+        L"for ($i = 0; $i -lt 60; $i++) { "
         L"try { Remove-Item -LiteralPath '" + escapedPath +
         L"' -Recurse -Force -ErrorAction Stop; break } "
         L"catch { Start-Sleep -Milliseconds 500 } }\"";
@@ -671,7 +672,10 @@ int Run(Args const& args)
         std::error_code cleanupError;
         fs::remove_all(args.backupRoot, cleanupError);
         WriteText(args.statusPath, "health-succeeded\n");
-        ScheduleCacheCleanup(args.statusPath.parent_path().parent_path());
+        // Only this completed operation is cache. The restarted application
+        // may already be using updates/checks for its startup update check, so
+        // deleting the shared updates root races with normal application I/O.
+        ScheduleOperationCleanup(args.statusPath.parent_path());
         return 0;
     }
     bool processExited = WaitForSingleObject(process.hProcess, 0) == WAIT_OBJECT_0;

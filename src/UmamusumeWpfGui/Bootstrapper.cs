@@ -349,7 +349,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             var appDataRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "UmamusumeAss");
-            var operationRoot = Path.Combine(appDataRoot, "updates", operationId);
+            var operationRoot = UpdateCachePaths.GetOperationRoot(
+                operationId,
+                Path.Combine(appDataRoot, "updates"));
             var operationManifestPath = Path.Combine(operationRoot, "manifest.json");
             var operationSignaturePath = Path.Combine(operationRoot, "manifest.sig");
             if (!File.Exists(operationManifestPath) || !File.Exists(operationSignaturePath))
@@ -418,9 +420,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         });
     }
 
-    private static string UpdatesRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "UmamusumeAss", "updates");
+    private static string UpdatesRoot => UpdateCachePaths.GetUpdatesRoot();
 
     private static string AppDataRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

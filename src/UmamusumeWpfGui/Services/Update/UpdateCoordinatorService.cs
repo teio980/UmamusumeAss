@@ -200,7 +200,9 @@ public sealed class UpdateCoordinator : IUpdateService
     {
         if (!Guid.TryParseExact(operationId, "N", out _))
             return;
-        TryDeleteOperationRoot(Path.Combine(_appDataRoot, "updates", operationId));
+        TryDeleteOperationRoot(UpdateCachePaths.GetOperationRoot(
+            operationId,
+            Path.Combine(_appDataRoot, "updates")));
     }
 
     public UpdatePlan? SelectProgram(UpdateManifest manifest)
@@ -339,7 +341,9 @@ public sealed class UpdateCoordinator : IUpdateService
         await _activities.WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
         using var lease = _activities.Acquire(ActivityKind.Shutdown);
 
-        var operationRoot = Path.Combine(_appDataRoot, "updates", update.OperationId);
+        var operationRoot = UpdateCachePaths.GetOperationRoot(
+            update.OperationId,
+            Path.Combine(_appDataRoot, "updates"));
         var backupRoot = Path.Combine(operationRoot, "backup");
         var statusPath = Path.Combine(operationRoot, "status.txt");
         var planPath = Path.Combine(operationRoot, "plan.json");
