@@ -216,6 +216,15 @@
                      Text="{Binding UpdateStatus}"
                      TextWrapping="Wrap" />
           <StackPanel Margin="0,8,0,0"
+                      Visibility="{Binding HasCachedProgramUpdate,
+                          Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{DynamicResource CachedUpdateLabel}"
+                       FontWeight="SemiBold" />
+            <TextBlock Margin="0,2,0,0"
+                       Text="{Binding CachedProgramUpdateDetails}"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+          <StackPanel Margin="0,8,0,0"
                       Visibility="{Binding IsUpdateProgressVisible,
                           Converter={StaticResource BoolToVisibility}}">
             <ProgressBar Height="8"
@@ -248,6 +257,11 @@
                        Command="{Binding CancelUpdateCommand}"
                        Appearance="Secondary"
                        Icon="DismissCircle24" />
+            <ui:Button Margin="8,0,0,0"
+                       Content="{DynamicResource ClearUpdateCacheButton}"
+                       Command="{Binding ClearUpdateCacheCommand}"
+                       Appearance="Secondary"
+                       Icon="Delete24" />
           </WrapPanel>
           <ui:Button Margin="0,8,0,0"
                      HorizontalAlignment="Left"

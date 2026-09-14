@@ -173,10 +173,13 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _ => !_disposed
                 && !IsUpdateBusy
                 && _pendingUpdatePlan is not null
-                && _stagedUpdate is null);
+                && !IsPendingUpdateCached());
         CancelUpdateCommand = new RelayCommand(
             _ => CancelUpdate(),
             _ => !_disposed && IsUpdateBusy);
+        ClearUpdateCacheCommand = new RelayCommand(
+            _ => _ = ClearUpdateCacheAsync(),
+            _ => _updateService is not null && !_disposed && !IsUpdateBusy);
         InstallUpdateCommand = new RelayCommand(
             _ => _ = InstallUpdateAsync(),
             _ => !_disposed && !IsUpdateBusy && _stagedUpdate is not null);
@@ -186,7 +189,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 && _pendingUpdateScope == UpdateScope.Program
                 && _pendingUpdatePlan is not null);
 
-        _stagedUpdate = _updateService?.RestoreStagedProgram();
+        SetStagedUpdate(_updateService?.RestoreStagedProgram());
         if (_stagedUpdate is not null)
             _updateStatus = $"Version {_stagedUpdate.Manifest.Version} is downloaded and ready to install.";
     }
@@ -444,6 +447,27 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
     public string UpdateStatus => _updateStatus;
 
+    public bool HasCachedProgramUpdate =>
+        _stagedUpdate is { Scope: UpdateScope.Program };
+
+    public string CachedProgramUpdateDetails
+    {
+        get
+        {
+            if (_stagedUpdate is not { Scope: UpdateScope.Program } staged)
+                return string.Empty;
+            try
+            {
+                var size = new FileInfo(staged.PackagePath).Length;
+                return $"v{staged.Manifest.Version} · {FormatFileSize(size)}";
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return $"v{staged.Manifest.Version}";
+            }
+        }
+    }
+
     public bool IsUpdateBusy => _updateCts is not null;
 
     public bool IsUpdateProgressVisible => _updateProgress is not null;
@@ -481,6 +505,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     public ICommand CheckForUpdatesCommand { get; }
     public ICommand DownloadUpdateCommand { get; }
     public ICommand CancelUpdateCommand { get; }
+    public ICommand ClearUpdateCacheCommand { get; }
     public ICommand InstallUpdateCommand { get; }
     public ICommand SkipUpdateCommand { get; }
 
@@ -862,7 +887,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         if (!settings.StartupUpdateCheck)
             return;
 
-        _stagedUpdate = _updateService.RestoreStagedProgram();
+        SetStagedUpdate(_updateService.RestoreStagedProgram());
         _pendingUpdatePlan = null;
         _pendingUpdateScope = UpdateScope.Program;
 
@@ -962,8 +987,6 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} skipped once.");
             else
             {
-                if (_stagedUpdate is not null)
-                    _stagedUpdate = null;
                 SetUpdateStatus($"Version {_pendingUpdatePlan.Manifest.Version} is available.");
             }
         }
@@ -990,17 +1013,18 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         try
         {
             var progress = new Progress<UpdateProgress>(SetUpdateProgress);
-            _stagedUpdate = await _updateService.DownloadAsync(
+            var downloaded = await _updateService.DownloadAsync(
                 _pendingUpdatePlan,
                 _pendingUpdateScope,
                 progress: progress,
                 cancellationToken: cts.Token).ConfigureAwait(true);
-            if (_stagedUpdate.Scope == UpdateScope.Resource)
+            SetStagedUpdate(downloaded);
+            if (downloaded.Scope == UpdateScope.Resource)
             {
                 SetUpdateStatus("Resource downloaded. Applying when the app is idle...");
-                await _updateService.ApplyResourceWhenIdleAsync(_stagedUpdate, cts.Token)
+                await _updateService.ApplyResourceWhenIdleAsync(downloaded, cts.Token)
                     .ConfigureAwait(true);
-                _stagedUpdate = null;
+                SetStagedUpdate(null);
                 SetUpdateStatus("Resource update applied.");
             }
             else
@@ -1044,7 +1068,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             if (_stagedUpdate.Scope == UpdateScope.Program)
             {
                 _updateService.DiscardStagedProgram();
-                _stagedUpdate = null;
+                SetStagedUpdate(null);
             }
             SetUpdateStatus($"Install failed: {exception.Message}");
             return false;
@@ -1055,6 +1079,36 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
     {
         _updateCts?.Cancel();
         SetUpdateStatus("Update canceled.");
+    }
+
+    private async Task ClearUpdateCacheAsync()
+    {
+        if (_updateService is null || _disposed || IsUpdateBusy)
+            return;
+        using var cts = new CancellationTokenSource();
+        _updateCts = cts;
+        SetUpdateProgress(null);
+        SetUpdateStatus("Deleting all update cache...");
+        RaiseUpdateCommands();
+        try
+        {
+            await _updateService.ClearAllUpdateCacheAsync(cts.Token).ConfigureAwait(true);
+            SetStagedUpdate(null);
+            SetUpdateStatus("All update cache deleted.");
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            SetUpdateStatus("Cache deletion canceled.");
+        }
+        catch (Exception exception)
+        {
+            SetUpdateStatus($"Failed to delete update cache: {exception.Message}");
+        }
+        finally
+        {
+            _updateCts = null;
+            RaiseUpdateCommands();
+        }
     }
 
     private void SkipUpdate()
@@ -1071,6 +1125,32 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         OnPropertyChanged(nameof(UpdateStatus));
     }
 
+    private void SetStagedUpdate(StagedUpdate? update)
+    {
+        _stagedUpdate = update;
+        OnPropertyChanged(nameof(HasCachedProgramUpdate));
+        OnPropertyChanged(nameof(CachedProgramUpdateDetails));
+    }
+
+    private bool IsPendingUpdateCached()
+    {
+        return _pendingUpdatePlan is not null
+            && _stagedUpdate is not null
+            && _stagedUpdate.Scope == _pendingUpdateScope
+            && _stagedUpdate.Manifest.Version.Equals(
+                _pendingUpdatePlan.Manifest.Version, StringComparison.Ordinal)
+            && _stagedUpdate.Asset.AssetName.Equals(
+                _pendingUpdatePlan.Asset.AssetName, StringComparison.Ordinal);
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        const double oneMegabyte = 1024d * 1024d;
+        return bytes >= oneMegabyte
+            ? $"{bytes / oneMegabyte:0.##} MB"
+            : $"{bytes / 1024d:0.##} KB";
+    }
+
     private void SetUpdateProgress(UpdateProgress? progress)
     {
         _updateProgress = progress;
@@ -1085,6 +1165,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         (CheckForUpdatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (DownloadUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CancelUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearUpdateCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (InstallUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SkipUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(IsUpdateBusy));

@@ -178,6 +178,8 @@
   <sys:String x:Key="InstallUpdateButton">安装并重启</sys:String>
   <sys:String x:Key="CancelUpdateButton">取消下载</sys:String>
   <sys:String x:Key="SkipUpdateButton">跳过此版本一次</sys:String>
+  <sys:String x:Key="CachedUpdateLabel">已缓存安装包（可直接安装）</sys:String>
+  <sys:String x:Key="ClearUpdateCacheButton">删除全部更新缓存</sys:String>
   <sys:String x:Key="ProfileLabel">配置文件</sys:String>
   <sys:String x:Key="ConnectButton">连接</sys:String>
   <sys:String x:Key="CancelButton">取消</sys:String>

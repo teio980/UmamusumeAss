@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Update;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests.ViewModels;
@@ -41,7 +43,7 @@ public sealed class SettingsViewModelTests
             });
         }
 
-        public SettingsViewModel CreateViewModel()
+        public SettingsViewModel CreateViewModel(IUpdateService? updateService = null)
         {
             return new SettingsViewModel(
                 UmaService,
@@ -51,13 +53,40 @@ public sealed class SettingsViewModelTests
                 WinAdapter,
                 EmulatorLauncher,
                 Delay,
-                HealthMonitor);
+                HealthMonitor,
+                updateService);
         }
     }
 
     private static Fixture CreateFixture()
     {
         return new Fixture();
+    }
+
+    [Fact]
+    public async Task CachedProgramUpdate_RemainsVisibleWhenStartupCheckFails()
+    {
+        var staged = new StagedUpdate(
+            Guid.NewGuid().ToString("N"),
+            UpdateScope.Program,
+            new UpdateManifest { Version = "9.9.9", ReleaseTag = "v9.9.9" },
+            new UpdateAsset { Type = "full", AssetName = "program-full.zip" },
+            Path.Combine(Path.GetTempPath(), "program-full.zip"),
+            Path.Combine(Path.GetTempPath(), "payload"),
+            Path.Combine(Path.GetTempPath(), "manifest.json"),
+            Path.Combine(Path.GetTempPath(), "manifest.sig"));
+        var vm = CreateFixture().CreateViewModel(new FakeUpdateService(staged));
+
+        Assert.True(vm.HasCachedProgramUpdate);
+        Assert.Contains("9.9.9", vm.CachedProgramUpdateDetails, StringComparison.Ordinal);
+        Assert.True(vm.InstallUpdateCommand.CanExecute(null));
+
+        await vm.RunStartupUpdateCheckAsync();
+
+        Assert.Equal("Update check failed: offline", vm.UpdateStatus);
+        Assert.True(vm.HasCachedProgramUpdate);
+        Assert.Contains("9.9.9", vm.CachedProgramUpdateDetails, StringComparison.Ordinal);
+        Assert.True(vm.InstallUpdateCommand.CanExecute(null));
     }
 
 
@@ -2028,6 +2057,42 @@ public sealed class SettingsViewModelTests
 
 
 
+
+    private sealed class FakeUpdateService(StagedUpdate staged) : IUpdateService
+    {
+        public Task<UpdateCheckResult> CheckAsync(
+            UpdateScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new UpdateCheckResult(null, null, "offline"));
+
+        public UpdatePlan? SelectProgram(UpdateManifest manifest) => null;
+
+        public UpdatePlan? SelectResource(UpdateManifest manifest) => null;
+
+        public Task<StagedUpdate> DownloadAsync(
+            UpdatePlan plan,
+            UpdateScope scope,
+            IProgress<UpdateProgress>? progress = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(staged);
+
+        public StagedUpdate? RestoreStagedProgram() => staged;
+
+        public void DiscardStagedProgram()
+        {
+        }
+
+        public Task ClearAllUpdateCacheAsync(
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task ApplyResourceWhenIdleAsync(
+            StagedUpdate update,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task RequestProgramRestartAsync(
+            StagedUpdate update,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
     private sealed class FakeUmaService : IUmaService
     {
