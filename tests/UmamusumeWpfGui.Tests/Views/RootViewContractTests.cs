@@ -105,6 +105,28 @@ public sealed class RootViewContractTests
     }
 
     [Fact]
+    public void RootNavigation_UsesOneSharedAnimatedIndicator()
+    {
+        var content = File.ReadAllText(PathToRootView);
+        var codeBehind = File.ReadAllText(Path.ChangeExtension(PathToRootView, ".xaml.cs"));
+        var animator = File.ReadAllText(Path.Combine(
+            Path.GetDirectoryName(PathToRootView)!, "NavigationIndicatorAnimator.cs"));
+
+        Assert.Contains("NavigationIndicatorCanvas", content);
+        Assert.Contains("NavigationSelectionIndicator", content);
+        Assert.Contains("SelectionChanged=\"OnRootNavigationSelectionChanged\"", content);
+        Assert.Contains("NavigationIndicatorAnimator.SetBounds", codeBehind);
+        Assert.Contains("_activeNavigationItem", codeBehind);
+        Assert.Contains("ReferenceEquals(_activeNavigationItem, item)", codeBehind);
+        Assert.Contains("StretchPhaseMilliseconds = 200", animator);
+        Assert.Contains("SettlePhaseMilliseconds = 400", animator);
+        Assert.Contains("stretchedLength = dimension + distance", animator);
+        Assert.Contains("new KeySpline(0.9, 0.1, 1.0, 0.2)", animator);
+        Assert.Contains("new KeySpline(0.1, 0.9, 0.2, 1.0)", animator);
+        Assert.Contains("isForward", animator);
+    }
+
+    [Fact]
     public void RootViewModel_ImplementsPropertyChangedNotification()
     {
         Assert.Contains(typeof(INotifyPropertyChanged),
