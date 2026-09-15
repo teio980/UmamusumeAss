@@ -19,7 +19,7 @@
     <c:IntToVisibilityConverter x:Key="NavigationIndexToVisibility" />
     <Style TargetType="{x:Type ui:NavigationViewItem}">
       <Setter Property="Height" Value="64" />
-      <Setter Property="Margin" Value="5,3" />
+      <Setter Property="Margin" Value="-4,3,5,3" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="FontSize" Value="10" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -48,21 +48,15 @@
                     CornerRadius="10"
                     SnapsToDevicePixels="True">
               <Grid>
-                <Border x:Name="HoverBackground"
-                        Background="{DynamicResource SidebarHoverBrush}"
-                        CornerRadius="10"
-                        IsHitTestVisible="False"
-                        Opacity="0" />
                 <Border x:Name="SelectionIndicator"
                         Width="3"
-                        Height="28"
-                        Margin="0,0,0,0"
+                        Height="16"
+                        Margin="4,0,0,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Background="Transparent"
-                        CornerRadius="2" />
-                <StackPanel Width="62"
-                            HorizontalAlignment="Center"
+                        CornerRadius="1.5" />
+                <StackPanel HorizontalAlignment="Stretch"
                             VerticalAlignment="Center">
                   <ContentPresenter x:Name="IconPresenter"
                                     Width="24"
@@ -82,32 +76,10 @@
               </Grid>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="HoverBackground"
-                        Property="Opacity"
-                        Value="0.10" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="HoverBackground"
-                        Property="Background"
-                        Value="{DynamicResource SidebarPressedBrush}" />
-                <Setter TargetName="HoverBackground"
-                        Property="Opacity"
-                        Value="0.16" />
-              </Trigger>
               <Trigger Property="local:RootView.IsActiveVisual" Value="True">
-                <Setter TargetName="ItemBorder"
-                        Property="Background"
-                        Value="{DynamicResource SidebarSelectedBrush}" />
-                <Setter TargetName="HoverBackground"
-                        Property="Opacity"
-                        Value="0" />
                 <Setter TargetName="SelectionIndicator"
                         Property="Background"
                         Value="{DynamicResource AccentPrimaryBrush}" />
-                <Setter TargetName="SelectionIndicator"
-                        Property="Effect"
-                        Value="{DynamicResource SidebarIndicatorGlowEffect}" />
                 <Setter Property="Foreground"
                         Value="{DynamicResource AccentHoverBrush}" />
               </Trigger>
@@ -127,6 +99,7 @@
     <ui:NavigationView x:Name="RootNavigation"
                        Grid.Row="1"
                        PaneDisplayMode="LeftFluent"
+                       ItemTemplate="{x:Null}"
                        IsBackButtonVisible="Collapsed"
                        IsPaneToggleVisible="False"
                        IsTopSeparatorVisible="False"
