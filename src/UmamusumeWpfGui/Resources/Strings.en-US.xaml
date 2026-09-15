@@ -172,17 +172,27 @@
   <sys:String x:Key="NavConnection">Connection</sys:String>
   <sys:String x:Key="NavLanguage">Language</sys:String>
   <sys:String x:Key="NavSystem">System</sys:String>
+  <sys:String x:Key="SettingsTitle">Settings</sys:String>
+  <sys:String x:Key="ToggleOn">On</sys:String>
+  <sys:String x:Key="ToggleOff">Off</sys:String>
 
 
   <sys:String x:Key="ConnectionTitle">Connection Configuration</sys:String>
+  <sys:String x:Key="ConnectionStatusLabel">Connection status</sys:String>
   <sys:String x:Key="AdbPathLabel">ADB Path</sys:String>
+  <sys:String x:Key="AdbPathHint">Path to the ADB executable used by the emulator.</sys:String>
   <sys:String x:Key="SerialLabel">Serial</sys:String>
+  <sys:String x:Key="SerialHint">The device serial or host:port endpoint to connect to.</sys:String>
   <sys:String x:Key="AutoDetectButton">Auto Detect</sys:String>
   <sys:String x:Key="AlwaysAutoDetectLabel">Always auto-detect before connect</sys:String>
+  <sys:String x:Key="AlwaysAutoDetectHint">Refresh emulator endpoints before each connection attempt.</sys:String>
   <sys:String x:Key="AutoStartEmulatorLabel">Start emulator automatically when it is not running</sys:String>
+  <sys:String x:Key="AutoStartEmulatorHint">Expand to configure the executable path and startup wait time.</sys:String>
+  <sys:String x:Key="EmulatorExecutablePathLabel">Emulator executable path</sys:String>
   <sys:String x:Key="EmulatorExecutablePathHint">Emulator executable or shortcut path</sys:String>
   <sys:String x:Key="AutoStartEmulatorWaitSecondsLabel">Wait after startup (seconds)</sys:String>
   <sys:String x:Key="UpdatesTitle">Updates</sys:String>
+  <sys:String x:Key="UpdateActionsTitle">Update actions</sys:String>
   <sys:String x:Key="StartupUpdateCheckLabel">Check for updates at startup</sys:String>
   <sys:String x:Key="CheckForUpdatesButton">Check for updates</sys:String>
   <sys:String x:Key="DownloadUpdateButton">Download</sys:String>
@@ -192,6 +202,7 @@
   <sys:String x:Key="CachedUpdateLabel">Cached installer (ready to install)</sys:String>
   <sys:String x:Key="ClearUpdateCacheButton">Delete all update cache</sys:String>
   <sys:String x:Key="ProfileLabel">Profile</sys:String>
+  <sys:String x:Key="ProfileHint">Select the connection profile used for discovery.</sys:String>
   <sys:String x:Key="ConnectButton">Connect</sys:String>
   <sys:String x:Key="CancelButton">Cancel</sys:String>
   <sys:String x:Key="DisconnectButton">Disconnect</sys:String>

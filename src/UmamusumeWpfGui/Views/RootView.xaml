@@ -48,14 +48,6 @@
                     CornerRadius="10"
                     SnapsToDevicePixels="True">
               <Grid>
-                <Border x:Name="SelectionIndicator"
-                        Width="3"
-                        Height="16"
-                        Margin="4,0,0,0"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        Background="Transparent"
-                        CornerRadius="1.5" />
                 <StackPanel HorizontalAlignment="Stretch"
                             VerticalAlignment="Center">
                   <ContentPresenter x:Name="IconPresenter"
@@ -77,9 +69,6 @@
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="local:RootView.IsActiveVisual" Value="True">
-                <Setter TargetName="SelectionIndicator"
-                        Property="Background"
-                        Value="{DynamicResource AccentPrimaryBrush}" />
                 <Setter Property="Foreground"
                         Value="{DynamicResource AccentHoverBrush}" />
               </Trigger>
@@ -105,7 +94,8 @@
                        IsTopSeparatorVisible="False"
                        IsFooterSeparatorVisible="False"
                        OpenPaneLength="72"
-                       Background="{DynamicResource SurfaceSidebarBrush}">
+                       Background="{DynamicResource SurfaceSidebarBrush}"
+                       SelectionChanged="OnRootNavigationSelectionChanged">
       <ui:NavigationView.Header>
         <ui:BreadcrumbBar Margin="42,32,0,0"
                           FontSize="28"
@@ -199,6 +189,24 @@
                       HorizontalContentAlignment="Stretch"
                       VerticalContentAlignment="Stretch" />
     </Grid>
+
+    <!-- One shared indicator follows the selected item across both menu
+         groups.  Its position is animated in RootView code-behind so the
+         navigation control keeps its normal keyboard and mouse behavior. -->
+    <Canvas x:Name="NavigationIndicatorCanvas"
+            Grid.Row="1"
+            Width="72"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Stretch"
+            IsHitTestVisible="False"
+            Panel.ZIndex="2">
+      <Border x:Name="NavigationSelectionIndicator"
+              Width="3"
+              Height="16"
+              Background="{DynamicResource AccentPrimaryBrush}"
+              CornerRadius="1.5"
+              Visibility="Collapsed" />
+    </Canvas>
 
 
     <ListBox ItemsSource="{Binding NavigationItems}"

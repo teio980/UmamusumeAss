@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using UmamusumeWpfGui.ViewModels;
@@ -24,6 +25,7 @@ public sealed partial class RootView : FluentWindow
     private readonly DispatcherTimer _navigationInputGateTimer;
     private int? _pendingNavigationIndex;
     private bool _navigationInputLocked;
+    private NavigationViewItem? _activeNavigationItem;
 
 
 
@@ -45,6 +47,8 @@ public sealed partial class RootView : FluentWindow
             Interval = TimeSpan.FromMilliseconds(100),
         };
         _navigationInputGateTimer.Tick += OnNavigationInputGateTick;
+        SizeChanged += OnRootSizeChanged;
+        RootNavigation.SizeChanged += OnRootNavigationSizeChanged;
         Loaded += OnLoaded;
         Closed += OnClosed;
     }
@@ -60,12 +64,29 @@ public sealed partial class RootView : FluentWindow
             if (firstItem is not null)
             {
                 SetActiveNavigationItem(firstItem);
+                ScheduleNavigationIndicatorUpdate(firstItem, animate: false);
             }
         }
         else if (RootNavigation.SelectedItem is NavigationViewItem selectedItem)
         {
             SetActiveNavigationItem(selectedItem);
+            ScheduleNavigationIndicatorUpdate(selectedItem, animate: false);
         }
+    }
+
+    private void OnRootNavigationSelectionChanged(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, RootNavigation)
+            || RootNavigation.SelectedItem is not NavigationViewItem item)
+        {
+            return;
+        }
+
+        SetActiveNavigationItem(item);
+        QueueNavigationItem(item);
+        ScheduleNavigationIndicatorUpdate(item, animate: IsLoaded);
     }
 
     private void OnNavigationItemPreviewMouseDown(
@@ -105,11 +126,72 @@ public sealed partial class RootView : FluentWindow
             System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
             item);
         SetActiveNavigationItem(item);
+        ScheduleNavigationIndicatorUpdate(item, animate: IsLoaded);
         QueueNavigationItem(item);
+    }
+
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_activeNavigationItem is { } item)
+            ScheduleNavigationIndicatorUpdate(item, animate: false);
+    }
+
+    private void OnRootNavigationSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_activeNavigationItem is { } item)
+            ScheduleNavigationIndicatorUpdate(item, animate: false);
+    }
+
+    private void ScheduleNavigationIndicatorUpdate(
+        NavigationViewItem item,
+        bool animate)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Loaded,
+            new Action(() => UpdateNavigationIndicator(item, animate)));
+    }
+
+    private void UpdateNavigationIndicator(NavigationViewItem item, bool animate)
+    {
+        if (!IsLoaded
+            || !ReferenceEquals(_activeNavigationItem, item)
+            || item.ActualHeight <= 0
+            || NavigationIndicatorCanvas.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var itemOrigin = item.TransformToAncestor(this).Transform(new Point(0, 0));
+            var canvasOrigin = NavigationIndicatorCanvas
+                .TransformToAncestor(this)
+                .Transform(new Point(0, 0));
+            var left = itemOrigin.X - canvasOrigin.X + 4;
+            var top = itemOrigin.Y - canvasOrigin.Y
+                + Math.Max(0, (item.ActualHeight - 16) / 2);
+            var maxLeft = Math.Max(0, NavigationIndicatorCanvas.ActualWidth - 3);
+
+            NavigationIndicatorAnimator.SetBounds(
+                NavigationSelectionIndicator,
+                new Rect(
+                    Math.Clamp(left, 0, maxLeft),
+                    Math.Max(0, top),
+                    3,
+                    16),
+                animate);
+        }
+        catch (InvalidOperationException)
+        {
+            // The item can be re-templated while a layout pass is in flight.
+            // The next selection/resize pass will position the shared visual.
+        }
     }
 
     private void SetActiveNavigationItem(NavigationViewItem activeItem)
     {
+        _activeNavigationItem = activeItem;
+
         foreach (var rawItem in RootNavigation.MenuItems)
         {
             if (rawItem is NavigationViewItem item)
