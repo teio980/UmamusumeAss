@@ -177,11 +177,11 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     public void Career_settings_host_keeps_expanded_train_settings_vertically_scrollable()
     {
         var host = XDocument.Load(Path.Combine(
-            FindSolutionRoot(), "src", "UmamusumeWpfGui", "Views", "GrassView.xaml"));
+            FindSolutionRoot(), "src", "UmamusumeWpfGui", "Views", "HachimiTaskSettingsView.xaml"));
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         XNamespace taskViews = "clr-namespace:UmamusumeWpfGui.Views.Tasks";
-        var careerView = Assert.Single(host.Descendants(taskViews + "CareerTrainingTaskSettingsView"));
-        var scroll = Assert.Single(careerView.Ancestors(presentation + "ScrollViewer"));
+        Assert.Single(host.Descendants(taskViews + "CareerTrainingTaskSettingsView"));
+        var scroll = Assert.Single(host.Descendants(presentation + "ScrollViewer"));
 
         Assert.Equal("Auto", (string?)scroll.Attribute("VerticalScrollBarVisibility"));
         Assert.Equal("Disabled", (string?)scroll.Attribute("HorizontalScrollBarVisibility"));

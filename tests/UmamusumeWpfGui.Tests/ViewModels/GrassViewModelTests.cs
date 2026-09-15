@@ -73,6 +73,34 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public void TaskSettingsPage_OpensForExplicitTaskAndCanReturnToQueue()
+    {
+        using var log = new LogViewModel(new FakeUmaService());
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(new FakeGrassTaskModule(new GrassTaskDefinition(
+            "daily-training",
+            "GrassTaskDailyTraining",
+            "GrassTaskDailyTrainingDescription",
+            "Daily Training",
+            "Training plan and daily development flow (not connected)")));
+        using var viewModel = new GrassViewModel(log, new FakeLocalizationService(), catalog);
+        viewModel.RequestTaskSelection = modules => modules[0];
+
+        viewModel.AddTaskCommand.Execute(null);
+        var task = Assert.Single(viewModel.Tasks);
+
+        Assert.False(viewModel.IsTaskSettingsPage);
+        viewModel.OpenTaskSettings(task);
+
+        Assert.True(viewModel.IsTaskSettingsPage);
+        Assert.Same(task, viewModel.SelectedTask);
+
+        viewModel.CloseTaskSettings();
+
+        Assert.False(viewModel.IsTaskSettingsPage);
+    }
+
+    [Fact]
     public void InvertCommandTogglesAllTaskSelections()
     {
         using var log = new LogViewModel(new FakeUmaService());

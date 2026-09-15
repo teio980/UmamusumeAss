@@ -26,7 +26,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private Func<IReadOnlyList<IGrassTaskModule>, IGrassTaskModule?>? _requestTaskSelection;
-    private bool _isAdvancedSettings;
+    private bool _isTaskSettingsPage;
     private bool _isQueueOperationInProgress;
     private bool _isQueueRunning;
     private bool _stopRequested;
@@ -80,7 +80,12 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _settingsViewModel = settingsViewModel;
         _adbRuntime = adbRuntime;
         _activityRegistry = activityRegistry;
-        HachimiShopSettings = new HachimiShopSettingsViewModel(settingsService);
+        // Settings owns the global Hachimi editor when the application is
+        // running. Reuse that instance so a migration and subsequent edits
+        // are reflected on both pages immediately. The fallback keeps the
+        // lightweight/test constructor independent of the Settings page.
+        HachimiShopSettings = settingsViewModel?.HachimiShopSettings
+            ?? new HachimiShopSettingsViewModel(settingsService);
 
         Tasks = [];
         _localizationService.LanguageChanged += OnLanguageChanged;
@@ -126,6 +131,9 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedTaskTitle));
             OnPropertyChanged(nameof(SelectedTaskDescription));
+            OnPropertyChanged(nameof(IsSelectedShopTask));
+            if (_selectedTask is null)
+                IsTaskSettingsPage = false;
             ((RelayCommand)RemoveTaskCommand).RaiseCanExecuteChanged();
             ((RelayCommand)CopyTaskCommand).RaiseCanExecuteChanged();
         }
@@ -136,6 +144,38 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
     public string SelectedTaskDescription => SelectedTask?.Description
         ?? Localize("GrassSelectTaskHint", "Select a task on the left to view its settings");
+
+    /// <summary>
+    /// True while the task settings page is covering the Hachimi workspace.
+    /// TaskQueue remains the default page; opening this page is an explicit
+    /// action from a task row rather than a side effect of selection.
+    /// </summary>
+    public bool IsTaskSettingsPage
+    {
+        get => _isTaskSettingsPage;
+        private set
+        {
+            if (_isTaskSettingsPage == value)
+                return;
+            _isTaskSettingsPage = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsSelectedShopTask =>
+        SelectedTask?.Module.Definition.Id.Equals(
+            "shop-purchase",
+            StringComparison.Ordinal) == true;
+
+    public void OpenTaskSettings(GrassTaskItemViewModel? task = null)
+    {
+        if (task is not null)
+            SelectedTask = task;
+        if (SelectedTask is not null)
+            IsTaskSettingsPage = true;
+    }
+
+    public void CloseTaskSettings() => IsTaskSettingsPage = false;
 
     public string TaskCountSummary => string.Format(
         CultureInfo.InvariantCulture,
@@ -222,47 +262,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     public bool CanAddTask =>
         _taskCatalog.Modules.Count == 1
         || (_requestTaskSelection is not null && _taskCatalog.Modules.Count > 0);
-
-    public bool IsAdvancedSettings
-    {
-        get => IsGlobalSettings;
-        set
-        {
-            IsGlobalSettings = value;
-        }
-    }
-
-    public bool IsGeneralSettings
-    {
-        get => IsTaskSettings;
-        set
-        {
-            if (value == IsGeneralSettings)
-                return;
-            IsGlobalSettings = !value;
-        }
-    }
-
-    public bool IsGlobalSettings
-    {
-        get => _isAdvancedSettings;
-        set
-        {
-            if (_isAdvancedSettings == value)
-                return;
-            _isAdvancedSettings = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(IsTaskSettings));
-            OnPropertyChanged(nameof(IsAdvancedSettings));
-            OnPropertyChanged(nameof(IsGeneralSettings));
-        }
-    }
-
-    public bool IsTaskSettings
-    {
-        get => !IsGlobalSettings;
-        set => IsGlobalSettings = !value;
-    }
 
     public ICommand AddTaskCommand { get; }
     public ICommand RemoveTaskCommand { get; }
@@ -707,7 +706,13 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             return;
 
         if (HachimiShopSettings.IsDefault)
+        {
+            // The old queue item's enabled flag was the only place where
+            // this setting was stored, so carry it over before removing the
+            // legacy task from the queue.
+            HachimiShopSettings.Enabled = legacyShop.IsEnabled;
             HachimiShopSettings.ImportLegacySettings(legacyShop.Settings ?? new());
+        }
 
         settings = service.Load();
         settings.TaskQueue = settings.TaskQueue

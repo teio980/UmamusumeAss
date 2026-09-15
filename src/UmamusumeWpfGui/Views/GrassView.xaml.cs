@@ -54,6 +54,7 @@ public sealed partial class GrassView : UserControl
             UIElement.PreviewMouseLeftButtonUpEvent,
             new MouseButtonEventHandler(OnTaskListPreviewMouseLeftButtonUp),
             handledEventsToo: true);
+        PreviewKeyDown += OnPreviewKeyDown;
         DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -89,8 +90,7 @@ public sealed partial class GrassView : UserControl
     {
         ResetTaskDragState();
 
-        if (DataContext is not GrassViewModel viewModel
-            || !viewModel.CanReorderTasks
+        if (DataContext is not GrassViewModel
             || ItemsControl.ContainerFromElement(
                 TaskQueueListBox,
                 e.OriginalSource as DependencyObject) is not ListBoxItem container
@@ -136,11 +136,22 @@ public sealed partial class GrassView : UserControl
 
     private void OnTaskListPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (!_taskDragInProgress
-            || DataContext is not GrassViewModel viewModel
+        if (DataContext is not GrassViewModel viewModel
             || _pendingDragTask is not GrassTaskItemViewModel sourceTask)
         {
             ResetTaskDragState();
+            return;
+        }
+
+        // A short click opens the task editor. Interactive children (most
+        // importantly the enabled checkbox) never set _pendingDragTask, so
+        // toggling them cannot navigate away from the queue.
+        if (!_taskDragInProgress)
+        {
+            var shouldOpen = IsPointerInsideTaskList(e);
+            ResetTaskDragState();
+            if (shouldOpen)
+                viewModel.OpenTaskSettings(sourceTask);
             return;
         }
 
@@ -167,6 +178,19 @@ public sealed partial class GrassView : UserControl
 
         viewModel.SelectedTask = sourceTask;
         viewModel.MoveTask(sourceTask, targetIndex);
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape
+            || DataContext is not GrassViewModel viewModel
+            || !viewModel.IsTaskSettingsPage)
+        {
+            return;
+        }
+
+        viewModel.CloseTaskSettings();
+        e.Handled = true;
     }
 
     private bool BeginTaskRowDrag()

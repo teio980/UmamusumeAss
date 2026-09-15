@@ -1,0 +1,88 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.HachimiTaskSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
+             xmlns:tasksettings="clr-namespace:UmamusumeWpfGui.ViewModels.Tasks"
+             xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <c:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
+    <!-- SettingCardGroupStyle, SettingCardStyle, and the SettingsTab styles
+         are shared application resources with SettingsView. -->
+    <DataTemplate DataType="{x:Type tasksettings:StartGameTaskSettingsViewModel}">
+      <taskviews:StartGameTaskSettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tasksettings:TeamRaceTaskSettingsViewModel}">
+      <taskviews:TeamRaceTaskSettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tasksettings:DailyRaceTaskSettingsViewModel}">
+      <taskviews:DailyRaceTaskSettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tasksettings:CareerTrainingTaskSettingsViewModel}">
+      <taskviews:CareerTrainingTaskSettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tasksettings:MailCollectionTaskSettingsViewModel}">
+      <taskviews:MailCollectionTaskSettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tasksettings:MissionCollectionTaskSettingsViewModel}">
+      <taskviews:MissionCollectionTaskSettingsView />
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="36,24,42,42"
+                VerticalAlignment="Top"
+                TextElement.FontSize="12">
+      <Grid Margin="0,0,0,18">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Text="{DynamicResource GrassTaskSettingsPageTitle}"
+                     FontSize="32"
+                     FontWeight="Light" />
+          <TextBlock Margin="0,6,0,0"
+                     Text="{Binding SelectedTask.Name}"
+                     FontSize="16"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <ui:Button Grid.Column="1"
+                   MinWidth="88"
+                   Margin="16,0,0,0"
+                   VerticalAlignment="Center"
+                   Content="{DynamicResource GrassTaskSettingsBack}"
+                   Appearance="Secondary"
+                   Click="OnBackClick" />
+      </Grid>
+
+      <TextBlock Margin="0,0,0,22"
+                 Text="{Binding SelectedTask.Description}"
+                 Style="{DynamicResource SettingCardDescriptionStyle}" />
+
+      <!-- Simple task editors render their own SettingCard groups. Career's
+           Basic/Legacy/Cards Pivot is the sole task-level navigation. -->
+      <ContentControl Content="{Binding SelectedTask.Settings}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch"
+                      Visibility="{Binding IsSelectedShopTask,
+                                           Converter={StaticResource InverseBoolToVisibility}}" />
+      <Border Visibility="{Binding IsSelectedShopTask,
+                                   Converter={StaticResource BoolToVisibility}}"
+              Style="{DynamicResource SettingCardStyle}">
+        <StackPanel>
+          <TextBlock Text="{DynamicResource GrassShopSettingsTitle}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Margin="0,6,0,0"
+                     Text="{DynamicResource GrassShopSettingsLocationHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
