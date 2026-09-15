@@ -49,17 +49,26 @@ jobs:
         run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
         shell: pwsh
 
-      - name: Package Portable ZIP
-        run: tools/package.ps1
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
         shell: pwsh
 
-      - name: Verify ZIP Exists
+      - name: Package Portable ZIP and Windows Installer
+        run: tools/package.ps1 -BuildInstaller
+        shell: pwsh
+
+      - name: Verify Packages Exist
         run: |
           $zip = "dist/UmamusumeAss-win-x64.zip"
           if (-not (Test-Path -LiteralPath $zip)) {
             throw "ZIP not found at expected path: $zip"
           }
+          $installer = Get-ChildItem -LiteralPath "dist" -Filter "*-setup.exe" -File | Select-Object -First 1
+          if ($null -eq $installer) {
+            throw "Windows installer not found in dist"
+          }
           Write-Host "ZIP exists and is ready for upload: $zip"
+          Write-Host "Installer exists and is ready for upload: $($installer.FullName)"
         shell: pwsh
 
       # Upload the final artifact even if some steps above failed
@@ -69,5 +78,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: UmamusumeAss-win-x64
-          path: dist/UmamusumeAss-win-x64.zip
+          path: |
+            dist/UmamusumeAss-win-x64.zip
+            dist/*-setup.exe
           retention-days: 7

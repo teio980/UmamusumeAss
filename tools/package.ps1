@@ -25,7 +25,13 @@ param(
     [string]$OutputDirectory = (Join-Path -Path $PSScriptRoot -ChildPath "..\dist"),
 
     [Parameter(Mandatory = $false)]
-    [string]$BundledResourceVersion = ""
+    [string]$BundledResourceVersion = "",
+
+    [Parameter(Mandatory = $false)]
+    [switch]$BuildInstaller,
+
+    [Parameter(Mandatory = $false)]
+    [string]$InstallerCompilerPath = ""
 )
 
 Set-StrictMode -Version Latest
@@ -57,6 +63,8 @@ if ([string]::IsNullOrWhiteSpace($BundledResourceVersion)) {
 
 $ZipPath = Join-Path -Path $OutputDir -ChildPath "UmamusumeAss-win-x64.zip"
 $VersionedZipPath = Join-Path -Path $OutputDir -ChildPath "UmamusumeAss-v$Version-win-x64-full.zip"
+$InstallerPath = Join-Path -Path $OutputDir -ChildPath "UmamusumeAss-v$Version-win-x64-setup.exe"
+$InstallerScript = Join-Path -Path $SolutionRoot -ChildPath "tools\installer.iss"
 
 function Get-Sha256Hex([string]$Path) {
     $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -278,7 +286,68 @@ Write-Host "OK - $ZipPath ($zipSize bytes)"
 Write-Host ""
 
 
-Write-Host "--- Step 7/7: Verifying no VC++ redistributable DLLs in archive ---"
+if ($BuildInstaller) {
+    Write-Host "--- Step 7/8: Creating Windows installer ---"
+
+    if (-not (Test-Path -LiteralPath $InstallerScript -PathType Leaf)) {
+        throw "Inno Setup script not found: $InstallerScript"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($InstallerCompilerPath)) {
+        $isccCommand = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+        if ($null -ne $isccCommand) {
+            $InstallerCompilerPath = $isccCommand.Source
+        }
+        else {
+            $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
+            $programFiles = [Environment]::GetEnvironmentVariable("ProgramFiles")
+            $localAppData = [Environment]::GetEnvironmentVariable("LOCALAPPDATA")
+            $compilerCandidates = @()
+            if (-not [string]::IsNullOrWhiteSpace($programFilesX86)) {
+                $compilerCandidates += Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($programFiles)) {
+                $compilerCandidates += Join-Path $programFiles "Inno Setup 6\ISCC.exe"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+                $compilerCandidates += Join-Path $localAppData "Programs\Inno Setup 6\ISCC.exe"
+            }
+            $InstallerCompilerPath = $compilerCandidates |
+                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+                Select-Object -First 1
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($InstallerCompilerPath) -or
+        -not (Test-Path -LiteralPath $InstallerCompilerPath -PathType Leaf)) {
+        throw "Inno Setup compiler ISCC.exe was not found. Install Inno Setup 6 or pass -InstallerCompilerPath."
+    }
+
+    $installerArguments = @(
+        "/DAppVersion=$Version"
+        "/DSourceDir=$PublishDir"
+        "/DOutputDir=$OutputDir"
+        $InstallerScript
+    )
+    & $InstallerCompilerPath @installerArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
+    }
+    if (-not (Test-Path -LiteralPath $InstallerPath -PathType Leaf)) {
+        throw "Installer compilation completed but output was not found: $InstallerPath"
+    }
+    Write-Host "Installer: $InstallerPath"
+    Write-Host "OK"
+    Write-Host ""
+}
+else {
+    Write-Host "--- Step 7/8: Windows installer disabled ---"
+    Write-Host "Use -BuildInstaller to create the installable EXE with an uninstall entry."
+    Write-Host ""
+}
+
+
+Write-Host "--- Step 8/8: Verifying no VC++ redistributable DLLs in archive ---"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipCheck = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
 try {

@@ -175,18 +175,45 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public void ModifyDraft_DoesNotPersist()
+    public void ModifyDraft_PersistsImmediately()
     {
         var f = CreateFixture();
         var vm = f.CreateViewModel();
 
         vm.DraftAdbPath = @"D:\new\adb.exe";
         vm.DraftConnectAddress = "10.0.0.1:5555";
+        vm.DraftConnectConfig = "MuMuEmulator12";
+        vm.DraftAutoDetect = true;
+        vm.DraftAlwaysAutoDetect = true;
+        vm.DraftAutoStartEmulator = true;
+        vm.DraftEmulatorExecutablePath = @"D:\new\MuMu.exe";
+        vm.DraftAutoStartEmulatorWaitSeconds = 12;
+        vm.DraftLanguage = "zh-CN";
+        vm.StartupUpdateCheck = false;
 
 
         var persisted = f.Settings.Load();
-        Assert.Equal(@"C:\persisted\adb.exe", persisted.AdbPath);
-        Assert.Equal("192.168.1.1:5555", persisted.ConnectAddress);
+        Assert.Equal(@"D:\new\adb.exe", persisted.AdbPath);
+        Assert.Equal("10.0.0.1:5555", persisted.ConnectAddress);
+        Assert.Equal("MuMuEmulator12", persisted.ConnectConfig);
+        Assert.True(persisted.AutoDetectConnection);
+        Assert.True(persisted.AlwaysAutoDetectConnection);
+        Assert.True(persisted.AutoStartEmulator);
+        Assert.Equal(@"D:\new\MuMu.exe", persisted.EmulatorExecutablePath);
+        Assert.Equal(12, persisted.AutoStartEmulatorWaitSeconds);
+        Assert.Equal("zh-CN", persisted.Language);
+        Assert.False(persisted.StartupUpdateCheck);
+    }
+
+    [Fact]
+    public void AutoStartEmulatorToggle_PersistsWithoutManualSave()
+    {
+        var f = CreateFixture();
+        var vm = f.CreateViewModel();
+
+        vm.DraftAutoStartEmulator = true;
+
+        Assert.True(f.Settings.Load().AutoStartEmulator);
     }
 
     [Fact]
@@ -1524,6 +1551,7 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal("zh-CN", f.Localization.CurrentCulture);
         Assert.True(f.Localization.SwitchLanguageWasCalled);
+        Assert.Equal("zh-CN", f.Settings.Load().Language);
     }
 
     [Fact]

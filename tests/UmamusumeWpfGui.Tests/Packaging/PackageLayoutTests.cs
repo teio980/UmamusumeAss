@@ -210,6 +210,19 @@ public sealed class PackageLayoutTests : IDisposable
     }
 
     [Fact]
+    public void InstallerScript_RegistersAnUninstaller()
+    {
+        var scriptPath = Path.Combine(_solutionRoot, "tools", "installer.iss");
+        Assert.True(File.Exists(scriptPath),
+            $"installer.iss not found at expected path: {scriptPath}");
+
+        var contents = File.ReadAllText(scriptPath);
+        Assert.Contains("Uninstallable=yes", contents, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("UninstallDisplayIcon=", contents, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("{uninstallexe}", contents, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PackageScript_ProducesValidZipWithCorrectLayout()
     {
 

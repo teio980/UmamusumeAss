@@ -23,6 +23,7 @@ public sealed partial class SettingsViewModel
 
             _draftAutoStartEmulatorWaitSeconds = clamped;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 

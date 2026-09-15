@@ -14,6 +14,8 @@ set "PROJECT=src\UmamusumeWpfGui\UmamusumeWpfGui.csproj"
 tasklist /FI "IMAGENAME eq UmamusumeAss.exe" | find /I "UmamusumeAss.exe" >nul
 if not errorlevel 1 goto :err_app_running
 
+if /I "%~1"=="installer" goto :build_installer
+
 where cmake >nul 2>&1
 if errorlevel 1 goto :err_cmake
 where dotnet >nul 2>&1
@@ -112,6 +114,20 @@ echo ============================================
 echo.
 goto :end
 
+:build_installer
+where powershell >nul 2>&1
+if errorlevel 1 goto :err_powershell
+echo [1/1] Creating portable ZIP and Windows installer...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\package.ps1" -BuildInstaller
+if errorlevel 1 goto :err_installer
+echo.
+echo ============================================
+echo   Installer build SUCCESSFUL
+echo   Output: %~dp0dist
+echo ============================================
+echo.
+goto :end
+
 :err_app_running
 echo [ERROR] UmamusumeAss.exe is still running. Close it and run build.bat again.
 goto :end_err
@@ -120,6 +136,12 @@ echo [ERROR] cmake not found. Install CMake and add it to PATH.
 goto :end_err
 :err_dotnet
 echo [ERROR] dotnet not found. Install the .NET 10 SDK and add it to PATH.
+goto :end_err
+:err_powershell
+echo [ERROR] Windows PowerShell not found.
+goto :end_err
+:err_installer
+echo [ERROR] Portable ZIP or Windows installer creation failed.
 goto :end_err
 :err_cmake_config
 echo [ERROR] CMake configure failed.
