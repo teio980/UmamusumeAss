@@ -7,274 +7,678 @@
   <UserControl.Resources>
     <c:NullToVisibilityConverter x:Key="NotNullToVisibility" />
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+    <!-- March7thAssistant SettingCardGroup equivalent. -->
+    <Style x:Key="SettingCardGroupStyle" TargetType="{x:Type StackPanel}">
+      <Setter Property="Margin" Value="0,0,0,24" />
+    </Style>
+    <!-- March7thAssistant SettingCard equivalent. -->
+    <Style x:Key="SettingCardStyle" TargetType="{x:Type Border}">
+      <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="16,13" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style x:Key="SettingCardTitleStyle" TargetType="{x:Type TextBlock}">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="SettingCardDescriptionStyle" TargetType="{x:Type TextBlock}">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- ExpandableSettingCard equivalent used for emulator auto-start.
+         CardExpander's stock template puts its disclosure glyph before the
+         icon. Keep the row explicit so the setting icon/text/toggle stay on
+         the left and the Fluent chevron owns the far-right hit target. -->
+    <Style x:Key="ExpandableSettingCardStyle" TargetType="{x:Type ui:CardExpander}">
+      <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="16,13" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ui:CardExpander}">
+            <Border x:Name="CardBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Padding="{TemplateBinding Padding}">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Icon and header are kept separate from the disclosure
+                     button, so a ToggleSwitch in Header cannot toggle the
+                     expander through a parent ToggleButton. -->
+                <ContentPresenter x:Name="IconPresenter"
+                                  Grid.Row="0"
+                                  Grid.Column="0"
+                                  ContentSource="Icon"
+                                  VerticalAlignment="Top"
+                                  Margin="0,1,14,0" />
+                <ContentPresenter x:Name="HeaderPresenter"
+                                  Grid.Row="0"
+                                  Grid.Column="1"
+                                  ContentSource="Header"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center" />
+                <ToggleButton x:Name="ExpanderChevronButton"
+                              Grid.Row="0"
+                              Grid.Column="2"
+                              Width="28"
+                              Height="28"
+                              Margin="8,0,0,0"
+                              Padding="0"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              Focusable="False"
+                              IsChecked="{Binding IsExpanded,
+                                  RelativeSource={RelativeSource TemplatedParent},
+                                  Mode=TwoWay}"
+                              Style="{DynamicResource ExpanderChevronButtonStyle}" />
+
+                <ContentPresenter x:Name="ContentPresenter"
+                                  Grid.Row="1"
+                                  Grid.Column="0"
+                                  Grid.ColumnSpan="3"
+                                  ContentSource="Content"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Margin="{TemplateBinding ContentPadding}" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsExpanded" Value="False">
+                <Setter TargetName="ContentPresenter" Property="Visibility" Value="Collapsed" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="CardBorder" Property="Opacity" Value="0.6" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="ExpanderChevronButtonStyle" TargetType="{x:Type ToggleButton}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToggleButton}">
+            <Border x:Name="ChevronBackground"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    Padding="2">
+              <Grid Width="24" Height="24">
+                <ui:SymbolIcon x:Name="ChevronDownIcon"
+                               Symbol="ChevronDown24"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                <ui:SymbolIcon x:Name="ChevronUpIcon"
+                               Symbol="ChevronUp24"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Opacity="0" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="ChevronDownIcon" Property="Opacity" Value="0" />
+                <Setter TargetName="ChevronUpIcon" Property="Opacity" Value="1" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ChevronBackground" Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+                <Setter TargetName="ChevronDownIcon" Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+                <Setter TargetName="ChevronUpIcon" Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ChevronBackground" Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="SettingGroupTitleStyle" TargetType="{x:Type TextBlock}">
+      <Setter Property="Margin" Value="4,0,0,10" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+    <Style x:Key="SettingIconStyle" TargetType="{x:Type ui:SymbolIcon}">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="FontSize" Value="21" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="Margin" Value="0,1,14,0" />
+    </Style>
+    <!-- March7thAssistant SettingPivot equivalent using a WPF TabControl. -->
+    <Style x:Key="SettingsTabControlStyle" TargetType="{x:Type TabControl}">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabControl}">
+            <Grid KeyboardNavigation.TabNavigation="Local">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
+              <TabPanel x:Name="HeaderPanel"
+                        Grid.Row="0"
+                        Margin="0,0,0,18"
+                        IsItemsHost="True"
+                        KeyboardNavigation.TabNavigation="Local" />
+              <!-- A single indicator is shared by all tab headers.  The
+                   code-behind moves it to the selected header so switching
+                   tabs slides the same visual, including when a localized
+                   header changes width. -->
+              <Canvas x:Name="TabIndicatorCanvas"
+                      Grid.Row="0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      IsHitTestVisible="False"
+                      Panel.ZIndex="1">
+                <Border x:Name="SelectedTabIndicator"
+                        Height="3"
+                        Background="{DynamicResource AccentPrimaryBrush}"
+                        CornerRadius="2"
+                        Visibility="Collapsed" />
+              </Canvas>
+              <ContentPresenter x:Name="PART_SelectedContentHost"
+                                Grid.Row="1"
+                                ContentSource="SelectedContent"
+                                ContentStringFormat="{TemplateBinding SelectedContentStringFormat}" />
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="SettingsTabItemStyle" TargetType="{x:Type TabItem}">
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Padding" Value="0,0,18,10" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabItem}">
+            <Grid SnapsToDevicePixels="True">
+              <Border x:Name="TabBackground"
+                      Background="Transparent"
+                      CornerRadius="4"
+                      Padding="{TemplateBinding Padding}">
+                <ContentPresenter ContentSource="Header"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+              </Border>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabBackground" Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </UserControl.Resources>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
-      <StackPanel Margin="24,2,42,42"
-                  VerticalAlignment="Top">
-        <TabControl x:Name="SettingsTabs"
-                    SelectedIndex="{Binding SelectedMenuIndex, Mode=TwoWay}"
-                    SelectionChanged="OnSettingsTabSelectionChanged">
-          <TabItem Margin="-6,0,0,0"
-                   Header="{DynamicResource NavConnection}">
-            <StackPanel Margin="0,18,0,0">
-          <TextBlock Text="{DynamicResource ConnectionTitle}"
-                     FontSize="20"
-                     FontWeight="Medium" />
-          <TextBlock Margin="0,12,0,0"
-                     Text="{Binding StatusText}" />
+    <StackPanel Margin="36,24,42,42"
+                VerticalAlignment="Top">
+      <TextBlock Text="{DynamicResource SettingsTitle}"
+                 FontSize="32"
+                 FontWeight="Light"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
-          <StackPanel Margin="0,12,0,0"
-                      Orientation="Horizontal">
-            <ui:Button Content="{DynamicResource ConnectButton}"
-                       Command="{Binding ConnectCommand}"
-                       Appearance="Primary"
-                       Icon="ArrowSync24" />
-            <ui:Button Margin="8,0,0,0"
-                       Content="{DynamicResource CancelButton}"
-                       Command="{Binding CancelConnectCommand}"
-                       Appearance="Secondary"
-                       Icon="DismissCircle24" />
-            <ui:Button Margin="8,0,0,0"
-                       Content="{DynamicResource DisconnectButton}"
-                       Command="{Binding DisconnectCommand}"
-                       Appearance="Secondary"
-                       Icon="PlugDisconnected24" />
-          </StackPanel>
+      <TabControl x:Name="SettingsTabs"
+                  Margin="0,22,0,0"
+                  Style="{StaticResource SettingsTabControlStyle}"
+                  ItemContainerStyle="{StaticResource SettingsTabItemStyle}"
+                  SelectedIndex="{Binding SelectedMenuIndex, Mode=TwoWay}">
+        <TabItem Header="{DynamicResource NavConnection}">
+          <StackPanel>
+            <!-- SettingCardGroup: connection -->
+            <StackPanel x:Name="ConnectionSettingCardGroup"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource ConnectionTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
 
-          <TextBlock Margin="0,24,0,0"
-                     Text="{DynamicResource AdbPathLabel}" />
-          <StackPanel Margin="0,12,0,0"
-                      Orientation="Horizontal">
-            <ui:TextBox Width="300"
-                        Text="{Binding DraftAdbPath, UpdateSourceTrigger=PropertyChanged}" />
-            <ui:Button Margin="8,0,0,0"
-                       Content="{DynamicResource BrowseButton}"
-                       Click="OnBrowseAdbPath"
-                       Appearance="Secondary"
-                       Icon="FolderOpen24" />
-            <ui:Button Margin="8,0,0,0"
-                       Content="{DynamicResource SaveButton}"
-                       Command="{Binding SaveCommand}"
-                       Appearance="Secondary"
-                       Icon="Save24" />
-          </StackPanel>
+              <!-- StatusSettingCard -->
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="PlugConnected24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1" MinWidth="180">
+                    <TextBlock Text="{DynamicResource ConnectionStatusLabel}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Margin="0,4,8,0"
+                               Text="{Binding StatusText}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                    <ui:Button Content="{DynamicResource ConnectButton}"
+                               Command="{Binding ConnectCommand}"
+                               Appearance="Primary"
+                               Icon="ArrowSync24" />
+                    <ui:Button Margin="8,0,0,0"
+                               Content="{DynamicResource CancelButton}"
+                               Command="{Binding CancelConnectCommand}"
+                               Appearance="Secondary"
+                               Icon="DismissCircle24" />
+                    <ui:Button Margin="8,0,0,0"
+                               Content="{DynamicResource DisconnectButton}"
+                               Command="{Binding DisconnectCommand}"
+                               Appearance="Secondary"
+                               Icon="PlugDisconnected24" />
+                  </WrapPanel>
+                </Grid>
+              </Border>
 
-          <TextBlock Margin="0,24,0,0"
-                     Text="{DynamicResource SerialLabel}" />
-          <ComboBox Width="400"
-                    Margin="0,12,0,0"
-                    HorizontalAlignment="Left"
-                    Text="{Binding DraftConnectAddress, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{Binding ConnectAddressHistory}"
-                    IsEditable="True"
-                    IsTextSearchEnabled="True" />
+              <!-- PushSettingCard equivalent: ADB executable -->
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="Code24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1" MinWidth="190">
+                    <TextBlock Text="{DynamicResource AdbPathLabel}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{DynamicResource AdbPathHint}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <Grid Grid.Column="2" Margin="16,0,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="240" />
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBox Grid.Column="0"
+                                Text="{Binding DraftAdbPath, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="{DynamicResource AdbPathHint}" />
+                    <ui:Button Grid.Column="1"
+                               Margin="8,0,0,0"
+                               Content="{DynamicResource BrowseButton}"
+                               Click="OnBrowseAdbPath"
+                               Appearance="Secondary"
+                               Icon="FolderOpen24" />
+                    <ui:Button Grid.Column="2"
+                               Margin="8,0,0,0"
+                               Content="{DynamicResource SaveButton}"
+                               Command="{Binding SaveCommand}"
+                               Appearance="Secondary"
+                               Icon="Save24" />
+                  </Grid>
+                </Grid>
+              </Border>
 
-          <StackPanel Margin="0,12,0,0"
-                      Orientation="Horizontal">
-            <ui:Button Content="{DynamicResource AutoDetectButton}"
-                       Command="{Binding DetectAdbConfigCommand}"
-                       Appearance="Secondary"
-                       Icon="Search24" />
-            <CheckBox Margin="12,0,0,0"
-                      VerticalAlignment="Center"
-                      IsChecked="{Binding DraftAlwaysAutoDetect}"
-                      Content="{DynamicResource AlwaysAutoDetectLabel}" />
-          </StackPanel>
+              <!-- ComboBoxSettingCard equivalent: endpoint -->
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="DeviceEq24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1" MinWidth="190">
+                    <TextBlock Text="{DynamicResource SerialLabel}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{DynamicResource SerialHint}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <Grid Grid.Column="2" Margin="16,0,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="250" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox Grid.Column="0"
+                              Text="{Binding DraftConnectAddress, UpdateSourceTrigger=PropertyChanged}"
+                              ItemsSource="{Binding ConnectAddressHistory}"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True" />
+                    <ui:Button Grid.Column="1"
+                               Margin="8,0,0,0"
+                               Content="{DynamicResource AutoDetectButton}"
+                               Command="{Binding DetectAdbConfigCommand}"
+                               Appearance="Secondary"
+                               Icon="Search24" />
+                  </Grid>
+                </Grid>
+              </Border>
 
-          <CheckBox Margin="0,24,0,0"
-                    IsChecked="{Binding DraftAutoStartEmulator}"
-                    Content="{DynamicResource AutoStartEmulatorLabel}" />
-          <ui:TextBox Margin="0,12,0,0"
-                      ToolTip="{DynamicResource EmulatorExecutablePathHint}"
-                      Text="{Binding DraftEmulatorExecutablePath, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Margin="0,24,0,0"
-                     Text="{DynamicResource AutoStartEmulatorWaitSecondsLabel}" />
-          <ui:TextBox Width="120"
-                      Margin="0,12,0,0"
-                      HorizontalAlignment="Left"
-                      Text="{Binding DraftAutoStartEmulatorWaitSeconds, UpdateSourceTrigger=PropertyChanged}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="Settings24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1" MinWidth="190">
+                    <TextBlock Text="{DynamicResource ProfileLabel}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{DynamicResource ProfileHint}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="2"
+                            Width="200"
+                            ItemsSource="{Binding ConnectConfigOptions}"
+                            SelectedItem="{Binding DraftConnectConfig, Mode=TwoWay}"
+                            IsReadOnly="True" />
+                </Grid>
+              </Border>
 
-          <TextBlock Margin="0,24,0,0"
-                     Text="{DynamicResource ProfileLabel}" />
-          <ComboBox Width="200"
-                    Margin="0,12,0,0"
-                    HorizontalAlignment="Left"
-                    IsReadOnly="True"
-                    Text="General">
-            <ComboBox.Items>
-              <ComboBoxItem IsSelected="True">General</ComboBoxItem>
-            </ComboBox.Items>
-          </ComboBox>
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="AutoFitWidth24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1" MinWidth="190">
+                    <TextBlock Text="{DynamicResource AlwaysAutoDetectLabel}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{DynamicResource AlwaysAutoDetectHint}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <ui:ToggleSwitch Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   IsChecked="{Binding DraftAlwaysAutoDetect}"
+                                   OnContent="{DynamicResource ToggleOn}"
+                                   OffContent="{DynamicResource ToggleOff}" />
+                </Grid>
+              </Border>
 
-          <StackPanel Margin="0,24,0,0"
-                      Visibility="{Binding LastVerified,
-                          Converter={StaticResource NotNullToVisibility}}">
-            <TextBlock Text="{DynamicResource DeviceInfoTitle}"
-                       FontSize="20"
-                       FontWeight="Medium" />
-            <ui:Button Margin="0,12,0,0"
-                       HorizontalAlignment="Left"
-                       Content="{DynamicResource ForgetButton}"
-                       Command="{Binding ForgetCommand}"
-                       Appearance="Secondary"
-                       Icon="Delete24" />
-            <TextBlock Margin="0,24,0,0"
-                       Text="{DynamicResource SerialField}" />
-            <TextBlock Margin="0,8,0,0"
-                       Text="{Binding LastVerified.Serial}" />
-            <TextBlock Margin="0,12,0,0"
-                       Text="{DynamicResource AndroidIdField}" />
-            <TextBlock Margin="0,8,0,0"
-                       Text="{Binding LastVerified.AndroidId}" />
-            <TextBlock Margin="0,12,0,0"
-                       Text="{DynamicResource AndroidVersionField}" />
-            <TextBlock Margin="0,8,0,0"
-                       Text="{Binding LastVerified.AndroidVersion}" />
-            <TextBlock Margin="0,12,0,0"
-                       Text="{DynamicResource ResolutionField}" />
-            <TextBlock Margin="0,8,0,0">
-              <TextBlock.Text>
-                <MultiBinding StringFormat="{}{0} 脳 {1}">
-                  <Binding Path="LastVerified.Width" />
-                  <Binding Path="LastVerified.Height" />
-                </MultiBinding>
-              </TextBlock.Text>
-            </TextBlock>
-          </StackPanel>
-
-          <StackPanel Margin="0,24,0,0"
-                      IsEnabled="False"
-                      Opacity="0.6">
-            <TextBlock Text="{DynamicResource ControlReadinessTitle}"
-                       FontSize="20"
-                       FontWeight="Medium" />
-            <TextBlock Margin="0,12,0,0"
-                       Text="{Binding ControlSession.State}" />
-            <TextBlock Margin="0,8,0,0"
-                       Text="{Binding ControlSession.TargetPackageId}" />
-            <WrapPanel Margin="0,12,0,0">
-              <ui:Button Margin="0,0,8,0"
-                         Content="{DynamicResource VerifyGameButton}"
-                         Appearance="Secondary" />
-              <ui:Button Margin="0,0,8,0"
-                         Content="{DynamicResource CaptureScreenButton}"
-                         Appearance="Secondary" />
-              <ui:Button Margin="0,0,8,0"
-                         Content="{DynamicResource TapTestButton}"
-                         Appearance="Secondary" />
-              <ui:Button Content="{DynamicResource SwipeTestButton}"
-                         Appearance="Secondary" />
-            </WrapPanel>
-          </StackPanel>
+              <!-- CardExpander is WPF-UI's direct expandable-card equivalent.
+                   Its Header is a normal HeaderedContentControl, so it can
+                   safely host the right-side ToggleSwitch. -->
+              <ui:CardExpander Style="{StaticResource ExpandableSettingCardStyle}"
+                               IsExpanded="True"
+                               CornerRadius="8"
+                               ContentPadding="0">
+                <ui:CardExpander.Icon>
+                  <ui:SymbolIcon Symbol="Games24"
+                                 Style="{StaticResource SettingIconStyle}"
+                                 Margin="0" />
+                </ui:CardExpander.Icon>
+                <ui:CardExpander.Header>
+                  <Grid Margin="0,0,8,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="{DynamicResource AutoStartEmulatorLabel}"
+                                 Style="{StaticResource SettingCardTitleStyle}" />
+                      <TextBlock Text="{DynamicResource AutoStartEmulatorHint}"
+                                 Style="{StaticResource SettingCardDescriptionStyle}" />
+                    </StackPanel>
+                    <ui:ToggleSwitch Grid.Column="1"
+                                     Margin="16,0,0,0"
+                                     VerticalAlignment="Center"
+                                     IsChecked="{Binding DraftAutoStartEmulator}"
+                                     OnContent="{DynamicResource ToggleOn}"
+                                     OffContent="{DynamicResource ToggleOff}" />
+                  </Grid>
+                </ui:CardExpander.Header>
+                <StackPanel Margin="22,8,0,0">
+                  <TextBlock Text="{DynamicResource EmulatorExecutablePathLabel}"
+                             Style="{StaticResource SettingCardTitleStyle}" />
+                  <ui:TextBox Margin="0,8,0,0"
+                              Text="{Binding DraftEmulatorExecutablePath, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EmulatorExecutablePathHint}" />
+                  <TextBlock Margin="0,12,0,0"
+                             Text="{DynamicResource AutoStartEmulatorWaitSecondsLabel}"
+                             Style="{StaticResource SettingCardTitleStyle}" />
+                  <ui:TextBox Width="120"
+                              Margin="0,8,0,0"
+                              HorizontalAlignment="Left"
+                              Text="{Binding DraftAutoStartEmulatorWaitSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </ui:CardExpander>
             </StackPanel>
-          </TabItem>
 
-          <TabItem Header="{DynamicResource NavLanguage}">
-            <StackPanel Margin="0,18,0,0">
-          <TextBlock Text="{DynamicResource LanguageTitle}"
-                     FontSize="20"
-                     FontWeight="Medium" />
-          <ComboBox Width="200"
-                    Margin="0,12,0,0"
-                    HorizontalAlignment="Left"
-                    SelectedValue="{Binding SelectedLanguage, Mode=TwoWay}"
-                    SelectedValuePath="Content"
-                    IsReadOnly="True">
-            <ComboBox.Items>
-              <ComboBoxItem>en-US</ComboBoxItem>
-              <ComboBoxItem>zh-CN</ComboBoxItem>
-            </ComboBox.Items>
-          </ComboBox>
-          <TextBlock Margin="0,12,0,0"
-                     Text="{DynamicResource LanguageHint}" />
+            <!-- Read-only device information is optional. -->
+            <StackPanel x:Name="DeviceSettingCardGroup"
+                        Visibility="{Binding LastVerified, Converter={StaticResource NotNullToVisibility}}"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource DeviceInfoTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="PhoneDesktop24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <Grid Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Column="0" Text="{DynamicResource SerialField}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Grid.Column="1" Margin="10,4,18,0" Text="{Binding LastVerified.Serial}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="2" Text="{DynamicResource AndroidIdField}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Grid.Column="3" Margin="10,4,0,0" Text="{Binding LastVerified.AndroidId}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,0" Text="{DynamicResource AndroidVersionField}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="10,14,18,0" Text="{Binding LastVerified.AndroidVersion}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Margin="0,10,0,0" Text="{DynamicResource ResolutionField}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="3" Margin="10,14,0,0" TextWrapping="Wrap">
+                      <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0} × {1}">
+                          <Binding Path="LastVerified.Width" />
+                          <Binding Path="LastVerified.Height" />
+                        </MultiBinding>
+                      </TextBlock.Text>
+                    </TextBlock>
+                  </Grid>
+                  <ui:Button Grid.Column="2"
+                             Margin="16,0,0,0"
+                             VerticalAlignment="Center"
+                             Content="{DynamicResource ForgetButton}"
+                             Command="{Binding ForgetCommand}"
+                             Appearance="Secondary"
+                             Icon="Delete24" />
+                </Grid>
+              </Border>
             </StackPanel>
-          </TabItem>
 
-          <TabItem Header="{DynamicResource NavSystem}">
-            <StackPanel Margin="0,18,0,0">
-          <TextBlock Text="{DynamicResource SystemTitle}"
-                     FontSize="20"
-                     FontWeight="Medium" />
-          <TextBlock Margin="0,12,0,0"
-                     Text="{Binding CoreVersion}" />
-          <TextBlock Margin="0,8,0,0"
-                     Text="{Binding ResourcePath}" />
-          <TextBlock Margin="0,8,0,0"
-                     Text="{Binding DraftAdbPath}" />
-          <TextBlock Margin="0,8,0,0"
-                     Text="{Binding LastDetectedEmulator}" />
-          <TextBlock Margin="0,24,0,0"
-                     Text="{DynamicResource UpdatesTitle}"
-                     FontSize="20"
-                     FontWeight="Medium" />
-          <CheckBox Margin="0,12,0,0"
-                    IsChecked="{Binding StartupUpdateCheck}"
-                    Content="{DynamicResource StartupUpdateCheckLabel}" />
-          <TextBlock Margin="0,8,0,0"
-                     Text="{Binding UpdateStatus}"
-                     TextWrapping="Wrap" />
-          <StackPanel Margin="0,8,0,0"
-                      Visibility="{Binding HasCachedProgramUpdate,
-                          Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{DynamicResource CachedUpdateLabel}"
-                       FontWeight="SemiBold" />
-            <TextBlock Margin="0,2,0,0"
-                       Text="{Binding CachedProgramUpdateDetails}"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
-          </StackPanel>
-          <StackPanel Margin="0,8,0,0"
-                      Visibility="{Binding IsUpdateProgressVisible,
-                          Converter={StaticResource BoolToVisibility}}">
-            <ProgressBar Height="8"
-                         Minimum="0"
-                         Maximum="100"
-                         Value="{Binding UpdateProgressPercentage, Mode=OneWay}"
-                         IsIndeterminate="{Binding IsUpdateProgressIndeterminate}" />
-            <TextBlock Margin="0,6,0,0"
-                       Text="{Binding UpdateProgressText}"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       TextWrapping="Wrap" />
-          </StackPanel>
-          <WrapPanel Margin="0,12,0,0">
-            <ui:Button Margin="0,0,8,0"
-                       Content="{DynamicResource CheckForUpdatesButton}"
-                       Command="{Binding CheckForUpdatesCommand}"
-                       Appearance="Secondary"
-                       Icon="ArrowSync24" />
-            <ui:Button Margin="0,0,8,0"
-                       Content="{DynamicResource DownloadUpdateButton}"
-                       Command="{Binding DownloadUpdateCommand}"
-                       Appearance="Secondary"
-                       Icon="ArrowDownload24" />
-            <ui:Button Margin="0,0,8,0"
-                       Content="{DynamicResource InstallUpdateButton}"
-                       Command="{Binding InstallUpdateCommand}"
-                       Appearance="Primary"
-                       Icon="ArrowRestart24" />
-            <ui:Button Content="{DynamicResource CancelUpdateButton}"
-                       Command="{Binding CancelUpdateCommand}"
-                       Appearance="Secondary"
-                       Icon="DismissCircle24" />
-            <ui:Button Margin="8,0,0,0"
-                       Content="{DynamicResource ClearUpdateCacheButton}"
-                       Command="{Binding ClearUpdateCacheCommand}"
-                       Appearance="Secondary"
-                       Icon="Delete24" />
-          </WrapPanel>
-          <ui:Button Margin="0,8,0,0"
-                     HorizontalAlignment="Left"
-                     Content="{DynamicResource SkipUpdateButton}"
-                     Command="{Binding SkipUpdateCommand}"
-                     Appearance="Secondary" />
+            <!-- Keep this disabled until control-session commands are wired. -->
+            <StackPanel x:Name="ControlReadinessSettingCardGroup"
+                        IsEnabled="False"
+                        Opacity="0.6"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource ControlReadinessTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="Games24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding ControlSession.State}" Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Margin="0,4,0,0" Text="{Binding ControlSession.TargetPackageId}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                    <ui:Button Margin="0,0,8,0" Content="{DynamicResource VerifyGameButton}" Appearance="Secondary" />
+                    <ui:Button Margin="0,0,8,0" Content="{DynamicResource CaptureScreenButton}" Appearance="Secondary" />
+                    <ui:Button Margin="0,0,8,0" Content="{DynamicResource TapTestButton}" Appearance="Secondary" />
+                    <ui:Button Content="{DynamicResource SwipeTestButton}" Appearance="Secondary" />
+                  </WrapPanel>
+                </Grid>
+              </Border>
             </StackPanel>
-          </TabItem>
-        </TabControl>
+          </StackPanel>
+        </TabItem>
 
+        <TabItem Header="{DynamicResource NavLanguage}">
+          <StackPanel>
+            <StackPanel x:Name="LanguageSettingCardGroup"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource LanguageTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0" Symbol="Translate24" Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{DynamicResource LanguageTitle}" Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{DynamicResource LanguageHint}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="2"
+                            Width="200"
+                            SelectedValue="{Binding SelectedLanguage, Mode=TwoWay}"
+                            SelectedValuePath="Content"
+                            IsReadOnly="True">
+                    <ComboBox.Items>
+                      <ComboBoxItem Content="en-US" />
+                      <ComboBoxItem Content="zh-CN" />
+                    </ComboBox.Items>
+                  </ComboBox>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </TabItem>
 
-        <ItemsControl ItemsSource="{Binding MenuItems}"
-                      Visibility="Collapsed" />
-      </StackPanel>
-    </ScrollViewer>
+        <TabItem Header="{DynamicResource NavSystem}">
+          <StackPanel>
+            <StackPanel x:Name="SystemSettingCardGroup"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource SystemTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0" Symbol="Info24" Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{DynamicResource CoreVersionLabel}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Text="{Binding CoreVersion}" Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Margin="0,10,0,0" Text="{DynamicResource ResourcePathLabel}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Text="{Binding ResourcePath}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,10,0,0" Text="{DynamicResource AdbPathLabel}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Text="{Binding DraftAdbPath}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,10,0,0" Text="{DynamicResource LastDetectedEmulatorLabel}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                    <TextBlock Text="{Binding LastDetectedEmulator}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="UpdatesSettingCardGroup"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource UpdatesTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0" Symbol="ArrowSync24" Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{DynamicResource StartupUpdateCheckLabel}" Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <ui:ToggleSwitch Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   IsChecked="{Binding StartupUpdateCheck}"
+                                   OnContent="{DynamicResource ToggleOn}"
+                                   OffContent="{DynamicResource ToggleOff}" />
+                </Grid>
+              </Border>
+              <Border Style="{StaticResource SettingCardStyle}">
+                <StackPanel>
+                  <TextBlock Text="{DynamicResource UpdateActionsTitle}" Style="{StaticResource SettingCardTitleStyle}" />
+                  <StackPanel Margin="0,10,0,0"
+                              Visibility="{Binding HasCachedProgramUpdate, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource CachedUpdateLabel}" Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Margin="0,2,0,0" Text="{Binding CachedProgramUpdateDetails}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,10,0,0"
+                              Visibility="{Binding IsUpdateProgressVisible, Converter={StaticResource BoolToVisibility}}">
+                    <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding UpdateProgressPercentage, Mode=OneWay}" IsIndeterminate="{Binding IsUpdateProgressIndeterminate}" />
+                    <TextBlock Margin="0,6,0,0" Text="{Binding UpdateProgressText}" Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <WrapPanel Margin="0,12,0,0">
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource CheckForUpdatesButton}" Command="{Binding CheckForUpdatesCommand}" Appearance="Secondary" Icon="ArrowSync24" />
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource DownloadUpdateButton}" Command="{Binding DownloadUpdateCommand}" Appearance="Secondary" Icon="ArrowDownload24" />
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource InstallUpdateButton}" Command="{Binding InstallUpdateCommand}" Appearance="Primary" Icon="ArrowRestart24" />
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource CancelUpdateButton}" Command="{Binding CancelUpdateCommand}" Appearance="Secondary" Icon="DismissCircle24" />
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource ClearUpdateCacheButton}" Command="{Binding ClearUpdateCacheCommand}" Appearance="Secondary" Icon="Delete24" />
+                    <ui:Button Margin="0,0,8,8" Content="{DynamicResource SkipUpdateButton}" Command="{Binding SkipUpdateCommand}" Appearance="Secondary" />
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>

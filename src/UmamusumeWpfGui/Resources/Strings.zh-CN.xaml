@@ -161,17 +161,27 @@
   <sys:String x:Key="NavConnection">连接</sys:String>
   <sys:String x:Key="NavLanguage">语言</sys:String>
   <sys:String x:Key="NavSystem">系统</sys:String>
+  <sys:String x:Key="SettingsTitle">设置</sys:String>
+  <sys:String x:Key="ToggleOn">开</sys:String>
+  <sys:String x:Key="ToggleOff">关</sys:String>
 
 
   <sys:String x:Key="ConnectionTitle">连接配置</sys:String>
+  <sys:String x:Key="ConnectionStatusLabel">连接状态</sys:String>
   <sys:String x:Key="AdbPathLabel">ADB 路径</sys:String>
+  <sys:String x:Key="AdbPathHint">模拟器使用的 ADB 可执行文件路径。</sys:String>
   <sys:String x:Key="SerialLabel">序列号</sys:String>
+  <sys:String x:Key="SerialHint">要连接的设备序列号或 host:port 地址。</sys:String>
   <sys:String x:Key="AutoDetectButton">自动检测</sys:String>
   <sys:String x:Key="AlwaysAutoDetectLabel">连接前始终自动检测</sys:String>
+  <sys:String x:Key="AlwaysAutoDetectHint">每次连接前刷新模拟器端点。</sys:String>
   <sys:String x:Key="AutoStartEmulatorLabel">模拟器未运行时自动启动</sys:String>
+  <sys:String x:Key="AutoStartEmulatorHint">展开后可配置可执行文件路径和启动等待时间。</sys:String>
+  <sys:String x:Key="EmulatorExecutablePathLabel">模拟器可执行文件路径</sys:String>
   <sys:String x:Key="EmulatorExecutablePathHint">模拟器 EXE 或快捷方式路径</sys:String>
   <sys:String x:Key="AutoStartEmulatorWaitSecondsLabel">启动后等待（秒）</sys:String>
   <sys:String x:Key="UpdatesTitle">更新</sys:String>
+  <sys:String x:Key="UpdateActionsTitle">更新操作</sys:String>
   <sys:String x:Key="StartupUpdateCheckLabel">启动时检查更新</sys:String>
   <sys:String x:Key="CheckForUpdatesButton">检查更新</sys:String>
   <sys:String x:Key="DownloadUpdateButton">下载</sys:String>
@@ -181,6 +191,7 @@
   <sys:String x:Key="CachedUpdateLabel">已缓存安装包（可直接安装）</sys:String>
   <sys:String x:Key="ClearUpdateCacheButton">删除全部更新缓存</sys:String>
   <sys:String x:Key="ProfileLabel">配置文件</sys:String>
+  <sys:String x:Key="ProfileHint">选择用于检测的连接配置。</sys:String>
   <sys:String x:Key="ConnectButton">连接</sys:String>
   <sys:String x:Key="CancelButton">取消</sys:String>
   <sys:String x:Key="DisconnectButton">断开连接</sys:String>
