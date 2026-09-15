@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace UmamusumeWpfGui.Tests.Packaging;
@@ -307,9 +308,12 @@ public sealed class PackageLayoutTests : IDisposable
         var appVersion = entries.First(e => e.FullName.Replace('\\', '/') == "app-version.json");
         using (var reader = new StreamReader(appVersion.Open()))
         {
-            var text = reader.ReadToEnd();
-            Assert.Contains("\"version\"", text, StringComparison.Ordinal);
-            Assert.Contains("0.2.0", text, StringComparison.Ordinal);
+            using var document = JsonDocument.Parse(reader.ReadToEnd());
+            var version = document.RootElement.GetProperty("version").GetString();
+            var expectedVersion = File.ReadAllText(
+                Path.Combine(_solutionRoot, "version.txt")).Trim();
+
+            Assert.Equal(expectedVersion, version);
         }
     }
 }
