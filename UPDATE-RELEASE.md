@@ -57,8 +57,11 @@ the fixed `teio980/UmamusumeAss` repository and allows only GitHub HTTPS
 redirect hosts.
 
 Every program release includes a complete portable ZIP (including its bundled
-`resource/` fallback and updater) and direct deltas from up to the three latest
-stable program releases. Resource ZIPs contain the *contents* of `resource/`
+`resource/` fallback and updater), a per-user Windows installer, and direct
+deltas from up to the three latest stable program releases. The installer is
+built with Inno Setup and registers an uninstall entry in Windows; it installs
+the same files as the portable ZIP under %LOCALAPPDATA%\Programs and leaves
+user settings intact when uninstalled. Resource ZIPs contain the *contents* of `resource/`
 at their archive root (`foo/bar`, not `resource/foo/bar`), matching the
 resource base tree and inventory hash. Resource releases also carry direct
 deltas from up to three stable resource revisions. Any delta mismatch or

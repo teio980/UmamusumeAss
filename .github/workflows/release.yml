@@ -54,14 +54,18 @@ jobs:
         run: |
           dotnet restore tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj
           dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore
-      - name: Package portable program ZIP
+      - name: Install Inno Setup
         shell: pwsh
-        run: ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion '${{ inputs.resource_version }}'
+        run: choco install innosetup --yes --no-progress
+      - name: Package portable program ZIP and Windows installer
+        shell: pwsh
+        run: ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion '${{ inputs.resource_version }}' -BuildInstaller
       - uses: actions/upload-artifact@v6
         with:
           name: release-input
           path: |
             dist/*.zip
+            dist/*-setup.exe
             build/publish
 
   publish-drafts:
@@ -93,10 +97,14 @@ jobs:
           if ($needProgram) {
           $programZip = Get-ChildItem release-input -Recurse -File -Filter "*v$v*full.zip" | Select-Object -First 1
           if ($null -eq $programZip) { throw 'Full portable package was not downloaded' }
+          $programInstaller = Get-ChildItem release-input -Recurse -File -Filter "*v$v*setup.exe" | Select-Object -First 1
+          if ($null -eq $programInstaller) { throw 'Windows installer was not downloaded' }
           # Keep every asset named by the manifest in one directory. The
           # downloaded full ZIP otherwise remains under release-input only.
           $programReleaseZip = Join-Path $release $programZip.Name
           Copy-Item -LiteralPath $programZip.FullName -Destination $programReleaseZip -Force
+          $programReleaseInstaller = Join-Path $release $programInstaller.Name
+          Copy-Item -LiteralPath $programInstaller.FullName -Destination $programReleaseInstaller -Force
           $programRows = @($all | Where-Object {
             $_.tagName -match '^v\d+\.\d+\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease
           } | ForEach-Object {
@@ -202,6 +210,7 @@ jobs:
           if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
             $programManifest = "release/program-manifest-$v.json"
             $programAssets = @(Get-ReleaseAssetPaths $programManifest "release/program-manifest-$v.sig")
+            $programAssets += (Resolve-Path -LiteralPath "release/UmamusumeAss-v$v-win-x64-setup.exe").Path
             gh release create "v$v" @programAssets --draft --title "UmamusumeAss v$v" --notes "Review tests, inventory, and signature before publishing."
             if ($LASTEXITCODE -ne 0) { throw 'Program draft Release creation failed' }
           }

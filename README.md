@@ -6,6 +6,16 @@ UmamusumeAss connects to an Android emulator through ADB, reads the game screen,
 
 The bundled resources currently focus on the Global version of *Umamusume: Pretty Derby*.
 
+## Installation
+
+Program releases provide both a portable ZIP and a Windows installer. Use the
+`*-setup.exe` installer if you want a Start menu entry and an uninstall entry
+under Windows **Installed apps**. The installer is per-user and does not require
+administrator privileges. The ZIP remains available for portable use.
+
+For local packaging, install Inno Setup 6 and run
+`tools/package.ps1 -BuildInstaller`.
+
 ## Features
 
 ### Emulator connection
