@@ -240,6 +240,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftAdbPath = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -254,6 +255,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftConnectAddress = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -280,6 +282,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
             _draftConnectConfig = normalized;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -297,6 +300,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftAutoDetect = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -310,6 +314,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftAlwaysAutoDetect = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -322,6 +327,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftAutoStartEmulator = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -334,6 +340,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftEmulatorExecutablePath = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -350,6 +357,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
                 return;
             _draftLanguage = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
@@ -499,6 +507,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             if (_draft.StartupUpdateCheck == value) return;
             _draft.StartupUpdateCheck = value;
             OnPropertyChanged();
+            SaveSettings();
         }
     }
 
