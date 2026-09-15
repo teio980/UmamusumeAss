@@ -58,7 +58,7 @@ public sealed class SettingsViewContractTests
         Assert.Contains("ui:Button", content);
         Assert.Contains("ui:TextBox", content);
         Assert.Contains("ui:SymbolIcon", content);
-        Assert.Equal(3, content.Split("ui:ToggleSwitch", StringSplitOptions.None).Length - 1);
+        Assert.Equal(5, content.Split("ui:ToggleSwitch", StringSplitOptions.None).Length - 1);
         Assert.Contains("ui:CardExpander", content);
         Assert.Contains("Appearance=\"Primary\"", content);
         Assert.Contains("Appearance=\"Secondary\"", content);
@@ -85,6 +85,9 @@ public sealed class SettingsViewContractTests
         Assert.Contains("HandleTabSelectionChanged", codeBehind);
         Assert.Contains("indicatorLength = 16", codeBehind);
         Assert.Contains("headerRightPadding = 18", codeBehind);
+        Assert.Contains("HachimiSettingCardGroup", content);
+        Assert.Contains("HachimiShopSettings.Enabled", content);
+        Assert.Contains("HachimiShopSettings.SelectAll", content);
     }
 
     [Fact]

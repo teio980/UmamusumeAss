@@ -136,14 +136,14 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public void SetSelectedMenuIndex_AboveMax_ClampsToTwo()
+    public void SetSelectedMenuIndex_AboveMax_ClampsToHachimi()
     {
         var f = CreateFixture();
         var vm = f.CreateViewModel();
 
         vm.SelectedMenuIndex = 10;
 
-        Assert.Equal(2, vm.SelectedMenuIndex);
+        Assert.Equal(3, vm.SelectedMenuIndex);
     }
 
     [Fact]

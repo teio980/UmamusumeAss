@@ -678,6 +678,76 @@
             </StackPanel>
           </StackPanel>
         </TabItem>
+
+        <TabItem Header="{DynamicResource NavHachimi}">
+          <StackPanel>
+            <StackPanel x:Name="HachimiSettingCardGroup"
+                        Style="{StaticResource SettingCardGroupStyle}">
+              <TextBlock Text="{DynamicResource GrassHachimiGlobalSettingsTitle}"
+                         Style="{StaticResource SettingGroupTitleStyle}" />
+              <Border Style="{StaticResource SettingCardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Grid.Column="0"
+                                 Symbol="Settings24"
+                                 Style="{StaticResource SettingIconStyle}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{DynamicResource GrassShopSettingsTitle}"
+                               Style="{StaticResource SettingCardTitleStyle}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Text="{DynamicResource GrassShopSettingsLocationHint}"
+                               Style="{StaticResource SettingCardDescriptionStyle}" />
+                  </StackPanel>
+                  <ui:ToggleSwitch Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   IsChecked="{Binding HachimiShopSettings.Enabled, Mode=TwoWay}"
+                                   OnContent="{DynamicResource ToggleOn}"
+                                   OffContent="{DynamicResource ToggleOff}" />
+                </Grid>
+              </Border>
+              <Border Style="{StaticResource SettingCardStyle}">
+                <StackPanel>
+                  <TextBlock Text="{DynamicResource GrassShopSelectAll}"
+                             Style="{StaticResource SettingCardTitleStyle}" />
+                  <TextBlock Margin="0,4,0,10"
+                             Text="{DynamicResource GrassShopSelectAllHint}"
+                             Style="{StaticResource SettingCardDescriptionStyle}" />
+                  <ui:ToggleSwitch IsChecked="{Binding HachimiShopSettings.SelectAll, Mode=TwoWay}"
+                                   OnContent="{DynamicResource ToggleOn}"
+                                   OffContent="{DynamicResource ToggleOff}" />
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource SettingCardStyle}">
+                <StackPanel>
+                  <TextBlock Text="{DynamicResource GrassShopItemsTitle}"
+                             Style="{StaticResource SettingCardTitleStyle}" />
+                  <CheckBox Margin="0,12,0,0"
+                            Content="{DynamicResource GrassShopBuyStarPieces}"
+                            IsChecked="{Binding HachimiShopSettings.BuyStarPieces, Mode=TwoWay}" />
+                  <CheckBox Margin="0,8,0,0"
+                            Content="{DynamicResource GrassShopBuyAlarmClock}"
+                            IsChecked="{Binding HachimiShopSettings.BuyAlarmClock, Mode=TwoWay}" />
+                  <CheckBox Margin="0,8,0,0"
+                            Content="{DynamicResource GrassShopBuyPleasingParfait}"
+                            IsChecked="{Binding HachimiShopSettings.BuyPleasingParfait, Mode=TwoWay}" />
+                  <CheckBox Margin="0,8,0,0"
+                            Content="{DynamicResource GrassShopBuyShoes}"
+                            IsChecked="{Binding HachimiShopSettings.BuyShoes, Mode=TwoWay}" />
+                  <CheckBox Margin="0,8,0,0"
+                            Content="{DynamicResource GrassShopBuySupportPoints}"
+                            IsChecked="{Binding HachimiShopSettings.BuySupportPoints, Mode=TwoWay}" />
+                  <CheckBox Margin="0,8,0,0"
+                            Content="{DynamicResource GrassShopBuyFlags}"
+                            IsChecked="{Binding HachimiShopSettings.BuyFlags, Mode=TwoWay}" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </TabItem>
       </TabControl>
     </StackPanel>
   </ScrollViewer>

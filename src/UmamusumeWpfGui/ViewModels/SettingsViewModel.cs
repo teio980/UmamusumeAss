@@ -120,6 +120,10 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
 
         _draft = _settingsService.Load();
+        // Shop options are global Hachimi settings. Keep their existing
+        // model/JSON shape, but host the editor from the sidebar Settings
+        // page instead of the Hachimi queue page.
+        HachimiShopSettings = new HachimiShopSettingsViewModel(_settingsService);
         _draftAdbPath = _draft.AdbPath?.Trim() ?? string.Empty;
         _draftConnectAddress = NormalizeConnectionAddress(_draft.ConnectAddress);
         _draftConnectConfig = _draft.ConnectConfig;
@@ -207,7 +211,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         get => _selectedMenuIndex;
         set
         {
-            var clamped = Math.Clamp(value, 0, 2);
+            var clamped = Math.Clamp(value, 0, 3);
             if (_selectedMenuIndex == clamped)
                 return;
             _selectedMenuIndex = clamped;
@@ -393,6 +397,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
 
     public ObservableCollection<string> ConnectAddressHistory { get; }
 
+    public HachimiShopSettingsViewModel HachimiShopSettings { get; }
+
 
 
 
@@ -430,6 +436,7 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         new("NavConnection", 0),
         new("NavLanguage", 1),
         new("NavSystem", 2),
+        new("NavHachimi", 3),
     ];
 
 
