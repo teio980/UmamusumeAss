@@ -3,7 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <TabControl TextElement.FontSize="12">
+  <!-- Career's Basic/Legacy/Cards sections are the page's only Pivot. The
+       host supplies the same SettingsView tab template and moving indicator. -->
+  <TabControl x:Name="CareerSettingsTabs"
+              TextElement.FontSize="12"
+              Style="{DynamicResource SettingsTabControlStyle}"
+              ItemContainerStyle="{DynamicResource SettingsTabItemStyle}">
     <TabItem Header="Basic">
       <taskviews:CareerBasicSettingsView />
     </TabItem>

@@ -5,50 +5,60 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     <DataTemplate x:Key="ComboOptionTemplate">
       <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
     </DataTemplate>
   </UserControl.Resources>
-  <StackPanel Margin="8,10">
-    <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="108" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <TextBlock VerticalAlignment="Center" Text="Trainee" />
-      <taskviews:TraineePickerView Grid.Column="1"
-                                   Margin="10,0,0,0"
-                                   DataContext="{Binding Entry}" />
-    </Grid>
-
-    <CheckBox Margin="0,12,0,0"
-              IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-      <StackPanel>
-        <TextBlock Text="Continue existing Career" TextWrapping="Wrap" />
-        <TextBlock Margin="0,2,0,0"
-                   Text="If unavailable, delete Career data and start fresh."
-                   TextWrapping="Wrap"
-                   Foreground="{DynamicResource TextSecondaryBrush}" />
-      </StackPanel>
-    </CheckBox>
-
-    <Grid Margin="0,14,0,0">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="108" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <TextBlock VerticalAlignment="Center" Text="Career mode" />
-      <ComboBox Grid.Column="1"
-                Margin="10,0,0,0"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding CareerModes}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-    </Grid>
-
-    <taskviews:IndependentTrainingSettingsView
-        Margin="0,14,0,0"
-        DataContext="{Binding Independent}" />
+  <StackPanel TextElement.FontSize="12">
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="Person24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassCareerTraineeLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <taskviews:TraineePickerView Margin="0,10,0,0"
+                                       DataContext="{Binding Entry}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <CheckBox IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+        <StackPanel>
+          <TextBlock Text="{DynamicResource GrassCareerContinueExistingLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Text="{DynamicResource GrassCareerContinueExistingHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+        </StackPanel>
+      </CheckBox>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="AppsList24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassCareerModeLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <ComboBox Margin="0,10,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding CareerModes}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
   </StackPanel>
 </UserControl>

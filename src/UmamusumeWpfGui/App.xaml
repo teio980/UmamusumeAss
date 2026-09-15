@@ -10,6 +10,7 @@
       </s:ApplicationLoader.Bootstrapper>
       <s:ApplicationLoader.MergedDictionaries>
         <ResourceDictionary Source="Res/Theme.xaml" />
+        <ResourceDictionary Source="Res/SettingStyles.xaml" />
       </s:ApplicationLoader.MergedDictionaries>
     </s:ApplicationLoader>
   </Application.Resources>

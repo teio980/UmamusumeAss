@@ -6,16 +6,25 @@
   <UserControl.Resources>
     <DataTemplate x:Key="ComboOptionTemplate"><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /></DataTemplate>
   </UserControl.Resources>
-  <StackPanel Margin="8,10">
-    <Grid>
-      <Grid.ColumnDefinitions><ColumnDefinition Width="108" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-      <TextBlock VerticalAlignment="Center" Text="Support deck mode" />
-      <ComboBox Grid.Column="1" Margin="10,0,0,0" HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding SupportDeckModes}" ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value" SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
-    </Grid>
-    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding IsSupportPresetMode}">
-      <TextBlock Text="Support deck preset" />
+  <StackPanel TextElement.FontSize="12">
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0" Symbol="PeopleCommunity24" Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassCareerSupportDeckModeLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <ComboBox Margin="0,10,0,0" HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding SupportDeckModes}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value" SelectedValue="{Binding SupportDeckMode, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            IsEnabled="{Binding IsSupportPresetMode}">
+      <StackPanel>
+      <TextBlock Text="{DynamicResource GrassCareerSupportDeckPresetLabel}"
+                 Style="{DynamicResource SettingCardTitleStyle}" />
       <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch"
                 ItemsSource="{Binding SupportDeckPresets}" ItemTemplate="{StaticResource ComboOptionTemplate}"
                 SelectedValuePath="Value" SelectedValue="{Binding SupportDeckPreset, UpdateSourceTrigger=PropertyChanged}" />
@@ -23,7 +32,9 @@
                 IsEnabled="{Binding IsFriendSupportCardSettingEnabled}">
         <StackPanel Margin="6,6,0,0">
           <TextBlock Margin="0,6,0,0" Text="{Binding SelectedFriendSupportCardCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-          <ui:TextBox Margin="0,6,0,0" Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search name or ID" />
+          <ui:TextBox Margin="0,6,0,0"
+                      Text="{Binding FriendSupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+                      PlaceholderText="{DynamicResource GrassCareerSearchCardsPlaceholder}" />
           <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding SupportCardTypeOptions}"
                     ItemTemplate="{StaticResource ComboOptionTemplate}" SelectedValuePath="Value"
                     SelectedValue="{Binding FriendSupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
@@ -45,10 +56,18 @@
           </ListBox>
         </StackPanel>
       </Expander>
-      <Expander Margin="0,8,0,0" Header="{Binding SupportCardDrawerHeader}" IsExpanded="False" IsEnabled="{Binding IsManualSupportDeck}">
+      </StackPanel>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            IsEnabled="{Binding IsManualSupportDeck}">
+      <StackPanel>
+      <TextBlock Text="{DynamicResource GrassCareerManualSupportCardsLabel}"
+                 Style="{DynamicResource SettingCardTitleStyle}" />
+      <Expander Margin="0,8,0,0" Header="{Binding SupportCardDrawerHeader}" IsExpanded="False">
         <StackPanel Margin="6,6,0,0">
           <TextBlock Margin="0,0,0,6" Text="{Binding SelectedSupportCardCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-          <ui:TextBox Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search name or ID" />
+          <ui:TextBox Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+                      PlaceholderText="{DynamicResource GrassCareerSearchCardsPlaceholder}" />
           <ComboBox Margin="0,6,0,0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding SupportCardTypeOptions}"
                     ItemTemplate="{StaticResource ComboOptionTemplate}" SelectedValuePath="Value"
                     SelectedValue="{Binding SupportCardTypeFilter, UpdateSourceTrigger=PropertyChanged}" />
@@ -68,10 +87,12 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <TextBlock Margin="0,8,0,0" Text="Manual card IDs (optional; comma-separated)" />
+          <TextBlock Margin="0,8,0,0"
+                     Text="{DynamicResource GrassCareerManualCardIdsLabel}" />
           <ui:TextBox Margin="0,6,0,0" Text="{Binding SupportCardIdsText, UpdateSourceTrigger=PropertyChanged}" />
         </StackPanel>
       </Expander>
-    </StackPanel>
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

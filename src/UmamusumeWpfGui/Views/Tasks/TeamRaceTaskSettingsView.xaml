@@ -3,23 +3,55 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <StackPanel TextElement.FontSize="12">
-      <TextBlock Text="{DynamicResource GrassTeamRaceSettingsTitle}"
-                 FontWeight="Medium" />
-      <TextBlock Margin="0,12,0,0"
-                 Text="{DynamicResource GrassTeamRaceCountLabel}" />
-      <ui:TextBox Width="120"
-                  Margin="0,6,0,0"
-                  HorizontalAlignment="Left"
-                  Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
-      <CheckBox Margin="0,12,0,0"
-                IsChecked="{Binding StopWhenTicketsEmpty}">
-        <TextBlock Text="{DynamicResource GrassTeamRaceStopWhenTicketsEmpty}"
-                   TextWrapping="Wrap" />
-      </CheckBox>
-      <TextBlock Margin="0,8,0,0"
-                 Text="{Binding Status}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
+  <StackPanel TextElement.FontSize="12"
+              Style="{DynamicResource SettingCardGroupStyle}">
+    <TextBlock Text="{DynamicResource GrassTeamRaceSettingsTitle}"
+               Style="{DynamicResource SettingGroupTitleStyle}" />
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="Trophy24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassTeamRaceCountLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Text="{DynamicResource GrassTeamRaceCountHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+          <ui:TextBox Width="120"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Left"
+                      Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="Stop24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <CheckBox Grid.Column="1"
+                  VerticalAlignment="Center"
+                  IsChecked="{Binding StopWhenTicketsEmpty}">
+          <TextBlock Text="{DynamicResource GrassTeamRaceStopWhenTicketsEmpty}"
+                     TextWrapping="Wrap" />
+        </CheckBox>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassTaskStatusLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <TextBlock Text="{Binding Status}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

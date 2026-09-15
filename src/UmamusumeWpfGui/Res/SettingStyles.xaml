@@ -1,0 +1,116 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+  <!-- Shared March7thAssistant-style primitives. SettingsView keeps its
+       local keyed definitions for compatibility; task settings use this
+       application-level fallback so both pages render identically. -->
+  <Style x:Key="SettingCardGroupStyle" TargetType="{x:Type StackPanel}">
+    <Setter Property="Margin" Value="0,0,0,24" />
+  </Style>
+  <Style x:Key="SettingCardStyle" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="16,13" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+  </Style>
+  <Style x:Key="SettingCardTitleStyle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style x:Key="SettingCardDescriptionStyle" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,4,0,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style x:Key="SettingGroupTitleStyle" TargetType="TextBlock">
+    <Setter Property="Margin" Value="4,0,0,10" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+  <Style x:Key="SettingIconStyle" TargetType="{x:Type ui:SymbolIcon}">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="FontSize" Value="21" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Margin" Value="0,1,14,0" />
+  </Style>
+  <Style x:Key="SettingsTabControlStyle" TargetType="TabControl">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabControl">
+          <Grid KeyboardNavigation.TabNavigation="Local">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TabPanel x:Name="HeaderPanel"
+                      Grid.Row="0"
+                      Margin="0,0,0,18"
+                      IsItemsHost="True"
+                      KeyboardNavigation.TabNavigation="Local" />
+            <Canvas x:Name="TabIndicatorCanvas"
+                    Grid.Row="0"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    IsHitTestVisible="False"
+                    Panel.ZIndex="1">
+              <Border x:Name="SelectedTabIndicator"
+                      Height="3"
+                      Background="{DynamicResource AccentPrimaryBrush}"
+                      CornerRadius="2"
+                      Visibility="Collapsed" />
+            </Canvas>
+            <ContentPresenter x:Name="PART_SelectedContentHost"
+                              Grid.Row="1"
+                              ContentSource="SelectedContent"
+                              ContentStringFormat="{TemplateBinding SelectedContentStringFormat}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="SettingsTabItemStyle" TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Padding" Value="0,0,18,10" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <Grid SnapsToDevicePixels="True">
+            <Border x:Name="TabBackground"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="TabBackground"
+                      Property="Background"
+                      Value="{DynamicResource SurfaceRaisedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

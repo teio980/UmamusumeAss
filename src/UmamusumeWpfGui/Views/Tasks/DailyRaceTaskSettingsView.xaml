@@ -6,47 +6,101 @@
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
     <DataTemplate x:Key="ComboOptionTemplate">
-      <TextBlock Text="{Binding Label}"
-                 TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
     </DataTemplate>
   </UserControl.Resources>
-  <StackPanel TextElement.FontSize="12">
-      <TextBlock Text="{DynamicResource GrassDailyRaceSettingsTitle}"
-                 FontWeight="Medium" />
-      <TextBlock Margin="0,14,0,0"
-                 Text="{DynamicResource GrassDailyRaceModeLabel}" />
-      <ComboBox
-                Margin="0,6,0,0"
-                HorizontalAlignment="Left"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding Modes}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding Mode, UpdateSourceTrigger=PropertyChanged}" />
-
-      <TextBlock Margin="0,14,0,0"
-                 Text="{DynamicResource GrassDailyRaceDifficultyLabel}" />
-      <ComboBox
-                Margin="0,6,0,0"
-                HorizontalAlignment="Left"
-                HorizontalContentAlignment="Stretch"
-                ItemsSource="{Binding Difficulties}"
-                ItemTemplate="{StaticResource ComboOptionTemplate}"
-                SelectedValuePath="Value"
-                SelectedValue="{Binding Difficulty, UpdateSourceTrigger=PropertyChanged}" />
-
-      <TextBlock Margin="0,14,0,0"
-                 Text="{DynamicResource GrassDailyRaceCountLabel}" />
-      <ui:TextBox Width="120"
-                  Margin="0,6,0,0"
-                  HorizontalAlignment="Left"
-                  Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
-      <TextBlock Margin="0,14,0,0"
-                 Text="{DynamicResource GrassDailyRaceTraineeLabel}" />
-      <taskviews:TraineePickerView Margin="0,6,0,0" />
-      <TextBlock Margin="0,8,0,0"
-                 Text="{Binding Status}"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondaryBrush}" />
+  <StackPanel TextElement.FontSize="12"
+              Style="{DynamicResource SettingCardGroupStyle}">
+    <TextBlock Text="{DynamicResource GrassDailyRaceSettingsTitle}"
+               Style="{DynamicResource SettingGroupTitleStyle}" />
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="Gift24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassDailyRaceModeLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <ComboBox Margin="0,10,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding Modes}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding Mode, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="Target24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassDailyRaceDifficultyLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <ComboBox Margin="0,10,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding Difficulties}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding Difficulty, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="NumberSymbol24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassDailyRaceCountLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Text="{DynamicResource GrassDailyRaceCountHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+          <ui:TextBox Width="120"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Left"
+                      Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Grid.Column="0"
+                       Symbol="People24"
+                       Style="{DynamicResource SettingIconStyle}" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{DynamicResource GrassDailyRaceTraineeLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Text="{DynamicResource GrassDailyRaceTraineeHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+          <taskviews:TraineePickerView Margin="0,10,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassTaskStatusLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <TextBlock Text="{Binding Status}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>
