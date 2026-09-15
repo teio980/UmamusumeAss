@@ -258,8 +258,6 @@
   <sys:String x:Key="LogEmptyMessage">暂无日志条目。</sys:String>
   <sys:String x:Key="LogTimestampHeader">时间戳</sys:String>
   <sys:String x:Key="LogTypeHeader">类型</sys:String>
-  <sys:String x:Key="LogDetailsHeader">详情</sys:String>
-  <sys:String x:Key="CopyAllLogButton">复制全部日志</sys:String>
 
 
   <sys:String x:Key="SelectionDialogTitle">选择设备</sys:String>

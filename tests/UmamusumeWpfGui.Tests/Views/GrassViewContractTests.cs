@@ -28,12 +28,11 @@ public sealed class GrassViewContractTests
         Assert.Equal(2, columns);
         Assert.Contains("GrassTaskQueue", content);
         Assert.Contains("GrassLogs", content);
-        Assert.Contains("ScriptLogs", content);
         Assert.Contains("ScriptLogListBox", content);
-        Assert.Contains("GrassCopyLog", content);
-        Assert.Contains("GrassClearLog", content);
-        Assert.Contains("LogColorConverter", content);
-        Assert.DoesNotContain("ItemsSource=\"{Binding Logs}\"", content);
+        Assert.DoesNotContain("ItemsSource=\"{Binding ScriptLogs}\"", content);
+        Assert.DoesNotContain("OnCopyScriptLogClick", content);
+        Assert.DoesNotContain("OnClearScriptLogClick", content);
+        Assert.DoesNotContain("LogColorConverter", content);
         Assert.Contains("GrassAddTask", content);
         Assert.Contains("Value=\"0,2,10,2\"", content);
         Assert.Contains("ScrollViewer.VerticalScrollBarVisibility=\"Auto\"", content);

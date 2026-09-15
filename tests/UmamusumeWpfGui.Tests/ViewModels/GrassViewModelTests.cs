@@ -14,7 +14,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void InitializesQueueAndKeepsExecutionCommandsDisabled()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         using var viewModel = new GrassViewModel(
             log,
             new FakeLocalizationService(),
@@ -30,7 +30,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void AddDoesNotCreatePlaceholderTaskWhenNoModuleIsRegistered()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         using var viewModel = new GrassViewModel(
             log,
             new FakeLocalizationService(),
@@ -45,7 +45,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void QueueCommandsUpdateSelectionAndSummaryForRegisteredModule()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var catalog = GrassTaskCatalog.CreateEmpty();
         catalog.Register(new FakeGrassTaskModule(new GrassTaskDefinition(
             "daily-training",
@@ -75,7 +75,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void TaskSettingsPage_OpensForExplicitTaskAndCanReturnToQueue()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var catalog = GrassTaskCatalog.CreateEmpty();
         catalog.Register(new FakeGrassTaskModule(new GrassTaskDefinition(
             "daily-training",
@@ -103,7 +103,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void InvertCommandTogglesAllTaskSelections()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         using var viewModel = new GrassViewModel(
             log,
             new FakeLocalizationService(),
@@ -118,7 +118,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void StartIsAvailableBeforeConnectionWhenAnEnabledTaskExists()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var catalog = GrassTaskCatalog.CreateEmpty();
         catalog.Register(new FakeGrassTaskModule(new GrassTaskDefinition(
             "daily-training",
@@ -141,7 +141,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void TaskQueueRestoresOrderEnabledStateAndModuleSettingsFromSettingsCache()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var settings = new InMemorySettingsService();
         settings.Load().TaskQueue.Add(new GrassTaskCacheItem
         {
@@ -182,7 +182,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void LegacyShopTaskMovesToGlobalHachimiSettings()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var settings = new InMemorySettingsService();
         settings.Load().TaskQueue.Add(new GrassTaskCacheItem
         {
@@ -209,7 +209,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public async Task StartGamePassesConfiguredPackageToLauncherWhenConnected()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var localization = new FakeLocalizationService();
         var state = new ConnectionStateService();
         state.UpdateLastVerified(new LastVerifiedConnection(
@@ -262,17 +262,16 @@ public sealed class GrassViewModelTests
 
         Assert.False(viewModel.IsQueueRunning);
         Assert.True(viewModel.StartCommand.CanExecute(null));
-        Assert.NotEmpty(viewModel.ScriptLogs);
+        Assert.NotEmpty(log.Entries);
         Assert.Contains(
-            viewModel.ScriptLogs,
+            log.Entries,
             entry => entry.Type == "Start game" && entry.Details == "Game process detected");
-        Assert.Empty(log.Entries);
     }
 
     [Fact]
     public async Task QueueContinuesAfterTaskFailure()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var state = new ConnectionStateService();
         state.UpdateLastVerified(new LastVerifiedConnection(
             "adb.exe",
@@ -312,7 +311,7 @@ public sealed class GrassViewModelTests
         Assert.Equal("Error", viewModel.Tasks[0].Status);
         Assert.Equal("Completed", viewModel.Tasks[1].Status);
         Assert.Contains(
-            viewModel.ScriptLogs,
+            log.Entries,
             entry => entry.Type == succeeding.Definition.FallbackName
                 && entry.Details == "completed");
     }
@@ -320,7 +319,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public async Task StopCancelsTheScriptWithoutCallingTaskStopOrClosingTheGame()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var state = new ConnectionStateService();
         state.UpdateLastVerified(new LastVerifiedConnection(
             "adb.exe",
@@ -363,7 +362,7 @@ public sealed class GrassViewModelTests
     [Fact]
     public void LanguageChangedRefreshesTaskPresentation()
     {
-        using var log = new LogViewModel(new FakeUmaService());
+        using var log = new LogViewModel();
         var localization = new FakeLocalizationService();
         localization.Values["GrassTaskDailyTraining"] = "Daily Training";
         var catalog = GrassTaskCatalog.CreateEmpty();
@@ -381,42 +380,6 @@ public sealed class GrassViewModelTests
         localization.SwitchLanguage("zh-CN");
 
         Assert.Equal("每日训练", viewModel.Tasks[0].Name);
-    }
-
-    private sealed class FakeUmaService : IUmaService
-    {
-        public string? CoreVersion => "test";
-        public string? ResourcePath => null;
-
-        private Action<ConnectionEvent>? _connectionEventReceived;
-        private Action<BridgeDiagnostic>? _diagnosticReceived;
-
-        public event Action<ConnectionEvent>? ConnectionEventReceived
-        {
-            add => _connectionEventReceived += value;
-            remove => _connectionEventReceived -= value;
-        }
-
-        public event Action<BridgeDiagnostic>? DiagnosticReceived
-        {
-            add => _diagnosticReceived += value;
-            remove => _diagnosticReceived -= value;
-        }
-
-        public Task InitializeAsync(string appBaseDir, string appDataDir, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task<ConnectionTerminalEvent> ConnectAsync(
-            string adbPath,
-            string serial,
-            string profile,
-            CancellationToken cancellationToken = default) =>
-            Task.FromException<ConnectionTerminalEvent>(new NotSupportedException());
-
-        public Task CancelOperationAsync(ulong operationId, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class FakeLocalizationService : ILocalizationService

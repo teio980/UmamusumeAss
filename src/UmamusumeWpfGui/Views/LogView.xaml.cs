@@ -165,7 +165,13 @@ public sealed partial class LogView : UserControl
     }
 
     private static string FormatEntry(LogEntry entry) =>
-        $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Type}\t{entry.Details}";
+        $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Kind}\t{entry.Type}\t{entry.Details}";
+
+    private void OnClearAllClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is LogViewModel viewModel)
+            viewModel.Clear();
+    }
 
     private static T? FindVisualChild<T>(DependencyObject parent)
         where T : DependencyObject

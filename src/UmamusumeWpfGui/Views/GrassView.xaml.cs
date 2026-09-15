@@ -1,12 +1,9 @@
-using System.Collections.Specialized;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
 using UmamusumeWpfGui.ViewModels.Dialogs;
@@ -25,12 +22,7 @@ public sealed partial class GrassView : UserControl
     private const double TaskRowAutoScrollStep = 18d;
     private const double TaskDropIndicatorHeight = 3d;
 
-    private ScrollViewer? _scrollViewer;
     private ScrollViewer? _taskListScrollViewer;
-    private INotifyCollectionChanged? _subscribedCollection;
-    private bool _isAtBottom = true;
-    private bool _scrollRequestPending;
-    private int _viewGeneration;
     private GrassTaskItemViewModel? _pendingDragTask;
     private ListBoxItem? _taskDragSourceContainer;
     private Point _taskDragStartPoint;
@@ -67,22 +59,13 @@ public sealed partial class GrassView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _viewGeneration++;
-        _scrollRequestPending = false;
-        LocateScrollViewer();
         LocateTaskListScrollViewer();
-        SubscribeToCollection();
         AttachTaskSelectionPicker();
-        RequestScrollToEnd(DispatcherPriority.Loaded);
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        _viewGeneration++;
-        _scrollRequestPending = false;
         ResetTaskDragState();
-        UnsubscribeFromCollection();
-        UnsubscribeFromScrollViewer();
         _taskListScrollViewer = null;
     }
 
@@ -445,132 +428,9 @@ public sealed partial class GrassView : UserControl
         _taskInsertionIndex = -1;
     }
 
-    private void SubscribeToCollection()
-    {
-        UnsubscribeFromCollection();
-        if (ScriptLogListBox.ItemsSource is INotifyCollectionChanged collection)
-        {
-            _subscribedCollection = collection;
-            collection.CollectionChanged += OnCollectionChanged;
-        }
-    }
-
-    private void UnsubscribeFromCollection()
-    {
-        if (_subscribedCollection is null)
-            return;
-
-        _subscribedCollection.CollectionChanged -= OnCollectionChanged;
-        _subscribedCollection = null;
-    }
-
-    private void LocateScrollViewer()
-    {
-        UnsubscribeFromScrollViewer();
-        _scrollViewer = FindVisualChild<ScrollViewer>(ScriptLogListBox);
-        if (_scrollViewer is not null)
-            _scrollViewer.ScrollChanged += OnScrollChanged;
-    }
-
     private void LocateTaskListScrollViewer()
     {
         _taskListScrollViewer = FindVisualChild<ScrollViewer>(TaskQueueListBox);
-    }
-
-    private void UnsubscribeFromScrollViewer()
-    {
-        if (_scrollViewer is null)
-            return;
-
-        _scrollViewer.ScrollChanged -= OnScrollChanged;
-        _scrollViewer = null;
-    }
-
-    private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (!_isAtBottom
-            || _scrollViewer is null
-            || e.Action != NotifyCollectionChangedAction.Add)
-        {
-            return;
-        }
-
-
-
-
-        RequestScrollToEnd(DispatcherPriority.Background);
-    }
-
-    private void RequestScrollToEnd(DispatcherPriority priority)
-    {
-        if (_scrollRequestPending || _scrollViewer is null)
-            return;
-
-        _scrollRequestPending = true;
-        var generation = _viewGeneration;
-        Dispatcher.BeginInvoke(
-            priority,
-            new Action(() =>
-            {
-                _scrollRequestPending = false;
-                if (generation != _viewGeneration || !IsLoaded)
-                    return;
-
-                _scrollViewer?.ScrollToEnd();
-            }));
-    }
-
-    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
-    {
-        if (_scrollViewer is null)
-            return;
-
-        _isAtBottom = _scrollViewer.VerticalOffset
-            >= _scrollViewer.ScrollableHeight - 1;
-    }
-
-    private async void OnCopyScriptLogClick(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not GrassViewModel viewModel
-            || viewModel.ScriptLogs.Count == 0)
-        {
-            return;
-        }
-
-        var text = string.Join(
-            Environment.NewLine,
-            viewModel.ScriptLogs.Select(entry =>
-                $"{entry.Timestamp:HH:mm:ss.fff}\t{entry.Kind}\t{entry.Type}\t{entry.Details}"));
-        await TrySetClipboardTextAsync(text);
-    }
-
-    private static async Task<bool> TrySetClipboardTextAsync(string text)
-    {
-        const int attempts = 5;
-        for (var attempt = 0; attempt < attempts; attempt++)
-        {
-            try
-            {
-                Clipboard.SetText(text);
-                return true;
-            }
-            catch (ExternalException) when (attempt + 1 < attempts)
-            {
-                await Task.Delay(75);
-            }
-            catch (ExternalException)
-            {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    private void OnClearScriptLogClick(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is GrassViewModel viewModel)
-            viewModel.ScriptLogs.Clear();
     }
 
     private void AttachTaskSelectionPicker()

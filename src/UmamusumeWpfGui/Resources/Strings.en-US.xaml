@@ -272,8 +272,6 @@
   <sys:String x:Key="LogEmptyMessage">No log entries yet.</sys:String>
   <sys:String x:Key="LogTimestampHeader">Timestamp</sys:String>
   <sys:String x:Key="LogTypeHeader">Type</sys:String>
-  <sys:String x:Key="LogDetailsHeader">Details</sys:String>
-  <sys:String x:Key="CopyAllLogButton">Copy all</sys:String>
 
 
   <sys:String x:Key="SelectionDialogTitle">Select Device</sys:String>

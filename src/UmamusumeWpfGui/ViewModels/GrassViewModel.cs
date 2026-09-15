@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Windows;
 using System.Windows.Input;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -16,6 +15,7 @@ namespace UmamusumeWpfGui.ViewModels;
 
 public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
+    private readonly LogViewModel _logViewModel;
     private readonly ILocalizationService _localizationService;
     private readonly IGrassTaskCatalog _taskCatalog;
     private readonly IConnectionStateService? _connectionState;
@@ -71,6 +71,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         IActivityRegistry? activityRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
+        _logViewModel = logViewModel;
         ArgumentNullException.ThrowIfNull(localizationService);
         ArgumentNullException.ThrowIfNull(taskCatalog);
         _localizationService = localizationService;
@@ -109,14 +110,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     public ObservableCollection<GrassTaskItemViewModel> Tasks { get; }
 
 
-
-
-
-    public ObservableCollection<LogEntry> ScriptLogs { get; } = [];
-
-
-
-    public ObservableCollection<LogEntry> Logs => ScriptLogs;
 
     public HachimiShopSettingsViewModel HachimiShopSettings { get; }
 
@@ -378,7 +371,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _queueOperationCts = operationCts;
         _stopRequested = false;
         IsQueueOperationInProgress = true;
-        ScriptLogs.Clear();
+        _logViewModel.Clear();
         AddScriptLog(
             Localize("GrassScriptQueue", "Task queue"),
             string.Format(
@@ -756,24 +749,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         if (_disposed)
             return;
 
-        var entry = new LogEntry(DateTimeOffset.UtcNow, type, details, kind);
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is not null && !dispatcher.CheckAccess())
-        {
-            try
-            {
-                dispatcher.Invoke(() => AppendScriptLog(entry));
-            }
-            catch (InvalidOperationException)
-            {
-
-
-            }
-
-            return;
-        }
-
-        AppendScriptLog(entry);
+        _logViewModel.Add(type, details, kind);
     }
 
     private void AddScriptLog(
@@ -781,16 +757,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         string details,
         LogEntryKind kind = LogEntryKind.Info) =>
         Add(type, details, kind);
-
-    private void AppendScriptLog(LogEntry entry)
-    {
-        if (_disposed)
-            return;
-
-        ScriptLogs.Add(entry);
-        if (ScriptLogs.Count > 500)
-            ScriptLogs.RemoveAt(0);
-    }
 
     private void AttachTaskEvents(GrassTaskItemViewModel task)
     {

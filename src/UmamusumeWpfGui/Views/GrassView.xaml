@@ -1,15 +1,12 @@
 <UserControl x:Class="UmamusumeWpfGui.Views.GrassView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
-             xmlns:m="clr-namespace:UmamusumeWpfGui.Models"
              xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
              xmlns:views="clr-namespace:UmamusumeWpfGui.Views"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-    <c:LogEntryKindToColorConverter x:Key="LogColorConverter" />
     <Style x:Key="PanelBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
@@ -202,86 +199,15 @@
         <Border Padding="14" Style="{StaticResource PanelBorderStyle}">
           <DockPanel>
             <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <StackPanel Grid.Column="0">
-                <TextBlock Text="{DynamicResource GrassLogs}"
-                           FontWeight="SemiBold" />
-              </StackPanel>
-              <StackPanel Grid.Column="1"
-                          HorizontalAlignment="Right"
-                          Orientation="Horizontal">
-                <ui:Button Content="{DynamicResource GrassCopyLog}"
-                           Appearance="Secondary"
-                           Icon="Copy24"
-                           Click="OnCopyScriptLogClick" />
-                <ui:Button Margin="6,0,0,0"
-                           Content="{DynamicResource GrassClearLog}"
-                           Appearance="Secondary"
-                           Icon="Delete24"
-                           Click="OnClearScriptLogClick" />
-              </StackPanel>
+              <TextBlock Text="{DynamicResource GrassLogs}"
+                         FontWeight="SemiBold" />
             </Grid>
+            <!-- Reserved for future Hachimi-specific logs. Queue logs are
+                 shown in the sidebar Log page. -->
             <ListBox x:Name="ScriptLogListBox"
-                     ItemsSource="{Binding ScriptLogs}"
                      BorderThickness="0"
                      Background="Transparent"
-                     HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto">
-              <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                </Style>
-              </ListBox.ItemContainerStyle>
-              <ListBox.ItemTemplate>
-                <DataTemplate DataType="{x:Type m:LogEntry}">
-                  <Border Margin="0,0,0,6"
-                          Padding="0,7,8,7"
-                          Background="{DynamicResource SurfaceRaisedBrush}"
-                          BorderBrush="{DynamicResource BorderSubtleBrush}"
-                          BorderThickness="1"
-                          CornerRadius="6"
-                          ToolTip="{Binding Details}">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="4" />
-                        <ColumnDefinition Width="72" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <Border Grid.Column="0"
-                              Margin="0,0,8,0"
-                              Background="{Binding Kind, Converter={StaticResource LogColorConverter}}"
-                              CornerRadius="2" />
-                      <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                        <TextBlock Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                   FontSize="10"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <TextBlock Margin="0,3,0,0"
-                                   Text="{Binding Kind}"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Foreground="{Binding Kind, Converter={StaticResource LogColorConverter}}" />
-                      </StackPanel>
-                      <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                        <TextBlock Text="{Binding Type}"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Margin="0,3,0,0"
-                                   Text="{Binding Details}"
-                                   FontSize="11"
-                                   LineHeight="16"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                      </StackPanel>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+                     IsHitTestVisible="False" />
           </DockPanel>
         </Border>
       </Grid>
