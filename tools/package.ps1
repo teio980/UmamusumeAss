@@ -301,12 +301,16 @@ if ($BuildInstaller) {
         else {
             $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
             $programFiles = [Environment]::GetEnvironmentVariable("ProgramFiles")
+            $localAppData = [Environment]::GetEnvironmentVariable("LOCALAPPDATA")
             $compilerCandidates = @()
             if (-not [string]::IsNullOrWhiteSpace($programFilesX86)) {
                 $compilerCandidates += Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
             }
             if (-not [string]::IsNullOrWhiteSpace($programFiles)) {
                 $compilerCandidates += Join-Path $programFiles "Inno Setup 6\ISCC.exe"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+                $compilerCandidates += Join-Path $localAppData "Programs\Inno Setup 6\ISCC.exe"
             }
             $InstallerCompilerPath = $compilerCandidates |
                 Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |

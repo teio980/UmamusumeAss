@@ -14,7 +14,7 @@ under Windows **Installed apps**. The installer is per-user and does not require
 administrator privileges. The ZIP remains available for portable use.
 
 For local packaging, install Inno Setup 6 and run
-`tools/package.ps1 -BuildInstaller`.
+`build.bat installer` (or call `tools/package.ps1 -BuildInstaller` directly).
 
 ## Features
 
