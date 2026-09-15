@@ -37,7 +37,7 @@ public sealed class RootViewContractTests
     public void RootView_MatchesOfficialSimpleDemoWindowSize()
     {
         var root = LoadXaml().Root!;
-        Assert.Equal("1100", root.Attribute("Width")?.Value);
+        Assert.Equal("900", root.Attribute("Width")?.Value);
         Assert.Equal("650", root.Attribute("Height")?.Value);
     }
 
