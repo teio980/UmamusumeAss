@@ -44,6 +44,8 @@
   <Style x:Key="SettingsTabControlStyle" TargetType="TabControl">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabControl">
@@ -72,7 +74,9 @@
             <ContentPresenter x:Name="PART_SelectedContentHost"
                               Grid.Row="1"
                               ContentSource="SelectedContent"
-                              ContentStringFormat="{TemplateBinding SelectedContentStringFormat}" />
+                              ContentStringFormat="{TemplateBinding SelectedContentStringFormat}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
           </Grid>
         </ControlTemplate>
       </Setter.Value>

@@ -6,6 +6,9 @@
   <!-- Career's Basic/Legacy/Cards sections are the page's only Pivot. The
        host supplies the same SettingsView tab template and moving indicator. -->
   <TabControl x:Name="CareerSettingsTabs"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Stretch"
               TextElement.FontSize="12"
               Style="{DynamicResource SettingsTabControlStyle}"
               ItemContainerStyle="{DynamicResource SettingsTabItemStyle}">

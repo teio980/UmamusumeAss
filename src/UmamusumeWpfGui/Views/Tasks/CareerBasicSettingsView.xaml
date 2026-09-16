@@ -10,9 +10,11 @@
       <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
     </DataTemplate>
   </UserControl.Resources>
-  <StackPanel TextElement.FontSize="12">
-    <Border Style="{DynamicResource SettingCardStyle}">
-      <Grid>
+  <StackPanel TextElement.FontSize="12"
+              HorizontalAlignment="Stretch">
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch">
+      <Grid HorizontalAlignment="Stretch">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" />
@@ -20,15 +22,18 @@
         <ui:SymbolIcon Grid.Column="0"
                        Symbol="Person24"
                        Style="{DynamicResource SettingIconStyle}" />
-        <StackPanel Grid.Column="1">
+        <StackPanel Grid.Column="1"
+                    HorizontalAlignment="Stretch">
           <TextBlock Text="{DynamicResource GrassCareerTraineeLabel}"
                      Style="{DynamicResource SettingCardTitleStyle}" />
           <taskviews:TraineePickerView Margin="0,10,0,0"
+                                       HorizontalAlignment="Stretch"
                                        DataContext="{Binding Entry}" />
         </StackPanel>
       </Grid>
     </Border>
-    <Border Style="{DynamicResource SettingCardStyle}">
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch">
       <CheckBox IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
         <StackPanel>
           <TextBlock Text="{DynamicResource GrassCareerContinueExistingLabel}"
@@ -38,8 +43,9 @@
         </StackPanel>
       </CheckBox>
     </Border>
-    <Border Style="{DynamicResource SettingCardStyle}">
-      <Grid>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch">
+      <Grid HorizontalAlignment="Stretch">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" />
@@ -47,7 +53,8 @@
         <ui:SymbolIcon Grid.Column="0"
                        Symbol="AppsList24"
                        Style="{DynamicResource SettingIconStyle}" />
-        <StackPanel Grid.Column="1">
+        <StackPanel Grid.Column="1"
+                    HorizontalAlignment="Stretch">
           <TextBlock Text="{DynamicResource GrassCareerModeLabel}"
                      Style="{DynamicResource SettingCardTitleStyle}" />
           <ComboBox Margin="0,10,0,0"

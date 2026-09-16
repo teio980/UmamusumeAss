@@ -11,6 +11,8 @@
   <Grid HorizontalAlignment="Stretch">
     <ToggleButton x:Name="DropDownButton"
                   Height="32"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch"
                   Background="{DynamicResource SurfaceRaisedBrush}"
                   BorderBrush="{DynamicResource BorderSubtleBrush}"
                   BorderThickness="1"
@@ -52,18 +54,21 @@
            PlacementTarget="{Binding ElementName=DropDownButton}"
            StaysOpen="False">
       <Border Width="{Binding ActualWidth, ElementName=DropDownButton}"
+              HorizontalAlignment="Stretch"
               MaxHeight="430"
               Padding="8"
               Background="{DynamicResource SurfaceRaisedBrush}"
               BorderBrush="{DynamicResource BorderSubtleBrush}"
               BorderThickness="1"
               CornerRadius="4">
-        <StackPanel>
+        <StackPanel HorizontalAlignment="Stretch">
           <ui:TextBox Margin="0,0,0,8"
+                      HorizontalAlignment="Stretch"
                       Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
                       PlaceholderText="{DynamicResource GrassDailyRaceTraineeSearchPlaceholder}" />
           <ListBox Height="350"
                    BorderThickness="0"
+                   HorizontalAlignment="Stretch"
                    HorizontalContentAlignment="Stretch"
                    ScrollViewer.CanContentScroll="True"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"

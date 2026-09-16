@@ -32,9 +32,11 @@
     </DataTemplate>
   </UserControl.Resources>
 
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+  <ScrollViewer HorizontalContentAlignment="Stretch"
+                HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="36,24,42,42"
+                HorizontalAlignment="Stretch"
                 VerticalAlignment="Top"
                 TextElement.FontSize="12">
       <Grid Margin="0,0,0,18">
