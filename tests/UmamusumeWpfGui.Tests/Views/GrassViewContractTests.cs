@@ -11,12 +11,11 @@ public sealed class GrassViewContractTests
         "src", "UmamusumeWpfGui", "Views", "GrassView.xaml"));
 
     [Fact]
-    public void GrassView_KeepsQueueAndLogColumnsWithoutTheLegacySettingsColumn()
+    public void GrassView_KeepsOnlyTheTaskQueueWithoutAnInlineLogColumn()
     {
         var content = File.ReadAllText(GrassViewPath);
 
-        Assert.Contains("Width=\"0.95*\"", content);
-        Assert.Contains("Width=\"1.3*\"", content);
+        Assert.Contains("Width=\"*\"", content);
         var document = XDocument.Parse(content);
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var workspace = document.Descendants()
@@ -25,14 +24,12 @@ public sealed class GrassViewContractTests
             .Single(element => element.Name.LocalName == "Grid.ColumnDefinitions")
             .Elements()
             .Count();
-        Assert.Equal(2, columns);
+        Assert.Equal(1, columns);
         Assert.Contains("GrassTaskQueue", content);
-        Assert.Contains("GrassLogs", content);
-        Assert.Contains("ScriptLogListBox", content);
-        Assert.DoesNotContain("ItemsSource=\"{Binding ScriptLogs}\"", content);
-        Assert.DoesNotContain("OnCopyScriptLogClick", content);
-        Assert.DoesNotContain("OnClearScriptLogClick", content);
+        Assert.DoesNotContain("GrassLogs", content);
+        Assert.DoesNotContain("ScriptLogListBox", content);
         Assert.DoesNotContain("LogColorConverter", content);
+        Assert.DoesNotContain("LogViewModel", content);
         Assert.Contains("GrassAddTask", content);
         Assert.Contains("Value=\"0,2,10,2\"", content);
         Assert.Contains("ScrollViewer.VerticalScrollBarVisibility=\"Auto\"", content);
