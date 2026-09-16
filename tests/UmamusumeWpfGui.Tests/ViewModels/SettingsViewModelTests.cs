@@ -998,7 +998,7 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public async Task Connect_AutoStart_WhenDetectedCandidateHasNoVerifiedEndpoint_StartsConfiguredEmulator()
+    public async Task Connect_AutoStart_WhenDetectedCandidateHasNoVerifiedEndpoint_DoesNotStartAnotherEmulator()
     {
         var f = CreateFixture();
         f.Settings.Save(new ConnectionSettings
@@ -1021,7 +1021,7 @@ public sealed class SettingsViewModelTests
 
         await vm.ConnectAsync();
 
-        Assert.Equal(@"C:\MuMu\MuMuNxDevice.exe", f.EmulatorLauncher.StartedPath);
+        Assert.Null(f.EmulatorLauncher.StartedPath);
     }
 
     [Fact]
@@ -1091,7 +1091,7 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public async Task Connect_AutoStart_WhenExistingProcessBecomesAdbReady_WaitsAndConnects()
+    public async Task Connect_AutoStart_WhenExistingProcessHasVerifiedEndpoint_ConnectsWithoutLaunch()
     {
         var f = CreateFixture();
         f.Settings.Save(new ConnectionSettings
@@ -1110,12 +1110,14 @@ public sealed class SettingsViewModelTests
         f.WinAdapter.DevicesResults.Enqueue(new AdbDevicesResult(
             [new AdbDeviceRecord("127.0.0.1:16384", "device")],
             []));
+        f.WinAdapter.NextEndpointResolutionResult = new EndpointResolutionResult(
+            ["127.0.0.1:16384"], []);
         var vm = f.CreateViewModel();
         vm.DraftConnectAddress = "";
 
         await vm.ConnectAsync();
 
-        Assert.Equal(@"C:\MuMu\MuMuManager.exe control --vmindex 0 launch", f.EmulatorLauncher.StartedPath);
+        Assert.Null(f.EmulatorLauncher.StartedPath);
         Assert.Equal("127.0.0.1:16384", vm.DraftConnectAddress);
         Assert.Equal(1, f.UmaService.ConnectCallCount);
         Assert.Equal("Connected", vm.StatusText);

@@ -1324,24 +1324,6 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
             _lastDetectedEmulator = selected.EmulatorName;
             OnPropertyChanged(nameof(LastDetectedEmulator));
 
-            if (allowAutoStart && DraftAutoStartEmulator && !autoStartAttempted)
-            {
-                var devices = await _winAdapter.GetAdbDevicesAsync(
-                    selected.AdbPath!,
-                    cancellationToken).ConfigureAwait(true);
-                var hasReadyDevice = devices.Records.Any(
-                    device => string.Equals(device.State, "device", StringComparison.OrdinalIgnoreCase));
-                if (!hasReadyDevice)
-                {
-                    autoStartAttempted = true;
-                    if (!await HandleAutoStartLaunchAsync(cancellationToken))
-                    {
-                        _connectionState.SetState(ConnectionState.Disconnected);
-                        return false;
-                    }
-                }
-            }
-
 
 
 
