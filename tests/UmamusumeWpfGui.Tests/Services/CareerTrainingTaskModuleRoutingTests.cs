@@ -202,6 +202,7 @@ public sealed class CareerTrainingTaskModuleRoutingTests
             LastVerifiedConnection connection,
             CareerTrainingSettings settings,
             IGrassTaskLogSink? logSink,
+            IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
             RunCalled = true;
@@ -211,6 +212,7 @@ public sealed class CareerTrainingTaskModuleRoutingTests
         public Task<CareerTrainingResult> StopAsync(
             LastVerifiedConnection connection,
             IGrassTaskLogSink? logSink = null,
+            IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
             StopCalled = true;
@@ -231,6 +233,7 @@ public sealed class CareerTrainingTaskModuleRoutingTests
             LastVerifiedConnection connection,
             IndependentTrainingSettings settings,
             IGrassTaskLogSink? logSink,
+            IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
             RunCalled = true;
@@ -240,6 +243,7 @@ public sealed class CareerTrainingTaskModuleRoutingTests
         public Task<IndependentTrainingResult> StopAsync(
             LastVerifiedConnection connection,
             IGrassTaskLogSink? logSink = null,
+            IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
             StopCalled = true;

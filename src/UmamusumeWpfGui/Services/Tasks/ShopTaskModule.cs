@@ -37,15 +37,29 @@ public sealed class ShopTaskModule : IGrassTaskModule
         CancellationToken cancellationToken = default)
     {
         if (context.Connection is not { } connection)
+        {
+            context.TaskLogSink?.Add("Validation", "Connect a device before opening the shop.", HachimiTaskLogEventKind.Failure);
             return new(false, false, "Connect a device before opening the shop.");
+        }
 
         var result = await _runner.RunAsync(
                 connection,
                 DefinitionPath,
                 "home",
+                options: new HachimiPipelineRunOptions
+                {
+                    TaskLogSink = context.TaskLogSink,
+                    SemanticProfile = HachimiTaskLogProfile.Shop,
+                },
                 logSink: context.LogSink,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+        context.TaskLogSink?.Add(
+            "Result",
+            result.Succeeded
+                ? "Shop flow completed."
+                : HachimiTaskLogSemantics.ToUserFacingFailure(result.Message),
+            result.Succeeded ? HachimiTaskLogEventKind.Success : HachimiTaskLogEventKind.Failure);
         return new(result.Succeeded, false, result.Message);
     }
 

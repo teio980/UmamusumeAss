@@ -1,9 +1,11 @@
+using System.Collections.Specialized;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
 using UmamusumeWpfGui.ViewModels.Dialogs;
@@ -23,6 +25,9 @@ public sealed partial class GrassView : UserControl
     private const double TaskDropIndicatorHeight = 3d;
 
     private ScrollViewer? _taskListScrollViewer;
+    private HachimiTaskLogViewModel? _hachimiTaskLogViewModel;
+    private readonly HashSet<HachimiTaskLogGroupViewModel> _attachedHachimiTaskLogGroups = [];
+    private bool _hachimiTaskLogScrollPending;
     private GrassTaskItemViewModel? _pendingDragTask;
     private ListBoxItem? _taskDragSourceContainer;
     private Point _taskDragStartPoint;
@@ -55,18 +60,114 @@ public sealed partial class GrassView : UserControl
     private void OnDataContextChanged(
         object sender,
         DependencyPropertyChangedEventArgs e) =>
-        AttachTaskSelectionPicker();
+        RefreshViewModelBindings();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         LocateTaskListScrollViewer();
-        AttachTaskSelectionPicker();
+        RefreshViewModelBindings();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         ResetTaskDragState();
+        DetachHachimiTaskLog();
         _taskListScrollViewer = null;
+    }
+
+    private void RefreshViewModelBindings()
+    {
+        AttachTaskSelectionPicker();
+        AttachHachimiTaskLog();
+    }
+
+    private void AttachHachimiTaskLog()
+    {
+        if (DataContext is not GrassViewModel viewModel)
+            return;
+
+        if (ReferenceEquals(_hachimiTaskLogViewModel, viewModel.HachimiTaskLog))
+            return;
+
+        DetachHachimiTaskLog();
+        _hachimiTaskLogViewModel = viewModel.HachimiTaskLog;
+        _hachimiTaskLogViewModel.QueueEntries.CollectionChanged += OnHachimiTaskLogCollectionChanged;
+        _hachimiTaskLogViewModel.Tasks.CollectionChanged += OnHachimiTaskLogTasksChanged;
+        foreach (var task in _hachimiTaskLogViewModel.Tasks)
+            AttachHachimiTaskLogGroup(task);
+    }
+
+    private void DetachHachimiTaskLog()
+    {
+        if (_hachimiTaskLogViewModel is null)
+            return;
+
+        _hachimiTaskLogViewModel.QueueEntries.CollectionChanged -= OnHachimiTaskLogCollectionChanged;
+        _hachimiTaskLogViewModel.Tasks.CollectionChanged -= OnHachimiTaskLogTasksChanged;
+        foreach (var task in _attachedHachimiTaskLogGroups)
+            task.Entries.CollectionChanged -= OnHachimiTaskLogCollectionChanged;
+        _attachedHachimiTaskLogGroups.Clear();
+
+        _hachimiTaskLogViewModel = null;
+        _hachimiTaskLogScrollPending = false;
+    }
+
+    private void OnHachimiTaskLogTasksChanged(
+        object? sender,
+        NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (var item in e.OldItems.OfType<HachimiTaskLogGroupViewModel>())
+                DetachHachimiTaskLogGroup(item);
+        }
+        else if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (var item in _attachedHachimiTaskLogGroups)
+                item.Entries.CollectionChanged -= OnHachimiTaskLogCollectionChanged;
+            _attachedHachimiTaskLogGroups.Clear();
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (var item in e.NewItems.OfType<HachimiTaskLogGroupViewModel>())
+                AttachHachimiTaskLogGroup(item);
+        }
+
+        RequestHachimiTaskLogScroll();
+    }
+
+    private void AttachHachimiTaskLogGroup(HachimiTaskLogGroupViewModel group)
+    {
+        if (_attachedHachimiTaskLogGroups.Add(group))
+            group.Entries.CollectionChanged += OnHachimiTaskLogCollectionChanged;
+    }
+
+    private void DetachHachimiTaskLogGroup(HachimiTaskLogGroupViewModel group)
+    {
+        if (_attachedHachimiTaskLogGroups.Remove(group))
+            group.Entries.CollectionChanged -= OnHachimiTaskLogCollectionChanged;
+    }
+
+    private void OnHachimiTaskLogCollectionChanged(
+        object? sender,
+        NotifyCollectionChangedEventArgs e) =>
+        RequestHachimiTaskLogScroll();
+
+    private void RequestHachimiTaskLogScroll()
+    {
+        if (!IsLoaded || _hachimiTaskLogScrollPending)
+            return;
+
+        _hachimiTaskLogScrollPending = true;
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() =>
+            {
+                _hachimiTaskLogScrollPending = false;
+                if (IsLoaded)
+                    HachimiTaskLogScrollViewer.ScrollToEnd();
+            }));
     }
 
     private void OnTaskListPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

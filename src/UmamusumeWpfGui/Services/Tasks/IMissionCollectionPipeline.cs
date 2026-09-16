@@ -8,11 +8,13 @@ public interface IMissionCollectionPipeline
         LastVerifiedConnection connection,
         string definitionPath,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<MissionCollectionPipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }
 

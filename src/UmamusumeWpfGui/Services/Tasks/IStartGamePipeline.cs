@@ -13,5 +13,6 @@ public interface IStartGamePipeline
         LastVerifiedConnection connection,
         string packageName,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }

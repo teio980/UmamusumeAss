@@ -22,6 +22,7 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
         LastVerifiedConnection connection,
         string definitionPath,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -48,12 +49,18 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
                     definitionPath,
                     "home",
                     logSink: logSink,
-                    cancellationToken: linked.Token)
+                    cancellationToken: linked.Token,
+                    options: new HachimiPipelineRunOptions
+                    {
+                        TaskLogSink = taskLogSink,
+                        SemanticProfile = HachimiTaskLogProfile.MailCollection,
+                    })
                 .ConfigureAwait(false);
 
             if (result.Succeeded)
             {
                 AddLog(logSink, "Email collection completed.", LogEntryKind.Success);
+                taskLogSink?.Add("Result", "Mailbox rewards collected.", HachimiTaskLogEventKind.Success);
                 return new MailCollectionPipelineResult(
                     true,
                     "Email collection completed.");
@@ -65,11 +72,16 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
             AddLog(logSink, "Email collection was stopped.", LogEntryKind.Failure);
+            taskLogSink?.Add("Result", "Mailbox collection was stopped.", HachimiTaskLogEventKind.Warning);
             return new MailCollectionPipelineResult(false, "Email collection was stopped.");
         }
         catch (Exception ex)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
+            taskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(ex.Message),
+                HachimiTaskLogEventKind.Failure);
             return new MailCollectionPipelineResult(false, $"Email collection failed: {ex.Message}");
         }
         finally
@@ -85,6 +97,7 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
     public Task<MailCollectionPipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -94,6 +107,7 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
         }
 
         AddLog(logSink, "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new MailCollectionPipelineResult(true, "Stop requested."));
     }
 

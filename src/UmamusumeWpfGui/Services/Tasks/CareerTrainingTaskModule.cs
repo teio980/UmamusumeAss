@@ -153,6 +153,12 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                 continueExistingCareer
                     ? "Career entry policy: Resume existing Career."
                     : "Career entry policy: Delete Career data, then start fresh.");
+            context.TaskLogSink?.Add(
+                "Setup",
+                continueExistingCareer
+                    ? "Career entry: resume the existing career."
+                    : "Career entry: delete existing data and start a new career.",
+                HachimiTaskLogEventKind.Action);
             context.LogSink?.Add(
                 "Career Training",
                 $"Career mode selected: {Settings.CareerMode}."
@@ -166,6 +172,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                         connection,
                         CareerTaskSettingsMapper.ToNormalSettings(Settings),
                         context.LogSink,
+                        context.TaskLogSink,
                         cancellationToken)
                     .ConfigureAwait(false);
                 Settings.SetStatus(normalResult.Message);
@@ -179,6 +186,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                     connection,
                     CareerTaskSettingsMapper.ToIndependentSettings(Settings),
                     context.LogSink,
+                    context.TaskLogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
             Settings.SetStatus(result.Message);
@@ -187,11 +195,16 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         catch (OperationCanceledException)
         {
             var message = Localize("GrassCareerTrainingCanceled", "Career training canceled.");
+            context.TaskLogSink?.Add("Result", message, HachimiTaskLogEventKind.Warning);
             Settings.SetStatus(message);
             return new GrassTaskExecutionResult(false, false, message);
         }
         catch (Exception exception)
         {
+            context.TaskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(exception.Message),
+                HachimiTaskLogEventKind.Failure);
             Settings.SetStatus(exception.Message);
             return new GrassTaskExecutionResult(false, false, exception.Message);
         }
@@ -218,12 +231,20 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
         if (Settings.IsIndependentCareer)
         {
-            var result = await _independentPipeline.StopAsync(connection, context.LogSink, cancellationToken)
+            var result = await _independentPipeline.StopAsync(
+                    connection,
+                    context.LogSink,
+                    context.TaskLogSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return new GrassTaskExecutionResult(result.Succeeded, false, result.Message);
         }
 
-        var normalResult = await _normalPipeline.StopAsync(connection, context.LogSink, cancellationToken)
+        var normalResult = await _normalPipeline.StopAsync(
+                connection,
+                context.LogSink,
+                context.TaskLogSink,
+                cancellationToken)
             .ConfigureAwait(false);
         return new GrassTaskExecutionResult(normalResult.Succeeded, false, normalResult.Message);
     }

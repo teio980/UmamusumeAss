@@ -113,6 +113,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
                 Settings.RaceCount,
                 Settings.TraineeId,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         var status = result.Succeeded
@@ -141,6 +142,7 @@ public sealed class DailyRaceTaskModule : IGrassTaskModule
         var result = await _pipeline.StopAsync(
                 connection,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         Settings.SetStatus(result.Message);

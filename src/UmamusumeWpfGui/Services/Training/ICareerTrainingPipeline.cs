@@ -9,11 +9,13 @@ public interface ICareerTrainingPipeline
         LastVerifiedConnection connection,
         CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<CareerTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }
 

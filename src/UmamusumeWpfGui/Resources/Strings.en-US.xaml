@@ -20,6 +20,22 @@
 
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
+  <sys:String x:Key="GrassTaskLogTitle">Task execution log</sys:String>
+  <sys:String x:Key="GrassTaskLogEmpty">Start the queue to see important task steps.</sys:String>
+  <sys:String x:Key="GrassTaskLogWaiting">Waiting to run</sys:String>
+  <sys:String x:Key="GrassTaskLogQueue">Queue</sys:String>
+  <sys:String x:Key="GrassTaskLogConnection">Connection</sys:String>
+  <sys:String x:Key="GrassTaskLogPhase">Phase</sys:String>
+  <sys:String x:Key="GrassTaskLogValidation">Validation</sys:String>
+  <sys:String x:Key="GrassTaskLogResult">Result</sys:String>
+  <sys:String x:Key="GrassTaskLogQueueStarted">Queue started</sys:String>
+  <sys:String x:Key="GrassTaskLogQueueCompleted">Queue completed</sys:String>
+  <sys:String x:Key="GrassTaskLogQueueFailed">Queue failed</sys:String>
+  <sys:String x:Key="GrassTaskLogQueueCanceled">Queue canceled</sys:String>
+  <sys:String x:Key="GrassTaskLogSkippedAfterQueueFailure">Skipped because the queue could not connect</sys:String>
+  <sys:String x:Key="GrassTaskLogCanceledMessage">Task canceled</sys:String>
+  <sys:String x:Key="GrassTaskLogSkippedAfterCancel">Skipped because the queue was canceled</sys:String>
+  <sys:String x:Key="GrassTaskLogStopRequested">Stop requested</sys:String>
   <sys:String x:Key="GrassTaskReorderHint">Long-press a task, then drag it up or down to reorder.</sys:String>
   <sys:String x:Key="GrassSettings">Settings</sys:String>
   <sys:String x:Key="GrassTaskSettings">Task settings</sys:String>
@@ -182,6 +198,12 @@
   <sys:String x:Key="GrassTaskCompleted">Completed</sys:String>
   <sys:String x:Key="GrassTaskError">Error</sys:String>
   <sys:String x:Key="GrassTaskIdle">Idle</sys:String>
+  <sys:String x:Key="GrassTaskLogPending">Pending</sys:String>
+  <sys:String x:Key="GrassTaskLogRunning">Running</sys:String>
+  <sys:String x:Key="GrassTaskLogCompleted">Completed</sys:String>
+  <sys:String x:Key="GrassTaskLogFailed">Failed</sys:String>
+  <sys:String x:Key="GrassTaskLogCanceled">Canceled</sys:String>
+  <sys:String x:Key="GrassTaskLogSkipped">Skipped</sys:String>
   <sys:String x:Key="GrassTaskStatusLabel">Current status</sys:String>
   <sys:String x:Key="GrassNoTaskSelected">No task selected</sys:String>
   <sys:String x:Key="GrassSelectTaskHint">Select a task on the left to view its settings</sys:String>

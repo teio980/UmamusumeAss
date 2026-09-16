@@ -18,6 +18,7 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
         LastVerifiedConnection connection,
         string definitionPath,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -44,12 +45,18 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
                     definitionPath,
                     "home",
                     logSink: logSink,
-                    cancellationToken: linked.Token)
+                    cancellationToken: linked.Token,
+                    options: new HachimiPipelineRunOptions
+                    {
+                        TaskLogSink = taskLogSink,
+                        SemanticProfile = HachimiTaskLogProfile.MissionCollection,
+                    })
                 .ConfigureAwait(false);
 
             if (result.Succeeded)
             {
                 AddLog(logSink, "Mission collection completed.", LogEntryKind.Success);
+                taskLogSink?.Add("Result", "Mission rewards collected.", HachimiTaskLogEventKind.Success);
                 return new MissionCollectionPipelineResult(
                     true,
                     "Mission collection completed.");
@@ -61,11 +68,16 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
             AddLog(logSink, "Mission collection was stopped.", LogEntryKind.Failure);
+            taskLogSink?.Add("Result", "Mission collection was stopped.", HachimiTaskLogEventKind.Warning);
             return new MissionCollectionPipelineResult(false, "Mission collection was stopped.");
         }
         catch (Exception ex)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
+            taskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(ex.Message),
+                HachimiTaskLogEventKind.Failure);
             return new MissionCollectionPipelineResult(false, $"Mission collection failed: {ex.Message}");
         }
         finally
@@ -81,6 +93,7 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
     public Task<MissionCollectionPipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -90,6 +103,7 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
         }
 
         AddLog(logSink, "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new MissionCollectionPipelineResult(true, "Stop requested."));
     }
 

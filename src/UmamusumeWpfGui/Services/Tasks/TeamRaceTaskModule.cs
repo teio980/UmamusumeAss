@@ -104,6 +104,7 @@ public sealed class TeamRaceTaskModule : IGrassTaskModule
             Settings.RaceCount,
             Settings.StopWhenTicketsEmpty,
             context.LogSink,
+            context.TaskLogSink,
             cancellationToken).ConfigureAwait(false);
         var pipelineMessage = LocalizePipelineMessage(result.Message);
         var status = result.Succeeded
@@ -132,6 +133,7 @@ public sealed class TeamRaceTaskModule : IGrassTaskModule
         var result = await _pipeline.StopAsync(
             connection,
             context.LogSink,
+            context.TaskLogSink,
             cancellationToken).ConfigureAwait(false);
         var pipelineMessage = LocalizePipelineMessage(result.Message);
         Settings.SetStatus(pipelineMessage);

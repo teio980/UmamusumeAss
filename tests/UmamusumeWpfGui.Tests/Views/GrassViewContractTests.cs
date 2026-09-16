@@ -11,11 +11,11 @@ public sealed class GrassViewContractTests
         "src", "UmamusumeWpfGui", "Views", "GrassView.xaml"));
 
     [Fact]
-    public void GrassView_KeepsOnlyTheTaskQueueWithoutAnInlineLogColumn()
+    public void GrassView_ContainsTheTaskQueueAndIndependentTaskLogColumn()
     {
         var content = File.ReadAllText(GrassViewPath);
 
-        Assert.Contains("Width=\"*\"", content);
+        Assert.Contains("Width=\"2*\"", content);
         var document = XDocument.Parse(content);
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var workspace = document.Descendants()
@@ -24,8 +24,15 @@ public sealed class GrassViewContractTests
             .Single(element => element.Name.LocalName == "Grid.ColumnDefinitions")
             .Elements()
             .Count();
-        Assert.Equal(1, columns);
+        Assert.Equal(2, columns);
         Assert.Contains("GrassTaskQueue", content);
+        Assert.Contains("GrassTaskLogTitle", content);
+        Assert.Contains("HachimiTaskLog.Tasks", content);
+        Assert.Contains("HachimiTaskLog.QueueEntries", content);
+        Assert.Contains("HachimiTaskLogEntry", content);
+        Assert.Contains("x:Name=\"HachimiTaskLogScrollViewer\"", content);
+        Assert.Contains("ScrollToEnd()", File.ReadAllText(Path.Combine(
+            Path.GetDirectoryName(GrassViewPath)!, "GrassView.xaml.cs")));
         Assert.DoesNotContain("GrassLogs", content);
         Assert.DoesNotContain("ScriptLogListBox", content);
         Assert.DoesNotContain("LogColorConverter", content);

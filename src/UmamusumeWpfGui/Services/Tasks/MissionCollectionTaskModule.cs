@@ -72,6 +72,10 @@ public sealed class MissionCollectionTaskModule : IGrassTaskModule
         Settings.SetStatus(Localize(
             "GrassMissionCollectionStarting",
             "Collecting mission rewards"));
+        context.TaskLogSink?.Add(
+            "Setup",
+            Localize("GrassMissionCollectionRunning", "Opening missions and checking reward tabs"),
+            HachimiTaskLogEventKind.Action);
         context.LogSink?.Add(
             Localize("GrassTaskMissionCollection", "Mission collection"),
             Localize("GrassMissionCollectionRunning", "Collecting mission rewards"));
@@ -80,6 +84,7 @@ public sealed class MissionCollectionTaskModule : IGrassTaskModule
                 connection,
                 Settings.DefinitionPath,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         Settings.SetStatus(result.Succeeded
@@ -104,6 +109,7 @@ public sealed class MissionCollectionTaskModule : IGrassTaskModule
         var result = await _pipeline.StopAsync(
                 connection,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         Settings.SetStatus(result.Message);

@@ -41,18 +41,26 @@ internal interface ICareerActionExecutor
         HachimiPipelineRunOptions? options = null);
 }
 
+internal interface ICareerTaskLogAware
+{
+    void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink);
+}
+
 /// <summary>
 /// The small JSON action adapter shared by the entry navigator and
 /// Independent setup. It owns no career strategy or session state.
 /// </summary>
-public sealed class CareerJsonActionExecutor : ICareerActionExecutor
+public sealed class CareerJsonActionExecutor : ICareerActionExecutor, ICareerTaskLogAware
 {
     private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private IHachimiTaskLogSink? _taskLogSink;
 
     public CareerJsonActionExecutor(HachimiJsonPipelineRunner jsonRunner)
     {
         _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
     }
+
+    public void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) => _taskLogSink = taskLogSink;
 
     public async Task<CareerActionExecutionResult> RunAsync(
         LastVerifiedConnection connection,
@@ -64,6 +72,9 @@ public sealed class CareerJsonActionExecutor : ICareerActionExecutor
         HachimiPipelineRunOptions? options = null,
         bool allowVisualMiss = false)
     {
+        options ??= new HachimiPipelineRunOptions();
+        options.TaskLogSink ??= _taskLogSink;
+        options.SemanticProfile = HachimiTaskLogProfile.Career;
         var resolvedScreenId = screenId;
         if (resolvedScreenId.Equals("career_entry", StringComparison.OrdinalIgnoreCase)
             && pack.ScreenProfile.Find("career_entry") is null)
@@ -118,6 +129,9 @@ public sealed class CareerJsonActionExecutor : ICareerActionExecutor
         CancellationToken cancellationToken,
         HachimiPipelineRunOptions? options = null)
     {
+        options ??= new HachimiPipelineRunOptions();
+        options.TaskLogSink ??= _taskLogSink;
+        options.SemanticProfile = HachimiTaskLogProfile.Career;
         var result = await _jsonRunner.RunAsync(
                 connection,
                 pack.ExecutionDefinition,
@@ -228,12 +242,16 @@ public sealed class CareerEntryNavigator
         CareerEntryNavigationState state,
         IGrassTaskLogSink? logSink,
         Func<CareerEntryNavigationState, Task>? progressCallback = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(state);
+
+        if (_actions is ICareerTaskLogAware taskLogAware)
+            taskLogAware.SetTaskLogSink(taskLogSink);
 
         RestoreStepFromCheckpoint(state);
         if (state.Step == CareerEntryNavigationStep.Home)

@@ -146,6 +146,18 @@ public sealed class HachimiJsonPipelineRunner
 
             state.IncrementTaskCount(current, task);
             var effectiveSearchRois = ResolveSearchRois(current, task, state.Options);
+            var hasSemanticStep = HachimiTaskLogSemantics.TryDescribe(
+                state.Options.SemanticProfile,
+                current,
+                out var semanticStep);
+            if (hasSemanticStep)
+            {
+                AddSemanticLog(
+                    state.Options.TaskLogSink,
+                    "Action",
+                    semanticStep.StartMessage,
+                    HachimiTaskLogEventKind.Action);
+            }
             AddTaskLog(
                 logSink,
                 current,
@@ -166,6 +178,25 @@ public sealed class HachimiJsonPipelineRunner
                 .ConfigureAwait(false);
             if (!execution.Succeeded)
             {
+                if (hasSemanticStep)
+                {
+                    if (!task.Required && semanticStep.SkippedMessage is not null)
+                    {
+                        AddSemanticLog(
+                            state.Options.TaskLogSink,
+                            "Branch",
+                            semanticStep.SkippedMessage,
+                            HachimiTaskLogEventKind.Info);
+                    }
+                    else
+                    {
+                        AddSemanticLog(
+                            state.Options.TaskLogSink,
+                            "Result",
+                            semanticStep.FailedMessage,
+                            HachimiTaskLogEventKind.Failure);
+                    }
+                }
                 var errorNext = FirstExisting(definition, task.OnErrorNext);
                 if (errorNext is not null)
                 {
@@ -199,6 +230,15 @@ public sealed class HachimiJsonPipelineRunner
 
             if (!string.IsNullOrWhiteSpace(task.CountAs))
                 state.CompletedUnits++;
+
+            if (hasSemanticStep)
+            {
+                AddSemanticLog(
+                    state.Options.TaskLogSink,
+                    "Result",
+                    semanticStep.CompletedMessage,
+                    HachimiTaskLogEventKind.Success);
+            }
 
             if (task.Success)
                 return Succeed(state, current);
@@ -246,7 +286,10 @@ public sealed class HachimiJsonPipelineRunner
                     connection,
                     definition,
                     subTask,
-                    new RunState(new HachimiPipelineRunOptions()),
+                    new RunState(new HachimiPipelineRunOptions
+                    {
+                        TaskLogSink = runOptions.TaskLogSink,
+                    }),
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -1356,6 +1399,10 @@ public sealed class HachimiJsonPipelineRunner
         var nestedOptions = new HachimiPipelineRunOptions
         {
             PipelineDepth = parentOptions.PipelineDepth + 1,
+            TaskLogSink = parentOptions.TaskLogSink,
+            SemanticProfile = isShopPipeline
+                ? HachimiTaskLogProfile.Shop
+                : parentOptions.SemanticProfile,
             MaxTimesOverrides = isShopPipeline
                 ? CreateShopOverrides(_settingsService.Load().Hachimi.Shop)
                 : null,
@@ -1364,6 +1411,14 @@ public sealed class HachimiJsonPipelineRunner
         AddLog(
             logSink,
             $"Calling nested JSON pipeline '{nestedPath}' from '{taskName}'.");
+        if (isShopPipeline)
+        {
+            AddSemanticLog(
+                parentOptions.TaskLogSink,
+                "Branch",
+                "Opening the optional shop flow.",
+                HachimiTaskLogEventKind.Branch);
+        }
         var result = await RunAsync(
                 connection,
                 nestedPath,
@@ -1382,8 +1437,23 @@ public sealed class HachimiJsonPipelineRunner
             logSink,
             $"Nested JSON pipeline '{nestedPath}' completed.",
             LogEntryKind.Success);
+        if (isShopPipeline)
+        {
+            AddSemanticLog(
+                parentOptions.TaskLogSink,
+                "Branch",
+                "Optional shop flow completed.",
+                HachimiTaskLogEventKind.Success);
+        }
         return TaskExecutionResult.Completed(taskName);
     }
+
+    private static void AddSemanticLog(
+        IHachimiTaskLogSink? logSink,
+        string step,
+        string message,
+        HachimiTaskLogEventKind kind) =>
+        logSink?.Add(step, message, kind);
 
     private static bool IsShopPipeline(string path) =>
         string.Equals(
@@ -1887,6 +1957,19 @@ public sealed class HachimiPipelineRunOptions
     /// only supply the race/card/skill text to find.
     /// </summary>
     public IReadOnlyDictionary<string, string>? TargetTextOverrides { get; init; }
+
+    /// <summary>
+    /// Concise semantic events for the Hachimi workspace. This is intentionally
+    /// separate from the diagnostic sink used by the legacy global log.
+    /// </summary>
+    public IHachimiTaskLogSink? TaskLogSink { get; set; }
+
+    /// <summary>
+    /// Only explicitly described steps for this profile are shown in the
+    /// Hachimi workspace log. Unmapped JSON implementation nodes stay in the
+    /// legacy diagnostic log only.
+    /// </summary>
+    public HachimiTaskLogProfile SemanticProfile { get; set; }
 
     public Func<
         LastVerifiedConnection,

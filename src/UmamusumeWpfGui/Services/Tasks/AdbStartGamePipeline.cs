@@ -51,6 +51,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         LastVerifiedConnection connection,
         string packageName,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -76,6 +77,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         }
 
         var current = ResolveStartTask(definition);
+        taskLogSink?.Add("Setup", "Waiting for the game process and start screen.", HachimiTaskLogEventKind.Action);
         var visited = 0;
         while (!string.IsNullOrWhiteSpace(current)
             && visited++ < Math.Max(100, definition.Tasks.Count * 4))
@@ -89,6 +91,13 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             }
 
             AddLog(logSink, current, "Running pipeline task.");
+            if (IsImportantStartTask(current, task))
+            {
+                taskLogSink?.Add(
+                    "Step",
+                    $"Starting {FriendlyStartTask(current)}.",
+                    HachimiTaskLogEventKind.Info);
+            }
             var taskResult = await ExecuteTaskAsync(
                 connection,
                 packageName,
@@ -111,6 +120,10 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                         current,
                         $"Task failed: {taskResult.Message}; taking fallback '{fallback}'.",
                         LogEntryKind.Failure);
+                    taskLogSink?.Add(
+                        "Fallback",
+                        $"{FriendlyStartTask(current)} was not ready; trying the next startup check.",
+                        HachimiTaskLogEventKind.Branch);
                     current = fallback;
                     continue;
                 }
@@ -125,9 +138,18 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                 }
             }
 
+            if (taskResult.Succeeded && IsImportantStartTask(current, task))
+            {
+                taskLogSink?.Add(
+                    "Done",
+                    $"Completed {FriendlyStartTask(current)}.",
+                    HachimiTaskLogEventKind.Success);
+            }
+
             if (task.Success)
             {
                 AddLog(logSink, current, "Home screen detected.", LogEntryKind.Success);
+                taskLogSink?.Add("Result", "Game home screen detected.", HachimiTaskLogEventKind.Success);
                 return new StartGamePipelineResult(true, true, "The game home screen was detected.");
             }
 
@@ -139,8 +161,30 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             return Fail(logSink, "The start game pipeline exceeded its task guard.");
 
         AddLog(logSink, "Start game pipeline", "Pipeline completed.", LogEntryKind.Success);
+        taskLogSink?.Add("Result", "Startup checks completed.", HachimiTaskLogEventKind.Success);
         return new StartGamePipelineResult(true, false, "The start game pipeline completed.");
     }
+
+    private static bool IsImportantStartTask(string taskName, StartGamePipelineTask task) =>
+        task.Success
+        || task.Action is not null
+            && !task.Action.Equals("Wait", StringComparison.OrdinalIgnoreCase)
+        || taskName.StartsWith("Check", StringComparison.OrdinalIgnoreCase);
+
+    private static string FriendlyStartTask(string taskName) => taskName switch
+    {
+        "StartupMonitor" => "the game process",
+        "CheckGameHome" => "the game home screen",
+        "CheckHomeTabOnOtherPage" => "the home tab",
+        "CheckLogoSkip" => "the logo skip",
+        "CheckStartNoticeSkip" => "the start notice",
+        "CheckDataDownload" => "the data download prompt",
+        "CheckPromoSkip" => "the promotion prompt",
+        "CheckNotices" => "startup notices",
+        "CheckTapToStart" => "Tap to Start",
+        "WaitForStartup" => "the startup screen",
+        _ => taskName,
+    };
 
     private async Task<PipelineTaskResult> ExecuteTaskAsync(
         LastVerifiedConnection connection,

@@ -27,6 +27,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         string difficulty,
         int raceCount,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default) =>
         RunWithTraineeAsync(
             connection,
@@ -36,6 +37,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
             raceCount,
             null,
             logSink,
+            taskLogSink,
             cancellationToken);
 
     public async Task<DailyRacePipelineResult> RunWithTraineeAsync(
@@ -46,6 +48,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         int raceCount,
         int? traineeId = null,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -101,6 +104,10 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
             AddLog(
                 logSink,
                 $"Starting {requestedRaces} Daily Race(s), mode {normalizedMode}.");
+            taskLogSink?.Add(
+                "Setup",
+                $"Starting {requestedRaces} Daily Race(s) in {normalizedMode} mode, {normalizedDifficulty} difficulty.",
+                HachimiTaskLogEventKind.Action);
             var result = await _runner.RunAsync(
                     connection,
                     definitionPath,
@@ -108,6 +115,8 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                     new HachimiPipelineRunOptions
                     {
                         MaxTimesOverrides = overrides,
+                        TaskLogSink = taskLogSink,
+                        SemanticProfile = HachimiTaskLogProfile.DailyRace,
                         RoiOverrides = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["moniesDifficulty"] = GetDifficultyRoi(normalizedDifficulty),
@@ -127,6 +136,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                                     task,
                                     traineeId,
                                     actionLogSink,
+                                    taskLogSink,
                                     actionCancellationToken)
                                 .ConfigureAwait(false),
                     },
@@ -140,6 +150,10 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
                     logSink,
                     $"Completed {result.CompletedUnits} Daily Race(s).",
                     LogEntryKind.Success);
+                taskLogSink?.Add(
+                    "Result",
+                    $"Completed {result.CompletedUnits} Daily Race(s).",
+                    HachimiTaskLogEventKind.Success);
                 return new DailyRacePipelineResult(
                     true,
                     result.CompletedUnits,
@@ -152,11 +166,16 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
             AddLog(logSink, "Daily Race was stopped.", LogEntryKind.Failure);
+            taskLogSink?.Add("Result", "Daily Race was stopped.", HachimiTaskLogEventKind.Warning);
             return new DailyRacePipelineResult(false, 0, "Daily Race was stopped.");
         }
         catch (Exception ex)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
+            taskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(ex.Message),
+                HachimiTaskLogEventKind.Failure);
             return new DailyRacePipelineResult(false, 0, $"Daily Race failed: {ex.Message}");
         }
         finally
@@ -172,6 +191,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
     public Task<DailyRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -181,6 +201,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
         }
 
         AddLog(logSink, "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new DailyRacePipelineResult(true, 0, "Stop requested."));
     }
 

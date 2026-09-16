@@ -11,6 +11,7 @@ public interface IDailyRacePipeline
         string difficulty,
         int raceCount,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<DailyRacePipelineResult> RunWithTraineeAsync(
@@ -21,11 +22,13 @@ public interface IDailyRacePipeline
         int raceCount,
         int? traineeId,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<DailyRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }
 

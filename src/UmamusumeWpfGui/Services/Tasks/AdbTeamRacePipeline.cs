@@ -26,6 +26,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         int raceCount,
         bool stopWhenTicketsEmpty,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -53,6 +54,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
             _ = stopWhenTicketsEmpty;
 
             AddLog(logSink, $"Starting {requestedRaces} race(s).");
+            taskLogSink?.Add("Setup", $"Starting {requestedRaces} Team Race race(s).", HachimiTaskLogEventKind.Action);
             var result = await _runner.RunAsync(
                     connection,
                     definitionPath,
@@ -64,6 +66,8 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
                         {
                             ["raceAdvance"] = requestedRaces - 1,
                         },
+                        TaskLogSink = taskLogSink,
+                        SemanticProfile = HachimiTaskLogProfile.TeamRace,
                     },
                     logSink,
                     linked.Token)
@@ -75,6 +79,10 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
                     logSink,
                     $"Completed {result.CompletedUnits} race(s).",
                     LogEntryKind.Success);
+                taskLogSink?.Add(
+                    "Result",
+                    $"Completed {result.CompletedUnits} Team Race race(s).",
+                    HachimiTaskLogEventKind.Success);
                 return new TeamRacePipelineResult(
                     true,
                     result.CompletedUnits,
@@ -87,11 +95,16 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
             AddLog(logSink, "Team Race was stopped.", LogEntryKind.Failure);
+            taskLogSink?.Add("Result", "Team Race was stopped.", HachimiTaskLogEventKind.Warning);
             return new TeamRacePipelineResult(false, 0, "Team Race was stopped.");
         }
         catch (Exception ex)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
+            taskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(ex.Message),
+                HachimiTaskLogEventKind.Failure);
             return new TeamRacePipelineResult(false, 0, $"Team Race failed: {ex.Message}");
         }
         finally
@@ -107,6 +120,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
     public Task<TeamRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -116,6 +130,7 @@ public sealed class AdbTeamRacePipeline : ITeamRacePipeline
         }
 
         AddLog(logSink, "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new TeamRacePipelineResult(true, 0, "Stop requested."));
     }
 

@@ -165,7 +165,8 @@ public sealed class DailyRaceRunnerSelector
         HachimiPipelineTask task,
         int? traineeId,
         IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+        IHachimiTaskLogSink? taskLogSink = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(definition);
@@ -179,6 +180,10 @@ public sealed class DailyRaceRunnerSelector
             return HachimiCustomActionResult.Failure(
                 "Could not verify Rating descending order on the runner list.");
         }
+        taskLogSink?.Add(
+            "Sort",
+            "Runner list sorted by Rating, highest first.",
+            HachimiTaskLogEventKind.Action);
 
         if (traineeId is null)
         {
@@ -188,6 +193,10 @@ public sealed class DailyRaceRunnerSelector
                     "runnerSelectHighest",
                     cancellationToken)
                 .ConfigureAwait(false);
+            taskLogSink?.Add(
+                "Selection",
+                "No runner was configured; selected the first runner after sorting.",
+                HachimiTaskLogEventKind.Success);
             return HachimiCustomActionResult.Success(
                 "No runner was specified; selected the first runner after Rating descending sort.");
         }
@@ -263,6 +272,7 @@ public sealed class DailyRaceRunnerSelector
                 definition,
                 trainee,
                 logSink,
+                taskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!filterResult.Succeeded)
@@ -318,6 +328,10 @@ public sealed class DailyRaceRunnerSelector
                     && bestCandidate is null)
                 {
                     bestCandidate = new RunnerCandidate(scroll, best);
+                    taskLogSink?.Add(
+                        "Selection",
+                        $"Found {trainee.NameEn} in the filtered runner list.",
+                        HachimiTaskLogEventKind.Detection);
                     logSink?.Add(
                         "Daily Race",
                         $"Found {trainee.NameEn} on runner page {scroll + 1} with "
@@ -412,6 +426,10 @@ public sealed class DailyRaceRunnerSelector
                 + $"threshold {MinimumSelectedPortraitScore:0.000}).");
         }
 
+        taskLogSink?.Add(
+            "Selection",
+            $"Selected {trainee.NameEn} after applying aptitude filters.",
+            HachimiTaskLogEventKind.Success);
         return HachimiCustomActionResult.Success(
                 $"Filtered and selected {trainee.NameEn} "
                 + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
@@ -487,9 +505,14 @@ public sealed class DailyRaceRunnerSelector
         HachimiPipelineDefinition definition,
         UmaTraineeRecord trainee,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink,
         CancellationToken cancellationToken)
     {
         var desiredLabels = GetDesiredFilterLabels(trainee).ToArray();
+        taskLogSink?.Add(
+            "Filter",
+            $"Applying aptitude filters for {trainee.NameEn}.",
+            HachimiTaskLogEventKind.Action);
         var clicked = 0;
         var missingLabels = new List<string>();
 

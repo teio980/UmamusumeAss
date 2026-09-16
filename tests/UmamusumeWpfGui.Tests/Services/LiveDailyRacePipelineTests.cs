@@ -57,7 +57,7 @@ public sealed class LiveDailyRacePipelineTests
             definition!.GetTask("runnerSelectHighest"),
             100601,
             logSink: null,
-            cancellation.Token);
+            cancellationToken: cancellation.Token);
 
         Assert.True(result.Succeeded, result.Message);
     }

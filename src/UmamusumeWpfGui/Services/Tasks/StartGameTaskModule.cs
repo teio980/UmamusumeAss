@@ -73,6 +73,10 @@ public sealed class StartGameTaskModule : IGrassTaskModule
     {
         if (!CanExecute(context) || context.Connection is not { } connection)
         {
+            context.TaskLogSink?.Add(
+                "Validation",
+                Localize("GrassGameConnectionRequired", "Connect a device in Settings to start the game"),
+                HachimiTaskLogEventKind.Failure);
             Settings.SetStatus(Localize(
                 "GrassGameConnectionRequired",
                 "Connect a device in Settings to start the game"));
@@ -92,11 +96,23 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Localize("GrassScriptLaunchingGame", "Launching {0} on {1}"),
                 launchTarget,
                 connection.Serial));
+        context.TaskLogSink?.Add(
+            "Launch",
+            string.Format(
+                CultureInfo.InvariantCulture,
+                Localize("GrassScriptLaunchingGame", "Launching {0} on {1}"),
+                launchTarget,
+                connection.Serial),
+            HachimiTaskLogEventKind.Action);
         context.LogSink?.Add(
             Localize("GrassScriptStartGame", "Start game"),
             Localize(
                 "GrassScriptWaitingForGameProcess",
                 "Waiting for the game process"));
+        context.TaskLogSink?.Add(
+            "Process",
+            Localize("GrassScriptWaitingForGameProcess", "Waiting for the game process"),
+            HachimiTaskLogEventKind.Detection);
 
         Settings.SetStatus(Localize("GrassGameStarting", "Starting game"));
         Settings.Persist();
@@ -111,6 +127,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
             ? await RunStartGamePipelineAsync(
                 connection,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken).ConfigureAwait(false)
             : null;
 
@@ -120,6 +137,10 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Localize("GrassScriptStartGame", "Start game"),
                 pipelineResult.Message,
                 LogEntryKind.Failure);
+            context.TaskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(pipelineResult.Message),
+                HachimiTaskLogEventKind.Failure);
         }
         else if (pipelineResult is { HomeDetected: true })
         {
@@ -129,6 +150,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                     "GrassScriptGameHomeDetected",
                     "Game home screen detected"),
                 LogEntryKind.Success);
+            context.TaskLogSink?.Add("Result", Localize("GrassScriptGameHomeDetected", "Game home screen detected"), HachimiTaskLogEventKind.Success);
         }
         else if (result.ProcessDetected)
         {
@@ -136,6 +158,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Localize("GrassScriptStartGame", "Start game"),
                 Localize("GrassScriptGameProcessDetected", "Game process detected"),
                 LogEntryKind.Success);
+            context.TaskLogSink?.Add("Process", Localize("GrassScriptGameProcessDetected", "Game process detected"), HachimiTaskLogEventKind.Detection);
         }
         else if (result.Succeeded)
         {
@@ -144,6 +167,7 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Localize(
                     "GrassScriptGameLaunchAccepted",
                     "Launch command completed; waiting for the game process"));
+            context.TaskLogSink?.Add("Process", Localize("GrassScriptGameLaunchAccepted", "Launch command completed; waiting for the game process"), HachimiTaskLogEventKind.Detection);
         }
         else
         {
@@ -151,6 +175,10 @@ public sealed class StartGameTaskModule : IGrassTaskModule
                 Localize("GrassScriptStartGame", "Start game"),
                 result.Message,
                 LogEntryKind.Failure);
+            context.TaskLogSink?.Add(
+                "Result",
+                HachimiTaskLogSemantics.ToUserFacingFailure(result.Message),
+                HachimiTaskLogEventKind.Failure);
         }
 
         var succeeded = result.Succeeded && (pipelineResult?.Succeeded ?? true);
@@ -174,12 +202,14 @@ public sealed class StartGameTaskModule : IGrassTaskModule
     private async Task<StartGamePipelineResult> RunStartGamePipelineAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink,
         CancellationToken cancellationToken)
     {
         return await _startGamePipeline!.RunAsync(
             connection,
             Settings.PackageId,
             logSink,
+            taskLogSink,
             cancellationToken).ConfigureAwait(false);
     }
 

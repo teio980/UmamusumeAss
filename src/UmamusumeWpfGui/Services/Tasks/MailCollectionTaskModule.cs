@@ -72,6 +72,10 @@ public sealed class MailCollectionTaskModule : IGrassTaskModule
         Settings.SetStatus(Localize(
             "GrassMailCollectionStarting",
             "Collecting mailbox rewards"));
+        context.TaskLogSink?.Add(
+            "Setup",
+            Localize("GrassMailCollectionRunning", "Opening the gift box and collecting rewards"),
+            HachimiTaskLogEventKind.Action);
         context.LogSink?.Add(
             Localize("GrassTaskRewardsCollection", "Mail collection"),
             Localize("GrassMailCollectionRunning", "Collecting rewards"));
@@ -80,6 +84,7 @@ public sealed class MailCollectionTaskModule : IGrassTaskModule
                 connection,
                 Settings.DefinitionPath,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         Settings.SetStatus(result.Succeeded
@@ -104,6 +109,7 @@ public sealed class MailCollectionTaskModule : IGrassTaskModule
         var result = await _pipeline.StopAsync(
                 connection,
                 context.LogSink,
+                context.TaskLogSink,
                 cancellationToken)
             .ConfigureAwait(false);
         Settings.SetStatus(result.Message);

@@ -54,6 +54,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         StringComparer.OrdinalIgnoreCase);
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
+    private IHachimiTaskLogSink? _taskLogSink;
 
     public AdbNormalCareerTrainingPipeline(
         IVisualPipelineRuntime visualRuntime,
@@ -82,6 +83,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         LastVerifiedConnection connection,
         CareerTrainingSettings settings,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -100,6 +102,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         try
         {
+            _taskLogSink = taskLogSink;
             return await RunCoreAsync(connection, settings, logSink, linked.Token)
                 .ConfigureAwait(false);
         }
@@ -121,6 +124,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     public Task<CareerTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -130,6 +134,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         logSink?.Add("Career Training", "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new CareerTrainingResult(true, "Stop requested.", 0, "stop"));
     }
 
@@ -209,6 +214,12 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");
+        _taskLogSink?.Add(
+            "Setup",
+            settings.ContinueExistingCareer
+                ? "Normal Career selected; existing career will be resumed."
+                : "Normal Career selected; a new career will be started.",
+            HachimiTaskLogEventKind.Action);
         logSink?.Add(
             "Career Training",
             state.TurnIndex > 0
@@ -242,6 +253,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                     entryState,
                     logSink,
                     progressCallback: null,
+                    _taskLogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
             actionCount = entry.ActionsCompleted;
@@ -329,6 +341,13 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             logSink?.Add(
                 "Career Training",
                 $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
+            if (IsImportantCareerScreen(observation.ScreenId))
+            {
+                _taskLogSink?.Add(
+                    "Screen",
+                    $"Reached {FriendlyCareerScreen(observation.ScreenId)}.",
+                    HachimiTaskLogEventKind.Detection);
+            }
 
             if (observation.ScreenId == "home")
             {
@@ -392,6 +411,25 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             state.LastScreenId,
             actionCount);
     }
+
+    private static bool IsImportantCareerScreen(string screenId) => screenId is
+        "career_continue" or "scenario_select" or "trainee_select" or "legacy_select"
+        or "support_select" or "support_ready" or "career_final_confirmation"
+        or "career_main" or "career_race_result" or "career_event";
+
+    private static string FriendlyCareerScreen(string screenId) => screenId switch
+    {
+        "career_continue" => "the existing Career prompt",
+        "scenario_select" => "the scenario selection",
+        "trainee_select" => "the trainee selection",
+        "legacy_select" => "the legacy selection",
+        "support_select" or "support_ready" => "the support setup",
+        "career_final_confirmation" => "the final confirmation",
+        "career_main" => "the Career turn screen",
+        "career_race_result" => "the race result",
+        "career_event" => "the event choice",
+        _ => screenId,
+    };
 
     private async Task<CareerTrainingResult?> HandleLegacySelectionAsync(
         LastVerifiedConnection connection,
@@ -1213,7 +1251,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 connection,
                 pack.ExecutionDefinition,
                 action.Task,
-                options: options,
+                options: PrepareOptions(options),
                 logSink: logSink,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -1235,6 +1273,14 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         return null;
+    }
+
+    private HachimiPipelineRunOptions PrepareOptions(HachimiPipelineRunOptions? options)
+    {
+        options ??= new HachimiPipelineRunOptions();
+        options.TaskLogSink ??= _taskLogSink;
+        options.SemanticProfile = HachimiTaskLogProfile.Career;
+        return options;
     }
 
     private static bool IsVisualTaskTimeout(string message) =>

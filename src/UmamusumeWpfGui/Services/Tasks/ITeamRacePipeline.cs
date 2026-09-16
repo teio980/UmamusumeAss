@@ -15,11 +15,13 @@ public interface ITeamRacePipeline
         int raceCount,
         bool stopWhenTicketsEmpty,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<TeamRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -43,12 +45,14 @@ public sealed class TeamRacePipelinePlaceholder : ITeamRacePipeline
         int raceCount,
         bool stopWhenTicketsEmpty,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new TeamRacePipelineResult(false, 0, NotImplementedMessage));
 
     public Task<TeamRacePipelineResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new TeamRacePipelineResult(false, 0, NotImplementedMessage));
 }

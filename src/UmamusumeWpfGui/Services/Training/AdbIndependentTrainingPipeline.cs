@@ -22,6 +22,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     private readonly Func<int, IndependentCheckpointStore> _checkpointStoreFactory;
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
+    private IHachimiTaskLogSink? _taskLogSink;
 
     public AdbIndependentTrainingPipeline(
         IVisualPipelineRuntime visualRuntime,
@@ -56,6 +57,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         LastVerifiedConnection connection,
         IndependentTrainingSettings settings,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -71,6 +73,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
         try
         {
+            _taskLogSink = taskLogSink;
             return await RunCoreAsync(connection, settings, logSink, linked.Token)
                 .ConfigureAwait(false);
         }
@@ -92,6 +95,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     public Task<IndependentTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -101,6 +105,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             _runCancellation?.Cancel();
         }
         logSink?.Add("Independent Training", "Stop requested.");
+        taskLogSink?.Add("Stop", "Stop requested.", HachimiTaskLogEventKind.Warning);
         return Task.FromResult(new IndependentTrainingResult(true, "Stop requested.", 0, "stop"));
     }
 
@@ -128,6 +133,10 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         logSink?.Add(
             "Independent Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
+        _taskLogSink?.Add(
+            "Setup",
+            $"Loaded the Independent Training profile for {trainee.NameEn}.",
+            HachimiTaskLogEventKind.Action);
 
         var runtime = new IndependentTrainingRuntimeContext();
         var checkpointStore = _checkpointStoreFactory(settings.TraineeId);
@@ -209,6 +218,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     entryState,
                     logSink,
                     SaveEntryProgressAsync,
+                    _taskLogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
             state.LastConfirmedScreen = entry.LastScreenId;
@@ -271,6 +281,10 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             "Independent Training",
             "Independent Training started; the post-start 'Training Independently' marker was verified.",
             LogEntryKind.Success);
+        _taskLogSink?.Add(
+            "Result",
+            "Independent Training started and was verified on the Home screen.",
+            HachimiTaskLogEventKind.Success);
         return new IndependentTrainingResult(
             true,
             "Independent Training started and returned to Home.",
@@ -958,6 +972,20 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         HachimiPipelineRunOptions? options = null,
         bool allowVisualMiss = false)
     {
+        var hasSemanticStep = HachimiTaskLogSemantics.TryDescribeIndependentAction(
+            action,
+            out var semanticStep);
+        if (hasSemanticStep)
+        {
+            _taskLogSink?.Add(
+                "Action",
+                semanticStep.StartMessage,
+                HachimiTaskLogEventKind.Action);
+        }
+
+        options ??= new HachimiPipelineRunOptions();
+        options.TaskLogSink ??= _taskLogSink;
+        options.SemanticProfile = HachimiTaskLogProfile.Career;
         var result = await _actions.RunAsync(
                 connection,
                 pack,
@@ -970,8 +998,22 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
+            if (hasSemanticStep)
+            {
+                _taskLogSink?.Add(
+                    "Result",
+                    semanticStep.FailedMessage,
+                    HachimiTaskLogEventKind.Failure);
+            }
             runtime.RecordActionFailure();
             return Failure(result.Message, state.LastConfirmedScreen, runtime.ActionsCompleted);
+        }
+        if (hasSemanticStep)
+        {
+            _taskLogSink?.Add(
+                "Result",
+                semanticStep.CompletedMessage,
+                HachimiTaskLogEventKind.Success);
         }
         state.LastConfirmedScreen = result.LastScreenId;
         runtime.RecordActionSuccess();

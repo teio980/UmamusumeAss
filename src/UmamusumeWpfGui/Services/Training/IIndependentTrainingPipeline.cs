@@ -9,11 +9,13 @@ public interface IIndependentTrainingPipeline
         LastVerifiedConnection connection,
         IndependentTrainingSettings settings,
         IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 
     Task<IndependentTrainingResult> StopAsync(
         LastVerifiedConnection connection,
         IGrassTaskLogSink? logSink = null,
+        IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default);
 }
 
