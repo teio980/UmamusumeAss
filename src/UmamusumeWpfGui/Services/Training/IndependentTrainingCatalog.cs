@@ -376,7 +376,10 @@ public sealed class IndependentTrainingCatalog
                     ReadString(item, "gameTrack"),
                     ReadInt(item, "gameDistance"),
                     ReadString(item, "gameGround"),
-                    ReadBool(item, "gameAvailable")))
+                    ReadBool(item, "gameAvailable"),
+                    ReadScheduleInt(item, "month"),
+                    ReadScheduleInt(item, "day"),
+                    ReadScheduleString(item, "timeName")))
                 .Where(item => !string.IsNullOrWhiteSpace(item.RaceName))
                 .ToArray();
         }
@@ -492,6 +495,45 @@ public sealed class IndependentTrainingCatalog
             : false;
     }
 
+    private static int ReadScheduleInt(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty("gameSchedules", out var schedules)
+            || schedules.ValueKind != JsonValueKind.Array)
+        {
+            return 0;
+        }
+
+        foreach (var schedule in schedules.EnumerateArray())
+        {
+            var value = ReadInt(schedule, property);
+            var isValid = property.Equals("month", StringComparison.OrdinalIgnoreCase)
+                ? value is >= 1 and <= 12
+                : value > 0;
+            if (isValid)
+                return value;
+        }
+
+        return 0;
+    }
+
+    private static string ReadScheduleString(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty("gameSchedules", out var schedules)
+            || schedules.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        foreach (var schedule in schedules.EnumerateArray())
+        {
+            var value = ReadString(schedule, property);
+            if (value.Length > 0)
+                return value;
+        }
+
+        return string.Empty;
+    }
+
     private static string[] ReadStringArray(JsonElement item, string property)
     {
         if (!item.TryGetProperty(property, out var value)
@@ -523,12 +565,33 @@ public sealed record IndependentTrainingRace(
     string GameTrack = "",
     int GameDistance = 0,
     string GameGround = "",
-    bool IsGameAvailable = false)
+    bool IsGameAvailable = false,
+    int Month = 0,
+    int Day = 0,
+    string TimeName = "")
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
 
     public string DisplayLabel =>
         $"{Year} · {Turn} · {RaceName} ({Grade}, {Type} {LengthM})";
+
+    public string Surface => string.IsNullOrWhiteSpace(GameGround)
+        ? Type.Trim()
+        : GameGround.Trim();
+
+    public string DistanceCategory => Length.Trim();
+
+    public string Direction => Location.Contains('\u21d2')
+        ? "Right"
+        : Location.Contains('\u21d0')
+            ? "Left"
+            : "Unknown";
+
+    public string Half => Turn.EndsWith("_02", StringComparison.OrdinalIgnoreCase)
+        ? "Second Half"
+        : Turn.EndsWith("_01", StringComparison.OrdinalIgnoreCase)
+            ? "First Half"
+            : string.Empty;
 
     public string PickerHeaderTarget
     {

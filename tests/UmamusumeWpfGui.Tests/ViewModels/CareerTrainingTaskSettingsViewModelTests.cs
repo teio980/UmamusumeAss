@@ -63,6 +63,44 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Independent_agenda_month_filter_uses_the_schedule_month()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+        var rescheduledRace = settings.IndependentRaceOptions.First(item =>
+            item.Race.Year == "Second Year"
+            && item.Race.RaceName == "CBC Sho");
+
+        Assert.Equal(6, rescheduledRace.Race.Month);
+        Assert.Contains(settings.IndependentAgendaMonthOptions, option => option.Value == "6");
+        Assert.Contains(settings.IndependentAgendaTurnOptions, option => option.Value == "07_01");
+        Assert.Contains(settings.IndependentAgendaSurfaceOptions, option => option.Value == "Turf");
+        Assert.Equal(
+            ["all", "Long", "Mile", "Medium", "Sprint"],
+            settings.IndependentAgendaDistanceOptions.Select(option => option.Value));
+
+        settings.IndependentAgendaMonthFilter = "6";
+        settings.IndependentAgendaSurfaceFilter = "Turf";
+        settings.IndependentAgendaDistanceFilter = "Sprint";
+
+        Assert.NotEmpty(settings.FilteredIndependentRaceOptions);
+        Assert.All(
+            settings.FilteredIndependentRaceOptions,
+            option =>
+            {
+                Assert.Equal(6, option.Race.Month);
+                Assert.Equal("Turf", option.Race.Surface);
+                Assert.Equal("Sprint", option.Race.DistanceCategory);
+            });
+
+        settings.ResetIndependentAgendaCommand.Execute(null);
+
+        Assert.Equal(IndependentTrainingSettingsViewModel.AllAgendaMonths, settings.IndependentAgendaMonthFilter);
+        Assert.Equal(IndependentTrainingSettingsViewModel.AllAgendaFilters, settings.IndependentAgendaSurfaceFilter);
+        Assert.Equal(IndependentTrainingSettingsViewModel.AllAgendaFilters, settings.IndependentAgendaDistanceFilter);
+        Assert.Equal(settings.IndependentRaceOptions.Count, settings.FilteredIndependentRaceOptions.Count);
+    }
+
+    [Fact]
     public void Continue_existing_career_defaults_to_delete_and_round_trips()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();
@@ -124,6 +162,8 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
             "Tasks",
             "CareerTrainingTaskSettingsView.xaml"));
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace wpfui = "http://schemas.lepo.co/wpfui/2022/xaml";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
         var tabs = view.Descendants(presentation + "TabItem").ToArray();
         var basic = Assert.Single(tabs, tab => (string?)tab.Attribute("Header") == "Basic");
         Assert.DoesNotContain(tabs, tab => (string?)tab.Attribute("Header") == "Train");
@@ -163,6 +203,17 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         {
             "LineupStrategyOptions",
             "TrainingFocusOptions",
+            "AgendaYearOptions",
+            "AgendaMonthOptions",
+            "AgendaTurnOptions",
+            "AgendaDayOptions",
+            "AgendaTimeOptions",
+            "AgendaHalfOptions",
+            "AgendaSurfaceOptions",
+            "AgendaDistanceOptions",
+            "AgendaTrackOptions",
+            "AgendaDirectionOptions",
+            "AgendaGradeOptions",
             "FilteredIndependentRaceOptions",
             "FilteredIndependentSkillOptions",
         })
@@ -171,6 +222,20 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
                 (string?)element.Attribute("ItemsSource") == $"{{Binding {source}}}");
             Assert.Contains(trainSettings, control.Ancestors());
         }
+
+        var agendaMonthPicker = Assert.Single(basicFile.Descendants(presentation + "ComboBox"), element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding AgendaMonthOptions}");
+        Assert.Equal(
+            "{Binding AgendaMonthFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}",
+            (string?)agendaMonthPicker.Attribute("SelectedValue"));
+
+        var filterButton = Assert.Single(basicFile.Descendants(wpfui + "Button"), element =>
+            (string?)element.Attribute(xaml + "Name") == "AgendaFilterButton");
+        Assert.Equal("36", (string?)filterButton.Attribute("Height"));
+
+        var selectionLists = basicFile.Descendants(presentation + "ListBox").ToArray();
+        Assert.Equal(2, selectionLists.Length);
+        Assert.All(selectionLists, list => Assert.Equal("280", (string?)list.Attribute("Height")));
     }
 
     [Fact]

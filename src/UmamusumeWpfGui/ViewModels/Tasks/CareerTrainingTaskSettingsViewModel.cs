@@ -127,9 +127,32 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     // Independent compatibility properties.
     public IReadOnlyList<IndependentTrainingOption> IndependentTrainingFocusOptions => Independent.TrainingFocusOptions;
     public IReadOnlyList<IndependentTrainingOption> IndependentLineupStrategyOptions => Independent.LineupStrategyOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaYearOptions => Independent.AgendaYearOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaMonthOptions => Independent.AgendaMonthOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaTurnOptions => Independent.AgendaTurnOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaDayOptions => Independent.AgendaDayOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaTimeOptions => Independent.AgendaTimeOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaHalfOptions => Independent.AgendaHalfOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaSurfaceOptions => Independent.AgendaSurfaceOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaDistanceOptions => Independent.AgendaDistanceOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaTrackOptions => Independent.AgendaTrackOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaDirectionOptions => Independent.AgendaDirectionOptions;
+    public IReadOnlyList<IndependentTrainingOption> IndependentAgendaGradeOptions => Independent.AgendaGradeOptions;
     public string IndependentTrainingFocus { get => Independent.TrainingFocus; set => Independent.TrainingFocus = value; }
     public string IndependentLineupStrategy { get => Independent.LineupStrategy; set => Independent.LineupStrategy = value; }
+    public bool IsIndependentAgendaFilterOpen { get => Independent.IsAgendaFilterOpen; set => Independent.IsAgendaFilterOpen = value; }
+    public string IndependentAgendaYearFilter { get => Independent.AgendaYearFilter; set => Independent.AgendaYearFilter = value; }
     public string IndependentAgendaSearchText { get => Independent.AgendaSearchText; set => Independent.AgendaSearchText = value; }
+    public string IndependentAgendaMonthFilter { get => Independent.AgendaMonthFilter; set => Independent.AgendaMonthFilter = value; }
+    public string IndependentAgendaTurnFilter { get => Independent.AgendaTurnFilter; set => Independent.AgendaTurnFilter = value; }
+    public string IndependentAgendaDayFilter { get => Independent.AgendaDayFilter; set => Independent.AgendaDayFilter = value; }
+    public string IndependentAgendaTimeFilter { get => Independent.AgendaTimeFilter; set => Independent.AgendaTimeFilter = value; }
+    public string IndependentAgendaHalfFilter { get => Independent.AgendaHalfFilter; set => Independent.AgendaHalfFilter = value; }
+    public string IndependentAgendaSurfaceFilter { get => Independent.AgendaSurfaceFilter; set => Independent.AgendaSurfaceFilter = value; }
+    public string IndependentAgendaDistanceFilter { get => Independent.AgendaDistanceFilter; set => Independent.AgendaDistanceFilter = value; }
+    public string IndependentAgendaTrackFilter { get => Independent.AgendaTrackFilter; set => Independent.AgendaTrackFilter = value; }
+    public string IndependentAgendaDirectionFilter { get => Independent.AgendaDirectionFilter; set => Independent.AgendaDirectionFilter = value; }
+    public string IndependentAgendaGradeFilter { get => Independent.AgendaGradeFilter; set => Independent.AgendaGradeFilter = value; }
     public string IndependentSkillSearchText { get => Independent.SkillSearchText; set => Independent.SkillSearchText = value; }
     public int SelectedIndependentAgendaCount => Independent.SelectedAgendaCount;
     public int SelectedIndependentSkillCount => Independent.SelectedSkillCount;
@@ -142,6 +165,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public ObservableCollection<IndependentRaceOption> FilteredIndependentRaceOptions => Independent.FilteredIndependentRaceOptions;
     public ObservableCollection<IndependentSkillOption> FilteredIndependentSkillOptions => Independent.FilteredIndependentSkillOptions;
     public System.Windows.Input.ICommand ResetIndependentAgendaCommand => Independent.ResetIndependentAgendaCommand;
+    public System.Windows.Input.ICommand ToggleIndependentAgendaFilterCommand => Independent.ToggleAgendaFilterCommand;
+    public System.Windows.Input.ICommand ResetIndependentAgendaFiltersCommand => Independent.ResetAgendaFiltersCommand;
     public System.Windows.Input.ICommand ResetIndependentSkillsCommand => Independent.ResetIndependentSkillsCommand;
 
     // Support deck compatibility properties.
@@ -219,7 +244,30 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             {
                 nameof(IndependentTrainingSettingsViewModel.TrainingFocus) => nameof(IndependentTrainingFocus),
                 nameof(IndependentTrainingSettingsViewModel.LineupStrategy) => nameof(IndependentLineupStrategy),
+                nameof(IndependentTrainingSettingsViewModel.IsAgendaFilterOpen) => nameof(IsIndependentAgendaFilterOpen),
+                nameof(IndependentTrainingSettingsViewModel.AgendaYearFilter) => nameof(IndependentAgendaYearFilter),
                 nameof(IndependentTrainingSettingsViewModel.AgendaSearchText) => nameof(IndependentAgendaSearchText),
+                nameof(IndependentTrainingSettingsViewModel.AgendaMonthFilter) => nameof(IndependentAgendaMonthFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTurnFilter) => nameof(IndependentAgendaTurnFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDayFilter) => nameof(IndependentAgendaDayFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTimeFilter) => nameof(IndependentAgendaTimeFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaHalfFilter) => nameof(IndependentAgendaHalfFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaSurfaceFilter) => nameof(IndependentAgendaSurfaceFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDistanceFilter) => nameof(IndependentAgendaDistanceFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTrackFilter) => nameof(IndependentAgendaTrackFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDirectionFilter) => nameof(IndependentAgendaDirectionFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaGradeFilter) => nameof(IndependentAgendaGradeFilter),
+                nameof(IndependentTrainingSettingsViewModel.AgendaYearOptions) => nameof(IndependentAgendaYearOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaMonthOptions) => nameof(IndependentAgendaMonthOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTurnOptions) => nameof(IndependentAgendaTurnOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDayOptions) => nameof(IndependentAgendaDayOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTimeOptions) => nameof(IndependentAgendaTimeOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaHalfOptions) => nameof(IndependentAgendaHalfOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaSurfaceOptions) => nameof(IndependentAgendaSurfaceOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDistanceOptions) => nameof(IndependentAgendaDistanceOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaTrackOptions) => nameof(IndependentAgendaTrackOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaDirectionOptions) => nameof(IndependentAgendaDirectionOptions),
+                nameof(IndependentTrainingSettingsViewModel.AgendaGradeOptions) => nameof(IndependentAgendaGradeOptions),
                 nameof(IndependentTrainingSettingsViewModel.SkillSearchText) => nameof(IndependentSkillSearchText),
                 nameof(IndependentTrainingSettingsViewModel.AgendaSelectionsText) => nameof(IndependentAgendaSelectionsText),
                 nameof(IndependentTrainingSettingsViewModel.SkillIdsText) => nameof(IndependentSkillIdsText),

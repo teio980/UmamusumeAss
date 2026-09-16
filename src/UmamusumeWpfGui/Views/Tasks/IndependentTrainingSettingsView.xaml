@@ -48,11 +48,128 @@
                    Command="{Binding ResetIndependentAgendaCommand}"
                    Appearance="Secondary" />
       </Grid>
-      <ui:TextBox Margin="0,6,0,0"
-                  PlaceholderText="{DynamicResource GrassIndependentAgendaSearchPlaceholder}"
-                  Text="{Binding AgendaSearchText, UpdateSourceTrigger=PropertyChanged}" />
+      <Grid Margin="0,6,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <ui:TextBox Grid.Column="0" Height="36"
+                    PlaceholderText="{DynamicResource GrassIndependentAgendaSearchPlaceholder}"
+                    Text="{Binding AgendaSearchText, UpdateSourceTrigger=PropertyChanged}" />
+        <ui:Button x:Name="AgendaFilterButton" Grid.Column="1"
+                   Width="112" Height="36"
+                   Margin="8,0,0,0"
+                   Padding="10,0"
+                   Content="{DynamicResource GrassIndependentAgendaFilterButton}"
+                   Command="{Binding ToggleAgendaFilterCommand}"
+                   Appearance="Secondary" />
+        <Popup x:Name="AgendaFilterPopup"
+               DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+               PlacementTarget="{Binding ElementName=AgendaFilterButton}"
+               Placement="Bottom"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsAgendaFilterOpen, Mode=TwoWay}"
+               HorizontalOffset="-308"
+               VerticalOffset="6">
+          <Border Width="420"
+                  MaxHeight="560"
+                  Padding="14"
+                  Background="{DynamicResource SurfacePanelBrush}"
+                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                  <TextBlock Text="{DynamicResource GrassIndependentAgendaFilterTitle}"
+                             Style="{DynamicResource SettingCardTitleStyle}" />
+                  <ui:Button Grid.Column="1"
+                             Padding="8,2"
+                             Content="{DynamicResource GrassIndependentAgendaFilterClear}"
+                             Command="{Binding ResetAgendaFiltersCommand}"
+                             Appearance="Secondary" />
+                </Grid>
+                <Grid Margin="0,12,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                  <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,6,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaYearLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaYearOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaYearFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="0" Grid.Column="1" Margin="6,0,0,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaMonthLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaMonthOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaMonthFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,6,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaTurnLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaTurnOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaTurnFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Margin="6,0,0,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaHalfLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaHalfOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaHalfFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,6,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaSurfaceLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaSurfaceOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaSurfaceFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.Column="1" Margin="6,0,0,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaDistanceLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaDistanceOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaDistanceFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,6,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaTrackLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaTrackOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaTrackFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="3" Grid.Column="1" Margin="6,0,0,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaDirectionLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaDirectionOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaDirectionFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,6,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaGradeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaGradeOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaGradeFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="4" Grid.Column="1" Margin="6,0,0,10">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaDayLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaDayOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaDayFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="5" Grid.Column="0" Margin="0,0,6,0">
+                    <TextBlock Text="{DynamicResource GrassIndependentAgendaTimeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <ComboBox Margin="0,3,0,0" HorizontalContentAlignment="Stretch"
+                              ItemsSource="{Binding AgendaTimeOptions}" ItemTemplate="{StaticResource ComboOptionTemplate}"
+                              SelectedValuePath="Value" SelectedValue="{Binding AgendaTimeFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+        </Popup>
+      </Grid>
       <TextBlock Margin="0,4,0,0" Text="{Binding SelectedAgendaCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-      <ListBox Height="190" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+      <ListBox Height="280" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
                ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
                VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredIndependentRaceOptions}">
@@ -89,7 +206,7 @@
                   PlaceholderText="{DynamicResource GrassIndependentSkillSearchPlaceholder}"
                   Text="{Binding SkillSearchText, UpdateSourceTrigger=PropertyChanged}" />
       <TextBlock Margin="0,4,0,0" Text="{Binding SelectedSkillCountText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-      <ListBox Height="190" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
+      <ListBox Height="280" Margin="0,6,0,0" BorderThickness="1" HorizontalContentAlignment="Stretch"
                ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
                VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding FilteredIndependentSkillOptions}">

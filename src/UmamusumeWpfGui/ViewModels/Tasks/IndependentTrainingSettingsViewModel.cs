@@ -13,20 +13,38 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// </summary>
 public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChanged
 {
+    public const string AllAgendaFilters = "all";
+    public const string AllAgendaMonths = AllAgendaFilters;
+
     private string _trainingFocus = CareerTrainingTaskSettingsViewModel.IndependentTrainingFocusBalanced;
     private string _lineupStrategy = CareerTrainingTaskSettingsViewModel.IndependentLineupStrategyPace;
     private string _agendaSearchText = string.Empty;
+    private string _agendaYearFilter = AllAgendaFilters;
+    private string _agendaMonthFilter = AllAgendaFilters;
+    private string _agendaTurnFilter = AllAgendaFilters;
+    private string _agendaDayFilter = AllAgendaFilters;
+    private string _agendaTimeFilter = AllAgendaFilters;
+    private string _agendaHalfFilter = AllAgendaFilters;
+    private string _agendaSurfaceFilter = AllAgendaFilters;
+    private string _agendaDistanceFilter = AllAgendaFilters;
+    private string _agendaTrackFilter = AllAgendaFilters;
+    private string _agendaDirectionFilter = AllAgendaFilters;
+    private string _agendaGradeFilter = AllAgendaFilters;
     private string _skillSearchText = string.Empty;
     private bool _updatingAgenda;
     private bool _updatingSkills;
     private bool _isCareerModeActive = true;
+    private bool _isAgendaFilterOpen;
     private IndependentTrainingCatalog _catalog = IndependentTrainingCatalog.Load();
     private readonly List<IndependentRaceOption> _allRaceOptions = [];
     private readonly List<IndependentSkillOption> _allSkillOptions = [];
+    private static readonly string[] AgendaDistanceCategories = ["Long", "Mile", "Medium", "Sprint"];
 
     public IndependentTrainingSettingsViewModel()
     {
         ResetIndependentAgendaCommand = new RelayCommand(_ => ResetAgenda());
+        ToggleAgendaFilterCommand = new RelayCommand(_ => IsAgendaFilterOpen = !IsAgendaFilterOpen);
+        ResetAgendaFiltersCommand = new RelayCommand(_ => ResetAgendaFilters());
         ResetIndependentSkillsCommand = new RelayCommand(_ => ResetSkills());
         RefreshCatalog();
     }
@@ -41,7 +59,66 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
 
     public IReadOnlyList<IndependentSkillOption> IndependentSkillOptions => _allSkillOptions;
 
+    public IReadOnlyList<IndependentTrainingOption> AgendaYearOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaMonthOptions { get; private set; } =
+    [
+        new(AllAgendaMonths, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaTurnOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaDayOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaTimeOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaHalfOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaSurfaceOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaDistanceOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaTrackOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaDirectionOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
+    public IReadOnlyList<IndependentTrainingOption> AgendaGradeOptions { get; private set; } =
+    [
+        new(AllAgendaFilters, "All"),
+    ];
+
     public ICommand ResetIndependentAgendaCommand { get; }
+
+    public ICommand ToggleAgendaFilterCommand { get; }
+
+    public ICommand ResetAgendaFiltersCommand { get; }
 
     public ICommand ResetIndependentSkillsCommand { get; }
 
@@ -104,6 +181,78 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
                 return;
             ApplyAgendaSearch();
         }
+    }
+
+    public bool IsAgendaFilterOpen
+    {
+        get => _isAgendaFilterOpen;
+        set => Set(ref _isAgendaFilterOpen, value);
+    }
+
+    public string AgendaYearFilter
+    {
+        get => _agendaYearFilter;
+        set => SetAgendaFilter(ref _agendaYearFilter, value, AgendaYearOptions, nameof(AgendaYearFilter));
+    }
+
+    public string AgendaMonthFilter
+    {
+        get => _agendaMonthFilter;
+        set => SetAgendaFilter(ref _agendaMonthFilter, value, AgendaMonthOptions, nameof(AgendaMonthFilter));
+    }
+
+    public string AgendaTurnFilter
+    {
+        get => _agendaTurnFilter;
+        set => SetAgendaFilter(ref _agendaTurnFilter, value, AgendaTurnOptions, nameof(AgendaTurnFilter));
+    }
+
+    public string AgendaDayFilter
+    {
+        get => _agendaDayFilter;
+        set => SetAgendaFilter(ref _agendaDayFilter, value, AgendaDayOptions, nameof(AgendaDayFilter));
+    }
+
+    public string AgendaTimeFilter
+    {
+        get => _agendaTimeFilter;
+        set => SetAgendaFilter(ref _agendaTimeFilter, value, AgendaTimeOptions, nameof(AgendaTimeFilter));
+    }
+
+    public string AgendaHalfFilter
+    {
+        get => _agendaHalfFilter;
+        set => SetAgendaFilter(ref _agendaHalfFilter, value, AgendaHalfOptions, nameof(AgendaHalfFilter));
+    }
+
+    public string AgendaSurfaceFilter
+    {
+        get => _agendaSurfaceFilter;
+        set => SetAgendaFilter(ref _agendaSurfaceFilter, value, AgendaSurfaceOptions, nameof(AgendaSurfaceFilter));
+    }
+
+    public string AgendaDistanceFilter
+    {
+        get => _agendaDistanceFilter;
+        set => SetAgendaFilter(ref _agendaDistanceFilter, value, AgendaDistanceOptions, nameof(AgendaDistanceFilter));
+    }
+
+    public string AgendaTrackFilter
+    {
+        get => _agendaTrackFilter;
+        set => SetAgendaFilter(ref _agendaTrackFilter, value, AgendaTrackOptions, nameof(AgendaTrackFilter));
+    }
+
+    public string AgendaDirectionFilter
+    {
+        get => _agendaDirectionFilter;
+        set => SetAgendaFilter(ref _agendaDirectionFilter, value, AgendaDirectionOptions, nameof(AgendaDirectionFilter));
+    }
+
+    public string AgendaGradeFilter
+    {
+        get => _agendaGradeFilter;
+        set => SetAgendaFilter(ref _agendaGradeFilter, value, AgendaGradeOptions, nameof(AgendaGradeFilter));
     }
 
     public string SkillSearchText
@@ -279,6 +428,54 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
             _allSkillOptions.Add(option);
         }
 
+        AgendaYearOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Year));
+        AgendaMonthOptions = BuildAgendaNumericFilterOptions(
+            _allRaceOptions
+                .Select(item => item.Race.Month)
+                .Where(month => month is >= 1 and <= 12));
+        AgendaTurnOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Turn));
+        AgendaDayOptions = BuildAgendaNumericFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Day));
+        AgendaTimeOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.TimeName));
+        AgendaHalfOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Half));
+        AgendaSurfaceOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Surface));
+        AgendaDistanceOptions = BuildAgendaDistanceFilterOptions(
+            _allRaceOptions.Select(item => item.Race.DistanceCategory));
+        AgendaTrackOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.GameTrack));
+        AgendaDirectionOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Direction));
+        AgendaGradeOptions = BuildAgendaFilterOptions(
+            _allRaceOptions.Select(item => item.Race.Grade));
+
+        OnPropertyChanged(nameof(AgendaYearOptions));
+        OnPropertyChanged(nameof(AgendaMonthOptions));
+        OnPropertyChanged(nameof(AgendaTurnOptions));
+        OnPropertyChanged(nameof(AgendaDayOptions));
+        OnPropertyChanged(nameof(AgendaTimeOptions));
+        OnPropertyChanged(nameof(AgendaHalfOptions));
+        OnPropertyChanged(nameof(AgendaSurfaceOptions));
+        OnPropertyChanged(nameof(AgendaDistanceOptions));
+        OnPropertyChanged(nameof(AgendaTrackOptions));
+        OnPropertyChanged(nameof(AgendaDirectionOptions));
+        OnPropertyChanged(nameof(AgendaGradeOptions));
+        NormalizeAgendaFilter(ref _agendaYearFilter, AgendaYearOptions, nameof(AgendaYearFilter));
+        NormalizeAgendaFilter(ref _agendaMonthFilter, AgendaMonthOptions, nameof(AgendaMonthFilter));
+        NormalizeAgendaFilter(ref _agendaTurnFilter, AgendaTurnOptions, nameof(AgendaTurnFilter));
+        NormalizeAgendaFilter(ref _agendaDayFilter, AgendaDayOptions, nameof(AgendaDayFilter));
+        NormalizeAgendaFilter(ref _agendaTimeFilter, AgendaTimeOptions, nameof(AgendaTimeFilter));
+        NormalizeAgendaFilter(ref _agendaHalfFilter, AgendaHalfOptions, nameof(AgendaHalfFilter));
+        NormalizeAgendaFilter(ref _agendaSurfaceFilter, AgendaSurfaceOptions, nameof(AgendaSurfaceFilter));
+        NormalizeAgendaFilter(ref _agendaDistanceFilter, AgendaDistanceOptions, nameof(AgendaDistanceFilter));
+        NormalizeAgendaFilter(ref _agendaTrackFilter, AgendaTrackOptions, nameof(AgendaTrackFilter));
+        NormalizeAgendaFilter(ref _agendaDirectionFilter, AgendaDirectionOptions, nameof(AgendaDirectionFilter));
+        NormalizeAgendaFilter(ref _agendaGradeFilter, AgendaGradeOptions, nameof(AgendaGradeFilter));
+
         ApplyAgendaSearch();
         ApplySkillSearch();
         NotifyAgendaChanged();
@@ -295,7 +492,24 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
             option.IsSelected = false;
         _updatingAgenda = false;
         AgendaSearchText = string.Empty;
+        ResetAgendaFilters();
         NotifyAgendaChanged();
+    }
+
+    private void ResetAgendaFilters()
+    {
+        AgendaYearFilter = AllAgendaFilters;
+        AgendaMonthFilter = AllAgendaFilters;
+        AgendaTurnFilter = AllAgendaFilters;
+        AgendaDayFilter = AllAgendaFilters;
+        AgendaTimeFilter = AllAgendaFilters;
+        AgendaHalfFilter = AllAgendaFilters;
+        AgendaSurfaceFilter = AllAgendaFilters;
+        AgendaDistanceFilter = AllAgendaFilters;
+        AgendaTrackFilter = AllAgendaFilters;
+        AgendaDirectionFilter = AllAgendaFilters;
+        AgendaGradeFilter = AllAgendaFilters;
+        IsAgendaFilterOpen = false;
     }
 
     private void ResetSkills()
@@ -326,20 +540,141 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
         }
     }
 
+    private static IndependentTrainingOption[] BuildAgendaFilterOptions(
+        IEnumerable<string> values,
+        Func<string, string>? labelSelector = null)
+    {
+        return new[]
+            {
+                new IndependentTrainingOption(AllAgendaFilters, "All"),
+            }
+            .Concat(values
+                .Select(value => value.Trim())
+                .Where(value => value.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .Select(value => new IndependentTrainingOption(
+                    value,
+                    labelSelector?.Invoke(value) ?? value)))
+            .ToArray();
+    }
+
+    private static IndependentTrainingOption[] BuildAgendaNumericFilterOptions(
+        IEnumerable<int> values,
+        Func<int, string>? labelSelector = null)
+    {
+        return new[]
+            {
+                new IndependentTrainingOption(AllAgendaFilters, "All"),
+            }
+            .Concat(values
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .Select(value =>
+                {
+                    var text = value.ToString(CultureInfo.InvariantCulture);
+                    return new IndependentTrainingOption(
+                        text,
+                        labelSelector?.Invoke(value) ?? text);
+                }))
+            .ToArray();
+    }
+
+    private static IndependentTrainingOption[] BuildAgendaDistanceFilterOptions(
+        IEnumerable<string> values)
+    {
+        var available = values
+            .Select(value => value.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return new[]
+            {
+                new IndependentTrainingOption(AllAgendaFilters, "All"),
+            }
+            .Concat(AgendaDistanceCategories
+                .Where(available.Contains)
+                .Select(category => new IndependentTrainingOption(category, category)))
+            .ToArray();
+    }
+
+    private void SetAgendaFilter(
+        ref string field,
+        string? value,
+        IReadOnlyList<IndependentTrainingOption> options,
+        string propertyName)
+    {
+        var candidate = value?.Trim() ?? AllAgendaFilters;
+        var normalized = options.FirstOrDefault(item =>
+            item.Value.Equals(candidate, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? AllAgendaFilters;
+
+        if (!Set(ref field, normalized, propertyName))
+            return;
+        ApplyAgendaSearch();
+    }
+
+    private void NormalizeAgendaFilter(
+        ref string field,
+        IReadOnlyList<IndependentTrainingOption> options,
+        string propertyName)
+    {
+        var current = field;
+        if (options.Any(item =>
+                item.Value.Equals(current, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        field = AllAgendaFilters;
+        OnPropertyChanged(propertyName);
+    }
+
     private void ApplyAgendaSearch()
     {
         var query = AgendaSearchText;
         FilteredIndependentRaceOptions.Clear();
         foreach (var option in _allRaceOptions)
         {
-            if (string.IsNullOrWhiteSpace(query)
+            var matchesSearch = string.IsNullOrWhiteSpace(query)
                 || option.Race.DisplayLabel.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || option.Race.Key.Contains(query, StringComparison.OrdinalIgnoreCase))
+                || option.Race.Key.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Month.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.GameDistance.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.RaceId.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Day.ToString(CultureInfo.InvariantCulture)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.TimeName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Surface.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.DistanceCategory.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Direction.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.GameTrack.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Length.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Grade.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Race.Half.Contains(query, StringComparison.OrdinalIgnoreCase);
+            if (matchesSearch
+                && MatchesAgendaFilter(AgendaYearFilter, option.Race.Year)
+                && MatchesAgendaFilter(AgendaMonthFilter, option.Race.Month.ToString(CultureInfo.InvariantCulture))
+                && MatchesAgendaFilter(AgendaTurnFilter, option.Race.Turn)
+                && MatchesAgendaFilter(AgendaDayFilter, option.Race.Day.ToString(CultureInfo.InvariantCulture))
+                && MatchesAgendaFilter(AgendaTimeFilter, option.Race.TimeName)
+                && MatchesAgendaFilter(AgendaHalfFilter, option.Race.Half)
+                && MatchesAgendaFilter(AgendaSurfaceFilter, option.Race.Surface)
+                && MatchesAgendaFilter(AgendaDistanceFilter, option.Race.DistanceCategory)
+                && MatchesAgendaFilter(AgendaTrackFilter, option.Race.GameTrack)
+                && MatchesAgendaFilter(AgendaDirectionFilter, option.Race.Direction)
+                && MatchesAgendaFilter(AgendaGradeFilter, option.Race.Grade))
             {
                 FilteredIndependentRaceOptions.Add(option);
             }
         }
     }
+
+    private static bool MatchesAgendaFilter(string selected, string actual) =>
+        selected.Equals(AllAgendaFilters, StringComparison.OrdinalIgnoreCase)
+        || actual.Equals(selected, StringComparison.OrdinalIgnoreCase);
 
     private void ApplySkillSearch()
     {
