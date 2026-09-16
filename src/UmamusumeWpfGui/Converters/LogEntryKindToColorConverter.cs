@@ -42,6 +42,17 @@ public sealed class LogEntryKindToColorConverter : IValueConverter
             };
         }
 
+        if (value is HachimiTaskLogEventKind taskLogKind)
+        {
+            return taskLogKind switch
+            {
+                HachimiTaskLogEventKind.Success => Resolve(SuccessKey) ?? FallbackSuccess,
+                HachimiTaskLogEventKind.Failure
+                    or HachimiTaskLogEventKind.Warning => Resolve(FailureKey) ?? FallbackFailure,
+                _ => Resolve(InfoKey) ?? FallbackInfo,
+            };
+        }
+
         return Resolve(InfoKey) ?? FallbackInfo;
     }
 

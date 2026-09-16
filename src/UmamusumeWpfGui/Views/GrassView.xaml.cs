@@ -28,6 +28,8 @@ public sealed partial class GrassView : UserControl
     private HachimiTaskLogViewModel? _hachimiTaskLogViewModel;
     private readonly HashSet<HachimiTaskLogGroupViewModel> _attachedHachimiTaskLogGroups = [];
     private bool _hachimiTaskLogScrollPending;
+    private bool _hachimiTaskLogIsAtBottom = true;
+    private int _hachimiTaskLogViewGeneration;
     private GrassTaskItemViewModel? _pendingDragTask;
     private ListBoxItem? _taskDragSourceContainer;
     private Point _taskDragStartPoint;
@@ -64,12 +66,20 @@ public sealed partial class GrassView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _hachimiTaskLogViewGeneration++;
+        _hachimiTaskLogScrollPending = false;
+        _hachimiTaskLogIsAtBottom = true;
         LocateTaskListScrollViewer();
+        HachimiTaskLogScrollViewer.ScrollChanged += OnHachimiTaskLogScrollChanged;
         RefreshViewModelBindings();
+        RequestHachimiTaskLogScroll();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _hachimiTaskLogViewGeneration++;
+        _hachimiTaskLogScrollPending = false;
+        HachimiTaskLogScrollViewer.ScrollChanged -= OnHachimiTaskLogScrollChanged;
         ResetTaskDragState();
         DetachHachimiTaskLog();
         _taskListScrollViewer = null;
@@ -151,22 +161,42 @@ public sealed partial class GrassView : UserControl
 
     private void OnHachimiTaskLogCollectionChanged(
         object? sender,
-        NotifyCollectionChangedEventArgs e) =>
-        RequestHachimiTaskLogScroll();
+        NotifyCollectionChangedEventArgs e)
+    {
+        if (_hachimiTaskLogIsAtBottom
+            && e.Action == NotifyCollectionChangedAction.Add)
+        {
+            RequestHachimiTaskLogScroll();
+        }
+    }
+
+    private void OnHachimiTaskLogScrollChanged(
+        object? sender,
+        ScrollChangedEventArgs e)
+    {
+        _hachimiTaskLogIsAtBottom =
+            HachimiTaskLogScrollViewer.VerticalOffset
+            >= HachimiTaskLogScrollViewer.ScrollableHeight - 1;
+    }
 
     private void RequestHachimiTaskLogScroll()
     {
-        if (!IsLoaded || _hachimiTaskLogScrollPending)
+        if (!IsLoaded
+            || !_hachimiTaskLogIsAtBottom
+            || _hachimiTaskLogScrollPending)
             return;
 
         _hachimiTaskLogScrollPending = true;
+        var generation = _hachimiTaskLogViewGeneration;
         Dispatcher.BeginInvoke(
             DispatcherPriority.Background,
             new Action(() =>
             {
                 _hachimiTaskLogScrollPending = false;
-                if (IsLoaded)
-                    HachimiTaskLogScrollViewer.ScrollToEnd();
+                if (generation != _hachimiTaskLogViewGeneration || !IsLoaded)
+                    return;
+
+                HachimiTaskLogScrollViewer.ScrollToEnd();
             }));
     }
 

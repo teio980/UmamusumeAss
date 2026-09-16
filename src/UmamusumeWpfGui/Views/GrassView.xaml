@@ -1,6 +1,7 @@
 <UserControl x:Class="UmamusumeWpfGui.Views.GrassView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UmamusumeWpfGui.Converters"
              xmlns:vm="clr-namespace:UmamusumeWpfGui.ViewModels"
              xmlns:m="clr-namespace:UmamusumeWpfGui.Models"
              xmlns:views="clr-namespace:UmamusumeWpfGui.Views"
@@ -8,6 +9,7 @@
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <c:LogEntryKindToColorConverter x:Key="LogColorConverter" />
     <Style x:Key="PanelBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
@@ -36,8 +38,44 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="10,8" />
-      <Setter Property="Margin" Value="0,0,0,8" />
+      <Setter Property="Margin" Value="4" />
     </Style>
+    <DataTemplate x:Key="HachimiLogEntryTemplate"
+                  DataType="{x:Type m:HachimiTaskLogEntry}">
+      <Border Margin="4"
+              Padding="0,7,8,7"
+              Background="{DynamicResource SurfaceRaisedBrush}"
+              BorderBrush="{DynamicResource BorderSubtleBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              ToolTip="{Binding Message}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="86" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border Grid.Column="0"
+                  Margin="0,0,8,0"
+                  Background="{Binding Kind, Converter={StaticResource LogColorConverter}}"
+                  CornerRadius="2" />
+          <TextBlock Grid.Column="1"
+                     VerticalAlignment="Top"
+                     Text="{Binding Step}"
+                     FontSize="10"
+                     FontWeight="SemiBold"
+                     Foreground="{Binding Kind, Converter={StaticResource LogColorConverter}}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Column="2"
+                     VerticalAlignment="Top"
+                     Text="{Binding Message}"
+                     FontSize="11"
+                     LineHeight="16"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
   </UserControl.Resources>
 
   <Grid Margin="24"
@@ -207,40 +245,28 @@
 
       <Border Grid.Column="1"
               Margin="8,0,0,0"
-              Padding="10"
+              Padding="14"
               Style="{StaticResource PanelBorderStyle}">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Top" Margin="4,2,4,10">
+          <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <TextBlock Text="{DynamicResource GrassTaskLogTitle}"
                        FontWeight="SemiBold" />
-            <TextBlock Margin="0,3,0,0"
+            <TextBlock Grid.Column="1"
                        Text="{Binding HachimiTaskLog.RunStatus}"
+                       FontSize="11"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
-          </StackPanel>
+          </Grid>
 
           <ScrollViewer x:Name="HachimiTaskLogScrollViewer"
                         VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-              <ItemsControl ItemsSource="{Binding HachimiTaskLog.QueueEntries}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="{x:Type m:HachimiTaskLogEntry}">
-                    <Border Margin="0,0,0,8"
-                            Padding="8,6"
-                            Background="{DynamicResource SurfaceCanvasBrush}"
-                            CornerRadius="5">
-                      <StackPanel>
-                        <TextBlock Text="{Binding Step}"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Text="{Binding Message}"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+            <StackPanel Margin="4">
+              <ItemsControl ItemsSource="{Binding HachimiTaskLog.QueueEntries}"
+                            ItemTemplate="{StaticResource HachimiLogEntryTemplate}" />
 
               <ItemsControl ItemsSource="{Binding HachimiTaskLog.Tasks}">
                 <ItemsControl.ItemTemplate>
@@ -263,25 +289,8 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVisibility}}" />
                         <ItemsControl Margin="0,8,0,0"
-                                      ItemsSource="{Binding Entries}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type m:HachimiTaskLogEntry}">
-                              <Border Margin="0,0,0,6"
-                                      Padding="8,6"
-                                      Background="{DynamicResource SurfaceCanvasBrush}"
-                                      CornerRadius="5">
-                                <StackPanel>
-                                  <TextBlock Text="{Binding Step}"
-                                             FontSize="11"
-                                             Foreground="{DynamicResource TextSecondaryBrush}" />
-                                  <TextBlock Margin="0,2,0,0"
-                                             Text="{Binding Message}"
-                                             TextWrapping="Wrap" />
-                                </StackPanel>
-                              </Border>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                      ItemsSource="{Binding Entries}"
+                                      ItemTemplate="{StaticResource HachimiLogEntryTemplate}" />
                       </StackPanel>
                     </Border>
                   </DataTemplate>

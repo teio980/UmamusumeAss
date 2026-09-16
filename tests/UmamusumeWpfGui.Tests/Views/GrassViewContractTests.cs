@@ -30,12 +30,16 @@ public sealed class GrassViewContractTests
         Assert.Contains("HachimiTaskLog.Tasks", content);
         Assert.Contains("HachimiTaskLog.QueueEntries", content);
         Assert.Contains("HachimiTaskLogEntry", content);
+        Assert.Contains("HachimiLogEntryTemplate", content);
+        Assert.Contains("Margin=\"4\"", content);
         Assert.Contains("x:Name=\"HachimiTaskLogScrollViewer\"", content);
-        Assert.Contains("ScrollToEnd()", File.ReadAllText(Path.Combine(
-            Path.GetDirectoryName(GrassViewPath)!, "GrassView.xaml.cs")));
+        var codeBehind = File.ReadAllText(Path.Combine(
+            Path.GetDirectoryName(GrassViewPath)!, "GrassView.xaml.cs"));
+        Assert.Contains("ScrollToEnd()", codeBehind);
+        Assert.Contains("HachimiTaskLogScrollViewer.ScrollChanged", codeBehind);
         Assert.DoesNotContain("GrassLogs", content);
         Assert.DoesNotContain("ScriptLogListBox", content);
-        Assert.DoesNotContain("LogColorConverter", content);
+        Assert.Contains("LogColorConverter", content);
         Assert.DoesNotContain("LogViewModel", content);
         Assert.Contains("GrassAddTask", content);
         Assert.Contains("Value=\"0,2,10,2\"", content);
