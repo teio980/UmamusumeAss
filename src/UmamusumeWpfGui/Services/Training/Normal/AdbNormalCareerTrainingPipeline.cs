@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.IO;
 using System.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -12,41 +11,10 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 {
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
-    private const string SupportStartTransitionScreenId = "support_start_transition";
     private const string CareerStartTransitionScreenId = "career_start_transition";
-
-    // The ranked picker is a five-column grid. These are search regions only:
-    // every selection still comes from a JSON template match inside the region.
-    private static readonly int[][] RankedSupportCardSlotRois =
-    [
-        [35, 130, 165, 220],
-        [202, 130, 165, 220],
-        [369, 130, 165, 220],
-        [536, 130, 165, 220],
-        [703, 130, 165, 220],
-    ];
-
-    private static readonly HashSet<string> CareerEntryScreenIds =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            "home",
-            "career_continue",
-            "scenario_select",
-            "legacy_select",
-            "trainee_select",
-            "support_select",
-            "support_autofill_confirmation",
-            "support_ready",
-            "career_races_ready",
-            CareerFinalConfirmationScreenId,
-            "career_intro_event",
-            "career_main",
-        };
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
-    private readonly UraTraineeSelector _traineeSelector;
-    private readonly UraLegacySelector _legacySelector;
     private readonly CareerEntryNavigator _entryNavigator;
     private readonly UraRaceResultRecognizer _raceResultRecognizer;
     private readonly HachimiJsonPipelineRunner _jsonRunner;
@@ -59,21 +27,15 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     public AdbNormalCareerTrainingPipeline(
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
-        UraTraineeSelector traineeSelector,
-        UraLegacySelector legacySelector,
         CareerEntryNavigator entryNavigator,
         HachimiJsonPipelineRunner jsonRunner)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
         ArgumentNullException.ThrowIfNull(umaDatabase);
-        ArgumentNullException.ThrowIfNull(traineeSelector);
-        ArgumentNullException.ThrowIfNull(legacySelector);
         ArgumentNullException.ThrowIfNull(entryNavigator);
         ArgumentNullException.ThrowIfNull(jsonRunner);
         _visualRuntime = visualRuntime;
         _umaDatabase = umaDatabase;
-        _traineeSelector = traineeSelector;
-        _legacySelector = legacySelector;
         _entryNavigator = entryNavigator;
         _raceResultRecognizer = new UraRaceResultRecognizer(visualRuntime);
         _jsonRunner = jsonRunner;
@@ -194,23 +156,10 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             // The game is the source of truth for the Resume entry. Preserve
             // the checkpoint's turn/objective data, but always reopen Career
             // so the JSON Resume action is used instead of skipping Home.
-            state.CareerEntryOpened = false;
             state.CareerStarted = false;
         }
         if (!string.Equals(state.ScenarioId, pack.Manifest.ScenarioId, StringComparison.OrdinalIgnoreCase))
             state = scenario.CreateInitialState();
-        if (state.TurnIndex == 0 && !state.CareerStarted)
-        {
-            // A failed setup attempt can leave only the entry flags in the
-            // checkpoint. A new zero-turn career must always restart at the
-            // real game Home screen instead of skipping into URA recognition.
-            state.CareerEntryOpened = false;
-            state.TraineeSelected = false;
-            state.SupportCardsSelected = false;
-            state.ScenarioSelected = false;
-            state.LegacySelected = false;
-            state.ScenarioSelectionAdvanceAttempts = 0;
-        }
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");
@@ -233,17 +182,19 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
-        // After Start Career is clicked on support_ready, the formation page
-        // can remain visible for a few frames. Keep that transition local to
-        // this run so a stale support_select template cannot restart support
-        // selection while the game is opening Final Confirmation.
-        var supportStartTransitionExpected = false;
-        var careerEntryFlowStarted = state.CareerEntryOpened;
-        if (!state.CareerStarted && !state.CareerEntryOpened)
+        var careerStartTransitionExpected = state.LastScreenId.Equals(
+            CareerStartTransitionScreenId,
+            StringComparison.OrdinalIgnoreCase);
+        if (!state.CareerStarted && !careerStartTransitionExpected)
         {
             var entryState = new CareerEntryNavigationState
             {
-                LastScreenId = state.LastScreenId,
+                // A zero-turn checkpoint can contain a stale entry screen
+                // from an interrupted setup. A new career must always start
+                // through the shared Home -> Career entry chain.
+                LastScreenId = state.TurnIndex == 0
+                    ? "unknown"
+                    : state.LastScreenId,
                 ActionsCompleted = actionCount,
             };
             var entry = await _entryNavigator.NavigateAsync(
@@ -252,58 +203,65 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                     settings,
                     entryState,
                     logSink,
-                    progressCallback: null,
+                    progressCallback: async progress =>
+                    {
+                        state.LastScreenId = progress.LastScreenId;
+                        await checkpointStore.SaveAsync(state, cancellationToken)
+                            .ConfigureAwait(false);
+                    },
                     _taskLogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
             actionCount = entry.ActionsCompleted;
-            state.CareerEntryOpened = entry.Succeeded;
             state.LastScreenId = entry.LastScreenId;
             if (!entry.Succeeded)
             {
+                await checkpointStore.SaveAsync(state, cancellationToken)
+                    .ConfigureAwait(false);
                 return Failure(
                     entry.Message,
                     entry.LastScreenId,
                     actionCount);
             }
 
-            careerEntryFlowStarted = true;
+            // The shared navigator intentionally stops at Final Confirmation.
+            // Normal Career has no extra setup page, so this is the only
+            // Normal-specific click in the entry flow.
+            state.LastScreenId = CareerStartTransitionScreenId;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            var startFailure = await RunScreenActionAsync(
+                    connection,
+                    pack,
+                    CareerFinalConfirmationScreenId,
+                    "start",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (startFailure is not null)
+            {
+                return startFailure with { ActionsCompleted = actionCount };
+            }
+
             actionCount++;
         }
 
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var postSupportStartExpected = supportStartTransitionExpected
-                || state.LastScreenId.Equals(
-                    "support_ready",
-                    StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals(
-                    SupportStartTransitionScreenId,
-                    StringComparison.OrdinalIgnoreCase);
-            var careerStartTransitionExpected = state.LastScreenId.Equals(
+            careerStartTransitionExpected = state.LastScreenId.Equals(
                 CareerStartTransitionScreenId,
                 StringComparison.OrdinalIgnoreCase);
             var observation = await ObserveAsync(
                     connection,
                     pack,
                     state,
-                    postSupportStartExpected,
                     careerStartTransitionExpected,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (observation is null)
             {
-                var legacyToSupportTransition = state.LegacySelected
-                    && state.LastScreenId.Equals(
-                        "legacy_select",
-                        StringComparison.OrdinalIgnoreCase)
-                    && !state.CareerStarted;
-                var setupRetryLimit = legacyToSupportTransition
-                    ? 80
-                    : postSupportStartExpected || careerStartTransitionExpected ? 40 : 12;
-                if (state.CareerEntryOpened
+                var setupRetryLimit = careerStartTransitionExpected ? 40 : 12;
+                if (careerStartTransitionExpected
                     && !state.CareerStarted
                     && setupObservationRetryCount < setupRetryLimit)
                 {
@@ -320,21 +278,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             }
 
             setupObservationRetryCount = 0;
-            if (observation.ScreenId.Equals("support_ready", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!supportStartTransitionExpected)
-                {
-                    logSink?.Add(
-                        "Career Training",
-                        "Support setup complete; waiting for Final Confirmation.");
-                }
-
-                supportStartTransitionExpected = true;
-            }
-            else if (postSupportStartExpected)
-            {
-                supportStartTransitionExpected = false;
-            }
             state.LastScreenId = observation.ScreenId;
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -353,19 +296,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             {
                 if (!state.CareerStarted)
                 {
-                    // The Home entry graph may have completed its last tap
-                    // while the UI is still rendering Home. Do not replay the
-                    // Home/Career taps during that transition.
-                    if (careerEntryFlowStarted)
-                    {
-                        await _visualRuntime.DelayAsync(250, cancellationToken)
-                            .ConfigureAwait(false);
-                        actionCount++;
-                        continue;
-                    }
-
                     return Failure(
-                        "Career entry state was lost after the shared navigation flow.",
+                        "Career start did not reach the Career screen.",
                         "home",
                         actionCount);
                 }
@@ -381,7 +313,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             var terminal = await HandleScreenAsync(
                     connection,
                     pack,
-                    settings,
+                    settings.PauseOnUnknownOutcome,
                     scenario,
                     strategy,
                     state,
@@ -398,9 +330,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 return terminal with { ActionsCompleted = actionCount };
             }
 
-            // Persist setup transitions as well as observations. In
-            // particular, ScenarioSelected must survive a restart after the
-            // first Next click so we do not re-enter the scenario carousel.
+            // Persist observations so a restart can resume from the shared
+            // entry flow or the current Career screen.
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             actionCount++;
         }
@@ -413,83 +344,20 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     }
 
     private static bool IsImportantCareerScreen(string screenId) => screenId is
-        "career_continue" or "scenario_select" or "trainee_select" or "legacy_select"
-        or "support_select" or "support_ready" or "career_final_confirmation"
-        or "career_main" or "career_race_result" or "career_event";
+        "career_main" or "career_race_result" or "career_event";
 
     private static string FriendlyCareerScreen(string screenId) => screenId switch
     {
-        "career_continue" => "the existing Career prompt",
-        "scenario_select" => "the scenario selection",
-        "trainee_select" => "the trainee selection",
-        "legacy_select" => "the legacy selection",
-        "support_select" or "support_ready" => "the support setup",
-        "career_final_confirmation" => "the final confirmation",
         "career_main" => "the Career turn screen",
         "career_race_result" => "the race result",
         "career_event" => "the event choice",
         _ => screenId,
     };
 
-    private async Task<CareerTrainingResult?> HandleLegacySelectionAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        CareerTrainingSettings settings,
-        UraCareerSessionState state,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        if (state.LegacySelected)
-        {
-            return await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "legacy_select",
-                    "next",
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        var legacyPickResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "legacy_select",
-                "choose",
-                logSink,
-                cancellationToken,
-                new HachimiPipelineRunOptions
-                {
-                    CustomActionExecutor = async (
-                            actionConnection,
-                            definition,
-                            taskName,
-                            task,
-                            actionLogSink,
-                            actionCancellationToken) =>
-                    {
-                        var selection = await _legacySelector.SelectAsync(
-                                actionConnection,
-                                definition,
-                                settings,
-                                actionLogSink,
-                                actionCancellationToken)
-                            .ConfigureAwait(false);
-                        return selection.Succeeded
-                            ? HachimiCustomActionResult.Success(selection.Message)
-                            : HachimiCustomActionResult.Failure(selection.Message);
-                    }
-                })
-            .ConfigureAwait(false);
-        if (legacyPickResult is null)
-            state.LegacySelected = true;
-        return legacyPickResult;
-    }
-
     private async Task<CareerTrainingResult?> HandleScreenAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
-        CareerTrainingSettings settings,
+        bool pauseOnUnknownOutcome,
         UraScenarioModule scenario,
         UraDefaultStrategy strategy,
         UraCareerSessionState state,
@@ -499,237 +367,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     {
         switch (observation.ScreenId)
         {
-            case "career_continue":
-                var careerContinueAction = settings.ContinueExistingCareer ? "resume" : "delete";
-                logSink?.Add(
-                    "Career Training",
-                    $"Continue Career dialog detected; selecting '{careerContinueAction}'.");
-                return await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "career_continue",
-                        careerContinueAction,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            case "scenario_select":
-                return await HandleScenarioSelectionAsync(
-                        connection,
-                        pack,
-                        state,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            case "trainee_select":
-                if (state.TraineeSelected)
-                {
-                    var traineeNextResult = await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "trainee_select",
-                            "next",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (traineeNextResult is not null)
-                        return traineeNextResult;
-
-                    logSink?.Add(
-                        "Career Training",
-                        "Trainee Next succeeded; continuing directly into Legacy Select.");
-
-                    // The live URA flow goes directly from Trainee Select to
-                    // Legacy Select. Continue that transition explicitly
-                    // instead of waiting for the generic screen observer to
-                    // rediscover the next page.
-                    return await HandleLegacySelectionAsync(
-                            connection,
-                            pack,
-                            settings,
-                            state,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                var traineePickResult = await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "trainee_select",
-                        "pick",
-                        logSink,
-                        cancellationToken,
-                        new HachimiPipelineRunOptions
-                        {
-                            CustomActionExecutor = async (
-                                    actionConnection,
-                                    definition,
-                                    taskName,
-                                    task,
-                                    actionLogSink,
-                                    actionCancellationToken) =>
-                            {
-                                var selection = await _traineeSelector.SelectAsync(
-                                        actionConnection,
-                                        definition,
-                                        taskName,
-                                        task,
-                                        settings.TraineeId,
-                                        actionLogSink,
-                                        actionCancellationToken)
-                                    .ConfigureAwait(false);
-                                return selection.Succeeded
-                                    ? HachimiCustomActionResult.Success(selection.Message)
-                                    : HachimiCustomActionResult.Failure(selection.Message);
-                            }
-                        })
-                    .ConfigureAwait(false);
-                if (traineePickResult is not null)
-                    return traineePickResult;
-
-                state.TraineeSelected = true;
-                logSink?.Add(
-                    "Career Training",
-                    "Trainee selection and Next succeeded; continuing directly into Legacy Select.");
-
-                // trainee_select_pick is a chained JSON task: after the
-                // custom picker succeeds it automatically runs
-                // trainee_select_trainee_next. The screen is therefore
-                // already transitioning to Legacy Select here. Do not return
-                // to the generic observer, which can miss that short-lived
-                // transition and pause before the legacy selector runs.
-                return await HandleLegacySelectionAsync(
-                        connection,
-                        pack,
-                        settings,
-                        state,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            case "support_select":
-                if (!state.SupportCardsSelected)
-                {
-                    var resetFormationResult = await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "support_select",
-                            "reset_if_needed",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (resetFormationResult is not null)
-                        return resetFormationResult;
-                }
-
-                var supportDeckMode = settings.SupportDeckMode.Trim().ToLowerInvariant();
-                if (supportDeckMode == "highest-star")
-                {
-                    if (state.SupportCardsSelected)
-                    {
-                        state.LastScreenId = SupportStartTransitionScreenId;
-                        return await RunScreenActionAsync(
-                                connection,
-                                pack,
-                                "support_select",
-                                "start",
-                                logSink,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-
-                    var rankedSelectionResult = await SelectHighestStarSupportCardsAsync(
-                            connection,
-                            pack,
-                            settings.SupportDeckPreset,
-                            settings.FriendSupportCardId,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (rankedSelectionResult is not null)
-                        return rankedSelectionResult;
-
-                    state.SupportCardsSelected = true;
-                    state.LastScreenId = SupportStartTransitionScreenId;
-                    return await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "support_select",
-                            "start",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                if (supportDeckMode == "selected")
-                {
-                    if (settings.SupportCardIds.Count is not (5 or 6))
-                    {
-                        return Failure(
-                            "Selected support deck mode requires exactly 5 or 6 cards.",
-                            "support_select");
-                    }
-
-                    if (state.SupportCardsSelected)
-                    {
-                        state.LastScreenId = SupportStartTransitionScreenId;
-                        return await RunScreenActionAsync(
-                                connection,
-                                pack,
-                                "support_select",
-                                "start",
-                                logSink,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-
-                    var supportSelectionResult = await SelectConfiguredSupportCardsAsync(
-                            connection,
-                            pack,
-                            settings.SupportCardIds,
-                            settings.FriendSupportCardId,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (supportSelectionResult is not null)
-                        return supportSelectionResult;
-
-                    state.SupportCardsSelected = true;
-                    state.LastScreenId = SupportStartTransitionScreenId;
-                    return await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "support_select",
-                            "start",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                return await RunScreenActionAsync(
-                        connection, pack, "support_select", "auto_fill", logSink, cancellationToken)
-                    .ConfigureAwait(false);
-            case "support_autofill_confirmation":
-                return await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "support_autofill_confirmation",
-                        "autofill_ok",
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            case "support_ready":
-                state.LastScreenId = SupportStartTransitionScreenId;
-                return await RunScreenActionAsync(
-                        connection, pack, "support_ready", "start", logSink, cancellationToken)
-                    .ConfigureAwait(false);
-            case "legacy_select":
-                return await HandleLegacySelectionAsync(
-                        connection,
-                        pack,
-                        settings,
-                        state,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
             case "career_intro_event":
                 // Keep the post-start filter active until the first Career
                 // screen is reached; the intro event itself may take more
@@ -746,15 +383,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 state.LastScreenId = CareerStartTransitionScreenId;
                 return await RunScreenActionAsync(
                         connection, pack, "career_races_ready", "races", logSink, cancellationToken)
-                    .ConfigureAwait(false);
-            case CareerFinalConfirmationScreenId:
-                // The final Start click leaves the old formation page visible
-                // for a short transition. Mark that transition before the
-                // JSON click so the next observation cannot restart support
-                // selection from a stale template.
-                state.LastScreenId = CareerStartTransitionScreenId;
-                return await RunScreenActionAsync(
-                        connection, pack, CareerFinalConfirmationScreenId, "start", logSink, cancellationToken)
                     .ConfigureAwait(false);
             case "training_selection":
                 state.LastAction = UraPlannedAction.Training;
@@ -897,116 +525,17 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                         connection, pack, "career_complete", "to_home", logSink, cancellationToken)
                     .ConfigureAwait(false);
             default:
-                if (settings.PauseOnUnknownOutcome)
-                {
-                    logSink?.Add(
-                        "Career Training",
-                        $"Unknown or unsupported stable screen '{observation.ScreenId}'; paused.",
-                        LogEntryKind.Failure);
-                    return Failure(
-                        $"Unsupported stable screen '{observation.ScreenId}'.",
-                        observation.ScreenId);
-                }
+                if (!pauseOnUnknownOutcome)
+                    return null;
 
-                return null;
+                logSink?.Add(
+                    "Career Training",
+                    $"Unknown or unsupported stable screen '{observation.ScreenId}'; paused.",
+                    LogEntryKind.Failure);
+                return Failure(
+                    $"Unsupported stable screen '{observation.ScreenId}'.",
+                    observation.ScreenId);
         }
-    }
-
-    private async Task<CareerTrainingResult?> HandleScenarioSelectionAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        UraCareerSessionState state,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        var selection = pack.ScreenProfile.ScenarioSelection;
-        if (selection is null)
-        {
-            return await RunScreenActionAsync(
-                    connection, pack, "scenario_select", "next", logSink, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        var observed = await FindScenarioSelectionAsync(
-                connection,
-                pack,
-                selection,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!observed.Captured)
-        {
-            return Failure(
-                "Could not capture the scenario selection screen.",
-                "scenario_select");
-        }
-
-        if (observed.Match is { Found: true } match)
-        {
-            state.ScenarioSelectionAdvanceAttempts = 0;
-            logSink?.Add(
-                "Career Training",
-                $"Detected target scenario '{selection.ScenarioId}' "
-                + $"with score {match.Score:0.000}; confirming selection.");
-            var result = await RunScreenActionAsync(
-                    connection, pack, "scenario_select", "next", logSink, cancellationToken)
-                .ConfigureAwait(false);
-            if (result is null)
-                state.ScenarioSelected = true;
-            return result;
-        }
-
-        if (state.ScenarioSelectionAdvanceAttempts >= selection.MaxAdvanceAttempts)
-        {
-            return Failure(
-                $"Target scenario '{selection.ScenarioId}' was not found after "
-                + $"{selection.MaxAdvanceAttempts} carousel advances.",
-                "scenario_select");
-        }
-
-        state.ScenarioSelectionAdvanceAttempts++;
-        logSink?.Add(
-            "Career Training",
-            $"Target scenario '{selection.ScenarioId}' is not visible; advancing "
-            + $"the scenario carousel ({state.ScenarioSelectionAdvanceAttempts}/"
-            + $"{selection.MaxAdvanceAttempts}).");
-        return await RunScreenActionAsync(
-                connection, pack, "scenario_select", "next_card", logSink, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<(bool Captured, TemplateMatchResult? Match)> FindScenarioSelectionAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        CareerScenarioSelectionDefinition selection,
-        CancellationToken cancellationToken)
-    {
-        var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
-            .ConfigureAwait(false);
-        if (frame is null)
-            return (false, null);
-
-        TemplateMatchResult? best = null;
-        foreach (var templatePath in selection.Recognition.GetTemplates())
-        {
-            var template = await LoadTemplateCachedAsync(
-                    ResolveCapture(pack, templatePath),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (template is null)
-                continue;
-
-            var match = TemplateMatcher.Find(
-                frame,
-                template,
-                selection.Recognition.Roi,
-                selection.Recognition.TemplateThreshold,
-                pack.ScreenProfile.ReferenceWidth,
-                pack.ScreenProfile.ReferenceHeight);
-            if (match.Found && (best is null || match.Score > best.Score))
-                best = match;
-        }
-
-        return (true, best);
     }
 
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
@@ -1048,44 +577,16 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         UraCareerSessionState state,
-        bool postSupportStartExpected,
         bool careerStartTransitionExpected,
         CancellationToken cancellationToken)
     {
-        var careerEntryFlowActive = state.CareerEntryOpened && !state.CareerStarted;
-        var traineeSelectionExpected = state.ScenarioSelected
-            && !state.TraineeSelected
-            && !state.CareerStarted;
-        // The game keeps the Auto-Fill button on the formation page after an
-        // auto-fill confirmation. Without this context, that page can be
-        // recognized as support_select again before support_ready gets a
-        // chance to handle Start Career.
-        var supportReadyExpected = state.LastScreenId.Equals(
-            "support_autofill_confirmation",
-            StringComparison.OrdinalIgnoreCase);
-        var legacyToSupportTransition = state.LegacySelected
-            && state.LastScreenId.Equals(
-                "legacy_select",
-                StringComparison.OrdinalIgnoreCase)
-            && !state.CareerStarted;
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
-            .Where(screen => !careerEntryFlowActive
-                || !string.Equals(screen.ScreenId, "home", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.CareerStarted
                 || state.TurnIndex > 0
-                || CareerEntryScreenIds.Contains(screen.ScreenId))
-            .Where(screen => !traineeSelectionExpected
-                || string.Equals(screen.ScreenId, "trainee_select", StringComparison.OrdinalIgnoreCase))
-            .Where(screen => !supportReadyExpected
-                || string.Equals(screen.ScreenId, "support_ready", StringComparison.OrdinalIgnoreCase))
-            // Start Career has already been tapped. Do not let a stale
-            // formation template win while the game is transitioning to
-            // Final Confirmation, where the normal Start action continues.
-            .Where(screen => !postSupportStartExpected
-                || (screen.ScreenId is not "support_select"
-                    and not "support_ready"
-                    and not "support_autofill_confirmation"))
+                || screen.ScreenId is "career_intro_event"
+                    or "career_main"
+                    or "career_races_ready")
             // Normal Career has already received its final Start click. Only
             // accept the first screens that can legitimately follow it; the
             // formation templates from the previous page must not win here.
@@ -1093,12 +594,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 || screen.ScreenId is "career_intro_event"
                     or "career_main"
                     or "career_races_ready")
-            .Where(screen => !legacyToSupportTransition
-                || string.Equals(screen.ScreenId, "support_select", StringComparison.OrdinalIgnoreCase))
             .OrderBy(screen => GetScreenRecognitionPriority(
                 screen.ScreenId,
-                supportReadyExpected,
-                postSupportStartExpected,
                 careerStartTransitionExpected))
             .ToArray();
 
@@ -1167,32 +664,21 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
     private static int GetScreenRecognitionPriority(
         string screenId,
-        bool supportReadyExpected,
-        bool postSupportStartExpected,
         bool careerStartTransitionExpected) =>
         screenId switch
         {
-            "career_continue" => 0,
-            "home" => 0,
-            "scenario_select" => 1,
-            "trainee_select" => 2,
-            CareerFinalConfirmationScreenId when postSupportStartExpected => 0,
-            CareerFinalConfirmationScreenId => 3,
             "career_intro_event" when careerStartTransitionExpected => 0,
             "career_main" when careerStartTransitionExpected => 1,
             "career_races_ready" when careerStartTransitionExpected => 2,
-            "support_ready" when supportReadyExpected => 4,
-            "support_select" => 5,
-            "support_ready" => 6,
-            "career_races_ready" => 7,
-            "career_main" => 8,
-            "training_selection" => 9,
-            "race_day" => 10,
-            "race_list" => 11,
-            "race_details" => 12,
-            "race_attributes" => 13,
-            "race_playback_settings" => 14,
-            "race_playback" => 15,
+            "career_races_ready" => 0,
+            "career_main" => 1,
+            "training_selection" => 2,
+            "race_day" => 3,
+            "race_list" => 4,
+            "race_details" => 5,
+            "race_attributes" => 6,
+            "race_playback_settings" => 7,
+            "race_playback" => 8,
             _ => 20,
         };
 
@@ -1218,19 +704,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         string actionId,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null,
-        bool allowVisualMiss = false)
+        HachimiPipelineRunOptions? options = null)
     {
-        // Keep checkpoints written by versions that called the old semantic
-        // screen id usable after the final-confirmation screen was split out.
-        // The actual action and all interaction details still come from the
-        // JSON screen profile; this is only an id migration.
-        if (screenId.Equals("career_entry", StringComparison.OrdinalIgnoreCase)
-            && pack.ScreenProfile.Find("career_entry") is null)
-        {
-            screenId = CareerFinalConfirmationScreenId;
-        }
-
         var screen = pack.ScreenProfile.Find(screenId);
         if (screen is null)
         {
@@ -1257,16 +732,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
-            if (allowVisualMiss && IsVisualTaskTimeout(result.Message))
-            {
-                logSink?.Add(
-                    "Career Training",
-                    $"Optional post-start action '{screenId}.{actionId}' was not visible; "
-                        + "continuing with the next fallback.",
-                    LogEntryKind.Info);
-                return null;
-            }
-
             return Failure(
                 $"Could not execute JSON task '{action.Task}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
@@ -1283,201 +748,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         return options;
     }
 
-    private static bool IsVisualTaskTimeout(string message) =>
-        message.StartsWith(
-            "Timed out waiting for JSON task '",
-            StringComparison.Ordinal);
-
     private static string ResolveCapture(UraScenarioPack pack, string relativePath) =>
         UraScenarioResourceResolver.Resolve(pack, relativePath);
 
-    private static HachimiPipelineRunOptions SupportPickerOpenOptions(
-        UraScenarioPack pack,
-        bool friendSlotOnly)
-    {
-        var task = pack.ExecutionDefinition.GetTask("support_select_support_open");
-        var configuredRois = task.SearchRois;
-        IReadOnlyList<int[]> searchRois;
-
-        if (configuredRois.Count <= 1)
-        {
-            searchRois = configuredRois;
-        }
-        else if (friendSlotOnly)
-        {
-            // The final JSON search ROI is the Friends slot. It has a
-            // different layout from the five owned-card slots.
-            searchRois = [configuredRois[^1]];
-        }
-        else
-        {
-            // Never allow an owned-card open to compete with the Friends
-            // slot. The template matcher still chooses the actual match
-            // center from these JSON-declared regions.
-            searchRois = configuredRois.Take(configuredRois.Count - 1).ToArray();
-        }
-
-        return new HachimiPipelineRunOptions
-        {
-            SearchRoiOverrides = new Dictionary<string, IReadOnlyList<int[]>>(
-                StringComparer.OrdinalIgnoreCase)
-            {
-                ["support_select_support_open"] = searchRois,
-            },
-        };
-    }
-
-    private async Task<CareerTrainingResult?> SelectConfiguredSupportCardsAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        IReadOnlyList<int> supportCardIds,
-        int? friendSupportCardId,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        foreach (var supportCardId in supportCardIds)
-        {
-            if (!_umaDatabase.TryGetSupportCard(supportCardId, out var supportCard)
-                || supportCard is null
-                || !supportCard.Available)
-            {
-                return Failure(
-                    $"Configured support card {supportCardId.ToString(CultureInfo.InvariantCulture)} "
-                    + "was not found or is unavailable.",
-                    "support_select");
-            }
-
-            var templatePath = ResolveSupportCardTemplate(pack, supportCardId);
-            if (templatePath is null)
-            {
-                return Failure(
-                    $"Support card {supportCardId.ToString(CultureInfo.InvariantCulture)} "
-                    + "has no local selection template.",
-                    "support_select");
-            }
-
-            var openResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "open",
-                    logSink,
-                    cancellationToken,
-                    SupportPickerOpenOptions(pack, friendSlotOnly: false))
-                .ConfigureAwait(false);
-            if (openResult is not null)
-                return openResult;
-
-            // An exact card can appear many pages into the unfiltered list.
-            // Use the same metadata-backed filter and Level-desc sort as the
-            // highest-star path before matching the card image. The picker
-            // closes after each selection, so configure it again when the
-            // next card is opened (this also handles cards from different
-            // type/rarity groups deterministically).
-            var filterResult = await ConfigureHighestStarFilterAsync(
-                    connection,
-                    pack,
-                    supportCard.Type,
-                    supportCard.Rarity,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (filterResult is not null)
-                return filterResult;
-
-            var result = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "ranked.select_exact_card",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TemplateOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_exact"] = templatePath,
-                        },
-                    })
-                .ConfigureAwait(false);
-            if (result is not null)
-                return result;
-        }
-
-        if (friendSupportCardId is not > 0)
-        {
-            // Selecting a support card closes the picker automatically and
-            // returns to the formation screen. Do not click the picker Close
-            // button here: after the last selection it no longer exists and
-            // its old coordinate overlaps the game's Home tab.
-            return null;
-        }
-
-        if (!_umaDatabase.TryGetSupportCard(friendSupportCardId.Value, out var friendCard)
-            || friendCard is null
-            || !friendCard.Available)
-        {
-            return Failure(
-                $"Configured guest support card {friendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
-                + "was not found or is unavailable.",
-                "support_select");
-        }
-
-        var openFriendResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "open",
-                logSink,
-                cancellationToken,
-                SupportPickerOpenOptions(pack, friendSlotOnly: true))
-            .ConfigureAwait(false);
-        if (openFriendResult is not null)
-            return openFriendResult;
-
-        var friendFilterResult = await ConfigureHighestStarFilterAsync(
-                connection,
-                pack,
-                friendCard.Type,
-                rarity: null,
-                logSink,
-                cancellationToken,
-                friendPage: true)
-            .ConfigureAwait(false);
-        if (friendFilterResult is not null)
-            return friendFilterResult;
-
-        var friendTemplatePath = ResolveSupportCardTemplate(
-            pack,
-            friendCard.SupportCardId);
-        if (friendTemplatePath is null)
-        {
-            return Failure(
-                $"Guest support card {friendCard.SupportCardId.ToString(CultureInfo.InvariantCulture)} "
-                + "has no local selection template.",
-                "support_select");
-        }
-
-        // The filtered guest list is sorted by Level descending. The
-        // template matcher therefore picks the highest-level copy.
-        return await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "ranked.select_exact_card",
-                logSink,
-                cancellationToken,
-                new HachimiPipelineRunOptions
-                {
-                    TemplateOverrides = new Dictionary<string, string>(
-                        StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["support_select_support_card_exact"] = friendTemplatePath,
-                    },
-                })
-            .ConfigureAwait(false);
-    }
 
     private static IReadOnlyList<int> GetSelectedSupportCardIds(
         CareerTrainingSettings settings)
@@ -1496,623 +769,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             .ToArray();
     }
 
-    private async Task<CareerTrainingResult?> SelectHighestStarSupportCardsAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string supportDeckPreset,
-        int? friendSupportCardId,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        var requiredTypes = SupportDeckPresetCatalog.GetRequiredTypes(supportDeckPreset);
-        if (requiredTypes is null)
-        {
-            return Failure(
-                "Highest-star support selection requires a support deck preset.",
-                "support_select");
-        }
-
-        UmaSupportCardRecord? guestCard = null;
-        if (friendSupportCardId is > 0)
-        {
-            if (!_umaDatabase.TryGetSupportCard(
-                    friendSupportCardId.Value,
-                    out guestCard)
-                || guestCard is null
-                || !guestCard.Available)
-            {
-                return Failure(
-                    $"Configured guest support card {friendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
-                    + "was not found or is unavailable.",
-                    "support_select");
-            }
-        }
-        else
-        {
-            var automaticGuestType = GetAutomaticGuestSupportType(requiredTypes);
-            if (automaticGuestType is null)
-            {
-                return Failure(
-                    "The selected support preset has no usable type for the automatic guest card.",
-                    "support_select");
-            }
-
-            // Do not click an own-card grid slot to reserve the guest type.
-            // The guest slot opens Borrow Card later and uses its own list
-            // layout. The type is only needed now to leave the correct number
-            // of own cards for the preset.
-            guestCard = new UmaSupportCardRecord
-            {
-                Type = automaticGuestType,
-            };
-        }
-
-        if (guestCard is null)
-        {
-            return Failure(
-                "Could not identify a highest-level guest support card from the selected preset types.",
-                "support_select");
-        }
-
-        var ownRequiredTypes = GetOwnRequiredSupportTypes(
-            requiredTypes,
-            guestCard);
-        if (ownRequiredTypes is null)
-        {
-            return Failure(
-                $"Guest support card {friendSupportCardId.GetValueOrDefault().ToString(CultureInfo.InvariantCulture)} "
-                + "does not fit the selected support deck preset.",
-                "support_select");
-        }
-
-        var pickerOpen = false;
-        foreach (var required in ownRequiredTypes)
-        {
-            var remaining = required.Value;
-            if (remaining <= 0)
-                continue;
-
-            if (!pickerOpen)
-            {
-                var openResult = await RunScreenActionAsync(
-                        connection,
-                        pack,
-                        "support_select",
-                        "open",
-                        logSink,
-                        cancellationToken,
-                        SupportPickerOpenOptions(pack, friendSlotOnly: false))
-                    .ConfigureAwait(false);
-                if (openResult is not null)
-                    return openResult;
-
-                pickerOpen = true;
-            }
-
-            // Apply the filter once for the whole type group. Selecting a
-            // card closes the picker, but the game's filter/sort state is
-            // retained when the next slot is opened.
-            logSink?.Add(
-                "Career Training",
-                $"Filtering {remaining} highest-level {required.Key} support card(s) once.");
-            var filterResult = await ConfigureHighestStarFilterAsync(
-                    connection,
-                    pack,
-                    required.Key,
-                    rarity: null,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (filterResult is not null)
-                return filterResult;
-
-            while (remaining > 0)
-            {
-                if (!pickerOpen)
-                {
-                    var openResult = await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "support_select",
-                            "open",
-                            logSink,
-                            cancellationToken,
-                            SupportPickerOpenOptions(pack, friendSlotOnly: false))
-                        .ConfigureAwait(false);
-                    if (openResult is not null)
-                        return openResult;
-
-                    pickerOpen = true;
-                }
-
-                var selected = await SelectHighestSupportCardAsync(
-                        connection,
-                        pack,
-                        required.Key,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (selected is not null)
-                    return selected;
-
-                remaining--;
-                // A successful card tap closes the picker automatically.
-                pickerOpen = false;
-            }
-
-            if (remaining > 0)
-            {
-                if (pickerOpen)
-                {
-                    var closeResult = await RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "support_select",
-                            "close",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (closeResult is not null)
-                        return closeResult;
-                }
-
-                return Failure(
-                    $"Could not find {remaining} more {required.Key} support card(s) after filtering and sorting by Level.",
-                    "support_select");
-            }
-        }
-
-        // The own cards are now filled. The next open targets the Friends slot;
-        // filter it by the configured guest card metadata and select the
-        // highest-level copy of that exact card.
-        if (!pickerOpen)
-        {
-            var openGuestResult = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "open",
-                    logSink,
-                    cancellationToken,
-                    SupportPickerOpenOptions(pack, friendSlotOnly: true))
-                .ConfigureAwait(false);
-            if (openGuestResult is not null)
-                return openGuestResult;
-
-            pickerOpen = true;
-        }
-
-        var guestFilterResult = await ConfigureHighestStarFilterAsync(
-                connection,
-                pack,
-                guestCard.Type,
-                rarity: null,
-                logSink,
-                cancellationToken,
-                friendPage: true)
-            .ConfigureAwait(false);
-        if (guestFilterResult is not null)
-            return guestFilterResult;
-
-        if (friendSupportCardId is not > 0)
-        {
-            // With no configured friend card, the filtered/sorted first card
-            // is the highest-level guest. Use the JSON type-badge recognition
-            // click path to select that first unselected card; no card-database
-            // identity scan is needed here.
-            var automaticGuestSelection = await SelectHighestGuestSupportCardAsync(
-                    connection,
-                    pack,
-                    guestCard.Type,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return automaticGuestSelection;
-        }
-
-        var guestTemplatePath = ResolveSupportCardTemplate(
-                pack,
-            guestCard.SupportCardId);
-        if (guestTemplatePath is null)
-        {
-            return Failure(
-                $"Guest support card {guestCard.SupportCardId.ToString(CultureInfo.InvariantCulture)} "
-                + "has no local selection template.",
-                "support_select");
-        }
-
-        // The guest list is sorted by Level descending. The template
-        // matcher scans top-to-bottom, so identical copies resolve to the
-        // highest-level guest card.
-        var guestSelectionResult = await RunScreenActionAsync(
-                connection,
-                pack,
-                "support_select",
-                "ranked.select_exact_card",
-                logSink,
-                cancellationToken,
-                new HachimiPipelineRunOptions
-                {
-                    TemplateOverrides = new Dictionary<string, string>(
-                        StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["support_select_support_card_exact"] = guestTemplatePath,
-                    },
-                })
-            .ConfigureAwait(false);
-        if (guestSelectionResult is not null)
-            return guestSelectionResult;
-
-        // Every successful card selection closes the picker. The next state
-        // recognizer will verify the formation screen before Start Career.
-        return null;
-    }
-
-    private string? GetAutomaticGuestSupportType(
-        IReadOnlyDictionary<string, int> requiredTypes)
-    {
-        var candidateTypes = requiredTypes.ContainsKey("Friend")
-            ? _umaDatabase.SupportCards
-                .Where(card => card.Available && !string.IsNullOrWhiteSpace(card.Type))
-                .Select(card => card.Type.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray()
-            : requiredTypes.Keys
-                .Where(type => SupportDeckPresetCatalog.GetFilterKey(type) is not null)
-                .ToArray();
-
-        return candidateTypes.FirstOrDefault();
-    }
-
-    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string? supportType,
-        string? rarity,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        bool friendPage = false)
-    {
-        return await ConfigureHighestStarFilterAsync(
-                connection,
-                pack,
-                supportType is null ? Array.Empty<string>() : [supportType],
-                rarity,
-                logSink,
-                cancellationToken,
-                friendPage)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<CareerTrainingResult?> ConfigureHighestStarFilterAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        IReadOnlyList<string> supportTypes,
-        string? rarity,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        bool friendPage = false)
-    {
-        var actions = BuildHighestStarFilterActionsForTypes(supportTypes, rarity)
-            .Select(action => friendPage && action.Equals(
-                    "ranked.sort_level",
-                    StringComparison.OrdinalIgnoreCase)
-                ? "ranked.friend_sort_level"
-                : action);
-
-        foreach (var action in actions)
-        {
-            var result = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    action,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (result is not null)
-                return result;
-        }
-
-        return null;
-    }
-
-    internal static IReadOnlyList<string> BuildHighestStarFilterActions(
-        string? supportType,
-        string? rarity)
-        => BuildHighestStarFilterActionsForTypes(
-            supportType is null ? Array.Empty<string>() : [supportType],
-            rarity);
-
-    internal static IReadOnlyList<string> BuildHighestStarFilterActionsForTypes(
-        IEnumerable<string> supportTypes,
-        string? rarity)
-    {
-        var supportFilterKeys = supportTypes
-            .Select(SupportDeckPresetCatalog.GetFilterKey)
-            .Where(key => key is not null)
-            .Select(key => key!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (supportFilterKeys.Length > 1)
-        {
-            throw new InvalidOperationException(
-                "Support card filtering accepts exactly one category per pass.");
-        }
-
-        var actions = new List<string>
-        {
-            "ranked.display_settings",
-            "ranked.filter_tab",
-            "ranked.filter_reset",
-        };
-
-        var requestedRarity = GetSupportRarityFilter(rarity);
-        foreach (var availableRarity in requestedRarity is null
-                     ? new[] { "SSR", "SR" }
-                     : new[] { requestedRarity })
-        {
-            actions.Add($"ranked.filter_{availableRarity.ToLowerInvariant()}");
-        }
-
-        foreach (var supportFilterKey in supportFilterKeys)
-        {
-            if (!actions.Contains($"ranked.filter_{supportFilterKey}", StringComparer.OrdinalIgnoreCase))
-            {
-                actions.Add($"ranked.filter_{supportFilterKey}");
-            }
-        }
-
-        actions.Add("ranked.filter_apply");
-        // Applying the filter returns to the card list and resets the list
-        // display/sort controls on some game builds. Set Level only
-        // after Apply. Re-open the display settings, commit the primary sort,
-        // then switch the list to Desc so the following card scan sees the
-        // highest-level copy first.
-        actions.Add("ranked.display_settings");
-        actions.Add("ranked.sort_level");
-        actions.Add("ranked.sort_apply");
-        actions.Add("ranked.sort_desc");
-        return actions;
-    }
-
-    private static Dictionary<string, int>? GetOwnRequiredSupportTypes(
-        IReadOnlyDictionary<string, int> requiredTypes,
-        UmaSupportCardRecord guestCard)
-    {
-        var ownTypes = requiredTypes.ToDictionary(
-            item => item.Key,
-            item => item.Value,
-            StringComparer.OrdinalIgnoreCase);
-
-        // This preset explicitly means five own cards plus one guest card.
-        if (ownTypes.Remove("Friend"))
-            return ownTypes;
-
-        var guestType = guestCard.Type?.Trim();
-        if (string.IsNullOrWhiteSpace(guestType)
-            || !ownTypes.TryGetValue(guestType, out var guestTypeCount)
-            || guestTypeCount <= 0)
-        {
-            return null;
-        }
-
-        if (guestTypeCount == 1)
-            ownTypes.Remove(guestType);
-        else
-            ownTypes[guestType] = guestTypeCount - 1;
-
-        return ownTypes;
-    }
-
-    private Task<CareerTrainingResult?> SelectHighestSupportCardAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string? supportType,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        return SelectHighestUnselectedSupportCardAsync(
-            connection,
-            pack,
-            supportType,
-            logSink,
-            cancellationToken);
-    }
-
-    private Task<CareerTrainingResult?> SelectHighestGuestSupportCardAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string supportType,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        var typeTemplate = ResolveFriendSupportTypeBadgeTemplate(pack, supportType);
-        if (typeTemplate is null)
-        {
-            return Task.FromResult<CareerTrainingResult?>(Failure(
-                $"Support type '{supportType}' has no recognition template.",
-                "support_select"));
-        }
-
-        return RunScreenActionAsync(
-            connection,
-            pack,
-            "support_select",
-            "ranked.select_friend_highest_card",
-            logSink,
-            cancellationToken,
-            new HachimiPipelineRunOptions
-            {
-                TemplateOverrides = new Dictionary<string, string>(
-                    StringComparer.OrdinalIgnoreCase)
-                {
-                    ["support_select_support_friend_top_card_ssr"] = typeTemplate,
-                    ["support_select_support_friend_top_card_sr"] = typeTemplate,
-                },
-            });
-    }
-
-    private async Task<CareerTrainingResult?> SelectHighestUnselectedSupportCardAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string? supportType,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
-    {
-        var typeTemplate = ResolveSupportTypeBadgeTemplate(pack, supportType ?? string.Empty);
-        if (typeTemplate is null)
-        {
-            return Failure(
-                $"Support type '{supportType ?? "unknown"}' has no recognition template.",
-                "support_select");
-        }
-
-        foreach (var slotRoi in RankedSupportCardSlotRois)
-        {
-            var selectedProbe = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "ranked.detect_selected_card",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        RoiOverrides = new Dictionary<string, int[]>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_selected_card"] = slotRoi,
-                        },
-                    })
-                .ConfigureAwait(false);
-
-            if (selectedProbe is null)
-                continue;
-
-            if (!IsExpectedTemplateMiss(
-                    selectedProbe,
-                    "support_select_support_selected_card"))
-            {
-                return selectedProbe;
-            }
-
-            var selection = await RunScreenActionAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "ranked.select_highest_card",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TemplateOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            // Click the recognized type badge inside the
-                            // first unselected card. The ROI only limits the
-                            // search; the tap comes from the template match.
-                            ["support_select_support_top_card_ssr"] = typeTemplate,
-                            ["support_select_support_top_card_sr"] = typeTemplate,
-                        },
-                        RoiOverrides = new Dictionary<string, int[]>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_top_card_ssr"] = slotRoi,
-                            ["support_select_support_top_card_sr"] = slotRoi,
-                        },
-                    })
-                .ConfigureAwait(false);
-
-            if (selection is null)
-                return null;
-
-            if (!IsExpectedTemplateMiss(
-                    selection,
-                    "support_select_support_top_card_ssr",
-                    "support_select_support_top_card_sr"))
-            {
-                return selection;
-            }
-        }
-
-        return Failure(
-            "Could not find an unselected SSR/SR support card in the ranked list.",
-            "support_select");
-    }
-
-    private static bool IsExpectedTemplateMiss(
-        CareerTrainingResult result,
-        params string[] taskNames) =>
-        result.LastScreenId.Equals("support_select", StringComparison.OrdinalIgnoreCase)
-        && taskNames.Any(taskName => result.Message.Contains(
-            $"Timed out waiting for JSON task '{taskName}'",
-            StringComparison.OrdinalIgnoreCase));
-
-    private static string? GetSupportRarityFilter(string? rarity) =>
-        rarity?.Trim().ToUpperInvariant() switch
-        {
-            "3" or "SSR" => "SSR",
-            "2" or "SR" => "SR",
-            "1" or "R" => "R",
-            _ => null,
-        };
-
-    private static string? ResolveSupportTypeBadgeTemplate(
-        UraScenarioPack pack,
-        string supportType)
-    {
-        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
-        if (filterKey is null)
-            return null;
-
-        var path = UraScenarioResourceResolver.Resolve(
-            pack,
-            $"screens/templates/support_cards/type_{filterKey}.png");
-        return File.Exists(path) ? path : null;
-    }
-
-    private static string? ResolveFriendSupportTypeBadgeTemplate(
-        UraScenarioPack pack,
-        string supportType)
-    {
-        var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
-        if (filterKey is null)
-            return null;
-
-        var friendPath = UraScenarioResourceResolver.Resolve(
-            pack,
-            $"screens/templates/support_cards/friend_type_{filterKey}.png");
-        // Borrow Card badges include card art behind the icon, so the normal
-        // deck templates are not safe fallbacks here. Require a dedicated
-        // friend-page template for every supported category.
-        return File.Exists(friendPath) ? friendPath : null;
-    }
-
-    private string? ResolveSupportCardTemplate(UraScenarioPack pack, int supportCardId)
-    {
-        var directory = _umaDatabase.GetSupportCardTemplateDirectory(supportCardId);
-        if (Directory.Exists(directory))
-        {
-            var template = Directory.EnumerateFiles(directory)
-                .Where(path => path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (template is not null)
-                return template;
-        }
-
-        var fallback = Path.Combine(
-            pack.RootDirectory,
-            "screens",
-            "templates",
-            "support_cards",
-            supportCardId.ToString(CultureInfo.InvariantCulture) + ".png");
-        return File.Exists(fallback) ? fallback : null;
-    }
 
     private void ValidateSupportCards(
         IReadOnlyList<int> supportCardIds,

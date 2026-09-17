@@ -789,23 +789,6 @@ public sealed class HachimiPipelineDefinitionTests
         }
     }
 
-    [Fact]
-    public void Highest_star_filter_accepts_only_one_support_category_per_pass()
-    {
-        var actions = AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
-            ["Speed", "Speed"],
-            rarity: null);
-
-        Assert.Equal(1, actions.Count(action =>
-            action.Equals("ranked.filter_speed", StringComparison.OrdinalIgnoreCase)));
-        Assert.Equal(0, actions.Count(action =>
-            action.Equals("ranked.filter_stamina", StringComparison.OrdinalIgnoreCase)));
-        Assert.Throws<InvalidOperationException>(() =>
-            AdbNormalCareerTrainingPipeline.BuildHighestStarFilterActionsForTypes(
-                ["Speed", "Stamina"],
-                rarity: null));
-    }
-
     private static string GetSupportActionTask(string root, string semanticId)
     {
         using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(
