@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
@@ -101,17 +103,47 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
-    public void Continue_existing_career_defaults_to_delete_and_round_trips()
+    public void Delete_existing_career_data_defaults_to_resume_and_round_trips()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();
 
-        Assert.False(settings.ContinueExistingCareer);
+        Assert.False(settings.DeleteExistingCareerData);
 
-        settings.ContinueExistingCareer = true;
-        Assert.True(settings.ContinueExistingCareer);
+        settings.DeleteExistingCareerData = true;
+        Assert.True(settings.DeleteExistingCareerData);
 
-        settings.ContinueExistingCareer = false;
-        Assert.False(settings.ContinueExistingCareer);
+        settings.DeleteExistingCareerData = false;
+        Assert.False(settings.DeleteExistingCareerData);
+    }
+
+    [Fact]
+    public void Career_settings_migrate_legacy_resume_flag_without_flipping_behavior()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+
+        CareerTaskSettingsSerializer.Import(
+            settings,
+            new JsonObject { ["continueExistingCareer"] = true });
+        Assert.False(settings.DeleteExistingCareerData);
+
+        CareerTaskSettingsSerializer.Import(
+            settings,
+            new JsonObject { ["continueExistingCareer"] = false });
+        Assert.True(settings.DeleteExistingCareerData);
+    }
+
+    [Fact]
+    public void Career_settings_export_writes_delete_flag_and_legacy_inverse()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel
+        {
+            DeleteExistingCareerData = true,
+        };
+
+        var exported = CareerTaskSettingsSerializer.Export(settings);
+
+        Assert.True(exported["deleteExistingCareerData"]!.GetValue<bool>());
+        Assert.False(exported["continueExistingCareer"]!.GetValue<bool>());
     }
 
     [Fact]

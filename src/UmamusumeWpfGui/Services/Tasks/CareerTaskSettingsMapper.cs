@@ -14,7 +14,7 @@ public static class CareerTaskSettingsMapper
         return new CareerTrainingSettings(
             settings.ManifestPath,
             settings.TraineeId ?? throw new InvalidOperationException("No trainee is configured."),
-            settings.ContinueExistingCareer,
+            !settings.DeleteExistingCareerData,
             settings.ParseSupportCardIds(),
             settings.SupportDeckMode,
             settings.SupportDeckPreset,
@@ -35,7 +35,7 @@ public static class CareerTaskSettingsMapper
         return new IndependentTrainingSettings(
             settings.ManifestPath,
             settings.TraineeId ?? throw new InvalidOperationException("No trainee is configured."),
-            settings.ContinueExistingCareer,
+            !settings.DeleteExistingCareerData,
             settings.ParseSupportCardIds(),
             settings.SupportDeckMode,
             settings.SupportDeckPreset,

@@ -60,6 +60,36 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Delete_existing_career_reopens_career_when_game_returns_home()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.ReturnsHomeAfterDelete = true;
+
+        var state = new CareerEntryNavigationState();
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: false),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal(
+            [
+                "task:home",
+                "career_continue.delete",
+                "task:home",
+                "scenario_select.next",
+                "trainee_select.pick",
+                "legacy_select.choose",
+                "support_select.auto_fill",
+            ],
+            harness.Actions.Calls);
+    }
+
+    [Fact]
     public async Task Entry_action_failure_keeps_stage_and_does_not_run_the_next_stage()
     {
         var root = FindSolutionRoot();
@@ -565,6 +595,8 @@ public sealed class IndependentTrainingBehaviorTests
         public List<string> SearchInputs { get; } = [];
         public Func<string, bool>? FailWhen { get; set; }
         public string? BlockAction { get; set; }
+        public bool ReturnsHomeAfterDelete { get; set; }
+        private bool _careerDataDeleted;
         public TaskCompletionSource<bool> BlockEntered { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -612,7 +644,10 @@ public sealed class IndependentTrainingBehaviorTests
             HachimiPipelineRunOptions? options = null)
         {
             Calls.Add($"task:{taskName}");
-            _visual.SetScreen("career_continue");
+            _visual.SetScreen(
+                ReturnsHomeAfterDelete && _careerDataDeleted
+                    ? "scenario_select"
+                    : "career_continue");
             return Task.FromResult(CareerActionExecutionResult.Success(taskName));
         }
 
@@ -620,7 +655,8 @@ public sealed class IndependentTrainingBehaviorTests
         {
             var next = (screenId, actionId) switch
             {
-                ("career_continue", "delete") or ("career_continue", "resume") => "scenario_select",
+                ("career_continue", "delete") or ("career_continue", "resume") =>
+                    AdvanceAfterCareerContinue(actionId),
                 ("scenario_select", "next") or ("scenario_select", "next_card") => "trainee_select",
                 ("trainee_select", "pick") => "legacy_select",
                 ("legacy_select", "choose") => "support_select",
@@ -629,6 +665,15 @@ public sealed class IndependentTrainingBehaviorTests
             };
             if (next is not null)
                 _visual.SetScreen(next);
+        }
+
+        private string AdvanceAfterCareerContinue(string actionId)
+        {
+            if (actionId.Equals("delete", StringComparison.OrdinalIgnoreCase))
+                _careerDataDeleted = true;
+            return ReturnsHomeAfterDelete && _careerDataDeleted
+                ? "home"
+                : "scenario_select";
         }
     }
 
@@ -656,7 +701,10 @@ public sealed class IndependentTrainingBehaviorTests
             CancellationToken cancellationToken = default)
         {
             var pixels = new byte[100 * 200];
-            SetMarker(pixels, Markers[_screen]);
+            if (_screen.Equals("home", StringComparison.OrdinalIgnoreCase))
+                SetHomePattern(pixels, Markers[_screen]);
+            else
+                SetMarker(pixels, Markers[_screen]);
             if (_screen.Equals("scenario_select", StringComparison.OrdinalIgnoreCase))
                 SetMarker(pixels, Markers["scenario_card"]);
             return Task.FromResult<GrayImage?>(new GrayImage(100, 200, pixels));
@@ -668,9 +716,14 @@ public sealed class IndependentTrainingBehaviorTests
             CancellationToken cancellationToken = default)
         {
             var key = GetTemplateKey(templatePath);
-            var pixels = new byte[] { 255 };
+            var pixels = key.Equals("home", StringComparison.OrdinalIgnoreCase)
+                ? HomePattern
+                : new byte[] { 255 };
             return Task.FromResult<GrayImage?>(Markers.ContainsKey(key)
-                ? new GrayImage(1, 1, pixels)
+                ? new GrayImage(
+                    key.Equals("home", StringComparison.OrdinalIgnoreCase) ? 3 : 1,
+                    key.Equals("home", StringComparison.OrdinalIgnoreCase) ? 3 : 1,
+                    pixels)
                 : null);
         }
 
@@ -758,12 +811,35 @@ public sealed class IndependentTrainingBehaviorTests
             int milliseconds,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        private static void SetMarker(byte[] pixels, (int X, int Y) marker) =>
-            pixels[marker.Y * 100 + marker.X] = 255;
+        private static void SetMarker(
+            byte[] pixels,
+            (int X, int Y) marker,
+            byte value = 255) =>
+            pixels[marker.Y * 100 + marker.X] = value;
+
+        private static readonly byte[] HomePattern =
+        [
+            254, 0, 17,
+            41, 0, 83,
+            127, 191, 253,
+        ];
+
+        private static void SetHomePattern(
+            byte[] pixels,
+            (int X, int Y) marker)
+        {
+            for (var y = 0; y < 3; y++)
+            {
+                for (var x = 0; x < 3; x++)
+                    pixels[(marker.Y + y) * 100 + marker.X + x] = HomePattern[y * 3 + x];
+            }
+        }
 
         private static string GetTemplateKey(string? path)
         {
             var value = path ?? string.Empty;
+            if (value.Contains("ura_returned_home", StringComparison.OrdinalIgnoreCase))
+                return "home";
             if (value.Contains("career_final_confirmation", StringComparison.OrdinalIgnoreCase))
                 return "career_final_confirmation";
             if (value.Contains("scenario_select_ura", StringComparison.OrdinalIgnoreCase))

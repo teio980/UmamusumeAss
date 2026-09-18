@@ -23,7 +23,10 @@ public static class CareerTaskSettingsSerializer
                 .Select(item => (JsonNode?)JsonValue.Create(item.Key)).ToArray()),
             ["independentSkillIds"] = new JsonArray(settings.ParseIndependentSkillIds()
                 .Select(item => (JsonNode?)JsonValue.Create(item)).ToArray()),
-            ["continueExistingCareer"] = settings.ContinueExistingCareer,
+            ["deleteExistingCareerData"] = settings.DeleteExistingCareerData,
+            // Keep exporting the legacy key so older profiles/builds retain
+            // the same behavior if they are opened elsewhere.
+            ["continueExistingCareer"] = !settings.DeleteExistingCareerData,
             ["supportDeckMode"] = settings.SupportDeckMode,
             ["supportDeckPreset"] = settings.SupportDeckPreset,
             ["friendSupportCardId"] = settings.FriendSupportCardId is { } friendSupportCardId
@@ -64,10 +67,21 @@ public static class CareerTaskSettingsSerializer
             Environment.NewLine,
             ReadStringArray(values, "independentAgendaSelections"));
         settings.IndependentSkillIdsText = string.Join(",", ReadIntArray(values, "independentSkillIds"));
-        settings.ContinueExistingCareer = ReadBool(
-            values,
-            "continueExistingCareer",
-            settings.ContinueExistingCareer);
+        if (values.ContainsKey("deleteExistingCareerData"))
+        {
+            settings.DeleteExistingCareerData = ReadBool(
+                values,
+                "deleteExistingCareerData",
+                settings.DeleteExistingCareerData);
+        }
+        else if (values.ContainsKey("continueExistingCareer"))
+        {
+            // Legacy profiles stored the inverse meaning.
+            settings.DeleteExistingCareerData = !ReadBool(
+                values,
+                "continueExistingCareer",
+                !settings.DeleteExistingCareerData);
+        }
 
         var supportCardIds = values["supportCardIds"] is JsonArray cards
             ? string.Join(",", cards.Select(item => item?.GetValue<int>()).Where(item => item is > 0))

@@ -147,17 +147,17 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
         try
         {
-            var continueExistingCareer = Settings.ContinueExistingCareer;
+            var deleteExistingCareerData = Settings.DeleteExistingCareerData;
             context.LogSink?.Add(
                 "Career Training",
-                continueExistingCareer
-                    ? "Career entry policy: Resume existing Career."
-                    : "Career entry policy: Delete Career data, then start fresh.");
+                deleteExistingCareerData
+                    ? "Career entry policy: Delete Career data, then start fresh."
+                    : "Career entry policy: Resume existing Career.");
             context.TaskLogSink?.Add(
                 "Setup",
-                continueExistingCareer
-                    ? "Career entry: resume the existing career."
-                    : "Career entry: delete existing data and start a new career.",
+                deleteExistingCareerData
+                    ? "Career entry: delete existing data and start a new career."
+                    : "Career entry: resume the existing career.",
                 HachimiTaskLogEventKind.Action);
             context.LogSink?.Add(
                 "Career Training",

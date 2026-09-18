@@ -147,8 +147,8 @@
   <sys:String x:Key="GrassDailyRaceRunning">正在执行 {0} {1} 场日常赛</sys:String>
   <sys:String x:Key="GrassDailyRaceCompleted">Daily Race 完成：{0} 场</sys:String>
   <sys:String x:Key="GrassCareerTraineeLabel">出赛马娘</sys:String>
-  <sys:String x:Key="GrassCareerContinueExistingLabel">继续已有 Career</sys:String>
-  <sys:String x:Key="GrassCareerContinueExistingHint">如果无法继续，将删除 Career 数据并重新开始。</sys:String>
+  <sys:String x:Key="GrassCareerDeleteExistingLabel">删除已有 Career 数据</sys:String>
+  <sys:String x:Key="GrassCareerDeleteExistingHint">勾选后删除已有 Career 数据并重新开始；不勾选则尝试 Resume。</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career 模式</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy 选择</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">有缓存时使用 Legacy 1 和 Legacy 2 记录</sys:String>

@@ -359,33 +359,54 @@ public sealed class CareerEntryNavigator
                 var home = pack.ScreenProfile.Find("home");
                 if (home is null || string.IsNullOrWhiteSpace(home.EntryTask))
                     return Failure("Home entryTask is missing from screen_profile.json.", state);
-                var homeResult = await _actions.RunAsync(
-                        connection,
-                        pack,
-                        "home",
-                        "career",
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                // Some older profiles put the entry semantic action on the
-                // EntryTask only. Fall back to it without inventing a tap.
-                if (!homeResult.Succeeded && home.EntryTask is { Length: > 0 })
+                var restartingAfterCareerDelete =
+                    state.Step == CareerEntryNavigationStep.Scenario;
+                CareerActionExecutionResult homeResult;
+                if (restartingAfterCareerDelete)
                 {
-                    var taskResult = await _actions.RunTaskAsync(
+                    // Deleting the existing Career returns the game to Home.
+                    // Reuse the profile's normal Home -> Career task graph so
+                    // the new Career starts at scenario selection without
+                    // duplicating entry logic in this shared navigator.
+                    logSink?.Add(
+                        "Career Training",
+                        "Career data deleted; reopening Career to select a scenario.");
+                    homeResult = await _actions.RunTaskAsync(
                             connection,
                             pack,
                             home.EntryTask,
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!taskResult.Succeeded)
-                        return Failure(taskResult.Message, state);
                 }
-                else if (!homeResult.Succeeded)
+                else
                 {
-                    return Failure(homeResult.Message, state);
+                    homeResult = await _actions.RunAsync(
+                            connection,
+                            pack,
+                            "home",
+                            "career",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    // Some older profiles put the entry semantic action on
+                    // the EntryTask only. Fall back to it without inventing a tap.
+                    if (!homeResult.Succeeded && home.EntryTask is { Length: > 0 })
+                    {
+                        homeResult = await _actions.RunTaskAsync(
+                                connection,
+                                pack,
+                                home.EntryTask,
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                 }
-                state.Step = CareerEntryNavigationStep.Continue;
+                if (!homeResult.Succeeded)
+                    return Failure(homeResult.Message, state);
+                state.Step = restartingAfterCareerDelete
+                    ? CareerEntryNavigationStep.Scenario
+                    : CareerEntryNavigationStep.Continue;
                 return null;
 
             case "career_continue":
@@ -1079,7 +1100,10 @@ public sealed class CareerEntryNavigator
                     or "support_ready"
                     or FinalConfirmationScreenId)
             .Where(screen => state.Step != CareerEntryNavigationStep.Scenario
-                || screen.ScreenId.Equals("scenario_select", StringComparison.OrdinalIgnoreCase))
+                || screen.ScreenId.Equals("scenario_select", StringComparison.OrdinalIgnoreCase)
+                // After deleting an existing Career, the game returns to
+                // Home before the next Career click opens Scenario Select.
+                || screen.ScreenId.Equals("home", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.Step != CareerEntryNavigationStep.Continue
                 || !screen.ScreenId.Equals("home", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.Step != CareerEntryNavigationStep.Trainee

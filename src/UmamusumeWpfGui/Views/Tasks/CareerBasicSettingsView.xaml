@@ -34,11 +34,11 @@
     </Border>
     <Border Style="{DynamicResource SettingCardStyle}"
             HorizontalAlignment="Stretch">
-      <CheckBox IsChecked="{Binding ContinueExistingCareer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+      <CheckBox IsChecked="{Binding DeleteExistingCareerData, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
         <StackPanel>
-          <TextBlock Text="{DynamicResource GrassCareerContinueExistingLabel}"
+          <TextBlock Text="{DynamicResource GrassCareerDeleteExistingLabel}"
                      Style="{DynamicResource SettingCardTitleStyle}" />
-          <TextBlock Text="{DynamicResource GrassCareerContinueExistingHint}"
+          <TextBlock Text="{DynamicResource GrassCareerDeleteExistingHint}"
                      Style="{DynamicResource SettingCardDescriptionStyle}" />
         </StackPanel>
       </CheckBox>

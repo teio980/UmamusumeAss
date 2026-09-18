@@ -149,8 +149,8 @@
   <sys:String x:Key="GrassDailyRaceRunning">Running {0} {1} race(s)</sys:String>
   <sys:String x:Key="GrassDailyRaceCompleted">Daily Race completed: {0} race(s)</sys:String>
   <sys:String x:Key="GrassCareerTraineeLabel">Trainee</sys:String>
-  <sys:String x:Key="GrassCareerContinueExistingLabel">Continue existing Career</sys:String>
-  <sys:String x:Key="GrassCareerContinueExistingHint">If unavailable, delete Career data and start fresh.</sys:String>
+  <sys:String x:Key="GrassCareerDeleteExistingLabel">Delete existing Career data</sys:String>
+  <sys:String x:Key="GrassCareerDeleteExistingHint">When enabled, delete existing Career data and start fresh; otherwise attempt to resume.</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career mode</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy selection</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">Use cached Legacy 1 and Legacy 2 records when available</sys:String>

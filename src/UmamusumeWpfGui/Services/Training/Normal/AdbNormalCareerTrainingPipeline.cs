@@ -173,7 +173,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             "Career Training",
             state.TurnIndex > 0
                 ? $"Resuming checkpoint at turn {state.TurnIndex}, objective {state.CurrentObjectiveId}."
-                : "Starting a new URA career session.");
+                : settings.ContinueExistingCareer
+                    ? "No local Career turn checkpoint; the in-game Resume action will be used."
+                    : "Starting a new URA career session.");
         logSink?.Add(
             "Career Training",
             settings.ContinueExistingCareer
@@ -182,9 +184,13 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
-        var careerStartTransitionExpected = state.LastScreenId.Equals(
-            CareerStartTransitionScreenId,
-            StringComparison.OrdinalIgnoreCase);
+        // A persisted zero-turn transition is ambiguous: it can be left over
+        // from an interrupted setup while the game is already back at Home.
+        // Only a checkpoint with observed Career progress may skip the shared
+        // Home -> Career -> Resume entry flow. A transition created below in
+        // this run remains valid even before the first turn is observed.
+        var careerStartActionIssued = false;
+        var careerStartTransitionExpected = IsPersistedCareerStartTransitionExpected(state);
         if (!state.CareerStarted && !careerStartTransitionExpected)
         {
             var entryState = new CareerEntryNavigationState
@@ -228,6 +234,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             // Normal Career has no extra setup page, so this is the only
             // Normal-specific click in the entry flow.
             state.LastScreenId = CareerStartTransitionScreenId;
+            careerStartActionIssued = true;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             var startFailure = await RunScreenActionAsync(
                     connection,
@@ -248,9 +255,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            careerStartTransitionExpected = state.LastScreenId.Equals(
-                CareerStartTransitionScreenId,
-                StringComparison.OrdinalIgnoreCase);
+            careerStartTransitionExpected = !state.CareerStarted
+                && (careerStartActionIssued
+                    || IsPersistedCareerStartTransitionExpected(state));
             var observation = await ObserveAsync(
                     connection,
                     pack,
@@ -345,6 +352,13 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
     private static bool IsImportantCareerScreen(string screenId) => screenId is
         "career_main" or "career_race_result" or "career_event";
+
+    internal static bool IsPersistedCareerStartTransitionExpected(
+        UraCareerSessionState state) =>
+        state.TurnIndex > 0
+        && state.LastScreenId.Equals(
+            CareerStartTransitionScreenId,
+            StringComparison.OrdinalIgnoreCase);
 
     private static string FriendlyCareerScreen(string screenId) => screenId switch
     {

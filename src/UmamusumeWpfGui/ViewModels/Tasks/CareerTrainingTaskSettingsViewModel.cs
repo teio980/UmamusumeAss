@@ -111,7 +111,21 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public string ManifestPath { get => Entry.ManifestPath; set => Entry.ManifestPath = value; }
     public int? TraineeId { get => Entry.TraineeId; set => Entry.TraineeId = value; }
     public CareerTraineeOption? SelectedTrainee { get => Entry.SelectedTrainee; set => Entry.SelectedTrainee = value; }
-    public bool ContinueExistingCareer { get => Entry.ContinueExistingCareer; set => Entry.ContinueExistingCareer = value; }
+    public bool DeleteExistingCareerData
+    {
+        get => Entry.DeleteExistingCareerData;
+        set => Entry.DeleteExistingCareerData = value;
+    }
+
+    // Keep the old in-memory property available for callers compiled against
+    // the previous profile model. Its value is intentionally the inverse of
+    // the new UI-facing setting.
+    [Obsolete("Use DeleteExistingCareerData instead.")]
+    public bool ContinueExistingCareer
+    {
+        get => !DeleteExistingCareerData;
+        set => DeleteExistingCareerData = !value;
+    }
     public string TraineeSearchText { get => Entry.TraineeSearchText; set => Entry.TraineeSearchText = value; }
     public bool IsTraineeDropDownOpen { get => Entry.IsTraineeDropDownOpen; set => Entry.IsTraineeDropDownOpen = value; }
     public ObservableCollection<CareerTraineeOption> TraineeOptions => Entry.TraineeOptions;

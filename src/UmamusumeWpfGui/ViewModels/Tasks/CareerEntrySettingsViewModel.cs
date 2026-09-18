@@ -18,7 +18,7 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
     private readonly IUmaDatabaseService? _umaDatabase;
     private string _manifestPath = CareerTrainingTaskSettingsViewModel.DefaultManifestPath;
     private int? _traineeId = 100601;
-    private bool _continueExistingCareer;
+    private bool _deleteExistingCareerData;
     private string _legacySelectionMode = "auto";
     private bool _useLegacyGuest;
     private bool _useCachedLegacy = true;
@@ -95,10 +95,10 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
         set => TraineeId = value?.TraineeId;
     }
 
-    public bool ContinueExistingCareer
+    public bool DeleteExistingCareerData
     {
-        get => _continueExistingCareer;
-        set => Set(ref _continueExistingCareer, value);
+        get => _deleteExistingCareerData;
+        set => Set(ref _deleteExistingCareerData, value);
     }
 
     public string TraineeSearchText
