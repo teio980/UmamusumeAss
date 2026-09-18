@@ -90,6 +90,32 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Support_start_does_not_click_again_while_final_confirmation_is_loading()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.HoldSupportReadyAfterStartOnce = true;
+        harness.Actions.SetScreen("support_ready");
+
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_ready",
+        };
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: false),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal(["support_ready.start"], harness.Actions.Calls);
+        Assert.Equal(CareerEntryNavigationStep.FinalConfirmation, state.Step);
+    }
+
+    [Fact]
     public async Task Entry_action_failure_keeps_stage_and_does_not_run_the_next_stage()
     {
         var root = FindSolutionRoot();
@@ -596,6 +622,7 @@ public sealed class IndependentTrainingBehaviorTests
         public Func<string, bool>? FailWhen { get; set; }
         public string? BlockAction { get; set; }
         public bool ReturnsHomeAfterDelete { get; set; }
+        public bool HoldSupportReadyAfterStartOnce { get; set; }
         private bool _careerDataDeleted;
         public TaskCompletionSource<bool> BlockEntered { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -661,10 +688,22 @@ public sealed class IndependentTrainingBehaviorTests
                 ("trainee_select", "pick") => "legacy_select",
                 ("legacy_select", "choose") => "support_select",
                 ("support_select", "auto_fill") or ("support_select", "start") => "career_final_confirmation",
+                ("support_ready", "start") => AdvanceAfterSupportStart(),
                 _ => null,
             };
             if (next is not null)
                 _visual.SetScreen(next);
+        }
+
+        private string AdvanceAfterSupportStart()
+        {
+            if (!HoldSupportReadyAfterStartOnce)
+                return "career_final_confirmation";
+
+            HoldSupportReadyAfterStartOnce = false;
+            _visual.SetScreen("support_ready");
+            _visual.TransitionTo("career_final_confirmation", afterCaptures: 2);
+            return "support_ready";
         }
 
         private string AdvanceAfterCareerContinue(string actionId)
@@ -689,17 +728,35 @@ public sealed class IndependentTrainingBehaviorTests
                 ["trainee_select"] = (16, 29),
                 ["legacy_select"] = (17, 28),
                 ["support_select"] = (68, 145),
+                ["support_ready"] = (50, 165),
                 ["career_final_confirmation"] = (50, 10),
             };
 
         private string _screen = "home";
+        private string? _screenAfterCapture;
+        private int _capturesUntilScreenChange;
 
         public void SetScreen(string screen) => _screen = screen;
+
+        public void TransitionTo(string screen, int afterCaptures)
+        {
+            _screenAfterCapture = screen;
+            _capturesUntilScreenChange = afterCaptures;
+        }
 
         public Task<GrayImage?> CaptureGrayAsync(
             LastVerifiedConnection connection,
             CancellationToken cancellationToken = default)
         {
+            if (_capturesUntilScreenChange > 0)
+            {
+                _capturesUntilScreenChange--;
+                if (_capturesUntilScreenChange == 0 && _screenAfterCapture is not null)
+                {
+                    _screen = _screenAfterCapture;
+                    _screenAfterCapture = null;
+                }
+            }
             var pixels = new byte[100 * 200];
             if (_screen.Equals("home", StringComparison.OrdinalIgnoreCase))
                 SetHomePattern(pixels, Markers[_screen]);
@@ -852,6 +909,8 @@ public sealed class IndependentTrainingBehaviorTests
                 return "trainee_select";
             if (value.Contains("legacy_select", StringComparison.OrdinalIgnoreCase))
                 return "legacy_select";
+            if (value.Contains("support_ready", StringComparison.OrdinalIgnoreCase))
+                return "support_ready";
             if (value.Contains("support_select", StringComparison.OrdinalIgnoreCase))
                 return "support_select";
             return string.Empty;

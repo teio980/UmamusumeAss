@@ -537,6 +537,11 @@ public sealed class CareerEntryNavigator
                     .ConfigureAwait(false);
                 if (!readyResult.Succeeded)
                     return Failure(readyResult.Message, state);
+                // Start Career has already been clicked.  The formation page
+                // can remain visible for a few frames while the game opens
+                // Final Confirmation; switch the navigation stage now so a
+                // stale support_ready match cannot click Start Career twice.
+                state.Step = CareerEntryNavigationStep.FinalConfirmation;
                 state.LastScreenId = "support_start_transition";
                 return null;
 
