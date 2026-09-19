@@ -420,6 +420,44 @@ public sealed class CareerEntryNavigator
                     .ConfigureAwait(false);
                 if (!continueResult.Succeeded)
                     return Failure(continueResult.Message, state);
+
+                if (!settings.ContinueExistingCareer)
+                {
+                    // Delete Data returns the game to Home, but that Home
+                    // frame is not guaranteed to match the returned-home
+                    // recognition template (the close dialog can still be
+                    // fading out).  Restart the complete entry chain
+                    // explicitly instead of waiting for a fragile Home
+                    // observation: home selected/unselected -> Career ->
+                    // Scenario Select.
+                    var restartHomeScreen = pack.ScreenProfile.Find("home");
+                    if (restartHomeScreen is null
+                        || string.IsNullOrWhiteSpace(restartHomeScreen.EntryTask))
+                        return Failure(
+                            "Home entryTask is missing from screen_profile.json.",
+                            state);
+
+                    logSink?.Add(
+                        "Career Training",
+                        "Career data deleted; restarting Home -> Career entry before selecting a scenario.");
+                    var restartHome = await _actions.RunTaskAsync(
+                            connection,
+                            pack,
+                            restartHomeScreen.EntryTask,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!restartHome.Succeeded)
+                        return Failure(restartHome.Message, state);
+
+                    // The Home entry task already clicked Career.  Ignore
+                    // transient Home frames and wait only for Scenario Select
+                    // so the entry task cannot be repeated in a loop.
+                    state.Step = CareerEntryNavigationStep.Scenario;
+                    state.LastScreenId = "career_entry_transition";
+                    return null;
+                }
+
                 state.Step = CareerEntryNavigationStep.Scenario;
                 return null;
 

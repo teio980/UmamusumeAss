@@ -51,6 +51,7 @@ public sealed class IndependentTrainingBehaviorTests
             [
                 "task:home",
                 "career_continue.delete",
+                "task:home",
                 "scenario_select.next",
                 "trainee_select.pick",
                 "legacy_select.choose",
@@ -209,6 +210,7 @@ public sealed class IndependentTrainingBehaviorTests
             {
                 "task:home",
                 "career_continue.delete",
+                "task:home",
                 "scenario_select.next",
                 "trainee_select.pick",
                 "legacy_select.choose",
@@ -671,8 +673,11 @@ public sealed class IndependentTrainingBehaviorTests
             HachimiPipelineRunOptions? options = null)
         {
             Calls.Add($"task:{taskName}");
+            // The first Home task opens the existing-career prompt.  After
+            // Delete Data, the production navigator explicitly reruns this
+            // task and expects it to open Scenario Select directly.
             _visual.SetScreen(
-                ReturnsHomeAfterDelete && _careerDataDeleted
+                _careerDataDeleted
                     ? "scenario_select"
                     : "career_continue");
             return Task.FromResult(CareerActionExecutionResult.Success(taskName));
