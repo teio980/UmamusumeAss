@@ -132,7 +132,7 @@ goto :end
 echo [ERROR] UmamusumeAss.exe is still running. Close it and run build.bat again.
 goto :end_err
 :err_cmake
-echo [ERROR] cmake not found. Install CMake and add it to PATH.
+echo [ERROR] cmake not found. Insta6ll CMake and add it to PATH.
 goto :end_err
 :err_dotnet
 echo [ERROR] dotnet not found. Install the .NET 10 SDK and add it to PATH.
