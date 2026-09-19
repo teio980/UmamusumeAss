@@ -11,8 +11,8 @@ false
 TRACE;DEBUG;NET;NET10_0;NETCOREAPP;WINDOWS;WINDOWS10_0_17763_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NET10_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS10_0_17763_0_OR_GREATER;WINDOWS8_0_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\Owner\Documents\teiocode\UmamusumeAss\UmamusumeAss\src\UmamusumeWpfGui\App.xaml
 31949221410
-1128-292659681
-626983443528
+1129-1994995862
+666-1491822411
 428-983875790
 Resources\Strings.en-US.xaml;Resources\Strings.zh-CN.xaml;Res\SettingStyles.xaml;Res\Style.xaml;Res\Styles\Button.xaml;Res\Styles\CheckBox.xaml;Res\Styles\ComboBox.xaml;Res\Styles\ScrollBar.xaml;Res\Styles\TextBox.xaml;Res\Theme.xaml;Res\Themes\Light.xaml;Views\DeveloperToolsView.xaml;Views\Dialogs\SelectionDialogView.xaml;Views\Dialogs\TaskSelectionDialogView.xaml;Views\GrassView.xaml;Views\HachimiTaskSettingsView.xaml;Views\LogView.xaml;Views\OverviewView.xaml;Views\RootView.xaml;Views\SettingsView.xaml;Views\Tasks\CareerBasicSettingsView.xaml;Views\Tasks\CareerLegacySettingsView.xaml;Views\Tasks\CareerSupportDeckSettingsView.xaml;Views\Tasks\CareerTrainingTaskSettingsView.xaml;Views\Tasks\DailyRaceTaskSettingsView.xaml;Views\Tasks\IndependentTrainingSettingsView.xaml;Views\Tasks\MailCollectionTaskSettingsView.xaml;Views\Tasks\MissionCollectionTaskSettingsView.xaml;Views\Tasks\StartGameTaskSettingsView.xaml;Views\Tasks\TeamRaceTaskSettingsView.xaml;Views\Tasks\TraineePickerView.xaml;
 
