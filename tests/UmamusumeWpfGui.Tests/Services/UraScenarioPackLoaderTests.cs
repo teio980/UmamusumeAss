@@ -23,6 +23,7 @@ public sealed class UraScenarioPackLoaderTests
     private static readonly int[] ScenarioHeaderRoi = [0, 190, 430, 80];
     private static readonly int[] ScenarioStartupHeaderRoi = [620, 165, 205, 29];
     private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];
+    private static readonly int[] CareerMainHeaderRoi = [0, 0, 120, 50];
     private static readonly int[] ScenarioNextCardRect = [815, 650, 75, 180];
 
     [Fact]
@@ -117,7 +118,7 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "templates/normal/trainee_select_career_info.png",
             traineeStartup?.Recognition.Template);
-        Assert.Equal([576, 510, 145, 32], traineeStartup?.Recognition.Roi);
+        Assert.Equal([576, 510, 145, 32], traineeStartup!.Recognition.Roi!);
         Assert.Single(traineeStartup?.Templates ?? []);
         Assert.Equal(
             "templates/trainee_select_header.png",
@@ -128,6 +129,20 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             0.88,
             pack.ScreenProfile.Find("trainee_select")?.Recognition.TemplateThreshold);
+        var careerMain = pack.ScreenProfile.Find("career_main");
+        Assert.Equal(
+            "templates/career_main_header.png",
+            careerMain?.Recognition.Template);
+        Assert.Equal(CareerMainHeaderRoi, careerMain!.Recognition.Roi!);
+        Assert.Equal(0.92, careerMain?.Recognition.TemplateThreshold);
+        Assert.Single(careerMain?.Templates ?? []);
+        Assert.True(File.Exists(Path.Combine(
+            FindWorkspaceRoot(),
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            careerMain!.Recognition.Template!)));
         Assert.Contains(
             "templates/runtime_frames/scenario_select_ura.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates

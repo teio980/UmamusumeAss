@@ -612,17 +612,16 @@
                     {
                         "screenId":  "career_main",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/training_main_turn1_ura.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/training_main_turn2_ura.png",
-                                                              "templates/runtime_frames/training_main_turn10_ura.png",
-                                                              "templates/runtime_frames/training_main_turn13_ura.png",
-                                                              "templates/runtime_frames/training_main_turn15_ura.png",
-                                                              "templates/runtime_frames/senior_year_main.png",
-                                                              "templates/runtime_frames/year2_main_start.png"
-                                                          ],
+                                            "template":  "templates/career_main_header.png",
+                                            "roi":  [
+                                                        0,
+                                                        0,
+                                                        120,
+                                                        50
+                                                    ],
+                                            "templThreshold":  0.92,
                                             "requiredText":  [
-                                                                 "Training"
+                                                                 "Career"
                                                              ],
                                             "stable":  true
                                         },
