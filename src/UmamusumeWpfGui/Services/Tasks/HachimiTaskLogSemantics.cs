@@ -221,6 +221,18 @@ internal static class HachimiTaskLogSemantics
             "normal.strategy.return" => Step("Returning from race strategy", "Race strategy closed"),
             "normal.start" => Step("Starting Normal Career", "Normal Career started"),
             "normal.post_start.ok" => Step("Confirming the post-start dialog", "Post-start dialog confirmed"),
+            "normal.post_start.skip" => Step(
+                "Skipping the opening Career introduction",
+                "Opening Career introduction skipped"),
+            "normal.quick_mode.shorten" => Step(
+                "Selecting Shorten all events",
+                "Shorten all events selected"),
+            "normal.quick_mode.skip" => Step(
+                "Setting Skip to the fastest speed",
+                "Fastest Skip speed selected"),
+            "normal.quick_mode.confirm" => Step(
+                "Confirming Quick Mode settings",
+                "Quick Mode settings confirmed"),
             "independent.select_mode" => Step("Selecting Independent Training mode", "Independent Training mode selected"),
             "independent.lineup.expand" => Step("Opening the training lineup", "Training lineup opened"),
             "independent.focus.stamina" => Step("Selecting the stamina focus", "Stamina focus selected"),
@@ -273,6 +285,24 @@ internal static class HachimiTaskLogSemantics
             "normal_post_start_ok" => Step(
                 "Confirming the Career start dialog",
                 "Career start dialog confirmed"),
+            "normal_post_start_skip" => Step(
+                "Skipping the opening Career introduction",
+                "Opening Career introduction skipped"),
+            "normal_quick_mode_shorten_probe" or "normal_quick_mode_shorten_click" => Step(
+                "Selecting Shorten all events",
+                "Shorten all events selected"),
+            "normal_quick_mode_shorten_confirm" => Step(
+                "Checking Shorten all events",
+                "Shorten all events confirmed"),
+            "normal_quick_mode_skip_two_probe" or "normal_quick_mode_skip_one_probe" => Step(
+                "Checking the Skip speed",
+                "Skip speed checked"),
+            "normal_quick_mode_skip_one_click" or "normal_quick_mode_skip_off_click" => Step(
+                "Advancing Skip speed",
+                "Skip speed advanced"),
+            "normal_quick_mode_confirm" => Step(
+                "Confirming Quick Mode settings",
+                "Quick Mode settings confirmed"),
             "home_home_career" or "home_home_career_active" => Step(
                 "Opening Career from Home",
                 "Career entry opened"),

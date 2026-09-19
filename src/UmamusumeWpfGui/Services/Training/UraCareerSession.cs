@@ -19,13 +19,18 @@ public enum UraStateSource
 /// </summary>
 public enum NormalCareerSetupStage
 {
-    EnterCareer,
-    ConfigureMode,
-    ConfigureStrategy,
-    StartCareer,
-    ConfirmStart,
-    AwaitCareerMain,
-    InCareer,
+    EnterCareer = 0,
+    ConfigureMode = 1,
+    ConfigureStrategy = 2,
+    StartCareer = 3,
+    ConfirmStart = 4,
+    SkipIntro = 5,
+    // Keep the original persisted values stable for existing checkpoints.
+    AwaitCareerMain = 6,
+    InCareer = 7,
+    ConfigureQuickMode = 8,
+    SetQuickMode = 9,
+    ConfirmQuickMode = 10,
 }
 
 public sealed record UraObservedValue<T>(

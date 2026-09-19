@@ -612,6 +612,89 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Normal_career_post_start_skips_the_opening_intro_with_the_bottom_right_button()
+    {
+        var root = FindSolutionRoot();
+        var profilePath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json");
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var confirmation = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "career_final_confirmation");
+        var skipAction = confirmation
+            .GetProperty("actions")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("semanticId").GetString() == "normal.post_start.skip");
+
+        Assert.Equal("normal_post_start_skip", skipAction.GetProperty("task").GetString());
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "execution.json"));
+        var task = definition!.GetTask("normal_post_start_skip");
+
+        Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
+        Assert.Equal("templates/career_intro_event_event_advance.png", task.Template);
+        Assert.Equal([740, 1400, 150, 170], task.Roi!);
+        Assert.Equal(0.78, task.TemplateThreshold);
+    }
+
+    [Fact]
+    public async Task Normal_quick_mode_flow_selects_shortened_events_and_reaches_two_arrow_skip()
+    {
+        var root = FindSolutionRoot();
+        var profilePath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json");
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var quickMode = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "normal_quick_mode_settings");
+        var recognition = quickMode.GetProperty("recognition");
+
+        Assert.Equal("templates/normal/quick_mode_header.png", recognition.GetProperty("template").GetString());
+        Assert.Equal(
+            [10, 370, 880, 80],
+            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "execution.json"));
+        var skipTwo = definition!.GetTask("normal_quick_mode_skip_two_probe");
+        var skipOne = definition.GetTask("normal_quick_mode_skip_one_probe");
+        var skipOff = definition.GetTask("normal_quick_mode_skip_off_click");
+        var skipOneClick = definition.GetTask("normal_quick_mode_skip_one_click");
+
+        Assert.Equal("templates/normal/quick_mode_skip_two.png", skipTwo.Template);
+        Assert.Equal("normal_quick_mode_skip_one_probe", skipTwo.OnErrorNext.Single());
+        Assert.Equal("normal_quick_mode_skip_one_click", skipOne.Next.Single());
+        Assert.Equal("normal_quick_mode_skip_off_click", skipOne.OnErrorNext.Single());
+        Assert.Equal("normal_quick_mode_skip_two_probe", skipOneClick.Next.Single());
+        Assert.Equal("normal_quick_mode_skip_one_probe", skipOff.Next.Single());
+        Assert.Equal("templates/normal/quick_mode_confirm.png", definition.GetTask("normal_quick_mode_confirm").Template);
+    }
+
+    [Fact]
     public async Task Ura_support_picker_controls_are_template_driven()
     {
         var root = FindSolutionRoot();

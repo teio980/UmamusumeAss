@@ -245,8 +245,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         }
 
         if (!state.CareerStarted
-            && state.NormalSetupStage is >= NormalCareerSetupStage.ConfigureMode
-                and <= NormalCareerSetupStage.AwaitCareerMain)
+            && IsPendingNormalSetupStage(state.NormalSetupStage))
         {
             var setupFailure = await ConfigureNormalCareerAsync(
                     connection,
@@ -381,6 +380,16 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         };
     }
 
+    private static bool IsPendingNormalSetupStage(NormalCareerSetupStage stage) => stage is
+        NormalCareerSetupStage.ConfigureMode
+            or NormalCareerSetupStage.ConfigureStrategy
+            or NormalCareerSetupStage.StartCareer
+            or NormalCareerSetupStage.ConfirmStart
+            or NormalCareerSetupStage.SkipIntro
+            or NormalCareerSetupStage.ConfigureQuickMode
+            or NormalCareerSetupStage.SetQuickMode
+            or NormalCareerSetupStage.ConfirmQuickMode;
+
     private async Task<CareerTrainingResult?> ConfigureNormalCareerAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
@@ -473,6 +482,75 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             if (ok is not null)
                 return ok;
 
+            state.NormalSetupStage = NormalCareerSetupStage.SkipIntro;
+            state.LastScreenId = "career_intro_event";
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.SkipIntro)
+        {
+            // The first post-start setup step is the skip button on the
+            // opening Tazuna introduction. Persist this stage before the tap
+            // so an interrupted run resumes here instead of replaying Start.
+            var skipIntro = await RunNormalSetupActionAsync(
+                    connection,
+                    pack,
+                    "normal.post_start.skip",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (skipIntro is not null)
+                return skipIntro;
+
+            state.NormalSetupStage = NormalCareerSetupStage.ConfigureQuickMode;
+            state.LastScreenId = "normal_quick_mode_settings";
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureQuickMode)
+        {
+            var shortenEvents = await RunNormalQuickModeActionAsync(
+                    connection,
+                    pack,
+                    "normal.quick_mode.shorten",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (shortenEvents is not null)
+                return shortenEvents;
+
+            state.NormalSetupStage = NormalCareerSetupStage.SetQuickMode;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.SetQuickMode)
+        {
+            var skipMode = await RunNormalQuickModeActionAsync(
+                    connection,
+                    pack,
+                    "normal.quick_mode.skip",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (skipMode is not null)
+                return skipMode;
+
+            state.NormalSetupStage = NormalCareerSetupStage.ConfirmQuickMode;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmQuickMode)
+        {
+            var confirmQuickMode = await RunNormalQuickModeActionAsync(
+                    connection,
+                    pack,
+                    "normal.quick_mode.confirm",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (confirmQuickMode is not null)
+                return confirmQuickMode;
+
             state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
             state.LastScreenId = CareerStartTransitionScreenId;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -499,6 +577,28 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         if (result is null)
         {
             logSink?.Add("Career Training", $"Normal setup action completed: {actionId}.");
+        }
+        return result;
+    }
+
+    private async Task<CareerTrainingResult?> RunNormalQuickModeActionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var result = await RunScreenActionAsync(
+                connection,
+                pack,
+                "normal_quick_mode_settings",
+                actionId,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result is null)
+        {
+            logSink?.Add("Career Training", $"Normal Quick Mode action completed: {actionId}.");
         }
         return result;
     }

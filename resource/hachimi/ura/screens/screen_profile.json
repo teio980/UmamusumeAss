@@ -54,6 +54,7 @@
                             {"semanticId":"normal.strategy.return","task":"normal_strategy_return_probe"},
                             {"semanticId":"normal.start","task":"career_entry_career_start"},
                             {"semanticId":"normal.post_start.ok","task":"normal_post_start_ok"},
+                            {"semanticId":"normal.post_start.skip","task":"normal_post_start_skip"},
                             {"semanticId":"independent.select_mode","task":"independent_mode_selected_probe"},
                             {"semanticId":"independent.lineup.expand","task":"independent_lineup_expand_prepare"},
                             {"semanticId":"independent.lineup.scroll.top","task":"independent_lineup_scroll_to_top"},
@@ -544,6 +545,20 @@
                                             "task":  "career_races_ready_action_races"
                                         }
                                     ]
+                    },
+                    {
+                        "screenId": "normal_quick_mode_settings",
+                        "recognition": {
+                            "template": "templates/normal/quick_mode_header.png",
+                            "roi": [10,370,880,80],
+                            "templThreshold": 0.82,
+                            "stable": true
+                        },
+                        "actions": [
+                            {"semanticId":"normal.quick_mode.shorten","task":"normal_quick_mode_shorten_probe"},
+                            {"semanticId":"normal.quick_mode.skip","task":"normal_quick_mode_skip_two_probe"},
+                            {"semanticId":"normal.quick_mode.confirm","task":"normal_quick_mode_confirm"}
+                        ]
                     },
                     {
                         "screenId":  "career_main",
