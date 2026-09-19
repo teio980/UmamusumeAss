@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UmamusumeAss")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.2.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.2+4744bd8ca45ee836a4bb5c89e72a29725d93b375")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.2+73a96d1750f6bea25930046a113720e6a1d14929")]
 [assembly: System.Reflection.AssemblyProductAttribute("UmamusumeAss")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UmamusumeAss")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.2.2.0")]
