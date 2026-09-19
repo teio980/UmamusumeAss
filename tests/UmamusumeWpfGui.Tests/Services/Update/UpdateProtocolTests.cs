@@ -441,6 +441,88 @@ public sealed class UpdateProtocolTests
     }
 
     [Fact]
+    public async Task SameVersionBundledResourceChangesRefreshTheLocalCache()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        var bundled = Path.Combine(root, "install", "resource");
+        var appData = Path.Combine(root, "appdata");
+        Directory.CreateDirectory(bundled);
+        var configPath = Path.Combine(bundled, "config.json");
+        await File.WriteAllTextAsync(configPath, "bundled-v1");
+
+        try
+        {
+            ResourceRevision firstRevision;
+            using (var firstStore = new ResourceStore(appData))
+            {
+                await firstStore.InitializeAsync(bundled);
+                firstRevision = firstStore.Active;
+                Assert.Equal("bundled-v1", await File.ReadAllTextAsync(
+                    firstStore.Resolve("resource/config.json")));
+            }
+
+            await File.WriteAllTextAsync(configPath, "bundled-v2");
+
+            using var refreshedStore = new ResourceStore(appData);
+            await refreshedStore.InitializeAsync(bundled);
+
+            Assert.Equal(firstRevision.Version, refreshedStore.Active.Version);
+            Assert.NotEqual(firstRevision.BaseTreeSha256, refreshedStore.Active.BaseTreeSha256);
+            Assert.Equal("bundled-v2", await File.ReadAllTextAsync(
+                refreshedStore.Resolve("resource/config.json")));
+        }
+        finally
+        {
+            ResourcePathRuntime.SetBaseDirectory(AppContext.BaseDirectory);
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task BundledRefreshDoesNotReplaceDownloadedResourceRevision()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        var bundled = Path.Combine(root, "install", "resource");
+        var payload = Path.Combine(root, "payload");
+        var appData = Path.Combine(root, "appdata");
+        Directory.CreateDirectory(bundled);
+        Directory.CreateDirectory(payload);
+        var bundledConfig = Path.Combine(bundled, "config.json");
+        await File.WriteAllTextAsync(bundledConfig, "bundled-v1");
+        await File.WriteAllTextAsync(Path.Combine(payload, "config.json"), "downloaded");
+
+        try
+        {
+            using (var firstStore = new ResourceStore(appData))
+            {
+                await firstStore.InitializeAsync(bundled);
+                var payloadHash = await ComputeTreeHashAsync(payload);
+                var downloaded = await firstStore.PrepareAsync(
+                    "2026.09.10.1",
+                    payload,
+                    isDelta: false,
+                    deletes: null,
+                    expectedTargetTreeSha256: payloadHash);
+                await firstStore.CommitAsync(downloaded);
+            }
+
+            await File.WriteAllTextAsync(bundledConfig, "bundled-v2");
+
+            using var restartedStore = new ResourceStore(appData);
+            await restartedStore.InitializeAsync(bundled);
+
+            Assert.Equal("2026.09.10.1", restartedStore.Active.Version);
+            Assert.Equal("downloaded", await File.ReadAllTextAsync(
+                restartedStore.Resolve("resource/config.json")));
+        }
+        finally
+        {
+            ResourcePathRuntime.SetBaseDirectory(AppContext.BaseDirectory);
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task ResourceFullThenDeltaAppliesAgainstTrustedBaseAndDeletesFiles()
     {
         var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));

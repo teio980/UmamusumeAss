@@ -107,6 +107,8 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             Directory.CreateDirectory(_viewsRoot);
             Directory.CreateDirectory(Path.GetDirectoryName(_activePointerPath)!);
 
+            var bundledVersion = "bundled-" + UpdateVersionInfo.CurrentVersion;
+            string? staleBundledVersion = null;
             if (File.Exists(_activePointerPath))
             {
                 try
@@ -118,15 +120,32 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                         && Directory.Exists(pointer.ViewDirectory)
                         && Directory.Exists(Path.Combine(pointer.ViewDirectory, "resource")))
                     {
-                        _active = new ResourceRevision(
-                            pointer.Version,
-                            pointer.BaseTreeSha256,
-                            pointer.ViewTreeSha256);
-                        RequiresFullResource = pointer.RequiresFullResource;
-                        _activeDirectory = pointer.ViewDirectory;
-                        ResourcePathRuntime.SetBaseDirectory(_activeDirectory);
-                        _initialized = true;
-                        return;
+                        var isBundledRevision = pointer.Version.Equals(
+                                UpdateVersionInfo.CurrentVersion,
+                                StringComparison.Ordinal)
+                            || pointer.Version.Equals(bundledVersion, StringComparison.Ordinal);
+                        var bundledHashMatches = !isBundledRevision
+                            || pointer.BaseTreeSha256.Equals(
+                                await ComputeTreeHashAsync(bundled, cancellationToken)
+                                    .ConfigureAwait(false),
+                                StringComparison.OrdinalIgnoreCase);
+                        if (bundledHashMatches)
+                        {
+                            _active = new ResourceRevision(
+                                pointer.Version,
+                                pointer.BaseTreeSha256,
+                                pointer.ViewTreeSha256);
+                            RequiresFullResource = pointer.RequiresFullResource;
+                            _activeDirectory = pointer.ViewDirectory;
+                            ResourcePathRuntime.SetBaseDirectory(_activeDirectory);
+                            _initialized = true;
+                            return;
+                        }
+
+                        // A same-version bundled resource can change during
+                        // local development. Rebuild only that bundled slot;
+                        // downloaded resource revisions remain untouched.
+                        staleBundledVersion = pointer.Version;
                     }
                 }
                 catch (JsonException)
@@ -135,8 +154,10 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                 }
             }
 
-            var version = UpdateVersionInfo.CurrentVersion;
+            var version = staleBundledVersion ?? UpdateVersionInfo.CurrentVersion;
             var baseDirectory = Path.Combine(_basesRoot, version);
+            if (staleBundledVersion is not null && Directory.Exists(baseDirectory))
+                Directory.Delete(baseDirectory, recursive: true);
             if (!Directory.Exists(Path.Combine(baseDirectory, "resource")))
             {
                 var temporary = baseDirectory + ".tmp-" + Guid.NewGuid().ToString("N");

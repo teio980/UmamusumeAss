@@ -261,7 +261,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         UpdateStateStore updateState,
         ManifestVerifier verifier)
     {
-        if (resources.Active.Version.StartsWith("bundled-", StringComparison.Ordinal)
+        var bundledVersion = "bundled-" + UpdateVersionInfo.CurrentVersion;
+        if (resources.Active.Version.Equals(bundledVersion, StringComparison.Ordinal)
             || resources.Active.Version.Equals(
                 UpdateVersionInfo.CurrentVersion, StringComparison.Ordinal))
             return true;
