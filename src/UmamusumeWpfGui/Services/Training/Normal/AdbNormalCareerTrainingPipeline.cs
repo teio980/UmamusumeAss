@@ -12,9 +12,42 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
     private const string CareerStartTransitionScreenId = "career_start_transition";
-    private static readonly (string ScreenId, NormalCareerSetupStage Stage)[] StartupPageStages =
+    private sealed record StartupPageStage(
+        string RecognitionScreenId,
+        string ResumeScreenId,
+        NormalCareerSetupStage SetupStage,
+        CareerEntryNavigationStep? EntryStep = null);
+
+    private static readonly StartupPageStage[] StartupPageStages =
     [
-        ("normal_quick_mode_settings", NormalCareerSetupStage.ConfigureQuickMode),
+        new(
+            "normal_quick_mode_settings",
+            "normal_quick_mode_settings",
+            NormalCareerSetupStage.ConfigureQuickMode),
+        new(
+            "normal_scenario_select_startup",
+            "scenario_select",
+            NormalCareerSetupStage.EnterCareer,
+            CareerEntryNavigationStep.Scenario),
+        new(
+            "normal_trainee_select_startup",
+            "trainee_select",
+            NormalCareerSetupStage.EnterCareer,
+            CareerEntryNavigationStep.Trainee),
+        new(
+            "normal_legacy_select_startup",
+            "legacy_select",
+            NormalCareerSetupStage.EnterCareer,
+            CareerEntryNavigationStep.Legacy),
+        new(
+            "normal_support_select_startup",
+            "support_select",
+            NormalCareerSetupStage.EnterCareer,
+            CareerEntryNavigationStep.Support),
+        new(
+            "normal_final_confirmation_startup",
+            "career_final_confirmation",
+            NormalCareerSetupStage.ConfigureMode),
     ];
 
     private readonly IVisualPipelineRuntime _visualRuntime;
@@ -195,6 +228,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 ? "Existing Career handling selected: Resume."
                 : "Existing Career handling selected: Delete Data.");
 
+        CareerEntryNavigationStep? startupEntryStep = null;
+
         // Recover the first supported mid-flow page before invoking the shared
         // Home -> Career navigator. Each recoverable page intentionally uses
         // one small, stable recognition template and maps to a setup stage;
@@ -210,13 +245,15 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (startupPage is { } detected)
             {
-                state.NormalSetupStage = detected.Stage;
-                state.LastScreenId = detected.ScreenId;
+                state.NormalSetupStage = detected.SetupStage;
+                state.LastScreenId = detected.ResumeScreenId;
+                startupEntryStep = detected.EntryStep;
                 await checkpointStore.SaveAsync(state, cancellationToken)
                     .ConfigureAwait(false);
                 logSink?.Add(
                     "Career Training",
-                    $"Startup page recognized as {detected.ScreenId}; resuming Normal setup.");
+                    $"Startup page recognized as {detected.RecognitionScreenId}; "
+                    + $"resuming from {detected.ResumeScreenId}.");
             }
         }
 
@@ -231,10 +268,17 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         {
             var entryState = new CareerEntryNavigationState
             {
+                // A recognized startup page may already be inside the shared
+                // Career entry flow. Seed the navigator at that step so it
+                // continues from the current page instead of clicking Home
+                // and Career again.
+                Step = startupEntryStep ?? CareerEntryNavigationStep.Home,
                 // A zero-turn checkpoint can contain a stale entry screen
                 // from an interrupted setup. A new career must always start
                 // through the shared Home -> Career entry chain.
-                LastScreenId = state.TurnIndex == 0
+                LastScreenId = startupEntryStep is not null
+                    ? state.LastScreenId
+                    : state.TurnIndex == 0
                     ? "unknown"
                     : state.LastScreenId,
                 ActionsCompleted = actionCount,
@@ -419,31 +463,37 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             or NormalCareerSetupStage.SetQuickMode
             or NormalCareerSetupStage.ConfirmQuickMode;
 
-    private async Task<(string ScreenId, NormalCareerSetupStage Stage)?> DetectNormalStartupPageAsync(
+    private async Task<StartupPageStage?> DetectNormalStartupPageAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         CancellationToken cancellationToken)
     {
+        var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+            .ConfigureAwait(false);
+        if (frame is null)
+            return null;
+
         foreach (var candidate in StartupPageStages)
         {
-            var screen = pack.ScreenProfile.Find(candidate.ScreenId);
+            var screen = pack.ScreenProfile.Find(candidate.RecognitionScreenId);
             if (screen is null || screen.Templates.Count != 1)
                 continue;
 
-            var match = await _visualRuntime.WaitForMatchAsync(
-                    connection,
+            var template = await LoadTemplateCachedAsync(
                     ResolveCapture(pack, screen.Templates[0]),
-                    screen.Recognition.Roi,
-                    screen.Recognition.TemplateThreshold,
-                    pack.ScreenProfile.ReferenceWidth,
-                    pack.ScreenProfile.ReferenceHeight,
-                    timeoutMilliseconds: 1400,
-                    pollIntervalMilliseconds: 150,
-                    taskName: $"normal.startup.{candidate.ScreenId}",
-                    baseDirectory: string.Empty,
-                    cancellationToken: cancellationToken)
+                    cancellationToken)
                 .ConfigureAwait(false);
-            if (match?.Found == true)
+            if (template is null)
+                continue;
+
+            var match = TemplateMatcher.Find(
+                frame,
+                template,
+                screen.Recognition.Roi,
+                screen.Recognition.TemplateThreshold,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight);
+            if (match.Found)
                 return candidate;
         }
 

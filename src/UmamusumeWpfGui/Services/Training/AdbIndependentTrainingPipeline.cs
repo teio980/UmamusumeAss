@@ -190,6 +190,21 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             }
         }
 
+        if (state.Stage == IndependentTrainingStage.EnterCareer
+            && await DetectFinalConfirmationStartupPageAsync(
+                    connection,
+                    pack,
+                    cancellationToken)
+                .ConfigureAwait(false))
+        {
+            state.Stage = IndependentTrainingStage.SelectIndependentMode;
+            state.LastConfirmedScreen = FinalConfirmationScreenId;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            logSink?.Add(
+                "Independent Training",
+                "Final Confirmation page recognized; resuming Independent setup.");
+        }
+
         if (IsEntryStage(state.Stage))
         {
             var entryState = new CareerEntryNavigationState
@@ -1022,6 +1037,38 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
 
     private static bool IsEntryStage(IndependentTrainingStage stage) =>
         (int)stage <= (int)IndependentTrainingStage.OpenFinalConfirmation;
+
+    private async Task<bool> DetectFinalConfirmationStartupPageAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        CancellationToken cancellationToken)
+    {
+        var screen = pack.ScreenProfile.Find("normal_final_confirmation_startup");
+        if (screen is null || screen.Templates.Count != 1)
+            return false;
+
+        var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+            .ConfigureAwait(false);
+        if (frame is null)
+            return false;
+
+        var template = await _visualRuntime.LoadTemplateAsync(
+                UraScenarioResourceResolver.Resolve(pack, screen.Templates[0]),
+                string.Empty,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (template is null)
+            return false;
+
+        return TemplateMatcher.Find(
+                frame,
+                template,
+                screen.Recognition.Roi,
+                screen.Recognition.TemplateThreshold,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight)
+            .Found;
+    }
 
     private static bool IsIndependentConfigurationStage(IndependentTrainingStage stage) =>
         (int)stage >= (int)IndependentTrainingStage.SelectIndependentMode

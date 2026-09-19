@@ -176,6 +176,16 @@
                         ]
                     },
                     {
+                        "screenId": "normal_final_confirmation_startup",
+                        "recognition": {
+                            "template": "templates/career_final_confirmation_title.png",
+                            "roi": [304,59,304,42],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
                         "screenId":  "home",
                         "entryTask":  "home",
                         "recognition":  {
@@ -246,6 +256,46 @@
                                             "task":  "scenario_select_scenario_next_card"
                                         }
                                     ]
+                    },
+                    {
+                        "screenId": "normal_scenario_select_startup",
+                        "recognition": {
+                            "template": "templates/normal/scenario_record_header.png",
+                            "roi": [620,165,205,29],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
+                        "screenId": "normal_trainee_select_startup",
+                        "recognition": {
+                            "template": "templates/normal/trainee_select_career_info.png",
+                            "roi": [576,510,145,32],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
+                        "screenId": "normal_legacy_select_startup",
+                        "recognition": {
+                            "template": "templates/normal/legacy1_title.png",
+                            "roi": [48,821,96,32],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
+                        "screenId": "normal_support_select_startup",
+                        "recognition": {
+                            "template": "templates/normal/deck_title.png",
+                            "roi": [66,286,73,38],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": []
                     },
                     {
                         "screenId":  "trainee_select",
@@ -461,14 +511,14 @@
                     {
                         "screenId":  "legacy_select",
                         "recognition":  {
-                                            "template":  "templates/legacy/legacy_select_header_cropped.png",
+                                            "template":  "templates/normal/legacy1_title.png",
                                             "roi":  [
-                                                       0,
-                                                       190,
-                                                       300,
-                                                       70
+                                                       48,
+                                                       821,
+                                                       96,
+                                                       32
                                                    ],
-                                            "templThreshold":  0.90,
+                                            "templThreshold":  0.88,
                                             "requiredText":  [
                                                                  "Legacy Select",
                                                                  "Auto-Select"
