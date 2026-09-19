@@ -648,6 +648,47 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("templates/career_intro_event_event_advance.png", task.Template);
         Assert.Equal([740, 1400, 150, 170], task.Roi!);
         Assert.Equal(0.78, task.TemplateThreshold);
+        Assert.Equal("normal_post_start_skip_confirm", task.Next.Single());
+
+        var skipConfirmation = definition.GetTask("normal_post_start_skip_confirm");
+        Assert.Equal("MatchTemplate", skipConfirmation.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", skipConfirmation.Action, ignoreCase: true);
+        Assert.Equal("templates/career_intro_event_skip_confirm.png", skipConfirmation.Template);
+        Assert.Equal([450, 970, 420, 170], skipConfirmation.Roi!);
+        Assert.Equal(0.82, skipConfirmation.TemplateThreshold);
+        Assert.False(skipConfirmation.Required);
+    }
+
+    [Fact]
+    public async Task Normal_career_does_not_bind_post_start_to_support_autofill_confirmation()
+    {
+        var root = FindSolutionRoot();
+        var profilePath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "screen_profile.json");
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var confirmation = document.RootElement
+            .GetProperty("screens")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("screenId").GetString() == "career_final_confirmation");
+
+        Assert.DoesNotContain(
+            confirmation.GetProperty("actions").EnumerateArray(),
+            item => item.GetProperty("semanticId").GetString() == "normal.post_start.ok");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "execution.json"));
+
+        Assert.False(definition!.TryGetTask("normal_post_start_ok", out _));
     }
 
     [Fact]
@@ -685,6 +726,10 @@ public sealed class HachimiPipelineDefinitionTests
         var skipOff = definition.GetTask("normal_quick_mode_skip_off_click");
         var skipOneClick = definition.GetTask("normal_quick_mode_skip_one_click");
 
+        Assert.Equal("MatchTemplateColor", skipTwo.Algorithm);
+        Assert.Equal("MatchTemplateColor", skipOne.Algorithm);
+        Assert.Equal("MatchTemplateColor", skipOff.Algorithm);
+        Assert.Equal("MatchTemplateColor", skipOneClick.Algorithm);
         Assert.Equal("templates/normal/quick_mode_skip_two.png", skipTwo.Template);
         Assert.Equal("normal_quick_mode_skip_one_probe", skipTwo.OnErrorNext.Single());
         Assert.Equal("normal_quick_mode_skip_one_click", skipOne.Next.Single());

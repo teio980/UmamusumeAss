@@ -220,7 +220,6 @@ internal static class HachimiTaskLogSemantics
             "normal.strategy.save" => Step("Saving the race strategy", "Race strategy saved"),
             "normal.strategy.return" => Step("Returning from race strategy", "Race strategy closed"),
             "normal.start" => Step("Starting Normal Career", "Normal Career started"),
-            "normal.post_start.ok" => Step("Confirming the post-start dialog", "Post-start dialog confirmed"),
             "normal.post_start.skip" => Step(
                 "Skipping the opening Career introduction",
                 "Opening Career introduction skipped"),
@@ -282,12 +281,12 @@ internal static class HachimiTaskLogSemantics
             "normal_mode_select" => Step(
                 "Selecting Normal Career mode",
                 "Normal Career mode selected"),
-            "normal_post_start_ok" => Step(
-                "Confirming the Career start dialog",
-                "Career start dialog confirmed"),
             "normal_post_start_skip" => Step(
                 "Skipping the opening Career introduction",
                 "Opening Career introduction skipped"),
+            "normal_post_start_skip_confirm" => Step(
+                "Confirming the opening Career introduction skip",
+                "Opening Career introduction skip confirmed"),
             "normal_quick_mode_shorten_probe" or "normal_quick_mode_shorten_click" => Step(
                 "Selecting Shorten all events",
                 "Shorten all events selected"),

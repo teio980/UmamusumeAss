@@ -561,10 +561,11 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
+        var startIssuedThisRun = false;
         if (state.NormalSetupStage == NormalCareerSetupStage.StartCareer)
         {
-            // Persist the stage before the tap so an interrupted run resumes
-            // with the confirmation action instead of clicking Start twice.
+            // Persist the stage before the tap so an interrupted run can
+            // inspect the actual page before deciding whether to tap Start.
             state.NormalSetupStage = NormalCareerSetupStage.ConfirmStart;
             state.LastScreenId = CareerStartTransitionScreenId;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
@@ -578,22 +579,67 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (start is not null)
                 return start;
+            startIssuedThisRun = true;
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmStart)
         {
-            var ok = await RunNormalSetupActionAsync(
+            // ConfirmStart was persisted before the tap so an interrupted run
+            // would not normally click Start twice.  Older checkpoints can,
+            // however, reach this stage after the tap already succeeded.  If
+            // the game is still on Final Confirmation, retry the pending tap;
+            // otherwise treat the checkpoint as already inside the transition.
+            if (!startIssuedThisRun)
+            {
+                var currentStartPage = await DetectNormalStartupPageAsync(
+                        connection,
+                        pack,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (currentStartPage?.RecognitionScreenId == "normal_final_confirmation_startup")
+                {
+                    logSink?.Add(
+                        "Career Training",
+                        "Final Confirmation is still visible; retrying the pending Normal Career start.");
+                    var retryStart = await RunNormalSetupActionAsync(
+                            connection,
+                            pack,
+                            "normal.start",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (retryStart is not null)
+                        return retryStart;
+                    startIssuedThisRun = true;
+                }
+            }
+
+            // Normal Career does not show the support-deck confirmation used
+            // by the Independent flow.  After the final Start tap the game
+            // either opens the Tazuna intro or lands directly on a Career
+            // screen.  The old code unconditionally clicked the Independent
+            // confirmation template here, which made a valid start fail
+            // after the game had already entered Career.
+            var postStart = await ObserveAsync(
                     connection,
                     pack,
-                    "normal.post_start.ok",
-                    logSink,
+                    state,
+                    careerStartTransitionExpected: true,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (ok is not null)
-                return ok;
-
-            state.NormalSetupStage = NormalCareerSetupStage.SkipIntro;
-            state.LastScreenId = "career_intro_event";
+            if (postStart?.ScreenId is "career_main" or "career_races_ready")
+            {
+                state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
+                state.LastScreenId = CareerStartTransitionScreenId;
+                logSink?.Add(
+                    "Career Training",
+                    $"Normal Career start reached {postStart.ScreenId}; skipping opening setup.");
+            }
+            else
+            {
+                state.NormalSetupStage = NormalCareerSetupStage.SkipIntro;
+                state.LastScreenId = "career_intro_event";
+            }
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 

@@ -4741,16 +4741,6 @@
                     "pollIntervalMs": 250,
                     "postDelay": 650
                   },
-                  "normal_post_start_ok": {
-                    "algorithm": "MatchTemplate",
-                    "action": "ClickSelf",
-                    "template": "templates/support_autofill_confirmation_support_autofill_ok.png",
-                    "templThreshold": 0.78,
-                    "roi": [430,850,440,400],
-                    "timeoutMs": 12000,
-                    "pollIntervalMs": 250,
-                    "postDelay": 650
-                  },
                   "normal_post_start_skip": {
                     "algorithm": "MatchTemplate",
                     "action": "ClickSelf",
@@ -4759,7 +4749,19 @@
                     "roi": [740,1400,150,170],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
-                    "postDelay": 650
+                    "postDelay": 650,
+                    "next": ["normal_post_start_skip_confirm"]
+                  },
+                  "normal_post_start_skip_confirm": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/career_intro_event_skip_confirm.png",
+                    "templThreshold": 0.82,
+                    "roi": [450,970,420,170],
+                    "timeoutMs": 4000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 650,
+                    "required": false
                   },
                   "normal_quick_mode_shorten_probe": {
                     "algorithm": "MatchTemplate",
@@ -4793,7 +4795,7 @@
                     "success": true
                   },
                   "normal_quick_mode_skip_two_probe": {
-                    "algorithm": "MatchTemplate",
+                    "algorithm": "MatchTemplateColor",
                     "action": "JustReturn",
                     "template": "templates/normal/quick_mode_skip_two.png",
                     "templThreshold": 0.82,
@@ -4803,7 +4805,7 @@
                     "onErrorNext": ["normal_quick_mode_skip_one_probe"]
                   },
                   "normal_quick_mode_skip_one_probe": {
-                    "algorithm": "MatchTemplate",
+                    "algorithm": "MatchTemplateColor",
                     "action": "JustReturn",
                     "template": "templates/normal/quick_mode_skip_one.png",
                     "templThreshold": 0.82,
@@ -4814,7 +4816,7 @@
                     "onErrorNext": ["normal_quick_mode_skip_off_click"]
                   },
                   "normal_quick_mode_skip_one_click": {
-                    "algorithm": "MatchTemplate",
+                    "algorithm": "MatchTemplateColor",
                     "action": "ClickSelf",
                     "template": "templates/normal/quick_mode_skip_one.png",
                     "templThreshold": 0.82,
@@ -4825,7 +4827,7 @@
                     "next": ["normal_quick_mode_skip_two_probe"]
                   },
                   "normal_quick_mode_skip_off_click": {
-                    "algorithm": "MatchTemplate",
+                    "algorithm": "MatchTemplateColor",
                     "action": "ClickSelf",
                     "template": "templates/normal/quick_mode_skip_off.png",
                     "templThreshold": 0.82,
