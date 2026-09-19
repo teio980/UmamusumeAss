@@ -30,6 +30,36 @@ public interface IVisualPipelineRuntime
         string baseDirectory,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Matches a template using RGBA evidence when available.  The default
+    /// implementation keeps test/runtime adapters that only support the
+    /// grayscale matcher source-compatible.
+    /// </summary>
+    Task<TemplateMatchResult?> WaitForColorMatchAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            cancellationToken);
+
     Task<TemplateMatchResult?> WaitForMatchScaledAsync(
         LastVerifiedConnection connection,
         string? templatePath,

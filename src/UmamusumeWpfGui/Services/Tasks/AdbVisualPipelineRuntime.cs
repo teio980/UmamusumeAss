@@ -83,6 +83,35 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             minimumScoreGap: 0,
             cancellationToken: cancellationToken);
 
+    public Task<TemplateMatchResult?> WaitForColorMatchAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchCoreAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            searchRois: null,
+            minimumScoreGap: 0,
+            scaleCandidates: null,
+            useColorTemplate: true,
+            cancellationToken: cancellationToken);
+
     public Task<TemplateMatchResult?> WaitForMatchScaledAsync(
         LastVerifiedConnection connection,
         string? templatePath,
@@ -109,8 +138,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             baseDirectory,
             searchRois: null,
             minimumScoreGap: 0,
-            scaleCandidates,
-            cancellationToken);
+            scaleCandidates: scaleCandidates,
+            cancellationToken: cancellationToken);
 
     public Task<TemplateMatchResult?> WaitForMatchInRoisAsync(
         LastVerifiedConnection connection,
@@ -154,6 +183,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         IReadOnlyList<int[]>? searchRois,
         double minimumScoreGap,
         IReadOnlyList<double>? scaleCandidates = null,
+        bool useColorTemplate = false,
         CancellationToken cancellationToken = default)
     {
         var template = await LoadTemplateAsync(
@@ -194,7 +224,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     searchRois,
                     minimumScoreGap,
                     scaleCandidates,
-                    useButtonTemplate: IsStructuralButtonTask(taskName));
+                    useButtonTemplate: IsStructuralButtonTask(taskName),
+                    useColorTemplate: useColorTemplate);
                 if (bestMatch is null || match.Score > bestMatch.Score)
                     bestMatch = match;
                 if (match.Found)
@@ -241,10 +272,22 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         IReadOnlyList<int[]>? searchRois,
         double minimumScoreGap,
         IReadOnlyList<double>? scaleCandidates,
-        bool useButtonTemplate = false)
+        bool useButtonTemplate = false,
+        bool useColorTemplate = false)
     {
         if (searchRois is not { Count: > 0 })
         {
+            if (useColorTemplate && scaleCandidates is not { Count: > 0 })
+            {
+                return TemplateMatcher.FindColor(
+                    screen,
+                    template,
+                    roi,
+                    threshold,
+                    referenceWidth,
+                    referenceHeight);
+            }
+
             if (useButtonTemplate && scaleCandidates is not { Count: > 0 })
             {
                 return TemplateMatcher.FindButton(

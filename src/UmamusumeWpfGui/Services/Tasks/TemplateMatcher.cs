@@ -530,6 +530,148 @@ internal static class TemplateMatcher
     }
 
     /// <summary>
+    /// Color-aware template matching for state buttons whose geometry is the
+    /// same across states.  Grayscale correlation is deliberately unsuitable
+    /// for the quick-mode Skip control: the green selected button and the
+    /// white "Skip Off" button share the same border/text layout.
+    /// Transparent template pixels are ignored so the crop can retain its
+    /// authored padding.
+    /// </summary>
+    public static TemplateMatchResult FindColor(
+        GrayImage screen,
+        GrayImage template,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(template);
+
+        if (screen.RgbaPixels is null || template.RgbaPixels is null)
+        {
+            return Find(
+                screen,
+                template,
+                roi,
+                threshold,
+                referenceWidth,
+                referenceHeight);
+        }
+
+        if (template.Width > screen.Width || template.Height > screen.Height)
+        {
+            return new TemplateMatchResult(
+                false,
+                0,
+                0,
+                0,
+                template.Width,
+                template.Height);
+        }
+
+        var bounds = ScaleRoi(
+            roi,
+            screen.Width,
+            screen.Height,
+            referenceWidth,
+            referenceHeight);
+        var maxX = Math.Min(
+            screen.Width - template.Width,
+            bounds.X + bounds.Width - template.Width);
+        var maxY = Math.Min(
+            screen.Height - template.Height,
+            bounds.Y + bounds.Height - template.Height);
+        if (bounds.X > maxX || bounds.Y > maxY)
+        {
+            return new TemplateMatchResult(
+                false,
+                0,
+                0,
+                0,
+                template.Width,
+                template.Height);
+        }
+
+        var candidateStep = template.Width <= 240 ? 1 : 2;
+        var bestScore = double.MinValue;
+        var bestX = bounds.X;
+        var bestY = bounds.Y;
+        for (var y = bounds.Y; y <= maxY; y += candidateStep)
+        {
+            for (var x = bounds.X; x <= maxX; x += candidateStep)
+            {
+                var score = CompareColorSamples(
+                    screen,
+                    template,
+                    x,
+                    y,
+                    sampleWidth: Math.Min(32, template.Width),
+                    sampleHeight: Math.Min(24, template.Height));
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+
+        var found = bestScore >= Math.Clamp(threshold, 0, 1);
+        return new TemplateMatchResult(
+            found,
+            Math.Max(0, bestScore),
+            bestX,
+            bestY,
+            template.Width,
+            template.Height);
+    }
+
+    private static double CompareColorSamples(
+        GrayImage screen,
+        GrayImage template,
+        int screenX,
+        int screenY,
+        int sampleWidth,
+        int sampleHeight)
+    {
+        var screenPixels = screen.RgbaPixels!;
+        var templatePixels = template.RgbaPixels!;
+        double weightedError = 0;
+        double totalWeight = 0;
+        var visiblePixels = 0;
+        for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+        {
+            var templateY = sampleY * template.Height / sampleHeight;
+            var screenRow = (screenY + templateY) * screen.Width;
+            var templateRow = templateY * template.Width;
+            for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
+            {
+                var templateX = sampleX * template.Width / sampleWidth;
+                var templateOffset = (templateRow + templateX) * 4;
+                var alpha = templatePixels[templateOffset + 3];
+                if (alpha < 24)
+                    continue;
+
+                var screenOffset = (screenRow + screenX + templateX) * 4;
+                var colorError =
+                    Math.Abs(screenPixels[screenOffset] - templatePixels[templateOffset])
+                    + Math.Abs(screenPixels[screenOffset + 1] - templatePixels[templateOffset + 1])
+                    + Math.Abs(screenPixels[screenOffset + 2] - templatePixels[templateOffset + 2]);
+                var weight = alpha / 255d;
+                weightedError += colorError * weight;
+                totalWeight += 765d * weight;
+                visiblePixels++;
+            }
+        }
+
+        if (visiblePixels == 0 || totalWeight <= 0)
+            return 0;
+
+        return Math.Clamp(1d - weightedError / totalWeight, -1d, 1d);
+    }
+
+    /// <summary>
     /// Matches a small button using the button's stroke/text edges instead of
     /// allowing a large flat crop background to dominate the correlation.
     ///

@@ -115,6 +115,9 @@ Each entry in `tasks` is a named visual task. A typical task is:
 - `template` is relative to the directory containing the JSON file.
 - `templThreshold` is the MAA-style template-match threshold.
 - `roi` is `[x, y, width, height]`; limiting it reduces false matches.
+- `algorithm` may be `MatchTemplateColor` when visual states share geometry
+  but differ by color; it preserves RGBA evidence instead of matching only
+  grayscale intensity.
 - `timeoutMs` is the maximum time to wait for this task.
 - `pollIntervalMs` controls the interval between screenshots; the pipeline
   timing value is used when this field is omitted or zero.

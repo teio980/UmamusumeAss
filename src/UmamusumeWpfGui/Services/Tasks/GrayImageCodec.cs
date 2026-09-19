@@ -88,7 +88,23 @@ internal static class GrayImageCodec
                 width);
         }
 
-        return new GrayImage(width, height, pixels);
+        byte[]? rgba = null;
+        if (image.RgbaPixels is { } sourceRgba
+            && sourceRgba.Length >= checked(image.Width * image.Height * 4))
+        {
+            rgba = new byte[checked(width * height * 4)];
+            for (var row = 0; row < height; row++)
+            {
+                Buffer.BlockCopy(
+                    sourceRgba,
+                    checked(((y + row) * image.Width + x) * 4),
+                    rgba,
+                    row * width * 4,
+                    width * 4);
+            }
+        }
+
+        return new GrayImage(width, height, pixels, rgba);
     }
 
     public static void SaveScreenshot(AdbScreenshotResult screenshot, string path)
@@ -145,7 +161,7 @@ internal static class GrayImageCodec
             pixels[index] = ToGray(rgba[offset], rgba[offset + 1], rgba[offset + 2]);
         }
 
-        return new GrayImage(width, height, pixels);
+        return new GrayImage(width, height, pixels, rgba);
     }
 
     private static GrayImage? FromEncodedImage(byte[] data)
@@ -163,16 +179,31 @@ internal static class GrayImageCodec
             var frame = decoder.Frames[0];
             var converted = new FormatConvertedBitmap(
                 frame,
-                PixelFormats.Gray8,
+                PixelFormats.Bgra32,
                 null,
                 0);
             converted.Freeze();
 
             var width = converted.PixelWidth;
             var height = converted.PixelHeight;
+            var bgra = new byte[checked(width * height * 4)];
+            converted.CopyPixels(bgra, width * 4, 0);
             var pixels = new byte[checked(width * height)];
-            converted.CopyPixels(pixels, width, 0);
-            return new GrayImage(width, height, pixels);
+            var rgba = new byte[bgra.Length];
+            for (var index = 0; index < pixels.Length; index++)
+            {
+                var offset = index * 4;
+                var blue = bgra[offset];
+                var green = bgra[offset + 1];
+                var red = bgra[offset + 2];
+                pixels[index] = ToGray(red, green, blue);
+                rgba[offset] = red;
+                rgba[offset + 1] = green;
+                rgba[offset + 2] = blue;
+                rgba[offset + 3] = bgra[offset + 3];
+            }
+
+            return new GrayImage(width, height, pixels, rgba);
         }
         catch (ArgumentException)
         {
