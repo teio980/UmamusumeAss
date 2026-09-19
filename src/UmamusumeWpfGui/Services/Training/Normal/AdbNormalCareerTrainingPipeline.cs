@@ -12,6 +12,10 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     private const double EarlyRecognitionThreshold = 0.985;
     private const string CareerFinalConfirmationScreenId = "career_final_confirmation";
     private const string CareerStartTransitionScreenId = "career_start_transition";
+    private static readonly (string ScreenId, NormalCareerSetupStage Stage)[] StartupPageStages =
+    [
+        ("normal_quick_mode_settings", NormalCareerSetupStage.ConfigureQuickMode),
+    ];
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
@@ -190,6 +194,31 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             settings.ContinueExistingCareer
                 ? "Existing Career handling selected: Resume."
                 : "Existing Career handling selected: Delete Data.");
+
+        // Recover the first supported mid-flow page before invoking the shared
+        // Home -> Career navigator. Each recoverable page intentionally uses
+        // one small, stable recognition template and maps to a setup stage;
+        // future pages can be added to StartupPageStages without changing the
+        // entry navigator or the turn engine.
+        if (!state.CareerStarted
+            && state.NormalSetupStage == NormalCareerSetupStage.EnterCareer)
+        {
+            var startupPage = await DetectNormalStartupPageAsync(
+                    connection,
+                    pack,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (startupPage is { } detected)
+            {
+                state.NormalSetupStage = detected.Stage;
+                state.LastScreenId = detected.ScreenId;
+                await checkpointStore.SaveAsync(state, cancellationToken)
+                    .ConfigureAwait(false);
+                logSink?.Add(
+                    "Career Training",
+                    $"Startup page recognized as {detected.ScreenId}; resuming Normal setup.");
+            }
+        }
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
@@ -389,6 +418,37 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             or NormalCareerSetupStage.ConfigureQuickMode
             or NormalCareerSetupStage.SetQuickMode
             or NormalCareerSetupStage.ConfirmQuickMode;
+
+    private async Task<(string ScreenId, NormalCareerSetupStage Stage)?> DetectNormalStartupPageAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidate in StartupPageStages)
+        {
+            var screen = pack.ScreenProfile.Find(candidate.ScreenId);
+            if (screen is null || screen.Templates.Count != 1)
+                continue;
+
+            var match = await _visualRuntime.WaitForMatchAsync(
+                    connection,
+                    ResolveCapture(pack, screen.Templates[0]),
+                    screen.Recognition.Roi,
+                    screen.Recognition.TemplateThreshold,
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    timeoutMilliseconds: 1400,
+                    pollIntervalMilliseconds: 150,
+                    taskName: $"normal.startup.{candidate.ScreenId}",
+                    baseDirectory: string.Empty,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (match?.Found == true)
+                return candidate;
+        }
+
+        return null;
+    }
 
     private async Task<CareerTrainingResult?> ConfigureNormalCareerAsync(
         LastVerifiedConnection connection,

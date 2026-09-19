@@ -550,8 +550,8 @@
                         "screenId": "normal_quick_mode_settings",
                         "recognition": {
                             "template": "templates/normal/quick_mode_header.png",
-                            "roi": [10,370,880,80],
-                            "templThreshold": 0.82,
+                            "roi": [280,390,340,50],
+                            "templThreshold": 0.88,
                             "stable": true
                         },
                         "actions": [

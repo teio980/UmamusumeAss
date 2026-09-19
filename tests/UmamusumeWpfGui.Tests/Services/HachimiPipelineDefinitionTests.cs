@@ -670,7 +670,7 @@ public sealed class HachimiPipelineDefinitionTests
 
         Assert.Equal("templates/normal/quick_mode_header.png", recognition.GetProperty("template").GetString());
         Assert.Equal(
-            [10, 370, 880, 80],
+            [280, 390, 340, 50],
             recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
