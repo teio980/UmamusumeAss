@@ -26,7 +26,8 @@ public static class CareerTaskSettingsMapper
             settings.UseLegacyGuest,
             settings.UseCachedLegacy,
             settings.ParseLegacyAttributeSparks(),
-            settings.ParseLegacyAptitudeSparks());
+            settings.ParseLegacyAptitudeSparks(),
+            settings.NormalLineupStrategy);
     }
 
     public static IndependentTrainingSettings ToIndependentSettings(CareerTrainingTaskSettingsViewModel settings)

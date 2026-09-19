@@ -11,6 +11,23 @@ public enum UraStateSource
     Unknown,
 }
 
+/// <summary>
+/// Progress through the small setup page that appears after the shared
+/// support-deck entry flow for a Normal Career.  Keeping this separate from
+/// the turn-engine state lets an interrupted setup resume without clicking
+/// Start Career twice or replaying the Home entry chain.
+/// </summary>
+public enum NormalCareerSetupStage
+{
+    EnterCareer,
+    ConfigureMode,
+    ConfigureStrategy,
+    StartCareer,
+    ConfirmStart,
+    AwaitCareerMain,
+    InCareer,
+}
+
 public sealed record UraObservedValue<T>(
     T? Value,
     UraStateSource Source,
@@ -51,6 +68,8 @@ public sealed class UraCareerSessionState
     // main screen. It must not be inferred from the Home entry click: Home is
     // both the starting point and the terminal destination.
     public bool CareerStarted { get; set; }
+    public NormalCareerSetupStage NormalSetupStage { get; set; } =
+        NormalCareerSetupStage.EnterCareer;
     public UraPlannedAction LastAction { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);

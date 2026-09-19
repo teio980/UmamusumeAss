@@ -171,25 +171,26 @@ public sealed class IndependentTrainingCatalog
         "independent.lineup.closed.verify";
 
     public static string StrategyChangeSemanticAction() =>
-        "independent.strategy.change";
+        CareerStrategyCatalog.StrategyChangeSemanticAction("independent");
 
     public static string StrategySaveSemanticAction() =>
-        "independent.strategy.save";
+        CareerStrategyCatalog.StrategySaveSemanticAction("independent");
 
     public static string StrategyReturnSemanticAction() =>
-        "independent.strategy.return";
+        CareerStrategyCatalog.StrategyReturnSemanticAction("independent");
 
     /// <summary>
-    /// Maps the existing IndependentLineupStrategy setting to the text shown
-    /// in the game's Strategy dialog.  This is deliberately separate from
-    /// StrategyId, which selects the offline URA turn strategy and must never
-    /// drive this dialog.
+    /// Compatibility facade for the shared Career strategy catalog. The
+    /// setting is deliberately separate from StrategyId, which selects the
+    /// offline URA turn strategy and must never drive this dialog.
     /// </summary>
     public static bool TryGetLineupStrategyUiMapping(
         string? strategy,
         out string targetText)
     {
-        return TryGetLineupStrategyUiMapping(strategy, out _, out targetText);
+        return CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
+            strategy,
+            out targetText);
     }
 
     public static bool TryGetLineupStrategyUiMapping(
@@ -197,18 +198,11 @@ public sealed class IndependentTrainingCatalog
         out string semanticAction,
         out string targetText)
     {
-        (semanticAction, targetText) = strategy?.Trim().ToLowerInvariant() switch
-        {
-            // The setting labels are the full strategy names, but the live
-            // Strategy dialog renders its four selectable buttons as the
-            // short labels End, Late, Pace and Front.
-            "front" => ("independent.strategy.option.front", "Front"),
-            "pace" => ("independent.strategy.option.pace", "Pace"),
-            "late" => ("independent.strategy.option.late", "Late"),
-            "end" => ("independent.strategy.option.end", "End"),
-            _ => (string.Empty, string.Empty),
-        };
-        return semanticAction.Length > 0 && targetText.Length > 0;
+        return CareerStrategyCatalog.TryGetLineupStrategySemanticAction(
+            strategy,
+            "independent",
+            out semanticAction,
+            out targetText);
     }
 
     // Every agenda cell has its own JSON task/ROI.  The task still uses the

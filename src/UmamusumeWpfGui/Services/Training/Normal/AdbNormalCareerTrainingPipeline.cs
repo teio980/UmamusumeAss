@@ -142,6 +142,14 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         var scenario = new UraScenarioModule(pack);
         var strategy = UraStrategyRegistry.Create(settings.StrategyId);
+        if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
+                settings.LineupStrategy,
+                out _))
+        {
+            return Failure(
+                $"Normal Career lineup strategy '{settings.LineupStrategy}' is invalid.",
+                "career_final_confirmation");
+        }
         var checkpointStore = new UraCheckpointStore(settings.TraineeId);
         var checkpoint = await checkpointStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         UraCareerSessionState state;
@@ -160,6 +168,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         }
         if (!string.Equals(state.ScenarioId, pack.Manifest.ScenarioId, StringComparison.OrdinalIgnoreCase))
             state = scenario.CreateInitialState();
+        NormalizeSetupStage(state);
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");
@@ -184,14 +193,12 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
-        // A persisted zero-turn transition is ambiguous: it can be left over
-        // from an interrupted setup while the game is already back at Home.
-        // Only a checkpoint with observed Career progress may skip the shared
-        // Home -> Career -> Resume entry flow. A transition created below in
-        // this run remains valid even before the first turn is observed.
-        var careerStartActionIssued = false;
-        var careerStartTransitionExpected = IsPersistedCareerStartTransitionExpected(state);
-        if (!state.CareerStarted && !careerStartTransitionExpected)
+        var careerStartTransitionExpected = !state.CareerStarted
+            && (state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain
+                || IsPersistedCareerStartTransitionExpected(state));
+        if (!state.CareerStarted
+            && state.NormalSetupStage == NormalCareerSetupStage.EnterCareer
+            && !careerStartTransitionExpected)
         {
             var entryState = new CareerEntryNavigationState
             {
@@ -231,32 +238,34 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             }
 
             // The shared navigator intentionally stops at Final Confirmation.
-            // Normal Career has no extra setup page, so this is the only
-            // Normal-specific click in the entry flow.
-            state.LastScreenId = CareerStartTransitionScreenId;
-            careerStartActionIssued = true;
+            // Normal Career has a small mode/strategy setup on this page.
+            state.NormalSetupStage = NormalCareerSetupStage.ConfigureMode;
+            state.LastScreenId = CareerFinalConfirmationScreenId;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
-            var startFailure = await RunScreenActionAsync(
+        }
+
+        if (!state.CareerStarted
+            && state.NormalSetupStage is >= NormalCareerSetupStage.ConfigureMode
+                and <= NormalCareerSetupStage.AwaitCareerMain)
+        {
+            var setupFailure = await ConfigureNormalCareerAsync(
                     connection,
                     pack,
-                    CareerFinalConfirmationScreenId,
-                    "start",
+                    settings,
+                    state,
+                    checkpointStore,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (startFailure is not null)
-            {
-                return startFailure with { ActionsCompleted = actionCount };
-            }
-
-            actionCount++;
+            if (setupFailure is not null)
+                return setupFailure with { ActionsCompleted = actionCount };
         }
 
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
             careerStartTransitionExpected = !state.CareerStarted
-                && (careerStartActionIssued
+                && (state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain
                     || IsPersistedCareerStartTransitionExpected(state));
             var observation = await ObserveAsync(
                     connection,
@@ -287,6 +296,8 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             setupObservationRetryCount = 0;
             state.LastScreenId = observation.ScreenId;
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
+            if (state.CareerStarted)
+                state.NormalSetupStage = NormalCareerSetupStage.InCareer;
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             logSink?.Add(
                 "Career Training",
@@ -348,6 +359,148 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             "Career training exceeded the safety action limit and was paused.",
             state.LastScreenId,
             actionCount);
+    }
+
+    private static void NormalizeSetupStage(UraCareerSessionState state)
+    {
+        if (state.CareerStarted)
+        {
+            state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+            return;
+        }
+
+        if (state.NormalSetupStage != NormalCareerSetupStage.EnterCareer)
+            return;
+
+        state.NormalSetupStage = state.LastScreenId.Trim().ToLowerInvariant() switch
+        {
+            CareerFinalConfirmationScreenId => NormalCareerSetupStage.ConfigureMode,
+            CareerStartTransitionScreenId => NormalCareerSetupStage.AwaitCareerMain,
+            "career_main" when state.TurnIndex > 0 => NormalCareerSetupStage.InCareer,
+            _ => NormalCareerSetupStage.EnterCareer,
+        };
+    }
+
+    private async Task<CareerTrainingResult?> ConfigureNormalCareerAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        CareerTrainingSettings settings,
+        UraCareerSessionState state,
+        UraCheckpointStore checkpointStore,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureMode)
+        {
+            var mode = await RunNormalSetupActionAsync(
+                    connection,
+                    pack,
+                    "normal.select_mode",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (mode is not null)
+                return mode;
+
+            state.NormalSetupStage = NormalCareerSetupStage.ConfigureStrategy;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureStrategy)
+        {
+            if (!CareerStrategyCatalog.TryGetLineupStrategySemanticAction(
+                    settings.LineupStrategy,
+                    "normal",
+                    out var strategyAction,
+                    out _))
+            {
+                return Failure(
+                    $"Normal Career lineup strategy '{settings.LineupStrategy}' is invalid.",
+                    state.LastScreenId);
+            }
+
+            foreach (var action in new[]
+            {
+                CareerStrategyCatalog.StrategyChangeSemanticAction("normal"),
+                strategyAction,
+                CareerStrategyCatalog.StrategySaveSemanticAction("normal"),
+                CareerStrategyCatalog.StrategyReturnSemanticAction("normal"),
+            })
+            {
+                var result = await RunNormalSetupActionAsync(
+                        connection,
+                        pack,
+                        action,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (result is not null)
+                    return result;
+            }
+
+            state.NormalSetupStage = NormalCareerSetupStage.StartCareer;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.StartCareer)
+        {
+            // Persist the stage before the tap so an interrupted run resumes
+            // with the confirmation action instead of clicking Start twice.
+            state.NormalSetupStage = NormalCareerSetupStage.ConfirmStart;
+            state.LastScreenId = CareerStartTransitionScreenId;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+
+            var start = await RunNormalSetupActionAsync(
+                    connection,
+                    pack,
+                    "normal.start",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (start is not null)
+                return start;
+        }
+
+        if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmStart)
+        {
+            var ok = await RunNormalSetupActionAsync(
+                    connection,
+                    pack,
+                    "normal.post_start.ok",
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (ok is not null)
+                return ok;
+
+            state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
+            state.LastScreenId = CareerStartTransitionScreenId;
+            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+
+        return null;
+    }
+
+    private async Task<CareerTrainingResult?> RunNormalSetupActionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var result = await RunScreenActionAsync(
+                connection,
+                pack,
+                CareerFinalConfirmationScreenId,
+                actionId,
+                logSink,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result is null)
+        {
+            logSink?.Add("Career Training", $"Normal setup action completed: {actionId}.");
+        }
+        return result;
     }
 
     private static bool IsImportantCareerScreen(string screenId) => screenId is

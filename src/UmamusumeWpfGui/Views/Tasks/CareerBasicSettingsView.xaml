@@ -66,6 +66,20 @@
         </StackPanel>
       </Grid>
     </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch"
+            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassNormalLineupStrategyLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <ComboBox Margin="0,10,0,0"
+                  HorizontalContentAlignment="Stretch"
+                  ItemsSource="{Binding NormalLineupStrategyOptions}"
+                  ItemTemplate="{StaticResource ComboOptionTemplate}"
+                  SelectedValuePath="Value"
+                  SelectedValue="{Binding NormalLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </Border>
     <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
   </StackPanel>
 </UserControl>

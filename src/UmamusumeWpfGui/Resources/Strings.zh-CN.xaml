@@ -150,6 +150,7 @@
   <sys:String x:Key="GrassCareerDeleteExistingLabel">删除已有 Career 数据</sys:String>
   <sys:String x:Key="GrassCareerDeleteExistingHint">勾选后删除已有 Career 数据并重新开始；不勾选则尝试 Resume。</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career 模式</sys:String>
+  <sys:String x:Key="GrassNormalLineupStrategyLabel">普通 Career · 策略</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy 选择</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">有缓存时使用 Legacy 1 和 Legacy 2 记录</sys:String>
   <sys:String x:Key="GrassCareerUseLegacyGuestLabel">为 Legacy 1 使用访客 Legacy</sys:String>

@@ -96,6 +96,14 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             return $"URA strategy '{Settings.StrategyId}' is not registered for this build.";
         }
 
+        if (Settings.IsNormalCareer
+            && !CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
+                Settings.NormalLineupStrategy,
+                out _))
+        {
+            return $"Normal Career lineup strategy '{Settings.NormalLineupStrategy}' is invalid.";
+        }
+
         if (Settings.IsManualSupportDeck
             && Settings.SelectedSupportCardCount is not (5 or 6))
         {

@@ -206,8 +206,21 @@ internal static class HachimiTaskLogSemantics
             return true;
         }
 
+        if (name.StartsWith("normal.strategy.option.", StringComparison.OrdinalIgnoreCase))
+        {
+            var strategy = name["normal.strategy.option.".Length..].Replace('_', ' ');
+            step = Step($"Selecting the {strategy} race strategy", "Race strategy selected");
+            return true;
+        }
+
         step = name switch
         {
+            "normal.select_mode" => Step("Selecting Normal Career mode", "Normal Career mode selected"),
+            "normal.strategy.change" => Step("Opening race strategy", "Race strategy opened"),
+            "normal.strategy.save" => Step("Saving the race strategy", "Race strategy saved"),
+            "normal.strategy.return" => Step("Returning from race strategy", "Race strategy closed"),
+            "normal.start" => Step("Starting Normal Career", "Normal Career started"),
+            "normal.post_start.ok" => Step("Confirming the post-start dialog", "Post-start dialog confirmed"),
             "independent.select_mode" => Step("Selecting Independent Training mode", "Independent Training mode selected"),
             "independent.lineup.expand" => Step("Opening the training lineup", "Training lineup opened"),
             "independent.focus.stamina" => Step("Selecting the stamina focus", "Stamina focus selected"),
@@ -251,6 +264,15 @@ internal static class HachimiTaskLogSemantics
 
         return name switch
         {
+            "normal_mode_selected_probe" or "normal_mode_already_selected" => Step(
+                "Checking the Career mode",
+                "Normal Career mode confirmed"),
+            "normal_mode_select" => Step(
+                "Selecting Normal Career mode",
+                "Normal Career mode selected"),
+            "normal_post_start_ok" => Step(
+                "Confirming the Career start dialog",
+                "Career start dialog confirmed"),
             "home_home_career" or "home_home_career_active" => Step(
                 "Opening Career from Home",
                 "Career entry opened"),

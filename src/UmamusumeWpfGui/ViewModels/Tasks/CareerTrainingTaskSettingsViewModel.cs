@@ -29,6 +29,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     private string _careerMode = IndependentCareerMode;
     private string _strategyId = DefaultStrategyId;
+    private string _normalLineupStrategy = CareerStrategyCatalog.DefaultLineupStrategy;
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private string _status = string.Empty;
@@ -70,6 +71,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 return;
             Independent.IsCareerModeActive = IsIndependentCareer;
             OnPropertyChanged(nameof(IsIndependentCareer));
+            OnPropertyChanged(nameof(IsNormalCareer));
             OnPropertyChanged(nameof(IsKnownCareerMode));
             OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
             OnPropertyChanged(nameof(IsValid));
@@ -78,6 +80,9 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     public bool IsIndependentCareer =>
         CareerMode.Equals(IndependentCareerMode, StringComparison.OrdinalIgnoreCase);
+
+    public bool IsNormalCareer =>
+        CareerMode.Equals(NormalCareerMode, StringComparison.OrdinalIgnoreCase);
 
     public bool IsKnownCareerMode =>
         CareerMode.Equals(NormalCareerMode, StringComparison.OrdinalIgnoreCase)
@@ -154,6 +159,26 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public IReadOnlyList<IndependentTrainingOption> IndependentAgendaGradeOptions => Independent.AgendaGradeOptions;
     public string IndependentTrainingFocus { get => Independent.TrainingFocus; set => Independent.TrainingFocus = value; }
     public string IndependentLineupStrategy { get => Independent.LineupStrategy; set => Independent.LineupStrategy = value; }
+    public IReadOnlyList<IndependentTrainingOption> NormalLineupStrategyOptions { get; } =
+    [
+        new(IndependentLineupStrategyFront, "Front Runner"),
+        new(IndependentLineupStrategyPace, "Pace Chaser"),
+        new(IndependentLineupStrategyLate, "Late Surger"),
+        new(IndependentLineupStrategyEnd, "End Closer"),
+    ];
+    public string NormalLineupStrategy
+    {
+        get => _normalLineupStrategy;
+        set
+        {
+            var normalized = NormalLineupStrategyOptions.Any(item =>
+                    item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ? value
+                : CareerStrategyCatalog.DefaultLineupStrategy;
+            if (Set(ref _normalLineupStrategy, normalized))
+                OnPropertyChanged(nameof(IsValid));
+        }
+    }
     public bool IsIndependentAgendaFilterOpen { get => Independent.IsAgendaFilterOpen; set => Independent.IsAgendaFilterOpen = value; }
     public string IndependentAgendaYearFilter { get => Independent.AgendaYearFilter; set => Independent.AgendaYearFilter = value; }
     public string IndependentAgendaSearchText { get => Independent.AgendaSearchText; set => Independent.AgendaSearchText = value; }
@@ -225,7 +250,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         && IsKnownCareerMode
         && (IsIndependentCareer
             || (!string.IsNullOrWhiteSpace(StrategyId)
-                && UraStrategyRegistry.IsRegistered(StrategyId)))
+                && UraStrategyRegistry.IsRegistered(StrategyId)
+                && CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
+                    NormalLineupStrategy,
+                    out _)))
         && IsSupportDeckValid
         && (!IsIndependentCareer || IsIndependentTrainingSettingsValid);
 

@@ -58,6 +58,62 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
+    public async Task Normal_career_uses_its_own_mode_and_strategy_materials()
+    {
+        var root = FindSolutionRoot();
+        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
+
+        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+
+        Assert.NotNull(definition);
+
+        var normalModeProbe = definition!.GetTask("normal_mode_selected_probe");
+        Assert.Equal(
+            "templates/normal/mode_normal_selected.png",
+            normalModeProbe.Template);
+        Assert.Equal([20, 240, 430, 75], normalModeProbe.Roi!);
+        Assert.Empty(normalModeProbe.Next);
+        Assert.Equal("normal_mode_select", normalModeProbe.OnErrorNext.Single());
+
+        var normalStrategy = definition.GetTask("normal_strategy_change");
+        Assert.Equal("templates/normal/strategy_change.png", normalStrategy.Template);
+        Assert.Equal([680, 420, 230, 150], normalStrategy.Roi!);
+
+        var normalReturn = definition.GetTask("normal_strategy_return_probe");
+        Assert.Equal("templates/normal/strategy_change.png", normalReturn.Template);
+        Assert.Equal([680, 420, 230, 150], normalReturn.Roi!);
+
+        var independentModeProbe = definition.GetTask("independent_mode_selected_probe");
+        Assert.Equal(
+            "templates/independent/mode_independent_selected.png",
+            independentModeProbe.Template);
+        Assert.Equal([450, 240, 430, 75], independentModeProbe.Roi!);
+
+        var independentStrategy = definition.GetTask("independent_strategy_change");
+        Assert.Equal("templates/independent/strategy_change.png", independentStrategy.Template);
+        Assert.Equal([620, 600, 250, 180], independentStrategy.Roi!);
+
+        Assert.True(File.Exists(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "normal",
+            "mode_normal_selected.png")));
+        Assert.True(File.Exists(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "normal",
+            "strategy_change.png")));
+    }
+
+    [Fact]
     public async Task Mail_collection_clicks_close_after_collecting_all()
     {
         var root = FindSolutionRoot();

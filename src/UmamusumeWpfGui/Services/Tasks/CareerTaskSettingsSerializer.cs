@@ -17,6 +17,7 @@ public static class CareerTaskSettingsSerializer
             ["manifestPath"] = settings.ManifestPath,
             ["traineeId"] = settings.TraineeId,
             ["careerMode"] = settings.CareerMode,
+            ["normalLineupStrategy"] = settings.NormalLineupStrategy,
             ["independentTrainingFocus"] = settings.IndependentTrainingFocus,
             ["independentLineupStrategy"] = settings.IndependentLineupStrategy,
             ["independentAgendaSelections"] = new JsonArray(settings.ParseIndependentAgendaSelections()
@@ -59,6 +60,11 @@ public static class CareerTaskSettingsSerializer
         // ignored while remaining harmless during import.
         settings.TraineeId = ReadNullableInt(values, "traineeId") ?? settings.TraineeId;
         settings.CareerMode = ReadString(values, "careerMode") ?? settings.CareerMode;
+        settings.NormalLineupStrategy = ReadString(values, "normalLineupStrategy")
+            // Profiles created before Normal Career had its own strategy field
+            // used the Independent field for the same four game choices.
+            ?? ReadString(values, "independentLineupStrategy")
+            ?? settings.NormalLineupStrategy;
         settings.IndependentTrainingFocus = ReadString(values, "independentTrainingFocus")
             ?? settings.IndependentTrainingFocus;
         settings.IndependentLineupStrategy = ReadString(values, "independentLineupStrategy")

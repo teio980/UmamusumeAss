@@ -34,7 +34,8 @@ public sealed record CareerTrainingSettings(
     bool UseLegacyGuest,
     bool UseCachedLegacy,
     IReadOnlyList<string> LegacyAttributeSparks,
-    IReadOnlyList<string> LegacyAptitudeSparks) : ICareerEntrySelectionSettings;
+    IReadOnlyList<string> LegacyAptitudeSparks,
+    string LineupStrategy = "pace") : ICareerEntrySelectionSettings;
 
 /// <summary>
 /// Settings needed by the shared Home-to-Final-Confirmation navigation.

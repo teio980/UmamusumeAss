@@ -2970,6 +2970,28 @@
                     "pollIntervalMs": 250,
                     "success": true
                   },
+                  "normal_mode_selected_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/normal/mode_normal_selected.png",
+                    "templThreshold": 0.82,
+                    "roi": [20,240,430,75],
+                    "timeoutMs": 1400,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["normal_mode_select"]
+                  },
+                  "normal_mode_already_selected": {
+                    "algorithm": "JustReturn",
+                    "action": "JustReturn",
+                    "success": true
+                  },
+                  "normal_mode_select": {
+                    "algorithm": "ClickRect",
+                    "action": "ClickRect",
+                    "specificRect": [20,240,430,75],
+                    "postDelay": 500,
+                    "success": true
+                  },
                   "independent_lineup_scroll_to_top": {
                     "algorithm": "JustReturn",
                     "action": "Swipe",
@@ -3402,6 +3424,165 @@
                     "template": "templates/independent/lineup_closed_right.png",
                     "templThreshold": 0.90,
                     "roi": [760,390,130,150],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 250,
+                    "success": true
+                  },
+                  "normal_strategy_change": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/normal/strategy_change.png",
+                    "templThreshold": 0.82,
+                    "roi": [680,420,230,150],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 600
+                  },
+                  "normal_strategy_option_front_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [645,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["normal_strategy_option_front_click"],
+                    "success": true
+                  },
+                  "normal_strategy_option_front_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_front.png",
+                    "templThreshold": 0.90,
+                    "roi": [670,930,120,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["normal_strategy_option_front_post"]
+                  },
+                  "normal_strategy_option_front_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [645,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "normal_strategy_option_pace_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [450,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["normal_strategy_option_pace_click"],
+                    "success": true
+                  },
+                  "normal_strategy_option_pace_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_pace.png",
+                    "templThreshold": 0.90,
+                    "roi": [480,930,110,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["normal_strategy_option_pace_post"]
+                  },
+                  "normal_strategy_option_pace_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [450,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "normal_strategy_option_late_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [260,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["normal_strategy_option_late_click"],
+                    "success": true
+                  },
+                  "normal_strategy_option_late_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_late.png",
+                    "templThreshold": 0.90,
+                    "roi": [290,930,100,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["normal_strategy_option_late_post"]
+                  },
+                  "normal_strategy_option_late_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [260,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "normal_strategy_option_end_pre": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [70,895,60,60],
+                    "timeoutMs": 1200,
+                    "pollIntervalMs": 150,
+                    "onErrorNext": ["normal_strategy_option_end_click"],
+                    "success": true
+                  },
+                  "normal_strategy_option_end_click": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_option_end.png",
+                    "templThreshold": 0.90,
+                    "roi": [100,930,130,85],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 350,
+                    "next": ["normal_strategy_option_end_post"]
+                  },
+                  "normal_strategy_option_end_post": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/independent/strategy_selected_corner.png",
+                    "templThreshold": 0.90,
+                    "roi": [70,895,60,60],
+                    "timeoutMs": 3000,
+                    "pollIntervalMs": 150,
+                    "success": true
+                  },
+                  "normal_strategy_save": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/independent/strategy_confirm.png",
+                    "templThreshold": 0.82,
+                    "roi": [430,1070,440,220],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 700
+                  },
+                  "normal_strategy_return_probe": {
+                    "algorithm": "MatchTemplate",
+                    "action": "JustReturn",
+                    "template": "templates/normal/strategy_change.png",
+                    "templThreshold": 0.82,
+                    "roi": [680,420,230,150],
                     "timeoutMs": 12000,
                     "pollIntervalMs": 250,
                     "postDelay": 250,
@@ -4551,6 +4732,16 @@
                     "postDelay": 900
                   },
                   "independent_post_start_ok": {
+                    "algorithm": "MatchTemplate",
+                    "action": "ClickSelf",
+                    "template": "templates/support_autofill_confirmation_support_autofill_ok.png",
+                    "templThreshold": 0.78,
+                    "roi": [430,850,440,400],
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 250,
+                    "postDelay": 650
+                  },
+                  "normal_post_start_ok": {
                     "algorithm": "MatchTemplate",
                     "action": "ClickSelf",
                     "template": "templates/support_autofill_confirmation_support_autofill_ok.png",
