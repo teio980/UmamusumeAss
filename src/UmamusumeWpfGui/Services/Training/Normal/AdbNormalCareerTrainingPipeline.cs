@@ -44,6 +44,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     internal static bool IsRuntimeCareerScreen(string screenId) =>
         CareerTrainingEngine.IsRuntimeCareerScreen(screenId);
 
+    internal static CareerScreenKind ClassifyRuntimeScreen(string? screenId) =>
+        CareerScreenClassification.Classify(screenId);
+
     internal static bool IsCareerStartTransitionExpected(
         UraCareerSessionState state) =>
         CareerTrainingEngine.IsCareerStartTransitionExpected(state);

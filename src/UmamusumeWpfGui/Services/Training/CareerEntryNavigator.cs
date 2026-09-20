@@ -343,6 +343,7 @@ public sealed class CareerEntryNavigator
             "support_select" or "support_autofill_confirmation" or "support_ready"
                 or "support_start_transition" => CareerEntryNavigationStep.Support,
             FinalConfirmationScreenId => CareerEntryNavigationStep.FinalConfirmation,
+            "career_main" or "career_races_ready" => CareerEntryNavigationStep.Career,
             _ => CareerEntryNavigationStep.Home,
         };
     }

@@ -344,6 +344,14 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             }
 
             setupObservationRetryCount = 0;
+            if (observation.Kind is CareerScreenKind.Unknown)
+            {
+                return Failure(
+                    $"Recognized unsupported Career screen '{observation.ScreenId}'; automation paused safely.",
+                    observation.ScreenId,
+                    actionCount);
+            }
+
             state.LastScreenId = observation.ScreenId;
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             if (state.CareerStarted)

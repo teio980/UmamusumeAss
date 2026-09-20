@@ -18,36 +18,8 @@ public sealed class CareerScreenObserver
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
     }
 
-    internal static bool IsRuntimeCareerScreen(string screenId) => screenId is
-        "career_intro_event"
-            or "career_main"
-            or "career_races_ready"
-            or "training_selection"
-            or "training_result"
-            or "training_event"
-            or "rest_result"
-            or "event_choice"
-            or "rest_confirmation"
-            or "race_day"
-            or "race_list"
-            or "race_details"
-            or "race_attributes"
-            or "race_playback"
-            or "race_playback_settings"
-            or "race_live"
-            or "goal_update"
-            or "race_result"
-            or "reward"
-            or "reward_support"
-            or "goal_complete"
-            or "scenario_event"
-            or "complete_career"
-            or "career_rank"
-            or "career_result"
-            or "rewards"
-            or "sparks"
-            or "sparks_confirmation"
-            or "career_complete";
+    internal static bool IsRuntimeCareerScreen(string screenId) =>
+        CareerScreenClassification.IsRuntimeScreen(screenId);
 
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
@@ -62,9 +34,7 @@ public sealed class CareerScreenObserver
         ArgumentNullException.ThrowIfNull(state);
 
         var candidates = pack.ScreenProfile.Screens
-            .Where(screen => careerOnly
-                ? IsRuntimeCareerScreen(screen.ScreenId)
-                : !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => !careerOnly || IsRuntimeCareerScreen(screen.ScreenId))
             .Where(screen => careerOnly
                 || state.CareerStarted
                 || state.TurnIndex > 0
