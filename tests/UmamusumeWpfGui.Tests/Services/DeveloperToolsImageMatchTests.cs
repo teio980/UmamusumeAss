@@ -46,6 +46,42 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public void Rest_confirmation_fixture_matches_the_rest_dialog_template()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "captures",
+            "rest_confirmation.png"));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "runtime_frames",
+            "rest_confirmation_dialog.png"));
+
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.Find(
+            screen!,
+            template!,
+            roi: [0, 460, 900, 700],
+            threshold: 0.82,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Assert.True(result.Found, $"Rest confirmation score was {result.Score:0.000}.");
+    }
+
+    [Fact]
     public void Independent_add_skills_fixture_matches_the_real_text_not_the_old_blank_coordinate()
     {
         var root = FindSolutionRoot();

@@ -17,6 +17,24 @@ public sealed class UraTrainingPlannerTests
     }
 
     [Fact]
+    public void Decide_Uses_a_strictly_below_fifty_percent_threshold()
+    {
+        var atThreshold = UraTrainingPlanner.Decide(new UraPlannerInput(
+            IsFinale: false,
+            HasPendingRace: false,
+            HasScenarioEvent: false,
+            Energy: 50));
+        var belowThreshold = UraTrainingPlanner.Decide(new UraPlannerInput(
+            IsFinale: false,
+            HasPendingRace: false,
+            HasScenarioEvent: false,
+            Energy: 49));
+
+        Assert.Equal(UraPlannedAction.Training, atThreshold.Action);
+        Assert.Equal(UraPlannedAction.Rest, belowThreshold.Action);
+    }
+
+    [Fact]
     public void Decide_FinalRaceWinsOverTraining()
     {
         var decision = UraTrainingPlanner.Decide(new UraPlannerInput(

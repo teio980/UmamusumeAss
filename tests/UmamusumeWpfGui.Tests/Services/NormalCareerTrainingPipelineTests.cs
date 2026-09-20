@@ -79,4 +79,23 @@ public sealed class NormalCareerTrainingPipelineTests
     {
         Assert.False(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
     }
+
+    [Fact]
+    public void Started_career_does_not_misclassify_the_support_ok_dialog_as_rest_confirmation()
+    {
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = true,
+            TurnIndex = 1,
+        };
+
+        Assert.False(
+            CareerScreenObserver.IsEligibleForCareerPhase(
+                "support_autofill_confirmation",
+                state));
+        Assert.True(
+            CareerScreenObserver.IsEligibleForCareerPhase(
+                "rest_confirmation",
+                state));
+    }
 }
