@@ -151,6 +151,19 @@ public sealed class UraScenarioPackLoaderTests
             "ura",
             "screens",
             careerMain!.Recognition.Template!)));
+        var trainingSelection = pack.ScreenProfile.Find("training_selection");
+        Assert.Equal(
+            "templates/training_selection_header.png",
+            trainingSelection?.Recognition.Template);
+        Assert.Equal([0, 0, 120, 50], trainingSelection!.Recognition.Roi!);
+        Assert.Equal(0.92, trainingSelection?.Recognition.TemplateThreshold);
+        Assert.True(File.Exists(Path.Combine(
+            FindWorkspaceRoot(),
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            trainingSelection!.Recognition.Template!)));
         Assert.Contains(
             "templates/runtime_frames/scenario_select_ura.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates
