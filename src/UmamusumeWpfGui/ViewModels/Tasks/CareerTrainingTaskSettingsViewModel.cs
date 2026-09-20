@@ -91,7 +91,23 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public string StrategyId
     {
         get => _strategyId;
-        set => Set(ref _strategyId, value?.Trim() ?? string.Empty);
+        set
+        {
+            if (!Set(ref _strategyId, value?.Trim() ?? string.Empty))
+                return;
+
+            OnPropertyChanged(nameof(NormalTrainingStrategy));
+            OnPropertyChanged(nameof(IsValid));
+        }
+    }
+
+    public IReadOnlyList<UraTrainingStrategyOption> NormalTrainingStrategyOptions { get; } =
+        UraStrategyRegistry.AvailableStrategies;
+
+    public string NormalTrainingStrategy
+    {
+        get => StrategyId;
+        set => StrategyId = value;
     }
 
     public bool PauseOnUnknownOutcome

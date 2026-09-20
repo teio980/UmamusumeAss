@@ -152,6 +152,7 @@
   <sys:String x:Key="GrassCareerDeleteExistingLabel">Delete existing Career data</sys:String>
   <sys:String x:Key="GrassCareerDeleteExistingHint">When enabled, delete existing Career data and start fresh; otherwise attempt to resume.</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career mode</sys:String>
+  <sys:String x:Key="GrassNormalTrainingStrategyLabel">Normal Career · training strategy</sys:String>
   <sys:String x:Key="GrassNormalLineupStrategyLabel">Normal Career · strategy</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy selection</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">Use cached Legacy 1 and Legacy 2 records when available</sys:String>

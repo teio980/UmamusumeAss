@@ -20,6 +20,11 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private string _template = string.Empty;
     private string _templateThresholdText = "0.86";
     private string _roiText = string.Empty;
+    private string _fallbackRoiText = string.Empty;
+    private string _transitionTemplatesText = string.Empty;
+    private string _transitionThresholdText = "0.78";
+    private string _transitionTimeoutMillisecondsText = "2600";
+    private string _transitionPollIntervalMillisecondsText = "250";
     private string _searchRoisText = string.Empty;
     private string _specificRectText = string.Empty;
     private string _preDelayText = "0";
@@ -66,6 +71,36 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     }
 
     public string RoiText { get => _roiText; set => Set(ref _roiText, value); }
+
+    public string FallbackRoiText
+    {
+        get => _fallbackRoiText;
+        set => Set(ref _fallbackRoiText, value);
+    }
+
+    public string TransitionTemplatesText
+    {
+        get => _transitionTemplatesText;
+        set => Set(ref _transitionTemplatesText, value);
+    }
+
+    public string TransitionThresholdText
+    {
+        get => _transitionThresholdText;
+        set => Set(ref _transitionThresholdText, value);
+    }
+
+    public string TransitionTimeoutMillisecondsText
+    {
+        get => _transitionTimeoutMillisecondsText;
+        set => Set(ref _transitionTimeoutMillisecondsText, value);
+    }
+
+    public string TransitionPollIntervalMillisecondsText
+    {
+        get => _transitionPollIntervalMillisecondsText;
+        set => Set(ref _transitionPollIntervalMillisecondsText, value);
+    }
 
     /// <summary>
     /// One card ROI per line. This is kept in the ordinary task editor so a
@@ -154,6 +189,11 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             Template = task.Template ?? string.Empty,
             TemplateThresholdText = task.TemplateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
             RoiText = FormatArray(task.Roi),
+            FallbackRoiText = FormatArray(task.FallbackRoi),
+            TransitionTemplatesText = FormatList(task.TransitionTemplates),
+            TransitionThresholdText = task.TransitionThreshold.ToString("0.###", CultureInfo.InvariantCulture),
+            TransitionTimeoutMillisecondsText = task.TransitionTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture),
+            TransitionPollIntervalMillisecondsText = task.TransitionPollIntervalMilliseconds.ToString(CultureInfo.InvariantCulture),
             SearchRoisText = FormatRois(task.SearchRois),
             SpecificRectText = FormatArray(task.SpecificRect),
             PreDelayText = task.PreDelay.ToString(CultureInfo.InvariantCulture),
@@ -187,6 +227,11 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         Template = Template,
         TemplateThresholdText = TemplateThresholdText,
         RoiText = RoiText,
+        FallbackRoiText = FallbackRoiText,
+        TransitionTemplatesText = TransitionTemplatesText,
+        TransitionThresholdText = TransitionThresholdText,
+        TransitionTimeoutMillisecondsText = TransitionTimeoutMillisecondsText,
+        TransitionPollIntervalMillisecondsText = TransitionPollIntervalMillisecondsText,
         SearchRoisText = SearchRoisText,
         SpecificRectText = SpecificRectText,
         PreDelayText = PreDelayText,
@@ -228,6 +273,20 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             nameof(TemplateThresholdText),
             defaultValue: 0.86);
         task.Roi = ParseArray(RoiText, nameof(RoiText), expectedLength: 4);
+        task.FallbackRoi = ParseArray(FallbackRoiText, nameof(FallbackRoiText), expectedLength: 4);
+        task.TransitionTemplates = ParseList(TransitionTemplatesText);
+        task.TransitionThreshold = ParseDouble(
+            TransitionThresholdText,
+            nameof(TransitionThresholdText),
+            defaultValue: 0.78);
+        task.TransitionTimeoutMilliseconds = ParseInt(
+            TransitionTimeoutMillisecondsText,
+            nameof(TransitionTimeoutMillisecondsText),
+            defaultValue: 2_600);
+        task.TransitionPollIntervalMilliseconds = ParseInt(
+            TransitionPollIntervalMillisecondsText,
+            nameof(TransitionPollIntervalMillisecondsText),
+            defaultValue: 250);
         task.SearchRois = ParseRois(SearchRoisText, nameof(SearchRoisText));
         task.SpecificRect = ParseArray(SpecificRectText, nameof(SpecificRectText), expectedLength: 4);
         task.PreDelay = ParseInt(PreDelayText, nameof(PreDelayText));

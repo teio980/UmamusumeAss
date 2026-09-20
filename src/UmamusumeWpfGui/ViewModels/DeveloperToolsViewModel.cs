@@ -1167,6 +1167,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             "capturescreenshot",
             "clickrect",
             "clickself",
+            "clickselfuntiltransition",
             "donothing",
             "input",
             "keyevent",
@@ -1194,8 +1195,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 errors.Add($"{name}: template not found ({task.Template})");
             }
 
-            if (action is "clickself" or "wait" && string.IsNullOrWhiteSpace(task.Template))
+            if (action is "clickself" or "clickselfuntiltransition" or "wait"
+                && string.IsNullOrWhiteSpace(task.Template))
                 errors.Add($"{name}: action {task.Action} requires a template");
+            if (action == "clickselfuntiltransition"
+                && task.TransitionTemplates.Count == 0)
+            {
+                errors.Add($"{name}: ClickSelfUntilTransition requires transitionTemplates");
+            }
             if (action == "clickrect" && !HasArray(task.SpecificRect, 4))
                 errors.Add($"{name}: ClickRect requires specificRect with 4 values");
             if (action == "swipe" && !HasArray(task.Swipe, 5))
