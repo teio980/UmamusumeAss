@@ -7,7 +7,11 @@ namespace UmamusumeWpfGui.Services.Training;
 /// A stable observation shared by the career runtime and scenario modules.
 /// Recognition and action details remain outside the runtime state.
 /// </summary>
-public sealed record CareerObservation(string ScreenId, double Score)
+public sealed record CareerObservation(
+    string ScreenId,
+    double Score,
+    int? EnergyPercent = null,
+    double EnergyConfidence = 0)
 {
     public CareerScreenKind Kind => CareerScreenClassification.Classify(ScreenId);
 }

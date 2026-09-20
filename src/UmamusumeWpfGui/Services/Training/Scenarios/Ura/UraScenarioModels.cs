@@ -404,6 +404,9 @@ public sealed class UraScreenDefinition
     [JsonPropertyName("actions")]
     public List<UraScreenAction> Actions { get; set; } = [];
 
+    [JsonPropertyName("observations")]
+    public UraScreenObservations Observations { get; set; } = new();
+
     public IReadOnlyList<string> Templates => Recognition.GetTemplates();
 
     public UraScreenAction? FindAction(string actionId)
@@ -424,6 +427,33 @@ public sealed class UraScreenDefinition
                     normalizedActionId,
                     StringComparison.OrdinalIgnoreCase));
     }
+}
+
+public sealed class UraScreenObservations
+{
+    [JsonPropertyName("energyBar")]
+    public UraEnergyBarObservation? EnergyBar { get; set; }
+}
+
+public sealed class UraEnergyBarObservation
+{
+    [JsonPropertyName("roi")]
+    public int[]? Roi { get; set; }
+
+    [JsonPropertyName("innerInset")]
+    public int[]? InnerInset { get; set; }
+
+    [JsonPropertyName("fillSaturationMin")]
+    public double FillSaturationMin { get; set; } = 0.18;
+
+    [JsonPropertyName("fillValueMin")]
+    public double FillValueMin { get; set; } = 0.18;
+
+    [JsonPropertyName("columnMatchRatio")]
+    public double ColumnMatchRatio { get; set; } = 0.55;
+
+    [JsonPropertyName("minimumConfidence")]
+    public double MinimumConfidence { get; set; } = 0.70;
 }
 
 public sealed class UraScreenRecognition

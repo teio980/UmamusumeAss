@@ -89,11 +89,20 @@ public sealed class UraScenarioModule
     public void ObserveScreen(
         UraCareerSessionState state,
         string screenId,
-        double confidence)
+        double confidence,
+        int? energyPercent = null,
+        double energyConfidence = 0)
     {
         state.LastScreenId = screenId;
         if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
+        {
             state.CareerStarted = true;
+            state.Energy = energyPercent is int observedEnergy
+                ? UraObservedValueFactory.FromObservation(
+                    Math.Clamp(observedEnergy, 0, 100),
+                    energyConfidence)
+                : UraObservedValueFactory.Unknown<int>();
+        }
 
         if (string.Equals(screenId, "race_day", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_list", StringComparison.OrdinalIgnoreCase)
@@ -116,15 +125,16 @@ public sealed class UraScenarioModule
 
         if (string.Equals(screenId, "training_result", StringComparison.OrdinalIgnoreCase))
         {
-            var current = state.Energy.Value ?? 100;
-            state.Energy = UraObservedValueFactory.FromDerived(
-                Math.Max(0, current - 20),
-                confidence * 0.5);
             state.TurnIndex++;
         }
         else if (string.Equals(screenId, "rest_result", StringComparison.OrdinalIgnoreCase))
         {
-            state.Energy = UraObservedValueFactory.FromObservation(100, confidence);
+            if (energyPercent is int observedEnergy)
+            {
+                state.Energy = UraObservedValueFactory.FromObservation(
+                    Math.Clamp(observedEnergy, 0, 100),
+                    energyConfidence);
+            }
             state.TurnIndex++;
         }
     }

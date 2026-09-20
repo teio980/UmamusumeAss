@@ -1,3 +1,4 @@
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
@@ -105,6 +106,17 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        if (context.Observation.EnergyPercent is not int energyPercent)
+        {
+            context.LogSink?.Add(
+                "Career Training",
+                "Could not observe the career energy bar; pausing safely before choosing an action.",
+                LogEntryKind.Failure);
+            return CareerRuntimeResults.Failure(
+                "Could not observe a stable career energy bar.",
+                "career_main");
+        }
+
         var decision = context.Strategy.ChooseTurnAction(
             context.Scenario,
             context.State);
@@ -119,7 +131,9 @@ internal sealed class CareerTurnFlow
                 "career_main");
         }
 
-        context.LogSink?.Add("URA Strategy", decision.Reason);
+        context.LogSink?.Add(
+            "URA Strategy",
+            $"Observed energy {energyPercent}% before choosing an action. {decision.Reason}");
         var actionId = decision.Action switch
         {
             UraPlannedAction.Rest => "rest",

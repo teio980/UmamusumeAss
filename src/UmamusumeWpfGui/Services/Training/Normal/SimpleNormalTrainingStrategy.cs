@@ -50,7 +50,7 @@ public sealed class UraDefaultStrategy
 
     public UraDefaultStrategy(
         string trainingType = "speed",
-        int restThreshold = 35)
+        int restThreshold = 50)
     {
         if (!UraTrainingTypeCatalog.TryNormalize(trainingType, out _trainingType))
         {
@@ -105,12 +105,12 @@ public sealed class UraDefaultStrategy
                 [UraPlannedAction.Rest]);
         }
 
-        if (state.Energy.Value is int energy && energy <= RestThreshold)
+        if (state.Energy.Value is int energy && energy < RestThreshold)
         {
             return new(
                 UraPlannedAction.Rest,
                 null,
-                $"Observed energy {energy} is at or below the safety threshold {RestThreshold}.",
+                $"Observed energy {energy}% is below the safety threshold {RestThreshold}%.",
                 false,
                 [UraPlannedAction.Training]);
         }

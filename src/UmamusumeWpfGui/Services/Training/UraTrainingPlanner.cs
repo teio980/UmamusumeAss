@@ -16,7 +16,7 @@ public sealed record UraPlannerInput(
     bool HasPendingRace,
     bool HasScenarioEvent,
     int Energy,
-    int RestThreshold = 35);
+    int RestThreshold = 50);
 
 public sealed record UraPlannerDecision(
     UraPlannedAction Action,
@@ -43,7 +43,7 @@ public sealed class UraTrainingPlanner
             return new(UraPlannedAction.Race, "A required race is ready.");
         }
 
-        if (input.Energy <= input.RestThreshold)
+        if (input.Energy < input.RestThreshold)
         {
             return new(UraPlannedAction.Rest, "Energy is below the configured safety threshold.");
         }

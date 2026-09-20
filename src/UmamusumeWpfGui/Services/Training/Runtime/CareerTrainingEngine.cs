@@ -353,7 +353,12 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             }
 
             state.LastScreenId = observation.ScreenId;
-            scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
+            scenario.ObserveScreen(
+                state,
+                observation.ScreenId,
+                observation.Score,
+                observation.EnergyPercent,
+                observation.EnergyConfidence);
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
             logSink?.Add(

@@ -21,6 +21,15 @@ public sealed class CareerScreenObserver
     internal static bool IsRuntimeCareerScreen(string screenId) =>
         CareerScreenClassification.IsRuntimeScreen(screenId);
 
+    internal static bool IsEligibleForCareerPhase(
+        string screenId,
+        UraCareerSessionState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return (!state.CareerStarted && state.TurnIndex <= 0)
+            || IsRuntimeCareerScreen(screenId);
+    }
+
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
@@ -35,6 +44,12 @@ public sealed class CareerScreenObserver
 
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !careerOnly || IsRuntimeCareerScreen(screen.ScreenId))
+            // Once the run has reached the Career turn screen, only Career
+            // runtime screens are valid. Startup dialogs such as
+            // support_autofill_confirmation use a generic green OK-button
+            // template and can otherwise collide with the Rest confirmation
+            // dialog after clicking Rest.
+            .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state))
             .Where(screen => careerOnly
                 || state.CareerStarted
                 || state.TurnIndex > 0
@@ -94,7 +109,29 @@ public sealed class CareerScreenObserver
                     if (match.Found
                         && (frameBest is null || match.Score > frameBest.Score))
                     {
-                        frameBest = new CareerObservation(screen.ScreenId, match.Score);
+                        var energyDefinition = screen.Observations.EnergyBar;
+                        var energy = energyDefinition is not null
+                            ? CareerEnergyBarReader.TryMeasure(
+                                frame,
+                                energyDefinition,
+                                pack.ScreenProfile.ReferenceWidth,
+                                pack.ScreenProfile.ReferenceHeight)
+                            : null;
+                        if (energy is not null
+                            && energyDefinition is not null
+                            && energy.Confidence < Math.Clamp(
+                                energyDefinition.MinimumConfidence,
+                                0,
+                                1))
+                        {
+                            energy = null;
+                        }
+
+                        frameBest = new CareerObservation(
+                            screen.ScreenId,
+                            match.Score,
+                            energy?.Percent,
+                            energy?.Confidence ?? 0);
                     }
 
                     if (frameBest is { Score: >= EarlyRecognitionThreshold })
