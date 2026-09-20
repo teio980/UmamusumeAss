@@ -91,6 +91,58 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Normal_resume_enters_existing_career_without_scenario_navigation()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.ReturnsCareerAfterResume = true;
+
+        var state = new CareerEntryNavigationState
+        {
+            ResumeDirectlyToCareer = true,
+        };
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: true),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal("career_main", result.LastScreenId);
+        Assert.Equal(CareerEntryNavigationStep.Career, state.Step);
+        Assert.Equal(["task:home", "career_continue.resume"], harness.Actions.Calls);
+    }
+
+    [Fact]
+    public async Task Resume_from_existing_career_prompt_does_not_reopen_home()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.ReturnsCareerAfterResume = true;
+        harness.Actions.SetScreen("career_continue");
+
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Continue,
+            LastScreenId = "career_continue",
+            ResumeDirectlyToCareer = true,
+        };
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: true),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal("career_main", result.LastScreenId);
+        Assert.Equal(["career_continue.resume"], harness.Actions.Calls);
+    }
+
+    [Fact]
     public async Task Support_start_does_not_click_again_while_final_confirmation_is_loading()
     {
         var root = FindSolutionRoot();
@@ -624,6 +676,7 @@ public sealed class IndependentTrainingBehaviorTests
         public Func<string, bool>? FailWhen { get; set; }
         public string? BlockAction { get; set; }
         public bool ReturnsHomeAfterDelete { get; set; }
+        public bool ReturnsCareerAfterResume { get; set; }
         public bool HoldSupportReadyAfterStartOnce { get; set; }
         private bool _careerDataDeleted;
         public TaskCompletionSource<bool> BlockEntered { get; } =
@@ -715,6 +768,9 @@ public sealed class IndependentTrainingBehaviorTests
         {
             if (actionId.Equals("delete", StringComparison.OrdinalIgnoreCase))
                 _careerDataDeleted = true;
+            if (actionId.Equals("resume", StringComparison.OrdinalIgnoreCase)
+                && ReturnsCareerAfterResume)
+                return "career_main";
             return ReturnsHomeAfterDelete && _careerDataDeleted
                 ? "home"
                 : "scenario_select";
@@ -735,6 +791,7 @@ public sealed class IndependentTrainingBehaviorTests
                 ["support_select"] = (68, 145),
                 ["support_ready"] = (50, 165),
                 ["career_final_confirmation"] = (50, 10),
+                ["career_main"] = (5, 0),
             };
 
         private string _screen = "home";
@@ -918,6 +975,8 @@ public sealed class IndependentTrainingBehaviorTests
                 return "support_ready";
             if (value.Contains("support_select", StringComparison.OrdinalIgnoreCase))
                 return "support_select";
+            if (value.Contains("career_main", StringComparison.OrdinalIgnoreCase))
+                return "career_main";
             return string.Empty;
         }
     }

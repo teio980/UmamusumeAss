@@ -5,7 +5,7 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class NormalCareerTrainingPipelineTests
 {
     [Fact]
-    public void Zero_turn_start_transition_checkpoint_reopens_shared_entry_flow()
+    public void A_zero_turn_run_does_not_infer_a_start_transition()
     {
         var state = new UraCareerSessionState
         {
@@ -15,20 +15,42 @@ public sealed class NormalCareerTrainingPipelineTests
         };
 
         Assert.False(
-            AdbNormalCareerTrainingPipeline.IsPersistedCareerStartTransitionExpected(state));
+            AdbNormalCareerTrainingPipeline.IsCareerStartTransitionExpected(state));
     }
 
     [Fact]
-    public void Observed_career_progress_can_resume_from_start_transition()
+    public void An_in_memory_await_career_stage_expects_the_start_transition()
     {
         var state = new UraCareerSessionState
         {
             TurnIndex = 1,
             CareerStarted = false,
-            LastScreenId = "career_start_transition",
+            NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain,
         };
 
         Assert.True(
-            AdbNormalCareerTrainingPipeline.IsPersistedCareerStartTransitionExpected(state));
+            AdbNormalCareerTrainingPipeline.IsCareerStartTransitionExpected(state));
+    }
+
+    [Theory]
+    [InlineData("career_main")]
+    [InlineData("training_selection")]
+    [InlineData("race_day")]
+    [InlineData("race_result")]
+    [InlineData("career_complete")]
+    public void Live_career_pages_are_eligible_for_current_screen_recovery(string screenId)
+    {
+        Assert.True(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
+    }
+
+    [Theory]
+    [InlineData("home")]
+    [InlineData("career_continue")]
+    [InlineData("scenario_select")]
+    [InlineData("career_final_confirmation")]
+    [InlineData("normal_quick_mode_settings")]
+    public void Entry_and_setup_pages_are_not_treated_as_live_career_pages(string screenId)
+    {
+        Assert.False(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
     }
 }
