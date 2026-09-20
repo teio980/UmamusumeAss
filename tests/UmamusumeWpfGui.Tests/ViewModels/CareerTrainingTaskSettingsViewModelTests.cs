@@ -371,6 +371,22 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Normal_training_strategy_is_exposed_as_a_selectable_setting()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+
+        Assert.Contains(
+            settings.NormalTrainingStrategyOptions,
+            item => item.Value == CareerTrainingTaskSettingsViewModel.DefaultStrategyId);
+
+        settings.NormalTrainingStrategy = "default-wit-medium";
+
+        Assert.Equal("default-wit-medium", settings.StrategyId);
+        Assert.Equal("default-wit-medium", settings.NormalTrainingStrategy);
+        Assert.Equal("wit", UraStrategyRegistry.Create(settings.StrategyId).TrainingType);
+    }
+
+    [Fact]
     public async Task Support_deck_settings_use_catalog_rules_for_selected_cards()
     {
         var root = FindSolutionRoot();

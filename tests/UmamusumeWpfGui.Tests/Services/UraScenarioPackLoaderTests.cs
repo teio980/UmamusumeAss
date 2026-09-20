@@ -8,6 +8,7 @@ public sealed class UraScenarioPackLoaderTests
     private static readonly string[] SupportedExecutionActions =
         [
             "ClickSelf",
+            "ClickSelfUntilTransition",
             "ClickRect",
             "ClickText",
             "FindText",
@@ -52,6 +53,13 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             15,
             pack.ExecutionDefinition.Tasks["trainee_select_pick"].SearchRois.Count);
+        var speedEntry = pack.ExecutionDefinition.Tasks["training_selection_training_speed"];
+        var speedClick = pack.ExecutionDefinition.Tasks["training_selection_speed_first_click"];
+        Assert.Equal("JustReturn", speedEntry.Action);
+        Assert.Equal([20, 1260, 180, 90], speedEntry.Roi!);
+        Assert.Equal("ClickSelfUntilTransition", speedClick.Action);
+        Assert.Equal([20, 1160, 180, 125], speedClick.FallbackRoi!);
+        Assert.Equal(2, speedClick.TransitionTemplates.Count);
         Assert.All(
             pack.ExecutionDefinition.Tasks.Values,
             task => Assert.Contains(

@@ -84,6 +84,27 @@ public sealed class UraScenarioModuleTests
         Assert.True(state.CareerStarted);
     }
 
+    [Theory]
+    [InlineData("default-speed-medium", "speed")]
+    [InlineData("default-stamina-medium", "stamina")]
+    [InlineData("default-power-medium", "power")]
+    [InlineData("default-guts-medium", "guts")]
+    [InlineData("default-wit-medium", "wit")]
+    public async Task Registered_normal_strategies_select_their_configured_training_type(
+        string strategyId,
+        string expectedTrainingType)
+    {
+        var pack = await LoadPackAsync();
+        var module = new UraScenarioModule(pack);
+        var state = module.CreateInitialState();
+        var strategy = UraStrategyRegistry.Create(strategyId);
+
+        var decision = strategy.ChooseTurnAction(module, state);
+
+        Assert.Equal(UraPlannedAction.Training, decision.Action);
+        Assert.Equal(expectedTrainingType, decision.TargetId);
+    }
+
     private static async Task<UraScenarioPack> LoadPackAsync()
     {
         var root = FindWorkspaceRoot();
