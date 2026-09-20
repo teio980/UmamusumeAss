@@ -654,6 +654,16 @@
                                                           }
                                            }
                                        ],
+                        "observations":  {
+                                             "energyBar":  {
+                                                               "roi":  [280,176,365,50],
+                                                               "innerInset":  [7,10,349,28],
+                                                               "fillSaturationMin":  0.18,
+                                                               "fillValueMin":  0.18,
+                                                               "columnMatchRatio":  0.55,
+                                                               "minimumConfidence":  0.70
+                                                           }
+                                         },
                         "actions":  [
                                         {
                                             "semanticId":  "goal.details",
@@ -787,7 +797,14 @@
                     {
                         "screenId":  "rest_confirmation",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/rest_result_ura.png",
+                                            "template":  "templates/runtime_frames/rest_confirmation_dialog.png",
+                                            "roi":  [
+                                                       0,
+                                                       460,
+                                                       900,
+                                                       700
+                                                   ],
+                                            "templThreshold":  0.82,
                                             "requiredText":  [
                                                                  "Rest",
                                                                  "OK"
@@ -806,13 +823,24 @@
                         "recognition":  {
                                             "template":  "templates/runtime_frames/rest_after_debut.png",
                                             "templates":  [
-                                                              "templates/runtime_frames/rest_event_ura.png"
+                                                              "templates/runtime_frames/rest_event_ura.png",
+                                                              "templates/runtime_frames/rest_result_all_refreshed.png"
                                                           ],
                                             "requiredText":  [
                                                                  "Well-Rested"
                                                              ],
                                             "stable":  true
                                         },
+                        "observations":  {
+                                             "energyBar":  {
+                                                               "roi":  [280,176,365,50],
+                                                               "innerInset":  [7,10,349,28],
+                                                               "fillSaturationMin":  0.18,
+                                                               "fillValueMin":  0.18,
+                                                               "columnMatchRatio":  0.55,
+                                                               "minimumConfidence":  0.70
+                                                           }
+                                         },
                         "actions":  [
                                         {
                                             "semanticId":  "event.advance",
