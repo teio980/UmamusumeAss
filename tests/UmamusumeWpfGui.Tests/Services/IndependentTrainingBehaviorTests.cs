@@ -143,6 +143,32 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Career_main_resume_step_continues_without_reopening_home()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.SetScreen("career_main");
+
+        var state = new CareerEntryNavigationState
+        {
+            LastScreenId = "career_main",
+            ResumeDirectlyToCareer = true,
+        };
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: true),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        Assert.Equal("career_main", result.LastScreenId);
+        Assert.Equal(CareerEntryNavigationStep.Career, state.Step);
+        Assert.Empty(harness.Actions.Calls);
+    }
+
+    [Fact]
     public async Task Support_start_does_not_click_again_while_final_confirmation_is_loading()
     {
         var root = FindSolutionRoot();

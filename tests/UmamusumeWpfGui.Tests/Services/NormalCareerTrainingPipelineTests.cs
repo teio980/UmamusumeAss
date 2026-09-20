@@ -36,11 +36,37 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("career_main")]
     [InlineData("training_selection")]
     [InlineData("race_day")]
+    [InlineData("race_live")]
     [InlineData("race_result")]
     [InlineData("career_complete")]
     public void Live_career_pages_are_eligible_for_current_screen_recovery(string screenId)
     {
         Assert.True(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
+    }
+
+    [Theory]
+    [InlineData("career_main", CareerScreenKind.Main)]
+    [InlineData("training_selection", CareerScreenKind.Turn)]
+    [InlineData("race_live", CareerScreenKind.Race)]
+    [InlineData("event_choice", CareerScreenKind.Event)]
+    [InlineData("career_result", CareerScreenKind.Settlement)]
+    public void Runtime_observations_are_classified_before_flow_dispatch(
+        string screenId,
+        CareerScreenKind expected)
+    {
+        Assert.Equal(expected, AdbNormalCareerTrainingPipeline.ClassifyRuntimeScreen(screenId));
+    }
+
+    [Theory]
+    [InlineData("home")]
+    [InlineData("career_final_confirmation")]
+    [InlineData("normal_quick_mode_settings")]
+    [InlineData("unknown")]
+    public void Entry_and_unknown_pages_are_not_runtime_observations(string screenId)
+    {
+        Assert.Equal(
+            CareerScreenKind.Unknown,
+            AdbNormalCareerTrainingPipeline.ClassifyRuntimeScreen(screenId));
     }
 
     [Theory]
