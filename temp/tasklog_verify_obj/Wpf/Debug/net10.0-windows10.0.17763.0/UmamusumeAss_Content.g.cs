@@ -678,6 +678,7 @@
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("trainee_select_trainee_next.png")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("training_event_event_advance.png")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("training_result_event_advance.png")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("training_selection_header.png")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("guts.png")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("power.png")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("speed.png")]
