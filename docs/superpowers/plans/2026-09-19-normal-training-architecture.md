@@ -7,7 +7,7 @@ Normal Training 保留现有的 Home → 剧本 → 马娘 → 继承 → 支援
 整体分为四个阶段：
 
 ```text
-启动页面探测与恢复
+启动页面探测与进入
   → 共享进入流程
   → Normal 启动配置流程
   → 通用养成运行引擎
@@ -51,11 +51,11 @@ Quick Mode           → 从 Quick Mode 配置继续
 
 ### C# 负责
 
-- Normal 启动状态机和中断恢复。
+- Normal 启动状态机和当前页面探测。
 - 启动时当前页面探测，以及识别结果到入口步骤或 Normal setup stage 的映射。
 - 回合、目标赛、事件、结算等流程编排。
 - URA 目标链、Finale 和比赛结果推进。
-- 训练策略、checkpoint 和未知结果处理。
+- 训练策略和未知结果处理。
 - 根据当前状态调用语义动作。
 
 ### JSON 负责
@@ -76,7 +76,6 @@ src/UmamusumeWpfGui/Services/Training/
 │   ├── CareerScreenObserver.cs
 │   ├── CareerStartupRecoveryDetector.cs
 │   ├── CareerFlowDispatcher.cs
-│   ├── CareerCheckpointStore.cs
 │   └── Flows/
 │       ├── CareerTurnFlow.cs
 │       ├── CareerRaceFlow.cs
@@ -102,19 +101,19 @@ src/UmamusumeWpfGui/Services/Training/
 ### `NormalCareerStartupFlow`
 
 - 负责 Normal Mode、Strategy、Start、Start 后页面识别、Skip Intro 和 Quick Mode。
-- 每完成一个步骤立即保存 checkpoint。
-- 恢复时从已保存步骤继续，不能重复点击 Start。
+- 每完成一个步骤只更新本次运行的内存状态。
+- 重新启动时以当前游戏画面为事实来源，不保存或读取 Normal 运行进度。
 - 复用现有 `CareerJsonActionExecutor` 执行语义动作。
 
 ### `CareerStartupRecoveryDetector`
 
 - 在共享进入流程之前只截取一次当前画面，并用同一帧依次匹配所有可恢复页面。
 - 匹配规则由调用方提供，包含识别用 screen ID、恢复后的 screen ID、入口步骤和可选的 Normal setup stage。
-- 页面识别器只返回恢复目标，不执行点击、不修改 checkpoint。
+- 页面识别器只返回当前页面对应的进入目标，不执行点击、不修改运行状态。
 - Normal pipeline 根据结果初始化 `CareerEntryNavigationState.Step` 和 `LastScreenId`；如果已到 Final Confirmation 或 Quick Mode，则直接初始化对应 setup stage。
 - 未匹配到任何页面时返回空结果，由 pipeline 使用原有 Home 起点。
 - 匹配顺序固定且页面模板必须互斥；一帧出现多个匹配时按明确优先级选择最靠后的安全步骤，不能依赖字典遍历顺序。
-- Final Confirmation 的稳定识别可以由 Independent Training 复用，但 Normal 与 Independent 仍各自维护 setup session 和 checkpoint。
+- Final Confirmation 的稳定识别可以由 Independent Training 复用，但 Normal 与 Independent 仍各自维护 setup session；Independent Training 不在本次改造范围内。
 
 ### `CareerTrainingEngine`
 
@@ -127,11 +126,11 @@ src/UmamusumeWpfGui/Services/Training/
 → 策略选择领域动作
 → JSON 执行语义动作
 → 验证结果
-→ 保存 checkpoint
+→ 更新本次运行状态
 → 下一轮
 ```
 
-未识别页面、动作后状态不确定或超过安全动作数时，保存 checkpoint 并安全暂停。
+未识别页面、动作后状态不确定或超过安全动作数时，安全暂停并返回结果；重新启动时重新探测当前画面。
 
 ### 流程处理器
 
@@ -156,7 +155,6 @@ CareerObservation
 CareerDecision
 CareerRuntimeState
 CareerSessionState<TScenarioState>
-CareerCheckpoint<TScenarioState>
 
 ICareerScenarioModule<TScenarioState>
 ICareerTrainingStrategy<TScenarioState>
@@ -180,7 +178,7 @@ URA 状态保存：
 - `RacePlacements`
 - `RetryCount`
 
-Independent Training 继续使用自己的 session 和 checkpoint，不与 Normal 共用运行状态。
+Independent Training 继续使用自己的 session，不与 Normal 共用运行状态；本次 Normal 改造不修改 Independent Training 的既有实现。
 
 启动恢复使用独立映射，不把视觉探测 screen ID 写成领域状态。当前页面与恢复目标的映射为：
 
@@ -193,9 +191,9 @@ Independent Training 继续使用自己的 session 和 checkpoint，不与 Norma
 | `normal_final_confirmation_startup` | `career_final_confirmation` | `ConfigureMode` |
 | `normal_quick_mode_settings` | `normal_quick_mode_settings` | `ConfigureQuickMode` |
 
-识别成功后必须先保存恢复后的 `LastScreenId`、入口步骤或 setup stage，再执行下一动作。游戏画面是恢复时的事实来源，可以修正零回合 stale checkpoint，但不能把已经进入 `career_main` 的会话倒退到入口流程。
+识别成功后必须先在本次运行的内存状态中设置 `LastScreenId`、入口步骤或 setup stage，再执行下一动作。游戏画面是当前运行的事实来源；不能把已经进入 `career_main` 的会话倒退到入口流程。
 
-## 5. Normal 启动状态与 checkpoint 兼容
+## 5. Normal 启动状态
 
 `NormalCareerSetupStage` 包含：
 
@@ -213,8 +211,6 @@ AwaitCareerMain
 InCareer
 ```
 
-现有 checkpoint 默认把枚举序列化为数字，因此必须保留旧值：
-
 ```csharp
 EnterCareer = 0,
 ConfigureMode = 1,
@@ -229,9 +225,7 @@ SetQuickMode = 9,
 ConfirmQuickMode = 10,
 ```
 
-不能把 `SkipIntro` 插入为 `5` 后顺延旧状态，否则旧 checkpoint 中的 `AwaitCareerMain = 5` 会被解释成 Skip Intro。待执行状态必须使用显式匹配，不能再依赖枚举数值范围。
-
-新的 checkpoint 使用版本号和 `mode = normal`。加载旧的无版本 `UraCareerSessionState` 时进行兼容迁移；无法确认的状态安全回到可观察入口，不能盲目重复不可逆操作。
+Normal setup stage 只在当前运行内存中使用，不要求序列化兼容；待执行状态必须使用显式匹配，不能依赖枚举数值范围。无法确认当前页面时安全暂停，重新启动后从当前画面重新进入。
 
 ## 6. JSON 与模板布局
 
@@ -360,7 +354,141 @@ normal.quick_mode.confirm
 
 后续高级策略通过 `ICareerTrainingStrategy<TScenarioState>` 替换，不修改页面执行层。
 
-## 8. 日志语义
+## 8. 养成阶段完整步骤
+
+启动配置完成并稳定识别到 `career_main` 后，进入以下通用养成阶段。养成阶段不再依赖保存的进度文件；每个动作完成后都必须重新识别页面，再决定下一步。
+
+### 8.1 每回合主循环
+
+```text
+1. 识别当前页面
+   → 必须先确认是 career_main、目标赛页面、事件页面或结算页面
+
+2. 在 career_main 更新本回合状态
+   → TurnIndex
+   → Energy
+   → 当前目标 CurrentObjectiveId
+   → 当前目标赛 CurrentRaceId
+   → 是否有待处理事件 HasScenarioEvent
+
+3. 处理高优先级状态
+   → 有待处理事件：进入事件处理
+   → 有目标赛：进入目标赛流程
+   → 已完成所有普通目标：进入 URA Finale
+
+4. 没有比赛或事件时选择普通动作
+   → Energy ≤ 35：选择休息
+   → 其他情况：选择 Speed 训练
+
+5. 执行领域动作
+   → 休息：rest_confirmation → rest_result
+   → 训练：training_selection → training_result
+   → 事件：event_choice 或 scenario_event
+
+6. 处理动作结果
+   → 更新 Energy、TurnIndex、目标和事件状态
+   → 处理 training_event 或事件选项
+   → 确认回到 career_main，或转入目标赛/结算页面
+
+7. 页面确认成功后进入下一回合
+   → 未知页面、未知结果或动作后页面不确定：安全暂停
+```
+
+### 8.2 普通训练流程
+
+```text
+career_main
+→ strategy 判断没有目标赛、没有事件且体力高于阈值
+→ training_selection
+→ 选择 Speed
+→ training_result
+→ 如有 training_event：处理事件并继续
+→ 点击 advance
+→ career_main
+```
+
+首版只执行 Speed，不做训练收益 OCR、不自动购买技能、不参加可选比赛。后续策略替换时，页面执行层不变。
+
+### 8.3 休息流程
+
+```text
+career_main
+→ strategy 判断 Energy ≤ 35
+→ rest_confirmation
+→ confirm
+→ rest_result
+→ 更新 Energy
+→ advance
+→ career_main
+```
+
+### 8.4 事件流程
+
+```text
+career_main 或 training_result
+→ 识别 training_event、event_choice 或 scenario_event
+→ 选择第一项（首版固定规则）
+→ 确认事件结果
+→ 更新事件状态
+→ career_main
+```
+
+### 8.5 目标赛流程
+
+```text
+career_main 或 career_races_ready
+→ race_day
+→ open race_list
+→ 选择当前目标赛
+→ race_details
+→ confirm
+→ race_attributes
+→ start_playback
+→ race_playback / race_playback_settings
+→ race_live
+→ 推进到 race_result
+→ 识别并确认名次
+→ 更新目标、粉丝数、重试次数
+→ reward / reward_support / goal_update
+→ 如普通目标完成：goal_complete
+→ 否则回到 career_main
+```
+
+目标赛必须优先于普通训练。比赛结果无法由模板确认时，不得假定比赛成功或推进目标链。
+
+### 8.6 URA Finale 流程
+
+```text
+goal_complete
+→ scenario_event（如有 URA 入场事件）
+→ ura_finale_qualifier
+→ 确认名次并推进 FinaleStageIndex
+→ ura_finale_semifinal
+→ 确认名次并推进 FinaleStageIndex
+→ ura_finale_finals
+→ 确认名次
+→ scenario_complete
+```
+
+三场 Finale 比赛必须按顺序完成；任一场结果未知或不满足目标时暂停，不能直接跳到下一阶段。
+
+### 8.7 育成结算流程
+
+```text
+complete_career
+→ career_rank
+→ career_result
+→ rewards
+→ sparks
+→ sparks_confirmation
+→ career_complete
+→ 返回 Home
+→ 确认 Home 后才报告成功
+```
+
+养成阶段的页面、动作和结果素材按以上 8.1 至 8.7 的业务步骤逐项补齐；每个业务步骤完成后再进入下一个步骤。
+
+## 9. 日志语义
 
 任务日志应覆盖：
 
@@ -373,7 +501,7 @@ normal.quick_mode.confirm
 
 日志记录语义动作和结果，不直接向用户暴露 JSON task 名或坐标。
 
-## 9. 测试与验收
+## 10. 测试与验收
 
 ### 启动流程
 
@@ -394,13 +522,6 @@ normal.quick_mode.confirm
 - Shorten 或 Skip 未确认时不能执行 Confirm。
 - Intro 和 Quick Mode 完成前不会启动 `CareerTrainingEngine`。
 
-### checkpoint
-
-- 在每个新增 setup stage 中断后均能从该阶段恢复。
-- 恢复不会重复点击 Start。
-- 旧 checkpoint 的 `AwaitCareerMain = 5` 和 `InCareer = 6` 保持原含义。
-- 无法迁移的 checkpoint 不执行高风险动作并安全暂停。
-
 ### 养成引擎
 
 - 使用 fake runtime 跑通 `career_main → training_selection → training_result → career_main`。
@@ -412,13 +533,13 @@ normal.quick_mode.confirm
 
 - 现有 Independent Training、共享进入流程和任务路由测试全部继续通过。
 - 所有 semantic action 都能解析到 execution task，所有模板引用存在。
-- 模拟器 smoke test 至少覆盖 Skip Intro、Quick Mode、一次训练、一次休息、一次目标赛和中断恢复。
+- 模拟器 smoke test 至少覆盖 Skip Intro、Quick Mode、一次训练、一次休息、一次目标赛、URA Finale 和完整结算。
 
-## 10. 实施默认值
+## 11. 实施默认值
 
 - 首个目标剧本为 URA，运行引擎保持剧本可扩展。
 - 默认训练为 Speed。
 - 默认休息阈值为 35。
 - 默认事件选择第一项。
 - `pauseOnUnknownOutcome` 保持开启。
-- 本方案不改变 Independent Training 的配置、执行和 checkpoint。
+- 本方案不改变 Independent Training 的配置和执行。
