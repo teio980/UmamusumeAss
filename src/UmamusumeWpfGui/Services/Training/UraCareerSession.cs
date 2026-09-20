@@ -23,9 +23,10 @@ public enum NormalCareerSetupStage
     ConfigureStrategy = 2,
     StartCareer = 3,
     ConfirmStart = 4,
-    SkipIntro = 5,
-    AwaitCareerMain = 6,
-    InCareer = 7,
+    // Keep the historical numeric values stable for existing checkpoints.
+    AwaitCareerMain = 5,
+    InCareer = 6,
+    SkipIntro = 7,
     ConfigureQuickMode = 8,
     SetQuickMode = 9,
     ConfirmQuickMode = 10,
