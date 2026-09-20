@@ -347,7 +347,7 @@ normal.quick_mode.confirm
 
 1. 强制目标赛优先。
 2. 待处理事件优先。
-3. 体力小于或等于 35 时休息。
+3. 在稳定识别到 `career_main` 后，通过 ADB 原始彩色帧测量顶部 Energy 条的填充比例；体力低于 50% 时休息。
 4. 其他情况默认选择 Speed。
 5. 事件默认选择第一项。
 6. 首版不参加可选比赛，不自动购买技能。
@@ -377,7 +377,7 @@ normal.quick_mode.confirm
    → 已完成所有普通目标：进入 URA Finale
 
 4. 没有比赛或事件时选择普通动作
-   → Energy ≤ 35：选择休息
+   → Energy < 50%：选择休息
    → 其他情况：选择 Speed 训练
 
 5. 执行领域动作
@@ -413,7 +413,7 @@ career_main
 
 ```text
 career_main
-→ strategy 判断 Energy ≤ 35
+→ strategy 判断 Energy < 50%
 → rest_confirmation
 → confirm
 → rest_result
@@ -525,6 +525,8 @@ complete_career
 ### 养成引擎
 
 - 使用 fake runtime 跑通 `career_main → training_selection → training_result → career_main`。
+- `career_main` 稳定彩色帧能够测量 Energy 条填充比例；低于 50% 记录为可观测体力并选择休息。
+- Energy 条无法确认时安全暂停；正好 50% 不触发休息。
 - 覆盖目标赛、事件、低体力休息、默认 Speed 和完整结算路径。
 - 动作成功并确认新页面后才推进回合或目标。
 - 未知页面和未知比赛结果不会错误推进状态。
@@ -539,7 +541,7 @@ complete_career
 
 - 首个目标剧本为 URA，运行引擎保持剧本可扩展。
 - 默认训练为 Speed。
-- 默认休息阈值为 35。
+- 默认休息阈值为 50%，严格低于阈值时休息。
 - 默认事件选择第一项。
 - `pauseOnUnknownOutcome` 保持开启。
 - 本方案不改变 Independent Training 的配置和执行。
