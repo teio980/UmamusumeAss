@@ -1,14 +1,90 @@
-namespace UmamusumeWpfGui.Services.Training.Scenarios.Ura;
+using System.IO;
+
+namespace UmamusumeWpfGui.Services.Training;
+
+public enum UraStateSource
+{
+    Observed,
+    Derived,
+    Estimated,
+    Unknown,
+}
 
 /// <summary>
-/// Scenario-owned URA state reserved for the generic career session.
+/// Progress through the small setup page that appears after the shared
+/// support-deck entry flow for a Normal Career. Keeping this separate from
+/// the turn-engine state prevents the current run from replaying completed
+/// setup actions while the live screen settles.
 /// </summary>
-public sealed class UraScenarioState
+public enum NormalCareerSetupStage
 {
-    public string? CurrentObjectiveId { get; set; }
+    EnterCareer = 0,
+    ConfigureMode = 1,
+    ConfigureStrategy = 2,
+    StartCareer = 3,
+    ConfirmStart = 4,
+    // Keep the historical numeric values stable for existing checkpoints.
+    AwaitCareerMain = 5,
+    InCareer = 6,
+    SkipIntro = 7,
+    ConfigureQuickMode = 8,
+    SetQuickMode = 9,
+    ConfirmQuickMode = 10,
+}
+
+public sealed record UraObservedValue<T>(
+    T? Value,
+    UraStateSource Source,
+    double Confidence,
+    DateTimeOffset ObservedAt)
+    where T : struct
+{
+}
+
+public static class UraObservedValueFactory
+{
+    public static UraObservedValue<T> Unknown<T>()
+        where T : struct =>
+        new(default, UraStateSource.Unknown, 0, DateTimeOffset.UtcNow);
+
+    public static UraObservedValue<T> FromObservation<T>(T value, double confidence)
+        where T : struct =>
+        new(value, UraStateSource.Observed, Math.Clamp(confidence, 0, 1), DateTimeOffset.UtcNow);
+
+    public static UraObservedValue<T> FromDerived<T>(T value, double confidence)
+        where T : struct =>
+        new(value, UraStateSource.Derived, Math.Clamp(confidence, 0, 1), DateTimeOffset.UtcNow);
+}
+
+public sealed class UraCareerSessionState
+{
+    public string ScenarioId { get; set; } = "ura";
+    public string PhaseId { get; set; } = "career";
+    public int TurnIndex { get; set; }
+    public string CurrentObjectiveId { get; set; } = "debut_race";
+    public int FinaleStageIndex { get; set; } = -1;
     public string? CurrentRaceId { get; set; }
-    public int FinaleStageIndex { get; set; }
+    public int RetryCount { get; set; }
+    public bool HasPendingRace { get; set; }
+    public bool HasScenarioEvent { get; set; }
+    public bool IsCompleted { get; set; }
+    // Indicates that the selected URA career has actually reached the career
+    // main screen. It must not be inferred from the Home entry click: Home is
+    // both the starting point and the terminal destination.
+    public bool CareerStarted { get; set; }
+    public NormalCareerSetupStage NormalSetupStage { get; set; } =
+        NormalCareerSetupStage.EnterCareer;
+    public UraPlannedAction LastAction { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);
+    public string LastScreenId { get; set; } = "unknown";
+    public UraObservedValue<int> Energy { get; set; } =
+        UraObservedValueFactory.FromObservation(100, 0.5);
+    public UraObservedValue<int> Fans { get; set; } =
+        UraObservedValueFactory.FromObservation(0, 0.2);
+    public UraObservedValue<int> LastRacePlacement { get; set; } =
+        UraObservedValueFactory.Unknown<int>();
     public Dictionary<string, int> RacePlacements { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
-    public int RetryCount { get; set; }
+    public List<string> CompletedObjectiveIds { get; set; } = [];
 }

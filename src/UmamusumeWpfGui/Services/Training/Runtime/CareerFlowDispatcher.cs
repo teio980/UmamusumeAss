@@ -1,8 +1,183 @@
+using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
+
 namespace UmamusumeWpfGui.Services.Training;
 
-/// <summary>
-/// Skeleton for dispatching observations to turn, race, and settlement flows.
-/// </summary>
-public sealed class CareerFlowDispatcher
+public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 {
+    private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private readonly CareerTurnFlow _turnFlow;
+    private readonly CareerRaceFlow _raceFlow;
+    private readonly CareerSettlementFlow _settlementFlow;
+    private IHachimiTaskLogSink? _taskLogSink;
+
+    public CareerFlowDispatcher(
+        IVisualPipelineRuntime visualRuntime,
+        HachimiJsonPipelineRunner jsonRunner)
+    {
+        ArgumentNullException.ThrowIfNull(visualRuntime);
+        _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
+        _turnFlow = new CareerTurnFlow(this);
+        _raceFlow = new CareerRaceFlow(visualRuntime, this);
+        _settlementFlow = new CareerSettlementFlow(this);
+    }
+
+    internal void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) =>
+        _taskLogSink = taskLogSink;
+
+    internal Task<CareerTrainingResult?> RunScreenActionAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string screenId,
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken,
+        HachimiPipelineRunOptions? options = null) =>
+        RunScreenActionCoreAsync(
+            connection,
+            pack,
+            screenId,
+            actionId,
+            logSink,
+            options,
+            cancellationToken);
+
+    internal async Task<CareerTrainingResult?> DispatchAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        bool pauseOnUnknownOutcome,
+        UraScenarioModule scenario,
+        UraDefaultStrategy strategy,
+        UraCareerSessionState state,
+        CareerObservation observation,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var context = new CareerFlowContext(
+            connection,
+            pack,
+            pauseOnUnknownOutcome,
+            scenario,
+            strategy,
+            state,
+            observation,
+            logSink,
+            cancellationToken);
+
+        var result = observation.ScreenId switch
+        {
+            "career_intro_event"
+            or "career_main"
+            or "training_selection"
+            or "training_result"
+            or "training_event"
+            or "rest_result"
+            or "event_choice"
+            or "rest_confirmation"
+            or "scenario_event"
+                => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
+            "career_races_ready"
+            or "race_day"
+            or "race_list"
+            or "race_details"
+            or "race_attributes"
+            or "race_playback"
+            or "race_playback_settings"
+            or "race_live"
+            or "goal_update"
+            or "race_result"
+            or "reward"
+            or "reward_support"
+            or "goal_complete"
+                => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
+            "complete_career"
+            or "career_rank"
+            or "career_result"
+            or "rewards"
+            or "sparks"
+            or "sparks_confirmation"
+            or "career_complete"
+                => await _settlementFlow.HandleAsync(context).ConfigureAwait(false),
+            _ => null,
+        };
+
+        if (result is not null || !pauseOnUnknownOutcome)
+            return result;
+
+        logSink?.Add(
+            "Career Training",
+            $"Unknown or unsupported stable screen '{observation.ScreenId}'; paused.",
+            LogEntryKind.Failure);
+        return CareerRuntimeResults.Failure(
+            $"Unsupported stable screen '{observation.ScreenId}'.",
+            observation.ScreenId);
+    }
+
+    internal async Task<CareerTrainingResult?> RunAsync(
+        CareerFlowContext context,
+        string screenId,
+        string actionId,
+        HachimiPipelineRunOptions? options = null)
+        => await RunScreenActionCoreAsync(
+                context.Connection,
+                context.Pack,
+                screenId,
+                actionId,
+                context.LogSink,
+                options,
+                context.CancellationToken)
+            .ConfigureAwait(false);
+
+    Task<CareerTrainingResult?> ICareerFlowActionRunner.RunAsync(
+        CareerFlowContext context,
+        string screenId,
+        string actionId,
+        HachimiPipelineRunOptions? options) =>
+        RunAsync(context, screenId, actionId, options);
+
+    private async Task<CareerTrainingResult?> RunScreenActionCoreAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string screenId,
+        string actionId,
+        IGrassTaskLogSink? logSink,
+        HachimiPipelineRunOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var screen = pack.ScreenProfile.Find(screenId);
+        if (screen is null)
+        {
+            return CareerRuntimeResults.Failure(
+                $"Screen '{screenId}' is missing from screen_profile.json.",
+                screenId);
+        }
+
+        var action = screen.FindAction(actionId);
+        if (action is null || string.IsNullOrWhiteSpace(action.Task))
+        {
+            return CareerRuntimeResults.Failure(
+                $"Screen action '{screenId}.{actionId}' is missing from screen_profile.json.",
+                screenId);
+        }
+
+        options ??= new HachimiPipelineRunOptions();
+        options.TaskLogSink ??= _taskLogSink;
+        options.SemanticProfile = HachimiTaskLogProfile.Career;
+        var result = await _jsonRunner.RunAsync(
+                connection,
+                pack.ExecutionDefinition,
+                action.Task,
+                options: options,
+                logSink: logSink,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            return CareerRuntimeResults.Failure(
+                $"Could not execute JSON task '{action.Task}' for '{screenId}.{actionId}': {result.Message}",
+                screenId);
+        }
+
+        return null;
+    }
 }

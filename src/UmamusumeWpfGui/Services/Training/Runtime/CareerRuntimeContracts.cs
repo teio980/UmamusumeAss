@@ -1,3 +1,6 @@
+using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
+
 namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
@@ -65,4 +68,33 @@ public interface ICareerScenarioModule<TScenarioState>
 public interface ICareerTrainingStrategy<TScenarioState>
 {
     CareerDecision Choose(CareerSessionState<TScenarioState> session);
+}
+
+internal sealed record CareerFlowContext(
+    LastVerifiedConnection Connection,
+    UraScenarioPack Pack,
+    bool PauseOnUnknownOutcome,
+    UraScenarioModule Scenario,
+    UraDefaultStrategy Strategy,
+    UraCareerSessionState State,
+    CareerObservation Observation,
+    IGrassTaskLogSink? LogSink,
+    CancellationToken CancellationToken);
+
+internal interface ICareerFlowActionRunner
+{
+    Task<CareerTrainingResult?> RunAsync(
+        CareerFlowContext context,
+        string screenId,
+        string actionId,
+        HachimiPipelineRunOptions? options = null);
+}
+
+internal static class CareerRuntimeResults
+{
+    public static CareerTrainingResult Failure(
+        string message,
+        string lastScreenId,
+        int actionsCompleted = 0) =>
+        new(false, message, actionsCompleted, lastScreenId);
 }
