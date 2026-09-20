@@ -93,7 +93,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             && (string.IsNullOrWhiteSpace(Settings.StrategyId)
                 || !UraStrategyRegistry.IsRegistered(Settings.StrategyId)))
         {
-            return $"URA strategy '{Settings.StrategyId}' is not registered for this build.";
+            return $"Normal training strategy '{Settings.StrategyId}' is not registered for this build.";
         }
 
         if (Settings.IsNormalCareer

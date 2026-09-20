@@ -26,11 +26,24 @@ internal sealed class CareerTurnFlow
                 return await HandleCareerMainAsync(context).ConfigureAwait(false);
             case "training_selection":
                 context.State.LastAction = UraPlannedAction.Training;
-                return await _actions.RunAsync(
+                if (!UraTrainingTypeCatalog.TryGetSemanticAction(
+                        context.State.PendingTrainingType,
+                        out var trainingAction,
+                        out var trainingType))
+                {
+                    return CareerRuntimeResults.Failure(
+                        "The selected training strategy did not provide a supported training type.",
+                        "training_selection");
+                }
+
+                var trainingResult = await _actions.RunAsync(
                         context,
                         "training_selection",
-                        "speed")
+                        trainingAction)
                     .ConfigureAwait(false);
+                if (trainingResult is null)
+                    context.State.PendingTrainingType = trainingType;
+                return trainingResult;
             case "training_result":
             case "training_event":
             case "rest_result":
@@ -87,8 +100,32 @@ internal sealed class CareerTurnFlow
         {
             UraPlannedAction.Rest => "rest",
             UraPlannedAction.FinaleRace => "finale_races",
-            _ => "training",
+            UraPlannedAction.Training => "training",
+            _ => string.Empty,
         };
+        if (actionId.Length == 0)
+        {
+            return CareerRuntimeResults.Failure(
+                $"URA strategy selected unsupported action '{decision.Action}'.",
+                "career_main");
+        }
+
+        string? trainingType = null;
+        if (decision.Action == UraPlannedAction.Training)
+        {
+            if (!UraTrainingTypeCatalog.TryNormalize(
+                    decision.TargetId,
+                    out var normalizedTrainingType))
+            {
+                return CareerRuntimeResults.Failure(
+                    $"URA strategy selected unsupported training type '{decision.TargetId ?? "(missing)"}'.",
+                    "career_main");
+            }
+
+            trainingType = normalizedTrainingType;
+        }
+
+        context.State.PendingTrainingType = trainingType;
         context.State.LastAction = decision.Action;
         return await _actions.RunAsync(
                 context,

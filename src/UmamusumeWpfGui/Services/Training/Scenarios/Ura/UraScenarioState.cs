@@ -75,6 +75,7 @@ public sealed class UraCareerSessionState
     public NormalCareerSetupStage NormalSetupStage { get; set; } =
         NormalCareerSetupStage.EnterCareer;
     public UraPlannedAction LastAction { get; set; }
+    public string? PendingTrainingType { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);
     public string LastScreenId { get; set; } = "unknown";
