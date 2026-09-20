@@ -40,7 +40,10 @@ public sealed class CareerScreenObserver
                 || state.TurnIndex > 0
                 || screen.ScreenId is "career_intro_event"
                     or "career_main"
-                    or "career_races_ready")
+                    or "career_races_ready"
+                    or "training_selection"
+                    or "training_result"
+                    or "training_event")
             .Where(screen => !careerStartTransitionExpected
                 || screen.ScreenId is "career_intro_event"
                     or "career_main"
@@ -119,13 +122,15 @@ public sealed class CareerScreenObserver
             "career_races_ready" when careerStartTransitionExpected => 2,
             "career_races_ready" => 0,
             "career_main" => 1,
-            "training_selection" => 2,
-            "race_day" => 3,
-            "race_list" => 4,
-            "race_details" => 5,
-            "race_attributes" => 6,
-            "race_playback_settings" => 7,
-            "race_playback" => 8,
+            "training_result" => 2,
+            "training_event" => 3,
+            "training_selection" => 4,
+            "race_day" => 5,
+            "race_list" => 6,
+            "race_details" => 7,
+            "race_attributes" => 8,
+            "race_playback_settings" => 9,
+            "race_playback" => 10,
             _ => 20,
         };
 

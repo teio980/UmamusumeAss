@@ -676,11 +676,14 @@
                     {
                         "screenId":  "training_selection",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/training_selection_ura.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/ura_semifinal_training_select.png",
-                                                              "templates/runtime_frames/ura_final_training_select.png"
-                                                          ],
+                                            "template":  "templates/training_selection_header.png",
+                                            "roi":  [
+                                                        0,
+                                                        0,
+                                                        120,
+                                                        50
+                                                    ],
+                                            "templThreshold":  0.92,
                                             "requiredText":  [
                                                                  "Training"
                                                              ],

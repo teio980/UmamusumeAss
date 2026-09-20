@@ -64,6 +64,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             logSink,
             cancellationToken);
 
+        var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
+            observation.ScreenId);
         var result = observation.ScreenId switch
         {
             "career_intro_event"
@@ -101,7 +103,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             _ => null,
         };
 
-        if (result is not null || !pauseOnUnknownOutcome)
+        if (result is not null || isSupportedScreen || !pauseOnUnknownOutcome)
             return result;
 
         logSink?.Add(

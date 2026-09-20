@@ -1731,7 +1731,7 @@
                                                       "timeoutMs":  12000,
                                                       "pollIntervalMs":  250,
                                                       "next":  [
-
+                                                                  "career_main_action_training_transition"
                                                                ],
                                                       "onErrorNext":  [
 
@@ -1749,6 +1749,22 @@
                                                       "required":  true,
                                                       "success":  false
                                                   },
+                  "career_main_action_training_transition":  {
+                                                                  "algorithm":  "MatchTemplate",
+                                                                  "action":  "JustReturn",
+                                                                  "template":  "templates/training_selection_header.png",
+                                                                  "templThreshold":  0.92,
+                                                                  "roi":  [
+                                                                              0,
+                                                                              0,
+                                                                              120,
+                                                                              50
+                                                                          ],
+                                                                  "postDelay":  250,
+                                                                  "timeoutMs":  12000,
+                                                                  "pollIntervalMs":  250,
+                                                                  "required":  true
+                                                              },
                   "career_main_action_rest":  {
                                                   "algorithm":  "MatchTemplate",
                                                   "action":  "ClickSelf",

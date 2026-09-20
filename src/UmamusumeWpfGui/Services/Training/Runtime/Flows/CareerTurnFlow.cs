@@ -26,8 +26,32 @@ internal sealed class CareerTurnFlow
                 return await HandleCareerMainAsync(context).ConfigureAwait(false);
             case "training_selection":
                 context.State.LastAction = UraPlannedAction.Training;
-                if (!UraTrainingTypeCatalog.TryGetSemanticAction(
+                if (!UraTrainingTypeCatalog.TryNormalize(
                         context.State.PendingTrainingType,
+                        out var resumedTrainingType))
+                {
+                    // A process restart can leave the emulator on the
+                    // training picker before the in-memory pending type was
+                    // persisted. Re-evaluate the configured strategy so the
+                    // picker is a valid mid-career checkpoint.
+                    var resumedDecision = context.Strategy.ChooseTurnAction(
+                        context.Scenario,
+                        context.State);
+                    if (resumedDecision.Action != UraPlannedAction.Training
+                        || !UraTrainingTypeCatalog.TryNormalize(
+                            resumedDecision.TargetId,
+                            out resumedTrainingType))
+                    {
+                        return CareerRuntimeResults.Failure(
+                            "The training-selection checkpoint could not recover a training type.",
+                            "training_selection");
+                    }
+
+                    context.State.PendingTrainingType = resumedTrainingType;
+                }
+
+                if (!UraTrainingTypeCatalog.TryGetSemanticAction(
+                        resumedTrainingType,
                         out var trainingAction,
                         out var trainingType))
                 {
