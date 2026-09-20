@@ -757,6 +757,108 @@ public sealed class HachimiJsonPipelineRunner
                     LogEntryKind.Success);
                 break;
 
+            case "clickselfuntiltransition":
+                if (match is null)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' uses ClickSelfUntilTransition but has no template match.");
+                }
+
+                if (task.TransitionTemplates.Count == 0)
+                {
+                    return TaskExecutionResult.Failed(
+                        $"JSON task '{taskName}' requires transitionTemplates.");
+                }
+
+                await _visualRuntime.TapMatchAsync(
+                        connection,
+                        match,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}) for the first attempt.",
+                    LogEntryKind.Success);
+
+                var transition = await WaitForAnyTransitionTemplateAsync(
+                        connection,
+                        definition,
+                        task,
+                        taskName,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (transition is null)
+                {
+                    if (task.FallbackRoi is not { Length: >= 4 })
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' did not reach the next screen after the first click, "
+                            + "and no fallbackRoi was configured for a second attempt.");
+                    }
+
+                    var fallbackMatch = await WaitForTemplateAttemptAsync(
+                            connection,
+                            definition,
+                            taskName,
+                            task,
+                            templatePath!,
+                            task.FallbackRoi,
+                            useScaledTemplate: false,
+                            scaleCandidates: Array.Empty<double>(),
+                            ResolveSearchRois(taskName, task, runOptions),
+                            Math.Clamp(
+                                task.TransitionTimeoutMilliseconds,
+                                250,
+                                10 * 60 * 1000),
+                            Math.Max(
+                                50,
+                                task.TransitionPollIntervalMilliseconds),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (fallbackMatch is null || !fallbackMatch.Found)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' stayed on the selection screen after the first click, "
+                            + "but its second-click state was not detected.");
+                    }
+
+                    await _visualRuntime.TapMatchAsync(
+                            connection,
+                            fallbackMatch,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"The first click did not enter the next screen; clicked the verified fallback state "
+                        + $"at ({fallbackMatch.CenterX},{fallbackMatch.CenterY}) for the second attempt.",
+                        LogEntryKind.Info);
+
+                    transition = await WaitForAnyTransitionTemplateAsync(
+                            connection,
+                            definition,
+                            task,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (transition is null)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' did not reach the next screen after the second click.");
+                    }
+                }
+
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"Training transition verified with '{transition.Value.TemplatePath}' "
+                    + $"(score {transition.Value.Match.Score:0.000}); no extra click was issued.",
+                    LogEntryKind.Success);
+                break;
+
             case "justreturn":
                 // A template can be used as a read-only state probe.  The
                 // support-card picker uses this to detect an already selected
@@ -1605,6 +1707,43 @@ public sealed class HachimiJsonPipelineRunner
 
             return latest;
         }
+    }
+
+    private async Task<(string TemplatePath, TemplateMatchResult Match)?>
+        WaitForAnyTransitionTemplateAsync(
+            LastVerifiedConnection connection,
+            HachimiPipelineDefinition definition,
+            HachimiPipelineTask task,
+            string taskName,
+            CancellationToken cancellationToken)
+    {
+        var timeoutMilliseconds = Math.Clamp(
+            task.TransitionTimeoutMilliseconds,
+            250,
+            10 * 60 * 1000);
+        var pollInterval = Math.Max(50, task.TransitionPollIntervalMilliseconds);
+
+        foreach (var templatePath in task.TransitionTemplates.Where(
+                     path => !string.IsNullOrWhiteSpace(path)))
+        {
+            var match = await _visualRuntime.WaitForMatchAsync(
+                    connection,
+                    templatePath,
+                    roi: null,
+                    task.TransitionThreshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    timeoutMilliseconds,
+                    pollInterval,
+                    taskName,
+                    definition.BaseDirectory,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (match?.Found == true)
+                return (templatePath, match);
+        }
+
+        return null;
     }
 
     private async Task<TemplateMatchResult?> WaitForTemplateAttemptAsync(

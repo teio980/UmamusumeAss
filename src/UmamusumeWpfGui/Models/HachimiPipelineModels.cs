@@ -93,6 +93,30 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("roi")]
     public int[]? Roi { get; set; }
 
+    /// <summary>
+    /// Optional second-click search region used by actions that may need one
+    /// retry after the first tap did not leave the current screen.
+    /// </summary>
+    [JsonPropertyName("fallbackRoi")]
+    public int[]? FallbackRoi { get; set; }
+
+    /// <summary>
+    /// Screen templates that prove a click entered the next page.  The
+    /// transition-aware click action stops after the first tap when any of
+    /// these templates is observed; it never blindly taps twice.
+    /// </summary>
+    [JsonPropertyName("transitionTemplates")]
+    public List<string> TransitionTemplates { get; set; } = [];
+
+    [JsonPropertyName("transitionThreshold")]
+    public double TransitionThreshold { get; set; } = 0.78;
+
+    [JsonPropertyName("transitionTimeoutMs")]
+    public int TransitionTimeoutMilliseconds { get; set; } = 2_600;
+
+    [JsonPropertyName("transitionPollIntervalMs")]
+    public int TransitionPollIntervalMilliseconds { get; set; } = 250;
+
     [JsonPropertyName("specificRect")]
     public int[]? SpecificRect { get; set; }
 

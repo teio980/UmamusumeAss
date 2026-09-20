@@ -1720,10 +1720,10 @@
                                                       "template":  "templates/career_main_action_training.png",
                                                       "templThreshold":  0.78,
                                                       "roi":  [
-                                                                  280,
-                                                                  1180,
-                                                                  340,
-                                                                  150
+                                                                  200,
+                                                                  1050,
+                                                                  500,
+                                                                  400
                                                               ],
                                                       "preDelay":  0,
                                                       "postDelay":  650,
@@ -1820,180 +1820,280 @@
                                                           "success":  false
                                                       },
                   "training_selection_training_speed":  {
-                                                            "algorithm":  "MatchTemplate",
-                                                            "action":  "ClickSelf",
-                                                            "template":  "templates/training_selection_training_speed.png",
-                                                            "templThreshold":  0.78,
-                                                            "roi":  [
-                                                                        35,
-                                                                        1210,
-                                                                        180,
-                                                                        210
-                                                                    ],
-                                                            "preDelay":  0,
-                                                            "postDelay":  650,
-                                                            "waitMs":  0,
-                                                            "timeoutMs":  12000,
-                                                            "pollIntervalMs":  250,
-                                                            "next":  [
-
-                                                                     ],
-                                                            "onErrorNext":  [
-
-                                                                            ],
-                                                            "exceededNext":  [
-
-                                                                             ],
-                                                            "sub":  [
-
-                                                                    ],
-                                                            "monitorTasks":  [
-
-                                                                             ],
-                                                            "maxTimes":  0,
-                                                            "required":  true,
-                                                            "success":  false
-                                                        },
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/speed.png",
+                    "templThreshold":  0.70,
+                    "roi": [20,1260,180,90],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_speed_first_click"],
+                    "onErrorNext": ["training_selection_speed_raised_probe"]
+                  },
+                  "training_selection_speed_raised_probe":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/speed.png",
+                    "templThreshold":  0.70,
+                    "roi": [20,1160,180,125],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_speed_raised_click"]
+                  },
+                  "training_selection_speed_first_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/speed.png",
+                    "templThreshold":  0.70,
+                    "roi": [20,1260,180,90],
+                    "fallbackRoi": [20,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
+                  "training_selection_speed_raised_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/speed.png",
+                    "templThreshold":  0.70,
+                    "roi": [20,1160,180,125],
+                    "fallbackRoi": [20,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
                   "training_selection_training_stamina":  {
-                                                              "algorithm":  "MatchTemplate",
-                                                              "action":  "ClickSelf",
-                                                              "template":  "templates/training_selection_training_stamina.png",
-                                                              "templThreshold":  0.78,
-                                                              "roi":  [
-                                                                          210,
-                                                                          1270,
-                                                                          170,
-                                                                          150
-                                                                      ],
-                                                              "preDelay":  0,
-                                                              "postDelay":  650,
-                                                              "waitMs":  0,
-                                                              "timeoutMs":  12000,
-                                                              "pollIntervalMs":  250,
-                                                              "next":  [
-
-                                                                       ],
-                                                              "onErrorNext":  [
-
-                                                                              ],
-                                                              "exceededNext":  [
-
-                                                                               ],
-                                                              "sub":  [
-
-                                                                      ],
-                                                              "monitorTasks":  [
-
-                                                                               ],
-                                                              "maxTimes":  0,
-                                                              "required":  true,
-                                                              "success":  false
-                                                          },
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/stamina.png",
+                    "templThreshold":  0.70,
+                    "roi": [180,1260,180,90],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_stamina_first_click"],
+                    "onErrorNext": ["training_selection_stamina_raised_probe"]
+                  },
+                  "training_selection_stamina_raised_probe":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/stamina.png",
+                    "templThreshold":  0.70,
+                    "roi": [180,1160,180,125],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_stamina_raised_click"]
+                  },
+                  "training_selection_stamina_first_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/stamina.png",
+                    "templThreshold":  0.70,
+                    "roi": [180,1260,180,90],
+                    "fallbackRoi": [180,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
+                  "training_selection_stamina_raised_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/stamina.png",
+                    "templThreshold":  0.70,
+                    "roi": [180,1160,180,125],
+                    "fallbackRoi": [180,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
                   "training_selection_training_power":  {
-                                                            "algorithm":  "MatchTemplate",
-                                                            "action":  "ClickSelf",
-                                                            "template":  "templates/training_selection_training_power.png",
-                                                            "templThreshold":  0.78,
-                                                            "roi":  [
-                                                                        375,
-                                                                        1270,
-                                                                        170,
-                                                                        150
-                                                                    ],
-                                                            "preDelay":  0,
-                                                            "postDelay":  650,
-                                                            "waitMs":  0,
-                                                            "timeoutMs":  12000,
-                                                            "pollIntervalMs":  250,
-                                                            "next":  [
-
-                                                                     ],
-                                                            "onErrorNext":  [
-
-                                                                            ],
-                                                            "exceededNext":  [
-
-                                                                             ],
-                                                            "sub":  [
-
-                                                                    ],
-                                                            "monitorTasks":  [
-
-                                                                             ],
-                                                            "maxTimes":  0,
-                                                            "required":  true,
-                                                            "success":  false
-                                                        },
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/power.png",
+                    "templThreshold":  0.70,
+                    "roi": [345,1260,180,90],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_power_first_click"],
+                    "onErrorNext": ["training_selection_power_raised_probe"]
+                  },
+                  "training_selection_power_raised_probe":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/power.png",
+                    "templThreshold":  0.70,
+                    "roi": [345,1160,180,125],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_power_raised_click"]
+                  },
+                  "training_selection_power_first_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/power.png",
+                    "templThreshold":  0.70,
+                    "roi": [345,1260,180,90],
+                    "fallbackRoi": [345,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
+                  "training_selection_power_raised_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/power.png",
+                    "templThreshold":  0.70,
+                    "roi": [345,1160,180,125],
+                    "fallbackRoi": [345,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
                   "training_selection_training_guts":  {
-                                                           "algorithm":  "MatchTemplate",
-                                                           "action":  "ClickSelf",
-                                                           "template":  "templates/training_selection_training_guts.png",
-                                                           "templThreshold":  0.78,
-                                                           "roi":  [
-                                                                       540,
-                                                                       1270,
-                                                                       170,
-                                                                       150
-                                                                   ],
-                                                           "preDelay":  0,
-                                                           "postDelay":  650,
-                                                           "waitMs":  0,
-                                                           "timeoutMs":  12000,
-                                                           "pollIntervalMs":  250,
-                                                           "next":  [
-
-                                                                    ],
-                                                           "onErrorNext":  [
-
-                                                                           ],
-                                                           "exceededNext":  [
-
-                                                                            ],
-                                                           "sub":  [
-
-                                                                   ],
-                                                           "monitorTasks":  [
-
-                                                                            ],
-                                                           "maxTimes":  0,
-                                                           "required":  true,
-                                                           "success":  false
-                                                       },
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/guts.png",
+                    "templThreshold":  0.70,
+                    "roi": [510,1260,180,90],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_guts_first_click"],
+                    "onErrorNext": ["training_selection_guts_raised_probe"]
+                  },
+                  "training_selection_guts_raised_probe":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/guts.png",
+                    "templThreshold":  0.70,
+                    "roi": [510,1160,180,125],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_guts_raised_click"]
+                  },
+                  "training_selection_guts_first_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/guts.png",
+                    "templThreshold":  0.70,
+                    "roi": [510,1260,180,90],
+                    "fallbackRoi": [510,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
+                  "training_selection_guts_raised_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/guts.png",
+                    "templThreshold":  0.70,
+                    "roi": [510,1160,180,125],
+                    "fallbackRoi": [510,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
                   "training_selection_training_wit":  {
-                                                          "algorithm":  "MatchTemplate",
-                                                          "action":  "ClickSelf",
-                                                          "template":  "templates/training_selection_training_wit.png",
-                                                          "templThreshold":  0.78,
-                                                          "roi":  [
-                                                                      700,
-                                                                      1270,
-                                                                      170,
-                                                                      150
-                                                                  ],
-                                                          "preDelay":  0,
-                                                          "postDelay":  650,
-                                                          "waitMs":  0,
-                                                          "timeoutMs":  12000,
-                                                          "pollIntervalMs":  250,
-                                                          "next":  [
-
-                                                                   ],
-                                                          "onErrorNext":  [
-
-                                                                          ],
-                                                          "exceededNext":  [
-
-                                                                           ],
-                                                          "sub":  [
-
-                                                                  ],
-                                                          "monitorTasks":  [
-
-                                                                           ],
-                                                          "maxTimes":  0,
-                                                          "required":  true,
-                                                          "success":  false
-                                                      },
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/wit.png",
+                    "templThreshold":  0.70,
+                    "roi": [675,1260,180,90],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_wit_first_click"],
+                    "onErrorNext": ["training_selection_wit_raised_probe"]
+                  },
+                  "training_selection_wit_raised_probe":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "JustReturn",
+                    "template":  "templates/training_selection_logos/wit.png",
+                    "templThreshold":  0.70,
+                    "roi": [675,1160,180,125],
+                    "timeoutMs":  1400,
+                    "pollIntervalMs":  200,
+                    "next": ["training_selection_wit_raised_click"]
+                  },
+                  "training_selection_wit_first_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/wit.png",
+                    "templThreshold":  0.70,
+                    "roi": [675,1260,180,90],
+                    "fallbackRoi": [675,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
+                  "training_selection_wit_raised_click":  {
+                    "algorithm":  "MatchTemplateColor",
+                    "action":  "ClickSelfUntilTransition",
+                    "template":  "templates/training_selection_logos/wit.png",
+                    "templThreshold":  0.70,
+                    "roi": [675,1160,180,125],
+                    "fallbackRoi": [675,1160,180,125],
+                    "transitionTemplates": ["templates/runtime_frames/training_result_ura.png", "templates/runtime_frames/training_event_ura.png"],
+                    "transitionThreshold": 0.78,
+                    "transitionTimeoutMs": 3500,
+                    "transitionPollIntervalMs": 250,
+                    "postDelay": 650,
+                    "timeoutMs":  12000,
+                    "pollIntervalMs":  200,
+                    "next": [],
+                    "required": true
+                  },
                   "training_result_event_advance":  {
                                                         "algorithm":  "MatchTemplate",
                                                         "action":  "ClickSelf",
