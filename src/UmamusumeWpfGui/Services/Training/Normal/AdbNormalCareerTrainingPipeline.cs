@@ -21,6 +21,11 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     private static readonly StartupPageStage[] StartupPageStages =
     [
         new(
+            "career_continue",
+            "career_continue",
+            NormalCareerSetupStage.EnterCareer,
+            CareerEntryNavigationStep.Continue),
+        new(
             "normal_quick_mode_settings",
             "normal_quick_mode_settings",
             NormalCareerSetupStage.ConfigureQuickMode),
@@ -187,25 +192,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 $"Normal Career lineup strategy '{settings.LineupStrategy}' is invalid.",
                 "career_final_confirmation");
         }
-        var checkpointStore = new UraCheckpointStore(settings.TraineeId);
-        var checkpoint = await checkpointStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        UraCareerSessionState state;
-        if (!settings.ContinueExistingCareer)
-        {
-            await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-            state = scenario.CreateInitialState();
-        }
-        else
-        {
-            state = checkpoint ?? scenario.CreateInitialState();
-            // The game is the source of truth for the Resume entry. Preserve
-            // the checkpoint's turn/objective data, but always reopen Career
-            // so the JSON Resume action is used instead of skipping Home.
-            state.CareerStarted = false;
-        }
-        if (!string.Equals(state.ScenarioId, pack.Manifest.ScenarioId, StringComparison.OrdinalIgnoreCase))
-            state = scenario.CreateInitialState();
-        NormalizeSetupStage(state);
+        // Normal Career progress is intentionally run-scoped. The current
+        // game screen is the only source of truth after a restart.
+        var state = scenario.CreateInitialState();
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");
@@ -217,11 +206,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             HachimiTaskLogEventKind.Action);
         logSink?.Add(
             "Career Training",
-            state.TurnIndex > 0
-                ? $"Resuming checkpoint at turn {state.TurnIndex}, objective {state.CurrentObjectiveId}."
-                : settings.ContinueExistingCareer
-                    ? "No local Career turn checkpoint; the in-game Resume action will be used."
-                    : "Starting a new URA career session.");
+            settings.ContinueExistingCareer
+                ? "The current game screen will determine the Resume entry point."
+                : "Starting a new URA career session from the current game screen.");
         logSink?.Add(
             "Career Training",
             settings.ContinueExistingCareer
@@ -238,18 +225,36 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         if (!state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.EnterCareer)
         {
-            var startupPage = await DetectNormalStartupPageAsync(
-                    connection,
-                    pack,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (startupPage is { } detected)
+            UraObservation? currentCareer = null;
+            if (settings.ContinueExistingCareer)
+            {
+                currentCareer = await DetectCurrentCareerScreenAsync(
+                        connection,
+                        pack,
+                        state,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (currentCareer is { } observedCareer)
+            {
+                state.CareerStarted = true;
+                state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+                state.LastScreenId = observedCareer.ScreenId;
+                logSink?.Add(
+                    "Career Training",
+                    $"Current Career screen recognized as {observedCareer.ScreenId}; "
+                    + "continuing without reopening Home.");
+            }
+            else if (await DetectNormalStartupPageAsync(
+                         connection,
+                         pack,
+                         cancellationToken)
+                     .ConfigureAwait(false) is { } detected)
             {
                 state.NormalSetupStage = detected.SetupStage;
                 state.LastScreenId = detected.ResumeScreenId;
                 startupEntryStep = detected.EntryStep;
-                await checkpointStore.SaveAsync(state, cancellationToken)
-                    .ConfigureAwait(false);
                 logSink?.Add(
                     "Career Training",
                     $"Startup page recognized as {detected.RecognitionScreenId}; "
@@ -260,8 +265,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         var actionCount = 0;
         var setupObservationRetryCount = 0;
         var careerStartTransitionExpected = !state.CareerStarted
-            && (state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain
-                || IsPersistedCareerStartTransitionExpected(state));
+            && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
         if (!state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.EnterCareer
             && !careerStartTransitionExpected)
@@ -273,15 +277,11 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 // continues from the current page instead of clicking Home
                 // and Career again.
                 Step = startupEntryStep ?? CareerEntryNavigationStep.Home,
-                // A zero-turn checkpoint can contain a stale entry screen
-                // from an interrupted setup. A new career must always start
-                // through the shared Home -> Career entry chain.
                 LastScreenId = startupEntryStep is not null
                     ? state.LastScreenId
-                    : state.TurnIndex == 0
-                    ? "unknown"
-                    : state.LastScreenId,
+                    : "unknown",
                 ActionsCompleted = actionCount,
+                ResumeDirectlyToCareer = settings.ContinueExistingCareer,
             };
             var entry = await _entryNavigator.NavigateAsync(
                     connection,
@@ -289,12 +289,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                     settings,
                     entryState,
                     logSink,
-                    progressCallback: async progress =>
-                    {
-                        state.LastScreenId = progress.LastScreenId;
-                        await checkpointStore.SaveAsync(state, cancellationToken)
-                            .ConfigureAwait(false);
-                    },
+                    progressCallback: null,
                     _taskLogSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -302,19 +297,24 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             state.LastScreenId = entry.LastScreenId;
             if (!entry.Succeeded)
             {
-                await checkpointStore.SaveAsync(state, cancellationToken)
-                    .ConfigureAwait(false);
                 return Failure(
                     entry.Message,
                     entry.LastScreenId,
                     actionCount);
             }
 
-            // The shared navigator intentionally stops at Final Confirmation.
-            // Normal Career has a small mode/strategy setup on this page.
-            state.NormalSetupStage = NormalCareerSetupStage.ConfigureMode;
-            state.LastScreenId = CareerFinalConfirmationScreenId;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            if (entry.LastScreenId is "career_main" or "career_races_ready")
+            {
+                state.CareerStarted = true;
+                state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+            }
+            else
+            {
+                // The shared navigator stops at Final Confirmation for a new
+                // Career. Normal setup continues entirely in this run.
+                state.NormalSetupStage = NormalCareerSetupStage.ConfigureMode;
+                state.LastScreenId = CareerFinalConfirmationScreenId;
+            }
         }
 
         if (!state.CareerStarted
@@ -325,7 +325,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                     pack,
                     settings,
                     state,
-                    checkpointStore,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -337,8 +336,7 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         {
             cancellationToken.ThrowIfCancellationRequested();
             careerStartTransitionExpected = !state.CareerStarted
-                && (state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain
-                    || IsPersistedCareerStartTransitionExpected(state));
+                && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
             var observation = await ObserveAsync(
                     connection,
                     pack,
@@ -370,7 +368,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             scenario.ObserveScreen(state, observation.ScreenId, observation.Score);
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             logSink?.Add(
                 "Career Training",
                 $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
@@ -392,7 +389,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                         actionCount);
                 }
 
-                await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
                 return new CareerTrainingResult(
                     true,
                     "URA career completed and returned to Home.",
@@ -413,44 +409,16 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (terminal is not null)
             {
-                if (terminal.Succeeded)
-                    await checkpointStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-                else
-                    await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
                 return terminal with { ActionsCompleted = actionCount };
             }
 
-            // Persist observations so a restart can resume from the shared
-            // entry flow or the current Career screen.
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             actionCount++;
         }
 
-        await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         return Failure(
             "Career training exceeded the safety action limit and was paused.",
             state.LastScreenId,
             actionCount);
-    }
-
-    private static void NormalizeSetupStage(UraCareerSessionState state)
-    {
-        if (state.CareerStarted)
-        {
-            state.NormalSetupStage = NormalCareerSetupStage.InCareer;
-            return;
-        }
-
-        if (state.NormalSetupStage != NormalCareerSetupStage.EnterCareer)
-            return;
-
-        state.NormalSetupStage = state.LastScreenId.Trim().ToLowerInvariant() switch
-        {
-            CareerFinalConfirmationScreenId => NormalCareerSetupStage.ConfigureMode,
-            CareerStartTransitionScreenId => NormalCareerSetupStage.AwaitCareerMain,
-            "career_main" when state.TurnIndex > 0 => NormalCareerSetupStage.InCareer,
-            _ => NormalCareerSetupStage.EnterCareer,
-        };
     }
 
     private static bool IsPendingNormalSetupStage(NormalCareerSetupStage stage) => stage is
@@ -462,6 +430,51 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             or NormalCareerSetupStage.ConfigureQuickMode
             or NormalCareerSetupStage.SetQuickMode
             or NormalCareerSetupStage.ConfirmQuickMode;
+
+    internal static bool IsRuntimeCareerScreen(string screenId) => screenId is
+        "career_intro_event"
+            or "career_main"
+            or "career_races_ready"
+            or "training_selection"
+            or "training_result"
+            or "training_event"
+            or "rest_result"
+            or "event_choice"
+            or "rest_confirmation"
+            or "race_day"
+            or "race_list"
+            or "race_details"
+            or "race_attributes"
+            or "race_playback"
+            or "race_playback_settings"
+            or "race_live"
+            or "goal_update"
+            or "race_result"
+            or "reward"
+            or "reward_support"
+            or "goal_complete"
+            or "scenario_event"
+            or "complete_career"
+            or "career_rank"
+            or "career_result"
+            or "rewards"
+            or "sparks"
+            or "sparks_confirmation"
+            or "career_complete";
+
+    private async Task<UraObservation?> DetectCurrentCareerScreenAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        UraCareerSessionState state,
+        CancellationToken cancellationToken) =>
+        await ObserveAsync(
+                connection,
+                pack,
+                state,
+                careerStartTransitionExpected: false,
+                careerOnly: true,
+                cancellationToken)
+            .ConfigureAwait(false);
 
     private async Task<StartupPageStage?> DetectNormalStartupPageAsync(
         LastVerifiedConnection connection,
@@ -505,7 +518,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         UraScenarioPack pack,
         CareerTrainingSettings settings,
         UraCareerSessionState state,
-        UraCheckpointStore checkpointStore,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -522,7 +534,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 return mode;
 
             state.NormalSetupStage = NormalCareerSetupStage.ConfigureStrategy;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureStrategy)
@@ -558,17 +569,15 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
             }
 
             state.NormalSetupStage = NormalCareerSetupStage.StartCareer;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         var startIssuedThisRun = false;
         if (state.NormalSetupStage == NormalCareerSetupStage.StartCareer)
         {
-            // Persist the stage before the tap so an interrupted run can
-            // inspect the actual page before deciding whether to tap Start.
+            // Record the stage before the tap so this run does not issue the
+            // same Start action twice while handling the transition.
             state.NormalSetupStage = NormalCareerSetupStage.ConfirmStart;
             state.LastScreenId = CareerStartTransitionScreenId;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
 
             var start = await RunNormalSetupActionAsync(
                     connection,
@@ -584,11 +593,10 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
         if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmStart)
         {
-            // ConfirmStart was persisted before the tap so an interrupted run
-            // would not normally click Start twice.  Older checkpoints can,
-            // however, reach this stage after the tap already succeeded.  If
-            // the game is still on Final Confirmation, retry the pending tap;
-            // otherwise treat the checkpoint as already inside the transition.
+            // ConfirmStart is recorded before the tap so this run would not
+            // normally click Start twice. If the game is still on Final
+            // Confirmation, retry the pending tap; otherwise treat the
+            // current frame as already inside the transition.
             if (!startIssuedThisRun)
             {
                 var currentStartPage = await DetectNormalStartupPageAsync(
@@ -640,14 +648,12 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 state.NormalSetupStage = NormalCareerSetupStage.SkipIntro;
                 state.LastScreenId = "career_intro_event";
             }
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.SkipIntro)
         {
             // The first post-start setup step is the skip button on the
-            // opening Tazuna introduction. Persist this stage before the tap
-            // so an interrupted run resumes here instead of replaying Start.
+            // opening Tazuna introduction.
             var skipIntro = await RunNormalSetupActionAsync(
                     connection,
                     pack,
@@ -660,7 +666,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
             state.NormalSetupStage = NormalCareerSetupStage.ConfigureQuickMode;
             state.LastScreenId = "normal_quick_mode_settings";
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureQuickMode)
@@ -676,7 +681,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 return shortenEvents;
 
             state.NormalSetupStage = NormalCareerSetupStage.SetQuickMode;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.SetQuickMode)
@@ -692,7 +696,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
                 return skipMode;
 
             state.NormalSetupStage = NormalCareerSetupStage.ConfirmQuickMode;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmQuickMode)
@@ -709,7 +712,6 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 
             state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
             state.LastScreenId = CareerStartTransitionScreenId;
-            await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
         return null;
@@ -762,12 +764,10 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
     private static bool IsImportantCareerScreen(string screenId) => screenId is
         "career_main" or "career_race_result" or "career_event";
 
-    internal static bool IsPersistedCareerStartTransitionExpected(
+    internal static bool IsCareerStartTransitionExpected(
         UraCareerSessionState state) =>
-        state.TurnIndex > 0
-        && state.LastScreenId.Equals(
-            CareerStartTransitionScreenId,
-            StringComparison.OrdinalIgnoreCase);
+        !state.CareerStarted
+        && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
 
     private static string FriendlyCareerScreen(string screenId) => screenId switch
     {
@@ -1001,11 +1001,30 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
         UraScenarioPack pack,
         UraCareerSessionState state,
         bool careerStartTransitionExpected,
+        CancellationToken cancellationToken) =>
+        await ObserveAsync(
+                connection,
+                pack,
+                state,
+                careerStartTransitionExpected,
+                careerOnly: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private async Task<UraObservation?> ObserveAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        UraCareerSessionState state,
+        bool careerStartTransitionExpected,
+        bool careerOnly,
         CancellationToken cancellationToken)
     {
         var candidates = pack.ScreenProfile.Screens
-            .Where(screen => !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
-            .Where(screen => state.CareerStarted
+            .Where(screen => careerOnly
+                ? IsRuntimeCareerScreen(screen.ScreenId)
+                : !string.Equals(screen.ScreenId, "race_live", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => careerOnly
+                || state.CareerStarted
                 || state.TurnIndex > 0
                 || screen.ScreenId is "career_intro_event"
                     or "career_main"

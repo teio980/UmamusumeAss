@@ -155,17 +155,20 @@ public enum CareerEntryNavigationStep
     Legacy = 4,
     Support = 5,
     FinalConfirmation = 6,
+    Career = 7,
 }
 
 public sealed class CareerEntryNavigationState
 {
     // This state belongs to one navigation invocation. RetryCount and
-    // ActionsCompleted are runtime counters; checkpoint callers should only
-    // project Step and LastScreenId into persistent state.
+    // ActionsCompleted are runtime counters.
     public CareerEntryNavigationStep Step { get; set; } = CareerEntryNavigationStep.Home;
     public string LastScreenId { get; set; } = "unknown";
     public int RetryCount { get; set; }
     public int ActionsCompleted { get; set; }
+    // The Resume action may enter an existing Career directly. This is an
+    // entry-target hint, not a frontend training-mode setting.
+    public bool ResumeDirectlyToCareer { get; set; }
 }
 
 public sealed record CareerEntryNavigationResult(
@@ -194,6 +197,7 @@ public sealed class CareerEntryNavigator
             "support_select",
             "support_autofill_confirmation",
             "support_ready",
+            "career_main",
             "career_races_ready",
             FinalConfirmationScreenId,
         };
@@ -253,7 +257,7 @@ public sealed class CareerEntryNavigator
         if (_actions is ICareerTaskLogAware taskLogAware)
             taskLogAware.SetTaskLogSink(taskLogSink);
 
-        RestoreStepFromCheckpoint(state);
+        RestoreStepFromLastScreen(state);
         if (state.Step == CareerEntryNavigationStep.Home)
         {
             var home = pack.ScreenProfile.Find("home");
@@ -325,7 +329,7 @@ public sealed class CareerEntryNavigator
         CareerEntryNavigationState state) =>
         progressCallback is null ? Task.CompletedTask : progressCallback(state);
 
-    private static void RestoreStepFromCheckpoint(CareerEntryNavigationState state)
+    private static void RestoreStepFromLastScreen(CareerEntryNavigationState state)
     {
         if (state.Step != CareerEntryNavigationStep.Home)
             return;
@@ -458,8 +462,27 @@ public sealed class CareerEntryNavigator
                     return null;
                 }
 
-                state.Step = CareerEntryNavigationStep.Scenario;
+                state.Step = state.ResumeDirectlyToCareer
+                    ? CareerEntryNavigationStep.Career
+                    : CareerEntryNavigationStep.Scenario;
+                if (state.ResumeDirectlyToCareer)
+                    state.LastScreenId = "career_resume_transition";
                 return null;
+
+            case "career_main":
+            case "career_races_ready":
+                if (state.Step != CareerEntryNavigationStep.Career)
+                {
+                    return Failure(
+                        $"Career screen '{observation.ScreenId}' is not valid during entry step '{state.Step}'.",
+                        state);
+                }
+                state.Step = CareerEntryNavigationStep.Career;
+                return new(
+                    true,
+                    "Career entry reached the existing Career.",
+                    observation.ScreenId,
+                    state.ActionsCompleted);
 
             case "scenario_select":
                 var scenarioResult = await HandleScenarioAsync(
@@ -1153,6 +1176,10 @@ public sealed class CareerEntryNavigator
                 || screen.ScreenId.Equals("trainee_select", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.Step != CareerEntryNavigationStep.Legacy
                 || screen.ScreenId.Equals("legacy_select", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => state.Step != CareerEntryNavigationStep.Career
+                || screen.ScreenId is "career_main" or "career_races_ready")
+            .Where(screen => state.Step == CareerEntryNavigationStep.Career
+                || screen.ScreenId is not "career_main" and not "career_races_ready")
             .OrderBy(screen => GetPriority(screen.ScreenId))
             .ToArray();
 
@@ -1254,6 +1281,8 @@ public sealed class CareerEntryNavigator
         "support_ready" => 6,
         "support_select" => 7,
         FinalConfirmationScreenId => 8,
+        "career_main" => 9,
+        "career_races_ready" => 10,
         _ => 20,
     };
 

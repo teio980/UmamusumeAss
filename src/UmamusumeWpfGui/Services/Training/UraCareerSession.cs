@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.Json;
 
 namespace UmamusumeWpfGui.Services.Training;
 
@@ -13,9 +12,9 @@ public enum UraStateSource
 
 /// <summary>
 /// Progress through the small setup page that appears after the shared
-/// support-deck entry flow for a Normal Career.  Keeping this separate from
-/// the turn-engine state lets an interrupted setup resume without clicking
-/// Start Career twice or replaying the Home entry chain.
+/// support-deck entry flow for a Normal Career. Keeping this separate from
+/// the turn-engine state prevents the current run from replaying completed
+/// setup actions while the live screen settles.
 /// </summary>
 public enum NormalCareerSetupStage
 {
@@ -25,7 +24,6 @@ public enum NormalCareerSetupStage
     StartCareer = 3,
     ConfirmStart = 4,
     SkipIntro = 5,
-    // Keep the original persisted values stable for existing checkpoints.
     AwaitCareerMain = 6,
     InCareer = 7,
     ConfigureQuickMode = 8,
@@ -89,11 +87,6 @@ public sealed class UraCareerSessionState
         new(StringComparer.OrdinalIgnoreCase);
     public List<string> CompletedObjectiveIds { get; set; } = [];
 
-    public string Serialize() => JsonSerializer.Serialize(this);
-
-    public static UraCareerSessionState Deserialize(string json) =>
-        JsonSerializer.Deserialize<UraCareerSessionState>(json)
-        ?? throw new InvalidDataException("URA checkpoint is empty.");
 }
 
 public sealed record UraActionIntent(
