@@ -149,31 +149,54 @@ public sealed class CareerScreenObserver
         if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
             var careerMain = pack.ScreenProfile.Find("career_main");
-            var bounds = careerMain?.FindOcrRegion("scenario.phase")?.ToRoi();
-            if (bounds is { Length: >= 4 })
+            var turnText = await ReadRegionTextAsync(
+                    connection,
+                    careerMain?.FindOcrRegion("scenario.phase")?.ToRoi(),
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    "career_main.turn_position",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var turnsLeftText = await ReadRegionTextAsync(
+                    connection,
+                    careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi(),
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    "career_main.objective.turns_left",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var goalText = await ReadRegionTextAsync(
+                    connection,
+                    careerMain?.FindOcrRegion("objective.title")?.ToRoi(),
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    "career_main.objective.title",
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            best = best with
             {
-                var turnText = await ReadTurnPositionAsync(
-                        connection,
-                        bounds,
-                        pack.ScreenProfile.ReferenceWidth,
-                        pack.ScreenProfile.ReferenceHeight,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(turnText))
-                    best = best with { TurnPositionText = turnText };
-            }
+                TurnPositionText = turnText,
+                TurnsToGoal = CareerGoalTextParser.ParseTurnsLeft(turnsLeftText),
+                GoalText = goalText,
+                FansToGoal = CareerGoalTextParser.ParseFansToGo(goalText),
+            };
         }
 
         return best;
     }
 
-    private async Task<string?> ReadTurnPositionAsync(
+    private async Task<string?> ReadRegionTextAsync(
         LastVerifiedConnection connection,
-        int[] bounds,
+        int[]? bounds,
         int referenceWidth,
         int referenceHeight,
+        string taskName,
         CancellationToken cancellationToken)
     {
+        if (bounds is not { Length: >= 4 })
+            return null;
+
         ScreenTextRecognitionResult? recognized;
         try
         {
@@ -183,7 +206,7 @@ public sealed class CareerScreenObserver
                     referenceWidth,
                     referenceHeight,
                     "en-US",
-                    "career_main.turn_position",
+                    taskName,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -207,16 +230,9 @@ public sealed class CareerScreenObserver
             .Select(item => item.Text)
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .ToArray();
-        foreach (var candidate in candidates)
-        {
-            if (UraTurnPositionParser.TryParse(candidate, out _))
-                return candidate;
-        }
-
-        var combined = string.Join(" ", candidates);
-        return UraTurnPositionParser.TryParse(combined, out _)
-            ? combined
-            : null;
+        return candidates.Length == 0
+            ? null
+            : string.Join(" ", candidates);
     }
 
     private static int GetScreenRecognitionPriority(

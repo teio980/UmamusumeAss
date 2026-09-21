@@ -415,11 +415,10 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             screenshot.Width,
             screenshot.Height);
         // Keep the existing full-screen OCR behavior for Hachimi tasks. The
-        // Career turn label is the one deliberately isolated OCR signal whose
-        // background is known to vary, so only that task gets ROI cropping
-        // before recognition.
+        // Career top-left and goal regions are deliberately isolated before
+        // recognition because the character art and dialogue overlay vary.
         var cropToRoi = actualRoi is not null
-            && taskName.Equals("career_main.turn_position", StringComparison.OrdinalIgnoreCase);
+            && taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase);
         var ocrScreenshot = cropToRoi
             ? CropScreenshot(screenshot, actualRoi!, padding: 8)
             : screenshot;

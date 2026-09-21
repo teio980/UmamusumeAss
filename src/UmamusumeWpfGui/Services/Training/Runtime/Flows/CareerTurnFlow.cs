@@ -106,6 +106,28 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        if (string.Equals(
+                context.State.ObservedGoalKind,
+                CareerGoalTextParser.Race,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (context.State.TurnsToGoal is null)
+            {
+                return CareerRuntimeResults.Failure(
+                    "A race goal is visible, but its remaining-turn countdown could not be read; "
+                    + "automation paused safely before the race flow is implemented.",
+                    "career_main");
+            }
+
+            if (context.State.TurnsToGoal <= 0)
+            {
+                return CareerRuntimeResults.Failure(
+                    $"Race goal reached: '{context.State.ObservedGoalText}'. "
+                    + "The race flow is not implemented yet; automation paused safely.",
+                    "career_main");
+            }
+        }
+
         if (context.Observation.EnergyPercent is not int energyPercent)
         {
             context.LogSink?.Add(
@@ -137,6 +159,7 @@ internal sealed class CareerTurnFlow
         var actionId = decision.Action switch
         {
             UraPlannedAction.Rest => "rest",
+            UraPlannedAction.Race => "races",
             UraPlannedAction.FinaleRace => "finale_races",
             UraPlannedAction.Training => "training",
             _ => string.Empty,

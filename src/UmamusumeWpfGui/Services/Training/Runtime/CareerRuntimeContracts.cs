@@ -12,7 +12,10 @@ public sealed record CareerObservation(
     double Score,
     int? EnergyPercent = null,
     double EnergyConfidence = 0,
-    string? TurnPositionText = null)
+    string? TurnPositionText = null,
+    int? TurnsToGoal = null,
+    string? GoalText = null,
+    int? FansToGoal = null)
 {
     public CareerScreenKind Kind => CareerScreenClassification.Classify(ScreenId);
 }

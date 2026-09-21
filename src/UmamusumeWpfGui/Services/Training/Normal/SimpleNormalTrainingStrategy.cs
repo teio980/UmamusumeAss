@@ -97,10 +97,16 @@ public sealed class UraDefaultStrategy
             var action = state.PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase)
                 ? UraPlannedAction.FinaleRace
                 : UraPlannedAction.Race;
+            var reason = string.Equals(
+                    state.ObservedGoalKind,
+                    CareerGoalTextParser.Fans,
+                    StringComparison.OrdinalIgnoreCase)
+                ? $"The visible goal still needs {state.FansToGoal?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} fans; opening the race list to choose a recommendation."
+                : $"Required race '{state.CurrentRaceId ?? "unknown"}' is pending.";
             return new(
                 action,
                 state.CurrentRaceId,
-                $"Required race '{state.CurrentRaceId ?? "unknown"}' is pending.",
+                reason,
                 true,
                 [UraPlannedAction.Rest]);
         }

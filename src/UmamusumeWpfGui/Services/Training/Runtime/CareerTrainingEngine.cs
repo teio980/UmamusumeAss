@@ -160,7 +160,15 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             "Career Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
 
-        var scenario = new UraScenarioModule(pack);
+        // The first target integration is driven by the visible Career UI:
+        // OCR reads the countdown and goal text. Keep downloaded career
+        // objectives available for later validation, but do not let them
+        // trigger a race before the race assets and flow are implemented.
+        var scenario = new UraScenarioModule(
+            pack,
+            trainee,
+            _umaDatabase.Races,
+            useTraineeObjectives: false);
         var strategy = UraStrategyRegistry.Create(settings.StrategyId);
         if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
                 settings.LineupStrategy,
@@ -360,7 +368,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 observation.Score,
                 observation.EnergyPercent,
                 observation.EnergyConfidence,
-                observation.TurnPositionText);
+                observation.TurnPositionText,
+                observation.TurnsToGoal,
+                observation.GoalText,
+                observation.FansToGoal);
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
             if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
@@ -375,6 +386,17 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     $"Current turn: {turnPosition}",
                     HachimiTaskLogEventKind.Detection);
                 lastLoggedTurnPosition = turnPosition;
+            }
+            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(observation.GoalText))
+            {
+                _taskLogSink?.Add(
+                    "Goal",
+                    $"Observed goal: {observation.GoalText}"
+                        + (observation.TurnsToGoal is int turns
+                            ? $" ({turns} turn(s) left)"
+                            : string.Empty),
+                    HachimiTaskLogEventKind.Detection);
             }
             logSink?.Add(
                 "Career Training",

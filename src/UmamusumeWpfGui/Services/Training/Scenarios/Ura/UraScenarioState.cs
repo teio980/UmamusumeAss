@@ -59,10 +59,15 @@ public static class UraObservedValueFactory
 public sealed class UraCareerSessionState
 {
     public string ScenarioId { get; set; } = "ura";
+    public int? TraineeId { get; set; }
     public string PhaseId { get; set; } = "career";
     public int TurnIndex { get; set; }
     public string CurrentObjectiveId { get; set; } = "debut_race";
     public string? TurnPositionLabel { get; set; }
+    public int? TurnsToGoal { get; set; }
+    public int? FansToGoal { get; set; }
+    public string? ObservedGoalText { get; set; }
+    public string? ObservedGoalKind { get; set; }
     public UraStateSource TurnIndexSource { get; set; } = UraStateSource.Unknown;
     public double TurnIndexConfidence { get; set; }
     public int FinaleStageIndex { get; set; } = -1;

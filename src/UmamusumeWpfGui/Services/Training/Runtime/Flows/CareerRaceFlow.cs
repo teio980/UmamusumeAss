@@ -1,3 +1,4 @@
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
@@ -35,10 +36,34 @@ internal sealed class CareerRaceFlow
                         "open_list")
                     .ConfigureAwait(false);
             case "race_list":
+                var raceListAction = GetRaceListActionId(context.State);
+                if (raceListAction.Equals("fans_entry", StringComparison.Ordinal))
+                {
+                    // A new run reconstructs its state from the current
+                    // screen. Race List itself does not expose whether the
+                    // previous Career Main goal was a fan goal, so an
+                    // unresolved resume must use the same safe Recommended
+                    // entry used by the direct fan-goal flow.
+                    if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
+                    {
+                        context.State.ObservedGoalKind = CareerGoalTextParser.Fans;
+                        context.LogSink?.Add(
+                            "Career Training",
+                            "Race List resumed without goal context; selecting the Recommended race.",
+                            LogEntryKind.Info);
+                    }
+
+                    return await _actions.RunAsync(
+                            context,
+                            "race_list",
+                            "fans_entry")
+                        .ConfigureAwait(false);
+                }
+
                 return await _actions.RunAsync(
                         context,
                         "race_list",
-                        "goal_entry")
+                        raceListAction)
                     .ConfigureAwait(false);
             case "race_details":
                 return await _actions.RunAsync(
@@ -100,6 +125,19 @@ internal sealed class CareerRaceFlow
             default:
                 return null;
         }
+    }
+
+    internal static string GetRaceListActionId(UraCareerSessionState state) =>
+        ShouldUseRecommendedRace(state) ? "fans_entry" : "goal_entry";
+
+    private static bool ShouldUseRecommendedRace(UraCareerSessionState state)
+    {
+        var goalKind = state.ObservedGoalKind;
+        return string.Equals(
+                   goalKind,
+                   CareerGoalTextParser.Fans,
+                   StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(goalKind);
     }
 
     private async Task<CareerTrainingResult?> HandleRaceResultAsync(

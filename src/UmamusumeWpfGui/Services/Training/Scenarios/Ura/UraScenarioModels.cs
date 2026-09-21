@@ -168,6 +168,12 @@ public sealed class UraObjectiveDefinition
     [JsonPropertyName("objectiveId")]
     public string ObjectiveId { get; set; } = string.Empty;
 
+    [JsonPropertyName("order")]
+    public int Order { get; set; }
+
+    [JsonPropertyName("turn")]
+    public int Turn { get; set; }
+
     [JsonPropertyName("kind")]
     public string Kind { get; set; } = string.Empty;
 

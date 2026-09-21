@@ -1,4 +1,5 @@
 using System.IO;
+using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Training;
 
@@ -12,24 +13,50 @@ public sealed record UraActionIntent(
 public sealed class UraScenarioModule
 {
     private readonly UraScenarioPack _pack;
+    private readonly UmaTraineeRecord? _trainee;
+    private readonly bool _useTraineeObjectives;
+    private readonly Dictionary<string, UmaCareerRaceRecord> _careerRaces;
+    private readonly Dictionary<string, UraObjectiveDefinition> _traineeObjectives;
 
-    public UraScenarioModule(UraScenarioPack pack)
+    public UraScenarioModule(
+        UraScenarioPack pack,
+        UmaTraineeRecord? trainee = null,
+        IEnumerable<UmaCareerRaceRecord>? careerRaces = null,
+        bool useTraineeObjectives = true)
     {
         _pack = pack ?? throw new ArgumentNullException(nameof(pack));
+        _trainee = trainee;
+        _useTraineeObjectives = useTraineeObjectives;
+        _careerRaces = (careerRaces ?? [])
+            .ToDictionary(
+                item => item.RaceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparer.OrdinalIgnoreCase);
+        _traineeObjectives = useTraineeObjectives
+            ? BuildTraineeObjectives(trainee)
+            : new Dictionary<string, UraObjectiveDefinition>(StringComparer.OrdinalIgnoreCase);
     }
 
-    public UraCareerSessionState CreateInitialState() => new()
+    public UraCareerSessionState CreateInitialState()
     {
-        ScenarioId = _pack.Manifest.ScenarioId,
-        PhaseId = _pack.Definition.Phases
+        var firstObjective = _traineeObjectives.Values
             .OrderBy(item => item.Order)
-            .FirstOrDefault()?.PhaseId ?? "career",
-        CurrentObjectiveId = _pack.Objectives.Objectives.FirstOrDefault()?.ObjectiveId
-            ?? throw new InvalidDataException("URA objective chain is empty."),
-    };
+            .FirstOrDefault()
+            ?? _pack.Objectives.Objectives.FirstOrDefault()
+            ?? throw new InvalidDataException("URA objective chain is empty.");
+        return new UraCareerSessionState
+        {
+            ScenarioId = _pack.Manifest.ScenarioId,
+            TraineeId = _trainee?.TraineeId,
+            PhaseId = _pack.Definition.Phases
+                .OrderBy(item => item.Order)
+                .FirstOrDefault()?.PhaseId ?? "career",
+            CurrentObjectiveId = firstObjective.ObjectiveId,
+            CurrentRaceId = firstObjective.RaceId,
+        };
+    }
 
     public UraObjectiveDefinition? CurrentObjective(UraCareerSessionState state) =>
-        _pack.Objectives.Find(state.CurrentObjectiveId);
+        FindObjective(state.CurrentObjectiveId);
 
     public UraRaceDefinition? CurrentRace(UraCareerSessionState state)
     {
@@ -39,10 +66,41 @@ public sealed class UraScenarioModule
             ?? (objective?.Kind.Equals("race_result_count", StringComparison.OrdinalIgnoreCase) == true
                 ? objective.ObservedRaceIds.FirstOrDefault(item => !state.RacePlacements.ContainsKey(item))
                 : null)
-            ?? FindNextRaceObjectiveId(objective);
+            ?? (_traineeObjectives.ContainsKey(state.CurrentObjectiveId)
+                ? null
+                : FindNextRaceObjectiveId(objective));
         if (raceId is null && state.PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase))
             raceId = state.CurrentObjectiveId;
-        return raceId is null ? null : _pack.Races.Find(raceId);
+        if (raceId is null)
+            return null;
+
+        var scenarioRace = _pack.Races.Find(raceId);
+        if (scenarioRace is not null)
+            return scenarioRace;
+
+        if (_careerRaces.TryGetValue(raceId, out var careerRace))
+        {
+            return new UraRaceDefinition
+            {
+                RaceId = raceId,
+                Name = careerRace.NameEn,
+                Grade = careerRace.Grade,
+                Course = new UraRaceCourse
+                {
+                    Surface = careerRace.Surface,
+                    Distance = careerRace.Distance,
+                    DistanceBand = careerRace.DistanceBand,
+                },
+                RewardFans = careerRace.FansGained,
+            };
+        }
+
+        // Keep the target ID visible even when the global race catalog is not
+        // available. Result recognition still fails closed because this
+        // synthetic race has no observed capture asset.
+        return _traineeObjectives.ContainsKey(state.CurrentObjectiveId)
+            ? new UraRaceDefinition { RaceId = raceId, Name = raceId }
+            : null;
     }
 
     private string? FindNextRaceObjectiveId(UraObjectiveDefinition? objective)
@@ -50,7 +108,7 @@ public sealed class UraScenarioModule
         var next = objective?.NextObjectiveId;
         while (next is not null)
         {
-            var candidate = _pack.Objectives.Find(next);
+            var candidate = FindObjective(next);
             if (candidate is null)
                 return null;
             if (!string.IsNullOrWhiteSpace(candidate.RaceId))
@@ -59,6 +117,88 @@ public sealed class UraScenarioModule
         }
 
         return null;
+    }
+
+    private UraObjectiveDefinition? FindObjective(string objectiveId) =>
+        _traineeObjectives.TryGetValue(objectiveId, out var traineeObjective)
+            ? traineeObjective
+            : _pack.Objectives.Find(objectiveId);
+
+    private void UpdateTraineeObjective(UraCareerSessionState state)
+    {
+        if (_traineeObjectives.Count == 0
+            || !state.PhaseId.Equals("career", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // A failed target race may advance the observed turn label while the
+        // same race remains retryable. Do not let the schedule-based lookup
+        // skip that still-pending objective.
+        if (state.HasPendingRace
+            && _traineeObjectives.ContainsKey(state.CurrentObjectiveId))
+        {
+            return;
+        }
+
+        var objective = _traineeObjectives.Values
+            .OrderBy(item => item.Order)
+            .FirstOrDefault(item => item.Turn >= state.TurnIndex);
+        if (objective is null)
+        {
+            state.PhaseId = "finale_underway";
+            state.FinaleStageIndex = 0;
+            state.CurrentObjectiveId = _pack.Definition.FinalSeries.Stages[0];
+            state.CurrentRaceId = CurrentRace(state)?.RaceId;
+            state.HasPendingRace = true;
+            return;
+        }
+
+        state.TraineeId = _trainee?.TraineeId;
+        state.CurrentObjectiveId = objective.ObjectiveId;
+        state.CurrentRaceId = objective.RaceId;
+        state.HasPendingRace = objective.RaceId is not null
+            && state.TurnIndex >= objective.Turn;
+    }
+
+    private static Dictionary<string, UraObjectiveDefinition> BuildTraineeObjectives(
+        UmaTraineeRecord? trainee)
+    {
+        if (trainee is null || trainee.CareerObjectives.Count == 0)
+        {
+            return new Dictionary<string, UraObjectiveDefinition>(
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        var ordered = trainee.CareerObjectives
+            .OrderBy(item => item.Order)
+            .ToArray();
+        var result = new Dictionary<string, UraObjectiveDefinition>(
+            StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < ordered.Length; index++)
+        {
+            var objective = ordered[index];
+            var nextObjectiveId = index + 1 < ordered.Length
+                ? ordered[index + 1].ObjectiveId
+                : "career_goals_complete";
+            result[objective.ObjectiveId] = new UraObjectiveDefinition
+            {
+                ObjectiveId = objective.ObjectiveId,
+                Order = objective.Order,
+                Turn = objective.Turn,
+                Kind = objective.Kind,
+                RaceId = objective.RaceIds.FirstOrDefault(),
+                ObservedRaceIds = objective.RaceIds.ToList(),
+                NextObjectiveId = nextObjectiveId,
+                Target = new UraObjectiveTarget
+                {
+                    PlacementAtMost = objective.Target.PlacementAtMost,
+                    Minimum = objective.Target.Minimum,
+                },
+            };
+        }
+
+        return result;
     }
 
     public IReadOnlyList<UraPlannedAction> GetAvailableActions(
@@ -92,7 +232,10 @@ public sealed class UraScenarioModule
         double confidence,
         int? energyPercent = null,
         double energyConfidence = 0,
-        string? turnPositionText = null)
+        string? turnPositionText = null,
+        int? turnsToGoal = null,
+        string? goalText = null,
+        int? fansToGoal = null)
     {
         state.LastScreenId = screenId;
         if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
@@ -111,6 +254,37 @@ public sealed class UraScenarioModule
                 state.TurnIndexSource = UraStateSource.Observed;
                 state.TurnIndexConfidence = Math.Clamp(confidence, 0, 1);
             }
+
+            state.TurnsToGoal = turnsToGoal;
+            state.FansToGoal = fansToGoal ?? CareerGoalTextParser.ParseFansToGo(goalText);
+            state.ObservedGoalText = goalText;
+            state.ObservedGoalKind = CareerGoalTextParser.Classify(goalText);
+
+            if (_useTraineeObjectives)
+            {
+                UpdateTraineeObjective(state);
+            }
+            else
+            {
+                // The first direct-OCR integration deliberately does not
+                // infer target races from the downloaded career database.
+                // Direct OCR mode uses only the visible objective. A fan goal
+                // needs an optional race while fans remain; no database race
+                // ID is inferred for that choice.
+                state.HasPendingRace = string.Equals(
+                        state.ObservedGoalKind,
+                        CareerGoalTextParser.Race,
+                        StringComparison.OrdinalIgnoreCase)
+                    && turnsToGoal is <= 0;
+                if (string.Equals(
+                        state.ObservedGoalKind,
+                        CareerGoalTextParser.Fans,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    state.HasPendingRace = state.FansToGoal is > 0;
+                }
+                state.CurrentRaceId = null;
+            }
         }
 
         if (string.Equals(screenId, "race_day", StringComparison.OrdinalIgnoreCase)
@@ -119,7 +293,12 @@ public sealed class UraScenarioModule
             || string.Equals(screenId, "race_attributes", StringComparison.OrdinalIgnoreCase))
         {
             state.HasPendingRace = true;
-            state.CurrentRaceId = CurrentRace(state)?.RaceId;
+            state.CurrentRaceId = string.Equals(
+                    state.ObservedGoalKind,
+                    CareerGoalTextParser.Fans,
+                    StringComparison.OrdinalIgnoreCase)
+                ? null
+                : CurrentRace(state)?.RaceId;
         }
 
         if (string.Equals(screenId, "goal_complete", StringComparison.OrdinalIgnoreCase))
