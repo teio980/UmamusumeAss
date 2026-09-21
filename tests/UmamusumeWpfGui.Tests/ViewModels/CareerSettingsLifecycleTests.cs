@@ -99,6 +99,7 @@ public sealed class CareerSettingsLifecycleTests
         public string? Region => "global";
         public IReadOnlyCollection<UmaBaseCharacterRecord> BaseCharacters => [];
         public IReadOnlyCollection<UmaTraineeRecord> Trainees => [];
+        public IReadOnlyCollection<UmaCareerRaceRecord> Races => [];
         public IReadOnlyCollection<UmaSupportCardRecord> SupportCards => [];
 
         public Task LoadAsync(string resourceRoot, CancellationToken cancellationToken = default)
@@ -111,6 +112,12 @@ public sealed class CareerSettingsLifecycleTests
         public bool TryGetTrainee(int traineeId, out UmaTraineeRecord? trainee)
         {
             trainee = null;
+            return false;
+        }
+
+        public bool TryGetRace(int raceId, out UmaCareerRaceRecord? race)
+        {
+            race = null;
             return false;
         }
 

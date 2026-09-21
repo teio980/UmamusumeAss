@@ -35,6 +35,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [Theory]
     [InlineData("career_main")]
     [InlineData("training_selection")]
+    [InlineData("race_list")]
     [InlineData("race_day")]
     [InlineData("race_live")]
     [InlineData("race_result")]
@@ -97,5 +98,24 @@ public sealed class NormalCareerTrainingPipelineTests
             CareerScreenObserver.IsEligibleForCareerPhase(
                 "rest_confirmation",
                 state));
+    }
+
+    [Fact]
+    public void Race_list_resume_without_goal_context_uses_recommended_entry()
+    {
+        Assert.Equal(
+            "fans_entry",
+            CareerRaceFlow.GetRaceListActionId(new UraCareerSessionState()));
+    }
+
+    [Fact]
+    public void Race_list_resume_with_a_race_goal_keeps_goal_entry()
+    {
+        var state = new UraCareerSessionState
+        {
+            ObservedGoalKind = CareerGoalTextParser.Race,
+        };
+
+        Assert.Equal("goal_entry", CareerRaceFlow.GetRaceListActionId(state));
     }
 }

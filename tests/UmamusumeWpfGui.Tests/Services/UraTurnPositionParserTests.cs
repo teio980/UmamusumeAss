@@ -63,6 +63,13 @@ public sealed class UraTurnPositionParserTests
         Assert.Equal(45, bounds.Y);
         Assert.Equal(300, bounds.Width);
         Assert.Equal(45, bounds.Height);
+
+        var turnsLeft = careerMain?.FindOcrRegion("objective.turns_left");
+        Assert.NotNull(turnsLeft);
+        Assert.Equal(10, turnsLeft!.Bounds!.X);
+        Assert.Equal(90, turnsLeft.Bounds.Y);
+        Assert.Equal(175, turnsLeft.Bounds.Width);
+        Assert.Equal(140, turnsLeft.Bounds.Height);
     }
 
     [Fact]
@@ -80,13 +87,20 @@ public sealed class UraTurnPositionParserTests
             0.98,
             energyPercent: 63,
             energyConfidence: 0.94,
-            turnPositionText: "Junior Year Late Jul");
+            turnPositionText: "Junior Year Late Jul",
+            turnsToGoal: 7,
+            goalText: "Earn 3000 fans Progress 1731 fan(s) to go");
 
         Assert.Equal(14, state.TurnIndex);
         Assert.Equal("Junior Year Late Jul", state.TurnPositionLabel);
         Assert.Equal(UraStateSource.Observed, state.TurnIndexSource);
         Assert.Equal(63, state.Energy.Value);
         Assert.Equal(0.94, state.Energy.Confidence);
+        Assert.Equal(7, state.TurnsToGoal);
+        Assert.Equal(
+            "Earn 3000 fans Progress 1731 fan(s) to go",
+            state.ObservedGoalText);
+        Assert.Equal(CareerGoalTextParser.Fans, state.ObservedGoalKind);
     }
 
     private static string FindWorkspaceRoot()

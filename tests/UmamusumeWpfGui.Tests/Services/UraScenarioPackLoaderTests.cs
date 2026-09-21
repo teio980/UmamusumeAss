@@ -26,6 +26,8 @@ public sealed class UraScenarioPackLoaderTests
     private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];
     private static readonly int[] CareerMainHeaderRoi = [0, 0, 120, 50];
     private static readonly int[] ScenarioNextCardRect = [815, 650, 75, 180];
+    private static readonly int[] RaceListEntryRect = [30, 840, 840, 220];
+    private static readonly int[] RaceListStartRect = [270, 1300, 360, 120];
 
     [Fact]
     public async Task LoadAsync_LoadsCheckedInUraPack()
@@ -199,6 +201,19 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "ClickSelf",
             pack.ExecutionDefinition.Tasks["home_home_career_active"].Action);
+
+        var recommendedEntry = pack.ExecutionDefinition.Tasks["race_list_race_fans_entry"];
+        Assert.Equal("ClickRect", recommendedEntry.Action);
+        Assert.Equal(RaceListEntryRect, recommendedEntry.SpecificRect);
+        Assert.Contains("race_list_race_start", recommendedEntry.Next);
+
+        var raceListStart = pack.ExecutionDefinition.Tasks["race_list_race_start"];
+        Assert.Equal("ClickRect", raceListStart.Action);
+        Assert.Equal(RaceListStartRect, raceListStart.SpecificRect);
+        Assert.True(raceListStart.Success);
+
+        var goalEntry = pack.ExecutionDefinition.Tasks["race_list_race_goal_entry"];
+        Assert.Contains("race_list_race_start", goalEntry.Next);
     }
 
     [Fact]
