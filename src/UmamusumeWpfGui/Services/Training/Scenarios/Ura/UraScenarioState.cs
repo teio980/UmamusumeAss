@@ -74,6 +74,8 @@ public sealed class UraCareerSessionState
     public string? CurrentRaceId { get; set; }
     public int RetryCount { get; set; }
     public bool HasPendingRace { get; set; }
+    // Run-scoped guard for the reusable race-runner strategy checkpoint.
+    public bool RaceStrategyConfigured { get; set; }
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
     // Indicates that the selected URA career has actually reached the career

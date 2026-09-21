@@ -87,6 +87,7 @@ internal sealed record CareerFlowContext(
     bool PauseOnUnknownOutcome,
     UraScenarioModule Scenario,
     UraDefaultStrategy Strategy,
+    string LineupStrategy,
     UraCareerSessionState State,
     CareerObservation Observation,
     IGrassTaskLogSink? LogSink,

@@ -250,10 +250,11 @@ public sealed class CareerScreenObserver
             "training_selection" => 4,
             "race_day" => 5,
             "race_list" => 6,
-            "race_details" => 7,
-            "race_attributes" => 8,
-            "race_playback_settings" => 9,
-            "race_playback" => 10,
+            "race_runner" => 7,
+            "race_details" => 8,
+            "race_attributes" => 9,
+            "race_playback_settings" => 10,
+            "race_playback" => 11,
             _ => 20,
         };
 

@@ -289,6 +289,7 @@ public sealed class UraScenarioModule
 
         if (string.Equals(screenId, "race_day", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_list", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(screenId, "race_runner", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_details", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_attributes", StringComparison.OrdinalIgnoreCase))
         {

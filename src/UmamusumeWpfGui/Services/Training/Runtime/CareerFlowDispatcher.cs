@@ -8,6 +8,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     private readonly HachimiJsonPipelineRunner _jsonRunner;
     private readonly CareerTurnFlow _turnFlow;
     private readonly CareerRaceFlow _raceFlow;
+    private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
     private readonly CareerSettlementFlow _settlementFlow;
     private IHachimiTaskLogSink? _taskLogSink;
 
@@ -19,6 +20,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
         _turnFlow = new CareerTurnFlow(this);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
+        _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
         _settlementFlow = new CareerSettlementFlow(this);
     }
 
@@ -48,17 +50,30 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         bool pauseOnUnknownOutcome,
         UraScenarioModule scenario,
         UraDefaultStrategy strategy,
+        string lineupStrategy,
         UraCareerSessionState state,
         CareerObservation observation,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
+        // The guard belongs to one visit of the runner checkpoint. Any
+        // transition away from that page opens the same reusable step for a
+        // later race instead of carrying the previous race's configuration.
+        if (!string.Equals(
+                observation.ScreenId,
+                CareerRaceRunnerCheckpointHandler.ScreenId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            state.RaceStrategyConfigured = false;
+        }
+
         var context = new CareerFlowContext(
             connection,
             pack,
             pauseOnUnknownOutcome,
             scenario,
             strategy,
+            lineupStrategy,
             state,
             observation,
             logSink,
@@ -78,6 +93,9 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "rest_confirmation"
             or "scenario_event"
                 => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
+            "race_runner"
+                => await _raceRunnerHandler.HandleAsync(context)
+                    .ConfigureAwait(false),
             "career_races_ready"
             or "race_day"
             or "race_list"

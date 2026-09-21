@@ -487,8 +487,16 @@ internal static class TemplateMatcher
         // MAA's default MatchTemplate path is Ccoeff (TM_CCOEFF_NORMED).
         // Keep the managed matcher bounded, but use enough samples to preserve
         // button text and borders instead of comparing a whole page snapshot.
-        var sampleWidth = Math.Min(32, template.Width);
-        var sampleHeight = Math.Min(32, template.Height);
+        // Small button/text templates must be compared in full.  Sampling
+        // only the top-left 32x32 pixels can match a flat button background
+        // at a false location, which then makes ClickSelf tap beside the
+        // actual label (notably the narrow Race! button template).
+        var sampleWidth = template.Width <= 160
+            ? template.Width
+            : 32;
+        var sampleHeight = template.Height <= 80
+            ? template.Height
+            : 32;
         // Small button crops are cheap enough to scan at pixel precision;
         // larger state markers use a two-pixel stride to keep polling bounded.
         var candidateStep = candidateStepOverride is > 0

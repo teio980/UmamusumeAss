@@ -432,6 +432,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     settings.PauseOnUnknownOutcome,
                     scenario,
                     strategy,
+                    settings.LineupStrategy,
                     state,
                     observation,
                     logSink,
