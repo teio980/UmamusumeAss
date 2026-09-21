@@ -1648,8 +1648,8 @@
                                                           "algorithm":  "MatchTemplate",
                                                           "action":  "ClickSelf",
                                                           "template":  "templates/career_races_ready_action_races.png",
-                                                          "templThreshold":  0.78,
-                                                          "roi":  [
+                                                           "templThreshold":  0.78,
+                                                           "roi":  [
                                                                       580,
                                                                       1330,
                                                                       250,
@@ -1800,16 +1800,77 @@
                                                   "required":  true,
                                                   "success":  false
                                               },
+                  "career_main_action_races":  {
+                                                   "algorithm":  "MatchTemplate",
+                                                   "action":  "ClickSelf",
+                                                   "template":  "templates/career_main_action_finale_races.png",
+                                                   "templThreshold":  0.78,
+                                                   "roi":  [
+                                                                       620,
+                                                                       1418,
+                                                                       170,
+                                                                       55
+                                                           ],
+                                                   "preDelay":  0,
+                                                   "postDelay":  650,
+                                                   "waitMs":  0,
+                                                   "timeoutMs":  12000,
+                                                   "pollIntervalMs":  250,
+                                                   "next":  [
+                                                               "career_main_action_races_close_schedule"
+                                                           ],
+                                                   "onErrorNext":  [],
+                                                   "exceededNext":  [],
+                                                   "sub":  [],
+                                                   "monitorTasks":  [],
+                                                   "maxTimes":  0,
+                                                   "required":  true,
+                                                   "success":  false
+                                               },
+                  "career_main_action_races_close_schedule":  {
+                                                   "algorithm":  "OcrText",
+                                                   "action":  "ClickText",
+                                                   "targetText":  "Close",
+                                                   "ocrLanguage":  "en-US",
+                                                   "fuzzyThreshold":  0.80,
+                                                   "unique":  true,
+                                                   "roi":  [
+                                                               200,
+                                                               1300,
+                                                               500,
+                                                               240
+                                                           ],
+                                                   "preDelay":  0,
+                                                   "postDelay":  650,
+                                                   "waitMs":  0,
+                                                   "timeoutMs":  4000,
+                                                   "pollIntervalMs":  250,
+                                                   "next":  [],
+                                                   "onErrorNext":  [
+                                                                    "career_main_action_races_done"
+                                                                ],
+                                                   "exceededNext":  [],
+                                                   "sub":  [],
+                                                   "monitorTasks":  [],
+                                                   "maxTimes":  0,
+                                                   "required":  true,
+                                                   "success":  false
+                                               },
+                  "career_main_action_races_done":  {
+                                                   "algorithm":  "JustReturn",
+                                                   "action":  "JustReturn",
+                                                   "success":  true
+                                               },
                   "career_main_action_finale_races":  {
                                                           "algorithm":  "MatchTemplate",
                                                           "action":  "ClickSelf",
                                                           "template":  "templates/career_main_action_finale_races.png",
-                                                          "templThreshold":  0.78,
-                                                          "roi":  [
-                                                                      580,
-                                                                      1330,
-                                                                      250,
-                                                                      170
+                                                           "templThreshold":  0.78,
+                                                           "roi":  [
+                                                                       620,
+                                                                       1418,
+                                                                       170,
+                                                                       55
                                                                   ],
                                                           "preDelay":  0,
                                                           "postDelay":  650,
@@ -2302,7 +2363,7 @@
                                                     "timeoutMs":  12000,
                                                     "pollIntervalMs":  250,
                                                     "next":  [
-
+                                                                "race_list_race_start"
                                                              ],
                                                     "onErrorNext":  [
 
@@ -2319,6 +2380,34 @@
                                                     "maxTimes":  0,
                                                     "required":  true,
                                                     "success":  false
+                                                },
+                  "race_list_race_fans_entry":  {
+                                                    "algorithm":  "ClickRect",
+                                                    "action":  "ClickRect",
+                                                    "specificRect":  [
+                                                                        30,
+                                                                        840,
+                                                                        840,
+                                                                        220
+                                                                    ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "next":  [
+                                                                "race_list_race_start"
+                                                             ],
+                                                    "success":  false
+                                                },
+                  "race_list_race_start":  {
+                                                    "algorithm":  "ClickRect",
+                                                    "action":  "ClickRect",
+                                                    "specificRect":  [
+                                                                        270,
+                                                                        1300,
+                                                                        360,
+                                                                        120
+                                                                    ],
+                                                    "postDelay":  650,
+                                                    "success":  true
                                                 },
                   "race_day_race_open_list":  {
                                                   "algorithm":  "MatchTemplate",

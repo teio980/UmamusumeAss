@@ -636,14 +636,23 @@
                                                           }
                                            },
                                            {
-                                               "semanticId":  "objective.title",
+                                               "semanticId":  "objective.turns_left",
                                                "bounds":  {
-                                                              "x":  315,
+                                                              "x":  10,
                                                               "y":  90,
-                                                              "width":  520,
-                                                              "height":  65
+                                                              "width":  175,
+                                                              "height":  140
                                                           }
                                            },
+                                            {
+                                                "semanticId":  "objective.title",
+                                                "bounds":  {
+                                                               "x":  315,
+                                                               "y":  90,
+                                                               "width":  520,
+                                                               "height":  80
+                                                           }
+                                            },
                                            {
                                                "semanticId":  "stats.summary",
                                                "bounds":  {
@@ -676,6 +685,10 @@
                                         {
                                             "semanticId":  "action.rest",
                                             "task":  "career_main_action_rest"
+                                        },
+                                        {
+                                            "semanticId":  "action.races",
+                                            "task":  "career_main_action_races"
                                         },
                                         {
                                             "semanticId":  "action.finale_races",
@@ -896,14 +909,15 @@
                     {
                         "screenId":  "race_list",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/ura_tenno_race_list.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/ura_prelim_details.png",
-                                                              "templates/runtime_frames/ura_tenno_race_list.png",
-                                                              "templates/runtime_frames/goal2_race_list.png",
-                                                              "templates/runtime_frames/senior_feb_races.png",
-                                                              "templates/runtime_frames/senior_late_feb_races.png"
-                                                          ],
+                                            "template":  "templates/runtime_frames/fan_goal_race_list_header.png",
+                                            "templates":  [],
+                                            "roi":  [
+                                                        0,
+                                                        0,
+                                                        150,
+                                                        50
+                                                    ],
+                                            "templThreshold":  0.82,
                                             "requiredText":  [
                                                                  "Race List"
                                                              ],
@@ -942,6 +956,10 @@
                                         {
                                             "semanticId":  "race.goal_entry",
                                             "task":  "race_list_race_goal_entry"
+                                        },
+                                        {
+                                            "semanticId":  "race.fans_entry",
+                                            "task":  "race_list_race_fans_entry"
                                         }
                                     ]
                     },
