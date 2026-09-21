@@ -964,6 +964,42 @@
                                     ]
                     },
                     {
+                        "screenId":  "race_runner",
+                        "recognition":  {
+                                            "template":  "templates/career/race/race_runner_label.png",
+                                            "roi":  [
+                                                        700,
+                                                        1060,
+                                                        180,
+                                                        140
+                                                    ],
+                                            "stable":  true,
+                                            "templThreshold":  0.88
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "strategy.apply.front",
+                                            "task":  "race_runner_strategy_apply_front"
+                                        },
+                                        {
+                                            "semanticId":  "strategy.apply.pace",
+                                            "task":  "race_runner_strategy_apply_pace"
+                                        },
+                                        {
+                                            "semanticId":  "strategy.apply.late",
+                                            "task":  "race_runner_strategy_apply_late"
+                                        },
+                                        {
+                                            "semanticId":  "strategy.apply.end",
+                                            "task":  "race_runner_strategy_apply_end"
+                                        },
+                                        {
+                                            "semanticId":  "entry.start",
+                                            "task":  "race_runner_entry_start"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "race_details",
                         "recognition":  {
                                             "template":  "templates/runtime_frames/ura_prelim_confirm.png",
