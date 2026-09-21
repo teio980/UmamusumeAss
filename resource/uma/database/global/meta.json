@@ -1,34 +1,51 @@
-﻿{
-    "source_name":  "Umamusume.run Global Database",
-    "source_url":  "https://www.umamusume.run",
-    "source_type":  "unofficial-community-site",
-    "region":  "global",
-    "crawled_at_utc":  "2026-08-06T13:06:53.6788463Z",
-    "index_pages":  [
-                        {
-                            "name":  "trainees",
-                            "url":  "https://www.umamusume.run/database/characters",
-                            "status":  200,
-                            "html_bytes":  201474
-                        },
-                        {
-                            "name":  "support_cards",
-                            "url":  "https://www.umamusume.run/database/support-cards",
-                            "status":  200,
-                            "html_bytes":  411229
-                        }
-                    ],
-    "counts":  {
-                   "base_characters":  52,
-                   "trainees":  71,
-                   "support_cards":  199,
-                   "trainee_detail_pages":  71,
-                   "support_detail_pages":  199
-               },
-    "notes":  [
-                        "This is a Global-version community snapshot, not an official Cygames API.",
-                        "Original 512x512 RGBA character images are downloaded without crop or resize to assets/images/global/trainees; see manifest.json.",
-                        "Original in-game 512x512 standing live-outfit chara-stand PNGs (outfit 000101) are downloaded without crop or resize to assets/images/global/live_outfits; see its manifest.json.",
-                        "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
-                    ]
+{
+  "source_name": "Umamusume.run Global Database",
+  "source_url": "https://www.umamusume.run",
+  "source_type": "unofficial-community-site",
+  "region": "global",
+  "crawled_at_utc": "2026-08-06T13:06:53.6788463Z",
+  "index_pages": [
+    {
+      "name": "trainees",
+      "url": "https://www.umamusume.run/database/characters",
+      "status": 200,
+      "html_bytes": 201474
+    },
+    {
+      "name": "support_cards",
+      "url": "https://www.umamusume.run/database/support-cards",
+      "status": 200,
+      "html_bytes": 411229
+    }
+  ],
+  "counts": {
+    "base_characters": 52,
+    "trainees": 71,
+    "support_cards": 199,
+    "trainee_detail_pages": 71,
+    "support_detail_pages": 199
+  },
+  "notes": [
+    "This is a Global-version community snapshot, not an official Cygames API.",
+    "Original 512x512 RGBA character images are downloaded without crop or resize to assets/images/global/trainees; see manifest.json.",
+    "Original in-game 512x512 standing live-outfit chara-stand PNGs (outfit 000101) are downloaded without crop or resize to assets/images/global/live_outfits; see its manifest.json.",
+    "Each Global鑲叉垚褰㈡€?is stored as its own trainee_id entry."
+  ],
+  "career_objective_source": {
+    "source_name": "GameTora Global Character Database",
+    "source_url": "https://gametora.com/umamusume/characters",
+    "source_type": "unofficial-community-site",
+    "region": "global",
+    "crawled_at_utc": "2026-09-21T03:51:24.6155531Z",
+    "counts": {
+      "trainees": 71,
+      "objectives": 632,
+      "races": 95
+    },
+    "notes": [
+      "Career objectives are extracted from each character page __NEXT_DATA__.objectiveData payload.",
+      "The existing Umamusume.run character records remain the source for base stats, aptitudes and images.",
+      "Race entities are deduplicated by the GameTora race ID and stored in races.json."
+    ]
+  }
 }

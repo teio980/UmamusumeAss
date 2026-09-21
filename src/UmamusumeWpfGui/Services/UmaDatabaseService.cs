@@ -16,6 +16,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     private readonly object _sync = new();
     private Dictionary<int, UmaBaseCharacterRecord> _baseCharacters = [];
     private Dictionary<int, UmaTraineeRecord> _trainees = [];
+    private Dictionary<int, UmaCareerRaceRecord> _races = [];
     private Dictionary<int, UmaSupportCardRecord> _supportCards = [];
     private string? _resourceRoot;
     private string? _region;
@@ -44,6 +45,8 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
 
     public IReadOnlyCollection<UmaTraineeRecord> Trainees => Snapshot(_trainees);
 
+    public IReadOnlyCollection<UmaCareerRaceRecord> Races => Snapshot(_races);
+
     public IReadOnlyCollection<UmaSupportCardRecord> SupportCards => Snapshot(_supportCards);
 
     public async Task LoadAsync(
@@ -56,6 +59,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
         var metaPath = Path.Combine(databaseDirectory, "meta.json");
         var baseCharactersPath = Path.Combine(databaseDirectory, "base_characters.json");
         var traineesPath = Path.Combine(databaseDirectory, "trainees.json");
+        var racesPath = Path.Combine(databaseDirectory, "races.json");
         var supportCardsPath = Path.Combine(databaseDirectory, "support_cards.json");
 
         var meta = await ReadJsonAsync<UmaDatabaseMeta>(metaPath, cancellationToken)
@@ -66,6 +70,10 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             .ConfigureAwait(false) ?? [];
         var trainees = await ReadJsonAsync<List<UmaTraineeRecord>>(
                 traineesPath,
+                cancellationToken)
+            .ConfigureAwait(false) ?? [];
+        var races = await ReadJsonAsync<List<UmaCareerRaceRecord>>(
+                racesPath,
                 cancellationToken)
             .ConfigureAwait(false) ?? [];
         var supportCards = await ReadJsonAsync<List<UmaSupportCardRecord>>(
@@ -81,6 +89,10 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             trainees,
             item => item.TraineeId,
             "trainee");
+        var raceIndex = CreateUniqueIndex<int, UmaCareerRaceRecord>(
+            races,
+            item => item.RaceId,
+            "race");
         var supportCardIndex = CreateUniqueIndex<int, UmaSupportCardRecord>(
             supportCards,
             item => item.SupportCardId,
@@ -92,6 +104,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             _region = meta.Region;
             _baseCharacters = baseCharacterIndex;
             _trainees = traineeIndex;
+            _races = raceIndex;
             _supportCards = supportCardIndex;
         }
 
@@ -102,6 +115,12 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     {
         lock (_sync)
             return _trainees.TryGetValue(traineeId, out trainee);
+    }
+
+    public bool TryGetRace(int raceId, out UmaCareerRaceRecord? race)
+    {
+        lock (_sync)
+            return _races.TryGetValue(raceId, out race);
     }
 
     public bool TryGetSupportCard(int supportCardId, out UmaSupportCardRecord? supportCard)

@@ -62,6 +62,129 @@ public sealed class UmaTraineeAptitudes
     public Dictionary<string, string> Strategy { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
+public sealed class UmaCareerObjectiveTarget
+{
+    [JsonPropertyName("participation")]
+    public bool? Participation { get; set; }
+
+    [JsonPropertyName("placement_at_most")]
+    public int? PlacementAtMost { get; set; }
+
+    [JsonPropertyName("minimum")]
+    public int? Minimum { get; set; }
+}
+
+public sealed class UmaCareerObjectiveCondition
+{
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("value")]
+    public int Value { get; set; }
+
+    [JsonPropertyName("value_2")]
+    public int Value2 { get; set; }
+
+    [JsonPropertyName("race_type")]
+    public int RaceType { get; set; }
+
+    [JsonPropertyName("target_type")]
+    public int TargetType { get; set; }
+
+    [JsonPropertyName("race_choice")]
+    public int RaceChoice { get; set; }
+
+    [JsonPropertyName("race_choice_details")]
+    public int RaceChoiceDetails { get; set; }
+}
+
+public sealed class UmaCareerObjectiveRecord
+{
+    [JsonPropertyName("objective_id")]
+    public string ObjectiveId { get; set; } = string.Empty;
+
+    [JsonPropertyName("order")]
+    public int Order { get; set; }
+
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonPropertyName("turn")]
+    public int Turn { get; set; }
+
+    [JsonPropertyName("race_ids")]
+    public List<string> RaceIds { get; set; } = [];
+
+    [JsonPropertyName("target")]
+    public UmaCareerObjectiveTarget Target { get; set; } = new();
+
+    [JsonPropertyName("condition")]
+    public UmaCareerObjectiveCondition Condition { get; set; } = new();
+
+    [JsonPropertyName("requirement_text")]
+    public string RequirementText { get; set; } = string.Empty;
+
+    [JsonPropertyName("turns_after_previous")]
+    public int? TurnsAfterPrevious { get; set; }
+}
+
+public sealed class UmaCareerRaceRecord
+{
+    [JsonPropertyName("race_id")]
+    public int RaceId { get; set; }
+
+    [JsonPropertyName("name_en")]
+    public string NameEn { get; set; } = string.Empty;
+
+    [JsonPropertyName("name_jp")]
+    public string? NameJp { get; set; }
+
+    [JsonPropertyName("name_ko")]
+    public string? NameKo { get; set; }
+
+    [JsonPropertyName("name_tw")]
+    public string? NameTw { get; set; }
+
+    [JsonPropertyName("group")]
+    public int Group { get; set; }
+
+    [JsonPropertyName("grade")]
+    public string Grade { get; set; } = string.Empty;
+
+    [JsonPropertyName("grade_code")]
+    public int GradeCode { get; set; }
+
+    [JsonPropertyName("track_id")]
+    public int TrackId { get; set; }
+
+    [JsonPropertyName("surface")]
+    public string Surface { get; set; } = string.Empty;
+
+    [JsonPropertyName("terrain_code")]
+    public int TerrainCode { get; set; }
+
+    [JsonPropertyName("distance")]
+    public int Distance { get; set; }
+
+    [JsonPropertyName("distance_band")]
+    public string DistanceBand { get; set; } = string.Empty;
+
+    [JsonPropertyName("fans_needed")]
+    public int FansNeeded { get; set; }
+
+    [JsonPropertyName("fans_gained")]
+    public int FansGained { get; set; }
+
+    [JsonPropertyName("icon_id")]
+    public int IconId { get; set; }
+
+    [JsonPropertyName("url_name")]
+    public string? UrlName { get; set; }
+}
+
 public sealed class UmaTraineeRecord
 {
     [JsonPropertyName("trainee_id")]
@@ -93,6 +216,12 @@ public sealed class UmaTraineeRecord
 
     [JsonPropertyName("aptitudes")]
     public UmaTraineeAptitudes Aptitudes { get; set; } = new();
+
+    [JsonPropertyName("career_objectives")]
+    public List<UmaCareerObjectiveRecord> CareerObjectives { get; set; } = [];
+
+    [JsonPropertyName("career_objectives_source_url")]
+    public string? CareerObjectivesSourceUrl { get; set; }
 
     [JsonPropertyName("image_url")]
     public string? ImageUrl { get; set; }

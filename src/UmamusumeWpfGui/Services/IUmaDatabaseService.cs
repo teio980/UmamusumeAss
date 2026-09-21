@@ -14,11 +14,15 @@ public interface IUmaDatabaseService
 
     IReadOnlyCollection<UmaTraineeRecord> Trainees { get; }
 
+    IReadOnlyCollection<UmaCareerRaceRecord> Races { get; }
+
     IReadOnlyCollection<UmaSupportCardRecord> SupportCards { get; }
 
     Task LoadAsync(string resourceRoot, CancellationToken cancellationToken = default);
 
     bool TryGetTrainee(int traineeId, out UmaTraineeRecord? trainee);
+
+    bool TryGetRace(int raceId, out UmaCareerRaceRecord? race);
 
     bool TryGetSupportCard(int supportCardId, out UmaSupportCardRecord? supportCard);
 
