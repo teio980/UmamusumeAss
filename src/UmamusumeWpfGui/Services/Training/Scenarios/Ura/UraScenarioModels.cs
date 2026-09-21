@@ -407,6 +407,9 @@ public sealed class UraScreenDefinition
     [JsonPropertyName("observations")]
     public UraScreenObservations Observations { get; set; } = new();
 
+    [JsonPropertyName("ocrRegions")]
+    public List<UraScreenTextRegion> OcrRegions { get; set; } = [];
+
     public IReadOnlyList<string> Templates => Recognition.GetTemplates();
 
     public UraScreenAction? FindAction(string actionId)
@@ -427,6 +430,39 @@ public sealed class UraScreenDefinition
                     normalizedActionId,
                     StringComparison.OrdinalIgnoreCase));
     }
+
+    public UraScreenTextRegion? FindOcrRegion(string semanticId) =>
+        OcrRegions.FirstOrDefault(item =>
+            string.Equals(item.SemanticId, semanticId, StringComparison.OrdinalIgnoreCase));
+}
+
+public sealed class UraScreenTextRegion
+{
+    [JsonPropertyName("semanticId")]
+    public string SemanticId { get; set; } = string.Empty;
+
+    [JsonPropertyName("bounds")]
+    public UraScreenTextBounds? Bounds { get; set; }
+
+    public int[]? ToRoi()
+    {
+        return Bounds is null ? null : [Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height];
+    }
+}
+
+public sealed class UraScreenTextBounds
+{
+    [JsonPropertyName("x")]
+    public int X { get; set; }
+
+    [JsonPropertyName("y")]
+    public int Y { get; set; }
+
+    [JsonPropertyName("width")]
+    public int Width { get; set; }
+
+    [JsonPropertyName("height")]
+    public int Height { get; set; }
 }
 
 public sealed class UraScreenObservations

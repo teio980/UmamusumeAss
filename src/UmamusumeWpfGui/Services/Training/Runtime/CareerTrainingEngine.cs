@@ -244,6 +244,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
+        string? lastLoggedTurnPosition = null;
         var careerStartTransitionExpected = !state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
         if (!state.CareerStarted
@@ -358,9 +359,23 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 observation.ScreenId,
                 observation.Score,
                 observation.EnergyPercent,
-                observation.EnergyConfidence);
+                observation.EnergyConfidence,
+                observation.TurnPositionText);
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
+                && state.TurnPositionLabel is { Length: > 0 } turnPosition
+                && !string.Equals(
+                    turnPosition,
+                    lastLoggedTurnPosition,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                _taskLogSink?.Add(
+                    "Turn",
+                    $"Current turn: {turnPosition}",
+                    HachimiTaskLogEventKind.Detection);
+                lastLoggedTurnPosition = turnPosition;
+            }
             logSink?.Add(
                 "Career Training",
                 $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");

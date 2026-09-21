@@ -408,24 +408,56 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         if (screenshot is null)
             return null;
 
-        var recognized = await _textRecognizer.RecognizeAsync(
-                screenshot,
-                language,
-                cancellationToken)
-            .ConfigureAwait(false);
         var actualRoi = ScaleRoi(
             roi,
             referenceWidth,
             referenceHeight,
             screenshot.Width,
             screenshot.Height);
+        // Keep the existing full-screen OCR behavior for Hachimi tasks. The
+        // Career turn label is the one deliberately isolated OCR signal whose
+        // background is known to vary, so only that task gets ROI cropping
+        // before recognition.
+        var cropToRoi = actualRoi is not null
+            && taskName.Equals("career_main.turn_position", StringComparison.OrdinalIgnoreCase);
+        var ocrScreenshot = cropToRoi
+            ? CropScreenshot(screenshot, actualRoi!, padding: 8)
+            : screenshot;
+        var recognized = await _textRecognizer.RecognizeAsync(
+                ocrScreenshot,
+                language,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (actualRoi is null)
             return recognized;
 
-        var filtered = recognized.Detections
+        if (!cropToRoi)
+        {
+            var filteredInRoi = recognized.Detections
+                .Where(detection => IsInside(detection.Bounds, actualRoi))
+                .ToArray();
+            return recognized with { Detections = filteredInRoi };
+        }
+
+        var cropOffset = GetCropOffset(screenshot, actualRoi, padding: 8);
+        var restored = recognized.Detections
+            .Select(detection => detection with
+            {
+                Bounds = new ScreenTextRect(
+                    detection.Bounds.X + cropOffset.X,
+                    detection.Bounds.Y + cropOffset.Y,
+                    detection.Bounds.Width,
+                    detection.Bounds.Height),
+            });
+        var filtered = restored
             .Where(detection => IsInside(detection.Bounds, actualRoi))
             .ToArray();
-        return recognized with { Detections = filtered };
+        return recognized with
+        {
+            Detections = filtered,
+            Width = screenshot.Width,
+            Height = screenshot.Height,
+        };
     }
 
     public async Task<ScreenTextQueryResult?> FindTextAsync(
@@ -955,6 +987,49 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             Math.Min(top, bottom),
             Math.Abs(right - left),
             Math.Abs(bottom - top)];
+    }
+
+    private static AdbRawScreenshot CropScreenshot(
+        AdbRawScreenshot screenshot,
+        int[] roi,
+        int padding)
+    {
+        var offset = GetCropOffset(screenshot, roi, padding);
+        var right = Math.Min(
+            screenshot.Width,
+            Math.Max(offset.X + 1, roi[0] + roi[2] + Math.Max(0, padding)));
+        var bottom = Math.Min(
+            screenshot.Height,
+            Math.Max(offset.Y + 1, roi[1] + roi[3] + Math.Max(0, padding)));
+        var width = Math.Max(1, right - offset.X);
+        var height = Math.Max(1, bottom - offset.Y);
+        var rgba = new byte[checked(width * height * 4)];
+
+        for (var row = 0; row < height; row++)
+        {
+            var sourceOffset = checked(((offset.Y + row) * screenshot.Width + offset.X) * 4);
+            var targetOffset = checked(row * width * 4);
+            Buffer.BlockCopy(
+                screenshot.RgbaBytes,
+                sourceOffset,
+                rgba,
+                targetOffset,
+                width * 4);
+        }
+
+        return new AdbRawScreenshot(width, height, rgba);
+    }
+
+    private static (int X, int Y) GetCropOffset(
+        AdbRawScreenshot screenshot,
+        int[] roi,
+        int padding)
+    {
+        var left = Math.Max(0, roi[0] - Math.Max(0, padding));
+        var top = Math.Max(0, roi[1] - Math.Max(0, padding));
+        return (
+            Math.Min(left, Math.Max(0, screenshot.Width - 1)),
+            Math.Min(top, Math.Max(0, screenshot.Height - 1)));
     }
 
     private static bool IsInside(ScreenTextRect bounds, int[] roi) =>

@@ -91,7 +91,8 @@ public sealed class UraScenarioModule
         string screenId,
         double confidence,
         int? energyPercent = null,
-        double energyConfidence = 0)
+        double energyConfidence = 0,
+        string? turnPositionText = null)
     {
         state.LastScreenId = screenId;
         if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
@@ -102,6 +103,14 @@ public sealed class UraScenarioModule
                     Math.Clamp(observedEnergy, 0, 100),
                     energyConfidence)
                 : UraObservedValueFactory.Unknown<int>();
+
+            if (UraTurnPositionParser.TryParse(turnPositionText, out var turnPosition))
+            {
+                state.TurnIndex = turnPosition.TurnIndex;
+                state.TurnPositionLabel = turnPosition.Label;
+                state.TurnIndexSource = UraStateSource.Observed;
+                state.TurnIndexConfidence = Math.Clamp(confidence, 0, 1);
+            }
         }
 
         if (string.Equals(screenId, "race_day", StringComparison.OrdinalIgnoreCase)
@@ -125,7 +134,7 @@ public sealed class UraScenarioModule
 
         if (string.Equals(screenId, "training_result", StringComparison.OrdinalIgnoreCase))
         {
-            state.TurnIndex++;
+            AdvanceTurnFromResult(state);
         }
         else if (string.Equals(screenId, "rest_result", StringComparison.OrdinalIgnoreCase))
         {
@@ -135,7 +144,7 @@ public sealed class UraScenarioModule
                     Math.Clamp(observedEnergy, 0, 100),
                     energyConfidence);
             }
-            state.TurnIndex++;
+            AdvanceTurnFromResult(state);
         }
     }
 
@@ -144,6 +153,7 @@ public sealed class UraScenarioModule
         int placement,
         double confidence)
     {
+        AdvanceTurnFromResult(state);
         var race = CurrentRace(state)
             ?? throw new InvalidDataException("A race result was observed without a current race.");
         state.LastRacePlacement = UraObservedValueFactory.FromObservation(placement, confidence);
@@ -172,7 +182,6 @@ public sealed class UraScenarioModule
                 state.CurrentRaceId = objective.ObservedRaceIds
                     .First(item => !state.RacePlacements.ContainsKey(item));
                 state.HasPendingRace = true;
-                state.TurnIndex++;
                 return;
             }
 
@@ -294,4 +303,11 @@ public sealed class UraScenarioModule
             "scenario_event" => UraPlannedAction.ScenarioEvent,
             _ => null,
         };
+
+    private static void AdvanceTurnFromResult(UraCareerSessionState state)
+    {
+        state.TurnIndex++;
+        state.TurnIndexSource = UraStateSource.Derived;
+        state.TurnIndexConfidence = 0.5;
+    }
 }

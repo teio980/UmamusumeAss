@@ -62,6 +62,9 @@ public sealed class UraCareerSessionState
     public string PhaseId { get; set; } = "career";
     public int TurnIndex { get; set; }
     public string CurrentObjectiveId { get; set; } = "debut_race";
+    public string? TurnPositionLabel { get; set; }
+    public UraStateSource TurnIndexSource { get; set; } = UraStateSource.Unknown;
+    public double TurnIndexConfidence { get; set; }
     public int FinaleStageIndex { get; set; } = -1;
     public string? CurrentRaceId { get; set; }
     public int RetryCount { get; set; }

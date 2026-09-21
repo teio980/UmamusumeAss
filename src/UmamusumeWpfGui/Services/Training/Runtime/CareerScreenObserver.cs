@@ -146,7 +146,77 @@ public sealed class CareerScreenObserver
                 best = frameBest;
         }
 
+        if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var careerMain = pack.ScreenProfile.Find("career_main");
+            var bounds = careerMain?.FindOcrRegion("scenario.phase")?.ToRoi();
+            if (bounds is { Length: >= 4 })
+            {
+                var turnText = await ReadTurnPositionAsync(
+                        connection,
+                        bounds,
+                        pack.ScreenProfile.ReferenceWidth,
+                        pack.ScreenProfile.ReferenceHeight,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(turnText))
+                    best = best with { TurnPositionText = turnText };
+            }
+        }
+
         return best;
+    }
+
+    private async Task<string?> ReadTurnPositionAsync(
+        LastVerifiedConnection connection,
+        int[] bounds,
+        int referenceWidth,
+        int referenceHeight,
+        CancellationToken cancellationToken)
+    {
+        ScreenTextRecognitionResult? recognized;
+        try
+        {
+            recognized = await _visualRuntime.DetectTextAsync(
+                    connection,
+                    bounds,
+                    referenceWidth,
+                    referenceHeight,
+                    "en-US",
+                    "career_main.turn_position",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // Turn OCR is an optional state reconstruction signal. A missing
+            // OCR runtime must not discard the already recognized career page.
+            return null;
+        }
+
+        if (recognized is null)
+            return null;
+
+        var candidates = recognized.Detections
+            .OrderBy(item => item.Bounds.Y)
+            .ThenBy(item => item.Bounds.X)
+            .Select(item => item.Text)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToArray();
+        foreach (var candidate in candidates)
+        {
+            if (UraTurnPositionParser.TryParse(candidate, out _))
+                return candidate;
+        }
+
+        var combined = string.Join(" ", candidates);
+        return UraTurnPositionParser.TryParse(combined, out _)
+            ? combined
+            : null;
     }
 
     private static int GetScreenRecognitionPriority(

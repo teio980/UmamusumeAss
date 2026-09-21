@@ -11,7 +11,8 @@ public sealed record CareerObservation(
     string ScreenId,
     double Score,
     int? EnergyPercent = null,
-    double EnergyConfidence = 0)
+    double EnergyConfidence = 0,
+    string? TurnPositionText = null)
 {
     public CareerScreenKind Kind => CareerScreenClassification.Classify(ScreenId);
 }
