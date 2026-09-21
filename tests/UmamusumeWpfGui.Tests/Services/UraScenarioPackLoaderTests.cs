@@ -70,6 +70,78 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "home");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_continue");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_complete");
+        var raceRunner = pack.ScreenProfile.Find("race_runner");
+        Assert.NotNull(raceRunner);
+        Assert.Equal(
+            "templates/career/race/race_runner_label.png",
+            raceRunner!.Recognition.Template);
+        Assert.Equal([700, 1060, 180, 140], raceRunner.Recognition.Roi!);
+        Assert.Equal(0.88, raceRunner.Recognition.TemplateThreshold);
+        Assert.Equal(
+            "race_runner_strategy_apply_pace",
+            raceRunner.FindAction("strategy.apply.pace")?.Task);
+        Assert.Equal(
+            "race_runner_strategy_apply_front",
+            raceRunner.FindAction("strategy.apply.front")?.Task);
+        Assert.Equal(
+            "race_runner_entry_start",
+            raceRunner.FindAction("entry.start")?.Task);
+        Assert.Equal(
+            "templates/career/race/race_strategy_selected_marker.png",
+            pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Template);
+        Assert.Equal(
+            "MatchTemplateColor",
+            pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Algorithm);
+        Assert.Contains(
+            "race_runner_strategy_change_pace",
+            pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].OnErrorNext);
+        Assert.Equal(
+            "templates/career/race/race_strategy_change.png",
+            pack.ExecutionDefinition.Tasks["race_runner_strategy_change_pace"].Template);
+        Assert.Equal(
+            "templates/independent/strategy_confirm.png",
+            pack.ExecutionDefinition.Tasks["race_runner_strategy_save"].Template);
+        Assert.Equal(
+            "templates/career/race/race_entry_race.png",
+            pack.ExecutionDefinition.Tasks["race_runner_entry_start"].Template);
+        Assert.Equal(
+            "templates/career/race/race_playback_ok.png",
+            pack.ExecutionDefinition.Tasks["race_runner_playback_ok"].Template);
+        Assert.Equal(
+            "templates/career/race/race_playback_start.png",
+            pack.ExecutionDefinition.Tasks["race_runner_playback_start"].Template);
+        var racePlaybackStart = pack.ExecutionDefinition.Tasks["race_runner_playback_start"];
+        Assert.Equal("ClickSelfUntilTransition", racePlaybackStart.Action);
+        Assert.Equal([230, 1380, 450, 180], racePlaybackStart.FallbackRoi!);
+        Assert.Equal(
+            ["templates/career/race/race_playback_skip.png"],
+            racePlaybackStart.TransitionTemplates);
+        Assert.Equal(0.82, racePlaybackStart.TransitionThreshold);
+        Assert.Equal(
+            "templates/career/race/race_result_replay.png",
+            pack.ExecutionDefinition.Tasks["race_runner_replay_probe"].Template);
+        Assert.Equal(
+            [680, 520, 210, 150],
+            pack.ExecutionDefinition.Tasks["race_runner_replay_probe"].Roi!);
+        Assert.Contains(
+            "race_runner_playback_skip",
+            pack.ExecutionDefinition.Tasks["race_runner_replay_probe"].OnErrorNext);
+        Assert.Equal(
+            120,
+            pack.ExecutionDefinition.Tasks["race_runner_playback_skip"].MaxTimes);
+        Assert.Equal(
+            "templates/career/race/race_result_next.png",
+            pack.ExecutionDefinition.Tasks["race_runner_result_next"].Template);
+        Assert.Equal(
+            "templates/career/race/race_last_next.png",
+            pack.ExecutionDefinition.Tasks["race_runner_last_next"].Template);
+        Assert.True(File.Exists(Path.Combine(
+            FindWorkspaceRoot(),
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            raceRunner.Recognition.Template!)));
         Assert.Equal("home", pack.ScreenProfile.Find("home")?.EntryTask);
         Assert.Equal(
             "templates/career_continue_header.png",
