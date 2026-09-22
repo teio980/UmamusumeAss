@@ -39,24 +39,22 @@ internal sealed class CareerRaceRunnerCheckpointHandler
         {
             context.LogSink?.Add(
                 "Career Training",
-                "Race strategy is configured; running the Race path. View Results is temporarily disabled.",
+                "Race strategy is configured; preferring View Results when it is available.",
                 LogEntryKind.Info);
 
             var entryResult = await _actions.RunAsync(
                     context,
                     ScreenId,
-                    "entry.start")
+                    "entry.view_results")
                 .ConfigureAwait(false);
             if (entryResult is not null)
                 return entryResult;
 
             context.LogSink?.Add(
                 "Career Training",
-                "Race path completed through the playback and result Next checkpoints.",
+                "The preferred View Results/Race entry and shared replay-result flow completed.",
                 LogEntryKind.Info);
-            return CareerRuntimeResults.Failure(
-                "Race entry started. Paused before the race/result flow is added.",
-                ScreenId);
+            return null;
         }
 
         if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
