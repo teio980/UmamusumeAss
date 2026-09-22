@@ -4041,12 +4041,13 @@
                     "algorithm": "MatchTemplateColor",
                     "action": "ClickSelf",
                     "template": "templates/career/race/race_view_results_tap.png",
+                    "reuseLastMatchOnRetry": true,
                     "templThreshold": 0.72,
                     "roi": [300,1200,300,250],
                     "timeoutMs": 600000,
                     "pollIntervalMs": 60,
                     "postDelay": 500,
-                    "next": ["race_runner_result_flow"],
+                    "next": ["race_runner_result_next"],
                     "onErrorNext": ["race_runner_view_results_tap"]
                   },
                   "race_runner_entry_start": {
