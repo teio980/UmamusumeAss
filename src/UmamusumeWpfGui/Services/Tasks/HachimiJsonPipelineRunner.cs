@@ -164,18 +164,67 @@ public sealed class HachimiJsonPipelineRunner
                 $"Run #{taskCount + 1}: algorithm={task.Algorithm}, action={task.Action}, "
                 + $"template={task.Template ?? "none"}, roi={FormatArray(task.Roi)}, "
                 + $"searchRois={effectiveSearchRois.Count}, minScoreGap={task.MinimumScoreGap:0.000}, "
-                + $"threshold={task.TemplateThreshold:0.000}, timeout={task.TimeoutMilliseconds}ms, "
+                + $"threshold={task.TemplateThreshold:0.000}, "
+                + $"timeout={ResolveTaskTimeoutMilliseconds(current, task, state.Options)}ms, "
                 + $"preDelay={task.PreDelay}ms, wait={task.WaitMilliseconds}ms, postDelay={task.PostDelay}ms.");
 
-            var execution = await ExecuteTaskAsync(
-                    connection,
-                    definition,
-                    current,
-                    task,
-                    state.Options,
+            var retryLimit = ResolveRetryLimit(current, task, state.Options);
+            var retryAttempt = 0;
+            TaskExecutionResult execution;
+            while (true)
+            {
+                try
+                {
+                    execution = await ExecuteTaskAsync(
+                            connection,
+                            definition,
+                            current,
+                            task,
+                            state.Options,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    // A broken screenshot/OCR/template adapter must be
+                    // treated as a task failure so JSON recovery branches can
+                    // run.  Letting it escape here aborts the whole Career
+                    // area before onErrorNext can be considered.
+                    var detail = string.IsNullOrWhiteSpace(exception.Message)
+                        ? exception.GetType().Name
+                        : exception.Message;
+                    AddLog(
+                        logSink,
+                        $"Task '{current}' threw {exception.GetType().Name}: {detail}",
+                        LogEntryKind.Failure);
+                    execution = TaskExecutionResult.Failed(
+                        $"JSON task '{current}' failed unexpectedly: {detail}");
+                }
+
+                if (execution.Succeeded
+                    || !execution.Retryable
+                    || retryAttempt >= retryLimit)
+                {
+                    break;
+                }
+
+                retryAttempt++;
+                AddLog(
                     logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    $"Task '{current}' had a retry-safe visual miss; retrying "
+                    + $"({retryAttempt}/{retryLimit}) after "
+                    + $"{ResolveRetryDelayMilliseconds(task, state.Options)}ms.",
+                    LogEntryKind.Info);
+                await _visualRuntime.DelayAsync(
+                        ResolveRetryDelayMilliseconds(task, state.Options),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             if (!execution.Succeeded)
             {
                 if (hasSemanticStep)
@@ -301,6 +350,10 @@ public sealed class HachimiJsonPipelineRunner
         ScreenTextQueryResult? textMatch = null;
         var action = Normalize(task.Action);
         var algorithm = Normalize(task.Algorithm);
+        var effectiveTimeoutMilliseconds = ResolveTaskTimeoutMilliseconds(
+            taskName,
+            task,
+            runOptions);
 
         if (algorithm is "parallelmonitor" or "raceresultmonitor")
         {
@@ -357,7 +410,7 @@ public sealed class HachimiJsonPipelineRunner
                         .ConfigureAwait(false);
                     if (detected is null)
                     {
-                        return TaskExecutionResult.Failed(
+                        return TaskExecutionResult.RetryableFailure(
                             $"OCR screenshot could not be captured for '{taskName}'.");
                     }
 
@@ -386,6 +439,7 @@ public sealed class HachimiJsonPipelineRunner
                             task,
                             targetText,
                             roi,
+                            effectiveTimeoutMilliseconds,
                             pollInterval,
                             runOptions,
                             logSink,
@@ -393,7 +447,7 @@ public sealed class HachimiJsonPipelineRunner
                         .ConfigureAwait(false);
                     if (textMatch is null)
                     {
-                        return TaskExecutionResult.Failed(
+                        return TaskExecutionResult.RetryableFailure(
                             $"OCR screenshot could not be captured for '{taskName}'.");
                     }
 
@@ -419,7 +473,7 @@ public sealed class HachimiJsonPipelineRunner
                     }
                     if (!textMatch.Found)
                     {
-                        return TaskExecutionResult.Failed(
+                        return TaskExecutionResult.RetryableFailure(
                             textMatch.Ambiguous
                                 ? textMatch.Error
                                     ?? $"OCR target '{targetText}' was ambiguous."
@@ -433,7 +487,7 @@ public sealed class HachimiJsonPipelineRunner
             }
             catch (Exception exception)
             {
-                return TaskExecutionResult.Failed(
+                return TaskExecutionResult.RetryableFailure(
                     $"OCR task '{taskName}' failed: {exception.Message}");
             }
         }
@@ -462,7 +516,7 @@ public sealed class HachimiJsonPipelineRunner
                 logSink,
                 taskName,
                 $"Waiting for template '{templatePath}' in ROI {FormatArray(roi)} "
-                + $"(threshold {task.TemplateThreshold:0.000}, timeout {task.TimeoutMilliseconds}ms, "
+                + $"(threshold {task.TemplateThreshold:0.000}, timeout {effectiveTimeoutMilliseconds}ms, "
                 + $"poll {pollInterval}ms).");
 
             var scaleCandidates = task.ScaleCandidates
@@ -475,27 +529,40 @@ public sealed class HachimiJsonPipelineRunner
                 scaleCandidates = [0.80d, 0.85d, 0.90d, 0.95d, 1.00d, 1.05d, 1.10d];
             }
 
-            match = await WaitForTemplateWithScrollAsync(
-                    connection,
-                    definition,
-                    taskName,
-                    task,
-                    templatePath,
-                    roi,
-                    useScaledTemplate,
-                    scaleCandidates,
-                    pollInterval,
-                    runOptions,
-                    logSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                match = await WaitForTemplateWithScrollAsync(
+                        connection,
+                        definition,
+                        taskName,
+                        task,
+                        templatePath,
+                        roi,
+                        effectiveTimeoutMilliseconds,
+                        useScaledTemplate,
+                        scaleCandidates,
+                        pollInterval,
+                        runOptions,
+                        logSink,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return TaskExecutionResult.RetryableFailure(
+                    $"Visual task '{taskName}' failed: {exception.Message}");
+            }
 
             if (match is null || !match.Found)
             {
                 var bestScore = match is null
                     ? "none"
                     : match.Score.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
-                return TaskExecutionResult.Failed(
+                return TaskExecutionResult.RetryableFailure(
                     $"Timed out waiting for JSON task '{taskName}' "
                     + $"(best score {bestScore} / threshold {task.TemplateThreshold:0.000}).");
             }
@@ -1563,6 +1630,70 @@ public sealed class HachimiJsonPipelineRunner
             "shop.json",
             StringComparison.OrdinalIgnoreCase);
 
+    private static int ResolveRetryLimit(
+        string taskName,
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions options)
+    {
+        var configured = Math.Max(0, task.RetryTimes);
+        if (configured == 0
+            && options.DefaultTaskRetryTimes > 0)
+        {
+            configured = options.DefaultTaskRetryTimes;
+        }
+
+        // Career recognition is especially sensitive to one slow emulator
+        // frame. Give visual misses a small, bounded retry budget even for
+        // older JSON packs that predate retryTimes. This applies only to the
+        // retry-safe failure returned by the recognition phase.
+        if (configured == 0
+            && options.SemanticProfile == HachimiTaskLogProfile.Career
+            && IsCareerTask(taskName))
+        {
+            configured = 2;
+        }
+
+        return Math.Clamp(configured, 0, 5);
+    }
+
+    private static int ResolveRetryDelayMilliseconds(
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions options)
+    {
+        var delay = task.RetryDelayMilliseconds > 0
+            ? task.RetryDelayMilliseconds
+            : options.DefaultTaskRetryDelayMilliseconds;
+        return Math.Clamp(delay, 50, 10_000);
+    }
+
+    private static int ResolveTaskTimeoutMilliseconds(
+        string taskName,
+        HachimiPipelineTask task,
+        HachimiPipelineRunOptions options)
+    {
+        var timeout = Math.Max(0, task.TimeoutMilliseconds);
+        if (options.SemanticProfile != HachimiTaskLogProfile.Career
+            || !IsCareerTask(taskName))
+        {
+            return timeout;
+        }
+
+        // Home and Career Main are state gates. A short timeout here turns a
+        // single slow screenshot into a full-area failure, so keep a bounded
+        // floor for legacy definitions while preserving longer task values.
+        var floor = taskName.Equals("home", StringComparison.OrdinalIgnoreCase)
+            || taskName.Equals("homeAlt", StringComparison.OrdinalIgnoreCase)
+            ? 10_000
+            : 15_000;
+        return Math.Max(timeout, floor);
+    }
+
+    private static bool IsCareerTask(string taskName) =>
+        taskName.Equals("home", StringComparison.OrdinalIgnoreCase)
+        || taskName.Equals("homeAlt", StringComparison.OrdinalIgnoreCase)
+        || taskName.StartsWith("home_home_career", StringComparison.OrdinalIgnoreCase)
+        || taskName.StartsWith("career_main", StringComparison.OrdinalIgnoreCase);
+
     private static IReadOnlyDictionary<string, int> CreateShopOverrides(
         HachimiShopSettings settings)
     {
@@ -1625,6 +1756,7 @@ public sealed class HachimiJsonPipelineRunner
         HachimiPipelineTask task,
         string templatePath,
         int[]? roi,
+        int timeoutMilliseconds,
         bool useScaledTemplate,
         IReadOnlyList<double> scaleCandidates,
         int pollInterval,
@@ -1633,7 +1765,7 @@ public sealed class HachimiJsonPipelineRunner
         CancellationToken cancellationToken)
     {
         var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
-            task.TimeoutMilliseconds,
+            timeoutMilliseconds,
             0,
             10 * 60 * 1000));
         var started = Stopwatch.GetTimestamp();
@@ -1729,7 +1861,7 @@ public sealed class HachimiJsonPipelineRunner
             var match = await _visualRuntime.WaitForMatchAsync(
                     connection,
                     templatePath,
-                    roi: null,
+                    task.TransitionRoi,
                     task.TransitionThreshold,
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
@@ -1857,13 +1989,14 @@ public sealed class HachimiJsonPipelineRunner
         HachimiPipelineTask task,
         string targetText,
         int[]? roi,
+        int timeoutMilliseconds,
         int pollInterval,
         HachimiPipelineRunOptions runOptions,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
         var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
-            task.TimeoutMilliseconds,
+            timeoutMilliseconds,
             0,
             10 * 60 * 1000));
         var started = Stopwatch.GetTimestamp();
@@ -2058,15 +2191,21 @@ public sealed class HachimiJsonPipelineRunner
         bool Succeeded,
         string Message,
         string? LastTask,
-        string? TransitionTask)
+        string? TransitionTask,
+        bool Retryable)
     {
         public static TaskExecutionResult Completed(
             string taskName,
             string? transitionTask = null) =>
-            new(true, string.Empty, taskName, transitionTask);
+            new(true, string.Empty, taskName, transitionTask, false);
 
-        public static TaskExecutionResult Failed(string message) =>
-            new(false, message, null, null);
+        public static TaskExecutionResult Failed(
+            string message,
+            bool retryable = false) =>
+            new(false, message, null, null, retryable);
+
+        public static TaskExecutionResult RetryableFailure(string message) =>
+            new(false, message, null, null, true);
     }
 }
 
@@ -2137,6 +2276,15 @@ public sealed class HachimiPipelineRunOptions
         Task<HachimiCustomActionResult>>? CustomActionExecutor { get; init; }
 
     public int PipelineDepth { get; init; }
+
+    /// <summary>
+    /// Default number of additional attempts for retry-safe visual misses.
+    /// Task-level retryTimes takes precedence when it is greater than zero.
+    /// </summary>
+    public int DefaultTaskRetryTimes { get; init; }
+
+    /// <summary>Delay used when a task does not define retryDelayMs.</summary>
+    public int DefaultTaskRetryDelayMilliseconds { get; init; } = 750;
 }
 
 public sealed record HachimiCustomActionResult(

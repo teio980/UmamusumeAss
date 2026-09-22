@@ -31,6 +31,7 @@ internal static class CareerScreenClassification
             or "race_day"
             or "race_list"
             or "race_runner"
+            or "race_playback_start"
             or "race_details"
             or "race_attributes"
             or "race_playback"

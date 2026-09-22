@@ -108,6 +108,9 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("transitionTemplates")]
     public List<string> TransitionTemplates { get; set; } = [];
 
+    [JsonPropertyName("transitionRoi")]
+    public int[]? TransitionRoi { get; set; }
+
     [JsonPropertyName("transitionThreshold")]
     public double TransitionThreshold { get; set; } = 0.78;
 
@@ -143,6 +146,18 @@ public sealed class HachimiPipelineTask
 
     [JsonPropertyName("pollIntervalMs")]
     public int PollIntervalMilliseconds { get; set; }
+
+    /// <summary>
+    /// Number of additional attempts for a retry-safe visual miss.  The
+    /// runner only uses this for recognition/OCR failures before an action is
+    /// issued; it never blindly repeats a transition click.
+    /// </summary>
+    [JsonPropertyName("retryTimes")]
+    public int RetryTimes { get; set; }
+
+    /// <summary>Delay between retry-safe recognition attempts.</summary>
+    [JsonPropertyName("retryDelayMs")]
+    public int RetryDelayMilliseconds { get; set; } = 750;
 
     // MAA-style state-machine transitions. They are optional so the existing
     // task JSON remains valid and can be extended without changing its shape.

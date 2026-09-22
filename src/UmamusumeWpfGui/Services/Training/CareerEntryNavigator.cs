@@ -185,6 +185,7 @@ public sealed class CareerEntryNavigator
 {
     private const string FinalConfirmationScreenId = "career_final_confirmation";
     private const double EarlyRecognitionThreshold = 0.985;
+    private const int MaxStableScreenRecognitionRetries = 30;
 
     private static readonly HashSet<string> EntryScreenIds =
         new(StringComparer.OrdinalIgnoreCase)
@@ -297,7 +298,7 @@ public sealed class CareerEntryNavigator
             if (observation is null)
             {
                 state.RetryCount++;
-                if (state.RetryCount >= 12)
+                if (state.RetryCount >= MaxStableScreenRecognitionRetries)
                     return Failure("Could not recognize a stable Career entry screen.", state);
                 await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
                 continue;

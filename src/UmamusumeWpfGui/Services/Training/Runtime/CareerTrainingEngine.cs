@@ -9,6 +9,7 @@ namespace UmamusumeWpfGui.Services.Training;
 public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 {
     private const string CareerStartTransitionScreenId = "career_start_transition";
+    private const int StableScreenRecognitionRetryLimit = 30;
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
@@ -335,10 +336,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 .ConfigureAwait(false);
             if (observation is null)
             {
-                var setupRetryLimit = careerStartTransitionExpected ? 40 : 12;
-                if (careerStartTransitionExpected
-                    && !state.CareerStarted
-                    && setupObservationRetryCount < setupRetryLimit)
+                var setupRetryLimit = careerStartTransitionExpected
+                    ? 40
+                    : StableScreenRecognitionRetryLimit;
+                if (setupObservationRetryCount < setupRetryLimit)
                 {
                     setupObservationRetryCount++;
                     await _visualRuntime.DelayAsync(250, cancellationToken)

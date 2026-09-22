@@ -83,6 +83,17 @@ internal sealed class CareerRaceFlow
                         "race_playback",
                         "play")
                     .ConfigureAwait(false);
+            case "race_playback_start":
+                context.State.HasPendingRace = true;
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Race! checkpoint recognized; resuming from the Race! button.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "race_playback_start",
+                        "race.play")
+                    .ConfigureAwait(false);
             case "race_playback_settings":
                 return await _actions.RunAsync(
                         context,

@@ -71,10 +71,26 @@ public sealed class CareerScreenObserver
         var frames = new List<GrayImage>(capacity: 2);
         for (var sample = 0; sample < 2; sample++)
         {
-            var frame = await _visualRuntime.CaptureGrayAsync(
-                    connection,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            GrayImage? frame;
+            try
+            {
+                frame = await _visualRuntime.CaptureGrayAsync(
+                        connection,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                // A single dropped screenshot is a transient observation
+                // miss. Returning null lets the engine use its bounded
+                // recognition retry window instead of failing the whole
+                // Career run immediately.
+                frame = null;
+            }
             if (frame is not null)
                 frames.Add(frame);
             if (sample == 0)
@@ -250,11 +266,15 @@ public sealed class CareerScreenObserver
             "training_selection" => 4,
             "race_day" => 5,
             "race_list" => 6,
-            "race_runner" => 7,
-            "race_details" => 8,
-            "race_attributes" => 9,
-            "race_playback_settings" => 10,
-            "race_playback" => 11,
+            // Race! is a resumable checkpoint and must win over the broader
+            // runner/playback templates, both of which can still be visible
+            // underneath the button page after a restart.
+            "race_playback_start" => 7,
+            "race_runner" => 8,
+            "race_details" => 9,
+            "race_attributes" => 10,
+            "race_playback_settings" => 11,
+            "race_playback" => 12,
             _ => 20,
         };
 

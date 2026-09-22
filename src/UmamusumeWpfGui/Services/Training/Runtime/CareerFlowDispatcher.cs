@@ -96,7 +96,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "race_runner"
                 => await _raceRunnerHandler.HandleAsync(context)
                     .ConfigureAwait(false),
-            "career_races_ready"
+            "race_playback_start"
+            or "career_races_ready"
             or "race_day"
             or "race_list"
             or "race_details"
