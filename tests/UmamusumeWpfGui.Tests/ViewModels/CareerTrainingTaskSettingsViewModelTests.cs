@@ -387,6 +387,30 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Normal_event_handling_defaults_to_default_and_round_trips()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.DefaultEventHandling, settings.NormalEventHandling);
+        Assert.Single(settings.NormalEventHandlingOptions);
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.DefaultEventHandling, settings.NormalEventHandlingOptions[0].Value);
+
+        settings.NormalEventHandling = "unsupported-future-mode";
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.DefaultEventHandling, settings.NormalEventHandling);
+
+        var exported = CareerTaskSettingsSerializer.Export(settings);
+        Assert.Equal(
+            CareerTrainingTaskSettingsViewModel.DefaultEventHandling,
+            exported["normalEventHandling"]!.GetValue<string>());
+
+        settings.NormalEventHandling = "future-mode";
+        CareerTaskSettingsSerializer.Import(
+            settings,
+            new JsonObject { ["normalEventHandling"] = CareerTrainingTaskSettingsViewModel.DefaultEventHandling });
+        Assert.Equal(CareerTrainingTaskSettingsViewModel.DefaultEventHandling, settings.NormalEventHandling);
+    }
+
+    [Fact]
     public async Task Support_deck_settings_use_catalog_rules_for_selected_cards()
     {
         var root = FindSolutionRoot();

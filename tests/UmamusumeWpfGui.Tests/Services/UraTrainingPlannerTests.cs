@@ -57,4 +57,16 @@ public sealed class UraTrainingPlannerTests
 
         Assert.Equal(UraPlannedAction.Race, decision.Action);
     }
+
+    [Fact]
+    public void PredictedEventDoesNotForceAnEventAction()
+    {
+        var decision = UraTrainingPlanner.Decide(new UraPlannerInput(
+            IsFinale: false,
+            HasPendingRace: false,
+            HasScenarioEvent: true,
+            Energy: 100));
+
+        Assert.Equal(UraPlannedAction.Training, decision.Action);
+    }
 }

@@ -8,6 +8,7 @@ public sealed class CareerGoalTextParserTests
     [InlineData("7 turn(s) left", 7)]
     [InlineData("0 turns left", 0)]
     [InlineData("12 turns left", 12)]
+    [InlineData("1", 1)]
     public void Parses_remaining_turns(string text, int expected)
     {
         Assert.Equal(expected, CareerGoalTextParser.ParseTurnsLeft(text));

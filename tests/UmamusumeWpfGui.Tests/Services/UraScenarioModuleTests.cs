@@ -105,6 +105,21 @@ public sealed class UraScenarioModuleTests
         Assert.Equal(expectedTrainingType, decision.TargetId);
     }
 
+    [Fact]
+    public async Task Predicted_scenario_event_does_not_force_an_event_action()
+    {
+        var pack = await LoadPackAsync();
+        var module = new UraScenarioModule(pack);
+        var state = module.CreateInitialState();
+        state.HasScenarioEvent = true;
+        var strategy = UraStrategyRegistry.Create("default-speed-medium");
+
+        var decision = strategy.ChooseTurnAction(module, state);
+
+        Assert.Equal(UraPlannedAction.Training, decision.Action);
+        Assert.Equal("speed", decision.TargetId);
+    }
+
     private static async Task<UraScenarioPack> LoadPackAsync()
     {
         var root = FindWorkspaceRoot();

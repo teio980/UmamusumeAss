@@ -82,6 +82,44 @@ public sealed class DeveloperToolsImageMatchTests
     }
 
     [Fact]
+    public void Event_choice_green_hoof_template_matches_only_the_first_option_roi()
+    {
+        var root = FindSolutionRoot();
+        var screen = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "runtime_frames",
+            "support_event_choice_ura.png"));
+        var template = GrayImageCodec.FromFile(Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "ura",
+            "screens",
+            "templates",
+            "event_choice_green_hoof.png"));
+
+        Assert.NotNull(screen);
+        Assert.NotNull(template);
+
+        var result = TemplateMatcher.Find(
+            screen!,
+            template!,
+            roi: [30, 890, 840, 125],
+            threshold: 0.78,
+            referenceWidth: 900,
+            referenceHeight: 1600);
+
+        Assert.True(result.Found, $"Green hoof template score was {result.Score:0.000}.");
+        Assert.InRange(result.CenterX, 45, 90);
+        Assert.InRange(result.CenterY, 925, 985);
+    }
+
+    [Fact]
     public void Independent_add_skills_fixture_matches_the_real_text_not_the_old_blank_coordinate()
     {
         var root = FindSolutionRoot();
