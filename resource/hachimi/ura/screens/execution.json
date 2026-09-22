@@ -2272,7 +2272,7 @@
                   "event_choice_event_choice_first":  {
                                                           "algorithm":  "MatchTemplate",
                                                           "action":  "ClickSelf",
-                                                          "template":  "templates/event_choice_event_choice_first.png",
+                                                          "template":  "templates/event_choice_green_hoof.png",
                                                           "templThreshold":  0.78,
                                                           "roi":  [
                                                                       30,
