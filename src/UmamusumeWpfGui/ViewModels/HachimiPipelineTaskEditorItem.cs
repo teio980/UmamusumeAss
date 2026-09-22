@@ -38,6 +38,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private string _subText = string.Empty;
     private string _monitorTasksText = string.Empty;
     private string _successTask = string.Empty;
+    private int _monitorStableMilliseconds;
     private string _maxTimesText = "0";
     private bool _required = true;
     private bool _success;
@@ -164,6 +165,14 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
 
     public string SuccessTask { get => _successTask; set => Set(ref _successTask, value); }
 
+    // Not exposed as a separate editor field yet, but preserve it when a task
+    // is loaded, cloned, and saved after another property is edited.
+    public int MonitorStableMilliseconds
+    {
+        get => _monitorStableMilliseconds;
+        set => Set(ref _monitorStableMilliseconds, value);
+    }
+
     public string MaxTimesText { get => _maxTimesText; set => Set(ref _maxTimesText, value); }
 
     public bool Required { get => _required; set => Set(ref _required, value); }
@@ -207,6 +216,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             SubText = FormatList(task.Sub),
             MonitorTasksText = FormatList(task.MonitorTasks),
             SuccessTask = task.SuccessTask ?? string.Empty,
+            MonitorStableMilliseconds = task.MonitorStableMilliseconds,
             MaxTimesText = task.MaxTimes.ToString(CultureInfo.InvariantCulture),
             Required = task.Required,
             Success = task.Success,
@@ -245,6 +255,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         SubText = SubText,
         MonitorTasksText = MonitorTasksText,
         SuccessTask = SuccessTask,
+        MonitorStableMilliseconds = MonitorStableMilliseconds,
         MaxTimesText = MaxTimesText,
         Required = Required,
         Success = Success,
@@ -305,6 +316,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         task.Sub = ParseList(SubText);
         task.MonitorTasks = ParseList(MonitorTasksText);
         task.SuccessTask = OptionalText(SuccessTask);
+        task.MonitorStableMilliseconds = MonitorStableMilliseconds;
         task.MaxTimes = ParseInt(MaxTimesText, nameof(MaxTimesText));
         task.Required = Required;
         task.Success = Success;

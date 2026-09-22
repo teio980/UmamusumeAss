@@ -162,6 +162,13 @@ public sealed class HachimiPipelineTask
     public int PollIntervalMilliseconds { get; set; }
 
     /// <summary>
+    /// Time that this task must remain matched before it can stop a parallel
+    /// monitor. Zero preserves the historical immediate behavior.
+    /// </summary>
+    [JsonPropertyName("monitorStableMs")]
+    public int MonitorStableMilliseconds { get; set; }
+
+    /// <summary>
     /// Number of additional attempts for a retry-safe visual miss.  The
     /// runner only uses this for recognition/OCR failures before an action is
     /// issued; it never blindly repeats a transition click.

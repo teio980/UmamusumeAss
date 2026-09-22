@@ -1393,6 +1393,8 @@ public sealed class HachimiJsonPipelineRunner
         var started = Stopwatch.GetTimestamp();
         Dictionary<string, TemplateMatchResult>? lastMatches = null;
         GrayImage? lastScreen = null;
+        var successMatchStarted = new Dictionary<string, long>(
+            StringComparer.OrdinalIgnoreCase);
 
         while (true)
         {
@@ -1412,11 +1414,45 @@ public sealed class HachimiJsonPipelineRunner
                     .ConfigureAwait(false);
                 lastMatches = matches;
 
-                // The stop condition always wins over a stale button match in
-                // the same screenshot.
-                var successCandidate = successCandidates.FirstOrDefault(candidate =>
-                    matches.TryGetValue(candidate.Name, out var successMatch)
-                    && successMatch.Found);
+                // A matched stop condition always suppresses stale button
+                // actions in the same screenshot. Some end markers are only
+                // transitional (Replay can flash before Trophy Won), so they
+                // may require a settling window before ending the monitor.
+                ParallelMonitorCandidate? successCandidate = null;
+                var hasPendingSuccessMatch = false;
+                foreach (var candidate in successCandidates)
+                {
+                    if (!matches.TryGetValue(candidate.Name, out var successMatch)
+                        || !successMatch.Found)
+                    {
+                        successMatchStarted.Remove(candidate.Name);
+                        continue;
+                    }
+
+                    hasPendingSuccessMatch = true;
+                    var requiredStableMilliseconds = Math.Max(
+                        0,
+                        candidate.Task.MonitorStableMilliseconds);
+                    if (requiredStableMilliseconds == 0)
+                    {
+                        successCandidate = candidate;
+                        break;
+                    }
+
+                    if (!successMatchStarted.TryGetValue(candidate.Name, out var matchedAt))
+                    {
+                        successMatchStarted[candidate.Name] = Stopwatch.GetTimestamp();
+                        continue;
+                    }
+
+                    if (Stopwatch.GetElapsedTime(matchedAt)
+                        >= TimeSpan.FromMilliseconds(requiredStableMilliseconds))
+                    {
+                        successCandidate = candidate;
+                        break;
+                    }
+                }
+
                 if (successCandidate is not null)
                 {
                     AddTaskLog(
@@ -1429,46 +1465,49 @@ public sealed class HachimiJsonPipelineRunner
                         transitionTask: successCandidate.Name);
                 }
 
-                foreach (var candidate in monitorCandidates)
+                if (!hasPendingSuccessMatch)
                 {
-                    if (!matches.TryGetValue(candidate.Name, out var match)
-                        || !match.Found)
+                    foreach (var candidate in monitorCandidates)
                     {
-                        continue;
-                    }
+                        if (!matches.TryGetValue(candidate.Name, out var match)
+                            || !match.Found)
+                        {
+                            continue;
+                        }
 
-                    var actionResult = await ExecuteParallelMonitorActionAsync(
-                            connection,
-                            definition,
-                            candidate,
-                            match,
-                            runOptions,
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (!actionResult.Succeeded)
-                    {
-                        if (candidate.Task.Required)
-                            return actionResult;
+                        var actionResult = await ExecuteParallelMonitorActionAsync(
+                                connection,
+                                definition,
+                                candidate,
+                                match,
+                                runOptions,
+                                logSink,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        if (!actionResult.Succeeded)
+                        {
+                            if (candidate.Task.Required)
+                                return actionResult;
 
-                        AddTaskLog(
-                            logSink,
-                            taskName,
-                            $"{taskName}: optional monitor task '{candidate.Name}' failed; continuing to monitor.",
-                            LogEntryKind.Info);
-                    }
-                    else
-                    {
-                        AddTaskLog(
-                            logSink,
-                            taskName,
-                            $"{taskName}: parallel monitor action '{candidate.Name}' completed.",
-                            LogEntryKind.Success);
-                    }
+                            AddTaskLog(
+                                logSink,
+                                taskName,
+                                $"{taskName}: optional monitor task '{candidate.Name}' failed; continuing to monitor.",
+                                LogEntryKind.Info);
+                        }
+                        else
+                        {
+                            AddTaskLog(
+                                logSink,
+                                taskName,
+                                $"{taskName}: parallel monitor action '{candidate.Name}' completed.",
+                                LogEntryKind.Success);
+                        }
 
-                    // Execute at most one action from a screenshot, then take
-                    // a fresh screenshot after the UI has settled.
-                    break;
+                        // Execute at most one action from a screenshot, then
+                        // take a fresh screenshot after the UI has settled.
+                        break;
+                    }
                 }
             }
 
