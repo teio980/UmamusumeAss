@@ -964,22 +964,62 @@
                                     ]
                     },
                     {
+                        "screenId":  "race_trophy_won",
+                        "recognition":  {
+                                            "template":  "templates/career/race/race_trophy_won.png",
+                                            "roi":  [
+                                                        140,
+                                                        330,
+                                                        650,
+                                                        150
+                                                    ],
+                                            "stable":  true,
+                                            "templThreshold":  0.90
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "trophy.close",
+                                            "task":  "race_runner_trophy_close"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "race_playback_start",
                         "recognition":  {
                                             "template":  "templates/career/race/race_playback_start.png",
                                             "roi":  [
-                                                        230,
+                                                        320,
                                                         1380,
-                                                        450,
+                                                        260,
                                                         180
+                                                    ],
+                                            "stable":  true,
+                                            "templThreshold":  0.92
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.play",
+                                            "task":  "race_runner_playback_start"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "race_runner_result",
+                        "recognition":  {
+                                            "template":  "templates/career/race/race_result_replay.png",
+                                            "roi":  [
+                                                        680,
+                                                        520,
+                                                        210,
+                                                        150
                                                     ],
                                             "stable":  true,
                                             "templThreshold":  0.82
                                         },
                         "actions":  [
                                         {
-                                            "semanticId":  "race.play",
-                                            "task":  "race_runner_playback_start"
+                                            "semanticId":  "result.next",
+                                            "task":  "race_runner_result_next"
                                         }
                                     ]
                     },
