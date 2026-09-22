@@ -86,6 +86,17 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "race_runner_entry_start",
             raceRunner.FindAction("entry.start")?.Task);
+        var racePlaybackStartScreen = pack.ScreenProfile.Find("race_playback_start");
+        Assert.NotNull(racePlaybackStartScreen);
+        Assert.Equal(
+            "templates/career/race/race_playback_start.png",
+            racePlaybackStartScreen.Recognition.Template);
+        Assert.Equal(
+            [230, 1380, 450, 180],
+            racePlaybackStartScreen.Recognition.Roi!);
+        Assert.Equal(
+            "race_runner_playback_start",
+            racePlaybackStartScreen.FindAction("race.play")?.Task);
         Assert.Equal(
             "templates/career/race/race_strategy_selected_marker.png",
             pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Template);
@@ -116,6 +127,7 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             ["templates/career/race/race_playback_skip.png"],
             racePlaybackStart.TransitionTemplates);
+        Assert.Equal([630, 1440, 170, 150], racePlaybackStart.TransitionRoi!);
         Assert.Equal(0.82, racePlaybackStart.TransitionThreshold);
         Assert.Equal(
             "templates/career/race/race_result_replay.png",
@@ -258,6 +270,12 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "../../pipelines/templates/start_game/game_home_unselected.png",
             pack.ExecutionDefinition.Tasks["homeAlt"].Template);
+        Assert.Equal(10_000, pack.ExecutionDefinition.Tasks["home"].TimeoutMilliseconds);
+        Assert.Equal(2, pack.ExecutionDefinition.Tasks["home"].RetryTimes);
+        Assert.Equal(15_000, pack.ExecutionDefinition.Tasks["career_main_action_training"].TimeoutMilliseconds);
+        Assert.Contains(
+            "career_main_action_recover",
+            pack.ExecutionDefinition.Tasks["career_main_action_training"].OnErrorNext);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["home"].Next);
         Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["homeAlt"].Next);

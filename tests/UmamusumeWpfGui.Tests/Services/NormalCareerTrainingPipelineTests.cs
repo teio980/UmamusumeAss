@@ -37,6 +37,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("training_selection")]
     [InlineData("race_list")]
     [InlineData("race_runner")]
+    [InlineData("race_playback_start")]
     [InlineData("race_day")]
     [InlineData("race_live")]
     [InlineData("race_result")]
@@ -51,6 +52,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("training_selection", CareerScreenKind.Turn)]
     [InlineData("race_live", CareerScreenKind.Race)]
     [InlineData("race_runner", CareerScreenKind.Race)]
+    [InlineData("race_playback_start", CareerScreenKind.Race)]
     [InlineData("event_choice", CareerScreenKind.Event)]
     [InlineData("career_result", CareerScreenKind.Settlement)]
     public void Runtime_observations_are_classified_before_flow_dispatch(
