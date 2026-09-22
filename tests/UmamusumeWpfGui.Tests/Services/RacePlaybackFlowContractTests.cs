@@ -89,13 +89,26 @@ public sealed class RacePlaybackFlowContractTests
         Assert.NotNull(definition);
         var task = definition!.GetTask("race_runner_playback_start");
         Assert.Equal("ClickSelf", task.Action);
+        Assert.Equal("race_runner_playback_result_monitor", task.Next.Single());
         Assert.Equal("ParallelMonitor", definition!.GetTask(
             "race_runner_playback_result_monitor").Algorithm);
         Assert.True(definition.GetTask("race_runner_playback_result_monitor").SuccessTask
-            is "race_runner_replay_probe");
+            is "race_runner_trophy_probe");
         var resultMonitor = definition.GetTask("race_runner_playback_result_monitor");
         Assert.Contains("race_runner_playback_skip", resultMonitor.MonitorTasks);
         Assert.Contains("race_runner_playback_start", resultMonitor.MonitorTasks);
+        Assert.Contains("race_runner_result_flow", resultMonitor.SuccessTasks);
+        var trophyProbe = definition.GetTask("race_runner_trophy_probe");
+        Assert.Equal("templates/career/race/race_trophy_won.png", trophyProbe.Template);
+        Assert.Equal("race_runner_trophy_close", trophyProbe.Next.Single());
+        var trophyClose = definition.GetTask("race_runner_trophy_close");
+        Assert.Equal("ClickSelf", trophyClose.Action);
+        Assert.False(trophyClose.Success);
+        Assert.Equal("race_runner_result_flow", trophyClose.Next.Single());
+        var sharedResultFlow = definition.GetTask("race_runner_result_flow");
+        Assert.Equal("MatchTemplate", sharedResultFlow.Algorithm);
+        Assert.Equal(2000, sharedResultFlow.MonitorStableMilliseconds);
+        Assert.Equal("race_runner_result_next", sharedResultFlow.Next.Single());
         var readyMonitor = definition.GetTask("race_runner_playback_ready_monitor");
         Assert.Contains("race_runner_playback_resume_race", readyMonitor.MonitorTasks);
         Assert.Equal("race_runner_playback_ready_probe", readyMonitor.SuccessTask);

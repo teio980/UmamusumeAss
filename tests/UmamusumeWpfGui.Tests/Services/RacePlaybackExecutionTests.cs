@@ -37,17 +37,21 @@ public sealed class RacePlaybackExecutionTests
                 "race_runner_last_next",
             ],
             visual.ClickedTaskNames);
-        Assert.Equal(
-            [
-                "ready_runner_race",
-                "ready_loading",
-                "ready_central_race",
-                "result_race_still_visible",
-                "result_loading",
-                "result_skip",
-                "result_replay",
-            ],
-            visual.CapturedStates);
+        string[] capturePrefix =
+        [
+            "ready_runner_race",
+            "ready_loading",
+            "ready_central_race",
+            "result_race_still_visible",
+            "result_loading",
+            "result_skip",
+            "result_replay",
+        ];
+        Assert.Equal(capturePrefix, visual.CapturedStates.Take(capturePrefix.Length));
+        Assert.NotEmpty(visual.CapturedStates.Skip(capturePrefix.Length));
+        Assert.All(
+            visual.CapturedStates.Skip(capturePrefix.Length),
+            state => Assert.Equal("steady", state));
         Assert.Contains("race_runner_playback_start", visual.ColorWaitedTaskNames);
         Assert.Contains("race_runner_playback_ok", visual.WaitedTaskNames);
         Assert.Contains(
@@ -86,8 +90,43 @@ public sealed class RacePlaybackExecutionTests
         Assert.DoesNotContain(
             "race_runner_playback_resume_race",
             visual.ClickedTaskNames);
+        string[] capturePrefix = ["ready_loading", "ready_central_race", resultState];
+        Assert.Equal(capturePrefix, visual.CapturedStates.Take(capturePrefix.Length));
+        Assert.NotEmpty(visual.CapturedStates.Skip(capturePrefix.Length));
+        Assert.All(
+            visual.CapturedStates.Skip(capturePrefix.Length),
+            state => Assert.Equal("steady", state));
+    }
+
+    [Fact]
+    public async Task Playback_closes_delayed_trophy_then_continues_replay_result_flow()
+    {
+        var root = FindSolutionRoot();
+        var definition = await LoadDefinitionAsync(root);
+        Assert.NotNull(definition);
+
+        var visual = CreateNormalVisual(
+            root,
+            ignoreFirstPlaybackStartTap: false,
+            resultCaptureStates: ["result_replay", "result_trophy"]);
+        var result = await CreateRunner(visual).RunAsync(
+            CreateConnection(),
+            definition,
+            "race_runner_playback_ok");
+
+        Assert.True(result.Succeeded, result.Message);
         Assert.Equal(
-            ["ready_loading", "ready_central_race", resultState],
+            [
+                "race_runner_playback_ok",
+                "race_runner_playback_start",
+                "race_runner_trophy_close",
+                "race_runner_result_next",
+                "race_runner_last_next",
+            ],
+            visual.ClickedTaskNames);
+        Assert.DoesNotContain("race_runner_playback_skip", visual.ClickedTaskNames);
+        Assert.Equal(
+            ["ready_loading", "ready_central_race", "result_replay", "result_trophy"],
             visual.CapturedStates);
     }
 
@@ -175,6 +214,11 @@ public sealed class RacePlaybackExecutionTests
             new Overlay("templates/career/race/race_result_replay.png", 680, 520),
             new Overlay("templates/career/race/race_result_next.png", 240, 1380),
             new Overlay("templates/career/race/race_playback_skip.png", 630, 1440));
+        var trophy = ComposeFrame(
+            root,
+            "trophy",
+            new Overlay("templates/career/race/race_trophy_won.png", 140, 330),
+            new Overlay("templates/career/race/race_trophy_close.png", 398, 1120));
 
         var resultStates = resultCaptureStates ??
         [
@@ -190,6 +234,7 @@ public sealed class RacePlaybackExecutionTests
             ["result_skip"] = new("result_skip", skip),
             ["result_replay"] = new("result_replay", replay),
             ["result_replay_and_skip"] = new("result_replay_and_skip", replayWithSkip),
+            ["result_trophy"] = new("result_trophy", trophy),
         };
 
         var captures = new List<ScreenFrame>
@@ -209,6 +254,7 @@ public sealed class RacePlaybackExecutionTests
             startFromRunner ? runner : initial,
             initial,
             empty,
+            replay,
             lastNext,
             captures,
             ignoreFirstPlaybackStartTap,
@@ -329,6 +375,7 @@ public sealed class RacePlaybackExecutionTests
         private readonly string _templateBaseDirectory;
         private readonly Queue<ScreenFrame> _captures;
         private readonly GrayImage _emptyFrame;
+        private readonly GrayImage _replayFrame;
         private readonly GrayImage _confirmationFrame;
         private readonly GrayImage _lastNextFrame;
         private readonly bool _ignoreFirstPlaybackStartTap;
@@ -342,6 +389,7 @@ public sealed class RacePlaybackExecutionTests
             GrayImage initialFrame,
             GrayImage confirmationFrame,
             GrayImage emptyFrame,
+            GrayImage replayFrame,
             GrayImage lastNextFrame,
             IEnumerable<ScreenFrame> captures,
             bool ignoreFirstPlaybackStartTap,
@@ -356,6 +404,7 @@ public sealed class RacePlaybackExecutionTests
             _currentFrame = initialFrame;
             _confirmationFrame = confirmationFrame;
             _emptyFrame = emptyFrame;
+            _replayFrame = replayFrame;
             _lastNextFrame = lastNextFrame;
             _captures = new Queue<ScreenFrame>(captures);
             _ignoreFirstPlaybackStartTap = ignoreFirstPlaybackStartTap;
@@ -589,6 +638,9 @@ public sealed class RacePlaybackExecutionTests
                     }
                     break;
                 case "race_runner_playback_skip":
+                    break;
+                case "race_runner_trophy_close":
+                    _currentFrame = _replayFrame;
                     break;
                 case "race_runner_result_next":
                     _currentFrame = _lastNextFrame;
