@@ -86,17 +86,38 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "race_runner_entry_start",
             raceRunner.FindAction("entry.start")?.Task);
+        var raceTrophyWon = pack.ScreenProfile.Find("race_trophy_won");
+        Assert.NotNull(raceTrophyWon);
+        Assert.Equal(
+            "templates/career/race/race_trophy_won.png",
+            raceTrophyWon.Recognition.Template);
+        Assert.Equal([140, 330, 650, 150], raceTrophyWon.Recognition.Roi!);
+        Assert.Equal(0.90, raceTrophyWon.Recognition.TemplateThreshold);
+        Assert.Equal(
+            "race_runner_trophy_close",
+            raceTrophyWon.FindAction("trophy.close")?.Task);
         var racePlaybackStartScreen = pack.ScreenProfile.Find("race_playback_start");
         Assert.NotNull(racePlaybackStartScreen);
         Assert.Equal(
             "templates/career/race/race_playback_start.png",
             racePlaybackStartScreen.Recognition.Template);
         Assert.Equal(
-            [230, 1380, 450, 180],
+            [320, 1380, 260, 180],
             racePlaybackStartScreen.Recognition.Roi!);
+        Assert.Equal(0.92, racePlaybackStartScreen.Recognition.TemplateThreshold);
         Assert.Equal(
             "race_runner_playback_start",
             racePlaybackStartScreen.FindAction("race.play")?.Task);
+        var raceRunnerResult = pack.ScreenProfile.Find("race_runner_result");
+        Assert.NotNull(raceRunnerResult);
+        Assert.Equal(
+            "templates/career/race/race_result_replay.png",
+            raceRunnerResult.Recognition.Template);
+        Assert.Equal([680, 520, 210, 150], raceRunnerResult.Recognition.Roi!);
+        Assert.Equal(0.82, raceRunnerResult.Recognition.TemplateThreshold);
+        Assert.Equal(
+            "race_runner_result_next",
+            raceRunnerResult.FindAction("result.next")?.Task);
         Assert.Equal(
             "templates/career/race/race_strategy_selected_marker.png",
             pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Template);
@@ -118,17 +139,37 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "templates/career/race/race_playback_ok.png",
             pack.ExecutionDefinition.Tasks["race_runner_playback_ok"].Template);
+        var trophyClose = pack.ExecutionDefinition.Tasks["race_runner_trophy_close"];
+        Assert.Equal("MatchTemplateColor", trophyClose.Algorithm);
+        Assert.Equal("ClickSelfUntilTransition", trophyClose.Action);
+        Assert.Equal(
+            "templates/career/race/race_trophy_close.png",
+            trophyClose.Template);
+        Assert.Equal([300, 1080, 300, 180], trophyClose.Roi!);
+        Assert.Empty(trophyClose.FallbackRoi ?? []);
+        Assert.Equal(
+            ["templates/career/race/race_runner_label.png"],
+            trophyClose.TransitionTemplates);
+        Assert.Equal([700, 1060, 180, 140], trophyClose.TransitionRoi!);
+        Assert.Equal(0.88, trophyClose.TransitionThreshold);
         Assert.Equal(
             "templates/career/race/race_playback_start.png",
             pack.ExecutionDefinition.Tasks["race_runner_playback_start"].Template);
         var racePlaybackStart = pack.ExecutionDefinition.Tasks["race_runner_playback_start"];
-        Assert.Equal("ClickSelfUntilTransition", racePlaybackStart.Action);
-        Assert.Equal([230, 1380, 450, 180], racePlaybackStart.FallbackRoi!);
+        Assert.Equal("MatchTemplateColor", racePlaybackStart.Algorithm);
+        Assert.Equal("ClickSelf", racePlaybackStart.Action);
+        Assert.Equal([320, 1380, 260, 180], racePlaybackStart.Roi!);
+        Assert.Equal(0, racePlaybackStart.PostDelay);
+        Assert.Equal(0.92, racePlaybackStart.TemplateThreshold);
+        Assert.Empty(racePlaybackStart.TransitionTemplates);
         Assert.Equal(
-            ["templates/career/race/race_playback_skip.png"],
-            racePlaybackStart.TransitionTemplates);
-        Assert.Equal([630, 1440, 170, 150], racePlaybackStart.TransitionRoi!);
-        Assert.Equal(0.82, racePlaybackStart.TransitionThreshold);
+            ["race_runner_playback_result_monitor"],
+            racePlaybackStart.Next);
+        var playbackMonitor = pack.ExecutionDefinition.Tasks["race_runner_playback_result_monitor"];
+        Assert.Equal("ParallelMonitor", playbackMonitor.Algorithm);
+        Assert.Contains("race_runner_playback_start", playbackMonitor.MonitorTasks);
+        Assert.Contains("race_runner_playback_skip", playbackMonitor.MonitorTasks);
+        Assert.Equal("race_runner_replay_probe", playbackMonitor.SuccessTask);
         Assert.Equal(
             "templates/career/race/race_result_replay.png",
             pack.ExecutionDefinition.Tasks["race_runner_replay_probe"].Template);
