@@ -62,24 +62,35 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
         var racesPath = Path.Combine(databaseDirectory, "races.json");
         var supportCardsPath = Path.Combine(databaseDirectory, "support_cards.json");
 
-        var meta = await ReadJsonAsync<UmaDatabaseMeta>(metaPath, cancellationToken)
-            .ConfigureAwait(false) ?? new UmaDatabaseMeta();
-        var baseCharacters = await ReadJsonAsync<List<UmaBaseCharacterRecord>>(
-                baseCharactersPath,
-                cancellationToken)
-            .ConfigureAwait(false) ?? [];
-        var trainees = await ReadJsonAsync<List<UmaTraineeRecord>>(
-                traineesPath,
-                cancellationToken)
-            .ConfigureAwait(false) ?? [];
-        var races = await ReadJsonAsync<List<UmaCareerRaceRecord>>(
-                racesPath,
-                cancellationToken)
-            .ConfigureAwait(false) ?? [];
-        var supportCards = await ReadJsonAsync<List<UmaSupportCardRecord>>(
-                supportCardsPath,
-                cancellationToken)
-            .ConfigureAwait(false) ?? [];
+        // These files are independent. Starting all reads together avoids
+        // serializing disk latency during application startup.
+        var metaTask = ReadJsonAsync<UmaDatabaseMeta>(metaPath, cancellationToken);
+        var baseCharactersTask = ReadJsonAsync<List<UmaBaseCharacterRecord>>(
+            baseCharactersPath,
+            cancellationToken);
+        var traineesTask = ReadJsonAsync<List<UmaTraineeRecord>>(
+            traineesPath,
+            cancellationToken);
+        var racesTask = ReadJsonAsync<List<UmaCareerRaceRecord>>(
+            racesPath,
+            cancellationToken);
+        var supportCardsTask = ReadJsonAsync<List<UmaSupportCardRecord>>(
+            supportCardsPath,
+            cancellationToken);
+
+        await Task.WhenAll(
+                metaTask,
+                baseCharactersTask,
+                traineesTask,
+                racesTask,
+                supportCardsTask)
+            .ConfigureAwait(false);
+
+        var meta = await metaTask.ConfigureAwait(false) ?? new UmaDatabaseMeta();
+        var baseCharacters = await baseCharactersTask.ConfigureAwait(false) ?? [];
+        var trainees = await traineesTask.ConfigureAwait(false) ?? [];
+        var races = await racesTask.ConfigureAwait(false) ?? [];
+        var supportCards = await supportCardsTask.ConfigureAwait(false) ?? [];
 
         var baseCharacterIndex = CreateUniqueIndex<int, UmaBaseCharacterRecord>(
             baseCharacters,

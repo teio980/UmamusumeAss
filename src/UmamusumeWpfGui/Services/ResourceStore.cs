@@ -1,5 +1,6 @@
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Update;
@@ -46,6 +47,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
     private readonly string _overridesRoot;
     private readonly string _viewsRoot;
     private readonly string _activePointerPath;
+    private readonly string _bundledFingerprintPath;
     private ResourceRevision _active = new("uninitialized", string.Empty, string.Empty);
     private string _activeDirectory = AppContext.BaseDirectory;
     private bool _initialized;
@@ -69,6 +71,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
         _overridesRoot = Path.Combine(_appDataRoot, "resources", "overrides");
         _viewsRoot = Path.Combine(_appDataRoot, "resources", "views");
         _activePointerPath = Path.Combine(_appDataRoot, "resources", "active.json");
+        _bundledFingerprintPath = Path.Combine(_appDataRoot, "resources", "bundled.fingerprint");
         ResourcePathRuntime.SetOverrideRoot(_overridesRoot);
     }
 
@@ -124,11 +127,35 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                                 UpdateVersionInfo.CurrentVersion,
                                 StringComparison.Ordinal)
                             || pointer.Version.Equals(bundledVersion, StringComparison.Ordinal);
-                        var bundledHashMatches = !isBundledRevision
-                            || pointer.BaseTreeSha256.Equals(
-                                await ComputeTreeHashAsync(bundled, cancellationToken)
-                                    .ConfigureAwait(false),
+                        var bundledHashMatches = !isBundledRevision;
+                        string? bundledFingerprint = null;
+                        if (isBundledRevision)
+                        {
+                            // The bundled tree is immutable for a published
+                            // build. Checking file metadata is enough to
+                            // detect local edits, while avoiding a 150+ MB
+                            // content hash on every launch. The full hash is
+                            // retained as a fallback for old installations
+                            // and for metadata-only changes.
+                            bundledFingerprint = await ComputeTreeFingerprintAsync(
+                                    bundled,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                            var cachedFingerprint = await ReadBundledFingerprintAsync(
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                            bundledHashMatches = string.Equals(
+                                cachedFingerprint,
+                                bundledFingerprint,
                                 StringComparison.OrdinalIgnoreCase);
+                            if (!bundledHashMatches)
+                            {
+                                bundledHashMatches = pointer.BaseTreeSha256.Equals(
+                                    await ComputeTreeHashAsync(bundled, cancellationToken)
+                                        .ConfigureAwait(false),
+                                    StringComparison.OrdinalIgnoreCase);
+                            }
+                        }
                         if (bundledHashMatches)
                         {
                             _active = new ResourceRevision(
@@ -139,6 +166,11 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                             _activeDirectory = pointer.ViewDirectory;
                             ResourcePathRuntime.SetBaseDirectory(_activeDirectory);
                             _initialized = true;
+                            if (isBundledRevision && bundledFingerprint is not null)
+                                await WriteBundledFingerprintAsync(
+                                        bundledFingerprint,
+                                        cancellationToken)
+                                    .ConfigureAwait(false);
                             return;
                         }
 
@@ -174,6 +206,8 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             var candidate = await BuildCandidateAsync(version, baseDirectory, cancellationToken)
                 .ConfigureAwait(false);
             await CommitPointerAsync(candidate, initial: true, cancellationToken).ConfigureAwait(false);
+            await CacheBundledFingerprintAsync(bundled, cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -312,6 +346,8 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                 .ConfigureAwait(false);
             RequiresFullResource = true;
             await CommitPointerAsync(candidate, initial: false, cancellationToken).ConfigureAwait(false);
+            await CacheBundledFingerprintAsync(bundled, cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -464,7 +500,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             throw new InvalidDataException("Resource version escaped the slot root.");
     }
 
-    private static async Task CopyDirectoryAsync(
+    private static Task CopyDirectoryAsync(
         string source,
         string destination,
         CancellationToken cancellationToken)
@@ -482,14 +518,11 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             if (!TryCreateHardLink(target, file))
                 File.Copy(file, target, overwrite: true);
-            // Do not use Task.Yield here: startup waits synchronously for
-            // resource initialization before the WPF dispatcher is running.
-            // Yielding to that dispatcher would deadlock after the first file.
-            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
+        return Task.CompletedTask;
     }
 
-    private static async Task OverlayDirectoryAsync(
+    private static Task OverlayDirectoryAsync(
         string source,
         string destination,
         CancellationToken cancellationToken)
@@ -515,11 +548,11 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             if (File.Exists(targetPath)) File.Delete(targetPath);
             if (!TryCreateHardLink(targetPath, file))
                 File.Copy(file, targetPath, overwrite: true);
-            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
+        return Task.CompletedTask;
     }
 
-    private static async Task ApplyDeltaAsync(
+    private static Task ApplyDeltaAsync(
         string sourceResource,
         string targetResource,
         IEnumerable<string>? deletes,
@@ -533,7 +566,6 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             if (File.Exists(target)) File.Delete(target);
             if (!TryCreateHardLink(target, file)) File.Copy(file, target, overwrite: true);
-            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
         foreach (var deleted in deletes ?? [])
         {
@@ -544,6 +576,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
             var target = UpdatePathSafety.ResolveUnderRoot(targetResource, normalized);
             if (File.Exists(target)) File.Delete(target);
         }
+        return Task.CompletedTask;
     }
 
     private static async Task<string> ComputeTreeHashAsync(string root, CancellationToken cancellationToken)
@@ -564,6 +597,100 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                 hash.AppendData(buffer.AsSpan(0, read));
         }
         return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private async Task<string?> ReadBundledFingerprintAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!File.Exists(_bundledFingerprintPath))
+                return null;
+
+            return (await File.ReadAllTextAsync(
+                    _bundledFingerprintPath,
+                    cancellationToken)
+                .ConfigureAwait(false)).Trim();
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private async Task CacheBundledFingerprintAsync(
+        string bundled,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var fingerprint = await ComputeTreeFingerprintAsync(
+                    bundled,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await WriteBundledFingerprintAsync(fingerprint, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            // The cache is an optimization only. A later launch will rebuild
+            // it after falling back to the full content hash.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // See the IOException comment above.
+        }
+    }
+
+    private async Task WriteBundledFingerprintAsync(
+        string fingerprint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await File.WriteAllTextAsync(
+                    _bundledFingerprintPath,
+                    fingerprint,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            // Non-fatal cache write; correctness is preserved by the full
+            // hash fallback on the next launch.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Non-fatal cache write; see the IOException comment above.
+        }
+    }
+
+    private static Task<string> ComputeTreeFingerprintAsync(
+        string root,
+        CancellationToken cancellationToken)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                     .OrderBy(path => Path.GetRelativePath(root, path), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            var info = new FileInfo(file);
+            hash.AppendData(Encoding.UTF8.GetBytes(relative));
+            hash.AppendData([0]);
+            hash.AppendData(Encoding.UTF8.GetBytes(info.Length.ToString(
+                System.Globalization.CultureInfo.InvariantCulture)));
+            hash.AppendData([0]);
+            hash.AppendData(Encoding.UTF8.GetBytes(info.LastWriteTimeUtc.Ticks.ToString(
+                System.Globalization.CultureInfo.InvariantCulture)));
+            hash.AppendData([0]);
+        }
+
+        return Task.FromResult(Convert.ToHexString(hash.GetHashAndReset()));
     }
 
     private static async Task<bool> ValidateBundledInventoryAsync(
