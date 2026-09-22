@@ -160,11 +160,12 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "templates/career/race/race_view_results_tap.png",
             viewResultsTap.Template);
+        Assert.True(viewResultsTap.ReuseLastMatchOnRetry);
         Assert.Equal([300, 1200, 300, 250], viewResultsTap.Roi!);
         Assert.Equal(600_000, viewResultsTap.TimeoutMilliseconds);
         Assert.Equal(60, viewResultsTap.PollIntervalMilliseconds);
         Assert.Equal(
-            ["race_runner_result_flow"],
+            ["race_runner_result_next"],
             viewResultsTap.Next);
         Assert.Equal(
             ["race_runner_view_results_tap"],
