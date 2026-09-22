@@ -180,6 +180,7 @@ public sealed class HachimiJsonPipelineRunner
                             definition,
                             current,
                             task,
+                            state,
                             state.Options,
                             logSink,
                             cancellationToken)
@@ -313,6 +314,7 @@ public sealed class HachimiJsonPipelineRunner
         HachimiPipelineDefinition definition,
         string taskName,
         HachimiPipelineTask task,
+        RunState state,
         HachimiPipelineRunOptions runOptions,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
@@ -350,6 +352,25 @@ public sealed class HachimiJsonPipelineRunner
         ScreenTextQueryResult? textMatch = null;
         var action = Normalize(task.Action);
         var algorithm = Normalize(task.Algorithm);
+        var reusedLastMatch = false;
+
+        // Some controls are only rendered for a single frame.  Once a
+        // ClickSelf task has matched such a control, keep the coordinates in
+        // the run state so an onErrorNext retry can still issue the tap even
+        // when the next screenshot no longer contains the template.
+        if (action == "clickself"
+            && task.ReuseLastMatchOnRetry
+            && state.TryTakeLastMatch(taskName, out var cachedMatch))
+        {
+            match = cachedMatch;
+            reusedLastMatch = true;
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Template is no longer visible; reusing the last matched "
+                + $"coordinates ({match.CenterX},{match.CenterY}) for one click.",
+                LogEntryKind.Info);
+        }
         var effectiveTimeoutMilliseconds = ResolveTaskTimeoutMilliseconds(
             taskName,
             task,
@@ -500,7 +521,7 @@ public sealed class HachimiJsonPipelineRunner
             templatePath = templateOverride;
         }
 
-        if (!string.IsNullOrWhiteSpace(templatePath))
+        if (!reusedLastMatch && !string.IsNullOrWhiteSpace(templatePath))
         {
             var roi = task.Roi;
             var pollInterval = task.PollIntervalMilliseconds > 0
@@ -573,6 +594,9 @@ public sealed class HachimiJsonPipelineRunner
                 $"Template matched: score {match.Score:0.000}, center ({match.CenterX},{match.CenterY}), "
                 + $"size {match.Width}x{match.Height}.",
                 LogEntryKind.Success);
+
+            if (action == "clickself" && task.ReuseLastMatchOnRetry)
+                state.RememberLastMatch(taskName, match);
         }
 
         switch (action)
@@ -2344,6 +2368,8 @@ public sealed class HachimiJsonPipelineRunner
     {
         private readonly Dictionary<string, int> _taskCounts =
             new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, TemplateMatchResult> _lastMatches =
+            new(StringComparer.OrdinalIgnoreCase);
 
         public RunState(HachimiPipelineRunOptions options) => Options = options;
 
@@ -2362,6 +2388,23 @@ public sealed class HachimiJsonPipelineRunner
             _taskCounts[countKey] = _taskCounts.TryGetValue(countKey, out var count)
                 ? count + 1
                 : 1;
+        }
+
+        public void RememberLastMatch(string taskName, TemplateMatchResult match) =>
+            _lastMatches[taskName] = match;
+
+        public bool TryTakeLastMatch(
+            string taskName,
+            out TemplateMatchResult match)
+        {
+            if (_lastMatches.Remove(taskName, out var cachedMatch))
+            {
+                match = cachedMatch;
+                return true;
+            }
+
+            match = new TemplateMatchResult(false, 0, 0, 0, 0, 0);
+            return false;
         }
 
         private static string GetCountKey(string taskName, HachimiPipelineTask task) =>

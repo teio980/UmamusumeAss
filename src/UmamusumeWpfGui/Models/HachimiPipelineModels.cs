@@ -108,6 +108,15 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("clickUntilGone")]
     public bool ClickUntilGone { get; set; }
 
+    /// <summary>
+    /// Keeps the last successful template coordinates for a transient button.
+    /// If the task is entered again before that button can be observed in a
+    /// new frame, the runner may click those coordinates once without waiting
+    /// for the template to reappear.
+    /// </summary>
+    [JsonPropertyName("reuseLastMatchOnRetry")]
+    public bool ReuseLastMatchOnRetry { get; set; }
+
     [JsonPropertyName("maxClickAttempts")]
     public int MaxClickAttempts { get; set; }
 
