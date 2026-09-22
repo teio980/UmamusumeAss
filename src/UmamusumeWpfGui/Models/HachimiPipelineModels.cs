@@ -101,6 +101,20 @@ public sealed class HachimiPipelineTask
     public int[]? FallbackRoi { get; set; }
 
     /// <summary>
+    /// When true, a transition-aware click action keeps tapping the current
+    /// template and re-checking it until the template disappears.  This is
+    /// used for buttons such as Race! that may require more than one tap.
+    /// </summary>
+    [JsonPropertyName("clickUntilGone")]
+    public bool ClickUntilGone { get; set; }
+
+    [JsonPropertyName("maxClickAttempts")]
+    public int MaxClickAttempts { get; set; }
+
+    [JsonPropertyName("goneConfirmationSamples")]
+    public int GoneConfirmationSamples { get; set; } = 3;
+
+    /// <summary>
     /// Screen templates that prove a click entered the next page.  The
     /// transition-aware click action stops after the first tap when any of
     /// these templates is observed; it never blindly taps twice.

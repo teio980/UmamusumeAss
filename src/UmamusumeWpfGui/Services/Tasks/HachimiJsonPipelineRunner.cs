@@ -837,6 +837,49 @@ public sealed class HachimiJsonPipelineRunner
                         $"JSON task '{taskName}' requires transitionTemplates.");
                 }
 
+                if (task.ClickUntilGone)
+                {
+                    var goneResult = await ClickUntilTemplateGoneAsync(
+                            connection,
+                            definition,
+                            taskName,
+                            task,
+                            templatePath!,
+                            match,
+                            runOptions,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!goneResult)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' kept finding its current template after "
+                            + $"{task.MaxClickAttempts} click attempt(s).");
+                    }
+
+                    var goneTransition = await WaitForAnyTransitionTemplateAsync(
+                            connection,
+                            definition,
+                            task,
+                            taskName,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (goneTransition is null)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' disappeared, but its transition state was not detected.");
+                    }
+
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"Current template disappeared; transition verified with "
+                        + $"'{goneTransition.Value.TemplatePath}' "
+                        + $"(score {goneTransition.Value.Match.Score:0.000}).",
+                        LogEntryKind.Success);
+                    break;
+                }
+
                 await _visualRuntime.TapMatchAsync(
                         connection,
                         match,
@@ -1456,13 +1499,27 @@ public sealed class HachimiJsonPipelineRunner
         CancellationToken cancellationToken)
     {
         var matchTasks = candidates.Select(candidate => Task.Run(
-            () => (candidate.Name, Match: TemplateMatcher.Find(
-                screen,
-                candidate.Template,
-                candidate.Task.Roi,
-                candidate.Task.TemplateThreshold,
-                definition.ReferenceWidth,
-                definition.ReferenceHeight)),
+            () =>
+            {
+                var useColor = Normalize(candidate.Task.Algorithm) is
+                    "matchtemplatecolor" or "matchtemplatecol";
+                var match = useColor
+                    ? TemplateMatcher.FindColor(
+                        screen,
+                        candidate.Template,
+                        candidate.Task.Roi,
+                        candidate.Task.TemplateThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight)
+                    : TemplateMatcher.Find(
+                        screen,
+                        candidate.Template,
+                        candidate.Task.Roi,
+                        candidate.Task.TemplateThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight);
+                return (candidate.Name, Match: match);
+            },
             cancellationToken));
         var results = await Task.WhenAll(matchTasks).ConfigureAwait(false);
         return results.ToDictionary(
@@ -1956,8 +2013,100 @@ public sealed class HachimiJsonPipelineRunner
                 pollInterval,
                 taskName,
                 definition.BaseDirectory,
-                cancellationToken)
+            cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<bool> ClickUntilTemplateGoneAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        string templatePath,
+        TemplateMatchResult initialMatch,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var maxClickAttempts = task.MaxClickAttempts > 0
+            ? task.MaxClickAttempts
+            : int.MaxValue;
+        var attemptLimitText = task.MaxClickAttempts > 0
+            ? $"/{task.MaxClickAttempts}"
+            : string.Empty;
+        var pollInterval = Math.Max(50, task.PollIntervalMilliseconds);
+        var goneConfirmationSamples = Math.Max(2, task.GoneConfirmationSamples);
+        var currentMatch = initialMatch;
+
+        for (var clickAttempt = 1; clickAttempt <= maxClickAttempts; clickAttempt++)
+        {
+            await _visualRuntime.TapMatchAsync(
+                    connection,
+                    currentMatch,
+                    taskName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            AddTaskLog(
+                logSink,
+                taskName,
+                $"Clicked '{taskName}' at ({currentMatch.CenterX},{currentMatch.CenterY}) "
+                + $"(attempt {clickAttempt}{attemptLimitText}); checking that it disappeared.",
+                LogEntryKind.Success);
+
+            await _visualRuntime.DelayAsync(pollInterval, cancellationToken)
+                .ConfigureAwait(false);
+
+            var missingSamples = 0;
+            while (missingSamples < goneConfirmationSamples)
+            {
+                var stillVisible = await WaitForTemplateAttemptAsync(
+                        connection,
+                        definition,
+                        taskName,
+                        task,
+                        templatePath,
+                        task.Roi,
+                        useScaledTemplate: false,
+                        scaleCandidates: Array.Empty<double>(),
+                        ResolveSearchRois(taskName, task, runOptions),
+                        Math.Clamp(pollInterval * 2, 100, 1_000),
+                        pollInterval,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (stillVisible is { Found: true })
+                {
+                    currentMatch = stillVisible;
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"'{taskName}' is still visible after attempt {clickAttempt}; clicking again.",
+                        LogEntryKind.Info);
+                    break;
+                }
+
+                missingSamples++;
+                AddTaskLog(
+                    logSink,
+                    taskName,
+                    $"'{taskName}' missing confirmation sample "
+                    + $"{missingSamples}/{goneConfirmationSamples}; checking again.",
+                    LogEntryKind.Info);
+                if (missingSamples >= goneConfirmationSamples)
+                {
+                    AddTaskLog(
+                        logSink,
+                        taskName,
+                        $"Confirmed '{taskName}' disappeared after {clickAttempt} click attempt(s).",
+                        LogEntryKind.Success);
+                    return true;
+                }
+
+                await _visualRuntime.DelayAsync(pollInterval, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        return false;
     }
 
     private static string Normalize(string? value) =>

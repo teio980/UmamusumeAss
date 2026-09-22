@@ -94,6 +94,28 @@ internal sealed class CareerRaceFlow
                         "race_playback_start",
                         "race.play")
                     .ConfigureAwait(false);
+            case "race_trophy_won":
+                context.State.HasPendingRace = true;
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Optional Trophy Won overlay recognized; closing it before resuming the runner flow.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "race_trophy_won",
+                        "trophy.close")
+                    .ConfigureAwait(false);
+            case "race_runner_result":
+                context.State.HasPendingRace = true;
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Race Replay checkpoint recognized; continuing with Next and Last Next.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "race_runner_result",
+                        "result.next")
+                    .ConfigureAwait(false);
             case "race_playback_settings":
                 return await _actions.RunAsync(
                         context,
