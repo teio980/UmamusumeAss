@@ -22,7 +22,9 @@
                               "preDelay":  0,
                               "postDelay":  1200,
                               "waitMs":  0,
-                              "timeoutMs":  2500,
+                              "timeoutMs":  10000,
+                              "retryTimes":  2,
+                              "retryDelayMs":  750,
                               "pollIntervalMs":  250,
                               "next":  [
                                           "home_home_career"
@@ -57,14 +59,16 @@
                                  "preDelay":  0,
                                  "postDelay":  1200,
                                  "waitMs":  0,
-                                 "timeoutMs":  2500,
+                                 "timeoutMs":  10000,
+                                 "retryTimes":  2,
+                                 "retryDelayMs":  750,
                                  "pollIntervalMs":  250,
                                  "next":  [
                                              "home_home_career"
                                          ],
                                  "onErrorNext":  [
-
-                                             ],
+                                             "home_home_career"
+                                         ],
                                  "exceededNext":  [
 
                                              ],
@@ -1693,7 +1697,9 @@
                                                    "preDelay":  0,
                                                    "postDelay":  650,
                                                    "waitMs":  0,
-                                                   "timeoutMs":  12000,
+                                                   "timeoutMs":  15000,
+                                                   "retryTimes":  2,
+                                                   "retryDelayMs":  750,
                                                    "pollIntervalMs":  250,
                                                    "next":  [
 
@@ -1728,13 +1734,15 @@
                                                       "preDelay":  0,
                                                       "postDelay":  650,
                                                       "waitMs":  0,
-                                                      "timeoutMs":  12000,
+                                                          "timeoutMs":  15000,
+                                                          "retryTimes":  2,
+                                                          "retryDelayMs":  750,
                                                       "pollIntervalMs":  250,
                                                       "next":  [
                                                                   "career_main_action_training_transition"
                                                                ],
                                                       "onErrorNext":  [
-
+                                                                  "career_main_action_recover"
                                                                       ],
                                                       "exceededNext":  [
 
@@ -1761,8 +1769,13 @@
                                                                               50
                                                                           ],
                                                                   "postDelay":  250,
-                                                                  "timeoutMs":  12000,
+                                                                  "timeoutMs":  15000,
+                                                                  "retryTimes":  2,
+                                                                  "retryDelayMs":  750,
                                                                   "pollIntervalMs":  250,
+                                                                  "onErrorNext":  [
+                                                                      "career_main_action_recover"
+                                                                  ],
                                                                   "required":  true
                                                               },
                   "career_main_action_rest":  {
@@ -1779,13 +1792,15 @@
                                                   "preDelay":  0,
                                                   "postDelay":  650,
                                                   "waitMs":  0,
-                                                  "timeoutMs":  12000,
+                                                  "timeoutMs":  15000,
+                                                  "retryTimes":  2,
+                                                  "retryDelayMs":  750,
                                                   "pollIntervalMs":  250,
                                                   "next":  [
 
                                                            ],
                                                   "onErrorNext":  [
-
+                                                     "career_main_action_recover"
                                                                   ],
                                                   "exceededNext":  [
 
@@ -1814,12 +1829,16 @@
                                                    "preDelay":  0,
                                                    "postDelay":  650,
                                                    "waitMs":  0,
-                                                   "timeoutMs":  12000,
+                                                   "timeoutMs":  15000,
+                                                   "retryTimes":  2,
+                                                   "retryDelayMs":  750,
                                                    "pollIntervalMs":  250,
                                                    "next":  [
                                                                "career_main_action_races_close_schedule"
                                                            ],
-                                                   "onErrorNext":  [],
+                                                   "onErrorNext":  [
+                                                               "career_main_action_recover"
+                                                           ],
                                                    "exceededNext":  [],
                                                    "sub":  [],
                                                    "monitorTasks":  [],
@@ -1843,7 +1862,9 @@
                                                    "preDelay":  0,
                                                    "postDelay":  650,
                                                    "waitMs":  0,
-                                                   "timeoutMs":  4000,
+                                                   "timeoutMs":  10000,
+                                                   "retryTimes":  2,
+                                                   "retryDelayMs":  750,
                                                    "pollIntervalMs":  250,
                                                    "next":  [],
                                                    "onErrorNext":  [
@@ -1875,13 +1896,15 @@
                                                           "preDelay":  0,
                                                           "postDelay":  650,
                                                           "waitMs":  0,
-                                                          "timeoutMs":  12000,
+                                                          "timeoutMs":  15000,
+                                                          "retryTimes":  2,
+                                                          "retryDelayMs":  750,
                                                           "pollIntervalMs":  250,
                                                           "next":  [
 
                                                                    ],
                                                           "onErrorNext":  [
-
+                                                                  "career_main_action_recover"
                                                                           ],
                                                           "exceededNext":  [
 
@@ -1895,6 +1918,11 @@
                                                           "maxTimes":  0,
                                                           "required":  true,
                                                           "success":  false
+                                                      },
+                  "career_main_action_recover":  {
+                                                          "algorithm":  "JustReturn",
+                                                          "action":  "JustReturn",
+                                                          "success":  true
                                                       },
                   "training_selection_training_speed":  {
                     "algorithm":  "MatchTemplateColor",
@@ -4006,6 +4034,7 @@
                     "roi": [230,1380,450,180],
                     "fallbackRoi": [230,1380,450,180],
                     "transitionTemplates": ["templates/career/race/race_playback_skip.png"],
+                    "transitionRoi": [630,1440,170,150],
                     "transitionThreshold": 0.82,
                     "transitionTimeoutMs": 4000,
                     "transitionPollIntervalMs": 250,
