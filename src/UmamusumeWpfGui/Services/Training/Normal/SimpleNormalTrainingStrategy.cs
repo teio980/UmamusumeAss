@@ -82,16 +82,6 @@ public sealed class UraDefaultStrategy
                 []);
         }
 
-        if (state.HasScenarioEvent)
-        {
-            return new(
-                UraPlannedAction.ScenarioEvent,
-                null,
-                "A scenario event is pending and must be resolved before the next turn.",
-                false,
-                [UraPlannedAction.Rest]);
-        }
-
         if (state.HasPendingRace)
         {
             var action = state.PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase)
@@ -124,7 +114,7 @@ public sealed class UraDefaultStrategy
         return new(
             UraPlannedAction.Training,
             TrainingType,
-            $"No required race or event is pending; strategy selected {TrainingType} training.",
+            $"No required race is pending; strategy selected {TrainingType} training.",
             false,
             [UraPlannedAction.Rest]);
     }

@@ -154,6 +154,8 @@
   <sys:String x:Key="GrassCareerModeLabel">Career mode</sys:String>
   <sys:String x:Key="GrassNormalTrainingStrategyLabel">Normal Career · training strategy</sys:String>
   <sys:String x:Key="GrassNormalLineupStrategyLabel">Normal Career · strategy</sys:String>
+  <sys:String x:Key="GrassNormalEventHandlingLabel">Normal Career · event handling</sys:String>
+  <sys:String x:Key="GrassNormalEventHandlingHint">Only Default is supported for now; more event handling strategies can be added later.</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy selection</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">Use cached Legacy 1 and Legacy 2 records when available</sys:String>
   <sys:String x:Key="GrassCareerUseLegacyGuestLabel">Use a guest legacy for Legacy 1</sys:String>

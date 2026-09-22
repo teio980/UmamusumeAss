@@ -70,20 +70,16 @@ internal sealed class CareerTurnFlow
                     context.State.PendingTrainingType = trainingType;
                 return trainingResult;
             case "training_result":
-            case "training_event":
             case "rest_result":
-                context.State.HasScenarioEvent = false;
                 return await _actions.RunAsync(
                         context,
                         context.Observation.ScreenId,
                         "advance")
                     .ConfigureAwait(false);
+            case "training_event":
             case "event_choice":
-                return await _actions.RunAsync(
-                        context,
-                        "event_choice",
-                        "choice_first")
-                    .ConfigureAwait(false);
+            case "scenario_event":
+                return await HandleObservedEventAsync(context).ConfigureAwait(false);
             case "rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
                 return await _actions.RunAsync(
@@ -91,16 +87,35 @@ internal sealed class CareerTurnFlow
                         "rest_confirmation",
                         "confirm")
                     .ConfigureAwait(false);
-            case "scenario_event":
-                context.State.HasScenarioEvent = false;
-                return await _actions.RunAsync(
-                        context,
-                        "scenario_event",
-                        "advance")
-                    .ConfigureAwait(false);
             default:
                 return null;
         }
+    }
+
+    private async Task<CareerTrainingResult?> HandleObservedEventAsync(
+        CareerFlowContext context)
+    {
+        var screenId = context.Observation.ScreenId;
+        var actionId = screenId switch
+        {
+            "event_choice" => "choice_first",
+            "training_event" or "scenario_event" => "advance",
+            _ => null,
+        };
+        if (actionId is null)
+            return null;
+
+        // Event state is advisory only. The event is handled because the
+        // observer saw the event screen, not because scenario metadata
+        // predicted that an event might occur.
+        var result = await _actions.RunAsync(
+                context,
+                screenId,
+                actionId)
+            .ConfigureAwait(false);
+        if (result is null)
+            context.State.HasScenarioEvent = false;
+        return result;
     }
 
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(

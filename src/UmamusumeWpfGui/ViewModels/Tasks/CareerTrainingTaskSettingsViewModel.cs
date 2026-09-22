@@ -17,6 +17,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultManifestPath = HachimiResourcePaths.UraManifest;
     public const string DefaultStrategyId = "default-speed-medium";
+    public const string DefaultEventHandling = CareerEventHandlingModes.Default;
     public const string NormalCareerMode = "normal";
     public const string IndependentCareerMode = "independent";
     public const string IndependentTrainingFocusBalanced = "balanced";
@@ -30,6 +31,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _careerMode = IndependentCareerMode;
     private string _strategyId = DefaultStrategyId;
     private string _normalLineupStrategy = CareerStrategyCatalog.DefaultLineupStrategy;
+    private string _normalEventHandling = DefaultEventHandling;
     private bool _pauseOnUnknownOutcome = true;
     private bool _allowOptionalRaces;
     private string _status = string.Empty;
@@ -108,6 +110,23 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => StrategyId;
         set => StrategyId = value;
+    }
+
+    public IReadOnlyList<CareerEventHandlingOption> NormalEventHandlingOptions { get; } =
+    [
+        new(DefaultEventHandling, "Default"),
+    ];
+
+    public string NormalEventHandling
+    {
+        get => _normalEventHandling;
+        set
+        {
+            var normalized = NormalEventHandlingOptions
+                .FirstOrDefault(item => item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ?.Value ?? DefaultEventHandling;
+            Set(ref _normalEventHandling, normalized);
+        }
     }
 
     public bool PauseOnUnknownOutcome
@@ -394,6 +413,7 @@ public sealed class CareerSupportCardOption : INotifyPropertyChanged
 
 public sealed record CareerSupportDeckPresetOption(string Value, string Label);
 public sealed record CareerModeOption(string Value, string Label);
+public sealed record CareerEventHandlingOption(string Value, string Label);
 public sealed record IndependentTrainingOption(string Value, string Label);
 
 public sealed class IndependentRaceOption : INotifyPropertyChanged

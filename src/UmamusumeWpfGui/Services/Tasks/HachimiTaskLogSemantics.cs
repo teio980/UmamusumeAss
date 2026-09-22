@@ -347,8 +347,8 @@ internal static class HachimiTaskLogSemantics
                 "Continuing the Career event",
                 "Career event continued"),
             "event_choice_event_choice_first" => Step(
-                "Choosing the configured event option",
-                "Event option selected"),
+                "Choosing the first green event option",
+                "First green event option selected"),
             "rest_confirmation_rest_confirm" => Step("Confirming rest", "Rest confirmed"),
             "rest_result_event_advance" => Step("Continuing after rest", "Rest result continued"),
             "race_list_race_goal_entry" or "race_day_race_open_list" => Step(

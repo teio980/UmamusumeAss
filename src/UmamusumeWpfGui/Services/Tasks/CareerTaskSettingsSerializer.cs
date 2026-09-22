@@ -18,6 +18,7 @@ public static class CareerTaskSettingsSerializer
             ["traineeId"] = settings.TraineeId,
             ["careerMode"] = settings.CareerMode,
             ["normalLineupStrategy"] = settings.NormalLineupStrategy,
+            ["normalEventHandling"] = settings.NormalEventHandling,
             ["independentTrainingFocus"] = settings.IndependentTrainingFocus,
             ["independentLineupStrategy"] = settings.IndependentLineupStrategy,
             ["independentAgendaSelections"] = new JsonArray(settings.ParseIndependentAgendaSelections()
@@ -65,6 +66,8 @@ public static class CareerTaskSettingsSerializer
             // used the Independent field for the same four game choices.
             ?? ReadString(values, "independentLineupStrategy")
             ?? settings.NormalLineupStrategy;
+        settings.NormalEventHandling = ReadString(values, "normalEventHandling")
+            ?? settings.NormalEventHandling;
         settings.IndependentTrainingFocus = ReadString(values, "independentTrainingFocus")
             ?? settings.IndependentTrainingFocus;
         settings.IndependentLineupStrategy = ReadString(values, "independentLineupStrategy")

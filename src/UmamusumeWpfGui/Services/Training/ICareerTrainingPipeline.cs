@@ -19,6 +19,11 @@ public interface ICareerTrainingPipeline
         CancellationToken cancellationToken = default);
 }
 
+public static class CareerEventHandlingModes
+{
+    public const string Default = "default";
+}
+
 public sealed record CareerTrainingSettings(
     string ManifestPath,
     int TraineeId,
@@ -35,7 +40,8 @@ public sealed record CareerTrainingSettings(
     bool UseCachedLegacy,
     IReadOnlyList<string> LegacyAttributeSparks,
     IReadOnlyList<string> LegacyAptitudeSparks,
-    string LineupStrategy = "pace") : ICareerEntrySelectionSettings;
+    string LineupStrategy = "pace",
+    string EventHandling = CareerEventHandlingModes.Default) : ICareerEntrySelectionSettings;
 
 /// <summary>
 /// Settings needed by the shared Home-to-Final-Confirmation navigation.

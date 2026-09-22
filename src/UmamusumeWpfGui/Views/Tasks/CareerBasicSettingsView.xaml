@@ -94,6 +94,22 @@
                   SelectedValue="{Binding NormalLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
     </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch"
+            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassNormalEventHandlingLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <TextBlock Text="{DynamicResource GrassNormalEventHandlingHint}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+        <ComboBox Margin="0,10,0,0"
+                  HorizontalContentAlignment="Stretch"
+                  ItemsSource="{Binding NormalEventHandlingOptions}"
+                  ItemTemplate="{StaticResource ComboOptionTemplate}"
+                  SelectedValuePath="Value"
+                  SelectedValue="{Binding NormalEventHandling, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </Border>
     <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
   </StackPanel>
 </UserControl>

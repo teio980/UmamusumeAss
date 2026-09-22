@@ -11,6 +11,13 @@ internal static partial class CareerGoalTextParser
     [GeneratedRegex(@"(?<!\d)(?<turns>\d{1,3})\s*(?:turn|turns)(?:\s*\(s\))?\b", RegexOptions.IgnoreCase)]
     private static partial Regex TurnsLeftRegex();
 
+    // The Career countdown is rendered as a large number on one line and
+    // "turn(s) left" on the next. Windows OCR can return only the number for
+    // that dedicated ROI, so accept a standalone numeric detection as a safe
+    // fallback. The caller uses this parser only for objective.turns_left.
+    [GeneratedRegex(@"^\s*(?<turns>\d{1,3})\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex StandaloneTurnsRegex();
+
     [GeneratedRegex(@"(?<!\d)(?<fans>[\d,]{1,7})\s*fan(?:s)?(?:\s*\(s\))?\s*to\s*go\b", RegexOptions.IgnoreCase)]
     private static partial Regex FansToGoRegex();
 
@@ -20,9 +27,16 @@ internal static partial class CareerGoalTextParser
             return null;
 
         var match = TurnsLeftRegex().Match(text);
-        return match.Success
-            && int.TryParse(match.Groups["turns"].Value, out var turns)
-            ? Math.Clamp(turns, 0, 999)
+        if (match.Success
+            && int.TryParse(match.Groups["turns"].Value, out var turns))
+        {
+            return Math.Clamp(turns, 0, 999);
+        }
+
+        var standalone = StandaloneTurnsRegex().Match(text);
+        return standalone.Success
+            && int.TryParse(standalone.Groups["turns"].Value, out var standaloneTurns)
+            ? Math.Clamp(standaloneTurns, 0, 999)
             : null;
     }
 

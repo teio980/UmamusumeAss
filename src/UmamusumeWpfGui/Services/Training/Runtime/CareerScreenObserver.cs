@@ -263,25 +263,27 @@ public sealed class CareerScreenObserver
             "career_main" => 1,
             "training_result" => 2,
             "training_event" => 3,
-            "training_selection" => 4,
-            "race_day" => 5,
-            "race_list" => 6,
+            "event_choice" => 4,
+            "scenario_event" => 5,
+            "training_selection" => 6,
+            "race_day" => 7,
+            "race_list" => 8,
             // Trophy Won is an optional overlay over the runner page. It
             // must be recognized before runner so the hidden page cannot
             // receive a strategy click through the modal.
-            "race_trophy_won" => 7,
+            "race_trophy_won" => 9,
             // Race! is a resumable checkpoint and must win over the broader
             // runner/playback templates, both of which can still be visible
             // underneath the button page after a restart.
-            "race_playback_start" => 8,
+            "race_playback_start" => 10,
             // Replay is the end-of-race marker for the reusable normal-race
             // flow. It is separate from the legacy race_result screen.
-            "race_runner_result" => 9,
-            "race_runner" => 10,
-            "race_details" => 11,
-            "race_attributes" => 12,
-            "race_playback_settings" => 13,
-            "race_playback" => 14,
+            "race_runner_result" => 11,
+            "race_runner" => 12,
+            "race_details" => 13,
+            "race_attributes" => 14,
+            "race_playback_settings" => 15,
+            "race_playback" => 16,
             _ => 20,
         };
 
