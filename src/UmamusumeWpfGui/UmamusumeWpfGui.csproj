@@ -25,6 +25,17 @@
     <Resource Include="Assets\teio-logo.png" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\CMakeLists.txt" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\CMakePresets.json" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\version.txt" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\cmake\**\*.cmake" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\include\**\*.h;$(MSBuildProjectDirectory)\..\..\include\**\*.hpp" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\src\UmaAssistantCore\**\*.cpp;$(MSBuildProjectDirectory)\..\..\src\UmaAssistantCore\**\*.h;$(MSBuildProjectDirectory)\..\..\src\UmaAssistantCore\**\*.hpp" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\src\UmamusumeAssUpdater\**\*.cpp;$(MSBuildProjectDirectory)\..\..\src\UmamusumeAssUpdater\**\*.h;$(MSBuildProjectDirectory)\..\..\src\UmamusumeAssUpdater\CMakeLists.txt" />
+    <UpToDateCheckInput Include="$(MSBuildProjectDirectory)\..\..\tools\CMakeLists.txt" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="..\..\resource\connection.json"
              Link="resource\connection.json"
@@ -60,5 +71,34 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="BuildAndCopyNativeRuntimeForDebug"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <RepositoryRoot>$(MSBuildProjectDirectory)\..\..</RepositoryRoot>
+      <NativeStagingDirectory>$(MSBuildProjectDirectory)\..\..\build\native-staging</NativeStagingDirectory>
+    </PropertyGroup>
+    <Exec Command="cmake --preset release"
+          WorkingDirectory="$(RepositoryRoot)"
+          Condition="!Exists('$(RepositoryRoot)\build\release\CMakeCache.txt')" />
+    <Exec Command="cmake --build build\release --config Release --target UmaAssistantCore UmamusumeAss.Updater --parallel"
+          WorkingDirectory="$(RepositoryRoot)" />
+    <Exec Command="cmake --install build\release --prefix build\native-staging --config Release"
+          WorkingDirectory="$(RepositoryRoot)" />
+    <Copy SourceFiles="$(NativeStagingDirectory)\UmamusumeCore.dll"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeStagingDirectory)\UmamusumeCore.dll')" />
+    <Copy SourceFiles="$(NativeStagingDirectory)\UmamusumeAss.Updater.exe"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeStagingDirectory)\UmamusumeAss.Updater.exe')" />
+    <Copy SourceFiles="$(RepositoryRoot)\version.txt"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true" />
+    <Warning Text="Native DLL was not found in '$(NativeStagingDirectory)' after the automatic CMake build and install."
+             Condition="!Exists('$(NativeStagingDirectory)\UmamusumeCore.dll')" />
+  </Target>
 
 </Project>
