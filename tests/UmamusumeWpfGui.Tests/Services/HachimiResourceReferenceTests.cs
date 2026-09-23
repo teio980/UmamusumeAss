@@ -81,7 +81,7 @@ public sealed class HachimiResourceReferenceTests
             "screens",
             "templates",
             "runtime_frames");
-        Assert.Equal(97, Directory.EnumerateFiles(runtimeFrames).Count());
+        Assert.Equal(96, Directory.EnumerateFiles(runtimeFrames).Count());
         Assert.Equal(
             23,
             Directory.EnumerateFiles(

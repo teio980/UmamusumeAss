@@ -331,12 +331,16 @@ public sealed class UraScenarioPackLoaderTests
             0.88,
             pack.ScreenProfile.Find("trainee_select")?.Recognition.TemplateThreshold);
         var careerMain = pack.ScreenProfile.Find("career_main");
+        Assert.NotNull(careerMain);
         Assert.Equal(
             "templates/career_main_header.png",
-            careerMain?.Recognition.Template);
-        Assert.Equal(CareerMainHeaderRoi, careerMain!.Recognition.Roi!);
-        Assert.Equal(0.92, careerMain?.Recognition.TemplateThreshold);
-        Assert.Single(careerMain?.Templates ?? []);
+            careerMain.Recognition.Template);
+        Assert.Equal(CareerMainHeaderRoi, careerMain.Recognition.Roi!);
+        Assert.Equal(0.92, careerMain.Recognition.TemplateThreshold);
+        Assert.Equal("templates/career_main_action_training.png", careerMain.Recognition.RequiredTemplate);
+        Assert.Equal([200, 1050, 500, 400], careerMain.Recognition.RequiredTemplateRoi!);
+        Assert.Equal(0.78, careerMain.Recognition.RequiredTemplateThreshold);
+        Assert.Single(careerMain.Templates);
         Assert.True(File.Exists(Path.Combine(
             FindWorkspaceRoot(),
             "resource",

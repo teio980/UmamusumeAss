@@ -515,6 +515,15 @@ public sealed class UraScreenRecognition
     [JsonPropertyName("templThreshold")]
     public double TemplateThreshold { get; set; } = 0.78;
 
+    [JsonPropertyName("requiredTemplate")]
+    public string? RequiredTemplate { get; set; }
+
+    [JsonPropertyName("requiredTemplateRoi")]
+    public int[]? RequiredTemplateRoi { get; set; }
+
+    [JsonPropertyName("requiredTemplateThreshold")]
+    public double RequiredTemplateThreshold { get; set; } = 0.78;
+
     public IReadOnlyList<string> GetTemplates()
     {
         var result = new List<string>();
@@ -833,6 +842,8 @@ public sealed class UraScenarioPackLoader
                 throw new InvalidDataException($"Screen '{screen.ScreenId}' has no recognition template.");
             foreach (var template in screen.Templates)
                 RequireFile(profileDirectory, template);
+            if (!string.IsNullOrWhiteSpace(screen.Recognition.RequiredTemplate))
+                RequireFile(profileDirectory, screen.Recognition.RequiredTemplate);
 
             if (!string.IsNullOrWhiteSpace(screen.EntryTask)
                 && !execution.Tasks.ContainsKey(screen.EntryTask))

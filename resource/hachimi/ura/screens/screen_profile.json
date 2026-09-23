@@ -620,6 +620,9 @@
                                                         50
                                                     ],
                                             "templThreshold":  0.92,
+                                            "requiredTemplate":  "templates/career_main_action_training.png",
+                                            "requiredTemplateRoi":  [200, 1050, 500, 400],
+                                            "requiredTemplateThreshold":  0.78,
                                             "requiredText":  [
                                                                  "Career"
                                                              ],
@@ -790,11 +793,14 @@
                     {
                         "screenId":  "event_choice",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/support_event_choice_ura.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/trainee_event_choice_ura.png",
-                                                              "templates/runtime_frames/scenario_event_duel_ura.png"
-                                                          ],
+                                            "template":  "templates/event_effects_button.png",
+                                            "roi":  [
+                                                       640,
+                                                       1200,
+                                                       230,
+                                                       100
+                                                   ],
+                                            "templThreshold":  0.82,
                                             "requiredText":  [
                                                                  "Career"
                                                              ],
@@ -802,7 +808,7 @@
                                         },
                         "actions":  [
                                         {
-                                            "semanticId":  "event.choice.first",
+                                            "semanticId":  "event.choice_first",
                                             "task":  "event_choice_event_choice_first"
                                         }
                                     ]
@@ -828,36 +834,6 @@
                                         {
                                             "semanticId":  "rest.confirm",
                                             "task":  "rest_confirmation_rest_confirm"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "rest_result",
-                        "recognition":  {
-                                            "template":  "templates/runtime_frames/rest_after_debut.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/rest_event_ura.png",
-                                                              "templates/runtime_frames/rest_result_all_refreshed.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Well-Rested"
-                                                             ],
-                                            "stable":  true
-                                        },
-                        "observations":  {
-                                             "energyBar":  {
-                                                               "roi":  [280,176,365,50],
-                                                               "innerInset":  [7,10,349,28],
-                                                               "fillSaturationMin":  0.18,
-                                                               "fillValueMin":  0.18,
-                                                               "columnMatchRatio":  0.55,
-                                                               "minimumConfidence":  0.70
-                                                           }
-                                         },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "event.advance",
-                                            "task":  "rest_result_event_advance"
                                         }
                                     ]
                     },

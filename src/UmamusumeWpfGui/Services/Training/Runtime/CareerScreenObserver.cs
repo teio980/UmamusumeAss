@@ -103,6 +103,7 @@ public sealed class CareerScreenObserver
 
         CareerObservation? best = null;
         var bestPriority = int.MaxValue;
+        var mainFrameCount = 0;
         foreach (var frame in frames)
         {
             CareerObservation? frameBest = null;
@@ -124,6 +125,17 @@ public sealed class CareerScreenObserver
                         threshold: screen.Recognition.TemplateThreshold,
                         pack.ScreenProfile.ReferenceWidth,
                         pack.ScreenProfile.ReferenceHeight);
+                    if (match.Found
+                        && !await MatchesRequiredTemplateAsync(
+                                frame,
+                                screen,
+                                pack,
+                                cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        continue;
+                    }
+
                     if (match.Found
                         && (screenBest is null || match.Score > screenBest.Score))
                     {
@@ -157,9 +169,8 @@ public sealed class CareerScreenObserver
                 }
 
                 // Screens are ordered from specific dialogs/events to the
-                // underlying Career page. A dialog can retain the generic
-                // "Career" header, so even a perfect career_main header match
-                // must not hide a recognized event or rest result.
+                // underlying Career page. An overlay can leave part of the
+                // main screen visible, so a recognized event or result wins.
                 if (screenBest is not null)
                 {
                     frameBest = screenBest;
@@ -170,16 +181,30 @@ public sealed class CareerScreenObserver
             if (frameBest is null)
                 continue;
 
+            if (frameBest.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+                mainFrameCount++;
+
             var framePriority = GetScreenRecognitionPriority(
                 frameBest.ScreenId,
                 careerStartTransitionExpected);
             if (best is null
                 || framePriority < bestPriority
-                || (framePriority == bestPriority && frameBest.Score > best.Score))
+                || (framePriority == bestPriority
+                    && (frameBest.ScreenId.Equals(best.ScreenId, StringComparison.OrdinalIgnoreCase)
+                        || frameBest.Score > best.Score)))
             {
                 best = frameBest;
                 bestPriority = framePriority;
             }
+        }
+
+        // The Career header and Training button can remain visible while an
+        // event overlay animates in. Both sampled frames must be the main
+        // page before its energy reading can drive another turn action.
+        if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true
+            && mainFrameCount != 2)
+        {
+            return null;
         }
 
         if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
@@ -232,6 +257,32 @@ public sealed class CareerScreenObserver
         }
 
         return best;
+    }
+
+    private async Task<bool> MatchesRequiredTemplateAsync(
+        GrayImage frame,
+        UraScreenDefinition screen,
+        UraScenarioPack pack,
+        CancellationToken cancellationToken)
+    {
+        var requiredPath = screen.Recognition.RequiredTemplate;
+        if (string.IsNullOrWhiteSpace(requiredPath))
+            return true;
+
+        var requiredTemplate = await LoadTemplateCachedAsync(
+                ResolveCapture(pack, requiredPath),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (requiredTemplate is null)
+            return false;
+
+        return TemplateMatcher.Find(
+            frame,
+            requiredTemplate,
+            roi: screen.Recognition.RequiredTemplateRoi,
+            threshold: screen.Recognition.RequiredTemplateThreshold,
+            pack.ScreenProfile.ReferenceWidth,
+            pack.ScreenProfile.ReferenceHeight).Found;
     }
 
     private async Task<string?> ReadRegionTextAsync(
@@ -294,7 +345,6 @@ public sealed class CareerScreenObserver
             "event_choice" => 0,
             "training_event" => 1,
             "scenario_event" => 2,
-            "rest_result" => 3,
             "training_result" => 4,
             "rest_confirmation" => 5,
             "training_selection" => 6,
