@@ -1,0 +1,114 @@
+{
+  "name": "mail-collection",
+  "schemaVersion": 1,
+  "description": "Return to Home, open the gift box, collect all presents, and close the mailbox.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "tasks": {
+    "home": {
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["giftBox"],
+      "onErrorNext": ["homeAlt"]
+    },
+    "homeAlt": {
+      "template": "templates/start_game/game_home_unselected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["giftBox"],
+      "onErrorNext": ["back"]
+    },
+    "giftBox": {
+      "template": "templates/mail_collection/gift_box.png",
+      "roi": [650, 950, 250, 350],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 1800,
+      "next": ["collectAll"]
+    },
+    "collectAll": {
+      "template": "templates/mail_collection/collect_all.png",
+      "roi": [300, 1350, 600, 250],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 750,
+      "next": ["rewardClose"]
+    },
+    "rewardClose": {
+      "action": "ClickSelf",
+      "template": "templates/mission_collection/reward_close.png",
+      "roi": [0, 1300, 900, 300],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "next": ["closeOptional"],
+      "onErrorNext": ["close"]
+    },
+    "close": {
+      "action": "ClickSelf",
+      "template": "templates/mail_collection/close.png",
+      "roi": [0, 0, 900, 1600],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "maxTimes": 1,
+      "next": ["closeOptional"]
+    },
+    "closeOptional": {
+      "action": "ClickSelf",
+      "template": "templates/mail_collection/close.png",
+      "roi": [0, 0, 900, 1600],
+      "templThreshold": 0.86,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 300,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["homeVerify"],
+      "onErrorNext": ["homeVerify"]
+    },
+    "homeVerify": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [250, 1400, 400, 200],
+      "templThreshold": 0.86,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 300,
+      "success": true
+    },
+    "back": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 600,
+      "maxTimes": 3,
+      "next": ["home"],
+      "exceededNext": ["stop"]
+    },
+    "stop": {
+      "algorithm": "JustReturn",
+      "action": "Stop"
+    }
+  },
+  "timing": {
+    "navigationMs": 1200,
+    "mailboxLoadMs": 1800,
+    "collectionSettleMs": 1200,
+    "homeTimeoutMs": 5000,
+    "homeRetryTimeoutMs": 2500,
+    "homeVerifyTimeoutMs": 3000,
+    "backAttempts": 3,
+    "backSettleMs": 600,
+    "pollIntervalMs": 300
+  }
+}

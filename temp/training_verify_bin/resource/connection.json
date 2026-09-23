@@ -1,0 +1,24 @@
+{
+  "connection": [
+    {
+      "configName": "General",
+      "baseConfig": null,
+      "commands": {
+        "list_devices": ["devices"],
+        "get_state": ["-s", "[AdbSerial]", "get-state"],
+        "connect": ["connect", "[AdbSerial]"],
+        "boot_completed": ["-s", "[AdbSerial]", "shell", "getprop", "sys.boot_completed"],
+        "android_id": ["-s", "[AdbSerial]", "shell", "settings", "get", "secure", "android_id"],
+        "android_version": ["-s", "[AdbSerial]", "shell", "getprop", "ro.build.version.release"],
+        "get_size": ["-s", "[AdbSerial]", "shell", "wm", "size"]
+      }
+    },
+    { "configName": "MuMuEmulator12", "baseConfig": "General", "commands": {} },
+    { "configName": "LDPlayer", "baseConfig": "General", "commands": {} },
+    { "configName": "BlueStacks", "baseConfig": "General", "commands": {} },
+    { "configName": "Nox", "baseConfig": "General", "commands": {} },
+    { "configName": "XYAZ", "baseConfig": "General", "commands": {} },
+    { "configName": "WSA", "baseConfig": "General", "commands": {} },
+    { "configName": "Androws", "baseConfig": "General", "commands": {} }
+  ]
+}

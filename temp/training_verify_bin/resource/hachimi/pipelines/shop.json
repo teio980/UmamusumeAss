@@ -1,0 +1,371 @@
+{
+  "name": "shop",
+  "schemaVersion": 1,
+  "description": "Optional shop probe and configured purchase flow for up to three daily sales.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "shopProbe": {
+      "template": "templates/shop/shop_title.png",
+      "roi": [0, 0, 400, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 1200,
+      "postDelay": 450,
+      "required": false,
+      "next": ["shopSelectAll"],
+      "onErrorNext": ["shopNoShopComplete"]
+    },
+    "shopSelectAll": {
+      "template": "templates/shop/select_all.png",
+      "roi": [620, 1120, 280, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 8000,
+      "postDelay": 500,
+      "required": false,
+      "next": ["shopConfirm"],
+      "exceededNext": ["shopBuy1"]
+    },
+    "shopBuy1": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 580, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy2"],
+      "exceededNext": ["shopBuy2"]
+    },
+    "shopBuy2": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 720, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy3"],
+      "exceededNext": ["shopBuy3"]
+    },
+    "shopBuy3": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 930, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScrollMiddle"],
+      "exceededNext": ["shopScrollMiddle"]
+    },
+    "shopScrollMiddle": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy4"]
+    },
+    "shopBuy4": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy5"],
+      "exceededNext": ["shopBuy5"]
+    },
+    "shopBuy5": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScrollBottom"],
+      "exceededNext": ["shopScrollBottom"]
+    },
+    "shopScrollBottom": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy6"]
+    },
+    "shopBuy6": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy7"],
+      "exceededNext": ["shopBuy7"]
+    },
+    "shopBuy7": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll3"],
+      "exceededNext": ["shopScroll3"]
+    },
+    "shopScroll3": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy8"]
+    },
+    "shopBuy8": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy9"],
+      "exceededNext": ["shopBuy9"]
+    },
+    "shopBuy9": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll4"],
+      "exceededNext": ["shopScroll4"]
+    },
+    "shopScroll4": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy10"]
+    },
+    "shopBuy10": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy11"],
+      "exceededNext": ["shopBuy11"]
+    },
+    "shopBuy11": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll5"],
+      "exceededNext": ["shopScroll5"]
+    },
+    "shopScroll5": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy12"]
+    },
+    "shopBuy12": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy13"],
+      "exceededNext": ["shopBuy13"]
+    },
+    "shopBuy13": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll6"],
+      "exceededNext": ["shopScroll6"]
+    },
+    "shopScroll6": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy14"]
+    },
+    "shopBuy14": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy15"],
+      "exceededNext": ["shopBuy15"]
+    },
+    "shopBuy15": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll7"],
+      "exceededNext": ["shopScroll7"]
+    },
+    "shopScroll7": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy16"]
+    },
+    "shopBuy16": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy17"],
+      "exceededNext": ["shopBuy17"]
+    },
+    "shopBuy17": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll8"],
+      "exceededNext": ["shopScroll8"]
+    },
+    "shopScroll8": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy18"]
+    },
+    "shopBuy18": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy19"],
+      "exceededNext": ["shopBuy19"]
+    },
+    "shopBuy19": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopScroll9"],
+      "exceededNext": ["shopScroll9"]
+    },
+    "shopScroll9": {
+      "algorithm": "Swipe",
+      "action": "Swipe",
+      "swipe": [450, 1050, 450, 650, 450],
+      "postDelay": 700,
+      "next": ["shopBuy20"]
+    },
+    "shopBuy20": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 760, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopBuy21"],
+      "exceededNext": ["shopBuy21"]
+    },
+    "shopBuy21": {
+      "template": "templates/shop/item_checkbox.png",
+      "roi": [680, 960, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 6000,
+      "postDelay": 350,
+      "required": false,
+      "next": ["shopConfirm"],
+      "exceededNext": ["shopConfirm"]
+    },
+    "shopConfirm": {
+      "template": "templates/shop/confirm_enabled.png",
+      "roi": [250, 1250, 430, 240],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopExchangeConfirm"],
+      "onErrorNext": ["shopBack"]
+    },
+    "shopExchangeConfirm": {
+      "template": "templates/shop/exchange_confirm.png",
+      "roi": [430, 1380, 450, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 10000,
+      "postDelay": 400,
+      "required": false,
+      "next": ["shopExchangeComplete"],
+      "onErrorNext": ["shopBack"]
+    },
+    "shopExchangeComplete": {
+      "template": "templates/shop/exchange_complete.png",
+      "roi": [0, 0, 900, 180],
+      "templThreshold": 0.86,
+      "timeoutMs": 10000,
+      "postDelay": 400,
+      "required": false,
+      "next": ["shopClose"],
+      "onErrorNext": ["shopBack"]
+    },
+    "shopClose": {
+      "template": "templates/shop/exchange_close.png",
+      "roi": [250, 1380, 450, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopBack"],
+      "onErrorNext": ["shopBack"]
+    },
+    "shopBack": {
+      "template": "templates/shop/back.png",
+      "roi": [0, 1250, 220, 220],
+      "templThreshold": 0.80,
+      "timeoutMs": 5000,
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopComplete"],
+      "onErrorNext": ["shopAndroidBack"]
+    },
+    "shopAndroidBack": {
+      "algorithm": "JustReturn",
+      "action": "Back",
+      "postDelay": 1200,
+      "required": false,
+      "next": ["shopComplete"],
+      "onErrorNext": ["shopComplete"]
+    },
+    "shopNoShopComplete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
+    },
+    "shopComplete": {
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
+      "success": true
+    }
+  }
+}

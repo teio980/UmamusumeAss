@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Umamusume.CoreBridge/0.2.2": {
+        "runtime": {
+          "Umamusume.CoreBridge.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Umamusume.CoreBridge/0.2.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
