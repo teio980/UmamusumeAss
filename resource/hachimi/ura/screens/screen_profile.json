@@ -931,6 +931,10 @@
                                        ],
                         "actions":  [
                                         {
+                                            "semanticId":  "race.recommended_entry",
+                                            "task":  "race_list_race_recommended_entry"
+                                        },
+                                        {
                                             "semanticId":  "race.goal_entry",
                                             "task":  "race_list_race_goal_entry"
                                         },

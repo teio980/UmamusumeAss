@@ -34,10 +34,9 @@ internal sealed class CareerRaceFlow
                 if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
                 {
                     // A process restart rebuilds state from the visible page.
-                    // Race Day is the scheduled objective-race checkpoint,
-                    // so continue through Goal Entry if its Career Main goal
-                    // type was not observed in this run. Preserve Fans when
-                    // it was already established by the live turn flow.
+                    // Keep the objective-race context for goal completion
+                    // handling, while Race List uses the shared
+                    // Recommended-or-first race selection below.
                     context.State.ObservedGoalKind = CareerGoalTextParser.Race;
                 }
                 return await _actions.RunAsync(
@@ -46,34 +45,23 @@ internal sealed class CareerRaceFlow
                         "open_list")
                     .ConfigureAwait(false);
             case "race_list":
-                var raceListAction = GetRaceListActionId(context.State);
-                if (raceListAction.Equals("fans_entry", StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
                 {
                     // A new run reconstructs its state from the current
                     // screen. Race List itself does not expose whether the
-                    // previous Career Main goal was a fan goal, so an
-                    // unresolved resume must use the same safe Recommended
-                    // entry used by the direct fan-goal flow.
-                    if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
-                    {
-                        context.State.ObservedGoalKind = CareerGoalTextParser.Fans;
-                        context.LogSink?.Add(
-                            "Career Training",
-                            "Race List resumed without goal context; selecting the Recommended race.",
-                            LogEntryKind.Info);
-                    }
-
-                    return await _actions.RunAsync(
-                            context,
-                            "race_list",
-                            "fans_entry")
-                        .ConfigureAwait(false);
+                    // previous Career Main goal was a fan goal. Preserve the
+                    // existing fallback classification for this resume path.
+                    context.State.ObservedGoalKind = CareerGoalTextParser.Fans;
                 }
 
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Selecting the Recommended race, or the first available race if none is marked.",
+                    LogEntryKind.Info);
                 return await _actions.RunAsync(
                         context,
                         "race_list",
-                        raceListAction)
+                        GetRaceListActionId(context.State))
                     .ConfigureAwait(false);
             case "race_details":
                 return await _actions.RunAsync(
@@ -185,17 +173,10 @@ internal sealed class CareerRaceFlow
         }
     }
 
-    internal static string GetRaceListActionId(UraCareerSessionState state) =>
-        ShouldUseRecommendedRace(state) ? "fans_entry" : "goal_entry";
-
-    private static bool ShouldUseRecommendedRace(UraCareerSessionState state)
+    internal static string GetRaceListActionId(UraCareerSessionState state)
     {
-        var goalKind = state.ObservedGoalKind;
-        return string.Equals(
-                   goalKind,
-                   CareerGoalTextParser.Fans,
-                   StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(goalKind);
+        ArgumentNullException.ThrowIfNull(state);
+        return "recommended_entry";
     }
 
     private async Task<CareerTrainingResult?> HandleRaceRunnerResultAsync(

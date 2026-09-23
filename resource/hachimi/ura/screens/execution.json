@@ -2333,6 +2333,30 @@
                                                          "required":  true,
                                                          "success":  false
                                                      },
+                  "race_list_race_recommended_entry":  {
+                                                    "algorithm":  "MatchTemplate",
+                                                    "action":  "ClickSelf",
+                                                    "template":  "templates/race_list_recommended.png",
+                                                    "templThreshold":  0.78,
+                                                    "roi":  [
+                                                                30,
+                                                                820,
+                                                                840,
+                                                                480
+                                                            ],
+                                                    "preDelay":  0,
+                                                    "postDelay":  650,
+                                                    "timeoutMs":  1800,
+                                                    "pollIntervalMs":  200,
+                                                    "next":  [
+                                                                "race_list_race_start"
+                                                             ],
+                                                    "onErrorNext":  [
+                                                                        "race_list_race_fans_entry"
+                                                                    ],
+                                                    "required":  true,
+                                                    "success":  false
+                                                },
                   "race_list_race_goal_entry":  {
                                                     "algorithm":  "MatchTemplate",
                                                     "action":  "ClickSelf",

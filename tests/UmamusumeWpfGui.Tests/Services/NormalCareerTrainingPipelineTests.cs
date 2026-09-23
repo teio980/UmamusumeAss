@@ -112,18 +112,18 @@ public sealed class NormalCareerTrainingPipelineTests
     public void Race_list_resume_without_goal_context_uses_recommended_entry()
     {
         Assert.Equal(
-            "fans_entry",
+            "recommended_entry",
             CareerRaceFlow.GetRaceListActionId(new UraCareerSessionState()));
     }
 
     [Fact]
-    public void Race_list_resume_with_a_race_goal_keeps_goal_entry()
+    public void Race_list_uses_recommended_or_first_entry_even_with_a_race_goal()
     {
         var state = new UraCareerSessionState
         {
             ObservedGoalKind = CareerGoalTextParser.Race,
         };
 
-        Assert.Equal("goal_entry", CareerRaceFlow.GetRaceListActionId(state));
+        Assert.Equal("recommended_entry", CareerRaceFlow.GetRaceListActionId(state));
     }
 }
