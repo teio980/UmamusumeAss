@@ -994,6 +994,14 @@
                                                         210,
                                                         150
                                                     ],
+                                            "requiredTemplate":  "templates/career/race/race_result_next.png",
+                                            "requiredTemplateRoi":  [
+                                                        240,
+                                                        1380,
+                                                        420,
+                                                        180
+                                                    ],
+                                            "requiredTemplateThreshold":  0.82,
                                             "stable":  true,
                                             "templThreshold":  0.82
                                         },

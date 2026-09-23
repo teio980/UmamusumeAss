@@ -76,6 +76,10 @@ public sealed class UraCareerSessionState
     public bool HasPendingRace { get; set; }
     // Run-scoped guard for the reusable race-runner strategy checkpoint.
     public bool RaceStrategyConfigured { get; set; }
+    // Prevent a stale Replay marker from re-running the Next chain after it
+    // already completed. Reset when a new race is entered.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool RaceReplayFlowCompleted { get; set; }
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
     // Indicates that the selected URA career has actually reached the career

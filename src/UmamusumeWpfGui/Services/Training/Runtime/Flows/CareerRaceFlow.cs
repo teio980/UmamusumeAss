@@ -22,6 +22,7 @@ internal sealed class CareerRaceFlow
         switch (context.Observation.ScreenId)
         {
             case "career_races_ready":
+                context.State.RaceReplayFlowCompleted = false;
                 context.State.LastScreenId = "career_start_transition";
                 return await _actions.RunAsync(
                         context,
@@ -29,6 +30,7 @@ internal sealed class CareerRaceFlow
                         "races")
                     .ConfigureAwait(false);
             case "race_day":
+                context.State.RaceReplayFlowCompleted = false;
                 context.State.HasPendingRace = true;
                 context.State.LastAction = UraPlannedAction.Race;
                 if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
@@ -82,6 +84,7 @@ internal sealed class CareerRaceFlow
                         "play")
                     .ConfigureAwait(false);
             case "race_playback_start":
+                context.State.RaceReplayFlowCompleted = false;
                 context.State.HasPendingRace = true;
                 context.LogSink?.Add(
                     "Career Training",
@@ -104,6 +107,15 @@ internal sealed class CareerRaceFlow
                         "trophy.close")
                     .ConfigureAwait(false);
             case "race_runner_result":
+                if (context.State.RaceReplayFlowCompleted)
+                {
+                    context.LogSink?.Add(
+                        "Career Training",
+                        "Ignoring a stale Replay marker; the Next flow already completed for this race.",
+                        LogEntryKind.Info);
+                    return null;
+                }
+
                 context.State.HasPendingRace = true;
                 context.State.LastAction = UraPlannedAction.Race;
                 context.LogSink?.Add(
@@ -190,6 +202,9 @@ internal sealed class CareerRaceFlow
                 "race_runner_result",
                 "result.next")
             .ConfigureAwait(false);
+        if (result is null)
+            context.State.RaceReplayFlowCompleted = true;
+
         if (result is null
             && string.Equals(
                 context.State.ObservedGoalKind,
