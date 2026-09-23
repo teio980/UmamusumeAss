@@ -861,6 +861,52 @@ public sealed class HachimiJsonPipelineRunner
                         $"JSON task '{taskName}' requires transitionTemplates.");
                 }
 
+                if (task.RepeatTapUntilTransition)
+                {
+                    var maxAttempts = Math.Clamp(task.MaxClickAttempts, 1, 100);
+                    (string TemplatePath, TemplateMatchResult Match)? confirmedTransition = null;
+                    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+                    {
+                        // A previous tap may have started a slow transition.
+                        // Check before sending another tap to the new screen.
+                        if (attempt > 1)
+                        {
+                            confirmedTransition = await WaitForAnyTransitionTemplateAsync(
+                                    connection, definition, task, taskName, cancellationToken)
+                                .ConfigureAwait(false);
+                            if (confirmedTransition is not null)
+                                break;
+                        }
+
+                        await _visualRuntime.TapMatchAsync(
+                                connection, match, taskName, cancellationToken)
+                            .ConfigureAwait(false);
+                        AddTaskLog(logSink, taskName,
+                            $"Sent tap to '{taskName}' at ({match.CenterX},{match.CenterY}) "
+                            + $"(attempt {attempt}/{maxAttempts}); waiting for the next screen.",
+                            LogEntryKind.Info);
+
+                        confirmedTransition = await WaitForAnyTransitionTemplateAsync(
+                                connection, definition, task, taskName, cancellationToken)
+                            .ConfigureAwait(false);
+                        if (confirmedTransition is not null)
+                            break;
+                    }
+
+                    if (confirmedTransition is null)
+                    {
+                        return TaskExecutionResult.Failed(
+                            $"Task '{taskName}' did not reach the next screen after "
+                            + $"{maxAttempts} tap attempt(s).");
+                    }
+
+                    AddTaskLog(logSink, taskName,
+                        $"Transition verified with '{confirmedTransition.Value.TemplatePath}' "
+                        + $"(score {confirmedTransition.Value.Match.Score:0.000}).",
+                        LogEntryKind.Success);
+                    break;
+                }
+
                 if (task.ClickUntilGone)
                 {
                     var goneResult = await ClickUntilTemplateGoneAsync(

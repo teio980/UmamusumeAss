@@ -9,6 +9,36 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class RacePlaybackExecutionTests
 {
     [Fact]
+    public async Task Flashing_view_results_prompt_retries_until_result_page_is_verified()
+    {
+        var root = FindSolutionRoot();
+        var definition = await LoadDefinitionAsync(root);
+        Assert.NotNull(definition);
+        definition!.GetTask("race_runner_view_results_tap").TimeoutMilliseconds = 500;
+
+        var tapPrompt = ComposeFrame(root, "tap_prompt",
+            new Overlay("templates/career/race/race_view_results_tap.png", 400, 1200));
+        var replay = ComposeFrame(root, "replay",
+            new Overlay("templates/career/race/race_result_next.png", 240, 1380));
+        var lastNext = ComposeFrame(root, "last_next",
+            new Overlay("templates/career/race/race_last_next.png", 450, 1400));
+        var visual = new RacePlaybackVisualRuntime(
+            root, tapPrompt, tapPrompt, tapPrompt, replay, lastNext,
+            [], ignoreFirstPlaybackStartTap: false,
+            cancelSourceOnFirstCapture: null,
+            ignoreFirstViewResultsTap: true);
+
+        var result = await CreateRunner(visual).RunAsync(
+            CreateConnection(), definition!, "race_runner_view_results_tap");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(2, visual.ClickedTaskNames.Count(name =>
+            name == "race_runner_view_results_tap"));
+        Assert.Equal("race_runner_result_next", visual.ClickedTaskNames[^2]);
+        Assert.Equal("race_runner_last_next", visual.ClickedTaskNames[^1]);
+    }
+
+    [Fact]
     public async Task Playback_waits_through_loading_retries_central_race_then_skips_replays_and_finishes()
     {
         var root = FindSolutionRoot();
@@ -379,9 +409,11 @@ public sealed class RacePlaybackExecutionTests
         private readonly GrayImage _confirmationFrame;
         private readonly GrayImage _lastNextFrame;
         private readonly bool _ignoreFirstPlaybackStartTap;
+        private readonly bool _ignoreFirstViewResultsTap;
         private readonly CancellationTokenSource? _cancelSourceOnFirstCapture;
         private GrayImage _currentFrame;
         private bool _ignoredFirstPlaybackStartTap;
+        private bool _ignoredFirstViewResultsTap;
         private bool _cancelledFirstCapture;
 
         public RacePlaybackVisualRuntime(
@@ -393,7 +425,8 @@ public sealed class RacePlaybackExecutionTests
             GrayImage lastNextFrame,
             IEnumerable<ScreenFrame> captures,
             bool ignoreFirstPlaybackStartTap,
-            CancellationTokenSource? cancelSourceOnFirstCapture)
+            CancellationTokenSource? cancelSourceOnFirstCapture,
+            bool ignoreFirstViewResultsTap = false)
         {
             _templateBaseDirectory = Path.Combine(
                 root,
@@ -408,6 +441,7 @@ public sealed class RacePlaybackExecutionTests
             _lastNextFrame = lastNextFrame;
             _captures = new Queue<ScreenFrame>(captures);
             _ignoreFirstPlaybackStartTap = ignoreFirstPlaybackStartTap;
+            _ignoreFirstViewResultsTap = ignoreFirstViewResultsTap;
             _cancelSourceOnFirstCapture = cancelSourceOnFirstCapture;
         }
 
@@ -641,6 +675,12 @@ public sealed class RacePlaybackExecutionTests
                     break;
                 case "race_runner_trophy_close":
                     _currentFrame = _replayFrame;
+                    break;
+                case "race_runner_view_results_tap":
+                    if (_ignoreFirstViewResultsTap && !_ignoredFirstViewResultsTap)
+                        _ignoredFirstViewResultsTap = true;
+                    else
+                        _currentFrame = _replayFrame;
                     break;
                 case "race_runner_result_next":
                     _currentFrame = _lastNextFrame;

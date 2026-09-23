@@ -156,20 +156,22 @@ public sealed class UraScenarioPackLoaderTests
             pack.ExecutionDefinition.Tasks["race_runner_entry_view_results_click"].Template);
         var viewResultsTap = pack.ExecutionDefinition.Tasks["race_runner_view_results_tap"];
         Assert.Equal("MatchTemplateColor", viewResultsTap.Algorithm);
-        Assert.Equal("ClickSelf", viewResultsTap.Action);
+        Assert.Equal("ClickSelfUntilTransition", viewResultsTap.Action);
         Assert.Equal(
             "templates/career/race/race_view_results_tap.png",
             viewResultsTap.Template);
-        Assert.True(viewResultsTap.ReuseLastMatchOnRetry);
+        Assert.True(viewResultsTap.RepeatTapUntilTransition);
+        Assert.Equal(4, viewResultsTap.MaxClickAttempts);
+        Assert.Equal(
+            ["templates/career/race/race_result_next.png"],
+            viewResultsTap.TransitionTemplates);
         Assert.Equal([300, 1200, 300, 250], viewResultsTap.Roi!);
         Assert.Equal(600_000, viewResultsTap.TimeoutMilliseconds);
         Assert.Equal(60, viewResultsTap.PollIntervalMilliseconds);
         Assert.Equal(
             ["race_runner_result_next"],
             viewResultsTap.Next);
-        Assert.Equal(
-            ["race_runner_view_results_tap"],
-            viewResultsTap.OnErrorNext);
+        Assert.Empty(viewResultsTap.OnErrorNext);
         Assert.Equal(
             "templates/career/race/race_playback_ok.png",
             pack.ExecutionDefinition.Tasks["race_runner_playback_ok"].Template);

@@ -4039,16 +4039,21 @@
                   },
                   "race_runner_view_results_tap": {
                     "algorithm": "MatchTemplateColor",
-                    "action": "ClickSelf",
+                    "action": "ClickSelfUntilTransition",
                     "template": "templates/career/race/race_view_results_tap.png",
-                    "reuseLastMatchOnRetry": true,
+                    "repeatTapUntilTransition": true,
+                    "maxClickAttempts": 4,
+                    "transitionTemplates": ["templates/career/race/race_result_next.png"],
+                    "transitionRoi": [240,1380,420,180],
+                    "transitionThreshold": 0.82,
+                    "transitionTimeoutMs": 2500,
+                    "transitionPollIntervalMs": 200,
                     "templThreshold": 0.72,
                     "roi": [300,1200,300,250],
                     "timeoutMs": 600000,
                     "pollIntervalMs": 60,
-                    "postDelay": 500,
-                    "next": ["race_runner_result_next"],
-                    "onErrorNext": ["race_runner_view_results_tap"]
+                    "postDelay": 0,
+                    "next": ["race_runner_result_next"]
                   },
                   "race_runner_entry_start": {
                     "algorithm": "MatchTemplate",

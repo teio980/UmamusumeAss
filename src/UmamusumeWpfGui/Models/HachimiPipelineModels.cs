@@ -120,6 +120,14 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("maxClickAttempts")]
     public int MaxClickAttempts { get; set; }
 
+    /// <summary>
+    /// For a flashing prompt, retry its last matched coordinates until a
+    /// transition template confirms the next screen. Unlike clickUntilGone,
+    /// a temporarily invisible prompt does not count as a transition.
+    /// </summary>
+    [JsonPropertyName("repeatTapUntilTransition")]
+    public bool RepeatTapUntilTransition { get; set; }
+
     [JsonPropertyName("goneConfirmationSamples")]
     public int GoneConfirmationSamples { get; set; } = 3;
 
