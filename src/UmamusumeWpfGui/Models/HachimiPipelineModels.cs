@@ -101,6 +101,13 @@ public sealed class HachimiPipelineTask
     public int[]? FallbackRoi { get; set; }
 
     /// <summary>
+    /// Reference-space offset from a matched fallback logo to the center of
+    /// its selectable button.
+    /// </summary>
+    [JsonPropertyName("fallbackClickOffset")]
+    public int[]? FallbackClickOffset { get; set; }
+
+    /// <summary>
     /// When true, a transition-aware click action keeps tapping the current
     /// template and re-checking it until the template disappears.  This is
     /// used for buttons such as Race! that may require more than one tap.
@@ -139,8 +146,22 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("transitionTemplates")]
     public List<string> TransitionTemplates { get; set; } = [];
 
+    /// <summary>
+    /// Probe all transition templates on each captured frame so a brief
+    /// result screen cannot disappear while waiting on another template.
+    /// </summary>
+    [JsonPropertyName("pollTransitionTemplatesTogether")]
+    public bool PollTransitionTemplatesTogether { get; set; }
+
     [JsonPropertyName("transitionRoi")]
     public int[]? TransitionRoi { get; set; }
+
+    /// <summary>
+    /// Optional per-template search regions, aligned with transitionTemplates.
+    /// A null entry uses transitionRoi.
+    /// </summary>
+    [JsonPropertyName("transitionRois")]
+    public List<int[]?> TransitionRois { get; set; } = [];
 
     [JsonPropertyName("transitionThreshold")]
     public double TransitionThreshold { get; set; } = 0.78;

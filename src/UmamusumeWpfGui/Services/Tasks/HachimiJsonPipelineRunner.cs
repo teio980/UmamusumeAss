@@ -950,16 +950,14 @@ public sealed class HachimiJsonPipelineRunner
                     break;
                 }
 
-                await _visualRuntime.TapMatchAsync(
-                        connection,
-                        match,
-                        taskName,
-                        cancellationToken)
+                var firstClick = await TapMatchWithOffsetAsync(
+                        connection, definition, match, task.ClickOffset,
+                        taskName, cancellationToken)
                     .ConfigureAwait(false);
                 AddTaskLog(
                     logSink,
                     taskName,
-                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}) for the first attempt.",
+                    $"Clicked '{taskName}' at ({firstClick.X},{firstClick.Y}) for the first attempt.",
                     LogEntryKind.Success);
 
                 var transition = await WaitForAnyTransitionTemplateAsync(
@@ -967,7 +965,8 @@ public sealed class HachimiJsonPipelineRunner
                         definition,
                         task,
                         taskName,
-                        cancellationToken)
+                        cancellationToken,
+                        task.FallbackRoi is { Length: >= 4 } ? 1_000 : null)
                     .ConfigureAwait(false);
                 if (transition is null)
                 {
@@ -1004,17 +1003,16 @@ public sealed class HachimiJsonPipelineRunner
                             + "but its second-click state was not detected.");
                     }
 
-                    await _visualRuntime.TapMatchAsync(
-                            connection,
-                            fallbackMatch,
-                            taskName,
+                    var secondClick = await TapMatchWithOffsetAsync(
+                            connection, definition, fallbackMatch,
+                            task.FallbackClickOffset, taskName,
                             cancellationToken)
                         .ConfigureAwait(false);
                     AddTaskLog(
                         logSink,
                         taskName,
                         $"The first click did not enter the next screen; clicked the verified fallback state "
-                        + $"at ({fallbackMatch.CenterX},{fallbackMatch.CenterY}) for the second attempt.",
+                        + $"at ({secondClick.X},{secondClick.Y}) for the second attempt.",
                         LogEntryKind.Info);
 
                     transition = await WaitForAnyTransitionTemplateAsync(
@@ -2013,35 +2011,108 @@ public sealed class HachimiJsonPipelineRunner
             HachimiPipelineDefinition definition,
             HachimiPipelineTask task,
             string taskName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            int? timeoutOverrideMilliseconds = null)
     {
         var timeoutMilliseconds = Math.Clamp(
-            task.TransitionTimeoutMilliseconds,
+            timeoutOverrideMilliseconds ?? task.TransitionTimeoutMilliseconds,
             250,
             10 * 60 * 1000);
         var pollInterval = Math.Max(50, task.TransitionPollIntervalMilliseconds);
 
-        foreach (var templatePath in task.TransitionTemplates.Where(
-                     path => !string.IsNullOrWhiteSpace(path)))
+        if (!task.PollTransitionTemplatesTogether)
         {
-            var match = await _visualRuntime.WaitForMatchAsync(
-                    connection,
-                    templatePath,
-                    task.TransitionRoi,
-                    task.TransitionThreshold,
-                    definition.ReferenceWidth,
-                    definition.ReferenceHeight,
-                    timeoutMilliseconds,
-                    pollInterval,
-                    taskName,
-                    definition.BaseDirectory,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (match?.Found == true)
-                return (templatePath, match);
+            foreach (var path in task.TransitionTemplates.Where(
+                         path => !string.IsNullOrWhiteSpace(path)))
+            {
+                var match = await _visualRuntime.WaitForMatchAsync(
+                        connection, path, task.TransitionRoi,
+                        task.TransitionThreshold,
+                        definition.ReferenceWidth, definition.ReferenceHeight,
+                        timeoutMilliseconds, pollInterval, taskName,
+                        definition.BaseDirectory, cancellationToken)
+                    .ConfigureAwait(false);
+                if (match?.Found == true)
+                    return (path, match);
+            }
+
+            return null;
         }
 
-        return null;
+        var templates = new List<(string Path, GrayImage Image, int[]? Roi)>();
+        for (var templateIndex = 0;
+             templateIndex < task.TransitionTemplates.Count;
+             templateIndex++)
+        {
+            var path = task.TransitionTemplates[templateIndex];
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+            var image = await _visualRuntime.LoadTemplateAsync(
+                    path, definition.BaseDirectory, cancellationToken)
+                .ConfigureAwait(false);
+            if (image is null)
+                throw new InvalidOperationException(
+                    $"Transition template '{path}' for '{taskName}' could not be loaded.");
+            var roi = templateIndex < task.TransitionRois.Count
+                ? task.TransitionRois[templateIndex] ?? task.TransitionRoi
+                : task.TransitionRoi;
+            templates.Add((path, image, roi));
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var screen = await _visualRuntime.CaptureGrayAsync(
+                    connection, cancellationToken)
+                .ConfigureAwait(false);
+            if (screen is not null)
+            {
+                foreach (var (path, image, roi) in templates)
+                {
+                    var match = TemplateMatcher.Find(
+                        screen, image, roi,
+                        task.TransitionThreshold,
+                        definition.ReferenceWidth,
+                        definition.ReferenceHeight);
+                    if (match.Found)
+                        return (path, match);
+                }
+            }
+
+            if (Stopwatch.GetElapsedTime(started).TotalMilliseconds >= timeoutMilliseconds)
+                return null;
+
+            await _visualRuntime.DelayAsync(pollInterval, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task<(int X, int Y)> TapMatchWithOffsetAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        TemplateMatchResult match,
+        int[]? offset,
+        string taskName,
+        CancellationToken cancellationToken)
+    {
+        var x = match.CenterX;
+        var y = match.CenterY;
+        if (offset is { Length: >= 2 })
+        {
+            x += (int)Math.Round(offset[0] * connection.Width
+                / (double)definition.ReferenceWidth);
+            y += (int)Math.Round(offset[1] * connection.Height
+                / (double)definition.ReferenceHeight);
+        }
+
+        await _visualRuntime.TapMatchAsync(
+                connection,
+                match with { X = x - match.Width / 2, Y = y - match.Height / 2 },
+                taskName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (x, y);
     }
 
     private async Task<TemplateMatchResult?> WaitForTemplateAttemptAsync(
