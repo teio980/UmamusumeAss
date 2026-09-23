@@ -843,9 +843,10 @@
                                             "template":  "templates/runtime_frames/ura_final_race_day.png",
                                             "templates":  [
                                                               "templates/runtime_frames/ura_prelim_race_day.png",
-                                                              "templates/runtime_frames/senior_arima_race_day.png",
-                                                              "templates/runtime_frames/senior_kawasaki_race_day.png"
+                                                              "templates/runtime_frames/year2_nhk_race_day.png",
+                                                              "templates/runtime_frames/classic_milech_race_day_final.png"
                                                           ],
+                                            "roi":  [545,1230,190,55],
                                             "requiredText":  [
                                                                  "Race Day"
                                                              ],
@@ -1042,12 +1043,14 @@
                     {
                         "screenId":  "race_details",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/ura_prelim_confirm.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/ura_semifinal_details.png",
-                                                              "templates/runtime_frames/ura_final_details.png",
-                                                              "templates/runtime_frames/senior_arima_confirm_dialog.png"
-                                                          ],
+                                            "template":  "templates/race_details_race_confirm.png",
+                                            "roi":  [
+                                                        470,
+                                                        1090,
+                                                        360,
+                                                        130
+                                                    ],
+                                            "templThreshold":  0.78,
                                             "requiredText":  [
                                                                  "Race Details",
                                                                  "Enter race?"
@@ -1290,7 +1293,8 @@
                                             "template":  "templates/runtime_frames/ura_finale_goal_update.png",
                                             "templates":  [
                                                               "templates/runtime_frames/senior_goal_update.png",
-                                                              "templates/runtime_frames/year2_goal_update.png"
+                                                              "templates/runtime_frames/year2_goal_update.png",
+                                                              "templates/runtime_frames/career_goal_update_2of8_nhk_mile.png"
                                                           ],
                                             "requiredText":  [
                                                                  "Next"
@@ -1301,6 +1305,26 @@
                                         {
                                             "semanticId":  "goal.update_next",
                                             "task":  "goal_update_goal_update_next"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "goal_objective_complete",
+                        "recognition":  {
+                                            "template":  "templates/goal_complete_header.png",
+                                            "roi":  [
+                                                        288,
+                                                        315,
+                                                        333,
+                                                        114
+                                                    ],
+                                            "templThreshold":  0.78,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "goal.next",
+                                            "task":  "goal_complete_goal_next"
                                         }
                                     ]
                     },
@@ -1533,8 +1557,13 @@
                         },
                         {
                             "from":  "reward",
-                            "to":  "goal_complete",
+                            "to":  "goal_objective_complete",
                             "on":  "reward.next"
+                        },
+                        {
+                            "from":  "goal_objective_complete",
+                            "to":  "goal_update",
+                            "on":  "goal.next"
                         },
                         {
                             "from":  "goal_complete",

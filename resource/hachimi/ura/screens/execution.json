@@ -1834,42 +1834,11 @@
                                                    "retryDelayMs":  750,
                                                    "pollIntervalMs":  250,
                                                    "next":  [
-                                                               "career_main_action_races_close_schedule"
+                                                               "career_main_action_races_done"
                                                            ],
                                                    "onErrorNext":  [
                                                                "career_main_action_recover"
                                                            ],
-                                                   "exceededNext":  [],
-                                                   "sub":  [],
-                                                   "monitorTasks":  [],
-                                                   "maxTimes":  0,
-                                                   "required":  true,
-                                                   "success":  false
-                                               },
-                  "career_main_action_races_close_schedule":  {
-                                                   "algorithm":  "OcrText",
-                                                   "action":  "ClickText",
-                                                   "targetText":  "Close",
-                                                   "ocrLanguage":  "en-US",
-                                                   "fuzzyThreshold":  0.80,
-                                                   "unique":  true,
-                                                   "roi":  [
-                                                               200,
-                                                               1300,
-                                                               500,
-                                                               240
-                                                           ],
-                                                   "preDelay":  0,
-                                                   "postDelay":  650,
-                                                   "waitMs":  0,
-                                                   "timeoutMs":  10000,
-                                                   "retryTimes":  2,
-                                                   "retryDelayMs":  750,
-                                                   "pollIntervalMs":  250,
-                                                   "next":  [],
-                                                   "onErrorNext":  [
-                                                                    "career_main_action_races_done"
-                                                                ],
                                                    "exceededNext":  [],
                                                    "sub":  [],
                                                    "monitorTasks":  [],
@@ -2428,15 +2397,15 @@
                                                     "success":  true
                                                 },
                   "race_day_race_open_list":  {
-                                                  "algorithm":  "MatchTemplate",
+                                                  "algorithm":  "MatchTemplateColor",
                                                   "action":  "ClickSelf",
-                                                  "template":  "templates/race_day_race_open_list.png",
+                                                  "template":  "templates/runtime_frames/race_day_race_button_text.png",
                                                   "templThreshold":  0.78,
                                                   "roi":  [
-                                                              470,
-                                                              1230,
-                                                              360,
-                                                              220
+                                                              550,
+                                                              1340,
+                                                              190,
+                                                              105
                                                           ],
                                                   "preDelay":  0,
                                                   "postDelay":  650,
