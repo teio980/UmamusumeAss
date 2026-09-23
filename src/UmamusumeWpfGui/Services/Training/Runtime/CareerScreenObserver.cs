@@ -102,11 +102,13 @@ public sealed class CareerScreenObserver
             return null;
 
         CareerObservation? best = null;
+        var bestPriority = int.MaxValue;
         foreach (var frame in frames)
         {
             CareerObservation? frameBest = null;
             foreach (var screen in candidates)
             {
+                CareerObservation? screenBest = null;
                 foreach (var template in screen.Templates)
                 {
                     var path = ResolveCapture(pack, template);
@@ -123,7 +125,7 @@ public sealed class CareerScreenObserver
                         pack.ScreenProfile.ReferenceWidth,
                         pack.ScreenProfile.ReferenceHeight);
                     if (match.Found
-                        && (frameBest is null || match.Score > frameBest.Score))
+                        && (screenBest is null || match.Score > screenBest.Score))
                     {
                         var energyDefinition = screen.Observations.EnergyBar;
                         var energy = energyDefinition is not null
@@ -143,28 +145,47 @@ public sealed class CareerScreenObserver
                             energy = null;
                         }
 
-                        frameBest = new CareerObservation(
+                        screenBest = new CareerObservation(
                             screen.ScreenId,
                             match.Score,
                             energy?.Percent,
                             energy?.Confidence ?? 0);
                     }
 
-                    if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                    if (screenBest is { Score: >= EarlyRecognitionThreshold })
                         break;
                 }
 
-                if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                // Screens are ordered from specific dialogs/events to the
+                // underlying Career page. A dialog can retain the generic
+                // "Career" header, so even a perfect career_main header match
+                // must not hide a recognized event or rest result.
+                if (screenBest is not null)
+                {
+                    frameBest = screenBest;
                     break;
+                }
             }
 
-            if (frameBest is not null && (best is null || frameBest.Score > best.Score))
+            if (frameBest is null)
+                continue;
+
+            var framePriority = GetScreenRecognitionPriority(
+                frameBest.ScreenId,
+                careerStartTransitionExpected);
+            if (best is null
+                || framePriority < bestPriority
+                || (framePriority == bestPriority && frameBest.Score > best.Score))
+            {
                 best = frameBest;
+                bestPriority = framePriority;
+            }
         }
 
         if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
             var careerMain = pack.ScreenProfile.Find("career_main");
+            var turnsLeftRoi = careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi();
             var turnText = await ReadRegionTextAsync(
                     connection,
                     careerMain?.FindOcrRegion("scenario.phase")?.ToRoi(),
@@ -175,7 +196,7 @@ public sealed class CareerScreenObserver
                 .ConfigureAwait(false);
             var turnsLeftText = await ReadRegionTextAsync(
                     connection,
-                    careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi(),
+                    turnsLeftRoi,
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
                     "career_main.objective.turns_left",
@@ -189,11 +210,22 @@ public sealed class CareerScreenObserver
                     "career_main.objective.title",
                     cancellationToken)
                 .ConfigureAwait(false);
+            var turnsToGoal = CareerGoalTextParser.ParseTurnsLeft(turnsLeftText);
+            if (turnsToGoal is null)
+            {
+                turnsToGoal = await CareerCountdownOcrReader.TryReadAsync(
+                    frames,
+                    turnsLeftRoi,
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             best = best with
             {
                 TurnPositionText = turnText,
-                TurnsToGoal = CareerGoalTextParser.ParseTurnsLeft(turnsLeftText),
+                TurnsToGoal = turnsToGoal,
                 GoalText = goalText,
                 FansToGoal = CareerGoalTextParser.ParseFansToGo(goalText),
             };
@@ -259,31 +291,33 @@ public sealed class CareerScreenObserver
             "career_intro_event" when careerStartTransitionExpected => 0,
             "career_main" when careerStartTransitionExpected => 1,
             "career_races_ready" when careerStartTransitionExpected => 2,
-            "career_races_ready" => 0,
-            "career_main" => 1,
-            "training_result" => 2,
-            "training_event" => 3,
-            "event_choice" => 4,
-            "scenario_event" => 5,
+            "event_choice" => 0,
+            "training_event" => 1,
+            "scenario_event" => 2,
+            "rest_result" => 3,
+            "training_result" => 4,
+            "rest_confirmation" => 5,
             "training_selection" => 6,
-            "race_day" => 7,
-            "race_list" => 8,
+            "career_races_ready" => 7,
+            "career_main" => 8,
+            "race_day" => 9,
+            "race_list" => 10,
             // Trophy Won is an optional overlay over the runner page. It
             // must be recognized before runner so the hidden page cannot
             // receive a strategy click through the modal.
-            "race_trophy_won" => 9,
+            "race_trophy_won" => 11,
             // Race! is a resumable checkpoint and must win over the broader
             // runner/playback templates, both of which can still be visible
             // underneath the button page after a restart.
-            "race_playback_start" => 10,
+            "race_playback_start" => 12,
             // Replay is the end-of-race marker for the reusable normal-race
             // flow. It is separate from the legacy race_result screen.
-            "race_runner_result" => 11,
-            "race_runner" => 12,
-            "race_details" => 13,
-            "race_attributes" => 14,
-            "race_playback_settings" => 15,
-            "race_playback" => 16,
+            "race_runner_result" => 13,
+            "race_runner" => 14,
+            "race_details" => 15,
+            "race_attributes" => 16,
+            "race_playback_settings" => 17,
+            "race_playback" => 18,
             _ => 20,
         };
 
