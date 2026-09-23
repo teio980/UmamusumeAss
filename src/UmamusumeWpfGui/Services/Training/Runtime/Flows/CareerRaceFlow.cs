@@ -30,6 +30,16 @@ internal sealed class CareerRaceFlow
                     .ConfigureAwait(false);
             case "race_day":
                 context.State.HasPendingRace = true;
+                context.State.LastAction = UraPlannedAction.Race;
+                if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
+                {
+                    // A process restart rebuilds state from the visible page.
+                    // Race Day is the scheduled objective-race checkpoint,
+                    // so continue through Goal Entry if its Career Main goal
+                    // type was not observed in this run. Preserve Fans when
+                    // it was already established by the live turn flow.
+                    context.State.ObservedGoalKind = CareerGoalTextParser.Race;
+                }
                 return await _actions.RunAsync(
                         context,
                         "race_day",
@@ -107,15 +117,12 @@ internal sealed class CareerRaceFlow
                     .ConfigureAwait(false);
             case "race_runner_result":
                 context.State.HasPendingRace = true;
+                context.State.LastAction = UraPlannedAction.Race;
                 context.LogSink?.Add(
                     "Career Training",
-                    "Race Replay checkpoint recognized; continuing with Next and Last Next.",
+                    "Race Replay checkpoint recognized; continuing with Next and Final Next.",
                     LogEntryKind.Info);
-                return await _actions.RunAsync(
-                        context,
-                        "race_runner_result",
-                        "result.next")
-                    .ConfigureAwait(false);
+                return await HandleRaceRunnerResultAsync(context).ConfigureAwait(false);
             case "race_playback_settings":
                 return await _actions.RunAsync(
                         context,
@@ -129,10 +136,24 @@ internal sealed class CareerRaceFlow
                         "live_next")
                     .ConfigureAwait(false);
             case "goal_update":
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Next objective is displayed; continuing with Next.",
+                    LogEntryKind.Info);
                 return await _actions.RunAsync(
                         context,
                         "goal_update",
                         "update_next")
+                    .ConfigureAwait(false);
+            case "goal_objective_complete":
+                context.LogSink?.Add(
+                    "Career Training",
+                    "A single Career objective is complete; opening its objective summary.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "goal_objective_complete",
+                        "next")
                     .ConfigureAwait(false);
             case "race_result":
                 return await HandleRaceResultAsync(context).ConfigureAwait(false);
@@ -150,6 +171,10 @@ internal sealed class CareerRaceFlow
                     .ConfigureAwait(false);
             case "goal_complete":
                 context.State.HasPendingRace = true;
+                context.LogSink?.Add(
+                    "Career Training",
+                    "All normal objectives are complete; continuing to URA Finale.",
+                    LogEntryKind.Info);
                 return await _actions.RunAsync(
                         context,
                         "goal_complete",
@@ -171,6 +196,30 @@ internal sealed class CareerRaceFlow
                    CareerGoalTextParser.Fans,
                    StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(goalKind);
+    }
+
+    private async Task<CareerTrainingResult?> HandleRaceRunnerResultAsync(
+        CareerFlowContext context)
+    {
+        // The runner task performs Next and Final Next as one action. Only
+        // after it succeeds do we enable the goal probe, so any post-race
+        // event is handled first by the higher-priority event screens.
+        var result = await _actions.RunAsync(
+                context,
+                "race_runner_result",
+                "result.next")
+            .ConfigureAwait(false);
+        if (result is null
+            && string.Equals(
+                context.State.ObservedGoalKind,
+                CareerGoalTextParser.Race,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            context.State.GoalCompletionProbePending = false;
+            context.State.GoalCompletionProbeArmed = true;
+        }
+
+        return result;
     }
 
     private async Task<CareerTrainingResult?> HandleRaceResultAsync(
@@ -211,6 +260,11 @@ internal sealed class CareerRaceFlow
                 ex.Message,
                 context.Observation.ScreenId);
         }
+
+        // The game can show the objective completion banner immediately
+        // after leaving the race result/reward pages. Arm only now, instead
+        // of matching the GOAL template throughout the race playback.
+        CareerTurnFlow.ArmPendingGoalProbe(context.State);
 
         return await _actions.RunAsync(
                 context,

@@ -51,6 +51,11 @@ internal sealed class CareerTurnFlow
                     context.State.PendingTrainingType = resumedTrainingType;
                 }
 
+                // The main-page action only opened the picker. Arm the
+                // one-shot GOAL probe now, when the actual training action is
+                // about to be selected.
+                ArmPendingGoalProbe(context.State);
+
                 if (!UraTrainingTypeCatalog.TryGetSemanticAction(
                         resumedTrainingType,
                         out var trainingAction,
@@ -82,6 +87,7 @@ internal sealed class CareerTurnFlow
             case "rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
                 context.State.AwaitingRestReturn = true;
+                ArmPendingGoalProbe(context.State);
                 return await _actions.RunAsync(
                         context,
                         "rest_confirmation",
@@ -121,24 +127,34 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        // The race-result flow has completed. Wait here while post-race event
+        // and Goal Achieved pages settle instead of starting another turn or
+        // entering the same race again.
+        if (context.State.GoalCompletionProbeArmed
+            && context.State.LastAction == UraPlannedAction.Race)
+        {
+            return null;
+        }
+
         if (string.Equals(
                 context.State.ObservedGoalKind,
                 CareerGoalTextParser.Race,
                 StringComparison.OrdinalIgnoreCase))
         {
-            if (context.State.TurnsToGoal is null)
+            if (context.State.TurnsToGoal is null
+                && !context.State.HasPendingRace)
             {
                 return CareerRuntimeResults.Failure(
                     "A race goal is visible, but its remaining-turn countdown could not be read; "
-                    + "automation paused safely before the race flow is implemented.",
+                    + "automation paused safely before choosing an action.",
                     "career_main");
             }
 
-            if (context.State.TurnsToGoal <= 0)
+            if (context.State.TurnsToGoal <= 0
+                && !context.State.HasPendingRace)
             {
                 return CareerRuntimeResults.Failure(
-                    $"Race goal reached: '{context.State.ObservedGoalText}'. "
-                    + "The race flow is not implemented yet; automation paused safely.",
+                    $"Race goal reached: '{context.State.ObservedGoalText}', but no required race is available.",
                     "career_main");
             }
         }
@@ -203,6 +219,9 @@ internal sealed class CareerTurnFlow
 
         context.State.PendingTrainingType = trainingType;
         context.State.LastAction = decision.Action;
+        context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
+            context.State);
+        context.State.GoalCompletionProbeArmed = false;
         if (decision.Action == UraPlannedAction.Rest)
         {
             context.State.RestStartedTurnIndex = context.State.TurnIndex;
@@ -213,5 +232,34 @@ internal sealed class CareerTurnFlow
                 "career_main",
                 actionId)
             .ConfigureAwait(false);
+    }
+
+    private static bool ShouldProbeGoalAfterAction(UraCareerSessionState state)
+    {
+        // Race goals are checked after the race flow, not after the final
+        // training/rest action that leads into Race Day.
+        if (string.Equals(
+                state.ObservedGoalKind,
+                CareerGoalTextParser.Race,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return state.TurnsToGoal is <= 1
+            || (string.Equals(
+                    state.ObservedGoalKind,
+                    CareerGoalTextParser.Fans,
+                    StringComparison.OrdinalIgnoreCase)
+                && state.FansToGoal is <= 0);
+    }
+
+    internal static void ArmPendingGoalProbe(UraCareerSessionState state)
+    {
+        if (!state.GoalCompletionProbePending)
+            return;
+
+        state.GoalCompletionProbePending = false;
+        state.GoalCompletionProbeArmed = true;
     }
 }

@@ -90,6 +90,13 @@ public sealed class UraCareerSessionState
     public bool AwaitingRestReturn { get; set; }
     public int RestStartedTurnIndex { get; set; }
     public int? RestStartedEnergyPercent { get; set; }
+    // Goal-complete templates are probed only during the short window after
+    // an eligible action. Pending is set from the visible turn/fan objective;
+    // Armed begins when the selected action is actually performed.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool GoalCompletionProbePending { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool GoalCompletionProbeArmed { get; set; }
     public string? PendingTrainingType { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);

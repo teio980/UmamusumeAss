@@ -41,6 +41,7 @@ internal static class CareerScreenClassification
             or "race_result"
             or "reward"
             or "reward_support"
+            or "goal_objective_complete"
             or "goal_update"
             or "goal_complete"
             => CareerScreenKind.Race,

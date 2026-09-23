@@ -50,6 +50,11 @@ public sealed class CareerScreenObserver
             // template and can otherwise collide with the Rest confirmation
             // dialog after clicking Rest.
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state))
+            // These templates are relatively expensive and only matter right
+            // after the last action before a goal. Keep them out of ordinary
+            // turn observations; the two Next pages are enabled only as part
+            // of the already-recognized goal sequence.
+            .Where(screen => IsGoalFlowScreenEligible(screen.ScreenId, state))
             .Where(screen => careerOnly
                 || state.CareerStarted
                 || state.TurnIndex > 0
@@ -58,7 +63,10 @@ public sealed class CareerScreenObserver
                     or "career_races_ready"
                     or "training_selection"
                     or "training_result"
-                    or "training_event")
+                    or "training_event"
+                    or "goal_objective_complete"
+                    or "goal_update"
+                    or "goal_complete")
             .Where(screen => !careerStartTransitionExpected
                 || screen.ScreenId is "career_intro_event"
                     or "career_main"
@@ -104,6 +112,7 @@ public sealed class CareerScreenObserver
         CareerObservation? best = null;
         var bestPriority = int.MaxValue;
         var mainFrameCount = 0;
+        var frameObservations = new List<CareerObservation?>(capacity: frames.Count);
         foreach (var frame in frames)
         {
             CareerObservation? frameBest = null;
@@ -178,6 +187,7 @@ public sealed class CareerScreenObserver
                 }
             }
 
+            frameObservations.Add(frameBest);
             if (frameBest is null)
                 continue;
 
@@ -195,6 +205,24 @@ public sealed class CareerScreenObserver
             {
                 best = frameBest;
                 bestPriority = framePriority;
+            }
+        }
+
+        // A screen marked stable must be the winning recognition in every
+        // captured sample. In particular, transient race-result frames during
+        // FinalNext navigation must not re-enter the completed result flow.
+        if (best is not null
+            && pack.ScreenProfile.Find(best.ScreenId)?.Recognition.Stable == true)
+        {
+            var stableScreenId = best.ScreenId;
+            if (frameObservations.Count != frames.Count
+                || frameObservations.Any(observation =>
+                    !string.Equals(
+                        observation?.ScreenId,
+                        stableScreenId,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                return null;
             }
         }
 
@@ -345,13 +373,23 @@ public sealed class CareerScreenObserver
             "event_choice" => 0,
             "training_event" => 1,
             "scenario_event" => 2,
+            "goal_objective_complete" => 3,
+            "goal_update" => 3,
+            "goal_complete" => 2,
             "training_result" => 4,
             "rest_confirmation" => 5,
             "training_selection" => 6,
             "career_races_ready" => 7,
-            "career_main" => 8,
-            "race_day" => 9,
-            "race_list" => 10,
+            // Race Day is an overlay on Career Main. Prefer its tight banner
+            // template so a restart resumes at the race entry instead of
+            // issuing another turn action on the page underneath.
+            "race_day" => 8,
+            "career_main" => 9,
+            // The Race Details dialog overlays Race List, whose header can
+            // remain visible underneath it. Prefer the dialog so its Race
+            // confirmation button is handled instead of selecting again.
+            "race_details" => 10,
+            "race_list" => 11,
             // Trophy Won is an optional overlay over the runner page. It
             // must be recognized before runner so the hidden page cannot
             // receive a strategy click through the modal.
@@ -364,12 +402,35 @@ public sealed class CareerScreenObserver
             // flow. It is separate from the legacy race_result screen.
             "race_runner_result" => 13,
             "race_runner" => 14,
-            "race_details" => 15,
             "race_attributes" => 16,
             "race_playback_settings" => 17,
             "race_playback" => 18,
             _ => 20,
         };
+
+    private static bool IsGoalFlowScreenEligible(
+        string screenId,
+        UraCareerSessionState state)
+    {
+        if (!state.CareerStarted)
+            return true;
+
+        return screenId switch
+        {
+            "goal_objective_complete" => state.GoalCompletionProbeArmed,
+            "goal_update" => state.LastScreenId.Equals(
+                "goal_objective_complete",
+                StringComparison.OrdinalIgnoreCase),
+            "goal_complete" => state.GoalCompletionProbeArmed
+                || state.LastScreenId.Equals(
+                    "goal_objective_complete",
+                    StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals(
+                    "goal_update",
+                    StringComparison.OrdinalIgnoreCase),
+            _ => true,
+        };
+    }
 
     private Task<GrayImage?> LoadTemplateCachedAsync(
         string path,

@@ -106,6 +106,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "race_playback"
             or "race_playback_settings"
             or "race_live"
+            or "goal_objective_complete"
             or "goal_update"
             or "race_result"
             or "reward"

@@ -240,6 +240,14 @@ public sealed class UraScenarioModule
         state.LastScreenId = screenId;
         if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
         {
+            // Preserve a race-armed probe across the interim main page so
+            // post-race events and the Goal Achieved page can run in order.
+            if (state.LastAction != UraPlannedAction.Race
+                || !state.GoalCompletionProbeArmed)
+            {
+                state.GoalCompletionProbePending = false;
+                state.GoalCompletionProbeArmed = false;
+            }
             state.CareerStarted = true;
             state.Energy = energyPercent is int observedEnergy
                 ? UraObservedValueFactory.FromObservation(
@@ -304,12 +312,31 @@ public sealed class UraScenarioModule
 
         if (string.Equals(screenId, "goal_complete", StringComparison.OrdinalIgnoreCase))
         {
+            state.GoalCompletionProbePending = false;
+            state.GoalCompletionProbeArmed = false;
+            // goal_complete is reserved for the final "All goals achieved!"
+            // page. A per-objective GOAL COMPLETE banner is observed as
+            // goal_objective_complete and must not start URA Finale.
             state.PhaseId = "finale_underway";
             state.FinaleStageIndex = Math.Max(0, state.FinaleStageIndex);
             state.CurrentObjectiveId = _pack.Definition.FinalSeries.Stages[
                 Math.Clamp(state.FinaleStageIndex, 0, _pack.Definition.FinalSeries.Stages.Count - 1)];
             state.CurrentRaceId = CurrentRace(state)?.RaceId;
             state.HasPendingRace = true;
+        }
+
+        if (string.Equals(
+                screenId,
+                "goal_objective_complete",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            // Consume the expensive banner probe as soon as it matches. The
+            // following summary/final pages are admitted by LastScreenId.
+            state.GoalCompletionProbePending = false;
+            state.GoalCompletionProbeArmed = false;
+            // The visible Goal Achieved banner confirms the pending race goal;
+            // no placement value is needed to release its race checkpoint.
+            state.HasPendingRace = false;
         }
 
         if (string.Equals(screenId, "training_result", StringComparison.OrdinalIgnoreCase))
@@ -402,6 +429,10 @@ public sealed class UraScenarioModule
         UraCareerSessionState state,
         UraObjectiveDefinition objective)
     {
+        // The objective model has confirmed completion, so allow the visual
+        // GOAL banner to be recognized after the result flow advances.
+        state.GoalCompletionProbePending = false;
+        state.GoalCompletionProbeArmed = true;
         state.HasPendingRace = false;
         if (!state.CompletedObjectiveIds.Contains(objective.ObjectiveId, StringComparer.OrdinalIgnoreCase))
             state.CompletedObjectiveIds.Add(objective.ObjectiveId);
