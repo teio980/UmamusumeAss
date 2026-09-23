@@ -70,7 +70,6 @@ internal sealed class CareerTurnFlow
                     context.State.PendingTrainingType = trainingType;
                 return trainingResult;
             case "training_result":
-            case "rest_result":
                 return await _actions.RunAsync(
                         context,
                         context.Observation.ScreenId,
@@ -82,6 +81,7 @@ internal sealed class CareerTurnFlow
                 return await HandleObservedEventAsync(context).ConfigureAwait(false);
             case "rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
+                context.State.AwaitingRestReturn = true;
                 return await _actions.RunAsync(
                         context,
                         "rest_confirmation",
@@ -203,6 +203,11 @@ internal sealed class CareerTurnFlow
 
         context.State.PendingTrainingType = trainingType;
         context.State.LastAction = decision.Action;
+        if (decision.Action == UraPlannedAction.Rest)
+        {
+            context.State.RestStartedTurnIndex = context.State.TurnIndex;
+            context.State.RestStartedEnergyPercent = energyPercent;
+        }
         return await _actions.RunAsync(
                 context,
                 "career_main",

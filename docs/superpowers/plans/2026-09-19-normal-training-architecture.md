@@ -381,7 +381,7 @@ normal.quick_mode.confirm
    → 其他情况：选择 Speed 训练
 
 5. 执行领域动作
-   → 休息：rest_confirmation → rest_result
+   → 休息：rest_confirmation → 等待稳定的 career_main
    → 训练：training_selection → training_result
    → 事件：event_choice 或 scenario_event
 
@@ -418,11 +418,12 @@ career_main
 → strategy 判断 Energy < 50%
 → rest_confirmation
 → confirm
-→ rest_result
-→ 更新 Energy
-→ advance
-→ career_main
+→ 等待休息动画和短暂结果画面结束
+→ 连续画面均识别到 career_main（左上 Career 和下方 Training）
+→ 从新画面重新读取 Energy 和 TurnIndex；确认回合已前进且体力已恢复
 ```
+
+休息中间的恢复提示只持续短暂时间，不作为必须识别或点击的页面。暂时没有识别到受支持页面时，运行引擎在安全重试窗口内继续观察；重新看到连续稳定的 `career_main`，并确认回合已前进、体力已恢复后，才选择下一回合动作。仍是旧回合或旧体力时继续等待，超过重试上限则安全暂停。若出现稳定的事件页面，则按事件流程处理。
 
 ### 8.4 事件流程
 
@@ -529,6 +530,7 @@ complete_career
 - 使用 fake runtime 跑通 `career_main → training_selection → training_result → career_main`。
 - `career_main` 稳定彩色帧能够测量 Energy 条填充比例；低于 50% 记录为可观测体力并选择休息。
 - Energy 条无法确认时安全暂停；正好 50% 不触发休息。
+- 休息后即使没有捕获短暂的恢复提示，也能等待连续两帧确认 `career_main`；旧回合或旧体力不得触发第二次休息，新回合与恢复后的体力均确认后继续。
 - 覆盖目标赛、事件、低体力休息、默认 Speed 和完整结算路径。
 - 动作成功并确认新页面后才推进回合或目标。
 - 未知页面和未知比赛结果不会错误推进状态。

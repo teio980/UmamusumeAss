@@ -353,6 +353,31 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     actionCount);
             }
 
+            if (state.AwaitingRestReturn
+                && observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
+                && !CareerRestReturnGate.HasReachedNextTurn(state, observation))
+            {
+                if (setupObservationRetryCount < StableScreenRecognitionRetryLimit)
+                {
+                    if (setupObservationRetryCount == 0)
+                    {
+                        logSink?.Add(
+                            "Career Training",
+                            "Rest is still settling; waiting for the next turn and refreshed energy before choosing another action.");
+                    }
+                    setupObservationRetryCount++;
+                    await _visualRuntime.DelayAsync(250, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                return Failure(
+                    "Rest did not reach a confirmed new Career turn with refreshed energy; "
+                    + "automation paused safely.",
+                    observation.ScreenId,
+                    actionCount);
+            }
+
             setupObservationRetryCount = 0;
             if (observation.Kind is CareerScreenKind.Unknown)
             {

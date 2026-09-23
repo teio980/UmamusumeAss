@@ -350,7 +350,6 @@ internal static class HachimiTaskLogSemantics
                 "Choosing the first green event option",
                 "First green event option selected"),
             "rest_confirmation_rest_confirm" => Step("Confirming rest", "Rest confirmed"),
-            "rest_result_event_advance" => Step("Continuing after rest", "Rest result continued"),
             "race_list_race_goal_entry" or "race_day_race_open_list" => Step(
                 "Opening the goal race",
                 "Goal race opened"),

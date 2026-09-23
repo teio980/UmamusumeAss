@@ -85,6 +85,11 @@ public sealed class UraCareerSessionState
     public NormalCareerSetupStage NormalSetupStage { get; set; } =
         NormalCareerSetupStage.EnterCareer;
     public UraPlannedAction LastAction { get; set; }
+    // A rest is complete only after the main page shows the next turn and
+    // its newly measured energy. This guard exists only for the current run.
+    public bool AwaitingRestReturn { get; set; }
+    public int RestStartedTurnIndex { get; set; }
+    public int? RestStartedEnergyPercent { get; set; }
     public string? PendingTrainingType { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);

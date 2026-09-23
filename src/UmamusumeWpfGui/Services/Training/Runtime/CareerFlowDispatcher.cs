@@ -88,7 +88,6 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "training_selection"
             or "training_result"
             or "training_event"
-            or "rest_result"
             or "event_choice"
             or "rest_confirmation"
             or "scenario_event"

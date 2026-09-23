@@ -61,11 +61,6 @@ public sealed class CareerEnergyBarReaderTests
             definition,
             900,
             1600);
-        var result = CareerEnergyBarReader.TryMeasure(
-            LoadPng(Path.Combine(root, "resource", "hachimi", "ura", "screens", "captures", "rest_result.png")),
-            definition,
-            900,
-            1600);
         var after = CareerEnergyBarReader.TryMeasure(
             LoadPng(Path.Combine(root, "resource", "hachimi", "ura", "screens", "captures", "career_main_after_rest.png")),
             definition,
@@ -73,10 +68,8 @@ public sealed class CareerEnergyBarReaderTests
             1600);
 
         Assert.NotNull(before);
-        Assert.NotNull(result);
         Assert.NotNull(after);
         Assert.True(before!.Percent < 50, $"before={before.Percent}%");
-        Assert.True(result!.Percent > 50, $"result={result.Percent}%");
         Assert.True(after!.Percent > 50, $"after={after.Percent}%");
     }
 

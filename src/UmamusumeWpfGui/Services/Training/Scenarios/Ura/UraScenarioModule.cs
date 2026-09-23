@@ -316,16 +316,6 @@ public sealed class UraScenarioModule
         {
             AdvanceTurnFromResult(state);
         }
-        else if (string.Equals(screenId, "rest_result", StringComparison.OrdinalIgnoreCase))
-        {
-            if (energyPercent is int observedEnergy)
-            {
-                state.Energy = UraObservedValueFactory.FromObservation(
-                    Math.Clamp(observedEnergy, 0, 100),
-                    energyConfidence);
-            }
-            AdvanceTurnFromResult(state);
-        }
     }
 
     public void ApplyRaceResult(
