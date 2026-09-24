@@ -34,55 +34,54 @@ internal sealed class CareerRaceRunnerCheckpointHandler
 
         context.State.HasPendingRace = true;
         context.State.LastScreenId = ScreenId;
+        if (context.State.RaceReplayFlowCompleted)
+            return null;
 
-        if (context.State.RaceStrategyConfigured)
+        if (!context.State.RaceStrategyConfigured)
         {
-            context.LogSink?.Add(
-                "Career Training",
-                "Race strategy is configured; preferring View Results when it is available.",
-                LogEntryKind.Info);
+            if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
+                    context.LineupStrategy,
+                    out var targetText))
+            {
+                return CareerRuntimeResults.Failure(
+                    $"Normal Career lineup strategy '{context.LineupStrategy}' is invalid.",
+                    ScreenId);
+            }
 
-            var entryResult = await _actions.RunAsync(
+            var strategyKey = context.LineupStrategy.Trim().ToLowerInvariant();
+            var strategyResult = await _actions.RunAsync(
                     context,
                     ScreenId,
-                    "entry.view_results")
+                    $"strategy.apply.{strategyKey}")
                 .ConfigureAwait(false);
-            if (entryResult is not null)
-                return entryResult;
+            if (strategyResult is not null)
+                return strategyResult;
 
+            context.State.RaceStrategyConfigured = true;
             context.LogSink?.Add(
                 "Career Training",
-                "The preferred View Results/Race entry and shared replay-result flow completed.",
+                $"Race runner page recognized; requested strategy '{targetText}' is configured.",
                 LogEntryKind.Info);
-            return null;
         }
 
-        if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
-                context.LineupStrategy,
-                out var targetText))
-        {
-            return CareerRuntimeResults.Failure(
-                $"Normal Career lineup strategy '{context.LineupStrategy}' is invalid.",
-                ScreenId);
-        }
-
-        var strategyKey = context.LineupStrategy.Trim().ToLowerInvariant();
-        var result = await _actions.RunAsync(
-                context,
-                ScreenId,
-                $"strategy.apply.{strategyKey}")
-            .ConfigureAwait(false);
-        if (result is not null)
-            return result;
-
-        context.State.RaceStrategyConfigured = true;
         context.LogSink?.Add(
             "Career Training",
-            $"Race runner page recognized; requested strategy '{targetText}' is configured.",
+            "Race strategy is configured; preferring View Results when it is available.",
             LogEntryKind.Info);
 
-        // Re-observe after the JSON task chain. The next visit to this same
-        // checkpoint pauses safely until the next reusable race step is added.
+        var entryResult = await _actions.RunAsync(
+                context,
+                ScreenId,
+                "entry.view_results")
+            .ConfigureAwait(false);
+        if (entryResult is not null)
+            return entryResult;
+
+        CareerRaceFlow.MarkReplayFlowCompleted(context.State);
+        context.LogSink?.Add(
+            "Career Training",
+            "The preferred View Results/Race entry and shared replay-result flow completed.",
+            LogEntryKind.Info);
         return null;
     }
 }

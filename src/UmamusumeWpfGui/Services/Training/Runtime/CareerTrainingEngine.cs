@@ -169,7 +169,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             pack,
             trainee,
             _umaDatabase.Races,
-            useTraineeObjectives: false);
+            useTraineeObjectives: false,
+            raceGradeSchedule: new CareerRaceGradeSchedule(IndependentTrainingCatalog.Load().Races));
         var strategy = UraStrategyRegistry.Create(settings.StrategyId);
         if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
                 settings.LineupStrategy,
@@ -398,6 +399,16 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 observation.TurnsToGoal,
                 observation.GoalText,
                 observation.FansToGoal);
+            if (observation.ScreenId == "career_main"
+                && !string.IsNullOrWhiteSpace(observation.GoalText)
+                && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
+            {
+                logSink?.Add(
+                    "Career Training",
+                    $"Grade race goal: grade={state.TargetRaceGrade}, turn={state.TurnIndex}, "
+                    + $"remaining={state.GradeRaceTimesLeft?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}, "
+                    + $"racePending={state.HasPendingRace}.");
+            }
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
             if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)

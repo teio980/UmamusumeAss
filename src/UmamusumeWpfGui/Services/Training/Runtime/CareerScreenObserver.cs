@@ -284,6 +284,21 @@ public sealed class CareerScreenObserver
             };
         }
 
+        if (best?.ScreenId is "race_day" or "race_list")
+        {
+            var raceScreen = pack.ScreenProfile.Find(best.ScreenId);
+            var goalText = await ReadRegionTextAsync(
+                    connection,
+                    raceScreen?.FindOcrRegion(
+                        best.ScreenId == "race_day" ? "race.objective" : "objective.title")?.ToRoi(),
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    $"{best.ScreenId}.objective.title",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            best = best with { GoalText = goalText };
+        }
+
         return best;
     }
 

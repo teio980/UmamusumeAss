@@ -17,19 +17,34 @@ public sealed class UraScenarioModule
     private readonly bool _useTraineeObjectives;
     private readonly Dictionary<string, UmaCareerRaceRecord> _careerRaces;
     private readonly Dictionary<string, UraObjectiveDefinition> _traineeObjectives;
+    private readonly Dictionary<int, string> _raceGradesByCode;
+    private readonly Dictionary<string, int> _raceCodesByGrade;
+    private readonly CareerRaceGradeSchedule? _raceGradeSchedule;
 
     public UraScenarioModule(
         UraScenarioPack pack,
         UmaTraineeRecord? trainee = null,
         IEnumerable<UmaCareerRaceRecord>? careerRaces = null,
-        bool useTraineeObjectives = true)
+        bool useTraineeObjectives = true,
+        CareerRaceGradeSchedule? raceGradeSchedule = null)
     {
         _pack = pack ?? throw new ArgumentNullException(nameof(pack));
         _trainee = trainee;
         _useTraineeObjectives = useTraineeObjectives;
-        _careerRaces = (careerRaces ?? [])
+        _raceGradeSchedule = raceGradeSchedule;
+        var races = (careerRaces ?? []).ToArray();
+        _careerRaces = races
             .ToDictionary(
                 item => item.RaceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparer.OrdinalIgnoreCase);
+        _raceGradesByCode = races
+            .Where(item => item.GradeCode > 0 && !string.IsNullOrWhiteSpace(item.Grade))
+            .GroupBy(item => item.GradeCode)
+            .ToDictionary(group => group.Key, group => group.First().Grade);
+        _raceCodesByGrade = races
+            .Where(item => item.GradeCode > 0 && !string.IsNullOrWhiteSpace(item.Grade))
+            .GroupBy(item => item.Grade, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().GradeCode,
                 StringComparer.OrdinalIgnoreCase);
         _traineeObjectives = useTraineeObjectives
             ? BuildTraineeObjectives(trainee)
@@ -57,6 +72,39 @@ public sealed class UraScenarioModule
 
     public UraObjectiveDefinition? CurrentObjective(UraCareerSessionState state) =>
         FindObjective(state.CurrentObjectiveId);
+
+    internal bool HasRaceGradeScheduleData => _raceGradeSchedule?.HasData == true;
+
+    private UmaCareerObjectiveRecord? ResolveCountObjective(
+        int turnIndex,
+        int? turnsToGoal,
+        int? racesLeft)
+    {
+        if (_trainee is null || turnsToGoal is null or < 0 || racesLeft is null or < 0)
+            return null;
+
+        var deadlineTurn = turnIndex + turnsToGoal.Value - 1;
+        var matches = _trainee.CareerObjectives
+            .Where(objective => objective.Kind.Equals("condition", StringComparison.OrdinalIgnoreCase)
+                && objective.Turn == deadlineTurn
+                && objective.Condition.Type == 2
+                && objective.Condition.Id > 0
+                && objective.Condition.Value2 > 0
+                && objective.Condition.Value2 >= racesLeft)
+            .Take(2)
+            .ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private bool HasQualifyingFirstCard(int turnIndex, int? requiredGradeCode)
+    {
+        if (requiredGradeCode is not int requiredCode)
+            return false;
+        var firstGrade = _raceGradeSchedule?.FirstCardGrade(turnIndex);
+        return firstGrade is not null
+            && _raceCodesByGrade.TryGetValue(firstGrade, out var firstCode)
+            && firstCode <= requiredCode;
+    }
 
     public UraRaceDefinition? CurrentRace(UraCareerSessionState state)
     {
@@ -262,11 +310,42 @@ public sealed class UraScenarioModule
                 state.TurnIndexSource = UraStateSource.Observed;
                 state.TurnIndexConfidence = Math.Clamp(confidence, 0, 1);
             }
+            else
+            {
+                state.TurnIndexSource = UraStateSource.Unknown;
+            }
 
             state.TurnsToGoal = turnsToGoal;
             state.FansToGoal = fansToGoal ?? CareerGoalTextParser.ParseFansToGo(goalText);
+            state.GradeRaceTimesLeft = CareerGoalTextParser.ParseRaceCountLeft(goalText);
             state.ObservedGoalText = goalText;
             state.ObservedGoalKind = CareerGoalTextParser.Classify(goalText);
+            var countObjective = state.TurnIndexSource == UraStateSource.Observed
+                ? ResolveCountObjective(
+                    state.TurnIndex,
+                    turnsToGoal,
+                    state.GradeRaceTimesLeft)
+                : null;
+            state.TargetRaceGradeCode = countObjective?.Condition.Id;
+            state.TargetRaceGrade = state.TargetRaceGradeCode is int code
+                && _raceGradesByCode.TryGetValue(code, out var grade)
+                ? grade
+                : null;
+            if (countObjective is not null)
+                state.ObservedGoalKind = CareerGoalTextParser.GradeRaceCount;
+            if (state.GoalCompletionProbeArmed
+                && state.LastAction == UraPlannedAction.Race
+                && ((state.ObservedGoalKind != CareerGoalTextParser.GradeRaceCount
+                        && state.ObservedGoalKind != CareerGoalTextParser.Unknown)
+                    || (state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+                        && state.GradeRaceTimesLeft is > 0
+                        && state.TurnIndex > state.GradeRaceStartedTurnIndex)))
+            {
+                // A qualifying result changes the visible count to zero.
+                // If the next turn still shows a positive count, the last
+                // race did not satisfy the goal and another qualifying race may be tried.
+                state.GoalCompletionProbeArmed = false;
+            }
 
             if (_useTraineeObjectives)
             {
@@ -274,11 +353,9 @@ public sealed class UraScenarioModule
             }
             else
             {
-                // The first direct-OCR integration deliberately does not
-                // infer target races from the downloaded career database.
-                // Direct OCR mode uses only the visible objective. A fan goal
-                // needs an optional race while fans remain; no database race
-                // ID is inferred for that choice.
+                // The visible countdown identifies the current database
+                // condition. Its grade and the race calendar select a race;
+                // the visible progress controls how many results remain.
                 state.HasPendingRace = string.Equals(
                         state.ObservedGoalKind,
                         CareerGoalTextParser.Race,
@@ -291,6 +368,17 @@ public sealed class UraScenarioModule
                 {
                     state.HasPendingRace = state.FansToGoal is > 0;
                 }
+                else if (string.Equals(
+                        state.ObservedGoalKind,
+                        CareerGoalTextParser.GradeRaceCount,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    state.HasPendingRace = state.GradeRaceTimesLeft is > 0
+                        && turnsToGoal is > 0
+                        && state.TurnIndexSource == UraStateSource.Observed
+                        && HasQualifyingFirstCard(
+                            state.TurnIndex, state.TargetRaceGradeCode);
+                }
                 state.CurrentRaceId = null;
             }
         }
@@ -301,10 +389,26 @@ public sealed class UraScenarioModule
             || string.Equals(screenId, "race_details", StringComparison.OrdinalIgnoreCase)
             || string.Equals(screenId, "race_attributes", StringComparison.OrdinalIgnoreCase))
         {
+            if (!string.IsNullOrWhiteSpace(goalText))
+            {
+                var observedKind = CareerGoalTextParser.Classify(goalText);
+                if (observedKind != CareerGoalTextParser.Unknown
+                    && state.ObservedGoalKind != CareerGoalTextParser.GradeRaceCount)
+                {
+                    state.ObservedGoalText = goalText;
+                    state.ObservedGoalKind = observedKind;
+                }
+                state.GradeRaceTimesLeft = CareerGoalTextParser.ParseRaceCountLeft(goalText)
+                    ?? state.GradeRaceTimesLeft;
+            }
             state.HasPendingRace = true;
             state.CurrentRaceId = string.Equals(
                     state.ObservedGoalKind,
                     CareerGoalTextParser.Fans,
+                    StringComparison.OrdinalIgnoreCase)
+                || string.Equals(
+                    state.ObservedGoalKind,
+                    CareerGoalTextParser.GradeRaceCount,
                     StringComparison.OrdinalIgnoreCase)
                 ? null
                 : CurrentRace(state)?.RaceId;

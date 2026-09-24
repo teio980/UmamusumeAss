@@ -33,11 +33,21 @@ public sealed class CareerGoalTextParserTests
 
     [Theory]
     [InlineData("Place 3rd or better in the Arima Kinen")]
-    [InlineData("Place 3rd or better in 2 G1 races")]
     [InlineData("Participate in the Junior Make Debut")]
     public void Classifies_race_goal_from_visible_goal_text(string text)
     {
         Assert.Equal(CareerGoalTextParser.Race, CareerGoalTextParser.Classify(text));
+    }
+
+    [Theory]
+    [InlineData("In G1, place within the top 3 2 time(s) Progress 2 time(s) left", 2)]
+    [InlineData("Place 3rd or better in 2 G1 races Progress 1 time(s) left", 1)]
+    [InlineData("In GI , place within the top 3 2 time(s) Detai <JIV2 time(s) left Progress", 2)]
+    [InlineData("Place 3rd or better in 2 GI races Progress 1 time(s) left", 1)]
+    public void Reads_race_count_progress_without_parsing_a_grade_from_ocr(string text, int remaining)
+    {
+        Assert.Equal(CareerGoalTextParser.Race, CareerGoalTextParser.Classify(text));
+        Assert.Equal(remaining, CareerGoalTextParser.ParseRaceCountLeft(text));
     }
 
     [Fact]

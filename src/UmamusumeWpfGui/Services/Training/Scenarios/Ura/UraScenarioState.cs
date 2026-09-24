@@ -66,6 +66,10 @@ public sealed class UraCareerSessionState
     public string? TurnPositionLabel { get; set; }
     public int? TurnsToGoal { get; set; }
     public int? FansToGoal { get; set; }
+    public int? GradeRaceTimesLeft { get; set; }
+    public string? TargetRaceGrade { get; set; }
+    public int? TargetRaceGradeCode { get; set; }
+    public int GradeRaceStartedTurnIndex { get; set; }
     public string? ObservedGoalText { get; set; }
     public string? ObservedGoalKind { get; set; }
     public UraStateSource TurnIndexSource { get; set; } = UraStateSource.Unknown;

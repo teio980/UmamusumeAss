@@ -902,6 +902,10 @@
                                         },
                         "ocrRegions":  [
                                            {
+                                               "semanticId": "objective.title",
+                                               "bounds": {"x": 315, "y": 90, "width": 520, "height": 80}
+                                           },
+                                           {
                                                "semanticId":  "race.name",
                                                "bounds":  {
                                                               "x":  300,

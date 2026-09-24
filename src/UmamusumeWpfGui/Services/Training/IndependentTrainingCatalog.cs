@@ -373,7 +373,8 @@ public sealed class IndependentTrainingCatalog
                     ReadBool(item, "gameAvailable"),
                     ReadScheduleInt(item, "month"),
                     ReadScheduleInt(item, "day"),
-                    ReadScheduleString(item, "timeName")))
+                    ReadScheduleString(item, "timeName"),
+                    ReadInt(item, "gameOrder")))
                 .Where(item => !string.IsNullOrWhiteSpace(item.RaceName))
                 .ToArray();
         }
@@ -562,7 +563,8 @@ public sealed record IndependentTrainingRace(
     bool IsGameAvailable = false,
     int Month = 0,
     int Day = 0,
-    string TimeName = "")
+    string TimeName = "",
+    int GameOrder = -1)
 {
     public string Key => $"{Year}|{Turn}|{RaceName}";
 

@@ -159,6 +159,40 @@ internal sealed class CareerTurnFlow
             }
         }
 
+        if (string.Equals(
+                context.State.ObservedGoalKind,
+                CareerGoalTextParser.GradeRaceCount,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (!context.Scenario.HasRaceGradeScheduleData
+                || context.State.TurnIndexSource != UraStateSource.Observed
+                || context.State.TurnsToGoal is null
+                || context.State.GradeRaceTimesLeft is null)
+            {
+                return CareerRuntimeResults.Failure(
+                    "The grade race goal needs a readable date, countdown, remaining count, and race calendar; automation paused safely.",
+                    "career_main");
+            }
+
+            if (context.State.TurnsToGoal <= 0
+                && context.State.GradeRaceTimesLeft > 0)
+            {
+                return CareerRuntimeResults.Failure(
+                    $"The {context.State.TargetRaceGrade} goal still needs {context.State.GradeRaceTimesLeft} qualifying race(s), but its deadline has arrived.",
+                    "career_main");
+            }
+        }
+
+        if (context.State.ObservedGoalKind != CareerGoalTextParser.GradeRaceCount
+            && context.State.ObservedGoalKind != CareerGoalTextParser.Fans
+            && context.State.TurnsToGoal is > 0
+            && CareerGoalTextParser.ParseRaceCountLeft(context.State.ObservedGoalText) is > 0)
+        {
+            return CareerRuntimeResults.Failure(
+                "A race-count goal is visible, but no matching grade condition was found in the trainee database; automation paused safely.",
+                "career_main");
+        }
+
         if (context.Observation.EnergyPercent is not int energyPercent)
         {
             context.LogSink?.Add(
@@ -219,6 +253,13 @@ internal sealed class CareerTurnFlow
 
         context.State.PendingTrainingType = trainingType;
         context.State.LastAction = decision.Action;
+        if (decision.Action is UraPlannedAction.Race or UraPlannedAction.FinaleRace)
+            context.State.RaceReplayFlowCompleted = false;
+        if (decision.Action == UraPlannedAction.Race
+            && context.State.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
+        {
+            context.State.GradeRaceStartedTurnIndex = context.State.TurnIndex;
+        }
         context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
             context.State);
         context.State.GoalCompletionProbeArmed = false;
@@ -238,10 +279,7 @@ internal sealed class CareerTurnFlow
     {
         // Race goals are checked after the race flow, not after the final
         // training/rest action that leads into Race Day.
-        if (string.Equals(
-                state.ObservedGoalKind,
-                CareerGoalTextParser.Race,
-                StringComparison.OrdinalIgnoreCase))
+        if (state.ObservedGoalKind is CareerGoalTextParser.Race or CareerGoalTextParser.GradeRaceCount)
         {
             return false;
         }

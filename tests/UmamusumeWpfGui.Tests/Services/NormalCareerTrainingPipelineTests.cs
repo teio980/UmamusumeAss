@@ -126,4 +126,15 @@ public sealed class NormalCareerTrainingPipelineTests
 
         Assert.Equal("recommended_entry", CareerRaceFlow.GetRaceListActionId(state));
     }
+
+    [Fact]
+    public void Grade_count_goal_reuses_the_first_card_fan_race_entry()
+    {
+        var state = new UraCareerSessionState
+        {
+            ObservedGoalKind = CareerGoalTextParser.GradeRaceCount,
+        };
+
+        Assert.Equal("fans_entry", CareerRaceFlow.GetRaceListActionId(state));
+    }
 }

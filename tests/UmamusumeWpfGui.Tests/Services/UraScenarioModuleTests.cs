@@ -1,4 +1,5 @@
 using System.IO;
+using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
@@ -106,6 +107,128 @@ public sealed class UraScenarioModuleTests
     }
 
     [Fact]
+    public async Task G1_count_goal_only_requests_a_race_on_a_catalog_g1_turn()
+    {
+        var pack = await LoadPackAsync();
+        var database = await LoadDatabaseAsync();
+        var trainee = database.Trainees.Single(item => item.TraineeId == 100602);
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(
+            pack,
+            trainee,
+            database.Races,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+        const string goal = "In G1, place within the top 3 2 time(s) Progress 2 time(s) left";
+
+        Assert.True(schedule.HasData);
+        Assert.True(schedule.HasFirstCardGrade(55, "G2"));
+        Assert.False(schedule.HasFirstCardGrade(55, "G1"));
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early Apr", turnsToGoal: 6, goalText: goal);
+        Assert.False(state.HasPendingRace);
+        Assert.Equal(2, state.GradeRaceTimesLeft);
+        Assert.Equal("G1", state.TargetRaceGrade);
+
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Late Apr", turnsToGoal: 5, goalText: goal);
+        Assert.True(state.HasPendingRace);
+        Assert.Equal(UraPlannedAction.Race,
+            new UraDefaultStrategy().ChooseTurnAction(module, state).Action);
+
+        state.LastAction = UraPlannedAction.Race;
+        state.GradeRaceStartedTurnIndex = state.TurnIndex;
+        state.GoalCompletionProbeArmed = true;
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early May", turnsToGoal: 4,
+            goalText: "In G1, place within the top 3 2 time(s) Progress 1 time(s) left");
+        Assert.False(state.GoalCompletionProbeArmed);
+        Assert.True(state.HasPendingRace);
+
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early May", turnsToGoal: 4,
+            goalText: "In G1, place within the top 3 2 time(s) Progress 0 time(s) left");
+        Assert.False(state.HasPendingRace);
+    }
+
+    [Fact]
+    public async Task Live_ocr_gi_goal_on_senior_early_jun_selects_a_g1_race()
+    {
+        var pack = await LoadPackAsync();
+        var database = await LoadDatabaseAsync();
+        var trainee = database.Trainees.Single(item => item.TraineeId == 100602);
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(pack, trainee, database.Races,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "career_main", 1,
+            energyPercent: 50,
+            turnPositionText: "Senior Year Early Jun",
+            turnsToGoal: 2,
+            goalText: "In GI , place within the top 3 2 time(s) Detai <JIV2 time(s) left Progress");
+
+        Assert.Equal(CareerGoalTextParser.GradeRaceCount, state.ObservedGoalKind);
+        Assert.Equal(59, state.TurnIndex);
+        Assert.Equal(2, state.GradeRaceTimesLeft);
+        Assert.Equal("G1", state.TargetRaceGrade);
+        Assert.True(state.HasPendingRace);
+        Assert.Equal(UraPlannedAction.Race,
+            new UraDefaultStrategy().ChooseTurnAction(module, state).Action);
+    }
+
+    [Fact]
+    public async Task Database_condition_supplies_the_required_count_for_another_trainee()
+    {
+        var pack = await LoadPackAsync();
+        var database = await LoadDatabaseAsync();
+        var trainee = database.Trainees.Single(item => item.TraineeId == 101901);
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(pack, trainee, database.Races,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early Jun",
+            turnsToGoal: 2,
+            goalText: "Place within top 3. Progress 3 time(s) left");
+
+        Assert.Equal(CareerGoalTextParser.GradeRaceCount, state.ObservedGoalKind);
+        Assert.Equal("G1", state.TargetRaceGrade);
+        Assert.Equal(3, state.GradeRaceTimesLeft);
+        Assert.True(state.HasPendingRace);
+    }
+
+    [Fact]
+    public async Task Grade_or_higher_condition_accepts_a_higher_grade_from_the_calendar()
+    {
+        var pack = await LoadPackAsync();
+        var database = await LoadDatabaseAsync();
+        var trainee = database.Trainees.Single(item => item.TraineeId == 102101);
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(pack, trainee, database.Races,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early Jan",
+            turnsToGoal: 1,
+            goalText: "Place within top 3. Progress 4 time(s) left");
+
+        Assert.Equal("G3", state.TargetRaceGrade);
+        Assert.Equal("G2", schedule.FirstCardGrade(state.TurnIndex));
+        Assert.True(state.HasPendingRace);
+    }
+
+    [Fact]
     public async Task Predicted_scenario_event_does_not_force_an_event_action()
     {
         var pack = await LoadPackAsync();
@@ -125,6 +248,13 @@ public sealed class UraScenarioModuleTests
         var root = FindWorkspaceRoot();
         return await UraScenarioPackLoader.LoadAsync(Path.Combine(
             root, "resource", "hachimi", "ura", "manifest.json"));
+    }
+
+    private static async Task<UmaDatabaseService> LoadDatabaseAsync()
+    {
+        var database = new UmaDatabaseService();
+        await database.LoadAsync(Path.Combine(FindWorkspaceRoot(), "resource"));
+        return database;
     }
 
     private static string FindWorkspaceRoot()

@@ -58,7 +58,9 @@ internal sealed class CareerRaceFlow
 
                 context.LogSink?.Add(
                     "Career Training",
-                    "Selecting the Recommended race, or the first available race if none is marked.",
+                    context.State.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+                        ? "The race calendar marks this turn's first Race List card as qualifying; selecting it."
+                        : "Selecting the Recommended race, or the first available race if none is marked.",
                     LogEntryKind.Info);
                 return await _actions.RunAsync(
                         context,
@@ -188,7 +190,9 @@ internal sealed class CareerRaceFlow
     internal static string GetRaceListActionId(UraCareerSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return "recommended_entry";
+        return state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+            ? "fans_entry"
+            : "recommended_entry";
     }
 
     private async Task<CareerTrainingResult?> HandleRaceRunnerResultAsync(
@@ -203,19 +207,21 @@ internal sealed class CareerRaceFlow
                 "result.next")
             .ConfigureAwait(false);
         if (result is null)
-            context.State.RaceReplayFlowCompleted = true;
-
-        if (result is null
-            && string.Equals(
-                context.State.ObservedGoalKind,
-                CareerGoalTextParser.Race,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            context.State.GoalCompletionProbePending = false;
-            context.State.GoalCompletionProbeArmed = true;
-        }
+            MarkReplayFlowCompleted(context.State);
 
         return result;
+    }
+
+    internal static void MarkReplayFlowCompleted(UraCareerSessionState state)
+    {
+        state.RaceReplayFlowCompleted = true;
+        if (state.ObservedGoalKind == CareerGoalTextParser.Race
+            || (state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+                && state.GradeRaceTimesLeft is <= 1))
+        {
+            state.GoalCompletionProbePending = false;
+            state.GoalCompletionProbeArmed = true;
+        }
     }
 
     private async Task<CareerTrainingResult?> HandleRaceResultAsync(

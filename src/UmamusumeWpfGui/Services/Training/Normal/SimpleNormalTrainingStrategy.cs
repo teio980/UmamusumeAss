@@ -92,6 +92,8 @@ public sealed class UraDefaultStrategy
                     CareerGoalTextParser.Fans,
                     StringComparison.OrdinalIgnoreCase)
                 ? $"The visible goal still needs {state.FansToGoal?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} fans; opening the race list to choose a recommendation."
+                : state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+                    ? $"A qualifying race is available on {state.TurnPositionLabel}; {state.GradeRaceTimesLeft} result(s) remain."
                 : $"Required race '{state.CurrentRaceId ?? "unknown"}' is pending.";
             return new(
                 action,
