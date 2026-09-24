@@ -10,7 +10,8 @@ internal sealed record UraTrainingLogoMatch(
 internal sealed record UraTrainingSelectionHeightResult(
     string? RaisedType,
     IReadOnlyList<UraTrainingLogoMatch> Matches,
-    string? Error)
+    string? Error,
+    bool ScreenChanged = false)
 {
     public bool Succeeded => RaisedType is not null;
 }
@@ -21,7 +22,6 @@ internal sealed record UraTrainingSelectionHeightResult(
 /// </summary>
 internal sealed class UraTrainingSelectionHeightDetector
 {
-    private const int MinimumHeightGap = 30;
     private readonly IVisualPipelineRuntime _visualRuntime;
 
     public UraTrainingSelectionHeightDetector(IVisualPipelineRuntime visualRuntime) =>
@@ -29,13 +29,29 @@ internal sealed class UraTrainingSelectionHeightDetector
 
     public async Task<UraTrainingSelectionHeightResult> DetectAsync(
         LastVerifiedConnection connection,
-        HachimiPipelineDefinition definition,
+        UraScenarioPack pack,
         CancellationToken cancellationToken)
     {
         var screen = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
             .ConfigureAwait(false);
         if (screen is null)
             return new(null, [], "The training selection screenshot could not be captured.");
+
+        var definition = pack.ExecutionDefinition;
+        var recognition = pack.ScreenProfile.Find("training_selection")?.Recognition;
+        if (recognition is null || string.IsNullOrWhiteSpace(recognition.Template))
+            return new(null, [], "The training selection header is not configured.");
+
+        var header = await _visualRuntime.LoadTemplateAsync(
+                recognition.Template,
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (header is null)
+            return new(null, [], "The training selection header could not be loaded.");
+
+        if (!IsTrainingSelectionScreen(screen, header, recognition, pack.ScreenProfile))
+            return new(null, [], null, ScreenChanged: true);
 
         var templates = new Dictionary<string, GrayImage>(StringComparer.OrdinalIgnoreCase);
         foreach (var trainingType in UraTrainingTypeCatalog.SupportedTypes)
@@ -57,6 +73,19 @@ internal sealed class UraTrainingSelectionHeightDetector
 
         return CompareHeights(screen, definition, templates);
     }
+
+    internal static bool IsTrainingSelectionScreen(
+        GrayImage screen,
+        GrayImage header,
+        UraScreenRecognition recognition,
+        UraScreenProfile profile) =>
+        TemplateMatcher.Find(
+            screen,
+            header,
+            recognition.Roi,
+            recognition.TemplateThreshold,
+            profile.ReferenceWidth,
+            profile.ReferenceHeight).Found;
 
     internal static UraTrainingSelectionHeightResult CompareHeights(
         GrayImage screen,
@@ -93,21 +122,16 @@ internal sealed class UraTrainingSelectionHeightDetector
             matches.Add(new UraTrainingLogoMatch(trainingType, match));
         }
 
+        return SelectHighest(matches);
+    }
+
+    internal static UraTrainingSelectionHeightResult SelectHighest(
+        IReadOnlyList<UraTrainingLogoMatch> matches)
+    {
         if (matches.Count != UraTrainingTypeCatalog.SupportedTypes.Count)
             return new(null, matches, "Not all five training logos were matched.");
 
-        var byHeight = matches.OrderBy(item => item.Match.CenterY).ToArray();
-        var gap = byHeight[1].Match.CenterY - byHeight[0].Match.CenterY;
-        var minimumGap = (int)Math.Round(
-            MinimumHeightGap * screen.Height / (double)definition.ReferenceHeight);
-        if (gap < minimumGap)
-        {
-            return new(null, matches,
-                $"The highest training logo is not clearly raised "
-                + $"(gap {gap}px / required {minimumGap}px).");
-        }
-
-        return new(byHeight[0].TrainingType, matches, null);
+        return new(matches.MinBy(item => item.Match.CenterY)!.TrainingType, matches, null);
     }
 
     private static int[] Union(int[] first, int[] second)

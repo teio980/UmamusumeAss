@@ -196,9 +196,17 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         {
             var selection = await _trainingSelectionDetector.DetectAsync(
                     connection,
-                    pack.ExecutionDefinition,
+                    pack,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (selection.ScreenChanged)
+            {
+                logSink?.Add(
+                    "Career Training",
+                    "Training selection changed before the next click; observing the current screen again.");
+                return null;
+            }
+
             if (!selection.Succeeded)
             {
                 return CareerRuntimeResults.Failure(

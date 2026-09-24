@@ -834,16 +834,14 @@ public sealed class HachimiJsonPipelineRunner
                         $"JSON task '{taskName}' uses ClickSelf but has no template match.");
                 }
 
-                await _visualRuntime.TapMatchAsync(
-                        connection,
-                        match,
-                        taskName,
-                        cancellationToken)
+                var click = await TapMatchWithOffsetAsync(
+                        connection, definition, match, task.ClickOffset,
+                        taskName, cancellationToken)
                     .ConfigureAwait(false);
                 AddTaskLog(
                     logSink,
                     taskName,
-                    $"Clicked '{taskName}' at ({match.CenterX},{match.CenterY}), "
+                    $"Clicked '{taskName}' at ({click.X},{click.Y}), "
                     + $"score {match.Score:0.000} / threshold {task.TemplateThreshold:0.000}.",
                     LogEntryKind.Success);
                 break;

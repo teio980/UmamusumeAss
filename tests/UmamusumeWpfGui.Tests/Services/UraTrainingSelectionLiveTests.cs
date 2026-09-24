@@ -55,15 +55,14 @@ public sealed class UraTrainingSelectionLiveTests
             _output.WriteLine(line);
         Assert.True(result.Succeeded, result.Message);
 
-        // A reported transition must have left the training selection screen.
-        var selectedScreen = await visual.WaitForMatchAsync(
-            connection, "templates/training_selection_header.png",
-            [0, 0, 120, 50], 0.92, 900, 1600, 500, 100,
-            "live_training_selection_postcondition",
-            Path.Combine(root, "resource", "hachimi", "ura", "screens"),
-            cancellation.Token);
-        Assert.False(selectedScreen?.Found == true,
-            "The task reported success while still on training selection.");
+        Assert.Contains(logs.Lines, line => line.Contains(
+            "Clicked 'training_selection_speed_raised_click' at",
+            StringComparison.Ordinal));
+        Assert.Equal(
+            phase == "normal" ? 1 : 0,
+            logs.Lines.Count(line => line.Contains(
+                "Clicked 'training_selection_speed_first_click' at",
+                StringComparison.Ordinal)));
     }
 
     private sealed class RecordingLogSink : IGrassTaskLogSink

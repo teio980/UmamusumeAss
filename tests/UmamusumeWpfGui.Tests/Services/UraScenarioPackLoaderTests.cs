@@ -59,16 +59,14 @@ public sealed class UraScenarioPackLoaderTests
         var speedClick = pack.ExecutionDefinition.Tasks["training_selection_speed_first_click"];
         Assert.Equal("JustReturn", speedEntry.Action);
         Assert.Equal([20, 1300, 180, 130], speedEntry.Roi!);
-        Assert.Equal("ClickSelfUntilTransition", speedClick.Action);
-        Assert.Equal([20, 1160, 180, 125], speedClick.FallbackRoi!);
-        Assert.Equal([0, 54], speedClick.FallbackClickOffset!);
-        Assert.Contains("templates/career_main_action_training.png", speedClick.TransitionTemplates);
-        Assert.Equal(5, speedClick.TransitionTemplates.Count);
-        Assert.True(speedClick.PollTransitionTemplatesTogether);
-        Assert.Equal([340, 1220, 220, 110], speedClick.TransitionRois[0]!);
+        Assert.Equal("ClickSelf", speedClick.Action);
+        Assert.Equal(["training_selection_speed_raised_probe"], speedClick.Next);
+        Assert.Empty(speedClick.TransitionTemplates);
         var speedRaisedClick = pack.ExecutionDefinition.Tasks["training_selection_speed_raised_click"];
+        Assert.Equal("ClickSelf", speedRaisedClick.Action);
         Assert.Equal([0, 54], speedRaisedClick.ClickOffset!);
         Assert.Null(speedRaisedClick.FallbackRoi);
+        Assert.Empty(speedRaisedClick.TransitionTemplates);
         foreach (var type in new[] { "speed", "stamina", "power", "guts", "wit" })
         {
             var normal = pack.ExecutionDefinition.Tasks[$"training_selection_training_{type}"];
@@ -77,12 +75,14 @@ public sealed class UraScenarioPackLoaderTests
             var raisedClick = pack.ExecutionDefinition.Tasks[$"training_selection_{type}_raised_click"];
             Assert.True(normal.Roi![1] > raised.Roi![1] + raised.Roi[3]);
             Assert.Equal(normal.Roi, firstClick.Roi);
-            Assert.Equal(raised.Roi, firstClick.FallbackRoi);
-            Assert.Equal([0, 54], firstClick.FallbackClickOffset!);
+            Assert.Equal("ClickSelf", firstClick.Action);
+            Assert.Equal([$"training_selection_{type}_raised_probe"], firstClick.Next);
+            Assert.Empty(firstClick.TransitionTemplates);
+            Assert.Null(firstClick.FallbackRoi);
+            Assert.Equal("ClickSelf", raisedClick.Action);
             Assert.Equal([0, 54], raisedClick.ClickOffset!);
             Assert.Null(raisedClick.FallbackRoi);
-            Assert.True(firstClick.PollTransitionTemplatesTogether);
-            Assert.True(raisedClick.PollTransitionTemplatesTogether);
+            Assert.Empty(raisedClick.TransitionTemplates);
         }
         Assert.All(
             pack.ExecutionDefinition.Tasks.Values,
