@@ -164,7 +164,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             actionId,
             context.LogSink,
             options,
-            context.CancellationToken);
+            context.CancellationToken,
+            context.State);
 
     Task<CareerTrainingResult?> ICareerFlowActionRunner.RunAsync(
         CareerFlowContext context,
@@ -180,7 +181,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         string actionId,
         IGrassTaskLogSink? logSink,
         HachimiPipelineRunOptions? options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        UraCareerSessionState? state = null)
     {
         var screen = pack.ScreenProfile.Find(screenId);
         if (screen is null)
@@ -207,6 +209,31 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             && UraTrainingTypeCatalog.TryNormalize(actionId["training.".Length..],
                 out var targetTrainingType))
         {
+            if (state?.TrainingClickIssuedType is { } clickedType)
+            {
+                if (!state.TrainingClickTargetGone)
+                {
+                    var clickedItem = await _trainingSelectionDetector.FindTrainingTypeAsync(
+                            connection,
+                            pack,
+                            clickedType,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (clickedItem is { Found: false })
+                    {
+                        state.TrainingClickTargetGone = true;
+                        logSink?.Add(
+                            "Career Training",
+                            $"Clicked training item '{clickedType}' is no longer visible; observing the next screen.");
+                    }
+                }
+
+                // The tap was already sent for this turn. A busy game may
+                // leave the picker header visible, so never recheck the other
+                // four logos or send a second tap here.
+                return null;
+            }
+
             var selection = await _trainingSelectionDetector.DetectAsync(
                     connection,
                     pack,
@@ -252,6 +279,16 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             return CareerRuntimeResults.Failure(
                 $"Could not execute JSON task '{entryTask}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
+        }
+
+        if (state is not null
+            && string.Equals(screenId, "training_selection", StringComparison.OrdinalIgnoreCase)
+            && actionId.StartsWith("training.", StringComparison.OrdinalIgnoreCase)
+            && UraTrainingTypeCatalog.TryNormalize(actionId["training.".Length..],
+                out var clickedTrainingType))
+        {
+            state.TrainingClickIssuedType = clickedTrainingType;
+            state.TrainingClickTargetGone = false;
         }
 
         return null;

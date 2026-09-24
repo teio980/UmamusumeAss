@@ -74,6 +74,34 @@ internal sealed class UraTrainingSelectionHeightDetector
         return CompareHeights(screen, definition, templates);
     }
 
+    // After a training tap, only its own logo matters. Other logos can be
+    // temporarily obscured while the picker is leaving the screen.
+    public async Task<TemplateMatchResult?> FindTrainingTypeAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        string trainingType,
+        CancellationToken cancellationToken)
+    {
+        var screen = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+            .ConfigureAwait(false);
+        if (screen is null)
+            return null;
+
+        var definition = pack.ExecutionDefinition;
+        var normal = definition.GetTask($"training_selection_training_{trainingType}");
+        if (string.IsNullOrWhiteSpace(normal.Template))
+            return null;
+
+        var template = await _visualRuntime.LoadTemplateAsync(
+                normal.Template,
+                definition.BaseDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return template is null
+            ? null
+            : FindTrainingType(screen, definition, trainingType, template);
+    }
+
     internal static bool IsTrainingSelectionScreen(
         GrayImage screen,
         GrayImage header,
@@ -96,22 +124,12 @@ internal sealed class UraTrainingSelectionHeightDetector
         foreach (var trainingType in UraTrainingTypeCatalog.SupportedTypes)
         {
             var normal = definition.GetTask($"training_selection_training_{trainingType}");
-            var raised = definition.GetTask($"training_selection_{trainingType}_raised_probe");
-            if (normal.Roi is not { Length: >= 4 }
-                || raised.Roi is not { Length: >= 4 }
-                || !templates.TryGetValue(trainingType, out var template))
+            if (!templates.TryGetValue(trainingType, out var template)
+                || FindTrainingType(screen, definition, trainingType, template) is not { } match)
             {
                 return new(null, matches,
                     $"The {trainingType} training logo regions are not configured.");
             }
-
-            var match = TemplateMatcher.FindColor(
-                screen,
-                template,
-                Union(normal.Roi, raised.Roi),
-                normal.TemplateThreshold,
-                definition.ReferenceWidth,
-                definition.ReferenceHeight);
             if (!match.Found)
             {
                 return new(null, matches,
@@ -123,6 +141,27 @@ internal sealed class UraTrainingSelectionHeightDetector
         }
 
         return SelectHighest(matches);
+    }
+
+    internal static TemplateMatchResult? FindTrainingType(
+        GrayImage screen,
+        HachimiPipelineDefinition definition,
+        string trainingType,
+        GrayImage template)
+    {
+        var normal = definition.GetTask($"training_selection_training_{trainingType}");
+        var raised = definition.GetTask($"training_selection_{trainingType}_raised_probe");
+        if (normal.Roi is not { Length: >= 4 }
+            || raised.Roi is not { Length: >= 4 })
+            return null;
+
+        return TemplateMatcher.FindColor(
+            screen,
+            template,
+            Union(normal.Roi, raised.Roi),
+            normal.TemplateThreshold,
+            definition.ReferenceWidth,
+            definition.ReferenceHeight);
     }
 
     internal static UraTrainingSelectionHeightResult SelectHighest(

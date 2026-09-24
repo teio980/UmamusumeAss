@@ -106,6 +106,12 @@ public sealed class UraCareerSessionState
     [System.Text.Json.Serialization.JsonIgnore]
     public bool GoalCompletionProbeArmed { get; set; }
     public string? PendingTrainingType { get; set; }
+    // Run-scoped guard: a training tap may leave the picker visible while the
+    // game is busy. Do not choose or tap the same training again in that span.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? TrainingClickIssuedType { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool TrainingClickTargetGone { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFinale => PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase);
     public string LastScreenId { get; set; } = "unknown";

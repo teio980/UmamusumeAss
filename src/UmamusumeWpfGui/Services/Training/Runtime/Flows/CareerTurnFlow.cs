@@ -90,6 +90,11 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        // The next confirmed main page opens a new turn. Its training picker
+        // must not inherit the previous turn's tap guard.
+        context.State.TrainingClickIssuedType = null;
+        context.State.TrainingClickTargetGone = false;
+
         // The race-result flow has completed. Wait here while post-race event
         // and Goal Achieved pages settle instead of starting another turn or
         // entering the same race again.
