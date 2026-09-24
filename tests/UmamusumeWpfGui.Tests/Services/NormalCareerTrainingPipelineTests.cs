@@ -71,11 +71,28 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("career_final_confirmation")]
     [InlineData("normal_quick_mode_settings")]
     [InlineData("unknown")]
-    public void Entry_and_unknown_pages_are_not_runtime_observations(string screenId)
+    public void Non_runtime_pages_are_not_runtime_observations(string screenId)
     {
         Assert.Equal(
             CareerScreenKind.Unknown,
             AdbNormalCareerTrainingPipeline.ClassifyRuntimeScreen(screenId));
+    }
+
+    [Theory]
+    [InlineData("career_intro_event")]
+    [InlineData("training_event")]
+    [InlineData("event_choice")]
+    [InlineData("scenario_event")]
+    public void Runtime_event_screens_are_observer_candidates_for_a_fresh_career(
+        string screenId)
+    {
+        var state = new UraCareerSessionState
+        {
+            TurnIndex = 0,
+            CareerStarted = false,
+        };
+
+        Assert.True(CareerScreenObserver.IsEligibleForCareerPhase(screenId, state));
     }
 
     [Theory]
@@ -84,7 +101,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("scenario_select")]
     [InlineData("career_final_confirmation")]
     [InlineData("normal_quick_mode_settings")]
-    public void Entry_and_setup_pages_are_not_treated_as_live_career_pages(string screenId)
+    public void Non_runtime_pages_are_not_treated_as_live_career_pages(string screenId)
     {
         Assert.False(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
     }

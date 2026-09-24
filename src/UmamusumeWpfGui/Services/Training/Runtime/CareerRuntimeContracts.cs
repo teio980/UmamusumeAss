@@ -91,7 +91,8 @@ internal sealed record CareerFlowContext(
     UraCareerSessionState State,
     CareerObservation Observation,
     IGrassTaskLogSink? LogSink,
-    CancellationToken CancellationToken);
+    CancellationToken CancellationToken,
+    string EventHandling = CareerEventHandlingModes.Default);
 
 internal interface ICareerFlowActionRunner
 {
@@ -100,6 +101,15 @@ internal interface ICareerFlowActionRunner
         string screenId,
         string actionId,
         HachimiPipelineRunOptions? options = null);
+}
+
+/// <summary>
+/// Recognizes and handles events after a successful training action.
+/// </summary>
+internal interface ICareerEventHandler
+{
+    Task<CareerTrainingResult?> TryRecognizeAndHandleAsync(
+        CareerFlowContext context);
 }
 
 internal static class CareerRuntimeResults

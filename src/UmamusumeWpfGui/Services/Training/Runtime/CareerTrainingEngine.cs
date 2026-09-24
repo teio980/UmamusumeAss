@@ -473,6 +473,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     state,
                     observation,
                     logSink,
+                    settings.EventHandling,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (terminal is not null)

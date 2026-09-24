@@ -16,13 +16,6 @@ internal sealed class CareerTurnFlow
     {
         switch (context.Observation.ScreenId)
         {
-            case "career_intro_event":
-                context.State.LastScreenId = "career_start_transition";
-                return await _actions.RunAsync(
-                        context,
-                        "career_intro_event",
-                        "advance")
-                    .ConfigureAwait(false);
             case "career_main":
                 return await HandleCareerMainAsync(context).ConfigureAwait(false);
             case "training_selection":
@@ -80,10 +73,6 @@ internal sealed class CareerTurnFlow
                         context.Observation.ScreenId,
                         "advance")
                     .ConfigureAwait(false);
-            case "training_event":
-            case "event_choice":
-            case "scenario_event":
-                return await HandleObservedEventAsync(context).ConfigureAwait(false);
             case "rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
                 context.State.AwaitingRestReturn = true;
@@ -96,32 +85,6 @@ internal sealed class CareerTurnFlow
             default:
                 return null;
         }
-    }
-
-    private async Task<CareerTrainingResult?> HandleObservedEventAsync(
-        CareerFlowContext context)
-    {
-        var screenId = context.Observation.ScreenId;
-        var actionId = screenId switch
-        {
-            "event_choice" => "choice_first",
-            "training_event" or "scenario_event" => "advance",
-            _ => null,
-        };
-        if (actionId is null)
-            return null;
-
-        // Event state is advisory only. The event is handled because the
-        // observer saw the event screen, not because scenario metadata
-        // predicted that an event might occur.
-        var result = await _actions.RunAsync(
-                context,
-                screenId,
-                actionId)
-            .ConfigureAwait(false);
-        if (result is null)
-            context.State.HasScenarioEvent = false;
-        return result;
     }
 
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(

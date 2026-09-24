@@ -11,14 +11,24 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
     private readonly CareerSettlementFlow _settlementFlow;
+    private readonly ICareerEventHandler _eventHandler;
     private IHachimiTaskLogSink? _taskLogSink;
 
     public CareerFlowDispatcher(
         IVisualPipelineRuntime visualRuntime,
         HachimiJsonPipelineRunner jsonRunner)
+        : this(visualRuntime, jsonRunner, eventHandler: null)
+    {
+    }
+
+    internal CareerFlowDispatcher(
+        IVisualPipelineRuntime visualRuntime,
+        HachimiJsonPipelineRunner jsonRunner,
+        ICareerEventHandler? eventHandler)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
         _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
+        _eventHandler = eventHandler ?? new CareerEventHandler(visualRuntime, this);
         _trainingSelectionDetector = new UraTrainingSelectionHeightDetector(visualRuntime);
         _turnFlow = new CareerTurnFlow(this);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
@@ -56,6 +66,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         UraCareerSessionState state,
         CareerObservation observation,
         IGrassTaskLogSink? logSink,
+        string eventHandling,
         CancellationToken cancellationToken)
     {
         // The guard belongs to one visit of the runner checkpoint. Any
@@ -79,20 +90,23 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             state,
             observation,
             logSink,
-            cancellationToken);
+            cancellationToken,
+            eventHandling);
 
         var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
             observation.ScreenId);
         var result = observation.ScreenId switch
         {
             "career_intro_event"
-            or "career_main"
-            or "training_selection"
-            or "training_result"
             or "training_event"
             or "event_choice"
-            or "rest_confirmation"
             or "scenario_event"
+                => await _eventHandler.TryRecognizeAndHandleAsync(context)
+                    .ConfigureAwait(false),
+            "career_main"
+            or "training_selection"
+            or "training_result"
+            or "rest_confirmation"
                 => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
             "race_runner"
                 => await _raceRunnerHandler.HandleAsync(context)
@@ -138,20 +152,19 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             observation.ScreenId);
     }
 
-    internal async Task<CareerTrainingResult?> RunAsync(
+    internal Task<CareerTrainingResult?> RunAsync(
         CareerFlowContext context,
         string screenId,
         string actionId,
-        HachimiPipelineRunOptions? options = null)
-        => await RunScreenActionCoreAsync(
-                context.Connection,
-                context.Pack,
-                screenId,
-                actionId,
-                context.LogSink,
-                options,
-                context.CancellationToken)
-            .ConfigureAwait(false);
+        HachimiPipelineRunOptions? options = null) =>
+        RunScreenActionCoreAsync(
+            context.Connection,
+            context.Pack,
+            screenId,
+            actionId,
+            context.LogSink,
+            options,
+            context.CancellationToken);
 
     Task<CareerTrainingResult?> ICareerFlowActionRunner.RunAsync(
         CareerFlowContext context,

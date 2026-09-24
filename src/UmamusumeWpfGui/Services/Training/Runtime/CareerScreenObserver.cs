@@ -26,8 +26,7 @@ public sealed class CareerScreenObserver
         UraCareerSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return (!state.CareerStarted && state.TurnIndex <= 0)
-            || IsRuntimeCareerScreen(screenId);
+        return IsRuntimeCareerScreen(screenId);
     }
 
     public async Task<CareerObservation?> ObserveAsync(
@@ -49,7 +48,9 @@ public sealed class CareerScreenObserver
             // support_autofill_confirmation use a generic green OK-button
             // template and can otherwise collide with the Rest confirmation
             // dialog after clicking Rest.
-            .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state))
+            .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
+                || (careerStartTransitionExpected
+                    && screen.ScreenId == "career_intro_event"))
             // These templates are relatively expensive and only matter right
             // after the last action before a goal. Keep them out of ordinary
             // turn observations; the two Next pages are enabled only as part
@@ -58,8 +59,9 @@ public sealed class CareerScreenObserver
             .Where(screen => careerOnly
                 || state.CareerStarted
                 || state.TurnIndex > 0
-                || screen.ScreenId is "career_intro_event"
-                    or "career_main"
+                || (careerStartTransitionExpected
+                    && screen.ScreenId == "career_intro_event")
+                || screen.ScreenId is "career_main"
                     or "career_races_ready"
                     or "training_selection"
                     or "training_result"
