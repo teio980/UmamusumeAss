@@ -6,6 +6,7 @@ namespace UmamusumeWpfGui.Services.Training;
 public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 {
     private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private readonly UraTrainingSelectionHeightDetector _trainingSelectionDetector;
     private readonly CareerTurnFlow _turnFlow;
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
@@ -18,6 +19,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
         _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
+        _trainingSelectionDetector = new UraTrainingSelectionHeightDetector(visualRuntime);
         _turnFlow = new CareerTurnFlow(this);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
         _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
@@ -186,10 +188,40 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         options ??= new HachimiPipelineRunOptions();
         options.TaskLogSink ??= _taskLogSink;
         options.SemanticProfile = HachimiTaskLogProfile.Career;
+        var entryTask = action.Task;
+        if (string.Equals(screenId, "training_selection", StringComparison.OrdinalIgnoreCase)
+            && actionId.StartsWith("training.", StringComparison.OrdinalIgnoreCase)
+            && UraTrainingTypeCatalog.TryNormalize(actionId["training.".Length..],
+                out var targetTrainingType))
+        {
+            var selection = await _trainingSelectionDetector.DetectAsync(
+                    connection,
+                    pack.ExecutionDefinition,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!selection.Succeeded)
+            {
+                return CareerRuntimeResults.Failure(
+                    $"Could not identify the raised training item: {selection.Error}",
+                    screenId);
+            }
+
+            logSink?.Add(
+                "Career Training",
+                $"Raised training item: {selection.RaisedType}; "
+                + string.Join(", ", selection.Matches.Select(item =>
+                    $"{item.TrainingType}=y{item.Match.CenterY}/score{item.Match.Score:0.000}")));
+            if (string.Equals(selection.RaisedType, targetTrainingType,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                entryTask = $"training_selection_{targetTrainingType}_raised_probe";
+            }
+        }
+
         var result = await _jsonRunner.RunAsync(
                 connection,
                 pack.ExecutionDefinition,
-                action.Task,
+                entryTask,
                 options: options,
                 logSink: logSink,
                 cancellationToken: cancellationToken)
@@ -197,7 +229,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         if (!result.Succeeded)
         {
             return CareerRuntimeResults.Failure(
-                $"Could not execute JSON task '{action.Task}' for '{screenId}.{actionId}': {result.Message}",
+                $"Could not execute JSON task '{entryTask}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
         }
 
