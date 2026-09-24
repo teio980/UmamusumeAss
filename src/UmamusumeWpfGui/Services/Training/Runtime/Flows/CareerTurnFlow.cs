@@ -75,13 +75,15 @@ internal sealed class CareerTurnFlow
                     .ConfigureAwait(false);
             case "rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
-                context.State.AwaitingRestReturn = true;
                 ArmPendingGoalProbe(context.State);
-                return await _actions.RunAsync(
+                var restConfirmationResult = await _actions.RunAsync(
                         context,
                         "rest_confirmation",
                         "confirm")
                     .ConfigureAwait(false);
+                if (restConfirmationResult is null)
+                    context.State.AwaitingRestConfirmationGone = true;
+                return restConfirmationResult;
             default:
                 return null;
         }
@@ -231,11 +233,6 @@ internal sealed class CareerTurnFlow
         context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
             context.State);
         context.State.GoalCompletionProbeArmed = false;
-        if (decision.Action == UraPlannedAction.Rest)
-        {
-            context.State.RestStartedTurnIndex = context.State.TurnIndex;
-            context.State.RestStartedEnergyPercent = energyPercent;
-        }
         return await _actions.RunAsync(
                 context,
                 "career_main",

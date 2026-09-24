@@ -39,6 +39,10 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     internal void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) =>
         _taskLogSink = taskLogSink;
 
+    internal Task<CareerTrainingResult?> TryHandleEventAsync(
+        CareerFlowContext context) =>
+        _eventHandler.TryRecognizeAndHandleAsync(context);
+
     internal Task<CareerTrainingResult?> RunScreenActionAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,

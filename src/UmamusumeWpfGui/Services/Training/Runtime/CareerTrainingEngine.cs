@@ -254,6 +254,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
         var actionCount = 0;
         var setupObservationRetryCount = 0;
+        var restOkProbeCount = 0;
+        GrayImage? restOkTemplate = null;
         string? lastLoggedTurnPosition = null;
         var careerStartTransitionExpected = !state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
@@ -326,6 +328,104 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (state.AwaitingRestConfirmationGone)
+            {
+                if (!pack.ExecutionDefinition.TryGetTask(
+                        "rest_confirmation_rest_confirm", out var confirmTask)
+                    || confirmTask is null
+                    || string.IsNullOrWhiteSpace(confirmTask.Template))
+                {
+                    return Failure(
+                        "Rest OK template is missing; automation paused safely.",
+                        "rest_confirmation",
+                        actionCount);
+                }
+
+                restOkTemplate ??= await _visualRuntime.LoadTemplateAsync(
+                        confirmTask.Template,
+                        pack.ExecutionDefinition.BaseDirectory,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (restOkTemplate is null)
+                {
+                    return Failure(
+                        "Rest OK template could not be loaded; automation paused safely.",
+                        "rest_confirmation",
+                        actionCount);
+                }
+
+                if (restOkProbeCount == 0)
+                {
+                    logSink?.Add(
+                        "Career Training",
+                        "Rest OK was clicked; waiting for its button to disappear.");
+                }
+
+                GrayImage? restFrame;
+                try
+                {
+                    restFrame = await _visualRuntime.CaptureGrayAsync(
+                            connection,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    restFrame = null;
+                }
+
+                if (restFrame is not null
+                    && CareerRestConfirmationGate.HasOkDisappeared(
+                        restFrame,
+                        restOkTemplate,
+                        confirmTask,
+                        pack.ExecutionDefinition.ReferenceWidth,
+                        pack.ExecutionDefinition.ReferenceHeight))
+                {
+                    state.AwaitingRestConfirmationGone = false;
+                    restOkProbeCount = 0;
+                    logSink?.Add(
+                        "Career Training",
+                        "Rest OK button disappeared; continuing to the next screen.");
+
+                    var restEventResult = await _flowDispatcher.TryHandleEventAsync(
+                            new CareerFlowContext(
+                                connection,
+                                pack,
+                                settings.PauseOnUnknownOutcome,
+                                scenario,
+                                strategy,
+                                settings.LineupStrategy,
+                                state,
+                                new CareerObservation("rest_confirmation", 1),
+                                logSink,
+                                cancellationToken,
+                                settings.EventHandling))
+                        .ConfigureAwait(false);
+                    if (restEventResult is not null)
+                        return restEventResult with { ActionsCompleted = actionCount };
+                }
+                else
+                {
+                    restOkProbeCount++;
+                    if (restOkProbeCount >= StableScreenRecognitionRetryLimit)
+                    {
+                        return Failure(
+                            "Rest OK button did not disappear; automation paused safely.",
+                            "rest_confirmation",
+                            actionCount);
+                    }
+
+                    await _visualRuntime.DelayAsync(250, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+            }
+
             careerStartTransitionExpected = !state.CareerStarted
                 && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
             var observation = await _screenObserver.ObserveAsync(
@@ -351,31 +451,6 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 return Failure(
                     "Could not recognize a stable Career screen; automation paused safely.",
                     state.LastScreenId,
-                    actionCount);
-            }
-
-            if (state.AwaitingRestReturn
-                && observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
-                && !CareerRestReturnGate.HasReachedNextTurn(state, observation))
-            {
-                if (setupObservationRetryCount < StableScreenRecognitionRetryLimit)
-                {
-                    if (setupObservationRetryCount == 0)
-                    {
-                        logSink?.Add(
-                            "Career Training",
-                            "Rest is still settling; waiting for the next turn and refreshed energy before choosing another action.");
-                    }
-                    setupObservationRetryCount++;
-                    await _visualRuntime.DelayAsync(250, cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
-                }
-
-                return Failure(
-                    "Rest did not reach a confirmed new Career turn with refreshed energy; "
-                    + "automation paused safely.",
-                    observation.ScreenId,
                     actionCount);
             }
 

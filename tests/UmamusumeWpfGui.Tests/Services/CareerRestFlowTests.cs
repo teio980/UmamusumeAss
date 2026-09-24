@@ -6,31 +6,31 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class CareerRestFlowTests
 {
-    [Fact]
-    public void Rest_waits_for_a_new_turn_and_refreshed_energy_before_another_action()
+    [Theory]
+    [InlineData("rest_confirmation.png", false)]
+    [InlineData("rest_confirmation_live_1538.png", false)]
+    [InlineData("rest_result.png", true)]
+    [InlineData("career_main_after_rest.png", true)]
+    public async Task Rest_completes_when_the_clicked_ok_button_disappears(
+        string frameName,
+        bool expected)
     {
-        var state = new UraCareerSessionState
-        {
-            AwaitingRestReturn = true,
-            RestStartedTurnIndex = 1,
-            RestStartedEnergyPercent = 39,
-        };
+        var pack = await LoadPackAsync();
+        Assert.True(pack.ExecutionDefinition.TryGetTask(
+            "rest_confirmation_rest_confirm", out var confirmTask));
+        Assert.NotNull(confirmTask);
 
-        Assert.False(CareerRestReturnGate.HasReachedNextTurn(
-            state, new CareerObservation("career_main", 1, 39, 0.9,
-                "Junior Year Early Jan")));
-        Assert.False(CareerRestReturnGate.HasReachedNextTurn(
-            state, new CareerObservation("career_main", 1, 80, 0.9,
-                "Junior Year Early Jan")));
-        Assert.False(CareerRestReturnGate.HasReachedNextTurn(
-            state, new CareerObservation("career_main", 1, 39, 0.9,
-                "Junior Year Late Jan")));
-        Assert.True(state.AwaitingRestReturn);
+        var screens = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
+        var frame = GrayImageCodec.FromFile(Path.Combine(screens, "captures", frameName));
+        var okTemplate = GrayImageCodec.FromFile(Path.Combine(
+            screens, confirmTask.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        Assert.NotNull(frame);
+        Assert.NotNull(okTemplate);
 
-        Assert.True(CareerRestReturnGate.HasReachedNextTurn(
-            state, new CareerObservation("career_main", 1, 80, 0.9,
-                "Junior Year Late Jan")));
-        Assert.False(state.AwaitingRestReturn);
+        Assert.Equal(expected, CareerRestConfirmationGate.HasOkDisappeared(
+            frame!, okTemplate!, confirmTask,
+            pack.ExecutionDefinition.ReferenceWidth,
+            pack.ExecutionDefinition.ReferenceHeight));
     }
 
     [Fact]

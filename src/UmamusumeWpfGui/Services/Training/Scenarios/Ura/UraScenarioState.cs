@@ -93,11 +93,10 @@ public sealed class UraCareerSessionState
     public NormalCareerSetupStage NormalSetupStage { get; set; } =
         NormalCareerSetupStage.EnterCareer;
     public UraPlannedAction LastAction { get; set; }
-    // A rest is complete only after the main page shows the next turn and
-    // its newly measured energy. This guard exists only for the current run.
-    public bool AwaitingRestReturn { get; set; }
-    public int RestStartedTurnIndex { get; set; }
-    public int? RestStartedEnergyPercent { get; set; }
+    // The Rest confirmation tap has been sent. Do not tap OK again while
+    // waiting for its button to disappear from a fresh screenshot.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool AwaitingRestConfirmationGone { get; set; }
     // Goal-complete templates are probed only during the short window after
     // an eligible action. Pending is set from the visible turn/fan objective;
     // Armed begins when the selected action is actually performed.

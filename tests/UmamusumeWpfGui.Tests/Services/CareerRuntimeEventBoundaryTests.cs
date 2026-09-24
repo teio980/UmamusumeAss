@@ -102,6 +102,11 @@ public sealed class CareerRuntimeEventBoundaryTests
         }
         Assert.Equal(4, eventHandler.CallCount);
 
+        Assert.Null(await dispatcher.TryHandleEventAsync(
+            context with { Observation = new CareerObservation("rest_confirmation", 1) }));
+        Assert.Equal("rest_confirmation", eventHandler.Context?.Observation.ScreenId);
+        Assert.Equal(5, eventHandler.CallCount);
+
         var failedContext = context with { Pack = CreatePack("NotAnAction") };
         var failure = await dispatcher.RunAsync(
             failedContext,
@@ -109,7 +114,7 @@ public sealed class CareerRuntimeEventBoundaryTests
             "advance");
         Assert.NotNull(failure);
         Assert.False(failure.Succeeded);
-        Assert.Equal(4, eventHandler.CallCount);
+        Assert.Equal(5, eventHandler.CallCount);
     }
 
     [Fact]
