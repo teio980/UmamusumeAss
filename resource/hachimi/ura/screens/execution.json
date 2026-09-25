@@ -2776,10 +2776,10 @@
                                                   "template":  "templates/goal_complete_goal_next.png",
                                                   "templThreshold":  0.78,
                                                   "roi":  [
-                                                              270,
-                                                              1340,
-                                                              360,
-                                                              120
+                                                              240,
+                                                              1320,
+                                                              420,
+                                                              150
                                                           ],
                                                   "preDelay":  0,
                                                   "postDelay":  650,
