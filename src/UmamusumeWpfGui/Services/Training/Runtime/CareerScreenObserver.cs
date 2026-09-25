@@ -226,7 +226,8 @@ public sealed class CareerScreenObserver
             && pack.ScreenProfile.Find(best.ScreenId)?.Recognition.Stable == true)
         {
             var stableScreenId = best.ScreenId;
-            if (frameObservations.Count != frames.Count
+            if (frames.Count != 2
+                || frameObservations.Count != 2
                 || frameObservations.Any(observation =>
                     !string.Equals(
                         observation?.ScreenId,
@@ -267,8 +268,7 @@ public sealed class CareerScreenObserver
                     pack.ScreenProfile.ReferenceHeight));
             var careerMain = pack.ScreenProfile.Find("career_main");
             var turnsLeftRoi = careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi();
-            var ocrFrame = await CaptureOcrFrameAsync(connection, cancellationToken)
-                .ConfigureAwait(false);
+            var ocrFrame = frames[^1];
 
             var turnText = await ReadRegionTextAsync(
                     ocrFrame,
@@ -328,8 +328,7 @@ public sealed class CareerScreenObserver
         if (best?.ScreenId is "race_day" or "race_list")
         {
             var raceScreen = pack.ScreenProfile.Find(best.ScreenId);
-            var ocrFrame = await CaptureOcrFrameAsync(connection, cancellationToken)
-                .ConfigureAwait(false);
+            var ocrFrame = frames[^1];
             var goalText = await ReadRegionTextAsync(
                     ocrFrame,
                     raceScreen?.FindOcrRegion(
@@ -343,25 +342,6 @@ public sealed class CareerScreenObserver
         }
 
         return best;
-    }
-
-    private async Task<GrayImage?> CaptureOcrFrameAsync(
-        LastVerifiedConnection connection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private async Task<bool> MatchesRequiredTemplateAsync(

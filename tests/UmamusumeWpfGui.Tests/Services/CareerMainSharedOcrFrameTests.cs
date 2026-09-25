@@ -11,7 +11,7 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerMainSharedOcrFrameTests
 {
     [Fact]
-    public async Task Main_page_uses_one_additional_frame_for_all_four_ocr_regions()
+    public async Task Main_page_uses_second_stability_frame_for_all_four_ocr_regions()
     {
         var template = CreateFrame();
         var ocrFrame = CreateFrame();
@@ -23,7 +23,7 @@ public sealed class CareerMainSharedOcrFrameTests
             careerStartTransitionExpected: false, CancellationToken.None);
 
         Assert.Equal("career_main", observation?.ScreenId);
-        Assert.Equal(3, recorder.CaptureCount);
+        Assert.Equal(2, recorder.CaptureCount);
         Assert.Equal(4, recorder.OcrCalls.Count);
         Assert.All(recorder.OcrCalls, call => Assert.Same(ocrFrame, call.Frame));
         Assert.Equal(
@@ -40,7 +40,7 @@ public sealed class CareerMainSharedOcrFrameTests
     }
 
     [Fact]
-    public async Task Missing_shared_frame_does_not_trigger_per_region_recaptures()
+    public async Task Missing_second_stability_frame_rejects_the_observation()
     {
         var template = CreateFrame();
         var runtime = RecordingVisualRuntime.Create(template, null, out var recorder);
@@ -50,13 +50,9 @@ public sealed class CareerMainSharedOcrFrameTests
             CreateConnection(), CreatePack(), new UraCareerSessionState { CareerStarted = true },
             careerStartTransitionExpected: false, CancellationToken.None);
 
-        Assert.Equal("career_main", observation?.ScreenId);
-        Assert.Equal(3, recorder.CaptureCount);
+        Assert.Null(observation);
+        Assert.Equal(2, recorder.CaptureCount);
         Assert.Empty(recorder.OcrCalls);
-        Assert.Null(observation?.TurnPositionText);
-        Assert.Null(observation?.TurnsToGoal);
-        Assert.Null(observation?.GoalText);
-        Assert.Null(observation?.MoodText);
     }
 
     [Theory]
@@ -78,7 +74,7 @@ public sealed class CareerMainSharedOcrFrameTests
 
         Assert.Equal(screenId, observation?.ScreenId);
         Assert.Equal("Place within top 3", observation?.GoalText);
-        Assert.Equal(3, recorder.CaptureCount);
+        Assert.Equal(2, recorder.CaptureCount);
         Assert.Same(ocrFrame, Assert.Single(recorder.OcrCalls).Frame);
     }
 
@@ -195,7 +191,7 @@ public sealed class CareerMainSharedOcrFrameTests
                 case "CaptureGrayAsync":
                     CaptureCount++;
                     return Task.FromResult<GrayImage?>(
-                        CaptureCount <= 2 ? _template : _ocrFrame);
+                        CaptureCount == 1 ? _template : _ocrFrame);
                 case "LoadTemplateAsync":
                     return Task.FromResult<GrayImage?>(
                         args?[0] is string path
