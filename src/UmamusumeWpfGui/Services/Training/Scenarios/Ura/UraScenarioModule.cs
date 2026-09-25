@@ -307,12 +307,14 @@ public sealed class UraScenarioModule
             {
                 state.TurnIndex = turnPosition.TurnIndex;
                 state.TurnPositionLabel = turnPosition.Label;
+                state.CalendarStage = UraTurnPositionParser.GetCalendarStage(turnPosition);
                 state.TurnIndexSource = UraStateSource.Observed;
                 state.TurnIndexConfidence = Math.Clamp(confidence, 0, 1);
             }
             else
             {
                 state.TurnIndexSource = UraStateSource.Unknown;
+                state.CalendarStage = UraCalendarStage.Regular;
             }
 
             state.TurnsToGoal = turnsToGoal;

@@ -495,7 +495,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             {
                 _taskLogSink?.Add(
                     "Turn",
-                    $"Current turn: {turnPosition}",
+                    $"Current turn: {turnPosition}"
+                        + (state.CalendarStage == UraCalendarStage.SummerCamp
+                            ? " [Summer Camp]"
+                            : string.Empty),
                     HachimiTaskLogEventKind.Detection);
                 lastLoggedTurnPosition = turnPosition;
             }

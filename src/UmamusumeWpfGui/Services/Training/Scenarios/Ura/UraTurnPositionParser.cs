@@ -16,6 +16,12 @@ public sealed record UraTurnPosition(
 /// </summary>
 public static partial class UraTurnPositionParser
 {
+    public static UraCalendarStage GetCalendarStage(UraTurnPosition position) =>
+        (position.Year is "classic" or "senior")
+        && (position.Month is 7 or 8)
+            ? UraCalendarStage.SummerCamp
+            : UraCalendarStage.Regular;
+
     private static readonly Dictionary<string, int> YearOffsets =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {

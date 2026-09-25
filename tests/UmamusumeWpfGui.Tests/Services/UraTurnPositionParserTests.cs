@@ -6,6 +6,23 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class UraTurnPositionParserTests
 {
     [Theory]
+    [InlineData("Junior Year Early Jul", UraCalendarStage.Regular)]
+    [InlineData("Classic Year Late Jun", UraCalendarStage.Regular)]
+    [InlineData("Classic Year Early Jul", UraCalendarStage.SummerCamp)]
+    [InlineData("Classic Year Late Aug", UraCalendarStage.SummerCamp)]
+    [InlineData("Classic Year Early Sep", UraCalendarStage.Regular)]
+    [InlineData("Senior Year Early Jul", UraCalendarStage.SummerCamp)]
+    [InlineData("Senior Year Late Aug", UraCalendarStage.SummerCamp)]
+    [InlineData("Senior Year Early Sep", UraCalendarStage.Regular)]
+    public void Tags_only_classic_and_senior_july_through_august_as_summer_camp(
+        string text,
+        UraCalendarStage expected)
+    {
+        Assert.True(UraTurnPositionParser.TryParse(text, out var position));
+        Assert.Equal(expected, UraTurnPositionParser.GetCalendarStage(position));
+    }
+
+    [Theory]
     [InlineData("Junior Year Pre-Debut", 0, "junior", "pre-debut", null)]
     [InlineData("Junior Year Early Jan", 1, "junior", "early", 1)]
     [InlineData("Junior Year Late Jul", 14, "junior", "late", 7)]

@@ -413,6 +413,7 @@ public sealed class CareerScreenObserver
             "goal_complete" => 2,
             "training_result" => 4,
             "infirmary_confirmation" => 5,
+            "summer_rest_confirmation" => 5,
             "rest_confirmation" => 5,
             "training_selection" => 6,
             "career_races_ready" => 7,

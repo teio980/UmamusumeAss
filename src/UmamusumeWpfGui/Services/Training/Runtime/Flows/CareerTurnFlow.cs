@@ -74,11 +74,12 @@ internal sealed class CareerTurnFlow
                         "advance")
                     .ConfigureAwait(false);
             case "rest_confirmation":
+            case "summer_rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
                 ArmPendingGoalProbe(context.State);
                 var restConfirmationResult = await _actions.RunAsync(
                         context,
-                        "rest_confirmation",
+                        context.Observation.ScreenId,
                         "confirm")
                     .ConfigureAwait(false);
                 if (restConfirmationResult is null)
@@ -220,6 +221,8 @@ internal sealed class CareerTurnFlow
             $"Observed energy {energyPercent}% before choosing an action. {decision.Reason}");
         var actionId = decision.Action switch
         {
+            UraPlannedAction.Rest when context.State.CalendarStage == UraCalendarStage.SummerCamp
+                => "summer_rest",
             UraPlannedAction.Rest => "rest",
             UraPlannedAction.Race => "races",
             UraPlannedAction.FinaleRace => "finale_races",

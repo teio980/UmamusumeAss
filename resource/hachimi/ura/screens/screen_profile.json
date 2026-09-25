@@ -683,6 +683,10 @@
                                             "task":  "career_main_action_rest"
                                         },
                                         {
+                                            "semanticId":  "action.summer_rest",
+                                            "task":  "career_main_action_summer_rest"
+                                        },
+                                        {
                                             "semanticId":  "action.infirmary",
                                             "task":  "career_main_action_infirmary"
                                         },
@@ -822,6 +826,21 @@
                                         {
                                             "semanticId":  "infirmary.confirm",
                                             "task":  "infirmary_confirmation_ok"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "summer_rest_confirmation",
+                        "recognition":  {
+                                            "template":  "templates/career/turn/summer_rest_confirmation_title.png",
+                                            "roi":  [282, 475, 335, 75],
+                                            "templThreshold":  0.85,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "rest.confirm",
+                                            "task":  "rest_confirmation_rest_confirm"
                                         }
                                     ]
                     },

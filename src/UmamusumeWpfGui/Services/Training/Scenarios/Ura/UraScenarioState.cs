@@ -10,6 +10,12 @@ public enum UraStateSource
     Unknown,
 }
 
+public enum UraCalendarStage
+{
+    Regular,
+    SummerCamp,
+}
+
 /// <summary>
 /// Progress through the small setup page that appears after the shared
 /// support-deck entry flow for a Normal Career. Keeping this separate from
@@ -64,6 +70,8 @@ public sealed class UraCareerSessionState
     public int TurnIndex { get; set; }
     public string CurrentObjectiveId { get; set; } = "debut_race";
     public string? TurnPositionLabel { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public UraCalendarStage CalendarStage { get; set; }
     public int? TurnsToGoal { get; set; }
     public int? FansToGoal { get; set; }
     public int? GradeRaceTimesLeft { get; set; }

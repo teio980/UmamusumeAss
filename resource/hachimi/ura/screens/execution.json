@@ -1815,6 +1815,19 @@
                                                   "required":  true,
                                                   "success":  false
                                               },
+                  "career_main_action_summer_rest":  {
+                                                         "algorithm":  "MatchTemplateColor",
+                                                         "action":  "ClickSelf",
+                                                         "template":  "templates/career/turn/summer_rest_action.png",
+                                                         "templThreshold":  0.9,
+                                                         "roi":  [55, 1225, 190, 85],
+                                                         "postDelay":  650,
+                                                         "timeoutMs":  15000,
+                                                         "retryTimes":  2,
+                                                         "retryDelayMs":  750,
+                                                         "pollIntervalMs":  250,
+                                                         "required":  true
+                                                     },
                   "career_main_action_infirmary":  {
                                                        "algorithm":  "MatchTemplateColor",
                                                        "action":  "ClickSelf",
