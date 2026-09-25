@@ -1815,6 +1815,41 @@
                                                   "required":  true,
                                                   "success":  false
                                               },
+                  "career_main_action_recreation":  {
+                                                          "algorithm":  "MatchTemplateColorText",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/career/turn/recreation_action.png",
+                                                          "templThreshold":  0.94,
+                                                          "roi":  [330, 1390, 240, 100],
+                                                          "postDelay":  650,
+                                                          "timeoutMs":  15000,
+                                                          "retryTimes":  2,
+                                                          "retryDelayMs":  750,
+                                                          "pollIntervalMs":  250,
+                                                          "required":  true
+                                                      },
+                  "recreation_selection_trainee":  {
+                                                           "algorithm":  "MatchTemplateColorText",
+                                                           "action":  "ClickSelf",
+                                                           "template":  "templates/career/turn/recreation_trainee.png",
+                                                           "templThreshold":  0.98,
+                                                           "roi":  [560, 470, 300, 380],
+                                                           "postDelay":  650,
+                                                           "timeoutMs":  12000,
+                                                           "pollIntervalMs":  250,
+                                                           "required":  true
+                                                       },
+                  "recreation_confirmation_ok":  {
+                                                          "algorithm":  "MatchTemplateColorText",
+                                                          "action":  "ClickSelf",
+                                                          "template":  "templates/career/turn/recreation_ok.png",
+                                                          "templThreshold":  0.94,
+                                                          "roi":  [465, 985, 365, 120],
+                                                          "postDelay":  650,
+                                                          "timeoutMs":  12000,
+                                                          "pollIntervalMs":  250,
+                                                          "required":  true
+                                                      },
                   "career_main_action_summer_rest":  {
                                                          "algorithm":  "MatchTemplateColor",
                                                          "action":  "ClickSelf",

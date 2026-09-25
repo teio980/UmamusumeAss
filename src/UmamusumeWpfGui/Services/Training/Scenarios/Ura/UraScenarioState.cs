@@ -104,6 +104,8 @@ public sealed class UraCareerSessionState
     // waiting for its button to disappear from a fresh screenshot.
     [System.Text.Json.Serialization.JsonIgnore]
     public bool AwaitingRestConfirmationGone { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool AwaitingRecreationConfirmationGone { get; set; }
     // Goal-complete templates are probed only during the short window after
     // an eligible action. Pending is set from the visible turn/fan objective;
     // Armed begins when the selected action is actually performed.
@@ -123,6 +125,8 @@ public sealed class UraCareerSessionState
     public string LastScreenId { get; set; } = "unknown";
     public UraObservedValue<int> Energy { get; set; } =
         UraObservedValueFactory.FromObservation(100, 0.5);
+    public UraObservedValue<CareerMood> Mood { get; set; } =
+        UraObservedValueFactory.Unknown<CareerMood>();
     public UraObservedValue<int> Fans { get; set; } =
         UraObservedValueFactory.FromObservation(0, 0.2);
     public UraObservedValue<int> LastRacePlacement { get; set; } =

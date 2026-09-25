@@ -112,6 +112,34 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             useColorTemplate: true,
             cancellationToken: cancellationToken);
 
+    public Task<TemplateMatchResult?> WaitForColorTextMatchAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        CancellationToken cancellationToken = default) =>
+        WaitForMatchCoreAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            searchRois: null,
+            minimumScoreGap: 0,
+            useColorTextTemplate: true,
+            cancellationToken: cancellationToken);
+
     public Task<TemplateMatchResult?> WaitForMatchScaledAsync(
         LastVerifiedConnection connection,
         string? templatePath,
@@ -184,6 +212,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         double minimumScoreGap,
         IReadOnlyList<double>? scaleCandidates = null,
         bool useColorTemplate = false,
+        bool useColorTextTemplate = false,
         CancellationToken cancellationToken = default)
     {
         var template = await LoadTemplateAsync(
@@ -225,7 +254,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     minimumScoreGap,
                     scaleCandidates,
                     useButtonTemplate: IsStructuralButtonTask(taskName),
-                    useColorTemplate: useColorTemplate);
+                    useColorTemplate: useColorTemplate,
+                    useColorTextTemplate: useColorTextTemplate);
                 if (bestMatch is null || match.Score > bestMatch.Score)
                     bestMatch = match;
                 if (match.Found)
@@ -273,11 +303,13 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         double minimumScoreGap,
         IReadOnlyList<double>? scaleCandidates,
         bool useButtonTemplate = false,
-        bool useColorTemplate = false)
+        bool useColorTemplate = false,
+        bool useColorTextTemplate = false)
     {
         if (searchRois is not { Count: > 0 })
         {
-            if (useColorTemplate && scaleCandidates is not { Count: > 0 })
+            if ((useColorTemplate || useColorTextTemplate)
+                && scaleCandidates is not { Count: > 0 })
             {
                 return TemplateMatcher.FindColor(
                     screen,
@@ -285,7 +317,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     roi,
                     threshold,
                     referenceWidth,
-                    referenceHeight);
+                    referenceHeight,
+                    requireTextContrast: useColorTextTemplate);
             }
 
             if (useButtonTemplate && scaleCandidates is not { Count: > 0 })

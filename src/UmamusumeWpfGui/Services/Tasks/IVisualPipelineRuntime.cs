@@ -60,6 +60,31 @@ public interface IVisualPipelineRuntime
             baseDirectory,
             cancellationToken);
 
+    Task<TemplateMatchResult?> WaitForColorTextMatchAsync(
+        LastVerifiedConnection connection,
+        string? templatePath,
+        int[]? roi,
+        double threshold,
+        int referenceWidth,
+        int referenceHeight,
+        int timeoutMilliseconds,
+        int pollIntervalMilliseconds,
+        string taskName,
+        string baseDirectory,
+        CancellationToken cancellationToken = default) =>
+        WaitForColorMatchAsync(
+            connection,
+            templatePath,
+            roi,
+            threshold,
+            referenceWidth,
+            referenceHeight,
+            timeoutMilliseconds,
+            pollIntervalMilliseconds,
+            taskName,
+            baseDirectory,
+            cancellationToken);
+
     Task<TemplateMatchResult?> WaitForMatchScaledAsync(
         LastVerifiedConnection connection,
         string? templatePath,

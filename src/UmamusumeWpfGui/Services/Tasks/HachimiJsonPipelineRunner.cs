@@ -2145,6 +2145,23 @@ public sealed class HachimiJsonPipelineRunner
                 .ConfigureAwait(false);
         }
 
+        if (Normalize(task.Algorithm) == "matchtemplatecolortext")
+        {
+            return await _visualRuntime.WaitForColorTextMatchAsync(
+                    connection,
+                    templatePath,
+                    roi,
+                    task.TemplateThreshold,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    timeoutMilliseconds,
+                    pollInterval,
+                    taskName,
+                    definition.BaseDirectory,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (Normalize(task.Algorithm) is "matchtemplatecolor" or "matchtemplatecol")
         {
             return await _visualRuntime.WaitForColorMatchAsync(

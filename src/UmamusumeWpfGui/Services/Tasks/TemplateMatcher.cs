@@ -551,7 +551,8 @@ internal static class TemplateMatcher
         int[]? roi,
         double threshold,
         int referenceWidth,
-        int referenceHeight)
+        int referenceHeight,
+        bool requireTextContrast = false)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(template);
@@ -601,7 +602,7 @@ internal static class TemplateMatcher
                 template.Height);
         }
 
-        var candidateStep = template.Width <= 240 ? 1 : 2;
+        var candidateStep = requireTextContrast || template.Width <= 240 ? 1 : 2;
         var bestScore = double.MinValue;
         var bestX = bounds.X;
         var bestY = bounds.Y;
@@ -615,7 +616,8 @@ internal static class TemplateMatcher
                     x,
                     y,
                     sampleWidth: Math.Min(32, template.Width),
-                    sampleHeight: Math.Min(24, template.Height));
+                    sampleHeight: Math.Min(24, template.Height),
+                    requireTextContrast);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -641,13 +643,17 @@ internal static class TemplateMatcher
         int screenX,
         int screenY,
         int sampleWidth,
-        int sampleHeight)
+        int sampleHeight,
+        bool requireTextContrast)
     {
         var screenPixels = screen.RgbaPixels!;
         var templatePixels = template.RgbaPixels!;
         double weightedError = 0;
         double totalWeight = 0;
         var visiblePixels = 0;
+        var foregroundBrightness = 0d;
+        var backgroundBrightness = 0d;
+        var backgroundCount = 0;
         for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
         {
             var templateY = sampleY * template.Height / sampleHeight;
@@ -659,7 +665,17 @@ internal static class TemplateMatcher
                 var templateOffset = (templateRow + templateX) * 4;
                 var alpha = templatePixels[templateOffset + 3];
                 if (alpha < 24)
+                {
+                    if (requireTextContrast)
+                    {
+                        var backgroundOffset = (screenRow + screenX + templateX) * 4;
+                        backgroundBrightness += (screenPixels[backgroundOffset] * 299d
+                            + screenPixels[backgroundOffset + 1] * 587d
+                            + screenPixels[backgroundOffset + 2] * 114d) / 1000d;
+                        backgroundCount++;
+                    }
                     continue;
+                }
 
                 var screenOffset = (screenRow + screenX + templateX) * 4;
                 var colorError =
@@ -669,12 +685,23 @@ internal static class TemplateMatcher
                 var weight = alpha / 255d;
                 weightedError += colorError * weight;
                 totalWeight += 765d * weight;
+                foregroundBrightness += (templatePixels[templateOffset] * 299d
+                    + templatePixels[templateOffset + 1] * 587d
+                    + templatePixels[templateOffset + 2] * 114d) / 1000d;
                 visiblePixels++;
             }
         }
 
         if (visiblePixels == 0 || totalWeight <= 0)
             return 0;
+
+        if (requireTextContrast && backgroundCount > 0)
+        {
+            var brightText = foregroundBrightness / visiblePixels >= 180d;
+            var averageBackground = backgroundBrightness / backgroundCount;
+            if (brightText ? averageBackground > 215d : averageBackground < 220d)
+                return 0;
+        }
 
         return Math.Clamp(1d - weightedError / totalWeight, -1d, 1d);
     }

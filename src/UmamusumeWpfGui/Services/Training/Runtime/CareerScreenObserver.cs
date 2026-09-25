@@ -129,13 +129,22 @@ public sealed class CareerScreenObserver
                     if (grayTemplate is null)
                         continue;
 
-                    var match = TemplateMatcher.Find(
-                        frame,
-                        grayTemplate,
-                        roi: screen.Recognition.Roi,
-                        threshold: screen.Recognition.TemplateThreshold,
-                        pack.ScreenProfile.ReferenceWidth,
-                        pack.ScreenProfile.ReferenceHeight);
+                    var match = screen.Recognition.MatchColorText
+                        ? TemplateMatcher.FindColor(
+                            frame,
+                            grayTemplate,
+                            roi: screen.Recognition.Roi,
+                            threshold: screen.Recognition.TemplateThreshold,
+                            pack.ScreenProfile.ReferenceWidth,
+                            pack.ScreenProfile.ReferenceHeight,
+                            requireTextContrast: true)
+                        : TemplateMatcher.Find(
+                            frame,
+                            grayTemplate,
+                            roi: screen.Recognition.Roi,
+                            threshold: screen.Recognition.TemplateThreshold,
+                            pack.ScreenProfile.ReferenceWidth,
+                            pack.ScreenProfile.ReferenceHeight);
                     if (match.Found
                         && !await MatchesRequiredTemplateAsync(
                                 frame,
@@ -282,6 +291,14 @@ public sealed class CareerScreenObserver
                     "career_main.objective.title",
                     cancellationToken)
                 .ConfigureAwait(false);
+            var moodText = await ReadRegionTextAsync(
+                    connection,
+                    careerMain?.FindOcrRegion("mood.current")?.ToRoi(),
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight,
+                    "career_main.mood.current",
+                    cancellationToken)
+                .ConfigureAwait(false);
             var turnsToGoal = CareerGoalTextParser.ParseTurnsLeft(turnsLeftText);
             if (turnsToGoal is null)
             {
@@ -300,6 +317,7 @@ public sealed class CareerScreenObserver
                 TurnPositionText = turnText,
                 TurnsToGoal = turnsToGoal,
                 GoalText = goalText,
+                MoodText = moodText,
                 FansToGoal = CareerGoalTextParser.ParseFansToGo(goalText),
             };
         }
@@ -413,6 +431,8 @@ public sealed class CareerScreenObserver
             "goal_complete" => 2,
             "training_result" => 4,
             "infirmary_confirmation" => 5,
+            "recreation_selection" => 5,
+            "recreation_confirmation" => 5,
             "summer_rest_confirmation" => 5,
             "rest_confirmation" => 5,
             "training_selection" => 6,

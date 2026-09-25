@@ -649,6 +649,15 @@
                                                                "height":  80
                                                            }
                                             },
+                                            {
+                                                "semanticId":  "mood.current",
+                                                "bounds":  {
+                                                               "x":  654,
+                                                               "y":  169,
+                                                               "width":  170,
+                                                               "height":  68
+                                                           }
+                                            },
                                            {
                                                "semanticId":  "stats.summary",
                                                "bounds":  {
@@ -681,6 +690,10 @@
                                         {
                                             "semanticId":  "action.rest",
                                             "task":  "career_main_action_rest"
+                                        },
+                                        {
+                                            "semanticId":  "action.recreation",
+                                            "task":  "career_main_action_recreation"
                                         },
                                         {
                                             "semanticId":  "action.summer_rest",
@@ -826,6 +839,38 @@
                                         {
                                             "semanticId":  "infirmary.confirm",
                                             "task":  "infirmary_confirmation_ok"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "recreation_selection",
+                        "recognition":  {
+                                            "template":  "templates/career/turn/recreation_selection_title.png",
+                                            "roi":  [330, 365, 245, 90],
+                                            "templThreshold":  0.94,
+                                            "matchColorText":  true,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "recreation.trainee",
+                                            "task":  "recreation_selection_trainee"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "recreation_confirmation",
+                        "recognition":  {
+                                            "template":  "templates/career/turn/recreation_prompt.png",
+                                            "roi":  [280, 710, 350, 95],
+                                            "templThreshold":  0.94,
+                                            "matchColorText":  true,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "recreation.confirm",
+                                            "task":  "recreation_confirmation_ok"
                                         }
                                     ]
                     },

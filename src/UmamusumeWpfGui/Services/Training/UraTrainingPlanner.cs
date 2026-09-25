@@ -10,6 +10,7 @@ public enum UraPlannedAction
     Complete,
     Pause,
     Infirmary,
+    Recreation,
 }
 
 public sealed record UraPlannerInput(

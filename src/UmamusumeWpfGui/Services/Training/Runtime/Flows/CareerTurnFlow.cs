@@ -85,6 +85,25 @@ internal sealed class CareerTurnFlow
                 if (restConfirmationResult is null)
                     context.State.AwaitingRestConfirmationGone = true;
                 return restConfirmationResult;
+            case "recreation_selection":
+                context.State.LastAction = UraPlannedAction.Recreation;
+                ArmPendingGoalProbe(context.State);
+                return await _actions.RunAsync(
+                        context,
+                        "recreation_selection",
+                        "trainee")
+                    .ConfigureAwait(false);
+            case "recreation_confirmation":
+                context.State.LastAction = UraPlannedAction.Recreation;
+                ArmPendingGoalProbe(context.State);
+                var recreationConfirmationResult = await _actions.RunAsync(
+                        context,
+                        "recreation_confirmation",
+                        "confirm")
+                    .ConfigureAwait(false);
+                if (recreationConfirmationResult is null)
+                    context.State.AwaitingRecreationConfirmationGone = true;
+                return recreationConfirmationResult;
             case "infirmary_confirmation":
                 context.State.LastAction = UraPlannedAction.Infirmary;
                 ArmPendingGoalProbe(context.State);
@@ -236,6 +255,7 @@ internal sealed class CareerTurnFlow
             UraPlannedAction.Rest when context.State.CalendarStage == UraCalendarStage.SummerCamp
                 => "summer_rest",
             UraPlannedAction.Rest => "rest",
+            UraPlannedAction.Recreation => "recreation",
             UraPlannedAction.Race => "races",
             UraPlannedAction.FinaleRace => "finale_races",
             UraPlannedAction.Training => "training",

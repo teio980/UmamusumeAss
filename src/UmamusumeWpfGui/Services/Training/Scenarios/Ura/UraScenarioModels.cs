@@ -500,6 +500,9 @@ public sealed class UraEnergyBarObservation
 
 public sealed class UraScreenRecognition
 {
+    [JsonPropertyName("matchColorText")]
+    public bool MatchColorText { get; set; }
+
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 

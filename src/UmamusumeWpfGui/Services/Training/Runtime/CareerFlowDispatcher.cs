@@ -111,6 +111,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "training_selection"
             or "training_result"
             or "rest_confirmation"
+            or "recreation_selection"
+            or "recreation_confirmation"
             or "summer_rest_confirmation"
             or "infirmary_confirmation"
                 => await _turnFlow.HandleAsync(context).ConfigureAwait(false),

@@ -103,6 +103,18 @@ public sealed class UraDefaultStrategy
                 [UraPlannedAction.Rest]);
         }
 
+        if (state.CalendarStage == UraCalendarStage.Regular
+            && state.Mood.Value is CareerMood mood
+            && mood < CareerMood.Normal)
+        {
+            return new(
+                UraPlannedAction.Recreation,
+                null,
+                $"Observed mood {mood} is below Normal; choose Recreation.",
+                false,
+                [UraPlannedAction.Rest]);
+        }
+
         if (state.Energy.Value is int energy && energy < RestThreshold)
         {
             return new(

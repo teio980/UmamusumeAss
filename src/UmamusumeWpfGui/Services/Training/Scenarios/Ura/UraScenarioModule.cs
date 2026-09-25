@@ -241,7 +241,8 @@ public sealed class UraScenarioModule
         string? turnPositionText = null,
         int? turnsToGoal = null,
         string? goalText = null,
-        int? fansToGoal = null)
+        int? fansToGoal = null,
+        string? moodText = null)
     {
         state.LastScreenId = screenId;
         if (string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase))
@@ -260,6 +261,9 @@ public sealed class UraScenarioModule
                     Math.Clamp(observedEnergy, 0, 100),
                     energyConfidence)
                 : UraObservedValueFactory.Unknown<int>();
+            state.Mood = CareerMoodParser.Parse(moodText) is { } mood
+                ? UraObservedValueFactory.FromObservation(mood, confidence)
+                : UraObservedValueFactory.Unknown<CareerMood>();
 
             if (UraTurnPositionParser.TryParse(turnPositionText, out var turnPosition))
             {
@@ -554,6 +558,7 @@ public sealed class UraScenarioModule
         {
             "training" => UraPlannedAction.Training,
             "rest" => UraPlannedAction.Rest,
+            "recreation" => UraPlannedAction.Recreation,
             "race" => UraPlannedAction.Race,
             "finale_race" => UraPlannedAction.FinaleRace,
             "scenario_event" => UraPlannedAction.ScenarioEvent,

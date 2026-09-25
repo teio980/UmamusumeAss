@@ -255,6 +255,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         var setupObservationRetryCount = 0;
         var restOkProbeCount = 0;
         GrayImage? restOkTemplate = null;
+        var recreationOkProbeCount = 0;
+        GrayImage? recreationOkTemplate = null;
         string? lastLoggedTurnPosition = null;
         var careerStartTransitionExpected = !state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
@@ -327,6 +329,80 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         while (actionCount < 300)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (state.AwaitingRecreationConfirmationGone)
+            {
+                if (!pack.ExecutionDefinition.TryGetTask(
+                        "recreation_confirmation_ok", out var recreationConfirmTask)
+                    || recreationConfirmTask is null
+                    || string.IsNullOrWhiteSpace(recreationConfirmTask.Template))
+                {
+                    return Failure(
+                        "Recreation OK template is missing; automation paused safely.",
+                        "recreation_confirmation",
+                        actionCount);
+                }
+
+                recreationOkTemplate ??= await _visualRuntime.LoadTemplateAsync(
+                        recreationConfirmTask.Template,
+                        pack.ExecutionDefinition.BaseDirectory,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (recreationOkTemplate is null)
+                {
+                    return Failure(
+                        "Recreation OK template could not be loaded; automation paused safely.",
+                        "recreation_confirmation",
+                        actionCount);
+                }
+
+                GrayImage? recreationFrame;
+                try
+                {
+                    recreationFrame = await _visualRuntime.CaptureGrayAsync(
+                            connection,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    recreationFrame = null;
+                }
+                if (recreationFrame is not null
+                    && !TemplateMatcher.FindColor(
+                        recreationFrame,
+                        recreationOkTemplate,
+                        recreationConfirmTask.Roi,
+                        recreationConfirmTask.TemplateThreshold,
+                        pack.ExecutionDefinition.ReferenceWidth,
+                        pack.ExecutionDefinition.ReferenceHeight,
+                        requireTextContrast: true).Found)
+                {
+                    state.AwaitingRecreationConfirmationGone = false;
+                    recreationOkProbeCount = 0;
+                    logSink?.Add(
+                        "Career Training",
+                        "Recreation OK button disappeared; continuing to the next screen.");
+                }
+                else
+                {
+                    recreationOkProbeCount++;
+                    if (recreationOkProbeCount >= StableScreenRecognitionRetryLimit)
+                    {
+                        return Failure(
+                            "Recreation OK button did not disappear; automation paused safely.",
+                            "recreation_confirmation",
+                            actionCount);
+                    }
+
+                    await _visualRuntime.DelayAsync(250, cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+            }
             if (state.AwaitingRestConfirmationGone)
             {
                 if (!pack.ExecutionDefinition.TryGetTask(
@@ -472,7 +548,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 observation.TurnPositionText,
                 observation.TurnsToGoal,
                 observation.GoalText,
-                observation.FansToGoal);
+                observation.FansToGoal,
+                observation.MoodText);
             if (observation.ScreenId == "career_main"
                 && !string.IsNullOrWhiteSpace(observation.GoalText)
                 && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
