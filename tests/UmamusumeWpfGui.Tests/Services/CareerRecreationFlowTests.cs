@@ -22,10 +22,10 @@ public sealed class CareerRecreationFlowTests
     [Theory]
     [InlineData(CareerMood.Awful, UraPlannedAction.Recreation)]
     [InlineData(CareerMood.Bad, UraPlannedAction.Recreation)]
-    [InlineData(CareerMood.Normal, UraPlannedAction.Training)]
+    [InlineData(CareerMood.Normal, UraPlannedAction.Recreation)]
     [InlineData(CareerMood.Good, UraPlannedAction.Training)]
     [InlineData(CareerMood.Great, UraPlannedAction.Training)]
-    public async Task Recreation_is_selected_only_below_normal(
+    public async Task Recreation_is_selected_at_normal_or_lower(
         CareerMood mood,
         UraPlannedAction expected)
     {

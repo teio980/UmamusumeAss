@@ -105,12 +105,12 @@ public sealed class UraDefaultStrategy
 
         if (state.CalendarStage == UraCalendarStage.Regular
             && state.Mood.Value is CareerMood mood
-            && mood < CareerMood.Normal)
+            && mood <= CareerMood.Normal)
         {
             return new(
                 UraPlannedAction.Recreation,
                 null,
-                $"Observed mood {mood} is below Normal; choose Recreation.",
+                $"Observed mood {mood} is Normal or lower; choose Recreation.",
                 false,
                 [UraPlannedAction.Rest]);
         }
