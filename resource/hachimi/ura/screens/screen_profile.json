@@ -299,21 +299,14 @@
                     {
                         "screenId":  "trainee_select",
                         "recognition":  {
-                                            "template":  "templates/trainee_select_header.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/trainee_select_ura.png"
-                                                          ],
+                                            "template":  "templates/normal/trainee_select_career_info.png",
                                             "roi":  [
-                                                       0,
-                                                       190,
-                                                       280,
-                                                       80
+                                                       576,
+                                                       510,
+                                                       145,
+                                                       32
                                                    ],
                                             "templThreshold":  0.88,
-                                            "requiredText":  [
-                                                                 "Trainee Select",
-                                                                 "Oguri Cap"
-                                                             ],
                                             "stable":  true
                                         },
                         "actions":  [
