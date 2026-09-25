@@ -84,6 +84,17 @@ internal sealed class CareerTurnFlow
                 if (restConfirmationResult is null)
                     context.State.AwaitingRestConfirmationGone = true;
                 return restConfirmationResult;
+            case "infirmary_confirmation":
+                context.State.LastAction = UraPlannedAction.Infirmary;
+                ArmPendingGoalProbe(context.State);
+                var infirmaryResult = await _actions.RunAsync(
+                        context,
+                        "infirmary_confirmation",
+                        "confirm")
+                    .ConfigureAwait(false);
+                if (infirmaryResult is null)
+                    context.LogSink?.Add("Career Training", "Infirmary treatment confirmed.");
+                return infirmaryResult;
             default:
                 return null;
         }
@@ -104,6 +115,22 @@ internal sealed class CareerTurnFlow
             && context.State.LastAction == UraPlannedAction.Race)
         {
             return null;
+        }
+
+        if (context.Observation.InfirmaryAvailable)
+        {
+            context.State.LastAction = UraPlannedAction.Infirmary;
+            context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
+                context.State);
+            context.State.GoalCompletionProbeArmed = false;
+            context.LogSink?.Add(
+                "Career Training",
+                "Infirmary is available; treating illness before the next turn action.");
+            return await _actions.RunAsync(
+                    context,
+                    "career_main",
+                    "infirmary")
+                .ConfigureAwait(false);
         }
 
         if (string.Equals(

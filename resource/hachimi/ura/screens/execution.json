@@ -1815,6 +1815,28 @@
                                                   "required":  true,
                                                   "success":  false
                                               },
+                  "career_main_action_infirmary":  {
+                                                       "algorithm":  "MatchTemplateColor",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/career/turn/infirmary_available.png",
+                                                       "templThreshold":  0.9,
+                                                       "roi":  [130, 1410, 300, 62],
+                                                       "postDelay":  650,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "required":  true
+                                                   },
+                  "infirmary_confirmation_ok":  {
+                                                       "algorithm":  "MatchTemplateColor",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/career/turn/infirmary_confirmation_ok.png",
+                                                       "templThreshold":  0.9,
+                                                       "roi":  [465, 985, 370, 120],
+                                                       "postDelay":  650,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "required":  true
+                                                   },
                   "career_main_action_races":  {
                                                    "algorithm":  "MatchTemplate",
                                                    "action":  "ClickSelf",

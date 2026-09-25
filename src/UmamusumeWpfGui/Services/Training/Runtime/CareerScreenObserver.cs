@@ -239,6 +239,23 @@ public sealed class CareerScreenObserver
 
         if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
+            var availableTemplate = await LoadTemplateCachedAsync(
+                    ResolveCapture(pack, CareerInfirmaryDetector.AvailableTemplatePath),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var unavailableTemplate = await LoadTemplateCachedAsync(
+                    ResolveCapture(pack, CareerInfirmaryDetector.UnavailableTemplatePath),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var infirmaryAvailable = availableTemplate is not null
+                && unavailableTemplate is not null
+                && frames.Count == 2
+                && frames.All(frame => CareerInfirmaryDetector.IsAvailable(
+                    frame,
+                    availableTemplate,
+                    unavailableTemplate,
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight));
             var careerMain = pack.ScreenProfile.Find("career_main");
             var turnsLeftRoi = careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi();
             var turnText = await ReadRegionTextAsync(
@@ -279,6 +296,7 @@ public sealed class CareerScreenObserver
 
             best = best with
             {
+                InfirmaryAvailable = infirmaryAvailable,
                 TurnPositionText = turnText,
                 TurnsToGoal = turnsToGoal,
                 GoalText = goalText,
@@ -394,6 +412,7 @@ public sealed class CareerScreenObserver
             "goal_update" => 3,
             "goal_complete" => 2,
             "training_result" => 4,
+            "infirmary_confirmation" => 5,
             "rest_confirmation" => 5,
             "training_selection" => 6,
             "career_races_ready" => 7,

@@ -9,6 +9,7 @@ public enum UraPlannedAction
     ScenarioEvent,
     Complete,
     Pause,
+    Infirmary,
 }
 
 public sealed record UraPlannerInput(

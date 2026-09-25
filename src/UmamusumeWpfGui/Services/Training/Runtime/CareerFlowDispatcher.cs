@@ -111,6 +111,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "training_selection"
             or "training_result"
             or "rest_confirmation"
+            or "infirmary_confirmation"
                 => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
             "race_runner"
                 => await _raceRunnerHandler.HandleAsync(context)

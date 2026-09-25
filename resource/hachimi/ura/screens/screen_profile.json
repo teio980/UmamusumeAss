@@ -683,6 +683,10 @@
                                             "task":  "career_main_action_rest"
                                         },
                                         {
+                                            "semanticId":  "action.infirmary",
+                                            "task":  "career_main_action_infirmary"
+                                        },
+                                        {
                                             "semanticId":  "action.races",
                                             "task":  "career_main_action_races"
                                         },
@@ -803,6 +807,21 @@
                                         {
                                             "semanticId":  "event.choice_first",
                                             "task":  "event_choice_event_choice_first"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "infirmary_confirmation",
+                        "recognition":  {
+                                            "template":  "templates/career/turn/infirmary_confirmation_title.png",
+                                            "roi":  [350, 475, 200, 85],
+                                            "templThreshold":  0.85,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "infirmary.confirm",
+                                            "task":  "infirmary_confirmation_ok"
                                         }
                                     ]
                     },
