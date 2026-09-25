@@ -441,6 +441,53 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         if (screenshot is null)
             return null;
 
+        return await DetectTextOnScreenshotAsync(
+                screenshot,
+                roi,
+                referenceWidth,
+                referenceHeight,
+                language,
+                taskName,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public Task<ScreenTextRecognitionResult?> DetectTextAsync(
+        GrayImage frame,
+        int[]? roi,
+        int referenceWidth,
+        int referenceHeight,
+        string? language,
+        string taskName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        if (frame.Width <= 0 || frame.Height <= 0
+            || frame.RgbaPixels is not { } rgba
+            || rgba.Length < checked(frame.Width * frame.Height * 4))
+        {
+            return Task.FromResult<ScreenTextRecognitionResult?>(null);
+        }
+
+        return DetectTextOnScreenshotAsync(
+            new AdbRawScreenshot(frame.Width, frame.Height, rgba),
+            roi,
+            referenceWidth,
+            referenceHeight,
+            language,
+            taskName,
+            cancellationToken);
+    }
+
+    private async Task<ScreenTextRecognitionResult?> DetectTextOnScreenshotAsync(
+        AdbRawScreenshot screenshot,
+        int[]? roi,
+        int referenceWidth,
+        int referenceHeight,
+        string? language,
+        string taskName,
+        CancellationToken cancellationToken)
+    {
         var actualRoi = ScaleRoi(
             roi,
             referenceWidth,

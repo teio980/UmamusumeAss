@@ -122,6 +122,18 @@ public interface IVisualPipelineRuntime
         string taskName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Recognizes a region of an already captured frame without taking another screenshot.
+    /// </summary>
+    Task<ScreenTextRecognitionResult?> DetectTextAsync(
+        GrayImage frame,
+        int[]? roi,
+        int referenceWidth,
+        int referenceHeight,
+        string? language,
+        string taskName,
+        CancellationToken cancellationToken = default);
+
     Task<ScreenTextQueryResult?> FindTextAsync(
         LastVerifiedConnection connection,
         string targetText,

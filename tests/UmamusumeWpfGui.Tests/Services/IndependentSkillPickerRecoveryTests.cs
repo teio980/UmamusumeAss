@@ -424,6 +424,16 @@ public sealed class IndependentSkillPickerRecoveryTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<ScreenTextRecognitionResult?>(null);
 
+        public Task<ScreenTextRecognitionResult?> DetectTextAsync(
+            GrayImage frame,
+            int[]? roi,
+            int referenceWidth,
+            int referenceHeight,
+            string? language,
+            string taskName,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<ScreenTextRecognitionResult?>(null);
+
         public Task<ScreenTextQueryResult?> FindTextAsync(
             LastVerifiedConnection connection,
             string targetText,

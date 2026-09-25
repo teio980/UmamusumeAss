@@ -267,8 +267,11 @@ public sealed class CareerScreenObserver
                     pack.ScreenProfile.ReferenceHeight));
             var careerMain = pack.ScreenProfile.Find("career_main");
             var turnsLeftRoi = careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi();
+            var ocrFrame = await CaptureOcrFrameAsync(connection, cancellationToken)
+                .ConfigureAwait(false);
+
             var turnText = await ReadRegionTextAsync(
-                    connection,
+                    ocrFrame,
                     careerMain?.FindOcrRegion("scenario.phase")?.ToRoi(),
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
@@ -276,7 +279,7 @@ public sealed class CareerScreenObserver
                     cancellationToken)
                 .ConfigureAwait(false);
             var turnsLeftText = await ReadRegionTextAsync(
-                    connection,
+                    ocrFrame,
                     turnsLeftRoi,
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
@@ -284,7 +287,7 @@ public sealed class CareerScreenObserver
                     cancellationToken)
                 .ConfigureAwait(false);
             var goalText = await ReadRegionTextAsync(
-                    connection,
+                    ocrFrame,
                     careerMain?.FindOcrRegion("objective.title")?.ToRoi(),
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
@@ -292,7 +295,7 @@ public sealed class CareerScreenObserver
                     cancellationToken)
                 .ConfigureAwait(false);
             var moodText = await ReadRegionTextAsync(
-                    connection,
+                    ocrFrame,
                     careerMain?.FindOcrRegion("mood.current")?.ToRoi(),
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
@@ -300,10 +303,10 @@ public sealed class CareerScreenObserver
                     cancellationToken)
                 .ConfigureAwait(false);
             var turnsToGoal = CareerGoalTextParser.ParseTurnsLeft(turnsLeftText);
-            if (turnsToGoal is null)
+            if (turnsToGoal is null && ocrFrame is not null)
             {
                 turnsToGoal = await CareerCountdownOcrReader.TryReadAsync(
-                    frames,
+                    [ocrFrame],
                     turnsLeftRoi,
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
@@ -325,8 +328,10 @@ public sealed class CareerScreenObserver
         if (best?.ScreenId is "race_day" or "race_list")
         {
             var raceScreen = pack.ScreenProfile.Find(best.ScreenId);
+            var ocrFrame = await CaptureOcrFrameAsync(connection, cancellationToken)
+                .ConfigureAwait(false);
             var goalText = await ReadRegionTextAsync(
-                    connection,
+                    ocrFrame,
                     raceScreen?.FindOcrRegion(
                         best.ScreenId == "race_day" ? "race.objective" : "objective.title")?.ToRoi(),
                     pack.ScreenProfile.ReferenceWidth,
@@ -338,6 +343,25 @@ public sealed class CareerScreenObserver
         }
 
         return best;
+    }
+
+    private async Task<GrayImage?> CaptureOcrFrameAsync(
+        LastVerifiedConnection connection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<bool> MatchesRequiredTemplateAsync(
@@ -367,21 +391,21 @@ public sealed class CareerScreenObserver
     }
 
     private async Task<string?> ReadRegionTextAsync(
-        LastVerifiedConnection connection,
+        GrayImage? frame,
         int[]? bounds,
         int referenceWidth,
         int referenceHeight,
         string taskName,
         CancellationToken cancellationToken)
     {
-        if (bounds is not { Length: >= 4 })
+        if (frame is null || bounds is not { Length: >= 4 })
             return null;
 
         ScreenTextRecognitionResult? recognized;
         try
         {
             recognized = await _visualRuntime.DetectTextAsync(
-                    connection,
+                    frame,
                     bounds,
                     referenceWidth,
                     referenceHeight,
@@ -396,8 +420,6 @@ public sealed class CareerScreenObserver
         }
         catch
         {
-            // Turn OCR is an optional state reconstruction signal. A missing
-            // OCR runtime must not discard the already recognized career page.
             return null;
         }
 

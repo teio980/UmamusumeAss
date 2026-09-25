@@ -873,6 +873,16 @@ public sealed class IndependentStrategyFlowContractTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<UmamusumeWpfGui.Models.ScreenTextRecognitionResult?>(null);
 
+        public Task<UmamusumeWpfGui.Models.ScreenTextRecognitionResult?> DetectTextAsync(
+            UmamusumeWpfGui.Models.GrayImage frame,
+            int[]? roi,
+            int referenceWidth,
+            int referenceHeight,
+            string? language,
+            string taskName,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<UmamusumeWpfGui.Models.ScreenTextRecognitionResult?>(null);
+
         public Task<UmamusumeWpfGui.Models.ScreenTextQueryResult?> FindTextAsync(
             UmamusumeWpfGui.Models.LastVerifiedConnection connection,
             string targetText,
