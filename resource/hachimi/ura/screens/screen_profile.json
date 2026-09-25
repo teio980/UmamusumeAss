@@ -1552,6 +1552,48 @@
                                     ]
                     },
                     {
+                        "screenId":  "career_result_close",
+                        "recognition":  {
+                                            "template":  "templates/career_result_close.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                       250,
+                                                       1380,
+                                                       400,
+                                                       180
+                                                   ],
+                                            "templThreshold":  0.86,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.close",
+                                            "task":  "career_result_close"
+                                        }
+                                    ]
+                    },
+                    {
+                        "screenId":  "career_epithet",
+                        "recognition":  {
+                                            "template":  "templates/career_epithet_confirm.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                       250,
+                                                       1380,
+                                                       400,
+                                                       180
+                                                   ],
+                                            "templThreshold":  0.86,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.epithet_confirm",
+                                            "task":  "career_epithet_confirm"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "career_result",
                         "recognition":  {
                                             "template":  "templates/runtime_frames/ura_final_result_next.png",
@@ -1666,6 +1708,51 @@
                             "from":  "scenario_event",
                             "to":  "career_main",
                             "on":  "event.complete"
+                        },
+                        {
+                            "from":  "complete_career",
+                            "to":  "career_rank",
+                            "on":  "career.finish"
+                        },
+                        {
+                            "from":  "career_rank",
+                            "to":  "sparks",
+                            "on":  "career.next"
+                        },
+                        {
+                            "from":  "sparks",
+                            "to":  "sparks_confirmation",
+                            "on":  "sparks.confirm"
+                        },
+                        {
+                            "from":  "sparks_confirmation",
+                            "to":  "career_result_close",
+                            "on":  "sparks.keep"
+                        },
+                        {
+                            "from":  "career_result_close",
+                            "to":  "career_epithet",
+                            "on":  "career.close"
+                        },
+                        {
+                            "from":  "career_epithet",
+                            "to":  "career_result",
+                            "on":  "career.epithet_confirm"
+                        },
+                        {
+                            "from":  "career_result",
+                            "to":  "rewards",
+                            "on":  "career.next"
+                        },
+                        {
+                            "from":  "rewards",
+                            "to":  "career_complete",
+                            "on":  "rewards.next"
+                        },
+                        {
+                            "from":  "career_complete",
+                            "to":  "home",
+                            "on":  "career.to_home"
                         }
                     ],
     "captureEvidence":  {

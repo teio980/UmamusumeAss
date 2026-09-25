@@ -31,6 +31,18 @@ internal sealed class CareerSettlementFlow
                         "career_result",
                         "next")
                     .ConfigureAwait(false);
+            case "career_result_close":
+                return await _actions.RunAsync(
+                        context,
+                        "career_result_close",
+                        "close")
+                    .ConfigureAwait(false);
+            case "career_epithet":
+                return await _actions.RunAsync(
+                        context,
+                        "career_epithet",
+                        "epithet_confirm")
+                    .ConfigureAwait(false);
             case "rewards":
                 return await _actions.RunAsync(
                         context,

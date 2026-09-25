@@ -2945,6 +2945,76 @@
                                                         "required":  true,
                                                         "success":  false
                                                     },
+                  "career_result_close":  {
+                                             "algorithm":  "MatchTemplateColor",
+                                             "action":  "ClickSelf",
+                                             "template":  "templates/career_result_close.png",
+                                             "templThreshold":  0.86,
+                                             "roi":  [
+                                                         250,
+                                                         1380,
+                                                         400,
+                                                         180
+                                                     ],
+                                             "preDelay":  0,
+                                             "postDelay":  650,
+                                             "waitMs":  0,
+                                             "timeoutMs":  12000,
+                                             "pollIntervalMs":  250,
+                                             "next":  [
+
+                                                      ],
+                                             "onErrorNext":  [
+
+                                                             ],
+                                             "exceededNext":  [
+
+                                                              ],
+                                             "sub":  [
+
+                                                     ],
+                                             "monitorTasks":  [
+
+                                                              ],
+                                             "maxTimes":  0,
+                                             "required":  true,
+                                             "success":  false
+                                         },
+                  "career_epithet_confirm":  {
+                                                  "algorithm":  "MatchTemplateColor",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/career_epithet_confirm.png",
+                                                  "templThreshold":  0.86,
+                                                  "roi":  [
+                                                              250,
+                                                              1380,
+                                                              400,
+                                                              180
+                                                          ],
+                                                  "preDelay":  0,
+                                                  "postDelay":  650,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250,
+                                                  "next":  [
+
+                                                           ],
+                                                  "onErrorNext":  [
+
+                                                                  ],
+                                                  "exceededNext":  [
+
+                                                                   ],
+                                                  "sub":  [
+
+                                                          ],
+                                                  "monitorTasks":  [
+
+                                                                   ],
+                                                  "maxTimes":  0,
+                                                  "required":  true,
+                                                  "success":  false
+                                              },
                   "career_rank_career_next":  {
                                                   "algorithm":  "MatchTemplate",
                                                   "action":  "ClickSelf",

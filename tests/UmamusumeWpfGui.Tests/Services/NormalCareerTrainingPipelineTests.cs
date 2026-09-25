@@ -59,6 +59,8 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("race_playback_start", CareerScreenKind.Race)]
     [InlineData("event_choice", CareerScreenKind.Event)]
     [InlineData("career_result", CareerScreenKind.Settlement)]
+    [InlineData("career_result_close", CareerScreenKind.Settlement)]
+    [InlineData("career_epithet", CareerScreenKind.Settlement)]
     public void Runtime_observations_are_classified_before_flow_dispatch(
         string screenId,
         CareerScreenKind expected)

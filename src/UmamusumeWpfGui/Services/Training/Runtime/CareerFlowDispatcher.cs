@@ -140,6 +140,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "complete_career"
             or "career_rank"
             or "career_result"
+            or "career_result_close"
+            or "career_epithet"
             or "rewards"
             or "sparks"
             or "sparks_confirmation"
