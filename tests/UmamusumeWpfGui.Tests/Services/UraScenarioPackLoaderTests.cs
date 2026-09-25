@@ -23,7 +23,7 @@ public sealed class UraScenarioPackLoaderTests
         ];
     private static readonly int[] ScenarioHeaderRoi = [0, 190, 430, 80];
     private static readonly int[] ScenarioStartupHeaderRoi = [620, 165, 205, 29];
-    private static readonly int[] TraineeHeaderRoi = [0, 190, 280, 80];
+    private static readonly int[] TraineeCareerInfoRoi = [576, 510, 145, 32];
     private static readonly int[] CareerMainHeaderRoi = [0, 0, 120, 50];
     private static readonly int[] ScenarioNextCardRect = [815, 650, 75, 180];
     private static readonly int[] RaceListEntryRect = [30, 840, 840, 220];
@@ -319,17 +319,19 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             "templates/normal/trainee_select_career_info.png",
             traineeStartup?.Recognition.Template);
-        Assert.Equal([576, 510, 145, 32], traineeStartup!.Recognition.Roi!);
+        Assert.Equal(TraineeCareerInfoRoi, traineeStartup!.Recognition.Roi!);
         Assert.Single(traineeStartup?.Templates ?? []);
+        var traineeSelect = pack.ScreenProfile.Find("trainee_select");
         Assert.Equal(
-            "templates/trainee_select_header.png",
-            pack.ScreenProfile.Find("trainee_select")?.Recognition.Template);
+            traineeStartup!.Recognition.Template,
+            traineeSelect?.Recognition.Template);
         Assert.Equal(
-            TraineeHeaderRoi,
-            pack.ScreenProfile.Find("trainee_select")?.Recognition.Roi);
+            TraineeCareerInfoRoi,
+            traineeSelect?.Recognition.Roi);
         Assert.Equal(
             0.88,
-            pack.ScreenProfile.Find("trainee_select")?.Recognition.TemplateThreshold);
+            traineeSelect?.Recognition.TemplateThreshold);
+        Assert.Single(traineeSelect?.Templates ?? []);
         var careerMain = pack.ScreenProfile.Find("career_main");
         Assert.NotNull(careerMain);
         Assert.Equal(
