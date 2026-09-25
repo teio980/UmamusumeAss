@@ -8,7 +8,7 @@ namespace UmamusumeWpfGui.Services.Training;
 public sealed class CareerScreenObserver
 {
     private const double EarlyRecognitionThreshold = 0.985;
-    private const int ExpectedRestConfirmationRecognitionPriority = 35;
+    private const int ExpectedActionConfirmationRecognitionPriority = 35;
     private const int RecognitionPriorityScale = 10;
 
     private readonly IVisualPipelineRuntime _visualRuntime;
@@ -43,18 +43,22 @@ public sealed class CareerScreenObserver
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentNullException.ThrowIfNull(state);
 
-        // A Rest action from Career Main has a narrow expected transition.
-        // Give its confirmation dialog an early recognition slot while
-        // retaining higher-priority event and goal overlays ahead of it.
-        string? expectedRestConfirmationScreenId = null;
+        // Rest and infirmary actions from Career Main have narrow expected
+        // transitions. Give their confirmation dialogs early recognition
+        // slots while retaining higher-priority event and goal overlays.
+        string? expectedActionConfirmationScreenId = null;
         if (!careerStartTransitionExpected
-            && state.LastAction == UraPlannedAction.Rest
             && state.LastScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
         {
-            expectedRestConfirmationScreenId =
-                state.CalendarStage == UraCalendarStage.SummerCamp
-                    ? "summer_rest_confirmation"
-                    : "rest_confirmation";
+            expectedActionConfirmationScreenId = state.LastAction switch
+            {
+                UraPlannedAction.Rest =>
+                    state.CalendarStage == UraCalendarStage.SummerCamp
+                        ? "summer_rest_confirmation"
+                        : "rest_confirmation",
+                UraPlannedAction.Infirmary => "infirmary_confirmation",
+                _ => null,
+            };
         }
 
         var candidates = pack.ScreenProfile.Screens
@@ -92,7 +96,7 @@ public sealed class CareerScreenObserver
             .OrderBy(screen => GetCandidateRecognitionPriority(
                 screen.ScreenId,
                 careerStartTransitionExpected,
-                expectedRestConfirmationScreenId))
+                expectedActionConfirmationScreenId))
             .ToArray();
 
         var frames = new List<GrayImage>(capacity: 2);
@@ -493,21 +497,21 @@ public sealed class CareerScreenObserver
     private static int GetCandidateRecognitionPriority(
         string screenId,
         bool careerStartTransitionExpected,
-        string? expectedRestConfirmationScreenId)
+        string? expectedActionConfirmationScreenId)
     {
         var priority = GetScreenRecognitionPriority(
             screenId,
             careerStartTransitionExpected);
-        if (expectedRestConfirmationScreenId is null)
+        if (expectedActionConfirmationScreenId is null)
             return priority;
 
-        // Keep event and goal overlays ahead of the expected Rest dialog, but
-        // check that dialog before training-result and underlying-page screens.
+        // Keep event and goal overlays ahead of the expected action dialog,
+        // but check that dialog before training-result and underlying screens.
         if (screenId.Equals(
-                expectedRestConfirmationScreenId,
+                expectedActionConfirmationScreenId,
                 StringComparison.OrdinalIgnoreCase))
         {
-            return ExpectedRestConfirmationRecognitionPriority;
+            return ExpectedActionConfirmationRecognitionPriority;
         }
 
         return priority * RecognitionPriorityScale;
