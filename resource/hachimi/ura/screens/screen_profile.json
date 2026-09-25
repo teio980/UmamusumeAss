@@ -960,6 +960,26 @@
                                     ]
                     },
                     {
+                        "screenId":  "race_recommendations",
+                        "recognition":  {
+                                            "template":  "templates/career/race/race_recommendations_title.png",
+                                            "roi":  [
+                                                       0,
+                                                       35,
+                                                       900,
+                                                       85
+                                                   ],
+                                            "templThreshold":  0.86,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "race.recommendations.confirm",
+                                            "task":  "race_recommendations_confirm"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "race_list",
                         "recognition":  {
                                             "template":  "templates/runtime_frames/fan_goal_race_list_header.png",

@@ -448,6 +448,10 @@ public sealed class CareerScreenObserver
             "event_choice" => 0,
             "training_event" => 1,
             "scenario_event" => 2,
+            // The optional Race Recommendations dialog can collide with the
+            // generic event-choice button template; its title identifies it
+            // before that broader overlay check runs.
+            "race_recommendations" => -1,
             "goal_objective_complete" => 3,
             "goal_update" => 3,
             "goal_complete" => 2,

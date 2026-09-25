@@ -121,6 +121,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
                     .ConfigureAwait(false),
             "race_trophy_won"
             or "race_playback_start"
+            or "race_recommendations"
             or "race_runner_result"
             or "career_races_ready"
             or "race_day"

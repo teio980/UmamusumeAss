@@ -1921,6 +1921,24 @@
                                                    "action":  "JustReturn",
                                                    "success":  true
                                                },
+                  "race_recommendations_confirm":  {
+                                                       "algorithm":  "MatchTemplate",
+                                                       "action":  "ClickSelf",
+                                                       "template":  "templates/career/race/race_recommendations_confirm.png",
+                                                       "templThreshold":  0.86,
+                                                       "roi":  [
+                                                                   245,
+                                                                   1400,
+                                                                   410,
+                                                                   140
+                                                               ],
+                                                       "preDelay":  0,
+                                                       "postDelay":  650,
+                                                       "timeoutMs":  12000,
+                                                       "pollIntervalMs":  250,
+                                                       "required":  true,
+                                                       "success":  false
+                                                   },
                   "career_main_action_finale_races":  {
                                                           "algorithm":  "MatchTemplate",
                                                           "action":  "ClickSelf",

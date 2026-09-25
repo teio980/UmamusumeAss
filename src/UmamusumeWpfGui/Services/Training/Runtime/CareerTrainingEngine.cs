@@ -257,7 +257,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         GrayImage? restOkTemplate = null;
         var recreationOkProbeCount = 0;
         GrayImage? recreationOkTemplate = null;
-        string? lastLoggedTurnPosition = null;
+        string? lastLoggedCareerStatus = null;
         var careerStartTransitionExpected = !state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
         if (!state.CareerStarted
@@ -562,32 +562,17 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             }
             if (state.CareerStarted)
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
-            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
-                && state.TurnPositionLabel is { Length: > 0 } turnPosition
-                && !string.Equals(
-                    turnPosition,
-                    lastLoggedTurnPosition,
-                    StringComparison.OrdinalIgnoreCase))
+            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
             {
-                _taskLogSink?.Add(
-                    "Turn",
-                    $"Current turn: {turnPosition}"
-                        + (state.CalendarStage == UraCalendarStage.SummerCamp
-                            ? " [Summer Camp]"
-                            : string.Empty),
-                    HachimiTaskLogEventKind.Detection);
-                lastLoggedTurnPosition = turnPosition;
-            }
-            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(observation.GoalText))
-            {
-                _taskLogSink?.Add(
-                    "Goal",
-                    $"Observed goal: {observation.GoalText}"
-                        + (observation.TurnsToGoal is int turns
-                            ? $" ({turns} turn(s) left)"
-                            : string.Empty),
-                    HachimiTaskLogEventKind.Detection);
+                var careerStatus = FormatCareerStatus(observation, state);
+                if (!string.Equals(careerStatus, lastLoggedCareerStatus, StringComparison.Ordinal))
+                {
+                    _taskLogSink?.Add(
+                        "Career status",
+                        careerStatus,
+                        HachimiTaskLogEventKind.Detection);
+                    lastLoggedCareerStatus = careerStatus;
+                }
             }
             logSink?.Add(
                 "Career Training",
@@ -658,7 +643,31 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         CareerScreenObserver.IsRuntimeCareerScreen(screenId);
 
     private static bool IsImportantCareerScreen(string screenId) => screenId is
-        "career_main" or "career_race_result" or "career_event";
+        "career_race_result" or "career_event";
+
+    private static string FormatCareerStatus(
+        CareerObservation observation,
+        UraCareerSessionState state)
+    {
+        var date = state.TurnIndexSource == UraStateSource.Observed
+            ? state.TurnPositionLabel
+            : null;
+        if (date is not null && state.CalendarStage == UraCalendarStage.SummerCamp)
+            date += " [Summer Camp]";
+        var mood = state.Mood.Value?.ToString();
+        var energy = observation.EnergyPercent is int percent
+            ? $"{percent.ToString(CultureInfo.InvariantCulture)}%"
+            : "Unknown";
+        return string.Join("\n",
+            $"Date: {Display(date)}",
+            $"Turns left: {observation.TurnsToGoal?.ToString(CultureInfo.InvariantCulture) ?? "Unknown"}",
+            $"Goal: {Display(observation.GoalText)}",
+            $"Mood: {Display(mood)}",
+            $"Energy: {energy}");
+    }
+
+    private static string Display(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
 
     internal static bool IsCareerStartTransitionExpected(
         UraCareerSessionState state) =>
@@ -667,7 +676,6 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
     private static string FriendlyCareerScreen(string screenId) => screenId switch
     {
-        "career_main" => "the Career turn screen",
         "career_race_result" => "the race result",
         "career_event" => "the event choice",
         _ => screenId,

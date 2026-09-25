@@ -46,6 +46,16 @@ internal sealed class CareerRaceFlow
                         "race_day",
                         "open_list")
                     .ConfigureAwait(false);
+            case "race_recommendations":
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Optional Race Recommendations dialog recognized; confirming it to continue to the race list.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "race_recommendations",
+                        "confirm")
+                    .ConfigureAwait(false);
             case "race_list":
                 if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
                 {

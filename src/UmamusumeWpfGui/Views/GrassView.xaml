@@ -50,23 +50,30 @@
               CornerRadius="6"
               ToolTip="{Binding Message}">
         <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="86" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Border Grid.Column="0"
+                  Grid.RowSpan="2"
                   Margin="0,0,8,0"
                   Background="{Binding Kind, Converter={StaticResource LogColorConverter}}"
                   CornerRadius="2" />
-          <TextBlock Grid.Column="1"
+          <TextBlock x:Name="HachimiEntryStep"
+                     Grid.Column="1"
                      VerticalAlignment="Top"
                      Text="{Binding Step}"
                      FontSize="10"
                      FontWeight="SemiBold"
                      Foreground="{Binding Kind, Converter={StaticResource LogColorConverter}}"
                      TextWrapping="Wrap" />
-          <TextBlock Grid.Column="2"
+          <TextBlock x:Name="HachimiEntryMessage"
+                     Grid.Column="2"
                      VerticalAlignment="Top"
                      Text="{Binding Message}"
                      FontSize="11"
@@ -75,6 +82,15 @@
                      Foreground="{DynamicResource TextSecondaryBrush}" />
         </Grid>
       </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Step}" Value="Career status">
+          <Setter TargetName="HachimiEntryStep" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="HachimiEntryMessage" Property="Grid.Row" Value="1" />
+          <Setter TargetName="HachimiEntryMessage" Property="Grid.Column" Value="1" />
+          <Setter TargetName="HachimiEntryMessage" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="HachimiEntryMessage" Property="Margin" Value="0,5,0,0" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
     </DataTemplate>
   </UserControl.Resources>
 
