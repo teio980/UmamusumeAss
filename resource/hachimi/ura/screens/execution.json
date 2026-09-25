@@ -1856,9 +1856,9 @@
                                                    "template":  "templates/career_main_action_finale_races.png",
                                                    "templThreshold":  0.78,
                                                    "roi":  [
-                                                                       620,
+                                                                       490,
                                                                        1418,
-                                                                       170,
+                                                                       300,
                                                                        55
                                                            ],
                                                    "preDelay":  0,
@@ -1892,9 +1892,9 @@
                                                           "template":  "templates/career_main_action_finale_races.png",
                                                            "templThreshold":  0.78,
                                                            "roi":  [
-                                                                       620,
+                                                                       490,
                                                                        1418,
-                                                                       170,
+                                                                       300,
                                                                        55
                                                                   ],
                                                           "preDelay":  0,
