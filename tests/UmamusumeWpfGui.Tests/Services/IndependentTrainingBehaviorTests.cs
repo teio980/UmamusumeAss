@@ -812,7 +812,7 @@ public sealed class IndependentTrainingBehaviorTests
                 ["career_continue"] = (50, 52),
                 ["scenario_select"] = (25, 29),
                 ["scenario_card"] = (58, 76),
-                ["trainee_select"] = (16, 29),
+                ["trainee_select"] = (66, 66),
                 ["legacy_select"] = (17, 28),
                 ["support_select"] = (68, 145),
                 ["support_ready"] = (50, 165),
