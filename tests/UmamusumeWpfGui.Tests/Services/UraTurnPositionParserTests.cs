@@ -27,6 +27,7 @@ public sealed class UraTurnPositionParserTests
     [InlineData("Junior Year Early Jan", 1, "junior", "early", 1)]
     [InlineData("Junior Year Late Jul", 14, "junior", "late", 7)]
     [InlineData("Classic Year Early Jan", 25, "classic", "early", 1)]
+    [InlineData("SeniorYear Early Jan", 49, "senior", "early", 1)]
     [InlineData("Senior Year Late Dec", 72, "senior", "late", 12)]
     public void Parses_career_position_into_a_stable_schedule_index(
         string text,

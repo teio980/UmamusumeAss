@@ -110,22 +110,19 @@ public sealed class UraScenarioModuleTests
     public async Task G1_count_goal_only_requests_a_race_on_a_catalog_g1_turn()
     {
         var pack = await LoadPackAsync();
-        var database = await LoadDatabaseAsync();
-        var trainee = database.Trainees.Single(item => item.TraineeId == 100602);
         var schedule = new CareerRaceGradeSchedule(
             IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
         var module = new UraScenarioModule(
             pack,
-            trainee,
-            database.Races,
             useTraineeObjectives: false,
             raceGradeSchedule: schedule);
         var state = module.CreateInitialState();
         const string goal = "In G1, place within the top 3 2 time(s) Progress 2 time(s) left";
 
         Assert.True(schedule.HasData);
-        Assert.True(schedule.HasFirstCardGrade(55, "G2"));
-        Assert.False(schedule.HasFirstCardGrade(55, "G1"));
+        Assert.False(schedule.HasQualifyingFirstCard(55, "G1"));
+        Assert.True(schedule.HasQualifyingFirstCard(56, "G1"));
+        Assert.True(schedule.HasQualifyingFirstCard(44, "G1"));
         module.ObserveScreen(state, "career_main", 0.98,
             turnPositionText: "Senior Year Early Apr", turnsToGoal: 6, goalText: goal);
         Assert.False(state.HasPendingRace);
@@ -154,14 +151,59 @@ public sealed class UraScenarioModuleTests
     }
 
     [Fact]
+    public async Task Oguri_count_goal_matches_when_date_ocr_joins_senior_and_year()
+    {
+        var pack = await LoadPackAsync();
+        var module = new UraScenarioModule(pack, useTraineeObjectives: false);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "SeniorYear Early Jan",
+            turnsToGoal: 12,
+            goalText: "In GI , place within the top 3 2 time(s) Detai • 2 time(s) left Progress");
+
+        Assert.Equal(UraStateSource.Observed, state.TurnIndexSource);
+        Assert.Equal(49, state.TurnIndex);
+        Assert.Equal(CareerGoalTextParser.GradeRaceCount, state.ObservedGoalKind);
+        Assert.Equal(2, state.GradeRaceTimesLeft);
+        Assert.Equal("G1", state.TargetRaceGrade);
+    }
+
+    [Fact]
+    public async Task Goal_achieved_on_career_main_resumes_normal_turn_actions()
+    {
+        var pack = await LoadPackAsync();
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(pack,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+        state.LastAction = UraPlannedAction.Race;
+        state.GoalCompletionProbeArmed = true;
+        state.HasPendingRace = true;
+
+        module.ObserveScreen(state, "career_main", 1,
+            energyPercent: 100,
+            turnPositionText: "Senior Year Early Mar",
+            turnsToGoal: 8,
+            goalText: "In G1, place within the top 3 2 time(s) Goal Achieved!");
+
+        Assert.Equal(CareerGoalTextParser.Completed, state.ObservedGoalKind);
+        Assert.Null(state.GradeRaceTimesLeft);
+        Assert.False(state.HasPendingRace);
+        Assert.False(state.GoalCompletionProbeArmed);
+        Assert.Equal(UraPlannedAction.Training,
+            new UraDefaultStrategy().ChooseTurnAction(module, state).Action);
+    }
+
+    [Fact]
     public async Task Live_ocr_gi_goal_on_senior_early_jun_selects_a_g1_race()
     {
         var pack = await LoadPackAsync();
-        var database = await LoadDatabaseAsync();
-        var trainee = database.Trainees.Single(item => item.TraineeId == 100602);
         var schedule = new CareerRaceGradeSchedule(
             IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
-        var module = new UraScenarioModule(pack, trainee, database.Races,
+        var module = new UraScenarioModule(pack,
             useTraineeObjectives: false,
             raceGradeSchedule: schedule);
         var state = module.CreateInitialState();
@@ -182,7 +224,7 @@ public sealed class UraScenarioModuleTests
     }
 
     [Fact]
-    public async Task Database_condition_supplies_the_required_count_for_another_trainee()
+    public async Task Race_count_without_visible_grade_does_not_use_trainee_data()
     {
         var pack = await LoadPackAsync();
         var database = await LoadDatabaseAsync();
@@ -199,32 +241,53 @@ public sealed class UraScenarioModuleTests
             turnsToGoal: 2,
             goalText: "Place within top 3. Progress 3 time(s) left");
 
-        Assert.Equal(CareerGoalTextParser.GradeRaceCount, state.ObservedGoalKind);
-        Assert.Equal("G1", state.TargetRaceGrade);
+        Assert.Equal(CareerGoalTextParser.Race, state.ObservedGoalKind);
+        Assert.Null(state.TargetRaceGrade);
         Assert.Equal(3, state.GradeRaceTimesLeft);
-        Assert.True(state.HasPendingRace);
+        Assert.False(state.HasPendingRace);
     }
 
     [Fact]
-    public async Task Grade_or_higher_condition_accepts_a_higher_grade_from_the_calendar()
+    public async Task G2_count_goal_uses_a_g2_date_without_trainee_data()
     {
         var pack = await LoadPackAsync();
-        var database = await LoadDatabaseAsync();
-        var trainee = database.Trainees.Single(item => item.TraineeId == 102101);
         var schedule = new CareerRaceGradeSchedule(
             IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
-        var module = new UraScenarioModule(pack, trainee, database.Races,
+        var module = new UraScenarioModule(pack,
             useTraineeObjectives: false,
             raceGradeSchedule: schedule);
         var state = module.CreateInitialState();
 
         module.ObserveScreen(state, "career_main", 0.98,
             turnPositionText: "Senior Year Early Jan",
-            turnsToGoal: 1,
-            goalText: "Place within top 3. Progress 4 time(s) left");
+            turnsToGoal: 10,
+            goalText: "Place within top 3 in 4 GII races. Progress 4 time(s) left");
+
+        Assert.Equal("G2", state.TargetRaceGrade);
+        Assert.True(schedule.HasQualifyingFirstCard(state.TurnIndex, "G2"));
+        Assert.False(schedule.HasQualifyingFirstCard(state.TurnIndex, "G1"));
+        Assert.True(state.HasPendingRace);
+    }
+
+    [Fact]
+    public async Task G3_count_goal_can_use_a_g2_date_without_trainee_data()
+    {
+        var pack = await LoadPackAsync();
+        var schedule = new CareerRaceGradeSchedule(
+            IndependentTrainingCatalog.Load(FindWorkspaceRoot()).Races);
+        var module = new UraScenarioModule(pack,
+            useTraineeObjectives: false,
+            raceGradeSchedule: schedule);
+        var state = module.CreateInitialState();
+
+        module.ObserveScreen(state, "career_main", 0.98,
+            turnPositionText: "Senior Year Early Mar",
+            turnsToGoal: 10,
+            goalText: "Place within top 3 in 4 GIII races. Progress 4 time(s) left");
 
         Assert.Equal("G3", state.TargetRaceGrade);
-        Assert.Equal("G2", schedule.FirstCardGrade(state.TurnIndex));
+        Assert.True(schedule.HasQualifyingFirstCard(state.TurnIndex, "G3"));
+        Assert.False(schedule.HasQualifyingFirstCard(state.TurnIndex, "G1"));
         Assert.True(state.HasPendingRace);
     }
 

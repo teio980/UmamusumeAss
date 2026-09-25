@@ -139,6 +139,15 @@ internal sealed class CareerTurnFlow
                 CareerGoalTextParser.Race,
                 StringComparison.OrdinalIgnoreCase))
         {
+            if (CareerGoalTextParser.ParseRaceGrade(context.State.ObservedGoalText) is not null
+                && context.State.ObservedGoalText?.Contains("time", StringComparison.OrdinalIgnoreCase) == true
+                && context.State.GradeRaceTimesLeft is null)
+            {
+                return CareerRuntimeResults.Failure(
+                    "A graded race-count goal is visible, but its remaining count could not be read by OCR; automation paused safely.",
+                    "career_main");
+            }
+
             if (context.State.TurnsToGoal is null
                 && !context.State.HasPendingRace)
             {
@@ -168,7 +177,7 @@ internal sealed class CareerTurnFlow
                 || context.State.GradeRaceTimesLeft is null)
             {
                 return CareerRuntimeResults.Failure(
-                    "The grade race goal needs a readable date, countdown, remaining count, and race calendar; automation paused safely.",
+                    "The grade race goal needs a readable date, countdown, remaining count, and graded race calendar; automation paused safely.",
                     "career_main");
             }
 
@@ -186,8 +195,11 @@ internal sealed class CareerTurnFlow
             && context.State.TurnsToGoal is > 0
             && CareerGoalTextParser.ParseRaceCountLeft(context.State.ObservedGoalText) is > 0)
         {
+            var reason = $"A race-count goal is visible, but its grade could not be read "
+                + $"from goal OCR '{context.State.ObservedGoalText ?? "(empty)"}'; "
+                + "automation paused safely.";
             return CareerRuntimeResults.Failure(
-                "A race-count goal is visible, but no matching grade condition was found in the trainee database; automation paused safely.",
+                reason,
                 "career_main");
         }
 

@@ -161,14 +161,12 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             "Career Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
 
-        // The first target integration is driven by the visible Career UI:
-        // OCR reads the countdown and goal text. Keep downloaded career
-        // objectives available for later validation, but do not let them
-        // trigger a race before the race assets and flow are implemented.
+        // The running objective is reconstructed from the visible Career UI.
+        // Only graded race dates come from the local race calendar.
         var scenario = new UraScenarioModule(
             pack,
-            trainee,
-            _umaDatabase.Races,
+            trainee: null,
+            careerRaces: null,
             useTraineeObjectives: false,
             raceGradeSchedule: new CareerRaceGradeSchedule(IndependentTrainingCatalog.Load().Races));
         var strategy = UraStrategyRegistry.Create(settings.StrategyId);
@@ -183,6 +181,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         // Normal Career progress is intentionally run-scoped. The current
         // game screen is the only source of truth after a restart.
         var state = scenario.CreateInitialState();
+        state.TraineeId = settings.TraineeId;
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");

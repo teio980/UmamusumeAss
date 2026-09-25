@@ -101,11 +101,11 @@ public static partial class UraTurnPositionParser
         return normalized;
     }
 
-    [GeneratedRegex(@"\bJunior\s+Year\s+Pre\s*Debut\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\bJunior\s*Year\s+Pre\s*Debut\b", RegexOptions.IgnoreCase)]
     private static partial Regex PreDebutPattern();
 
     [GeneratedRegex(
-        @"\b(?<year>Junior|Classic|Senior)\s+Year\s+(?<phase>Early|Late)\s+(?<month>[A-Za-z]+)\b",
+        @"\b(?<year>Junior|Classic|Senior)\s*Year\s+(?<phase>Early|Late)\s+(?<month>[A-Za-z]+)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex DatedPattern();
 

@@ -1,34 +1,39 @@
 namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
-/// Resolves the first available Race List card for each Career turn from the
-/// shipped race calendar. The shared fan-race action selects that card.
+/// Maps each Career turn to the grade of the first Race List card selected
+/// by the existing race flow.
 /// </summary>
 public sealed class CareerRaceGradeSchedule
 {
-    private readonly Dictionary<int, string> _firstCardGrades;
+    private readonly Dictionary<int, int> _firstCardGradeRanks;
 
     public CareerRaceGradeSchedule(IEnumerable<IndependentTrainingRace> races)
     {
         ArgumentNullException.ThrowIfNull(races);
-        _firstCardGrades = races
+        _firstCardGradeRanks = races
             .Where(race => race.IsGameAvailable && race.GameOrder == 0)
-            .Select(race => (Index: TryGetTurnIndex(race.Year, race.Turn), race.Grade))
-            .Where(item => item.Index is not null && !string.IsNullOrWhiteSpace(item.Grade))
-            .GroupBy(item => item.Index!.Value)
-            .ToDictionary(group => group.Key, group => group.First().Grade,
-                EqualityComparer<int>.Default);
+            .Select(race => (TurnIndex: TryGetTurnIndex(race.Year, race.Turn),
+                GradeRank: GradeRank(race.Grade)))
+            .Where(item => item.TurnIndex is not null && item.GradeRank is not null)
+            .GroupBy(item => item.TurnIndex!.Value)
+            .ToDictionary(group => group.Key, group => group.First().GradeRank!.Value);
     }
 
-    public bool HasData => _firstCardGrades.Count > 0;
+    public bool HasData => _firstCardGradeRanks.Count > 0;
 
-    public string? FirstCardGrade(int turnIndex) =>
-        _firstCardGrades.TryGetValue(turnIndex, out var grade) ? grade : null;
+    public bool HasQualifyingFirstCard(int turnIndex, string? goalGrade) =>
+        GradeRank(goalGrade) is int requiredRank
+        && _firstCardGradeRanks.TryGetValue(turnIndex, out var availableRank)
+        && availableRank <= requiredRank;
 
-    public bool HasFirstCardGrade(int turnIndex, string? grade) =>
-        !string.IsNullOrWhiteSpace(grade)
-        && _firstCardGrades.TryGetValue(turnIndex, out var firstGrade)
-        && firstGrade.Equals(grade, StringComparison.OrdinalIgnoreCase);
+    private static int? GradeRank(string? grade) => grade?.ToUpperInvariant() switch
+    {
+        "G1" => 1,
+        "G2" => 2,
+        "G3" => 3,
+        _ => null,
+    };
 
     private static int? TryGetTurnIndex(string year, string turn)
     {

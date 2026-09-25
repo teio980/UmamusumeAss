@@ -76,7 +76,6 @@ public sealed class UraCareerSessionState
     public int? FansToGoal { get; set; }
     public int? GradeRaceTimesLeft { get; set; }
     public string? TargetRaceGrade { get; set; }
-    public int? TargetRaceGradeCode { get; set; }
     public int GradeRaceStartedTurnIndex { get; set; }
     public string? ObservedGoalText { get; set; }
     public string? ObservedGoalKind { get; set; }

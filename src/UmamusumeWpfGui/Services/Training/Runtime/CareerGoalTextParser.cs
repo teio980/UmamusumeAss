@@ -8,6 +8,7 @@ internal static partial class CareerGoalTextParser
     public const string Fans = "fans";
     public const string Race = "race";
     public const string GradeRaceCount = "grade_race_count";
+    public const string Completed = "completed";
 
     [GeneratedRegex(@"(?<!\d)(?<turns>\d+)\s*(?:turn|turns)(?:\s*\(s\))?\b", RegexOptions.IgnoreCase)]
     private static partial Regex TurnsLeftRegex();
@@ -24,6 +25,12 @@ internal static partial class CareerGoalTextParser
 
     [GeneratedRegex(@"(?<!\d)(?<count>\d+)\s*time(?:\(s\)|s)?\s*left\b", RegexOptions.IgnoreCase)]
     private static partial Regex RaceCountLeftRegex();
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9])G\s*(?<grade>III|II|I|[123]|lll|ll|l)(?![A-Za-z0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex RaceGradeRegex();
+
+    [GeneratedRegex(@"\bgoal\s+achieved\b", RegexOptions.IgnoreCase)]
+    private static partial Regex GoalAchievedRegex();
 
     public static int? ParseTurnsLeft(string? text)
     {
@@ -70,14 +77,40 @@ internal static partial class CareerGoalTextParser
             : null;
     }
 
+    public static string? ParseRaceGrade(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var match = RaceGradeRegex().Match(text);
+        if (!match.Success)
+            return null;
+
+        var level = match.Groups["grade"].Value.ToUpperInvariant().Replace('L', 'I');
+        return level switch
+        {
+            "1" or "I" => "G1",
+            "2" or "II" => "G2",
+            "3" or "III" => "G3",
+            _ => null,
+        };
+    }
+
     public static string Classify(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return Unknown;
 
+        if (GoalAchievedRegex().IsMatch(text))
+            return Completed;
+
         var normalized = text.Trim().ToLowerInvariant();
         if (normalized.Contains("fan", StringComparison.Ordinal))
             return Fans;
+
+        if (ParseRaceCountLeft(text) is not null
+            && ParseRaceGrade(text) is not null)
+            return GradeRaceCount;
 
         if (normalized.Contains("race", StringComparison.Ordinal)
             || normalized.Contains("place", StringComparison.Ordinal)

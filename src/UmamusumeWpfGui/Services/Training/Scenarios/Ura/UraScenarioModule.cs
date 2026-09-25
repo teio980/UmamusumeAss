@@ -17,8 +17,6 @@ public sealed class UraScenarioModule
     private readonly bool _useTraineeObjectives;
     private readonly Dictionary<string, UmaCareerRaceRecord> _careerRaces;
     private readonly Dictionary<string, UraObjectiveDefinition> _traineeObjectives;
-    private readonly Dictionary<int, string> _raceGradesByCode;
-    private readonly Dictionary<string, int> _raceCodesByGrade;
     private readonly CareerRaceGradeSchedule? _raceGradeSchedule;
 
     public UraScenarioModule(
@@ -36,15 +34,6 @@ public sealed class UraScenarioModule
         _careerRaces = races
             .ToDictionary(
                 item => item.RaceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                StringComparer.OrdinalIgnoreCase);
-        _raceGradesByCode = races
-            .Where(item => item.GradeCode > 0 && !string.IsNullOrWhiteSpace(item.Grade))
-            .GroupBy(item => item.GradeCode)
-            .ToDictionary(group => group.Key, group => group.First().Grade);
-        _raceCodesByGrade = races
-            .Where(item => item.GradeCode > 0 && !string.IsNullOrWhiteSpace(item.Grade))
-            .GroupBy(item => item.Grade, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First().GradeCode,
                 StringComparer.OrdinalIgnoreCase);
         _traineeObjectives = useTraineeObjectives
             ? BuildTraineeObjectives(trainee)
@@ -74,37 +63,6 @@ public sealed class UraScenarioModule
         FindObjective(state.CurrentObjectiveId);
 
     internal bool HasRaceGradeScheduleData => _raceGradeSchedule?.HasData == true;
-
-    private UmaCareerObjectiveRecord? ResolveCountObjective(
-        int turnIndex,
-        int? turnsToGoal,
-        int? racesLeft)
-    {
-        if (_trainee is null || turnsToGoal is null or < 0 || racesLeft is null or < 0)
-            return null;
-
-        var deadlineTurn = turnIndex + turnsToGoal.Value - 1;
-        var matches = _trainee.CareerObjectives
-            .Where(objective => objective.Kind.Equals("condition", StringComparison.OrdinalIgnoreCase)
-                && objective.Turn == deadlineTurn
-                && objective.Condition.Type == 2
-                && objective.Condition.Id > 0
-                && objective.Condition.Value2 > 0
-                && objective.Condition.Value2 >= racesLeft)
-            .Take(2)
-            .ToArray();
-        return matches.Length == 1 ? matches[0] : null;
-    }
-
-    private bool HasQualifyingFirstCard(int turnIndex, int? requiredGradeCode)
-    {
-        if (requiredGradeCode is not int requiredCode)
-            return false;
-        var firstGrade = _raceGradeSchedule?.FirstCardGrade(turnIndex);
-        return firstGrade is not null
-            && _raceCodesByGrade.TryGetValue(firstGrade, out var firstCode)
-            && firstCode <= requiredCode;
-    }
 
     public UraRaceDefinition? CurrentRace(UraCareerSessionState state)
     {
@@ -322,19 +280,9 @@ public sealed class UraScenarioModule
             state.GradeRaceTimesLeft = CareerGoalTextParser.ParseRaceCountLeft(goalText);
             state.ObservedGoalText = goalText;
             state.ObservedGoalKind = CareerGoalTextParser.Classify(goalText);
-            var countObjective = state.TurnIndexSource == UraStateSource.Observed
-                ? ResolveCountObjective(
-                    state.TurnIndex,
-                    turnsToGoal,
-                    state.GradeRaceTimesLeft)
+            state.TargetRaceGrade = state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
+                ? CareerGoalTextParser.ParseRaceGrade(goalText)
                 : null;
-            state.TargetRaceGradeCode = countObjective?.Condition.Id;
-            state.TargetRaceGrade = state.TargetRaceGradeCode is int code
-                && _raceGradesByCode.TryGetValue(code, out var grade)
-                ? grade
-                : null;
-            if (countObjective is not null)
-                state.ObservedGoalKind = CareerGoalTextParser.GradeRaceCount;
             if (state.GoalCompletionProbeArmed
                 && state.LastAction == UraPlannedAction.Race
                 && ((state.ObservedGoalKind != CareerGoalTextParser.GradeRaceCount
@@ -355,9 +303,8 @@ public sealed class UraScenarioModule
             }
             else
             {
-                // The visible countdown identifies the current database
-                // condition. Its grade and the race calendar select a race;
-                // the visible progress controls how many results remain.
+                // OCR owns the objective and progress. The local calendar
+                // supplies the dates of qualifying graded races.
                 state.HasPendingRace = string.Equals(
                         state.ObservedGoalKind,
                         CareerGoalTextParser.Race,
@@ -378,8 +325,8 @@ public sealed class UraScenarioModule
                     state.HasPendingRace = state.GradeRaceTimesLeft is > 0
                         && turnsToGoal is > 0
                         && state.TurnIndexSource == UraStateSource.Observed
-                        && HasQualifyingFirstCard(
-                            state.TurnIndex, state.TargetRaceGradeCode);
+                        && _raceGradeSchedule?.HasQualifyingFirstCard(
+                            state.TurnIndex, state.TargetRaceGrade) == true;
                 }
                 state.CurrentRaceId = null;
             }
@@ -400,6 +347,8 @@ public sealed class UraScenarioModule
                     state.ObservedGoalText = goalText;
                     state.ObservedGoalKind = observedKind;
                 }
+                if (state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
+                    state.TargetRaceGrade ??= CareerGoalTextParser.ParseRaceGrade(goalText);
                 state.GradeRaceTimesLeft = CareerGoalTextParser.ParseRaceCountLeft(goalText)
                     ?? state.GradeRaceTimesLeft;
             }
