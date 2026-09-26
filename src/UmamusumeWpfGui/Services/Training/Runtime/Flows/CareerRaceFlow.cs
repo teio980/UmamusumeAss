@@ -337,8 +337,26 @@ internal sealed class CareerRaceFlow
             "Career Training",
             didRetry
                 ? "Selected Try Again with an alarm clock; waiting for the race runner page."
-                : "Selected Cancel; continuing toward Career settlement.",
+                : "Selected Cancel; advancing the race result with Next and Final Next.",
             LogEntryKind.Info);
+        if (didRetry)
+            return null;
+
+        // Cancel closes the retry dialog but leaves the normal race result
+        // visible. Continue its existing Next -> Final Next task immediately:
+        // the generic Next button can otherwise be mistaken for a settlement
+        // confirmation before the result screen is recognized.
+        var advanceResult = await _actions.RunAsync(
+                context,
+                "race_runner_result",
+                "result.next")
+            .ConfigureAwait(false);
+        if (advanceResult is not null)
+            return advanceResult;
+
+        // A declined race does not complete its objective, so do not arm the
+        // ordinary goal-completion probe used by successful race playback.
+        context.State.RaceReplayFlowCompleted = true;
         return null;
     }
 }

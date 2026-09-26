@@ -108,9 +108,11 @@ public sealed class CareerRaceAlarmRetryTests
 
         Assert.Null(await flow.HandleAsync(context));
         Assert.Null(await flow.HandleAsync(context));
-        Assert.Equal([expectedAction], actions.Calls);
+        Assert.Equal(useClock
+            ? [expectedAction]
+            : [expectedAction, "result.next"], actions.Calls);
         Assert.Equal(!useClock, state.RaceRetryDeclined);
-        Assert.False(state.RaceReplayFlowCompleted);
+        Assert.Equal(!useClock, state.RaceReplayFlowCompleted);
         Assert.Equal(!useClock, state.RaceStrategyConfigured);
     }
 
@@ -153,20 +155,42 @@ public sealed class CareerRaceAlarmRetryTests
     public async Task Declined_retry_advances_to_the_existing_settlement_flow()
     {
         var actions = new RecordingActions();
-        var state = new UraCareerSessionState { RaceRetryDeclined = true };
+        var state = new UraCareerSessionState();
         var context = new CareerFlowContext(
             null!, null!, true, null!, null!, "pace", state,
-            new CareerObservation("race_result", 1), null,
+            new CareerObservation("race_retry_dialog", 1), null,
             CancellationToken.None);
 
         Assert.Null(await new CareerRaceFlow(FrameRuntime.Create(null), actions)
             .HandleAsync(context));
+        Assert.True(state.RaceRetryDeclined);
+        Assert.True(state.RaceReplayFlowCompleted);
         Assert.Null(await new CareerSettlementFlow(actions)
             .HandleAsync(context with
             {
                 Observation = new CareerObservation("complete_career", 1),
             }));
-        Assert.Equal(["next", "finish"], actions.Calls);
+        Assert.Equal(["cancel", "result.next", "finish"], actions.Calls);
+    }
+
+    [Fact]
+    public async Task Declined_retry_does_not_complete_replay_if_final_next_fails()
+    {
+        var actions = new RecordingActions { FailOnAction = "result.next" };
+        var state = new UraCareerSessionState();
+        var context = new CareerFlowContext(
+            null!, null!, true, null!, null!, "pace", state,
+            new CareerObservation("race_retry_dialog", 1), null,
+            CancellationToken.None);
+
+        var result = await new CareerRaceFlow(FrameRuntime.Create(null), actions)
+            .HandleAsync(context);
+
+        Assert.NotNull(result);
+        Assert.False(result.Succeeded);
+        Assert.True(state.RaceRetryDeclined);
+        Assert.False(state.RaceReplayFlowCompleted);
+        Assert.Equal(["cancel", "result.next"], actions.Calls);
     }
 
     private static string FindSolutionRoot()
@@ -185,6 +209,7 @@ public sealed class CareerRaceAlarmRetryTests
     private sealed class RecordingActions : ICareerFlowActionRunner
     {
         public List<string> Calls { get; } = [];
+        public string? FailOnAction { get; init; }
 
         public Task<CareerTrainingResult?> RunAsync(
             CareerFlowContext context,
@@ -193,7 +218,9 @@ public sealed class CareerRaceAlarmRetryTests
             HachimiPipelineRunOptions? options = null)
         {
             Calls.Add(actionId);
-            return Task.FromResult<CareerTrainingResult?>(null);
+            return Task.FromResult<CareerTrainingResult?>(actionId == FailOnAction
+                ? CareerRuntimeResults.Failure("Next flow failed", screenId)
+                : null);
         }
     }
 

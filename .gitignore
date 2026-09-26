@@ -6,6 +6,7 @@ MaaAssistantArknights/
 
 # Build output
 build/
+artifacts/
 bin/
 obj/
 publish/
