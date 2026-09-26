@@ -79,6 +79,20 @@ internal sealed class CareerRaceFlow
                         "race_list",
                         GetRaceListActionId(context.State))
                     .ConfigureAwait(false);
+            case "race_list_empty":
+                context.State.RaceUnavailableTurnIndex = context.State.TurnIndex;
+                context.State.HasPendingRace = false;
+                context.State.GoalCompletionProbePending = false;
+                context.State.GoalCompletionProbeArmed = false;
+                context.LogSink?.Add(
+                    "Career Training",
+                    "The race list says there are no races to compete in; selecting Back and continuing with another Career action.",
+                    LogEntryKind.Info);
+                return await _actions.RunAsync(
+                        context,
+                        "race_list_empty",
+                        "back")
+                    .ConfigureAwait(false);
             case "race_details":
                 return await _actions.RunAsync(
                         context,

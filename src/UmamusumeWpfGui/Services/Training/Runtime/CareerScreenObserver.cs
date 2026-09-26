@@ -32,7 +32,10 @@ public sealed class CareerScreenObserver
         UraCareerSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return IsRuntimeCareerScreen(screenId);
+        // The generic Confirm! crop can match unrelated Career screens.
+        // Keep epithet recognition disabled until it has a reliable screen-level cue.
+        return IsRuntimeCareerScreen(screenId)
+            && !screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<CareerObservation?> ObserveAsync(
@@ -211,6 +214,43 @@ public sealed class CareerScreenObserver
 
                     if (screenBest is { Score: >= EarlyRecognitionThreshold })
                         break;
+                }
+
+                // View Results can open the placings page directly, without
+                // showing the Replay label used by the playback-result path.
+                // In that case the known runner checkpoint and pending race
+                // let its bottom Next button identify the result page safely.
+                if (screenBest is null
+                    && screen.ScreenId.Equals(
+                        "race_runner_result",
+                        StringComparison.OrdinalIgnoreCase)
+                    && state.HasPendingRace
+                    && state.RaceStrategyConfigured
+                    && state.LastScreenId.Equals(
+                        CareerRaceRunnerCheckpointHandler.ScreenId,
+                        StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(screen.Recognition.RequiredTemplate))
+                {
+                    var nextTemplate = await LoadTemplateCachedAsync(
+                            ResolveCapture(pack, screen.Recognition.RequiredTemplate),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (nextTemplate is not null)
+                    {
+                        var nextMatch = TemplateMatcher.Find(
+                            frame,
+                            nextTemplate,
+                            roi: screen.Recognition.RequiredTemplateRoi,
+                            threshold: screen.Recognition.RequiredTemplateThreshold,
+                            pack.ScreenProfile.ReferenceWidth,
+                            pack.ScreenProfile.ReferenceHeight);
+                        if (nextMatch.Found)
+                        {
+                            screenBest = new CareerObservation(
+                                screen.ScreenId,
+                                nextMatch.Score);
+                        }
+                    }
                 }
 
                 // Screens are ordered from specific dialogs/events to the
@@ -479,6 +519,9 @@ public sealed class CareerScreenObserver
             // remain visible underneath it. Prefer the dialog so its Race
             // confirmation button is handled instead of selecting again.
             "race_details" => 10,
+            // The no-races notice appears inside Race List, so it must be
+            // checked before the broader list-header template.
+            "race_list_empty" => 10,
             "race_list" => 11,
             // Trophy Won is an optional overlay over the runner page. It
             // must be recognized before runner so the hidden page cannot

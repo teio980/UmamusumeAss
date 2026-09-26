@@ -128,6 +128,17 @@ internal sealed class CareerTurnFlow
         context.State.TrainingClickIssuedType = null;
         context.State.TrainingClickTargetGone = false;
 
+        if (context.State.RaceUnavailableTurnIndex is int raceUnavailableTurn)
+        {
+            if (raceUnavailableTurn <= 0 || raceUnavailableTurn == context.State.TurnIndex)
+            {
+                context.State.HasPendingRace = false;
+                context.State.RaceUnavailableTurnIndex = context.State.TurnIndex;
+            }
+            else
+                context.State.RaceUnavailableTurnIndex = null;
+        }
+
         // The race-result flow has completed. Wait here while post-race event
         // and Goal Achieved pages settle instead of starting another turn or
         // entering the same race again.

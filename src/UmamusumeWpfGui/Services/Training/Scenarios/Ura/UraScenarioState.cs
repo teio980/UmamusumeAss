@@ -85,6 +85,9 @@ public sealed class UraCareerSessionState
     public string? CurrentRaceId { get; set; }
     public int RetryCount { get; set; }
     public bool HasPendingRace { get; set; }
+    // When the race list has no races, skip another race attempt on this turn.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int? RaceUnavailableTurnIndex { get; set; }
     // Run-scoped guard for the reusable race-runner strategy checkpoint.
     public bool RaceStrategyConfigured { get; set; }
     // Prevent a stale Replay marker from re-running the Next chain after it

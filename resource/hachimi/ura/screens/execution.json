@@ -2426,6 +2426,17 @@
                                                     "postDelay":  650,
                                                     "success":  true
                                                 },
+                  "race_list_empty_back": {
+                                                    "algorithm": "MatchTemplate",
+                                                    "action": "ClickSelf",
+                                                    "template": "templates/race_list_empty_back.png",
+                                                    "templThreshold": 0.84,
+                                                    "roi": [20, 1450, 220, 140],
+                                                    "timeoutMs": 12000,
+                                                    "pollIntervalMs": 250,
+                                                    "postDelay": 650,
+                                                    "success": true
+                                                },
                   "race_day_race_open_list":  {
                                                   "algorithm":  "MatchTemplateColor",
                                                   "action":  "ClickSelf",

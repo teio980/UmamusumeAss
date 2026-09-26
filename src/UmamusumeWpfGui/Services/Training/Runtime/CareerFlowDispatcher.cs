@@ -77,6 +77,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         if (state.RaceRetryDeclined
             && observation.ScreenId is ("career_main" or "training_selection"
                 or "race_runner" or "race_day" or "race_list"
+                or "race_list_empty"
                 or "race_details" or "race_attributes" or "race_playback"
                 or "race_playback_start"))
         {
@@ -147,6 +148,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "career_races_ready"
             or "race_day"
             or "race_list"
+            or "race_list_empty"
             or "race_details"
             or "race_attributes"
             or "race_playback"

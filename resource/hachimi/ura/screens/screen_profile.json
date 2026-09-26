@@ -980,6 +980,21 @@
                                     ]
                     },
                     {
+                        "screenId": "race_list_empty",
+                        "recognition": {
+                            "template": "templates/race_list_empty_no_races.png",
+                            "roi": [150, 940, 600, 150],
+                            "templThreshold": 0.84,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "back",
+                                "task": "race_list_empty_back"
+                            }
+                        ]
+                    },
+                    {
                         "screenId":  "race_list",
                         "recognition":  {
                                             "template":  "templates/runtime_frames/fan_goal_race_list_header.png",
