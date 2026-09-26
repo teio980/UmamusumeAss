@@ -14,6 +14,9 @@ namespace UmamusumeWpfGui.Services.Tasks;
 
 internal static class TemplateMatcher
 {
+    private const long ParallelComparisonThreshold = 4_000_000;
+    private const int MaximumParallelism = 4;
+
     public static TemplateMatchResult FindScaled(
         GrayImage screen,
         GrayImage template,
@@ -503,26 +506,75 @@ internal static class TemplateMatcher
             ? candidateStepOverride.Value
             : template.Width <= 160 ? 1 : 2;
         candidateStep = Math.Clamp(candidateStep, 1, 32);
+        var comparison = PreparedTemplateComparison.Create(
+            template,
+            sampleWidth,
+            sampleHeight);
         var bestScore = double.MinValue;
         var bestX = bounds.X;
         var bestY = bounds.Y;
 
-        for (var y = bounds.Y; y <= maxY; y += candidateStep)
+        var candidatesPerRow = (maxX - bounds.X) / candidateStep + 1;
+        var rowCount = (maxY - bounds.Y) / candidateStep + 1;
+        var comparisonCount = (long)candidatesPerRow * rowCount * comparison.SampleCount;
+        if (comparisonCount >= ParallelComparisonThreshold
+            && Environment.ProcessorCount > 1)
         {
-            for (var x = bounds.X; x <= maxX; x += candidateStep)
-            {
-                var score = CompareSamples(
-                    screen,
-                    template,
-                    x,
-                    y,
-                    sampleWidth,
-                    sampleHeight);
-                if (score > bestScore)
+            var rowMatches = new CandidateMatch[rowCount];
+            Parallel.For(
+                0,
+                rowCount,
+                new ParallelOptions
                 {
-                    bestScore = score;
-                    bestX = x;
-                    bestY = y;
+                    MaxDegreeOfParallelism = Math.Min(
+                        MaximumParallelism,
+                        Environment.ProcessorCount),
+                },
+                rowIndex =>
+                {
+                    var y = bounds.Y + rowIndex * candidateStep;
+                    var rowBestScore = double.MinValue;
+                    var rowBestX = bounds.X;
+                    for (var x = bounds.X; x <= maxX; x += candidateStep)
+                    {
+                        var score = CompareSamples(screen, x, y, comparison);
+                        if (score > rowBestScore)
+                        {
+                            rowBestScore = score;
+                            rowBestX = x;
+                        }
+                    }
+
+                    rowMatches[rowIndex] = new CandidateMatch(rowBestScore, rowBestX);
+                });
+
+            // Reduce rows in their original scan order so equal scores keep
+            // the same earliest (top-most, then left-most) match as the
+            // sequential matcher.
+            for (var rowIndex = 0; rowIndex < rowMatches.Length; rowIndex++)
+            {
+                var candidate = rowMatches[rowIndex];
+                if (candidate.Score > bestScore)
+                {
+                    bestScore = candidate.Score;
+                    bestX = candidate.X;
+                    bestY = bounds.Y + rowIndex * candidateStep;
+                }
+            }
+        }
+        else
+        {
+            for (var y = bounds.Y; y <= maxY; y += candidateStep)
+            {
+                for (var x = bounds.X; x <= maxX; x += candidateStep)
+                {
+                    var score = CompareSamples(screen, x, y, comparison);
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestX = x;
+                        bestY = y;
+                    }
                 }
             }
         }
@@ -1347,61 +1399,162 @@ internal static class TemplateMatcher
 
     private static double CompareSamples(
         GrayImage screen,
-        GrayImage template,
         int screenX,
         int screenY,
-        int sampleWidth,
-        int sampleHeight)
+        PreparedTemplateComparison comparison)
     {
-        var templateValues = new double[sampleWidth * sampleHeight];
-        var screenValues = new double[templateValues.Length];
-        var samples = 0;
-        for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+        var samples = comparison.SampleCount;
+        if (samples == 0)
+            return 0;
+        if (comparison.Variance < 1)
         {
-            var templateY = sampleY * template.Height / sampleHeight;
-            var screenRow = (screenY + templateY) * screen.Width;
-            var templateRow = templateY * template.Width;
-            for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
+            var templateError = SumAbsoluteError(screen, screenX, screenY, comparison);
+            return 1d - templateError / (samples * 255d);
+        }
+
+        long screenTotal = 0;
+        long screenSquareTotal = 0;
+        long crossTotal = 0;
+        var sampleIndex = 0;
+        for (var sampleY = 0; sampleY < comparison.Height; sampleY++)
+        {
+            var screenRow = (screenY + comparison.RowOffsets[sampleY]) * screen.Width;
+            for (var sampleX = 0; sampleX < comparison.Width; sampleX++)
             {
-                var templateX = sampleX * template.Width / sampleWidth;
-                templateValues[samples] = template.Pixels[templateRow + templateX];
-                screenValues[samples] = screen.Pixels[screenRow + screenX + templateX];
-                samples++;
+                var templateValue = comparison.Pixels[sampleIndex];
+                var screenValue = screen.Pixels[
+                    screenRow + screenX + comparison.ColumnOffsets[sampleX]];
+                screenTotal += screenValue;
+                screenSquareTotal += screenValue * screenValue;
+                crossTotal += templateValue * screenValue;
+                sampleIndex++;
             }
         }
 
-        if (samples == 0)
-            return 0;
-
-        var templateMean = templateValues.Take(samples).Average();
-        var screenMean = screenValues.Take(samples).Average();
-        var numerator = 0d;
-        var templateVariance = 0d;
-        var screenVariance = 0d;
-        for (var index = 0; index < samples; index++)
-        {
-            var templateDelta = templateValues[index] - templateMean;
-            var screenDelta = screenValues[index] - screenMean;
-            numerator += templateDelta * screenDelta;
-            templateVariance += templateDelta * templateDelta;
-            screenVariance += screenDelta * screenDelta;
-        }
+        var screenMean = screenTotal / (double)samples;
+        var screenVariance = screenSquareTotal - screenTotal * screenMean;
 
         // Solid-color button edges have almost no variance. Fall back to the
         // absolute grayscale comparison for those tiny templates.
-        if (templateVariance < 1 || screenVariance < 1)
+        if (screenVariance < 1)
         {
-            var error = 0d;
-            for (var index = 0; index < samples; index++)
-                error += Math.Abs(screenValues[index] - templateValues[index]);
-            return 1d - error / (samples * 255d);
+            var screenError = SumAbsoluteError(screen, screenX, screenY, comparison);
+            return 1d - screenError / (samples * 255d);
         }
 
+        var numerator = crossTotal - comparison.Total * screenMean;
+
         return Math.Clamp(
-            numerator / Math.Sqrt(templateVariance * screenVariance),
+            numerator / Math.Sqrt(comparison.Variance * screenVariance),
             -1d,
             1d);
     }
+
+    private static long SumAbsoluteError(
+        GrayImage screen,
+        int screenX,
+        int screenY,
+        PreparedTemplateComparison comparison)
+    {
+        long error = 0;
+        var sampleIndex = 0;
+        for (var sampleY = 0; sampleY < comparison.Height; sampleY++)
+        {
+            var screenRow = (screenY + comparison.RowOffsets[sampleY]) * screen.Width;
+            for (var sampleX = 0; sampleX < comparison.Width; sampleX++)
+            {
+                error += Math.Abs(
+                    screen.Pixels[screenRow + screenX + comparison.ColumnOffsets[sampleX]]
+                    - comparison.Pixels[sampleIndex]);
+                sampleIndex++;
+            }
+        }
+
+        return error;
+    }
+
+    private sealed class PreparedTemplateComparison
+    {
+        private PreparedTemplateComparison(
+            byte[] pixels,
+            int width,
+            int height,
+            int[] rowOffsets,
+            int[] columnOffsets,
+            long total,
+            double variance)
+        {
+            Pixels = pixels;
+            Width = width;
+            Height = height;
+            RowOffsets = rowOffsets;
+            ColumnOffsets = columnOffsets;
+            Total = total;
+            Variance = variance;
+        }
+
+        public byte[] Pixels { get; }
+
+        public int Width { get; }
+
+        public int Height { get; }
+
+        public int[] RowOffsets { get; }
+
+        public int[] ColumnOffsets { get; }
+
+        public int SampleCount => Pixels.Length;
+
+        public long Total { get; }
+
+        public double Variance { get; }
+
+        public static PreparedTemplateComparison Create(
+            GrayImage template,
+            int sampleWidth,
+            int sampleHeight)
+        {
+            var pixels = new byte[checked(sampleWidth * sampleHeight)];
+            var rowOffsets = new int[sampleHeight];
+            var columnOffsets = new int[sampleWidth];
+            long total = 0;
+            long squareTotal = 0;
+            var index = 0;
+
+            for (var sampleY = 0; sampleY < sampleHeight; sampleY++)
+            {
+                var templateY = sampleY * template.Height / sampleHeight;
+                rowOffsets[sampleY] = templateY;
+                var templateRow = templateY * template.Width;
+                for (var sampleX = 0; sampleX < sampleWidth; sampleX++)
+                {
+                    var templateX = sampleX * template.Width / sampleWidth;
+                    if (sampleY == 0)
+                        columnOffsets[sampleX] = templateX;
+
+                    var value = template.Pixels[templateRow + templateX];
+                    pixels[index++] = value;
+                    total += value;
+                    squareTotal += value * value;
+                }
+            }
+
+            var sampleCount = pixels.Length;
+            var variance = sampleCount == 0
+                ? 0
+                : squareTotal - total * (total / (double)sampleCount);
+            return new PreparedTemplateComparison(
+                pixels,
+                sampleWidth,
+                sampleHeight,
+                rowOffsets,
+                columnOffsets,
+                total,
+                variance);
+        }
+    }
+
+    private readonly record struct CandidateMatch(double Score, int X);
 
     private static RoiBounds ScaleRoi(
         int[]? roi,
