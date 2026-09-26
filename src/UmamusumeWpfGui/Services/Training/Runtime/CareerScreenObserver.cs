@@ -23,6 +23,10 @@ public sealed class CareerScreenObserver
     internal static bool IsRuntimeCareerScreen(string screenId) =>
         CareerScreenClassification.IsRuntimeScreen(screenId);
 
+    internal static bool IsInitialResumeCandidate(string screenId) =>
+        IsRuntimeCareerScreen(screenId)
+        && screenId is not "career_epithet";
+
     internal static bool IsEligibleForCareerPhase(
         string screenId,
         UraCareerSessionState state)
@@ -62,7 +66,7 @@ public sealed class CareerScreenObserver
         }
 
         var candidates = pack.ScreenProfile.Screens
-            .Where(screen => !careerOnly || IsRuntimeCareerScreen(screen.ScreenId))
+            .Where(screen => !careerOnly || IsInitialResumeCandidate(screen.ScreenId))
             // Once the run has reached the Career turn screen, only Career
             // runtime screens are valid. Startup dialogs such as
             // support_autofill_confirmation use a generic green OK-button

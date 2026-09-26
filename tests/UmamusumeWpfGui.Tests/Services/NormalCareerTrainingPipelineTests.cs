@@ -68,6 +68,14 @@ public sealed class NormalCareerTrainingPipelineTests
         Assert.Equal(expected, AdbNormalCareerTrainingPipeline.ClassifyRuntimeScreen(screenId));
     }
 
+    [Fact]
+    public void Epithet_is_handled_during_settlement_but_not_as_an_initial_resume_point()
+    {
+        Assert.False(CareerScreenObserver.IsInitialResumeCandidate("career_epithet"));
+        Assert.True(CareerScreenObserver.IsInitialResumeCandidate("career_result"));
+        Assert.True(CareerScreenObserver.IsRuntimeCareerScreen("career_epithet"));
+    }
+
     [Theory]
     [InlineData("home")]
     [InlineData("career_final_confirmation")]
