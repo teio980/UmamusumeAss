@@ -1402,15 +1402,10 @@
                     {
                         "screenId":  "goal_update",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/ura_finale_goal_update.png",
-                                            "templates":  [
-                                                              "templates/runtime_frames/senior_goal_update.png",
-                                                              "templates/runtime_frames/year2_goal_update.png",
-                                                              "templates/runtime_frames/career_goal_update_2of8_nhk_mile.png"
-                                                          ],
-                                            "requiredText":  [
-                                                                 "Next"
-                                                             ],
+                                            "template":  "templates/goal_update_goals_achieved_text.png",
+                                            "roi":  [55, 1215, 205, 48],
+                                            "templThreshold":  0.88,
+                                            "matchColorText":  true,
                                             "stable":  true
                                         },
                         "actions":  [
