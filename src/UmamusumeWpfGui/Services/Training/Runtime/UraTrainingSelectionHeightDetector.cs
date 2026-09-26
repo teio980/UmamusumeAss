@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.IO;
+using System.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
@@ -23,6 +26,8 @@ internal sealed record UraTrainingSelectionHeightResult(
 internal sealed class UraTrainingSelectionHeightDetector
 {
     private readonly IVisualPipelineRuntime _visualRuntime;
+    private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
+        StringComparer.OrdinalIgnoreCase);
 
     public UraTrainingSelectionHeightDetector(IVisualPipelineRuntime visualRuntime) =>
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
@@ -42,7 +47,7 @@ internal sealed class UraTrainingSelectionHeightDetector
         if (recognition is null || string.IsNullOrWhiteSpace(recognition.Template))
             return new(null, [], "The training selection header is not configured.");
 
-        var header = await _visualRuntime.LoadTemplateAsync(
+        var header = await LoadTemplateCachedAsync(
                 recognition.Template,
                 definition.BaseDirectory,
                 cancellationToken)
@@ -60,7 +65,7 @@ internal sealed class UraTrainingSelectionHeightDetector
             if (string.IsNullOrWhiteSpace(normal.Template))
                 return new(null, [], $"The {trainingType} training logo is not configured.");
 
-            var template = await _visualRuntime.LoadTemplateAsync(
+            var template = await LoadTemplateCachedAsync(
                     normal.Template,
                     definition.BaseDirectory,
                     cancellationToken)
@@ -92,7 +97,7 @@ internal sealed class UraTrainingSelectionHeightDetector
         if (string.IsNullOrWhiteSpace(normal.Template))
             return null;
 
-        var template = await _visualRuntime.LoadTemplateAsync(
+        var template = await LoadTemplateCachedAsync(
                 normal.Template,
                 definition.BaseDirectory,
                 cancellationToken)
@@ -100,6 +105,28 @@ internal sealed class UraTrainingSelectionHeightDetector
         return template is null
             ? null
             : FindTrainingType(screen, definition, trainingType, template);
+    }
+
+    private Task<GrayImage?> LoadTemplateCachedAsync(
+        string? templatePath,
+        string baseDirectory,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(templatePath))
+            return Task.FromResult<GrayImage?>(null);
+
+        var fullPath = Path.GetFullPath(Path.IsPathRooted(templatePath)
+            ? templatePath
+            : Path.Combine(baseDirectory, templatePath));
+        var lazy = _templateCache.GetOrAdd(
+            fullPath,
+            key => new Lazy<Task<GrayImage?>>(
+                () => _visualRuntime.LoadTemplateAsync(
+                    key,
+                    string.Empty,
+                    CancellationToken.None),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        return lazy.Value.WaitAsync(cancellationToken);
     }
 
     internal static bool IsTrainingSelectionScreen(

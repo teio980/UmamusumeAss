@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows;
 using UmamusumeWpfGui.Models;
@@ -15,6 +17,16 @@ internal static partial class CareerCountdownOcrReader
 {
     private const int UpscaleFactor = 4;
     private const int ProcessTimeoutMilliseconds = 2500;
+    private static readonly TimeSpan FallbackTimeout = TimeSpan.FromMilliseconds(2500);
+    private static readonly TimeSpan SuccessfulCacheLifetime = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan FailedCacheLifetime = TimeSpan.FromSeconds(3);
+    private static readonly object CacheLock = new();
+    private static CachedCountdown? _cachedCountdown;
+
+    private sealed record CachedCountdown(
+        string Fingerprint,
+        int? TurnsToGoal,
+        long CachedAtTimestamp);
 
     public static async Task<int?> TryReadAsync(
         IReadOnlyList<GrayImage> frames,
@@ -26,19 +38,46 @@ internal static partial class CareerCountdownOcrReader
         if (frames.Count == 0 || roi is not { Length: >= 4 })
             return null;
 
+        var started = Stopwatch.GetTimestamp();
+        using var fallbackTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        fallbackTimeout.CancelAfter(FallbackTimeout);
+
         foreach (var frame in frames)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var image = CropAndUpscale(
+            if (fallbackTimeout.IsCancellationRequested)
+                break;
+
+            var crop = Crop(
                 frame,
                 roi,
                 referenceWidth,
                 referenceHeight);
-            if (image is null)
+            if (crop is null)
                 continue;
 
-            var result = await TryReadImageAsync(image, cancellationToken)
+            var fingerprint = Fingerprint(crop);
+            if (TryGetCachedResult(fingerprint, out var cachedResult))
+            {
+                Trace.WriteLine(
+                    $"Career countdown OCR cache hit; elapsed="
+                    + $"{Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}ms, "
+                    + $"result={cachedResult?.ToString(CultureInfo.InvariantCulture) ?? "unreadable"}.");
+                return cachedResult;
+            }
+
+            var image = Upscale(crop, UpscaleFactor);
+            var result = await TryReadImageAsync(
+                    image,
+                    fallbackTimeout.Token,
+                    cancellationToken)
                 .ConfigureAwait(false);
+            CacheResult(fingerprint, result);
+            Trace.WriteLine(
+                $"Career countdown OCR fallback completed; elapsed="
+                + $"{Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}ms, "
+                + $"result={result?.ToString(CultureInfo.InvariantCulture) ?? "unreadable"}.");
             if (result is not null)
                 return result;
         }
@@ -48,6 +87,7 @@ internal static partial class CareerCountdownOcrReader
 
     private static async Task<int?> TryReadImageAsync(
         GrayImage image,
+        CancellationToken fallbackToken,
         CancellationToken cancellationToken)
     {
         var path = Path.Combine(
@@ -68,10 +108,15 @@ internal static partial class CareerCountdownOcrReader
             var executable = ResolveTesseractExecutable();
             foreach (var pageSegmentationMode in new[] { "8", "13" })
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (fallbackToken.IsCancellationRequested)
+                    return null;
+
                 var text = await RunTesseractAsync(
                         executable,
                         path,
                         pageSegmentationMode,
+                        fallbackToken,
                         cancellationToken)
                     .ConfigureAwait(false);
                 var value = ParseNumber(text);
@@ -107,8 +152,13 @@ internal static partial class CareerCountdownOcrReader
         string executable,
         string imagePath,
         string pageSegmentationMode,
+        CancellationToken fallbackToken,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (fallbackToken.IsCancellationRequested)
+            return null;
+
         var startInfo = new ProcessStartInfo
         {
             FileName = executable,
@@ -135,7 +185,9 @@ internal static partial class CareerCountdownOcrReader
             return null;
         }
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            fallbackToken,
+            cancellationToken);
         timeout.CancelAfter(ProcessTimeoutMilliseconds);
         var outputTask = process.StandardOutput.ReadToEndAsync(timeout.Token);
         _ = process.StandardError.ReadToEndAsync(timeout.Token);
@@ -176,7 +228,7 @@ internal static partial class CareerCountdownOcrReader
             : null;
     }
 
-    private static GrayImage? CropAndUpscale(
+    private static GrayImage? Crop(
         GrayImage frame,
         int[] roi,
         int referenceWidth,
@@ -186,8 +238,46 @@ internal static partial class CareerCountdownOcrReader
         var y = Scale(roi[1], frame.Height, referenceHeight);
         var width = Scale(roi[2], frame.Width, referenceWidth);
         var height = Scale(roi[3], frame.Height, referenceHeight);
-        var crop = GrayImageCodec.Crop(frame, new Int32Rect(x, y, width, height));
-        return crop is null ? null : Upscale(crop, UpscaleFactor);
+        return GrayImageCodec.Crop(frame, new Int32Rect(x, y, width, height));
+    }
+
+    private static string Fingerprint(GrayImage image)
+    {
+        var pixels = image.RgbaPixels is { Length: >= 4 } rgba
+            ? rgba
+            : image.Pixels;
+        return $"{image.Width}x{image.Height}:{Convert.ToHexString(SHA256.HashData(pixels))}";
+    }
+
+    private static bool TryGetCachedResult(string fingerprint, out int? result)
+    {
+        lock (CacheLock)
+        {
+            var cacheLifetime = _cachedCountdown?.TurnsToGoal is null
+                ? FailedCacheLifetime
+                : SuccessfulCacheLifetime;
+            if (_cachedCountdown is { } cached
+                && Stopwatch.GetElapsedTime(cached.CachedAtTimestamp) <= cacheLifetime
+                && string.Equals(cached.Fingerprint, fingerprint, StringComparison.Ordinal))
+            {
+                result = cached.TurnsToGoal;
+                return true;
+            }
+        }
+
+        result = null;
+        return false;
+    }
+
+    private static void CacheResult(string fingerprint, int? result)
+    {
+        lock (CacheLock)
+        {
+            _cachedCountdown = new CachedCountdown(
+                fingerprint,
+                result,
+                Stopwatch.GetTimestamp());
+        }
     }
 
     private static GrayImage Upscale(GrayImage source, int factor)

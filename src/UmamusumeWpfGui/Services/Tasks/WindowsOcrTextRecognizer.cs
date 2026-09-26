@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
 using UmamusumeWpfGui.Models;
 using Windows.Graphics.Imaging;
 using Windows.Globalization;
@@ -15,6 +17,11 @@ namespace UmamusumeWpfGui.Services.Tasks;
 /// </summary>
 public sealed class WindowsOcrTextRecognizer : IScreenTextRecognizer
 {
+    private readonly ConcurrentDictionary<string, Lazy<OcrEngine>> _engines = new(
+        StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _recognitionLocks = new(
+        StringComparer.OrdinalIgnoreCase);
+
     public async Task<ScreenTextRecognitionResult> RecognizeAsync(
         AdbRawScreenshot screenshot,
         string? language,
@@ -24,18 +31,34 @@ public sealed class WindowsOcrTextRecognizer : IScreenTextRecognizer
         cancellationToken.ThrowIfCancellationRequested();
 
         var selectedLanguage = ResolveLanguage(language);
-        var engine = OcrEngine.TryCreateFromLanguage(new Language(selectedLanguage))
-            ?? throw new InvalidOperationException(
-                $"Windows OCR language '{selectedLanguage}' is not installed.");
+        var engine = _engines.GetOrAdd(
+            selectedLanguage,
+            static language => new Lazy<OcrEngine>(
+                () => OcrEngine.TryCreateFromLanguage(new Language(language))
+                    ?? throw new InvalidOperationException(
+                        $"Windows OCR language '{language}' is not installed."),
+                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        var recognitionLock = _recognitionLocks.GetOrAdd(
+            selectedLanguage,
+            static _ => new SemaphoreSlim(1, 1));
 
-        using var bitmap = new SoftwareBitmap(
-            BitmapPixelFormat.Rgba8,
-            screenshot.Width,
-            screenshot.Height,
-            BitmapAlphaMode.Ignore);
-        bitmap.CopyFromBuffer(screenshot.RgbaBytes.AsBuffer());
-        var result = await engine.RecognizeAsync(bitmap).AsTask(cancellationToken)
-            .ConfigureAwait(false);
+        await recognitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        OcrResult result;
+        try
+        {
+            using var bitmap = new SoftwareBitmap(
+                BitmapPixelFormat.Rgba8,
+                screenshot.Width,
+                screenshot.Height,
+                BitmapAlphaMode.Ignore);
+            bitmap.CopyFromBuffer(screenshot.RgbaBytes.AsBuffer());
+            result = await engine.RecognizeAsync(bitmap).AsTask(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            recognitionLock.Release();
+        }
 
         var detections = new List<ScreenTextDetection>();
         foreach (var line in result.Lines)
