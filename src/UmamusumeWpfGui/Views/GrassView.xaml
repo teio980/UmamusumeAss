@@ -186,6 +186,7 @@
                         CornerRadius="2"
                         Visibility="Collapsed" />
                 <Border x:Name="TaskDragPreview"
+                        DataContext="{x:Null}"
                         Padding="10,8"
                         Background="{DynamicResource SurfaceRaisedBrush}"
                         BorderBrush="{DynamicResource BorderDefaultBrush}"
