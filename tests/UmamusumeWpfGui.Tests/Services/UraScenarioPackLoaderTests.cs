@@ -185,15 +185,28 @@ public sealed class UraScenarioPackLoaderTests
         Assert.True(viewResultsTap.RepeatTapUntilTransition);
         Assert.Equal(4, viewResultsTap.MaxClickAttempts);
         Assert.Equal(
-            ["templates/career/race/race_result_next.png"],
+            [
+                "templates/career/race/race_result_next.png",
+                "templates/career/race/race_retry_dialog_title.png",
+            ],
             viewResultsTap.TransitionTemplates);
+        Assert.True(viewResultsTap.PollTransitionTemplatesTogether);
         Assert.Equal([300, 1200, 300, 250], viewResultsTap.Roi!);
         Assert.Equal(600_000, viewResultsTap.TimeoutMilliseconds);
         Assert.Equal(60, viewResultsTap.PollIntervalMilliseconds);
-        Assert.Equal(
-            ["race_runner_result_next"],
-            viewResultsTap.Next);
+        Assert.Empty(viewResultsTap.Next);
         Assert.Empty(viewResultsTap.OnErrorNext);
+        var retryDialog = pack.ScreenProfile.Find("race_retry_dialog");
+        Assert.NotNull(retryDialog);
+        Assert.Equal("race_retry_try_again_probe",
+            retryDialog.FindAction("retry_with_alarm_clock")?.Task);
+        Assert.Equal("race_retry_cancel", retryDialog.FindAction("cancel")?.Task);
+        Assert.Equal(["race_retry_cancel"],
+            pack.ExecutionDefinition.Tasks["race_retry_try_again_probe"].OnErrorNext);
+        Assert.Equal(["race_retry_try_again"],
+            pack.ExecutionDefinition.Tasks["race_retry_try_again_probe"].Next);
+        Assert.Equal("ClickSelfUntilTransition",
+            pack.ExecutionDefinition.Tasks["race_retry_try_again"].Action);
         Assert.Equal(
             "templates/career/race/race_playback_ok.png",
             pack.ExecutionDefinition.Tasks["race_runner_playback_ok"].Template);

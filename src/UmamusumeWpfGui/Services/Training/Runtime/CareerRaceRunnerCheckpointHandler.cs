@@ -77,10 +77,11 @@ internal sealed class CareerRaceRunnerCheckpointHandler
         if (entryResult is not null)
             return entryResult;
 
-        CareerRaceFlow.MarkReplayFlowCompleted(context.State);
         context.LogSink?.Add(
             "Career Training",
-            "The preferred View Results/Race entry and shared replay-result flow completed.",
+            context.State.RaceReplayFlowCompleted
+                ? "The Race entry and shared replay-result flow completed."
+                : "View Results changed screens; observing the result or retry dialog.",
             LogEntryKind.Info);
         return null;
     }

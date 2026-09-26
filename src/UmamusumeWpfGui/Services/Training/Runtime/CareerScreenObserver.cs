@@ -458,6 +458,7 @@ public sealed class CareerScreenObserver
             // generic event-choice button template; its title identifies it
             // before that broader overlay check runs.
             "race_recommendations" => -1,
+            "race_retry_dialog" => -2,
             "goal_objective_complete" => 3,
             "goal_update" => 3,
             "goal_complete" => 2,

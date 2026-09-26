@@ -1085,6 +1085,28 @@
                                     ]
                     },
                     {
+                        "screenId":  "race_retry_dialog",
+                        "recognition":  {
+                                            "template":  "templates/career/race/race_retry_dialog_title.png",
+                                            "roi":  [320, 350, 270, 120],
+                                            "requiredTemplate":  "templates/career/race/race_retry_alarm_prompt.png",
+                                            "requiredTemplateRoi":  [40, 570, 820, 100],
+                                            "requiredTemplateThreshold":  0.88,
+                                            "stable":  true,
+                                            "templThreshold":  0.88
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "retry_with_alarm_clock",
+                                            "task":  "race_retry_try_again_probe"
+                                        },
+                                        {
+                                            "semanticId":  "cancel",
+                                            "task":  "race_retry_cancel"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "race_runner_result",
                         "recognition":  {
                                             "template":  "templates/career/race/race_result_replay.png",

@@ -91,6 +91,13 @@ public sealed class UraCareerSessionState
     // already completed. Reset when a new race is entered.
     [System.Text.Json.Serialization.JsonIgnore]
     public bool RaceReplayFlowCompleted { get; set; }
+    // A declined retry must proceed to the existing Career settlement pages,
+    // without treating a losing result as another ordinary race objective.
+    public bool RaceRetryDeclined { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool RaceRetryDialogActionIssued { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int RaceRetryDialogWaitCount { get; set; }
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
     // Indicates that the selected URA career has actually reached the career

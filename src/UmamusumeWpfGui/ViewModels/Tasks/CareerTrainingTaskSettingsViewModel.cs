@@ -33,6 +33,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _normalLineupStrategy = CareerStrategyCatalog.DefaultLineupStrategy;
     private string _normalEventHandling = DefaultEventHandling;
     private bool _pauseOnUnknownOutcome = true;
+    private bool _retryFailedRaceWithAlarmClock;
     private bool _allowOptionalRaces;
     private string _status = string.Empty;
     private bool _disposed;
@@ -133,6 +134,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => _pauseOnUnknownOutcome;
         set => Set(ref _pauseOnUnknownOutcome, value);
+    }
+
+    public bool RetryFailedRaceWithAlarmClock
+    {
+        get => _retryFailedRaceWithAlarmClock;
+        set => Set(ref _retryFailedRaceWithAlarmClock, value);
     }
 
     public bool AllowOptionalRaces

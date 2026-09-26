@@ -71,8 +71,26 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         CareerObservation observation,
         IGrassTaskLogSink? logSink,
         string eventHandling,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool retryFailedRaceWithAlarmClock = false)
     {
+        if (state.RaceRetryDeclined
+            && observation.ScreenId is ("career_main" or "training_selection"
+                or "race_runner" or "race_day" or "race_list"
+                or "race_details" or "race_attributes" or "race_playback"
+                or "race_playback_start"))
+        {
+            return CareerRuntimeResults.Failure(
+                $"Race retry was declined, but '{observation.ScreenId}' appeared instead of settlement; automation paused safely.",
+                observation.ScreenId);
+        }
+
+        if (observation.ScreenId != "race_retry_dialog")
+        {
+            state.RaceRetryDialogActionIssued = false;
+            state.RaceRetryDialogWaitCount = 0;
+        }
+
         // The guard belongs to one visit of the runner checkpoint. Any
         // transition away from that page opens the same reusable step for a
         // later race instead of carrying the previous race's configuration.
@@ -95,7 +113,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             observation,
             logSink,
             cancellationToken,
-            eventHandling);
+            eventHandling,
+            retryFailedRaceWithAlarmClock);
 
         var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
             observation.ScreenId);
@@ -119,6 +138,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "race_runner"
                 => await _raceRunnerHandler.HandleAsync(context)
                     .ConfigureAwait(false),
+            "race_retry_dialog"
+                => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
             "race_trophy_won"
             or "race_playback_start"
             or "race_recommendations"
@@ -290,6 +311,19 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             return CareerRuntimeResults.Failure(
                 $"Could not execute JSON task '{entryTask}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
+        }
+
+        if (state is not null
+            && screenId == CareerRaceRunnerCheckpointHandler.ScreenId
+            && actionId == "entry.view_results"
+            && result.LastTask == "race_runner_last_next")
+        {
+            CareerRaceFlow.MarkReplayFlowCompleted(state);
+        }
+
+        if (state is not null && screenId == "race_retry_dialog")
+        {
+            state.RaceRetryDeclined = result.LastTask == "race_retry_cancel";
         }
 
         if (state is not null

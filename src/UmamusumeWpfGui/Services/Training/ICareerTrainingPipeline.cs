@@ -41,7 +41,8 @@ public sealed record CareerTrainingSettings(
     IReadOnlyList<string> LegacyAttributeSparks,
     IReadOnlyList<string> LegacyAptitudeSparks,
     string LineupStrategy = "pace",
-    string EventHandling = CareerEventHandlingModes.Default) : ICareerEntrySelectionSettings;
+    string EventHandling = CareerEventHandlingModes.Default,
+    bool RetryFailedRaceWithAlarmClock = false) : ICareerEntrySelectionSettings;
 
 /// <summary>
 /// Settings needed by the shared Home-to-Final-Confirmation navigation.

@@ -626,7 +626,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     observation,
                     logSink,
                     settings.EventHandling,
-                    cancellationToken)
+                    cancellationToken,
+                    settings.RetryFailedRaceWithAlarmClock)
                 .ConfigureAwait(false);
             if (terminal is not null)
             {

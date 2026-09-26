@@ -110,6 +110,18 @@
                   SelectedValue="{Binding NormalEventHandling, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
     </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch"
+            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
+      <CheckBox IsChecked="{Binding RetryFailedRaceWithAlarmClock, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+        <StackPanel>
+          <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryHint}"
+                     Style="{DynamicResource SettingCardDescriptionStyle}" />
+        </StackPanel>
+      </CheckBox>
+    </Border>
     <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
   </StackPanel>
 </UserControl>

@@ -34,8 +34,84 @@ public sealed class RacePlaybackExecutionTests
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal(2, visual.ClickedTaskNames.Count(name =>
             name == "race_runner_view_results_tap"));
-        Assert.Equal("race_runner_result_next", visual.ClickedTaskNames[^2]);
-        Assert.Equal("race_runner_last_next", visual.ClickedTaskNames[^1]);
+        Assert.Equal("race_runner_view_results_tap", result.LastTask);
+        Assert.All(visual.ClickedTaskNames,
+            name => Assert.Equal("race_runner_view_results_tap", name));
+    }
+
+    [Fact]
+    public async Task View_results_stops_tapping_when_alarm_retry_dialog_appears()
+    {
+        var root = FindSolutionRoot();
+        var definition = await LoadDefinitionAsync(root);
+        Assert.NotNull(definition);
+        definition!.GetTask("race_runner_view_results_tap").TimeoutMilliseconds = 500;
+
+        var tapPrompt = ComposeFrame(root, "tap_prompt",
+            new Overlay("templates/career/race/race_view_results_tap.png", 400, 1200));
+        var retryDialog = GrayImageCodec.FromFile(Path.Combine(
+            root, "testdata", "hachimi", "ura", "captures", "race_retry_alarm_dialog.png"));
+        Assert.NotNull(retryDialog);
+        var visual = new RacePlaybackVisualRuntime(
+            root, tapPrompt, tapPrompt, tapPrompt, tapPrompt, tapPrompt,
+            [], ignoreFirstPlaybackStartTap: false,
+            cancelSourceOnFirstCapture: null,
+            viewResultsDestinationFrame: retryDialog);
+
+        var result = await CreateRunner(visual).RunAsync(
+            CreateConnection(), definition, "race_runner_view_results_tap");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal("race_runner_view_results_tap", result.LastTask);
+        Assert.Equal(["race_runner_view_results_tap"], visual.ClickedTaskNames);
+    }
+
+    [Fact]
+    public async Task Missing_alarm_retry_button_falls_back_to_cancel()
+    {
+        var root = FindSolutionRoot();
+        var definition = await LoadDefinitionAsync(root);
+        Assert.NotNull(definition);
+        var retryDialog = GrayImageCodec.FromFile(Path.Combine(
+            root, "testdata", "hachimi", "ura", "captures", "race_retry_alarm_dialog.png"));
+        Assert.NotNull(retryDialog);
+        var visual = new RacePlaybackVisualRuntime(
+            root, retryDialog!, retryDialog!, retryDialog!, retryDialog!, retryDialog!,
+            [], ignoreFirstPlaybackStartTap: false,
+            cancelSourceOnFirstCapture: null,
+            hideAlarmRetryButton: true);
+
+        var result = await CreateRunner(visual).RunAsync(
+            CreateConnection(), definition!, "race_retry_try_again_probe");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal("race_retry_cancel", result.LastTask);
+        Assert.Equal(["race_retry_cancel"], visual.ClickedTaskNames);
+    }
+
+    [Fact]
+    public async Task Alarm_retry_click_waits_for_the_runner_page()
+    {
+        var root = FindSolutionRoot();
+        var definition = await LoadDefinitionAsync(root);
+        Assert.NotNull(definition);
+        var retryDialog = GrayImageCodec.FromFile(Path.Combine(
+            root, "testdata", "hachimi", "ura", "captures", "race_retry_alarm_dialog.png"));
+        Assert.NotNull(retryDialog);
+        var runner = ComposeFrame(root, "runner",
+            new Overlay("templates/career/race/race_runner_label.png", 700, 1060));
+        var visual = new RacePlaybackVisualRuntime(
+            root, retryDialog!, retryDialog!, retryDialog!, retryDialog!, retryDialog!,
+            [], ignoreFirstPlaybackStartTap: false,
+            cancelSourceOnFirstCapture: null,
+            retryRunnerFrame: runner);
+
+        var result = await CreateRunner(visual).RunAsync(
+            CreateConnection(), definition!, "race_retry_try_again_probe");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal("race_retry_try_again", result.LastTask);
+        Assert.Equal(["race_retry_try_again"], visual.ClickedTaskNames);
     }
 
     [Fact]
@@ -408,8 +484,11 @@ public sealed class RacePlaybackExecutionTests
         private readonly GrayImage _replayFrame;
         private readonly GrayImage _confirmationFrame;
         private readonly GrayImage _lastNextFrame;
+        private readonly GrayImage _viewResultsDestinationFrame;
+        private readonly GrayImage? _retryRunnerFrame;
         private readonly bool _ignoreFirstPlaybackStartTap;
         private readonly bool _ignoreFirstViewResultsTap;
+        private readonly bool _hideAlarmRetryButton;
         private readonly CancellationTokenSource? _cancelSourceOnFirstCapture;
         private GrayImage _currentFrame;
         private bool _ignoredFirstPlaybackStartTap;
@@ -426,7 +505,10 @@ public sealed class RacePlaybackExecutionTests
             IEnumerable<ScreenFrame> captures,
             bool ignoreFirstPlaybackStartTap,
             CancellationTokenSource? cancelSourceOnFirstCapture,
-            bool ignoreFirstViewResultsTap = false)
+            bool ignoreFirstViewResultsTap = false,
+            GrayImage? viewResultsDestinationFrame = null,
+            bool hideAlarmRetryButton = false,
+            GrayImage? retryRunnerFrame = null)
         {
             _templateBaseDirectory = Path.Combine(
                 root,
@@ -439,9 +521,12 @@ public sealed class RacePlaybackExecutionTests
             _emptyFrame = emptyFrame;
             _replayFrame = replayFrame;
             _lastNextFrame = lastNextFrame;
+            _viewResultsDestinationFrame = viewResultsDestinationFrame ?? replayFrame;
+            _retryRunnerFrame = retryRunnerFrame;
             _captures = new Queue<ScreenFrame>(captures);
             _ignoreFirstPlaybackStartTap = ignoreFirstPlaybackStartTap;
             _ignoreFirstViewResultsTap = ignoreFirstViewResultsTap;
+            _hideAlarmRetryButton = hideAlarmRetryButton;
             _cancelSourceOnFirstCapture = cancelSourceOnFirstCapture;
         }
 
@@ -529,6 +614,8 @@ public sealed class RacePlaybackExecutionTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             ColorWaitedTaskNames.Add(taskName);
+            if (_hideAlarmRetryButton && taskName == "race_retry_try_again_probe")
+                return Task.FromResult<TemplateMatchResult?>(null);
             return Task.FromResult(Match(
                 templatePath,
                 roi,
@@ -690,7 +777,11 @@ public sealed class RacePlaybackExecutionTests
                     if (_ignoreFirstViewResultsTap && !_ignoredFirstViewResultsTap)
                         _ignoredFirstViewResultsTap = true;
                     else
-                        _currentFrame = _replayFrame;
+                        _currentFrame = _viewResultsDestinationFrame;
+                    break;
+                case "race_retry_try_again":
+                    if (_retryRunnerFrame is not null)
+                        _currentFrame = _retryRunnerFrame;
                     break;
                 case "race_runner_result_next":
                     _currentFrame = _lastNextFrame;

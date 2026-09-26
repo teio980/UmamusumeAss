@@ -21,6 +21,8 @@ internal sealed class CareerRaceFlow
     {
         switch (context.Observation.ScreenId)
         {
+            case "race_retry_dialog":
+                return await HandleRaceRetryDialogAsync(context).ConfigureAwait(false);
             case "career_races_ready":
                 context.State.RaceReplayFlowCompleted = false;
                 context.State.LastScreenId = "career_start_transition";
@@ -237,6 +239,16 @@ internal sealed class CareerRaceFlow
     private async Task<CareerTrainingResult?> HandleRaceResultAsync(
         CareerFlowContext context)
     {
+        if (context.State.RaceRetryDeclined)
+        {
+            context.LogSink?.Add(
+                "Career Training",
+                "Alarm clock retry was declined; advancing the result toward Career settlement.",
+                LogEntryKind.Info);
+            return await _actions.RunAsync(context, "race_result", "next")
+                .ConfigureAwait(false);
+        }
+
         var currentRace = context.Scenario.CurrentRace(context.State);
         if (currentRace is null)
         {
@@ -283,5 +295,50 @@ internal sealed class CareerRaceFlow
                 "race_result",
                 "next")
             .ConfigureAwait(false);
+    }
+
+    private async Task<CareerTrainingResult?> HandleRaceRetryDialogAsync(
+        CareerFlowContext context)
+    {
+        context.State.HasPendingRace = true;
+        if (context.State.RaceRetryDialogActionIssued)
+        {
+            if (++context.State.RaceRetryDialogWaitCount >= 40)
+            {
+                return CareerRuntimeResults.Failure(
+                    "The race retry dialog remained visible after the selected action; automation paused safely.",
+                    "race_retry_dialog");
+            }
+
+            return null;
+        }
+
+        var retry = context.RetryFailedRaceWithAlarmClock;
+        context.State.RaceRetryDeclined = false;
+        var result = await _actions.RunAsync(
+                context,
+                "race_retry_dialog",
+                retry ? "retry_with_alarm_clock" : "cancel")
+            .ConfigureAwait(false);
+        if (result is not null)
+            return result;
+
+        var didRetry = retry && !context.State.RaceRetryDeclined;
+        context.State.RaceRetryDialogActionIssued = true;
+        context.State.RaceRetryDialogWaitCount = 0;
+        context.State.RaceRetryDeclined = !didRetry;
+        context.State.RaceReplayFlowCompleted = false;
+        if (didRetry)
+        {
+            context.State.RaceStrategyConfigured = false;
+        }
+
+        context.LogSink?.Add(
+            "Career Training",
+            didRetry
+                ? "Selected Try Again with an alarm clock; waiting for the race runner page."
+                : "Selected Cancel; continuing toward Career settlement.",
+            LogEntryKind.Info);
+        return null;
     }
 }

@@ -24,7 +24,7 @@ public sealed class CareerRaceRunnerCheckpointTests
             ["race_runner.strategy.apply.pace", "race_runner.entry.view_results"],
             actions.Calls);
         Assert.True(state.RaceStrategyConfigured);
-        Assert.True(state.RaceReplayFlowCompleted);
+        Assert.False(state.RaceReplayFlowCompleted);
         Assert.False(state.GoalCompletionProbeArmed);
     }
 
@@ -44,8 +44,8 @@ public sealed class CareerRaceRunnerCheckpointTests
 
         Assert.Null(result);
         Assert.Equal(["race_runner.entry.view_results"], actions.Calls);
-        Assert.True(state.RaceReplayFlowCompleted);
-        Assert.True(state.GoalCompletionProbeArmed);
+        Assert.False(state.RaceReplayFlowCompleted);
+        Assert.False(state.GoalCompletionProbeArmed);
     }
 
     [Fact]

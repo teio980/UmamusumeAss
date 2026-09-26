@@ -18,6 +18,7 @@ public static class CareerTaskSettingsSerializer
             ["traineeId"] = settings.TraineeId,
             ["careerMode"] = settings.CareerMode,
             ["normalLineupStrategy"] = settings.NormalLineupStrategy,
+            ["retryFailedRaceWithAlarmClock"] = settings.RetryFailedRaceWithAlarmClock,
             ["normalEventHandling"] = settings.NormalEventHandling,
             ["independentTrainingFocus"] = settings.IndependentTrainingFocus,
             ["independentLineupStrategy"] = settings.IndependentLineupStrategy,
@@ -66,6 +67,8 @@ public static class CareerTaskSettingsSerializer
             // used the Independent field for the same four game choices.
             ?? ReadString(values, "independentLineupStrategy")
             ?? settings.NormalLineupStrategy;
+        settings.RetryFailedRaceWithAlarmClock = ReadBool(
+            values, "retryFailedRaceWithAlarmClock", false);
         settings.NormalEventHandling = ReadString(values, "normalEventHandling")
             ?? settings.NormalEventHandling;
         settings.IndependentTrainingFocus = ReadString(values, "independentTrainingFocus")

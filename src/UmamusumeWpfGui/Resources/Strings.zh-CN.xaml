@@ -152,6 +152,8 @@
   <sys:String x:Key="GrassCareerModeLabel">Career 模式</sys:String>
   <sys:String x:Key="GrassNormalTrainingStrategyLabel">普通 Career · 训练策略</sys:String>
   <sys:String x:Key="GrassNormalLineupStrategyLabel">普通 Career · 策略</sys:String>
+  <sys:String x:Key="GrassNormalRaceAlarmRetryLabel">比赛失败时消耗闹钟重赛</sys:String>
+  <sys:String x:Key="GrassNormalRaceAlarmRetryHint">游戏提供闹钟重赛时持续重赛；关闭时选择取消并进入育成结算。</sys:String>
   <sys:String x:Key="GrassNormalEventHandlingLabel">普通 Career · 事件处理</sys:String>
   <sys:String x:Key="GrassNormalEventHandlingHint">当前仅支持 Default；后续可扩展为其他事件处理策略。</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy 选择</sys:String>
