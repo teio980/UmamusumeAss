@@ -5,7 +5,7 @@
   },
   "projects": {
     "C:\\Users\\Owner\\Documents\\teiocode\\UmamusumeAss\\UmamusumeAss\\src\\Umamusume.CoreBridge\\Umamusume.CoreBridge.csproj": {
-      "version": "0.2.2",
+      "version": "0.3.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\Owner\\Documents\\teiocode\\UmamusumeAss\\UmamusumeAss\\src\\Umamusume.CoreBridge\\Umamusume.CoreBridge.csproj",
         "projectName": "Umamusume.CoreBridge",
@@ -343,7 +343,7 @@
       }
     },
     "C:\\Users\\Owner\\Documents\\teiocode\\UmamusumeAss\\UmamusumeAss\\src\\UmamusumeWpfGui\\UmamusumeWpfGui_14rzhrzi_wpftmp.csproj": {
-      "version": "0.2.2",
+      "version": "0.3.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\Owner\\Documents\\teiocode\\UmamusumeAss\\UmamusumeAss\\src\\UmamusumeWpfGui\\UmamusumeWpfGui_14rzhrzi_wpftmp.csproj",
         "projectName": "UmamusumeAss",

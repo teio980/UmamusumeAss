@@ -207,11 +207,8 @@ Copy-Item -LiteralPath $updaterExe -Destination $PublishDir -Force
 Write-Host "  Copied UmamusumeAss.Updater.exe"
 
 
-$bridgeDll = Join-Path -Path $PublishDir -ChildPath "Umamusume.CoreBridge.dll"
-if (-not (Test-Path -LiteralPath $bridgeDll)) {
-    throw "Umamusume.CoreBridge.dll not found in publish output: $bridgeDll"
-}
-Write-Host "  Verified Umamusume.CoreBridge.dll"
+& (Join-Path $PSScriptRoot 'verify-managed-output.ps1') -Directory $PublishDir -ExpectedVersion $Version
+Write-Host "  Verified managed assembly and dependency versions"
 
 
 $hostfxr = Join-Path -Path $PublishDir -ChildPath "hostfxr.dll"
