@@ -29,7 +29,8 @@ public static class CareerTaskSettingsMapper
             settings.ParseLegacyAptitudeSparks(),
             settings.NormalLineupStrategy,
             settings.NormalEventHandling,
-            settings.RetryFailedRaceWithAlarmClock);
+            settings.RetryFailedRaceWithAlarmClock,
+            settings.ParseNormalSkillIds());
     }
 
     public static IndependentTrainingSettings ToIndependentSettings(CareerTrainingTaskSettingsViewModel settings)

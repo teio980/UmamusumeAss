@@ -122,6 +122,7 @@
         </StackPanel>
       </CheckBox>
     </Border>
+    <taskviews:NormalCareerSkillSettingsView DataContext="{Binding NormalSkills}" />
     <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
   </StackPanel>
 </UserControl>

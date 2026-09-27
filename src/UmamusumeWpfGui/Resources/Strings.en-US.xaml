@@ -158,6 +158,15 @@
   <sys:String x:Key="GrassNormalRaceAlarmRetryHint">When the game offers an alarm clock retry, keep retrying while it remains available. Otherwise cancel and continue to Career results.</sys:String>
   <sys:String x:Key="GrassNormalEventHandlingLabel">Normal Career · event handling</sys:String>
   <sys:String x:Key="GrassNormalEventHandlingHint">Only Default is supported for now; more event handling strategies can be added later.</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillsLabel">Normal Career · skill targets</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillsHint">Choose skills to purchase and arrange them by priority. Prerequisites are not added as purchase targets automatically.</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillSearchPlaceholder">Search skill name or ID</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillAddTarget">Add target</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillTargetsLabel">Purchase priority</sys:String>
+  <sys:String x:Key="GrassNormalCareerSkillTargetCountPrefix">Selected targets: </sys:String>
+  <sys:String x:Key="GrassMoveUp">Move up</sys:String>
+  <sys:String x:Key="GrassMoveDown">Move down</sys:String>
+  <sys:String x:Key="GrassRemove">Remove</sys:String>
   <sys:String x:Key="GrassCareerLegacyModeLabel">Legacy selection</sys:String>
   <sys:String x:Key="GrassCareerUseCachedLegacyLabel">Use cached Legacy 1 and Legacy 2 records when available</sys:String>
   <sys:String x:Key="GrassCareerUseLegacyGuestLabel">Use a guest legacy for Legacy 1</sys:String>

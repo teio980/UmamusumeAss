@@ -42,7 +42,11 @@ public sealed record CareerTrainingSettings(
     IReadOnlyList<string> LegacyAptitudeSparks,
     string LineupStrategy = "pace",
     string EventHandling = CareerEventHandlingModes.Default,
-    bool RetryFailedRaceWithAlarmClock = false) : ICareerEntrySelectionSettings;
+    bool RetryFailedRaceWithAlarmClock = false,
+    IReadOnlyList<int>? NormalSkillIds = null) : ICareerEntrySelectionSettings
+{
+    public IReadOnlyList<int> EffectiveNormalSkillIds => NormalSkillIds ?? Array.Empty<int>();
+}
 
 /// <summary>
 /// Settings needed by the shared Home-to-Final-Confirmation navigation.

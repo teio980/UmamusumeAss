@@ -43,11 +43,14 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         Entry = new CareerEntrySettingsViewModel(umaDatabase);
         SupportDeck = new SupportDeckSettingsViewModel(umaDatabase);
         Independent = new IndependentTrainingSettingsViewModel();
+        NormalSkills = new NormalCareerSkillSettingsViewModel();
         Independent.IsCareerModeActive = IsIndependentCareer;
+        NormalSkills.IsCareerModeActive = IsNormalCareer;
 
         Entry.PropertyChanged += OnChildPropertyChanged;
         SupportDeck.PropertyChanged += OnChildPropertyChanged;
         Independent.PropertyChanged += OnChildPropertyChanged;
+        NormalSkills.PropertyChanged += OnChildPropertyChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -55,6 +58,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public CareerEntrySettingsViewModel Entry { get; }
     public SupportDeckSettingsViewModel SupportDeck { get; }
     public IndependentTrainingSettingsViewModel Independent { get; }
+    public NormalCareerSkillSettingsViewModel NormalSkills { get; }
 
     public IReadOnlyList<CareerModeOption> CareerModes { get; } =
     [
@@ -73,6 +77,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             if (!Set(ref _careerMode, normalized))
                 return;
             Independent.IsCareerModeActive = IsIndependentCareer;
+            NormalSkills.IsCareerModeActive = IsNormalCareer;
             OnPropertyChanged(nameof(IsIndependentCareer));
             OnPropertyChanged(nameof(IsNormalCareer));
             OnPropertyChanged(nameof(IsKnownCareerMode));
@@ -301,6 +306,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 
     public bool IsIndependentTrainingSettingsValid => Independent.IsValid;
 
+    public IReadOnlyList<int> ParseNormalSkillIds() => NormalSkills.SelectedSkillIds;
+
     public void RefreshTrainees() => Entry.RefreshTrainees();
     public void RefreshSupportCards() => SupportDeck.RefreshSupportCards();
     public void RefreshIndependentTrainingCatalog(string? baseDirectory = null) => Independent.RefreshCatalog(baseDirectory);
@@ -315,6 +322,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         Entry.PropertyChanged -= OnChildPropertyChanged;
         SupportDeck.PropertyChanged -= OnChildPropertyChanged;
         Independent.PropertyChanged -= OnChildPropertyChanged;
+        NormalSkills.PropertyChanged -= OnChildPropertyChanged;
         Entry.Dispose();
         SupportDeck.Dispose();
     }

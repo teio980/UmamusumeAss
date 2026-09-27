@@ -20,6 +20,8 @@ public static class CareerTaskSettingsSerializer
             ["normalLineupStrategy"] = settings.NormalLineupStrategy,
             ["retryFailedRaceWithAlarmClock"] = settings.RetryFailedRaceWithAlarmClock,
             ["normalEventHandling"] = settings.NormalEventHandling,
+            ["normalSkillIds"] = new JsonArray(settings.ParseNormalSkillIds()
+                .Select(item => (JsonNode?)JsonValue.Create(item)).ToArray()),
             ["independentTrainingFocus"] = settings.IndependentTrainingFocus,
             ["independentLineupStrategy"] = settings.IndependentLineupStrategy,
             ["independentAgendaSelections"] = new JsonArray(settings.ParseIndependentAgendaSelections()
@@ -69,6 +71,7 @@ public static class CareerTaskSettingsSerializer
             ?? settings.NormalLineupStrategy;
         settings.RetryFailedRaceWithAlarmClock = ReadBool(
             values, "retryFailedRaceWithAlarmClock", false);
+        settings.NormalSkills.SkillIdsText = string.Join(",", ReadIntArray(values, "normalSkillIds"));
         settings.NormalEventHandling = ReadString(values, "normalEventHandling")
             ?? settings.NormalEventHandling;
         settings.IndependentTrainingFocus = ReadString(values, "independentTrainingFocus")
