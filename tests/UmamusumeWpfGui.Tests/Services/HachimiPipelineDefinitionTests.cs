@@ -526,7 +526,8 @@ public sealed class HachimiPipelineDefinitionTests
             Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
             Assert.NotNull(task.Template);
             Assert.Equal([250, 1260, 500, 180], task.Roi!);
-            Assert.Equal(0.56, task.TemplateThreshold);
+            Assert.Equal(taskName == "support_ready_support_start" ? 0.85 : 0.56,
+                task.TemplateThreshold);
         }
     }
 
@@ -605,7 +606,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "templates/support_ready_support_start.png",
             recognition.GetProperty("template").GetString());
-        Assert.Equal(0.56, recognition.GetProperty("templThreshold").GetDouble());
+        Assert.Equal(0.85, recognition.GetProperty("templThreshold").GetDouble());
         Assert.Equal(
             [250, 1260, 500, 180],
             recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());

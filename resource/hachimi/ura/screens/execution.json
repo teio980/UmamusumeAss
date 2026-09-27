@@ -1359,7 +1359,7 @@
                                                       "algorithm":  "MatchTemplate",
                                                       "action":  "ClickSelf",
                                                       "template":  "templates/support_ready_support_start.png",
-                                                      "templThreshold":  0.56,
+                                                      "templThreshold":  0.85,
                                                       "roi":  [
                                                                   250,
                                                                   1260,

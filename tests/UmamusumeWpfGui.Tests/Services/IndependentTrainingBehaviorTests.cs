@@ -91,6 +91,32 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Support_page_with_home_tab_stays_in_support_selection()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.SetScreen("support_select");
+        harness.Visual.ShowHomeTabOnSupportSelect = true;
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(root, continueExistingCareer: true),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(["support_select.auto_fill"], harness.Actions.Calls);
+        Assert.Equal(CareerEntryNavigationStep.FinalConfirmation, state.Step);
+    }
+
+    [Fact]
     public async Task Normal_resume_enters_existing_career_without_scenario_navigation()
     {
         var root = FindSolutionRoot();
@@ -738,7 +764,10 @@ public sealed class IndependentTrainingBehaviorTests
         CareerEntryNavigator Navigator,
         AdbIndependentTrainingPipeline Pipeline,
         IndependentCheckpointStore Store,
-        UmaDatabaseService Database);
+        UmaDatabaseService Database)
+    {
+        public RecordingVisualRuntime Visual => Actions.Visual;
+    }
 
     private sealed class TestScope : IAsyncDisposable
     {
@@ -763,6 +792,7 @@ public sealed class IndependentTrainingBehaviorTests
     private sealed class RecordingActionExecutor : ICareerActionExecutor
     {
         private readonly RecordingVisualRuntime _visual;
+        public RecordingVisualRuntime Visual => _visual;
 
         public RecordingActionExecutor(RecordingVisualRuntime visual) => _visual = visual;
 
@@ -893,6 +923,8 @@ public sealed class IndependentTrainingBehaviorTests
         private string? _screenAfterCapture;
         private int _capturesUntilScreenChange;
 
+        public bool ShowHomeTabOnSupportSelect { get; set; }
+
         public void SetScreen(string screen) => _screen = screen;
 
         public void TransitionTo(string screen, int afterCaptures)
@@ -919,6 +951,9 @@ public sealed class IndependentTrainingBehaviorTests
                 SetHomePattern(pixels, Markers[_screen]);
             else
                 SetMarker(pixels, Markers[_screen]);
+            if (ShowHomeTabOnSupportSelect
+                && _screen.Equals("support_select", StringComparison.OrdinalIgnoreCase))
+                SetHomePattern(pixels, (45, 180));
             if (_screen.Equals("scenario_select", StringComparison.OrdinalIgnoreCase))
                 SetMarker(pixels, Markers["scenario_card"]);
             return Task.FromResult<GrayImage?>(new GrayImage(100, 200, pixels));
@@ -1058,6 +1093,8 @@ public sealed class IndependentTrainingBehaviorTests
         private static string GetTemplateKey(string? path)
         {
             var value = path ?? string.Empty;
+            if (value.Contains("home_selected", StringComparison.OrdinalIgnoreCase))
+                return "home";
             if (value.Contains("ura_returned_home", StringComparison.OrdinalIgnoreCase))
                 return "home";
             if (value.Contains("career_final_confirmation", StringComparison.OrdinalIgnoreCase))

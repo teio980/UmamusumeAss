@@ -1178,6 +1178,11 @@ public sealed class CareerEntryNavigator
                 || screen.ScreenId.Equals("trainee_select", StringComparison.OrdinalIgnoreCase))
             .Where(screen => state.Step != CareerEntryNavigationStep.Legacy
                 || screen.ScreenId.Equals("legacy_select", StringComparison.OrdinalIgnoreCase))
+            .Where(screen => state.Step != CareerEntryNavigationStep.Support
+                || screen.ScreenId is "support_select"
+                    or "support_autofill_confirmation"
+                    or "support_ready"
+                    or FinalConfirmationScreenId)
             .Where(screen => state.Step != CareerEntryNavigationStep.Career
                 || screen.ScreenId is "career_main" or "career_races_ready")
             .Where(screen => state.Step == CareerEntryNavigationStep.Career

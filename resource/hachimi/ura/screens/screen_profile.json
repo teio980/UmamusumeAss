@@ -500,7 +500,7 @@
                                                        500,
                                                        180
                                                    ],
-                                            "templThreshold":  0.56,
+                                            "templThreshold":  0.85,
                                             "requiredText":  [
                                                                  "Support Formation",
                                                                  "Start Career!"
