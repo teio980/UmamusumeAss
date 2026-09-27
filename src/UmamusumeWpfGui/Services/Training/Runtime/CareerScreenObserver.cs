@@ -189,7 +189,20 @@ public sealed class CareerScreenObserver
                     if (grayTemplate is null)
                         continue;
 
-                    var match = screen.Recognition.MatchAlphaTemplate
+                    // The finale template is a full screenshot, while its
+                    // distinctive marker is the gold GOAL title. Matching the
+                    // full image also samples the unrelated character and background.
+                    var finaleHeaderRoi = screen.ScreenId.Equals(
+                            "goal_complete", StringComparison.OrdinalIgnoreCase)
+                        ? screen.Recognition.RequiredTemplateRoi
+                        : null;
+                    var match = finaleHeaderRoi is [var x, var y, var width, var height]
+                        ? MatchGoalCompleteHeader(
+                            frame, grayTemplate, x, y, width, height,
+                            finaleHeaderRoi,
+                            screen.Recognition.RequiredTemplateThreshold,
+                            pack)
+                        : screen.Recognition.MatchAlphaTemplate
                         ? TemplateMatcher.FindColor(
                             frame,
                             grayTemplate,
@@ -214,6 +227,7 @@ public sealed class CareerScreenObserver
                             pack.ScreenProfile.ReferenceWidth,
                             pack.ScreenProfile.ReferenceHeight);
                     if (match.Found
+                        && finaleHeaderRoi is not [_, _, _, _]
                         && !await MatchesRequiredTemplateAsync(
                                 frame,
                                 screen,
@@ -466,25 +480,6 @@ public sealed class CareerScreenObserver
         if (requiredTemplate is null)
             return false;
 
-        if (screen.ScreenId.Equals("goal_complete", StringComparison.OrdinalIgnoreCase)
-            && screen.Recognition.RequiredTemplateRoi is [var x, var y, var width, var height])
-        {
-            // The full-page template's top-left corner also matches ordinary
-            // goal banners. Its gold GOAL header distinguishes the final page
-            // from the green per-objective banner without relying on OCR.
-            var goldHeader = GrayImageCodec.Crop(
-                requiredTemplate,
-                new Int32Rect(x, y, width, height));
-            return goldHeader is not null
-                && TemplateMatcher.FindColor(
-                    frame,
-                    goldHeader,
-                    roi: screen.Recognition.RequiredTemplateRoi,
-                    threshold: screen.Recognition.RequiredTemplateThreshold,
-                    pack.ScreenProfile.ReferenceWidth,
-                    pack.ScreenProfile.ReferenceHeight).Found;
-        }
-
         return TemplateMatcher.Find(
             frame,
             requiredTemplate,
@@ -492,6 +487,30 @@ public sealed class CareerScreenObserver
             threshold: screen.Recognition.RequiredTemplateThreshold,
             pack.ScreenProfile.ReferenceWidth,
             pack.ScreenProfile.ReferenceHeight).Found;
+    }
+
+    private static TemplateMatchResult MatchGoalCompleteHeader(
+        GrayImage frame,
+        GrayImage template,
+        int x,
+        int y,
+        int width,
+        int height,
+        int[] roi,
+        double threshold,
+        UraScenarioPack pack)
+    {
+        var goldHeader = GrayImageCodec.Crop(
+            template, new Int32Rect(x, y, width, height));
+        return goldHeader is null
+            ? new TemplateMatchResult(false, 0, 0, 0, width, height)
+            : TemplateMatcher.FindColor(
+                frame,
+                goldHeader,
+                roi,
+                threshold,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight);
     }
 
     private async Task<string?> ReadRegionTextAsync(

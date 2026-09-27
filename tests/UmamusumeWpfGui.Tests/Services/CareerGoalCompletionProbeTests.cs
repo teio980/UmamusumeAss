@@ -62,6 +62,7 @@ public sealed class CareerGoalCompletionProbeTests
     [Theory]
     [InlineData("current_mid_year1.png", "goal_objective_complete", false)]
     [InlineData("year2_after_nhk_goal_update_ready.png", "goal_objective_complete", false)]
+    [InlineData("ura_finale_entry_boundary.png", "goal_objective_complete", false)]
     [InlineData("ura_finale_entry.png", "goal_complete", true)]
     public async Task Armed_probe_recognizes_the_goal_banner_on_a_real_capture(
         string captureName,
@@ -94,6 +95,53 @@ public sealed class CareerGoalCompletionProbeTests
             connection, pack, state, false, CancellationToken.None);
 
         Assert.Equal(expectedScreen, observation?.ScreenId);
+    }
+
+    [Fact]
+    public async Task Finale_goal_header_is_recognized_when_background_changes()
+    {
+        var root = FindWorkspaceRoot();
+        var pack = await LoadPackAsync();
+        var template = GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi",
+            "ura", "screens", "templates", "runtime_frames", "ura_finale_entry.png"));
+        Assert.NotNull(template);
+
+        var pixels = (byte[])template.Pixels.Clone();
+        var rgba = (byte[])template.RgbaPixels!.Clone();
+        for (var y = 0; y < template.Height; y++)
+        {
+            for (var x = 0; x < template.Width; x++)
+            {
+                if (x >= 288 && x < 621 && y >= 315 && y < 429)
+                    continue;
+
+                var index = y * template.Width + x;
+                pixels[index] = (byte)(255 - pixels[index]);
+                rgba[index * 4] = (byte)(255 - rgba[index * 4]);
+                rgba[index * 4 + 1] = (byte)(255 - rgba[index * 4 + 1]);
+                rgba[index * 4 + 2] = (byte)(255 - rgba[index * 4 + 2]);
+            }
+        }
+
+        var frame = template with { Pixels = pixels, RgbaPixels = rgba };
+        Assert.False(TemplateMatcher.Find(frame, template, null, 0.78, 900, 1600).Found);
+
+        var observer = new CareerScreenObserver(FrameVisualRuntime.Create(frame));
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = true,
+            GoalCompletionProbeArmed = true,
+            LastAction = UraPlannedAction.Training,
+            LastScreenId = "training_selection",
+        };
+        var connection = new LastVerifiedConnection(
+            "adb", "serial", "android", "version", 900, 1600, 900, 1600,
+            DateTimeOffset.UnixEpoch);
+
+        var observation = await observer.ObserveAsync(
+            connection, pack, state, false, CancellationToken.None);
+
+        Assert.Equal("goal_complete", observation?.ScreenId);
     }
 
     [Theory]
