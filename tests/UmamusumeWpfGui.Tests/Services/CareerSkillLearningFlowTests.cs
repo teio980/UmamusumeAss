@@ -83,6 +83,26 @@ public sealed class CareerSkillLearningFlowTests
         Assert.Empty(actions.ActionIds);
     }
 
+    [Fact]
+    public async Task Cached_learned_skill_skips_points_ocr_and_skills_page()
+    {
+        var skillId = IndependentTrainingCatalog.Load(FindRoot()).Skills
+            .Single(skill => skill.SkillName == "Professor of Curvature").SkillId;
+        var actions = new RecordingActions();
+        var state = new UraCareerSessionState();
+        state.NormalLearnedSkillIds.Add(skillId);
+        var context = new CareerFlowContext(
+            null!, null!, true, null!, null!, "pace", state,
+            new CareerObservation("race_day", 1), null, CancellationToken.None,
+            NormalSkillIds: [skillId]);
+
+        var result = await new CareerRaceFlow(PointsRuntime.Create(-1), actions)
+            .HandleAsync(context);
+
+        Assert.Null(result);
+        Assert.Equal(["open_list"], actions.ActionIds);
+    }
+
     [Theory]
     [InlineData("career_skill_race_day_662_sample.png", true)]
     [InlineData("career_skill_obtained_sample.png", false)]

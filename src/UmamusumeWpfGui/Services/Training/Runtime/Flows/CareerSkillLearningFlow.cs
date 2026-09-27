@@ -85,7 +85,7 @@ internal sealed class CareerSkillLearningFlow
             var scan = await ScanForSkillAsync(context, skill.SkillName).ConfigureAwait(false);
             if (scan.Kind == SkillScanKind.Obtained)
             {
-                context.State.NormalLearnedSkillIds.Add(id);
+                await RememberAsync(context, id).ConfigureAwait(false);
                 Log(context, $"{skill.SkillName} is already obtained.");
             }
             else if (scan.Kind == SkillScanKind.Purchasable && scan.Plus is not null)
@@ -119,7 +119,7 @@ internal sealed class CareerSkillLearningFlow
                         "race_day");
                 }
 
-                context.State.NormalLearnedSkillIds.Add(id);
+                await RememberAsync(context, id).ConfigureAwait(false);
                 Log(context, $"Learned {skill.SkillName} for {price.Value} Skill Pts.");
             }
             else
@@ -136,6 +136,14 @@ internal sealed class CareerSkillLearningFlow
         }
 
         return null;
+    }
+
+    private static async Task RememberAsync(CareerFlowContext context, int skillId)
+    {
+        if (!context.State.NormalLearnedSkillIds.Contains(skillId))
+            context.State.NormalLearnedSkillIds.Add(skillId);
+        if (context.RememberNormalSkillAsync is not null)
+            await context.RememberNormalSkillAsync(skillId).ConfigureAwait(false);
     }
 
     private async Task<bool> PurchaseAsync(

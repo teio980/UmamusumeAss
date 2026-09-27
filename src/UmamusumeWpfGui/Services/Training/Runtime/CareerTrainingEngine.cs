@@ -178,10 +178,37 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 $"Normal Career lineup strategy '{settings.LineupStrategy}' is invalid.",
                 "career_final_confirmation");
         }
-        // Normal Career progress is intentionally run-scoped. The current
-        // game screen is the only source of truth after a restart.
+        // The visible game screen reconstructs Career progress after a restart.
+        // Only skills confirmed as obtained need a small cache between runs.
         var state = scenario.CreateInitialState();
         state.TraineeId = settings.TraineeId;
+        var skillCache = new NormalCareerSkillCache(connection, settings.TraineeId);
+        if (settings.ContinueExistingCareer)
+        {
+            state.NormalLearnedSkillIds.AddRange(
+                await skillCache.LoadAsync(cancellationToken).ConfigureAwait(false));
+            if (state.NormalLearnedSkillIds.Count > 0)
+                logSink?.Add("Career Training",
+                    $"Loaded {state.NormalLearnedSkillIds.Count} learned skills from this Career's cache.");
+        }
+        else
+        {
+            await skillCache.ClearAsync().ConfigureAwait(false);
+        }
+
+        async Task RememberNormalSkillAsync(int skillId)
+        {
+            try
+            {
+                await skillCache.SaveAsync(state.NormalLearnedSkillIds).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                logSink?.Add("Career Training",
+                    $"Could not save learned-skill cache after skill {skillId}: {ex.Message}",
+                    LogEntryKind.Failure);
+            }
+        }
         logSink?.Add(
             "Career Training",
             "Normal Career mode selected; Final Confirmation will use Normal Career start.");
@@ -326,6 +353,9 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         if (!state.CareerStarted
             && IsPendingNormalSetupStage(state.NormalSetupStage))
         {
+            state.NormalLearnedSkillIds.Clear();
+            if (settings.ContinueExistingCareer)
+                await skillCache.ClearAsync().ConfigureAwait(false);
             var setupFailure = await _startupFlow.ConfigureAsync(
                     connection,
                     pack,
@@ -609,6 +639,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                         actionCount);
                 }
 
+                await skillCache.ClearAsync().ConfigureAwait(false);
                 return new CareerTrainingResult(
                     true,
                     "URA career completed and returned to Home.",
@@ -629,7 +660,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     settings.EventHandling,
                     cancellationToken,
                     settings.RetryFailedRaceWithAlarmClock,
-                    settings.EffectiveNormalSkillIds)
+                    settings.EffectiveNormalSkillIds,
+                    RememberNormalSkillAsync)
                 .ConfigureAwait(false);
             if (terminal is not null)
             {

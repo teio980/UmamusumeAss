@@ -73,7 +73,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         string eventHandling,
         CancellationToken cancellationToken,
         bool retryFailedRaceWithAlarmClock = false,
-        IReadOnlyList<int>? normalSkillIds = null)
+        IReadOnlyList<int>? normalSkillIds = null,
+        Func<int, Task>? rememberNormalSkillAsync = null)
     {
         if (state.RaceRetryDeclined
             && observation.ScreenId is ("career_main" or "training_selection"
@@ -117,7 +118,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             cancellationToken,
             eventHandling,
             retryFailedRaceWithAlarmClock,
-            normalSkillIds);
+            normalSkillIds,
+            rememberNormalSkillAsync);
 
         var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
             observation.ScreenId);
