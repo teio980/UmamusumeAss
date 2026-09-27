@@ -82,6 +82,20 @@
                                  "required":  true,
                                   "success":  false
                               },
+                  "career_return_home_select": {
+                                   "algorithm": "MatchTemplate",
+                                   "action": "ClickSelf",
+                                   "template": "templates/home_unselected.png",
+                                   "templThreshold": 0.86,
+                                   "roi": [250, 1400, 400, 200],
+                                   "postDelay": 1200,
+                                   "timeoutMs": 3000,
+                                   "retryTimes": 2,
+                                   "retryDelayMs": 500,
+                                   "pollIntervalMs": 250,
+                                   "required": true,
+                                   "success": false
+                               },
                   "career_final_confirmation_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",
@@ -3173,15 +3187,15 @@
                                                           "success":  false
                                                       },
                   "career_result_career_next":  {
-                                                    "algorithm":  "MatchTemplate",
+                                                    "algorithm":  "MatchTemplateColor",
                                                     "action":  "ClickSelf",
-                                                    "template":  "templates/career_result_career_next.png",
-                                                    "templThreshold":  0.78,
+                                                    "template":  "templates/career_result_next_text.png",
+                                                    "templThreshold":  0.84,
                                                     "roi":  [
-                                                                270,
-                                                                1410,
-                                                                360,
-                                                                115
+                                                                350,
+                                                                1425,
+                                                                200,
+                                                                95
                                                             ],
                                                     "preDelay":  0,
                                                     "postDelay":  650,
@@ -3208,15 +3222,15 @@
                                                     "success":  false
                                                 },
                   "rewards_rewards_next":  {
-                                               "algorithm":  "MatchTemplate",
+                                               "algorithm":  "MatchTemplateColor",
                                                "action":  "ClickSelf",
                                                "template":  "templates/rewards_rewards_next.png",
-                                               "templThreshold":  0.78,
+                                               "templThreshold":  0.82,
                                                "roi":  [
-                                                           270,
-                                                           1410,
-                                                           360,
-                                                           115
+                                                           380,
+                                                           1440,
+                                                           140,
+                                                           70
                                                        ],
                                                "preDelay":  0,
                                                "postDelay":  650,
@@ -3243,15 +3257,15 @@
                                                "success":  false
                                            },
                   "career_complete_career_to_home":  {
-                                                         "algorithm":  "MatchTemplate",
+                                                         "algorithm":  "MatchTemplateColor",
                                                          "action":  "ClickSelf",
                                                          "template":  "templates/career_complete_career_to_home.png",
-                                                         "templThreshold":  0.78,
+                                                         "templThreshold":  0.84,
                                                          "roi":  [
-                                                                     70,
-                                                                     990,
-                                                                     360,
-                                                                     120
+                                                                     155,
+                                                                     1010,
+                                                                     190,
+                                                                     75
                                                                  ],
                                                          "preDelay":  0,
                                                          "postDelay":  650,

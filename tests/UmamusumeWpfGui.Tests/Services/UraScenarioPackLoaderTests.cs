@@ -90,6 +90,19 @@ public sealed class UraScenarioPackLoaderTests
                 task.Action,
                 SupportedExecutionActions));
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "home");
+        Assert.Equal(
+            "templates/home_selected.png",
+            pack.ScreenProfile.Find("home")?.Recognition.Template);
+        var unselectedHome = pack.ScreenProfile.Find("home_unselected");
+        Assert.Equal(
+            "templates/home_unselected.png",
+            unselectedHome?.Recognition.Template);
+        Assert.Equal(
+            "career_return_home_select",
+            unselectedHome?.FindAction("home.select")?.Task);
+        var returnHomeTask = pack.ExecutionDefinition.Tasks["career_return_home_select"];
+        Assert.Equal("ClickSelf", returnHomeTask.Action);
+        Assert.Empty(returnHomeTask.Next);
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_continue");
         Assert.Contains(pack.ScreenProfile.Screens, item => item.ScreenId == "career_complete");
         var raceRunner = pack.ScreenProfile.Find("race_runner");

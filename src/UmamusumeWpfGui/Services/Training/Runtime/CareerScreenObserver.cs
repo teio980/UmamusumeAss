@@ -25,19 +25,22 @@ public sealed class CareerScreenObserver
         CareerScreenClassification.IsRuntimeScreen(screenId);
 
     internal static bool IsInitialResumeCandidate(string screenId) =>
-        IsRuntimeCareerScreen(screenId)
-        && screenId is not "career_epithet";
+        IsRuntimeCareerScreen(screenId);
 
     internal static bool IsEligibleForCareerPhase(
         string screenId,
         UraCareerSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        // The generic Confirm! crop can match unrelated Career screens.
-        // Keep epithet recognition disabled until it has a reliable screen-level cue.
         return IsRuntimeCareerScreen(screenId)
-            && !screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase);
+            && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase));
     }
+
+    internal static bool IsReturningHome(UraCareerSessionState state) =>
+        state.CareerStarted
+        && (state.LastScreenId is "career_complete" or "home_unselected");
 
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
@@ -74,8 +77,7 @@ public sealed class CareerScreenObserver
         // handling after a settlement screen has been observed.
         var settlementInProgress = CareerScreenClassification.Classify(state.LastScreenId)
             == CareerScreenKind.Settlement;
-        var returningHome = state.CareerStarted
-            && state.LastScreenId.Equals("career_complete", StringComparison.OrdinalIgnoreCase);
+        var returningHome = IsReturningHome(state);
 
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !careerOnly || IsInitialResumeCandidate(screen.ScreenId))
@@ -85,16 +87,17 @@ public sealed class CareerScreenObserver
             // template and can otherwise collide with the Rest confirmation
             // dialog after clicking Rest.
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
+                || (careerOnly && screen.ScreenId == "career_epithet")
                 || (careerStartTransitionExpected
                     && screen.ScreenId == "career_intro_event")
-                || (returningHome && screen.ScreenId == "home"))
+                || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
             .Where(screen => careerOnly
                 || !settlementInProgress
                 || CareerScreenClassification.Classify(screen.ScreenId)
                     == CareerScreenKind.Settlement
-                || (returningHome && screen.ScreenId == "home"))
+                || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
             .Where(screen => !returningHome
-                || screen.ScreenId is "career_complete" or "home")
+                || (screen.ScreenId is "career_complete" or "home" or "home_unselected"))
             .Where(screen => !string.Equals(
                     screen.ScreenId,
                     "inheritance_event",
@@ -556,6 +559,8 @@ public sealed class CareerScreenObserver
             // before that broader overlay check runs.
             "race_recommendations" => -1,
             "race_retry_dialog" => -2,
+            // The Epithet title is specific, unlike its generic Confirm! button.
+            "career_epithet" => -4,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,

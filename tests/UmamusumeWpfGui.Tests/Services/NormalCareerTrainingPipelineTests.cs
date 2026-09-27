@@ -70,11 +70,15 @@ public sealed class NormalCareerTrainingPipelineTests
     }
 
     [Fact]
-    public void Epithet_is_handled_during_settlement_but_not_as_an_initial_resume_point()
+    public void Epithet_is_resumable_and_only_eligible_after_the_result_close()
     {
-        Assert.False(CareerScreenObserver.IsInitialResumeCandidate("career_epithet"));
+        Assert.True(CareerScreenObserver.IsInitialResumeCandidate("career_epithet"));
         Assert.True(CareerScreenObserver.IsInitialResumeCandidate("career_result"));
         Assert.True(CareerScreenObserver.IsRuntimeCareerScreen("career_epithet"));
+        var state = new UraCareerSessionState { LastScreenId = "career_main" };
+        Assert.False(CareerScreenObserver.IsEligibleForCareerPhase("career_epithet", state));
+        state.LastScreenId = "career_result_close";
+        Assert.True(CareerScreenObserver.IsEligibleForCareerPhase("career_epithet", state));
     }
 
     [Theory]

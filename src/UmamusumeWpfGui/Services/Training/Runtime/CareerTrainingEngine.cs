@@ -296,6 +296,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         GrayImage? restOkTemplate = null;
         var recreationOkProbeCount = 0;
         GrayImage? recreationOkTemplate = null;
+        var homeTabSelectionIssued = false;
+        var homeTabSelectionRetryCount = 0;
         string? lastLoggedCareerStatus = null;
         var careerStartTransitionExpected = !state.CareerStarted
             && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
@@ -582,6 +584,47 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     "URA career completed and returned to Home.",
                     actionCount,
                     observation.ScreenId);
+            }
+
+            if (observation.ScreenId == "home_unselected")
+            {
+                if (!homeTabSelectionIssued)
+                {
+                    logSink?.Add("Career Training", "Home tab is visible but not selected; selecting Home.");
+                    var selectHome = await _flowDispatcher.RunScreenActionAsync(
+                            connection,
+                            pack,
+                            "home_unselected",
+                            "home.select",
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (selectHome is not null)
+                    {
+                        // The unselected template may disappear between observation
+                        // and the action probe because Home became selected.
+                        logSink?.Add(
+                            "Career Training",
+                            "Home tab tap was not confirmed; checking whether Home became selected.");
+                    }
+                    else
+                    {
+                        actionCount++;
+                    }
+
+                    homeTabSelectionIssued = true;
+                    state.LastScreenId = "home_unselected";
+                }
+                else if (++homeTabSelectionRetryCount >= StableScreenRecognitionRetryLimit)
+                {
+                    return Failure(
+                        "Home tab did not become selected after tapping it; automation paused safely.",
+                        observation.ScreenId,
+                        actionCount);
+                }
+
+                await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
             if (observation.Kind is CareerScreenKind.Unknown)
