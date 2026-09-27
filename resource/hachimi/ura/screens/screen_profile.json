@@ -828,6 +828,22 @@
                                     ]
                     },
                     {
+                        "screenId": "inheritance_event",
+                        "recognition": {
+                            "template": "templates/inheritance_event_go.png",
+                            "roi": [300, 1150, 300, 320],
+                            "templThreshold": 0.76,
+                            "matchAlphaTemplate": true,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "inheritance.go",
+                                "task": "inheritance_event_go"
+                            }
+                        ]
+                    },
+                    {
                         "screenId":  "infirmary_confirmation",
                         "recognition":  {
                                             "template":  "templates/career/turn/infirmary_confirmation_title.png",
@@ -1476,6 +1492,9 @@
                         "screenId":  "goal_complete",
                         "recognition":  {
                                             "template":  "templates/runtime_frames/ura_finale_entry.png",
+                                            "requiredTemplate":  "templates/runtime_frames/ura_finale_entry.png",
+                                            "requiredTemplateRoi":  [288, 315, 333, 114],
+                                            "requiredTemplateThreshold":  0.90,
                                             "requiredText":  [
                                                                  "All goals achieved!"
                                                              ],

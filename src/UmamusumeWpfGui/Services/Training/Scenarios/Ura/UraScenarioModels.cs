@@ -503,6 +503,9 @@ public sealed class UraScreenRecognition
     [JsonPropertyName("matchColorText")]
     public bool MatchColorText { get; set; }
 
+    [JsonPropertyName("matchAlphaTemplate")]
+    public bool MatchAlphaTemplate { get; set; }
+
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 

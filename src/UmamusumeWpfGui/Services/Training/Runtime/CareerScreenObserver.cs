@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Windows;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
@@ -78,10 +79,22 @@ public sealed class CareerScreenObserver
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
                 || (careerStartTransitionExpected
                     && screen.ScreenId == "career_intro_event"))
-            // These templates are relatively expensive and only matter right
-            // after the last action before a goal. Keep them out of ordinary
-            // turn observations; the two Next pages are enabled only as part
-            // of the already-recognized goal sequence.
+            .Where(screen => !string.Equals(
+                    screen.ScreenId,
+                    "inheritance_event",
+                    StringComparison.OrdinalIgnoreCase)
+                || state.InheritanceEventPending
+                || careerOnly)
+            // Once the late-March action is selected, wait for the GO overlay
+            // instead of starting another turn from the underlying main page.
+            .Where(screen => !state.InheritanceEventPending
+                || !string.Equals(
+                    screen.ScreenId,
+                    "career_main",
+                    StringComparison.OrdinalIgnoreCase))
+            // Probe the banner after each non-race turn action or qualifying
+            // race result. Keep it out of ordinary turn observations; the two
+            // Next pages are enabled by the recognized goal sequence.
             .Where(screen => IsGoalFlowScreenEligible(screen.ScreenId, state))
             .Where(screen => careerOnly
                 || state.CareerStarted
@@ -157,7 +170,15 @@ public sealed class CareerScreenObserver
                     if (grayTemplate is null)
                         continue;
 
-                    var match = screen.Recognition.MatchColorText
+                    var match = screen.Recognition.MatchAlphaTemplate
+                        ? TemplateMatcher.FindColor(
+                            frame,
+                            grayTemplate,
+                            roi: screen.Recognition.Roi,
+                            threshold: screen.Recognition.TemplateThreshold,
+                            pack.ScreenProfile.ReferenceWidth,
+                            pack.ScreenProfile.ReferenceHeight)
+                        : screen.Recognition.MatchColorText
                         ? TemplateMatcher.FindColor(
                             frame,
                             grayTemplate,
@@ -426,6 +447,25 @@ public sealed class CareerScreenObserver
         if (requiredTemplate is null)
             return false;
 
+        if (screen.ScreenId.Equals("goal_complete", StringComparison.OrdinalIgnoreCase)
+            && screen.Recognition.RequiredTemplateRoi is [var x, var y, var width, var height])
+        {
+            // The full-page template's top-left corner also matches ordinary
+            // goal banners. Its gold GOAL header distinguishes the final page
+            // from the green per-objective banner without relying on OCR.
+            var goldHeader = GrayImageCodec.Crop(
+                requiredTemplate,
+                new Int32Rect(x, y, width, height));
+            return goldHeader is not null
+                && TemplateMatcher.FindColor(
+                    frame,
+                    goldHeader,
+                    roi: screen.Recognition.RequiredTemplateRoi,
+                    threshold: screen.Recognition.RequiredTemplateThreshold,
+                    pack.ScreenProfile.ReferenceWidth,
+                    pack.ScreenProfile.ReferenceHeight).Found;
+        }
+
         return TemplateMatcher.Find(
             frame,
             requiredTemplate,
@@ -488,6 +528,7 @@ public sealed class CareerScreenObserver
     {
         return screenId switch
         {
+            "inheritance_event" => -3,
             "career_intro_event" when careerStartTransitionExpected => 0,
             "career_main" when careerStartTransitionExpected => 1,
             "career_races_ready" when careerStartTransitionExpected => 2,

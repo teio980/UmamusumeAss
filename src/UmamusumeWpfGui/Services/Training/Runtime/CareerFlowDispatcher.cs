@@ -127,6 +127,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "scenario_event"
                 => await _eventHandler.TryRecognizeAndHandleAsync(context)
                     .ConfigureAwait(false),
+            "inheritance_event"
+                => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
             "career_main"
             or "training_selection"
             or "training_result"

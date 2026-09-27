@@ -73,6 +73,17 @@ internal sealed class CareerTurnFlow
                         context.Observation.ScreenId,
                         "advance")
                     .ConfigureAwait(false);
+            case "inheritance_event":
+            {
+                var inheritanceResult = await _actions.RunAsync(
+                        context,
+                        "inheritance_event",
+                        "go")
+                    .ConfigureAwait(false);
+                if (inheritanceResult is null)
+                    context.State.InheritanceEventPending = false;
+                return inheritanceResult;
+            }
             case "rest_confirmation":
             case "summer_rest_confirmation":
                 context.State.LastAction = UraPlannedAction.Rest;
@@ -123,6 +134,9 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        if (context.State.InheritanceEventPending)
+            return null;
+
         // The next confirmed main page opens a new turn. Its training picker
         // must not inherit the previous turn's tap guard.
         context.State.TrainingClickIssuedType = null;
@@ -296,6 +310,13 @@ internal sealed class CareerTurnFlow
 
         context.State.PendingTrainingType = trainingType;
         context.State.LastAction = decision.Action;
+        if (IsInheritancePrecedingTurn(context.State))
+        {
+            context.State.InheritanceEventPending = true;
+            context.LogSink?.Add(
+                "Career Training",
+                $"{context.State.TurnPositionLabel}: waiting for the inheritance GO event after this turn and its event finish.");
+        }
         if (decision.Action is UraPlannedAction.Race or UraPlannedAction.FinaleRace)
             context.State.RaceReplayFlowCompleted = false;
         if (decision.Action == UraPlannedAction.Race
@@ -315,19 +336,27 @@ internal sealed class CareerTurnFlow
 
     private static bool ShouldProbeGoalAfterAction(UraCareerSessionState state)
     {
-        // Race goals are checked after the race flow, not after the final
-        // training/rest action that leads into Race Day.
-        if (state.ObservedGoalKind is CareerGoalTextParser.Race or CareerGoalTextParser.GradeRaceCount)
+        // A goal can complete after any turn-consuming action, even when the
+        // visible countdown or progress OCR has not reached its deadline.
+        // Race results arm their own probe after the result flow completes.
+        return state.LastAction is UraPlannedAction.Training
+            or UraPlannedAction.Rest
+            or UraPlannedAction.Recreation
+            or UraPlannedAction.Infirmary;
+    }
+
+    private static bool IsInheritancePrecedingTurn(UraCareerSessionState state)
+    {
+        if (state.TurnIndexSource != UraStateSource.Observed
+            || !UraTurnPositionParser.TryParse(state.TurnPositionLabel, out var position))
         {
             return false;
         }
 
-        return state.TurnsToGoal is <= 1
-            || (string.Equals(
-                    state.ObservedGoalKind,
-                    CareerGoalTextParser.Fans,
-                    StringComparison.OrdinalIgnoreCase)
-                && state.FansToGoal is <= 0);
+        return position.Month == 3
+            && string.Equals(position.Phase, "late", StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(position.Year, "classic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(position.Year, "senior", StringComparison.OrdinalIgnoreCase));
     }
 
     internal static void ArmPendingGoalProbe(UraCareerSessionState state)

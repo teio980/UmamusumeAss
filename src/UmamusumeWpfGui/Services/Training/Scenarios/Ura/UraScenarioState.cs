@@ -103,6 +103,9 @@ public sealed class UraCareerSessionState
     public int RaceRetryDialogWaitCount { get; set; }
     public bool HasScenarioEvent { get; set; }
     public bool IsCompleted { get; set; }
+    // A Classic/Senior late-March action is followed by the inheritance GO
+    // overlay before Career Main can accept another turn action.
+    public bool InheritanceEventPending { get; set; }
     // Indicates that the selected URA career has actually reached the career
     // main screen. It must not be inferred from the Home entry click: Home is
     // both the starting point and the terminal destination.
@@ -116,9 +119,9 @@ public sealed class UraCareerSessionState
     public bool AwaitingRestConfirmationGone { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool AwaitingRecreationConfirmationGone { get; set; }
-    // Goal-complete templates are probed only during the short window after
-    // an eligible action. Pending is set from the visible turn/fan objective;
-    // Armed begins when the selected action is actually performed.
+    // Goal-complete templates are probed during the short window after a
+    // non-race turn action or a qualifying race result. Pending is set when
+    // a non-race action is selected; Armed begins when it is performed.
     [System.Text.Json.Serialization.JsonIgnore]
     public bool GoalCompletionProbePending { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]

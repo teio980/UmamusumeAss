@@ -3242,6 +3242,17 @@
                                                          "required":  true,
                                                          "success":  false
                                                      },
+                  "inheritance_event_go": {
+                    "algorithm": "MatchTemplateColor",
+                    "action": "ClickSelf",
+                    "template": "templates/inheritance_event_go.png",
+                    "templThreshold": 0.76,
+                    "roi": [300,1150,300,320],
+                    "postDelay": 650,
+                    "timeoutMs": 12000,
+                    "pollIntervalMs": 200,
+                    "required": true
+                  },
                   "independent_mode_selected_probe": {
                     "algorithm": "MatchTemplate",
                     "action": "JustReturn",

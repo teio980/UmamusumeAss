@@ -203,7 +203,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 : "Existing Career handling selected: Delete Data.");
 
         CareerEntryNavigationStep? startupEntryStep = null;
-        CareerObservation? pendingGoalResumeObservation = null;
+        CareerObservation? pendingResumeObservation = null;
 
         // Recover the first supported mid-flow page before invoking the shared
         // Home -> Career navigator. Each recoverable page intentionally uses
@@ -231,15 +231,16 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 state.CareerStarted = true;
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
                 state.LastScreenId = observedCareer.ScreenId;
-                // Goal pages are only eligible in the live observer after the
-                // preceding goal checkpoint. A resumed run has no such history,
-                // so dispatch this already-verified page once before observing
+                // Goal pages and inheritance GO can be tied to a previous
+                // action during a live run. On resume, dispatch the already-
+                // verified screen once from the current UI before observing
                 // the next screen.
-                if (observedCareer.ScreenId is "goal_objective_complete"
+                if (observedCareer.ScreenId is "inheritance_event"
+                    or "goal_objective_complete"
                     or "goal_update"
                     or "goal_complete")
                 {
-                    pendingGoalResumeObservation = observedCareer;
+                    pendingResumeObservation = observedCareer;
                 }
                 logSink?.Add(
                     "Career Training",
@@ -514,8 +515,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
             careerStartTransitionExpected = !state.CareerStarted
                 && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
-            var observation = pendingGoalResumeObservation;
-            pendingGoalResumeObservation = null;
+            var observation = pendingResumeObservation;
+            pendingResumeObservation = null;
             observation ??= await _screenObserver.ObserveAsync(
                     connection,
                     pack,

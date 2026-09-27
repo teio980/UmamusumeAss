@@ -57,6 +57,7 @@ internal static class CareerScreenClassification
             or "training_event"
             or "event_choice"
             or "scenario_event"
+            or "inheritance_event"
             => CareerScreenKind.Event,
 
         "complete_career"
