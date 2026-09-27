@@ -261,6 +261,7 @@ public sealed class GrassViewModelTests
             await Task.Delay(10);
 
         Assert.False(viewModel.IsQueueRunning);
+        Assert.Equal("Queue completed", viewModel.HachimiTaskLog.RunStatus);
         Assert.True(viewModel.StartCommand.CanExecute(null));
         Assert.NotEmpty(log.Entries);
         Assert.Contains(
@@ -310,6 +311,7 @@ public sealed class GrassViewModelTests
 
         Assert.Equal("Error", viewModel.Tasks[0].Status);
         Assert.Equal("Completed", viewModel.Tasks[1].Status);
+        Assert.Equal("Queue failed", viewModel.HachimiTaskLog.RunStatus);
         Assert.Contains(
             log.Entries,
             entry => entry.Type == succeeding.Definition.FallbackName

@@ -409,6 +409,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
 
         var queueSucceeded = false;
+        var queueOutcomeRecorded = false;
 
         try
         {
@@ -667,6 +668,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 }
             }
             HachimiTaskLog.SetRunStatus(Localize("GrassTaskLogQueueCanceled", "Queue canceled"));
+            queueOutcomeRecorded = true;
             AddScriptLog(
                 Localize("GrassScriptQueue", "Task queue"),
                 Localize("GrassScriptCanceled", "Task queue canceled"),
@@ -690,6 +692,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 }
             }
             HachimiTaskLog.SetRunStatus(Localize("GrassTaskLogQueueFailed", "Queue failed"));
+            queueOutcomeRecorded = true;
             AddScriptLog(
                 Localize("GrassScriptQueue", "Task queue"),
                 exception.Message,
@@ -708,6 +711,10 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     Localize("GrassScriptQueue", "Task queue"),
                     Localize("GrassScriptCompleted", "Task queue completed"),
                     LogEntryKind.Success);
+            }
+            else if (!queueOutcomeRecorded)
+            {
+                HachimiTaskLog.SetRunStatus(Localize("GrassTaskLogQueueFailed", "Queue failed"));
             }
 
 
