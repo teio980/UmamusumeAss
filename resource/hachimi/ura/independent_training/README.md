@@ -17,30 +17,25 @@ actions; C# passes only the semantic race selection.
 
 ## Skills
 
-- Source: the installed Global client's `master/master.mdb` (package
-  `com.cygames.umamusume`, client `1.34.0` at snapshot time).
-- Exporter: `tools/export-global-skills.py`, reading `skill_data`,
-  `text_data` categories 47/48, and `single_mode_skill_need_point`.
-- Selection rule: `skill_data.disable_singlemode = 0 AND
-  skill_data.is_general_skill = 1`; the snapshot contains 223 rows from 710
-  master skill rows. Unique/evolution/character-only rows are not exposed as
-  Global Add Skills options.
-- Snapshot: `skills.global.json`, retrieved 2026-08-24 UTC.
-- Verified interaction source: `skills.global.verified.json`, carrying the
-  reviewed `searchText` and `searchResultRow` values from `5e44800^` by
-  `skillId`. The exporter defaults to this stable source and fails closed if a
-  current master skill has no verified mapping.
+- Runtime snapshot: `resource/uma/database/global/skills.json`, alongside the
+  existing Global trainee, support-card, and race data. The Independent
+  Training skill picker and execution pipeline read this file directly.
+- Refresh command: `python tools/crawl-global-skills.py`.
+- Skill names, types, effects, SP costs, and conditions come from
+  <https://gacha-data.com/umamusume/skills/>. Skill IDs are cross-referenced
+  against <https://umamusu.wiki/Game:List_of_Skills>. The JSON stores source
+  URLs, retrieval time, and the ID resolution for every row.
+- The snapshot contains 725 skills: 448 Normal, 152 Rare, and 125 Unique.
+  All appear in the picker. The 579 Normal/Rare rows with a positive SP cost
+  are selectable. The other 146 retain `needSkillPoint: null` where the source
+  has no price and remain visible but disabled.
 
-Each skill has an ASCII-normalized offline search query plus aliases. ASCII
-punctuation from the client name is retained because the game's filter treats
-commas, hyphens, apostrophes, parentheses, colons, and exclamation marks as
-searchable characters. The JSON profile focuses the search box, injects the
-query, submits it, and uses the shared Windows OCR layer to find and click the
-actual Global result row. A static result row is not guessed; it is only a
-legacy fallback for older snapshots that explicitly declare `gameSearchMapped`
-and a positive `searchResultRow`.
+The earlier 223 client-verified search queries and result rows are embedded in
+the complete catalog. The game search uses each skill's `searchText`, then OCR
+locates and clicks its name. Only those 223 verified entries can use a static
+result-row fallback if OCR misses. New entries use name search and OCR; if the
+game does not show a match, execution reports the skill name and query.
 
-The catalog describes the Global client's selectable general-skill subset at
-the recorded client snapshot. Availability can still vary with the current
-game state/client build; if OCR cannot find the requested result, the pipeline
-reports the skill name and does not silently apply another row.
+`needSkillPoint` is the cost of that skill entry. A higher tier can require
+buying its lower tier first, so the combined purchase cost may be larger.
+Availability may vary with the current game state or client version.

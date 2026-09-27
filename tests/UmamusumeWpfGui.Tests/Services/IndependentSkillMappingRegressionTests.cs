@@ -8,20 +8,22 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class IndependentSkillMappingRegressionTests
 {
     [Fact]
-    public void Every_current_global_skill_keeps_an_explicit_verified_mapping()
+    public void Complete_catalog_keeps_all_skill_rows_and_previous_verified_mappings()
     {
         var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
 
-        Assert.Equal(223, catalog.Skills.Count);
-        Assert.True(catalog.SkillSource.IsExplicitGlobalClient);
+        Assert.Equal(725, catalog.Skills.Count);
+        Assert.Equal("global", catalog.SkillSource.Region);
+        Assert.Equal("unofficial-community-skill-reference", catalog.SkillSource.SourceType);
+        Assert.Equal(725, catalog.Skills.Select(skill => skill.SkillId).Distinct().Count());
+        Assert.Equal(579, catalog.Skills.Count(skill => skill.IsSelectable));
         Assert.Equal(223, catalog.Skills.Count(skill => skill.IsGameSearchMapped));
 
         var searchTexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        Assert.All(catalog.Skills, skill =>
+        Assert.All(catalog.Skills.Where(skill => skill.IsGameSearchMapped), skill =>
         {
             Assert.True(skill.AvailableInGlobal, skill.SkillName);
             Assert.True(skill.SingleModeEnabled, skill.SkillName);
-            Assert.True(skill.IsGameSearchMapped, skill.SkillName);
             Assert.True(skill.SearchResultRow > 0, skill.SkillName);
             Assert.False(string.IsNullOrWhiteSpace(skill.EffectiveSearchText), skill.SkillName);
             Assert.True(searchTexts.Add(skill.EffectiveSearchText),
@@ -30,29 +32,19 @@ public sealed class IndependentSkillMappingRegressionTests
     }
 
     [Fact]
-    public void Stable_verified_mapping_source_contains_all_current_skill_ids()
+    public void Complete_catalog_contains_gourmand_and_marks_unverified_searches()
     {
-        var root = FindSolutionRoot();
-        var sourcePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "independent_training",
-            "skills.global.verified.json");
+        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        var gourmand = Assert.Single(catalog.Skills, skill => skill.SkillId == 201351);
 
-        using var document = JsonDocument.Parse(File.ReadAllText(sourcePath));
-        var source = document.RootElement;
-        Assert.Equal("5e44800^", source.GetProperty("sourceRevision").GetString());
-
-        var verifiedIds = source.GetProperty("skills")
-            .EnumerateArray()
-            .Select(item => item.GetProperty("skillId").GetInt32())
-            .ToHashSet();
-        var catalog = IndependentTrainingCatalog.Load(root);
-
-        Assert.Equal(223, verifiedIds.Count);
-        Assert.True(catalog.Skills.All(skill => verifiedIds.Contains(skill.SkillId)));
+        Assert.Equal("Gourmand", gourmand.SkillName);
+        Assert.Equal(180, gourmand.NeedSkillPoint);
+        Assert.Equal(2, gourmand.Rarity);
+        Assert.True(gourmand.IsSelectable);
+        Assert.Equal("Gourmand", gourmand.EffectiveSearchText);
+        Assert.False(gourmand.IsGameSearchMapped);
+        Assert.False(IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
+            gourmand, out _, out _));
     }
 
     [Fact]

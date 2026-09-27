@@ -337,10 +337,7 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
                 && agendaEntries.All(item => _catalog.TryGetAgendaPickerEntry(item, out _))
                 && selectedSkills.All(id => _catalog.Skills.Any(item => item.SkillId == id))
                 && selectedSkills.All(id => _catalog.Skills.Any(item =>
-                    item.SkillId == id
-                    && item.AvailableInGlobal
-                    && item.SingleModeEnabled
-                    && !string.IsNullOrWhiteSpace(item.EffectiveSearchText)));
+                    item.SkillId == id && item.IsSelectable));
         }
     }
 
@@ -417,9 +414,7 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
                      .OrderBy(item => item.SkillName, StringComparer.OrdinalIgnoreCase)
                      .ThenBy(item => item.SkillId))
         {
-            var isExecutable = skill.AvailableInGlobal
-                && skill.SingleModeEnabled
-                && !string.IsNullOrWhiteSpace(skill.EffectiveSearchText);
+            var isExecutable = skill.IsSelectable;
             var option = new IndependentSkillOption(skill, isExecutable)
             {
                 IsSelected = selectedSkills.Contains(skill.SkillId) && isExecutable,

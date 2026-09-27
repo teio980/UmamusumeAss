@@ -6,9 +6,8 @@ namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
 /// Immutable, offline data used by the Independent Training setup editor.
-/// The race catalog is a checked-in guide snapshot.  The skill catalog is
-/// generated from the installed Global client's master.mdb and is shipped with
-/// the application so a run never depends on a live web page.
+/// The race and skill catalogs are checked-in snapshots shipped with the
+/// application, so a run never depends on a live web page.
 /// </summary>
 public sealed class IndependentTrainingCatalog
 {
@@ -22,7 +21,7 @@ public sealed class IndependentTrainingCatalog
     public const string DefaultRacePath =
         "resource/hachimi/ura/independent_training/races.global.json";
     public const string DefaultSkillPath =
-        "resource/hachimi/ura/independent_training/skills.global.json";
+        "resource/uma/database/global/skills.json";
 
     public const string RaceCardTemplateDirectory =
         "templates/independent/race_cards";
@@ -446,14 +445,10 @@ public sealed class IndependentTrainingCatalog
                     ReadString(item, "availabilitySource"),
                     ReadBool(item, "singleModeEnabled"),
                     ReadInt(item, "skillCategoryId")))
-                // A legacy snapshot may still be present on a user's disk.
-                // Its rows remain parseable for old settings, but are not
-                // exposed as selectable Global skills without an explicit
-                // availability declaration from the Global client.
+                // Keep the complete catalog visible. The editor disables
+                // entries without a purchasable SP cost or search query.
                 .Where(item => item.SkillId > 0
-                    && !string.IsNullOrWhiteSpace(item.SkillName)
-                    && item.AvailableInGlobal
-                    && item.SingleModeEnabled)
+                    && !string.IsNullOrWhiteSpace(item.SkillName))
                 .ToArray();
         }
         catch (Exception) when (FileNotFoundOrInvalid(path))
@@ -653,6 +648,11 @@ public sealed record IndependentTrainingSkill(
 
     public string OcrTargetText => SkillName;
 
+    public bool IsSelectable => AvailableInGlobal
+        && SingleModeEnabled
+        && NeedSkillPoint > 0
+        && !string.IsNullOrWhiteSpace(EffectiveSearchText);
+
     public IEnumerable<string> SearchTerms =>
         new[] { SkillName, OriginalName, SearchText }
             .Concat(SearchAliases)
@@ -665,10 +665,25 @@ public sealed record IndependentTrainingSkill(
     public int SearchResultPickerRow => Math.Max(0, SearchResultRow - 1)
         % IndependentTrainingCatalog.SkillPickerVisibleRows;
 
-    public string DisplayLabel =>
-        string.IsNullOrWhiteSpace(EffectSummary)
-            ? $"{SkillName} · {SkillId}"
-            : $"{SkillName} · {EffectSummary}";
+    public string DisplayLabel
+    {
+        get
+        {
+            var tier = Rarity switch
+            {
+                1 => "Normal",
+                2 => "Rare",
+                3 => "Unique",
+                _ => "Skill",
+            };
+            var details = new List<string> { SkillName, tier };
+            if (NeedSkillPoint > 0)
+                details.Add($"{NeedSkillPoint} SP");
+            if (!string.IsNullOrWhiteSpace(EffectSummary))
+                details.Add(EffectSummary);
+            return string.Join(" · ", details);
+        }
+    }
 }
 
 public sealed record IndependentTrainingAgendaSelection(

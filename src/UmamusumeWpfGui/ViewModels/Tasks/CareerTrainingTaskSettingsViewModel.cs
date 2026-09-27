@@ -470,7 +470,7 @@ public sealed class IndependentSkillOption : INotifyPropertyChanged
     public IndependentTrainingSkill Skill { get; }
     public int SkillId => Skill.SkillId;
     public bool IsExecutable { get; }
-    public string Label => IsExecutable ? Skill.DisplayLabel : $"{Skill.DisplayLabel} · unavailable in Global Add Skills";
+    public string Label => IsExecutable ? Skill.DisplayLabel : $"{Skill.DisplayLabel} · unavailable in Add Skills";
     public bool IsSelected
     {
         get => _isSelected;

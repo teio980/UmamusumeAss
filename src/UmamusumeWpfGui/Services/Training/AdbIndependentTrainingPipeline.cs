@@ -748,23 +748,17 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
             await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
 
             var skill = catalog.Skills.FirstOrDefault(item => item.SkillId == skillId);
-            if (skill is null || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
+            if (skill is null || !skill.IsSelectable)
             {
                 return Failure(
                     $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} is not selectable.",
                     state.LastConfirmedScreen,
                     runtime.ActionsCompleted);
             }
-            if (!IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
-                    skill,
-                    out var page,
-                    out var pickerRow))
-            {
-                return Failure(
-                    $"Independent skill {skillId.ToString(CultureInfo.InvariantCulture)} has no verified search mapping.",
-                    state.LastConfirmedScreen,
-                    runtime.ActionsCompleted);
-            }
+            var hasVerifiedFallback = IndependentTrainingCatalog.TryGetVerifiedSkillFallback(
+                skill,
+                out var page,
+                out var pickerRow);
 
             foreach (var action in new[]
             {
@@ -849,6 +843,14 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                 .ConfigureAwait(false);
             if (checkbox is not null)
             {
+                if (!hasVerifiedFallback)
+                {
+                    return Failure(
+                        $"Could not find independent skill '{skill.SkillName}' after searching "
+                        + $"'{skill.EffectiveSearchText}': {checkbox.Message}",
+                        state.LastConfirmedScreen,
+                        runtime.ActionsCompleted);
+                }
                 var fallback = await RunIndependentActionAsync(
                         connection,
                         pack,

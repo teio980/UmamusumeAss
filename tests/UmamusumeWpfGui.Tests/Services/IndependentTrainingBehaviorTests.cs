@@ -477,6 +477,75 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Newly_crawled_gourmand_uses_search_and_ocr_without_a_static_row()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.ConfigureSkills,
+            LastConfirmedScreen = "career_final_confirmation",
+        });
+
+        var previousDirectory = Environment.CurrentDirectory;
+        Environment.CurrentDirectory = root;
+        try
+        {
+            var result = await harness.Pipeline.RunAsync(
+                Connection,
+                CreateSettings(root, true, skillIds: [201351]),
+                null);
+
+            Assert.True(result.Succeeded, result.Message);
+            Assert.Equal(["Gourmand"], harness.Actions.SearchInputs);
+            Assert.Contains(IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction(),
+                harness.Actions.Calls);
+            Assert.DoesNotContain(IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
+                harness.Actions.Calls);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = previousDirectory;
+        }
+    }
+
+    [Fact]
+    public async Task Newly_crawled_gourmand_reports_an_ocr_miss_without_selecting_another_row()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.FailWhen = call =>
+            call == IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction();
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.ConfigureSkills,
+            LastConfirmedScreen = "career_final_confirmation",
+        });
+
+        var previousDirectory = Environment.CurrentDirectory;
+        Environment.CurrentDirectory = root;
+        try
+        {
+            var result = await harness.Pipeline.RunAsync(
+                Connection,
+                CreateSettings(root, true, skillIds: [201351]),
+                null);
+
+            Assert.False(result.Succeeded);
+            Assert.Contains("Gourmand", result.Message);
+            Assert.DoesNotContain(IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction(),
+                harness.Actions.Calls);
+            Assert.DoesNotContain("independent.skills.save", harness.Actions.Calls);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = previousDirectory;
+        }
+    }
+
+    [Fact]
     public async Task Stop_preserves_stage_and_cursor_and_next_run_starts_runtime_counts_at_zero()
     {
         var root = FindSolutionRoot();

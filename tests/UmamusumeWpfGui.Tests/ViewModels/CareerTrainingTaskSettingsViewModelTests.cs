@@ -12,6 +12,21 @@ namespace UmamusumeWpfGui.Tests.ViewModels;
 public sealed class CareerTrainingTaskSettingsViewModelTests
 {
     [Fact]
+    public void Full_skill_catalog_exposes_gourmand_in_the_existing_picker()
+    {
+        var settings = new CareerTrainingTaskSettingsViewModel();
+        var gourmand = Assert.Single(settings.IndependentSkillOptions,
+            option => option.SkillId == 201351);
+
+        Assert.True(gourmand.IsExecutable);
+        Assert.Contains("180 SP", gourmand.Label);
+        settings.IndependentSkillSearchText = "Gourmand";
+        Assert.Contains(gourmand, settings.FilteredIndependentSkillOptions);
+        gourmand.IsSelected = true;
+        Assert.Equal("201351", settings.IndependentSkillIdsText);
+    }
+
+    [Fact]
     public void Independent_agenda_reset_clears_only_agenda_selection_and_filter()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();
