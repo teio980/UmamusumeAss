@@ -72,7 +72,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         IGrassTaskLogSink? logSink,
         string eventHandling,
         CancellationToken cancellationToken,
-        bool retryFailedRaceWithAlarmClock = false)
+        bool retryFailedRaceWithAlarmClock = false,
+        IReadOnlyList<int>? normalSkillIds = null)
     {
         if (state.RaceRetryDeclined
             && observation.ScreenId is ("career_main" or "training_selection"
@@ -115,7 +116,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             logSink,
             cancellationToken,
             eventHandling,
-            retryFailedRaceWithAlarmClock);
+            retryFailedRaceWithAlarmClock,
+            normalSkillIds);
 
         var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
             observation.ScreenId);

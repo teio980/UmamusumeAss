@@ -444,7 +444,8 @@ public sealed class IndependentTrainingCatalog
                     ReadBool(item, "availableInGlobal"),
                     ReadString(item, "availabilitySource"),
                     ReadBool(item, "singleModeEnabled"),
-                    ReadInt(item, "skillCategoryId")))
+                    ReadInt(item, "skillCategoryId"),
+                    ReadString(item, "otherTiers")))
                 // Keep the complete catalog visible. The editor disables
                 // entries without a purchasable SP cost or search query.
                 .Where(item => item.SkillId > 0
@@ -638,7 +639,8 @@ public sealed record IndependentTrainingSkill(
     bool AvailableInGlobal = false,
     string AvailabilitySource = "",
     bool SingleModeEnabled = false,
-    int SkillCategoryId = 0)
+    int SkillCategoryId = 0,
+    string OtherTiers = "")
 {
     public IReadOnlyList<string> SearchAliases => Aliases ?? [];
 

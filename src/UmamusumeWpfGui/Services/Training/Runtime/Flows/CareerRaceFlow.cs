@@ -6,6 +6,7 @@ namespace UmamusumeWpfGui.Services.Training;
 internal sealed class CareerRaceFlow
 {
     private readonly UraRaceResultRecognizer _raceResultRecognizer;
+    private readonly CareerSkillLearningFlow _skillLearning;
     private readonly ICareerFlowActionRunner _actions;
 
     public CareerRaceFlow(
@@ -15,6 +16,7 @@ internal sealed class CareerRaceFlow
         _raceResultRecognizer = new UraRaceResultRecognizer(
             visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime)));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _skillLearning = new CareerSkillLearningFlow(visualRuntime, actions);
     }
 
     public async Task<CareerTrainingResult?> HandleAsync(CareerFlowContext context)
@@ -43,6 +45,9 @@ internal sealed class CareerRaceFlow
                     // Recommended-or-first race selection below.
                     context.State.ObservedGoalKind = CareerGoalTextParser.Race;
                 }
+                var skillFailure = await _skillLearning.RunAsync(context).ConfigureAwait(false);
+                if (skillFailure is not null)
+                    return skillFailure;
                 return await _actions.RunAsync(
                         context,
                         "race_day",

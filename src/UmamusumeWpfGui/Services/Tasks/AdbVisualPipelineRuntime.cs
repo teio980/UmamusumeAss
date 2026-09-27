@@ -498,7 +498,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         // Career top-left and goal regions are deliberately isolated before
         // recognition because the character art and dialogue overlay vary.
         var cropToRoi = actualRoi is not null
-            && taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase);
+            && (taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase)
+                || taskName.StartsWith("career_skill.", StringComparison.OrdinalIgnoreCase));
         var ocrScreenshot = cropToRoi
             ? CropScreenshot(screenshot, actualRoi!, padding: 8)
             : screenshot;

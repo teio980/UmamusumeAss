@@ -628,7 +628,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     logSink,
                     settings.EventHandling,
                     cancellationToken,
-                    settings.RetryFailedRaceWithAlarmClock)
+                    settings.RetryFailedRaceWithAlarmClock,
+                    settings.EffectiveNormalSkillIds)
                 .ConfigureAwait(false);
             if (terminal is not null)
             {

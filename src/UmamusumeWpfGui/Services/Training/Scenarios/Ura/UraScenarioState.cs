@@ -90,6 +90,8 @@ public sealed class UraCareerSessionState
     public int? RaceUnavailableTurnIndex { get; set; }
     // Run-scoped guard for the reusable race-runner strategy checkpoint.
     public bool RaceStrategyConfigured { get; set; }
+    // Confirmed Normal Career skill purchases for this run.
+    public List<int> NormalLearnedSkillIds { get; set; } = [];
     // Prevent a stale Replay marker from re-running the Next chain after it
     // already completed. Reset when a new race is entered.
     [System.Text.Json.Serialization.JsonIgnore]

@@ -95,7 +95,8 @@ internal sealed record CareerFlowContext(
     IGrassTaskLogSink? LogSink,
     CancellationToken CancellationToken,
     string EventHandling = CareerEventHandlingModes.Default,
-    bool RetryFailedRaceWithAlarmClock = false);
+    bool RetryFailedRaceWithAlarmClock = false,
+    IReadOnlyList<int>? NormalSkillIds = null);
 
 internal interface ICareerFlowActionRunner
 {
