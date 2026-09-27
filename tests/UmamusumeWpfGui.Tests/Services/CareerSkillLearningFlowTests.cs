@@ -64,9 +64,68 @@ public sealed class CareerSkillLearningFlowTests
         Assert.Equal(["open_list"], actions.ActionIds);
     }
 
+    [Fact]
+    public async Task Unreadable_skill_points_stop_before_opening_the_race_list()
+    {
+        var skillId = IndependentTrainingCatalog.Load(FindRoot()).Skills
+            .Single(skill => skill.SkillName == "Professor of Curvature").SkillId;
+        var actions = new RecordingActions();
+        var context = new CareerFlowContext(
+            null!, null!, true, null!, null!, "pace", new UraCareerSessionState(),
+            new CareerObservation("race_day", 1), null, CancellationToken.None,
+            NormalSkillIds: [skillId]);
+
+        var result = await new CareerRaceFlow(PointsRuntime.Create(-1), actions)
+            .HandleAsync(context);
+
+        Assert.NotNull(result);
+        Assert.False(result.Succeeded);
+        Assert.Empty(actions.ActionIds);
+    }
+
+    [Theory]
+    [InlineData("career_skill_race_day_662_sample.png", true)]
+    [InlineData("career_skill_obtained_sample.png", false)]
+    public async Task Existing_career_observer_distinguishes_race_day_from_skills(
+        string capture, bool expectedRaceDay)
+    {
+        var frame = GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(),
+            "captures", capture));
+        Assert.NotNull(frame);
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            FindRoot(), "resource", "hachimi", "ura", "manifest.json"));
+        var state = new UraCareerSessionState { CareerStarted = true };
+        var connection = new LastVerifiedConnection(
+            "adb", "serial", "android", "version", 900, 1600, 900, 1600,
+            DateTimeOffset.UnixEpoch);
+
+        var observation = await new CareerScreenObserver(FrameRuntime.Create(frame!))
+            .ObserveAsync(connection, pack, state, false, CancellationToken.None);
+
+        Assert.Equal(expectedRaceDay, observation?.ScreenId == "race_day");
+    }
+
+    [Fact]
+    public void Skills_back_button_is_absent_on_race_day()
+    {
+        var directory = ScreensDirectory();
+        var frame = GrayImageCodec.FromFile(Path.Combine(directory,
+            "captures", "career_skill_race_day_662_sample.png"));
+        var back = GrayImageCodec.FromFile(Path.Combine(directory,
+            "templates", "career_skill_back.png"));
+        Assert.NotNull(frame);
+        Assert.NotNull(back);
+
+        var match = TemplateMatcher.FindColor(frame!, back!,
+            [0, 1480, 185, 110], 0.8, 900, 1600);
+        Assert.False(match.Found, $"Skills Back falsely matched Race Day "
+            + $"at ({match.CenterX},{match.CenterY}) with score {match.Score:0.000}");
+    }
+
     [Theory]
     [InlineData("career_skill_learn_sample.png", 685, 650, 95, 80, 72)]
     [InlineData("career_skill_race_day_sample.png", 750, 1140, 115, 75, 74)]
+    [InlineData("career_skill_race_day_662_sample.png", 750, 1140, 115, 75, 662)]
     public async Task Captured_skill_points_and_prices_are_readable(
         string capture, int x, int y, int width, int height, int expected)
     {
@@ -104,7 +163,7 @@ public sealed class CareerSkillLearningFlowTests
     [Theory]
     [InlineData("career_skill_learn_sample.png", "career_skill_plus.png", 775, 610, 85, 150)]
     [InlineData("career_skill_learn_sample.png", "career_skill_back.png", 0, 1480, 185, 110)]
-    [InlineData("career_skill_learn_sample.png", "career_skill_confirm.png", 260, 1280, 380, 140)]
+    [InlineData("career_skill_selected_sample.png", "career_skill_confirm.png", 345, 1310, 210, 80)]
     [InlineData("career_skill_confirmation_sample.png", "career_skill_confirmation_title.png", 290, 25, 320, 105)]
     [InlineData("career_skill_confirmation_sample.png", "career_skill_confirmation_learn.png", 455, 1410, 385, 130)]
     [InlineData("career_skill_confirmation_sample.png", "career_skill_confirmation_cancel.png", 60, 1410, 385, 130)]
@@ -124,6 +183,58 @@ public sealed class CareerSkillLearningFlowTests
         var match = TemplateMatcher.FindColor(frame!, button!,
             [x, y, width, height], 0.82, 900, 1600);
         Assert.True(match.Found, $"{template} score {match.Score:0.000}");
+        var expectedCenter = template switch
+        {
+            "career_skill_plus.png" => (812, 685),
+            "career_skill_back.png" => (95, 1541),
+            "career_skill_confirm.png" => (450, 1350),
+            "career_skill_confirmation_title.png" => (450, 78),
+            "career_skill_confirmation_cancel.png" => (250, 1477),
+            "career_skill_confirmation_learn.png" => (645, 1477),
+            "career_skill_learned_title.png" => (450, 515),
+            "career_skill_learned_close.png" => (450, 1043),
+            "career_skill_exit_title.png" => (450, 773),
+            "career_skill_exit_ok.png" => (645, 1044),
+            _ => throw new InvalidOperationException(template),
+        };
+        Assert.InRange(Math.Abs(match.CenterX - expectedCenter.Item1), 0, 25);
+        Assert.InRange(Math.Abs(match.CenterY - expectedCenter.Item2), 0, 25);
+    }
+
+    [Theory]
+    [InlineData("career_skill_race_day_sample.png")]
+    [InlineData("career_skill_race_day_662_sample.png")]
+    [InlineData("career_skill_race_day_animation_sample.png")]
+    public void Race_day_skills_text_matches_without_button_background(string capture)
+    {
+        var directory = ScreensDirectory();
+        var frame = GrayImageCodec.FromFile(Path.Combine(directory, "captures", capture));
+        var textTemplate = GrayImageCodec.FromFile(Path.Combine(directory,
+            "templates", "race_day_skills_open.png"));
+        Assert.NotNull(frame);
+        Assert.NotNull(textTemplate);
+        var match = TemplateMatcher.FindColor(frame!, textTemplate!,
+            [80, 1250, 350, 180], 0.78, 900, 1600);
+        Assert.True(match.Found, $"{capture} score {match.Score:0.000}");
+        Assert.InRange(match.CenterX, 210, 320);
+        Assert.InRange(match.CenterY, 1350, 1410);
+    }
+
+    [Theory]
+    [InlineData("career_skill_learn_sample.png", "career_skill_confirm.png", 345, 1310, 210, 80)]
+    [InlineData("career_skill_selected_sample.png", "career_skill_plus.png", 775, 1120, 85, 155)]
+    public void Text_templates_do_not_match_when_action_is_unavailable(
+        string capture, string template, int x, int y, int width, int height)
+    {
+        var directory = ScreensDirectory();
+        var frame = GrayImageCodec.FromFile(Path.Combine(directory, "captures", capture));
+        var textTemplate = GrayImageCodec.FromFile(Path.Combine(directory, "templates", template));
+        Assert.NotNull(frame);
+        Assert.NotNull(textTemplate);
+        var match = TemplateMatcher.FindColor(frame!, textTemplate!,
+            [x, y, width, height], 0.82, 900, 1600);
+        Assert.False(match.Found, $"{template} incorrectly matched at "
+            + $"({match.CenterX},{match.CenterY}) with score {match.Score:0.000}");
     }
 
     [Fact]
@@ -198,10 +309,33 @@ public sealed class CareerSkillLearningFlowTests
             targetMethod?.Name switch
             {
                 "DetectTextAsync" => Task.FromResult<ScreenTextRecognitionResult?>(
-                    new ScreenTextRecognitionResult(
+                    _points < 0 ? null : new ScreenTextRecognitionResult(
                         [new ScreenTextDetection(_points.ToString(CultureInfo.InvariantCulture),
                             new ScreenTextRect(780, 1160, 55, 30))],
                         "en-US", 900, 1600)),
+                _ => throw new InvalidOperationException(
+                    $"Unexpected visual operation: {targetMethod?.Name}"),
+            };
+    }
+
+    public class FrameRuntime : DispatchProxy
+    {
+        private GrayImage _frame = null!;
+
+        public static IVisualPipelineRuntime Create(GrayImage frame)
+        {
+            var runtime = DispatchProxy.Create<IVisualPipelineRuntime, FrameRuntime>();
+            ((FrameRuntime)(object)runtime)._frame = frame;
+            return runtime;
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            targetMethod?.Name switch
+            {
+                "CaptureGrayAsync" => Task.FromResult<GrayImage?>(_frame),
+                "LoadTemplateAsync" => Task.FromResult(GrayImageCodec.FromFile(
+                    Path.Combine((string)args![1]!, (string)args[0]!))),
+                "DelayAsync" => Task.CompletedTask,
                 _ => throw new InvalidOperationException(
                     $"Unexpected visual operation: {targetMethod?.Name}"),
             };

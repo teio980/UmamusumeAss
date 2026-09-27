@@ -17,11 +17,13 @@ internal sealed class CareerSkillLearningFlow
     private const int MaxScrolls = 60;
     private const string TemplateRoot = "templates/";
     private readonly IVisualPipelineRuntime _visual;
+    private readonly CareerScreenObserver _screenObserver;
     private readonly ICareerFlowActionRunner _actions;
 
     internal CareerSkillLearningFlow(IVisualPipelineRuntime visual, ICareerFlowActionRunner actions)
     {
         _visual = visual ?? throw new ArgumentNullException(nameof(visual));
+        _screenObserver = new CareerScreenObserver(visual);
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
     }
 
@@ -45,15 +47,17 @@ internal sealed class CareerSkillLearningFlow
                 continue;
             if (!skillsById.TryGetValue(id, out var skill) || !skill.IsSelectable)
             {
-                Log(context, $"Configured Normal Career skill {id} is unavailable; proceeding to race.");
-                break;
+                return CareerRuntimeResults.Failure(
+                    $"Configured Normal Career skill {id} is unavailable; training stopped before the race.",
+                    "race_day");
             }
 
             var points = await ReadPointsAsync(context).ConfigureAwait(false);
             if (points is null)
             {
-                Log(context, "Could not read Race Day Skill Pts; proceeding to race.");
-                break;
+                return CareerRuntimeResults.Failure(
+                    $"Could not read Race Day Skill Pts for {skill.SkillName}; training stopped before the race.",
+                    "race_day");
             }
 
             var threshold = CareerSkillCostResolver.Estimate(skill, skillsByName);
@@ -69,14 +73,13 @@ internal sealed class CareerSkillLearningFlow
             if (openResult is not null)
             {
                 Log(context, $"Could not open Skills for {skill.SkillName}: {openResult.Message}");
-                return await EnsureRaceDayAsync(context).ConfigureAwait(false);
+                return openResult;
             }
 
             if (!await WaitForAsync(context, "career_skill_back.png", [0, 1480, 185, 110])
                     .ConfigureAwait(false))
             {
-                Log(context, "Skills page did not appear; proceeding to race if Race Day is visible.");
-                return await EnsureRaceDayAsync(context).ConfigureAwait(false);
+                return NavigationFailure("Skills page did not appear after opening it.");
             }
 
             var scan = await ScanForSkillAsync(context, skill.SkillName).ConfigureAwait(false);
@@ -88,10 +91,19 @@ internal sealed class CareerSkillLearningFlow
             else if (scan.Kind == SkillScanKind.Purchasable && scan.Plus is not null)
             {
                 var price = await ReadPriceAsync(context, scan.Plus).ConfigureAwait(false);
-                if (price is null || price <= 0 || price > points)
+                if (price is null || price <= 0)
+                {
+                    if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
+                        return NavigationFailure("Could not return from Skills to Race Day.");
+                    return CareerRuntimeResults.Failure(
+                        $"Could not read the displayed price for {skill.SkillName}; training stopped before the race.",
+                        "race_day");
+                }
+
+                if (price > points)
                 {
                     Log(context,
-                        $"Could not confirm an affordable displayed price for {skill.SkillName}; proceeding to race.");
+                        $"Saving {points} Skill Pts for {skill.SkillName} (displayed price {price}); proceeding to race.");
                     if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
                         return NavigationFailure("Could not return from Skills to Race Day.");
                     break;
@@ -100,10 +112,11 @@ internal sealed class CareerSkillLearningFlow
                 if (!await PurchaseAsync(context, skill, scan.Plus)
                         .ConfigureAwait(false))
                 {
-                    Log(context, $"Could not confirm purchase of {skill.SkillName}; proceeding to race.");
                     if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
                         return NavigationFailure("Could not return from Skills to Race Day after a failed purchase.");
-                    break;
+                    return CareerRuntimeResults.Failure(
+                        $"Could not confirm purchase of {skill.SkillName}; training stopped before the race.",
+                        "race_day");
                 }
 
                 context.State.NormalLearnedSkillIds.Add(id);
@@ -111,10 +124,11 @@ internal sealed class CareerSkillLearningFlow
             }
             else
             {
-                Log(context, $"Could not uniquely find {skill.SkillName} on the Skills list; proceeding to race.");
                 if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
                     return NavigationFailure("Could not return from Skills to Race Day.");
-                break;
+                return CareerRuntimeResults.Failure(
+                    $"Could not uniquely find {skill.SkillName} on the Skills list; training stopped before the race.",
+                    "race_day");
             }
 
             if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
@@ -140,7 +154,7 @@ internal sealed class CareerSkillLearningFlow
         if (selected.Kind != SkillScanKind.Obtained)
             return false;
 
-        if (!await TapTemplateAsync(context, "career_skill_confirm.png", [260, 1280, 380, 140])
+        if (!await TapTemplateAsync(context, "career_skill_confirm.png", [345, 1310, 210, 80])
                 .ConfigureAwait(false))
             return false;
         if (!await WaitForAsync(context, "career_skill_confirmation_title.png", [290, 25, 320, 105])
@@ -239,19 +253,33 @@ internal sealed class CareerSkillLearningFlow
 
     private async Task<int?> ReadPriceAsync(CareerFlowContext context, TemplateMatchResult plus)
     {
-        var result = await _visual.DetectTextAsync(context.Connection, null,
-                Width, Height, "en-US", "career_skill.price", context.CancellationToken)
-            .ConfigureAwait(false);
-        return ParseNumberInRegion(result,
-            [685, Math.Max(585, plus.CenterY - 40), 95, 80]);
+        return await ReadNumberAsync(context,
+            [685, Math.Max(585, plus.CenterY - 40), 95, 80],
+            "career_skill.price").ConfigureAwait(false);
     }
 
-    private async Task<int?> ReadPointsAsync(CareerFlowContext context)
+    private Task<int?> ReadPointsAsync(CareerFlowContext context) =>
+        ReadNumberAsync(context, [750, 1140, 115, 75],
+            "career_skill.points", [760, 1145, 95, 65]);
+
+    private async Task<int?> ReadNumberAsync(CareerFlowContext context,
+        int[] numberRoi, string taskName, int[]? focusedRoi = null)
     {
         var result = await _visual.DetectTextAsync(context.Connection, null,
-                Width, Height, "en-US", "career_skill.points", context.CancellationToken)
+                Width, Height, "en-US", taskName, context.CancellationToken)
             .ConfigureAwait(false);
-        return ParseNumberInRegion(result, [750, 1140, 115, 75]);
+        var number = ParseNumberInRegion(result, numberRoi);
+        if (number is not null)
+            return number;
+
+        // The full-screen recognizer can merge the entire stat row into one
+        // line. A crop isolates the value without relying on line grouping.
+        var cropRoi = focusedRoi ?? numberRoi;
+        result = await _visual.DetectTextAsync(context.Connection, cropRoi,
+                Width, Height, "en-US", taskName + ".focused",
+                context.CancellationToken)
+            .ConfigureAwait(false);
+        return ParseNumberInRegion(result, cropRoi);
     }
 
     internal static int? ParseNumberInRegion(
@@ -263,8 +291,27 @@ internal sealed class CareerSkillLearningFlow
             detection.Bounds.CenterX >= roi[0]
             && detection.Bounds.CenterX <= roi[0] + roi[2]
             && detection.Bounds.CenterY >= roi[1]
-            && detection.Bounds.CenterY <= roi[1] + roi[3]);
-        return ParseSingleNumber(result with { Detections = inRegion.ToArray() });
+            && detection.Bounds.CenterY <= roi[1] + roi[3]).ToArray();
+        if (inRegion.Length > 0)
+            return ParseSingleNumber(result with { Detections = inRegion });
+
+        // Windows OCR sometimes gives the whole stat strip one bounding box.
+        // Its right edge still ends in the Skill Pts box, and the last token
+        // is the point value. Require one unambiguous candidate.
+        var mergedValues = result.Detections
+            .Where(detection => detection.Bounds.X < roi[0]
+                && detection.Bounds.X + detection.Bounds.Width >= roi[0]
+                && detection.Bounds.X + detection.Bounds.Width <= roi[0] + roi[2]
+                && detection.Bounds.CenterY >= roi[1]
+                && detection.Bounds.CenterY <= roi[1] + roi[3])
+            .Select(detection => Regex.Match(detection.Text, @"(?<!\d)\d{1,4}\s*$"))
+            .Where(match => match.Success)
+            .Select(match => int.TryParse(match.Value.Trim(), NumberStyles.None,
+                CultureInfo.InvariantCulture, out var value) ? value : -1)
+            .Where(value => value >= 0)
+            .Distinct()
+            .ToArray();
+        return mergedValues.Length == 1 ? mergedValues[0] : null;
     }
 
     internal static int? ParseSingleNumber(ScreenTextRecognitionResult? result)
@@ -288,8 +335,6 @@ internal sealed class CareerSkillLearningFlow
     {
         for (var attempt = 0; attempt < 5; attempt++)
         {
-            if (await IsRaceDayAsync(context).ConfigureAwait(false))
-                return true;
             if (await TryTapTemplateAsync(context, "career_skill_learned_title.png",
                     [290, 455, 320, 110], "career_skill_learned_close.png",
                     [250, 975, 390, 130]).ConfigureAwait(false))
@@ -303,9 +348,17 @@ internal sealed class CareerSkillLearningFlow
                     [455, 970, 385, 145]).ConfigureAwait(false))
                 continue;
             if (await TapTemplateAsync(context, "career_skill_back.png",
-                    [0, 1480, 185, 110]).ConfigureAwait(false))
+                    [0, 1480, 185, 110], timeoutMilliseconds: 600).ConfigureAwait(false))
+            {
+                Log(context, "Clicked Skills Back; waiting for Race Day.");
                 continue;
-            return false;
+            }
+            if (await IsRaceDayAsync(context).ConfigureAwait(false))
+            {
+                Log(context, "Returned from Skills to Race Day.");
+                return true;
+            }
+            await _visual.DelayAsync(300, context.CancellationToken).ConfigureAwait(false);
         }
         return await IsRaceDayAsync(context).ConfigureAwait(false);
     }
@@ -326,23 +379,13 @@ internal sealed class CareerSkillLearningFlow
             && await TapTemplateAsync(context, button, buttonRoi).ConfigureAwait(false);
     }
 
-    private async Task<CareerTrainingResult?> EnsureRaceDayAsync(CareerFlowContext context) =>
-        await ReturnToRaceDayAsync(context).ConfigureAwait(false)
-            ? null
-            : NavigationFailure("Could not confirm Race Day after the Skills action.");
-
     private async Task<bool> IsRaceDayAsync(CareerFlowContext context)
     {
-        var result = await _visual.WaitForColorMatchAsync(
-                context.Connection,
-                "templates/runtime_frames/race_day_race_button_text.png",
-                [550, 1340, 190, 105],
-                0.78, Width, Height, 500, 200,
-                "career_skill.race_day",
-                context.Pack.ExecutionDefinition.BaseDirectory,
-                context.CancellationToken)
+        var observation = await _screenObserver.ObserveAsync(
+                context.Connection, context.Pack, context.State,
+                careerStartTransitionExpected: false, context.CancellationToken)
             .ConfigureAwait(false);
-        return result?.Found == true;
+        return observation?.ScreenId == "race_day";
     }
 
     private async Task<bool> WaitForAsync(
@@ -359,11 +402,12 @@ internal sealed class CareerSkillLearningFlow
     }
 
     private async Task<bool> TapTemplateAsync(
-        CareerFlowContext context, string template, int[] roi)
+        CareerFlowContext context, string template, int[] roi,
+        int timeoutMilliseconds = 5000)
     {
         var match = await _visual.WaitForColorMatchAsync(
                 context.Connection, TemplateRoot + template, roi,
-                0.8, Width, Height, 5000, 250,
+                0.8, Width, Height, timeoutMilliseconds, 250,
                 "career_skill." + template,
                 context.Pack.ExecutionDefinition.BaseDirectory,
                 context.CancellationToken)

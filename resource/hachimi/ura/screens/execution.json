@@ -2473,7 +2473,7 @@
                                                   "success":  false
                                               },
                   "race_day_skills_open":  {
-                                               "algorithm":  "MatchTemplate",
+                                               "algorithm":  "MatchTemplateColor",
                                                "action":  "ClickSelf",
                                                "template":  "templates/race_day_skills_open.png",
                                                "templThreshold":  0.78,
