@@ -167,7 +167,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "reward_support"
             or "goal_complete"
                 => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
-            "complete_career"
+            "complete_career_entry"
+            or "complete_career"
             or "career_rank"
             or "career_result"
             or "career_result_close"

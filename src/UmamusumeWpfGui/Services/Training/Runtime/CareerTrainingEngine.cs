@@ -574,6 +574,16 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             }
 
             setupObservationRetryCount = 0;
+            if (observation.ScreenId == "home")
+            {
+                await skillCache.ClearAsync().ConfigureAwait(false);
+                return new CareerTrainingResult(
+                    true,
+                    "URA career completed and returned to Home.",
+                    actionCount,
+                    observation.ScreenId);
+            }
+
             if (observation.Kind is CareerScreenKind.Unknown)
             {
                 return Failure(
@@ -627,24 +637,6 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     "Screen",
                     $"Reached {FriendlyCareerScreen(observation.ScreenId)}.",
                     HachimiTaskLogEventKind.Detection);
-            }
-
-            if (observation.ScreenId == "home")
-            {
-                if (!state.CareerStarted)
-                {
-                    return Failure(
-                        "Career start did not reach the Career screen.",
-                        "home",
-                        actionCount);
-                }
-
-                await skillCache.ClearAsync().ConfigureAwait(false);
-                return new CareerTrainingResult(
-                    true,
-                    "URA career completed and returned to Home.",
-                    actionCount,
-                    observation.ScreenId);
             }
 
             var terminal = await _flowDispatcher.DispatchAsync(

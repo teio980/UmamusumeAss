@@ -69,6 +69,14 @@ public sealed class CareerScreenObserver
             };
         }
 
+        // Finishing Career is a one-way flow. A short race-list message can
+        // match text in the finish dialog, so do not re-enter race or turn
+        // handling after a settlement screen has been observed.
+        var settlementInProgress = CareerScreenClassification.Classify(state.LastScreenId)
+            == CareerScreenKind.Settlement;
+        var returningHome = state.CareerStarted
+            && state.LastScreenId.Equals("career_complete", StringComparison.OrdinalIgnoreCase);
+
         var candidates = pack.ScreenProfile.Screens
             .Where(screen => !careerOnly || IsInitialResumeCandidate(screen.ScreenId))
             // Once the run has reached the Career turn screen, only Career
@@ -78,7 +86,15 @@ public sealed class CareerScreenObserver
             // dialog after clicking Rest.
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
                 || (careerStartTransitionExpected
-                    && screen.ScreenId == "career_intro_event"))
+                    && screen.ScreenId == "career_intro_event")
+                || (returningHome && screen.ScreenId == "home"))
+            .Where(screen => careerOnly
+                || !settlementInProgress
+                || CareerScreenClassification.Classify(screen.ScreenId)
+                    == CareerScreenKind.Settlement
+                || (returningHome && screen.ScreenId == "home"))
+            .Where(screen => !returningHome
+                || screen.ScreenId is "career_complete" or "home")
             .Where(screen => !string.Equals(
                     screen.ScreenId,
                     "inheritance_event",
@@ -540,6 +556,9 @@ public sealed class CareerScreenObserver
             // before that broader overlay check runs.
             "race_recommendations" => -1,
             "race_retry_dialog" => -2,
+            // The Finish dialog contains text that resembles generic race
+            // notices; recognize its specific green button first.
+            "complete_career" => -3,
             "goal_objective_complete" => 3,
             "goal_update" => 3,
             "goal_complete" => 2,

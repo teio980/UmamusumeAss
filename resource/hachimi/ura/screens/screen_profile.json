@@ -1555,13 +1555,38 @@
                                     ]
                     },
                     {
+                        "screenId":  "complete_career_entry",
+                        "recognition":  {
+                                            "template":  "templates/complete_career_entry_header.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                        10,
+                                                        0,
+                                                        240,
+                                                        50
+                                                    ],
+                                            "templThreshold":  0.88,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.open",
+                                            "task":  "complete_career_entry_open"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "complete_career",
                         "recognition":  {
-                                            "template":  "templates/runtime_frames/ura_complete_career_next.png",
-                                            "requiredText":  [
-                                                                 "Complete Career",
-                                                                 "Finish"
-                                                             ],
+                                            "template":  "templates/complete_career_career_finish.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                        470,
+                                                        1080,
+                                                        360,
+                                                        150
+                                                    ],
+                                            "templThreshold":  0.86,
                                             "stable":  true
                                         },
                         "actions":  [
@@ -1779,6 +1804,11 @@
                             "from":  "scenario_event",
                             "to":  "career_main",
                             "on":  "event.complete"
+                        },
+                        {
+                            "from":  "complete_career_entry",
+                            "to":  "complete_career",
+                            "on":  "career.open"
                         },
                         {
                             "from":  "complete_career",

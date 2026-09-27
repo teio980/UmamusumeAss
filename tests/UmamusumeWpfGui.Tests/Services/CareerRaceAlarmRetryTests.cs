@@ -168,9 +168,14 @@ public sealed class CareerRaceAlarmRetryTests
         Assert.Null(await new CareerSettlementFlow(actions)
             .HandleAsync(context with
             {
+                Observation = new CareerObservation("complete_career_entry", 1),
+            }));
+        Assert.Null(await new CareerSettlementFlow(actions)
+            .HandleAsync(context with
+            {
                 Observation = new CareerObservation("complete_career", 1),
             }));
-        Assert.Equal(["cancel", "result.next", "finish"], actions.Calls);
+        Assert.Equal(["cancel", "result.next", "open", "finish"], actions.Calls);
     }
 
     [Fact]

@@ -2927,6 +2927,41 @@
                                                        "required":  true,
                                                        "success":  false
                                                    },
+                  "complete_career_entry_open":  {
+                                                      "algorithm":  "MatchTemplateColor",
+                                                      "action":  "ClickSelf",
+                                                      "template":  "templates/complete_career_entry_text.png",
+                                                      "templThreshold":  0.88,
+                                                      "roi":  [
+                                                                  480,
+                                                                  1290,
+                                                                  340,
+                                                                  110
+                                                              ],
+                                                      "preDelay":  0,
+                                                      "postDelay":  650,
+                                                      "waitMs":  0,
+                                                      "timeoutMs":  12000,
+                                                      "pollIntervalMs":  250,
+                                                      "next":  [
+
+                                                               ],
+                                                      "onErrorNext":  [
+
+                                                                      ],
+                                                      "exceededNext":  [
+
+                                                                        ],
+                                                      "sub":  [
+
+                                                              ],
+                                                      "monitorTasks":  [
+
+                                                                       ],
+                                                      "maxTimes":  0,
+                                                      "required":  true,
+                                                      "success":  false
+                                                  },
                   "complete_career_career_finish":  {
                                                         "algorithm":  "MatchTemplate",
                                                         "action":  "ClickSelf",

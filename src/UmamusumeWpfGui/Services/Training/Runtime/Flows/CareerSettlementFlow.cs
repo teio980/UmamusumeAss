@@ -13,6 +13,12 @@ internal sealed class CareerSettlementFlow
     {
         switch (context.Observation.ScreenId)
         {
+            case "complete_career_entry":
+                return await _actions.RunAsync(
+                        context,
+                        "complete_career_entry",
+                        "open")
+                    .ConfigureAwait(false);
             case "complete_career":
                 return await _actions.RunAsync(
                         context,

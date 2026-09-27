@@ -371,6 +371,9 @@ internal static class HachimiTaskLogSemantics
             "scenario_event_event_advance" => Step(
                 "Continuing the scenario event",
                 "Scenario event continued"),
+            "complete_career_entry_open" => Step(
+                "Opening the Complete Career confirmation",
+                "Complete Career confirmation opened"),
             "complete_career_career_finish" or "career_complete_career_to_home" => Step(
                 "Finishing Career",
                 "Career finished"),

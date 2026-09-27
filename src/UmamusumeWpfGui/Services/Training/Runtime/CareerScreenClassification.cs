@@ -60,7 +60,8 @@ internal static class CareerScreenClassification
             or "inheritance_event"
             => CareerScreenKind.Event,
 
-        "complete_career"
+        "complete_career_entry"
+            or "complete_career"
             or "career_rank"
             or "career_result"
             or "career_result_close"
