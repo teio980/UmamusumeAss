@@ -2982,10 +2982,10 @@
                                                         "template":  "templates/complete_career_career_finish.png",
                                                         "templThreshold":  0.78,
                                                         "roi":  [
-                                                                    470,
-                                                                    1080,
-                                                                    360,
-                                                                    150
+                                                                    597,
+                                                                    1127,
+                                                                    106,
+                                                                    40
                                                                 ],
                                                         "preDelay":  0,
                                                         "postDelay":  650,

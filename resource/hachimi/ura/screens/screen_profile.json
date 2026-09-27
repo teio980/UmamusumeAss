@@ -1595,10 +1595,10 @@
                                             "template":  "templates/complete_career_career_finish.png",
                                             "matchColorText":  true,
                                             "roi":  [
-                                                        470,
-                                                        1080,
-                                                        360,
-                                                        150
+                                                        597,
+                                                        1127,
+                                                        106,
+                                                        40
                                                     ],
                                             "templThreshold":  0.78,
                                             "stable":  true
