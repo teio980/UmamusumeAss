@@ -1579,34 +1579,13 @@
                                                         240,
                                                         50
                                                     ],
-                                            "templThreshold":  0.88,
+                                            "templThreshold":  0.96,
                                             "stable":  true
                                         },
                         "actions":  [
                                         {
                                             "semanticId":  "career.open",
                                             "task":  "complete_career_entry_open"
-                                        }
-                                    ]
-                    },
-                    {
-                        "screenId":  "complete_career",
-                        "recognition":  {
-                                            "template":  "templates/complete_career_career_finish.png",
-                                            "matchColorText":  true,
-                                            "roi":  [
-                                                        470,
-                                                        1080,
-                                                        360,
-                                                        150
-                                                    ],
-                                            "templThreshold":  0.86,
-                                            "stable":  true
-                                        },
-                        "actions":  [
-                                        {
-                                            "semanticId":  "career.finish",
-                                            "task":  "complete_career_career_finish"
                                         }
                                     ]
                     },

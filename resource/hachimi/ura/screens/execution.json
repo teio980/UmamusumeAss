@@ -2945,7 +2945,7 @@
                                                       "algorithm":  "MatchTemplateColor",
                                                       "action":  "ClickSelf",
                                                       "template":  "templates/complete_career_entry_text.png",
-                                                      "templThreshold":  0.88,
+                                                      "templThreshold":  0.96,
                                                       "roi":  [
                                                                   480,
                                                                   1290,
