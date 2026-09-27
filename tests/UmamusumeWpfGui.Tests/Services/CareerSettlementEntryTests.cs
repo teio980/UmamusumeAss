@@ -32,7 +32,7 @@ public sealed class CareerSettlementEntryTests
             dialog.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
         var entryMatch = Match(entryFrame, entryTemplate, entry.Recognition);
         Assert.True(entryMatch.Found, $"Entry score {entryMatch.Score:0.000}.");
-        Assert.InRange(entryMatch.CenterX, 100, 150);
+        Assert.InRange(entryMatch.CenterX, 65, 95);
         Assert.InRange(entryMatch.CenterY, 10, 40);
         Assert.False(Match(dialogFrame, entryTemplate, entry.Recognition).Found);
         Assert.True(Match(dialogFrame, dialogTemplate, dialog.Recognition).Found);
