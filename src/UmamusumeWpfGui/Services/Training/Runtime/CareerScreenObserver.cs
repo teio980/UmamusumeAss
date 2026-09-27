@@ -658,13 +658,24 @@ public sealed class CareerScreenObserver
         if (!state.CareerStarted)
             return true;
 
+        // A resumed session can start directly on race_runner, where the
+        // objective text is no longer visible. Once its result flow finishes,
+        // admit the goal page even though the objective-specific probe could
+        // not be armed from the missing goal classification.
+        var resumedRaceFlowCompleted = state.RaceReplayFlowCompleted
+            && state.LastScreenId.Equals(
+                CareerRaceRunnerCheckpointHandler.ScreenId,
+                StringComparison.OrdinalIgnoreCase);
+
         return screenId switch
         {
-            "goal_objective_complete" => state.GoalCompletionProbeArmed,
+            "goal_objective_complete" => state.GoalCompletionProbeArmed
+                || resumedRaceFlowCompleted,
             "goal_update" => state.LastScreenId.Equals(
                 "goal_objective_complete",
                 StringComparison.OrdinalIgnoreCase),
             "goal_complete" => state.GoalCompletionProbeArmed
+                || resumedRaceFlowCompleted
                 || state.LastScreenId.Equals(
                     "goal_objective_complete",
                     StringComparison.OrdinalIgnoreCase)
