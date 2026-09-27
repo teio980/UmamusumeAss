@@ -580,6 +580,8 @@ public sealed class CareerScreenObserver
             "race_retry_dialog" => -2,
             // The Epithet title is specific, unlike its generic Confirm! button.
             "career_epithet" => -4,
+            // The follow-limit popup can obscure any settlement page beneath it.
+            "follow_trainer_limit" => -5,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,

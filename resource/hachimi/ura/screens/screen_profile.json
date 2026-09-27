@@ -1683,6 +1683,35 @@
                                     ]
                     },
                     {
+                        "screenId":  "follow_trainer_limit",
+                        "recognition":  {
+                                            "template":  "templates/follow_trainer_limit_header.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                       250,
+                                                       450,
+                                                       400,
+                                                       180
+                                                   ],
+                                            "templThreshold":  0.90,
+                                            "requiredTemplate":  "templates/follow_trainer_limit_close.png",
+                                            "requiredTemplateRoi":  [
+                                                                          370,
+                                                                          985,
+                                                                          160,
+                                                                          120
+                                                                      ],
+                                            "requiredTemplateThreshold":  0.78,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.follow_limit.close",
+                                            "task":  "career_follow_trainer_limit_close"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "career_epithet",
                         "recognition":  {
                                             "template":  "templates/career_epithet_header.png",

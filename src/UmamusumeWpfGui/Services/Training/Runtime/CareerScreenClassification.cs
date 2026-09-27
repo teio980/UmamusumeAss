@@ -65,6 +65,7 @@ internal static class CareerScreenClassification
             or "career_rank"
             or "career_result"
             or "career_result_close"
+            or "follow_trainer_limit"
             or "career_epithet"
             or "rewards"
             or "sparks"
