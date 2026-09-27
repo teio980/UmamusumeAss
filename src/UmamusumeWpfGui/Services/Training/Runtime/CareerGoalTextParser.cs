@@ -23,7 +23,10 @@ internal static partial class CareerGoalTextParser
     [GeneratedRegex(@"(?<!\d)(?<fans>[\d,]{1,7})\s*fan(?:s)?(?:\s*\(s\))?\s*to\s*go\b", RegexOptions.IgnoreCase)]
     private static partial Regex FansToGoRegex();
 
-    [GeneratedRegex(@"(?<!\d)(?<count>\d+)\s*time(?:\(s\)|s)?\s*left\b", RegexOptions.IgnoreCase)]
+    // OCR can read a narrow 1 as I, l, or |. Accept those glyphs only in
+    // the numeric slot immediately before "time(s) left"; the objective's
+    // target count elsewhere on the banner must not be used as progress.
+    [GeneratedRegex(@"(?:(?<!\d)(?<count>\d+)|(?<![A-Za-z0-9])(?<countGlyph>[Il|]))\s*time(?:\(s\)|s)?\s*left\b", RegexOptions.IgnoreCase)]
     private static partial Regex RaceCountLeftRegex();
 
     [GeneratedRegex(@"(?<![A-Za-z0-9])G\s*(?<grade>III|II|I|[123]|lll|ll|l)(?![A-Za-z0-9])", RegexOptions.IgnoreCase)]
@@ -72,7 +75,14 @@ internal static partial class CareerGoalTextParser
             return null;
 
         var match = RaceCountLeftRegex().Match(text);
-        return match.Success && int.TryParse(match.Groups["count"].Value, out var count)
+        if (!match.Success)
+            return null;
+
+        var countText = match.Groups["countGlyph"].Success
+            ? "1"
+            : match.Groups["count"].Value;
+
+        return int.TryParse(countText, out var count)
             ? count
             : null;
     }

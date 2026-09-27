@@ -19,7 +19,6 @@ internal static partial class CareerCountdownOcrReader
     private const int ProcessTimeoutMilliseconds = 2500;
     private static readonly TimeSpan FallbackTimeout = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan SuccessfulCacheLifetime = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan FailedCacheLifetime = TimeSpan.FromSeconds(3);
     private static readonly object CacheLock = new();
     private static CachedCountdown? _cachedCountdown;
 
@@ -73,7 +72,8 @@ internal static partial class CareerCountdownOcrReader
                     fallbackTimeout.Token,
                     cancellationToken)
                 .ConfigureAwait(false);
-            CacheResult(fingerprint, result);
+            if (result is not null)
+                CacheResult(fingerprint, result);
             Trace.WriteLine(
                 $"Career countdown OCR fallback completed; elapsed="
                 + $"{Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}ms, "
@@ -253,11 +253,8 @@ internal static partial class CareerCountdownOcrReader
     {
         lock (CacheLock)
         {
-            var cacheLifetime = _cachedCountdown?.TurnsToGoal is null
-                ? FailedCacheLifetime
-                : SuccessfulCacheLifetime;
             if (_cachedCountdown is { } cached
-                && Stopwatch.GetElapsedTime(cached.CachedAtTimestamp) <= cacheLifetime
+                && Stopwatch.GetElapsedTime(cached.CachedAtTimestamp) <= SuccessfulCacheLifetime
                 && string.Equals(cached.Fingerprint, fingerprint, StringComparison.Ordinal))
             {
                 result = cached.TurnsToGoal;

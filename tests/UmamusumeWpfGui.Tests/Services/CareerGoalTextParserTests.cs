@@ -44,6 +44,9 @@ public sealed class CareerGoalTextParserTests
     [InlineData("Place 3rd or better in 2 G1 races Progress 1 time(s) left", 1)]
     [InlineData("In GI , place within the top 3 2 time(s) Detai <JIV2 time(s) left Progress", 2)]
     [InlineData("Place 3rd or better in 2 GI races Progress 1 time(s) left", 1)]
+    [InlineData("In GI , place within the top 3 2 time(s) Detai k I time(s) left Progress", 1)]
+    [InlineData("In G1, place within the top 3 2 time(s) Progress l time(s) left", 1)]
+    [InlineData("In G1, place within the top 3 2 time(s) Progress | time(s) left", 1)]
     public void Reads_race_count_grade_and_progress_from_ocr(string text, int remaining)
     {
         Assert.Equal(CareerGoalTextParser.GradeRaceCount, CareerGoalTextParser.Classify(text));

@@ -392,7 +392,7 @@ public sealed class CareerScreenObserver
             if (turnsToGoal is null && ocrFrame is not null)
             {
                 turnsToGoal = await CareerCountdownOcrReader.TryReadAsync(
-                    [ocrFrame],
+                    frames.Count == 2 ? [ocrFrame, frames[0]] : [ocrFrame],
                     turnsLeftRoi,
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
