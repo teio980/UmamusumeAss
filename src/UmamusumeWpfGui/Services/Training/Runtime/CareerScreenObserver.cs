@@ -35,7 +35,10 @@ public sealed class CareerScreenObserver
         return IsRuntimeCareerScreen(screenId)
             && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase));
+                || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase))
+            && (!screenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
+                || state.LastScreenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase));
     }
 
     internal static bool IsReturningHome(UraCareerSessionState state) =>
@@ -87,7 +90,8 @@ public sealed class CareerScreenObserver
             // template and can otherwise collide with the Rest confirmation
             // dialog after clicking Rest.
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
-                || (careerOnly && screen.ScreenId == "career_epithet")
+                || (careerOnly
+                    && (screen.ScreenId is "career_epithet" or "career_rating_record_updated"))
                 || (careerStartTransitionExpected
                     && screen.ScreenId == "career_intro_event")
                 || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
@@ -580,6 +584,8 @@ public sealed class CareerScreenObserver
             "race_retry_dialog" => -2,
             // The Epithet title is specific, unlike its generic Confirm! button.
             "career_epithet" => -4,
+            // The Rating Record Updated banner is specific to the post-settlement continuation.
+            "career_rating_record_updated" => -4,
             // The follow-limit popup can obscure any settlement page beneath it.
             "follow_trainer_limit" => -5,
             // The Finish dialog contains text that resembles generic race

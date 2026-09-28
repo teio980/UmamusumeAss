@@ -1683,6 +1683,35 @@
                                     ]
                     },
                     {
+                        "screenId":  "career_rating_record_updated",
+                        "recognition":  {
+                                            "template":  "templates/career_rating_record_updated_header.png",
+                                            "matchColorText":  true,
+                                            "roi":  [
+                                                       100,
+                                                       180,
+                                                       710,
+                                                       190
+                                                   ],
+                                            "templThreshold":  0.88,
+                                            "requiredTemplate":  "templates/career_rating_record_updated_next.png",
+                                            "requiredTemplateRoi":  [
+                                                                       350,
+                                                                       1350,
+                                                                       200,
+                                                                       80
+                                                                   ],
+                                            "requiredTemplateThreshold":  0.84,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "career.rating_record.next",
+                                            "task":  "career_rating_record_updated_next"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "follow_trainer_limit",
                         "recognition":  {
                                             "template":  "templates/follow_trainer_limit_header.png",
@@ -1922,6 +1951,16 @@
                             "from":  "career_result_close",
                             "to":  "career_epithet",
                             "on":  "career.close"
+                        },
+                        {
+                            "from":  "career_result_close",
+                            "to":  "career_rating_record_updated",
+                            "on":  "career.close"
+                        },
+                        {
+                            "from":  "career_rating_record_updated",
+                            "to":  "career_result",
+                            "on":  "career.rating_record.next"
                         },
                         {
                             "from":  "career_epithet",

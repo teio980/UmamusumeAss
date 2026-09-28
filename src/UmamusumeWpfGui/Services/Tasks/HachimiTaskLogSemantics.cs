@@ -381,6 +381,9 @@ internal static class HachimiTaskLogSemantics
             "career_rank_career_next" or "career_result_career_next" => Step(
                 "Continuing past the Career result",
                 "Career result continued"),
+            "career_rating_record_updated_next" => Step(
+                "Continuing past the Career rating update",
+                "Career rating update continued"),
             _ => default,
         };
     }

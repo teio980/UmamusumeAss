@@ -31,6 +31,12 @@ internal sealed class CareerSettlementFlow
                         "career_rank",
                         "next")
                     .ConfigureAwait(false);
+            case "career_rating_record_updated":
+                return await _actions.RunAsync(
+                        context,
+                        "career_rating_record_updated",
+                        "next")
+                    .ConfigureAwait(false);
             case "career_result":
                 return await _actions.RunAsync(
                         context,

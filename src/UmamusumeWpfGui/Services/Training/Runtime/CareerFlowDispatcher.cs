@@ -170,6 +170,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "complete_career_entry"
             or "complete_career"
             or "career_rank"
+            or "career_rating_record_updated"
             or "career_result"
             or "career_result_close"
             or "follow_trainer_limit"

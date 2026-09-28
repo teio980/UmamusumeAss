@@ -3064,6 +3064,41 @@
                                              "required":  true,
                                              "success":  false
                                          },
+                  "career_rating_record_updated_next":  {
+                                                            "algorithm":  "MatchTemplateColor",
+                                                            "action":  "ClickSelf",
+                                                            "template":  "templates/career_rating_record_updated_next.png",
+                                                            "templThreshold":  0.84,
+                                                            "roi":  [
+                                                                        270,
+                                                                        1335,
+                                                                        360,
+                                                                        115
+                                                                    ],
+                                                            "preDelay":  0,
+                                                            "postDelay":  650,
+                                                            "waitMs":  0,
+                                                            "timeoutMs":  12000,
+                                                            "pollIntervalMs":  250,
+                                                            "next":  [
+
+                                                                     ],
+                                                            "onErrorNext":  [
+
+                                                                            ],
+                                                            "exceededNext":  [
+
+                                                                             ],
+                                                            "sub":  [
+
+                                                                    ],
+                                                            "monitorTasks":  [
+
+                                                                             ],
+                                                            "maxTimes":  0,
+                                                            "required":  true,
+                                                            "success":  false
+                                                        },
                   "career_follow_trainer_limit_close":  {
                                                             "algorithm":  "MatchTemplateColor",
                                                             "action":  "ClickSelf",
