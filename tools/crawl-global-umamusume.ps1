@@ -1,5 +1,6 @@
 param(
-    [string]$OutDir = (Join-Path (Get-Location) 'resource\uma\database\global')
+    [string]$OutDir = (Join-Path (Get-Location) 'resource\uma\database\global'),
+    [switch]$SkipSupportCardImageRefresh
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,7 +77,8 @@ function Html-Decode([string]$Text) {
 
 function Clean-Text([string]$Text) {
     if ($null -eq $Text) { return $null }
-    $value = [regex]::Replace($Text, '<[^>]+>', ' ')
+    $value = Html-Decode $Text
+    $value = [regex]::Replace($value, '<[^>]+>', ' ')
     $value = Html-Decode $value
     return [regex]::Replace($value, '\s+', ' ').Trim()
 }
@@ -244,6 +246,106 @@ foreach ($row in $supportRows) {
     }
 }
 
+# Umamusume.run's Global support-card index can lag behind the live Global
+# release catalog. Supplement missing card identities from GachaData while
+# retaining Umamusume.run as the detailed-effects source for cards it knows.
+$supportCatalogUrl = 'https://gacha-data.com/umamusume/support_cards/'
+$supportCatalogPage = Get-Page $supportCatalogUrl
+$supportCatalogRows = New-Object System.Collections.Generic.List[object]
+if ($supportCatalogPage.status -eq 200) {
+    foreach ($rowMatch in [regex]::Matches($supportCatalogPage.html, '<tr[^>]*>(?<body>.*?)</tr>', 'IgnoreCase,Singleline')) {
+        $body = $rowMatch.Groups['body'].Value
+        $idMatch = [regex]::Match($body, '/support_cards/(?<id>\d+)\.webp', 'IgnoreCase')
+        if (-not $idMatch.Success) { continue }
+        $cells = @([regex]::Matches($body, '<td[^>]*>(?<value>.*?)</td>', 'IgnoreCase,Singleline') | ForEach-Object { Clean-Text $_.Groups['value'].Value })
+        if ($cells.Count -lt 9) { continue }
+        $name = Get-FirstText $body '<span class="nm">(?<value>.*?)</span>'
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $supportCatalogRows.Add([pscustomobject][ordered]@{
+            support_card_id = [int]$idMatch.Groups['id'].Value
+            name_en = $name
+            featured_character_name_en = $cells[3]
+            rarity_label = $cells[1]
+            type = $cells[2]
+            release_date = $cells[4]
+            unique_effect = $cells[5]
+            unique_effect_unlock_level = $cells[6]
+            unique_effect_values = $cells[7]
+            hint_skills = @($cells[8] -split ',\s*' | Where-Object { $_ })
+            image_url = 'https://gacha-data.com/assets/img/umamusume/ds/support_cards/' + $idMatch.Groups['id'].Value + '.webp'
+        })
+    }
+}
+if ($supportCatalogPage.status -ne 200 -or $supportCatalogRows.Count -lt $supportRows.Count) {
+    throw "Global support-card catalog could not be fetched or parsed safely (primary: $($supportRows.Count), catalog: $($supportCatalogRows.Count))."
+}
+
+$knownSupportCardIds = @{}
+$supportCatalogById = @{}
+foreach ($row in $supportCatalogRows) { $supportCatalogById[[string]$row.support_card_id] = $row }
+foreach ($row in $supportRows) { $knownSupportCardIds[[string]$row.support_card_id] = $true }
+$supportCardsRepairedFromCatalog = 0
+foreach ($row in $supportRows) {
+    $catalogRow = $supportCatalogById[[string]$row.support_card_id]
+    if ($null -eq $catalogRow) { continue }
+    $rowRepaired = $false
+    if ([string]::IsNullOrWhiteSpace($row.name_en)) { $row.name_en = $catalogRow.name_en; $rowRepaired = $true }
+    if ([string]::IsNullOrWhiteSpace($row.featured_character_name_en)) { $row.featured_character_name_en = $catalogRow.featured_character_name_en; $rowRepaired = $true }
+    if ([string]::IsNullOrWhiteSpace($row.rarity)) {
+        $row.rarity = switch ($catalogRow.rarity_label) { 'R' { '1' } 'SR' { '2' } 'SSR' { '3' } default { $catalogRow.rarity_label } }
+        $rowRepaired = $true
+    }
+    if ([string]::IsNullOrWhiteSpace($row.type)) { $row.type = $catalogRow.type; $rowRepaired = $true }
+    if ([string]::IsNullOrWhiteSpace($row.image_url)) { $row.image_url = $catalogRow.image_url; $rowRepaired = $true }
+    if ($null -eq $row.featured_character_id -and $row.featured_character_name_en) {
+        $characterKey = $row.featured_character_name_en.Trim().ToLowerInvariant()
+        if ($baseCharacterByName.ContainsKey($characterKey)) { $row.featured_character_id = [int]$baseCharacterByName[$characterKey]; $rowRepaired = $true }
+    }
+    if ($rowRepaired) { $supportCardsRepairedFromCatalog++ }
+}
+$supplementalSupportCards = New-Object System.Collections.Generic.List[object]
+foreach ($row in $supportCatalogRows) {
+    $idKey = [string]$row.support_card_id
+    if ($knownSupportCardIds.ContainsKey($idKey)) { continue }
+
+    $rarity = switch ($row.rarity_label) {
+        'R' { '1' }
+        'SR' { '2' }
+        'SSR' { '3' }
+        default { $row.rarity_label }
+    }
+    $characterKey = if ($row.featured_character_name_en) { $row.featured_character_name_en.Trim().ToLowerInvariant() } else { '' }
+    $featuredCharacterId = $null
+    if ($characterKey -and $baseCharacterByName.ContainsKey($characterKey)) {
+        $featuredCharacterId = [int]$baseCharacterByName[$characterKey]
+    }
+    $supplementalSupportCards.Add([pscustomobject][ordered]@{
+        support_card_id = $row.support_card_id
+        name_en = $row.name_en
+        featured_character_id = $featuredCharacterId
+        featured_character_name_en = $row.featured_character_name_en
+        rarity = $rarity
+        type = $row.type
+        image_url = $row.image_url
+        detail_url = $null
+        training_effects = @()
+        key_effects = @()
+        source_status = 200
+        source_error = $null
+        region = 'global'
+        available = $true
+        slug = $null
+        release_date = $row.release_date
+        unique_effect = $row.unique_effect
+        unique_effect_unlock_level = $row.unique_effect_unlock_level
+        unique_effect_values = $row.unique_effect_values
+        hint_skills = $row.hint_skills
+        source_name = 'GachaData Global support-card catalog'
+        source_url = $supportCatalogUrl
+    })
+    $knownSupportCardIds[$idKey] = $true
+}
+
 $characterPaths = @($characterRows | ForEach-Object { '/characters/' + $_.slug })
 $supportPaths = @($supportRows | ForEach-Object { '/supports/' + $_.slug })
 $characterDetails = @(Get-Pages $characterPaths)
@@ -347,6 +449,11 @@ for ($i = 0; $i -lt $supportRows.Count; $i++) {
     }
     $supportCards.Add([pscustomobject]$detail)
 }
+foreach ($card in $supplementalSupportCards) { $supportCards.Add($card) }
+
+# Rebuild the complete snapshot in one consistent order before writing it.
+# This also keeps the generated support-card indexes in the same order.
+$supportCards = @($supportCards.ToArray() | Sort-Object { [int]$_.support_card_id })
 
 $baseCharacters = New-Object System.Collections.Generic.List[object]
 foreach ($group in ($trainees.ToArray() | Group-Object base_character_id | Sort-Object Name)) {
@@ -413,14 +520,41 @@ $source = [ordered]@{
     crawled_at_utc = $crawlStarted
     index_pages = @(
         [pscustomobject]@{ name = 'trainees'; url = $BaseUrl + '/database/characters'; status = $charactersPage.status; html_bytes = [Text.Encoding]::UTF8.GetByteCount($charactersPage.html) },
-        [pscustomobject]@{ name = 'support_cards'; url = $BaseUrl + '/database/support-cards'; status = $supportPage.status; html_bytes = [Text.Encoding]::UTF8.GetByteCount($supportPage.html) }
+        [pscustomobject]@{ name = 'support_cards'; url = $BaseUrl + '/database/support-cards'; status = $supportPage.status; html_bytes = [Text.Encoding]::UTF8.GetByteCount($supportPage.html) },
+        [pscustomobject]@{ name = 'support_cards_supplement'; url = $supportCatalogUrl; status = $supportCatalogPage.status; html_bytes = if ($supportCatalogPage.html) { [Text.Encoding]::UTF8.GetByteCount($supportCatalogPage.html) } else { 0 } }
     )
-    counts = [pscustomobject]@{ base_characters = $baseCharacters.Count; trainees = $trainees.Count; support_cards = $supportCards.Count; trainee_detail_pages = @($characterDetails | Where-Object status -eq 200).Count; support_detail_pages = @($supportDetails | Where-Object status -eq 200).Count }
+    counts = [pscustomobject]@{ base_characters = $baseCharacters.Count; trainees = $trainees.Count; support_cards = $supportCards.Count; support_cards_from_umamusume_run = $supportRows.Count; support_cards_supplemented = $supplementalSupportCards.Count; trainee_detail_pages = @($characterDetails | Where-Object status -eq 200).Count; support_detail_pages = @($supportDetails | Where-Object status -eq 200).Count }
     notes = @(
-        'This is a Global-version community snapshot, not an official Cygames API.',
-        'Image URLs are retained as references; image files are not downloaded.',
+        'This is a Global-version community snapshot, not an official Cygames API. Support-card identities missing from Umamusume.run are supplemented from the GachaData Global catalog.',
+        'GachaData fills catalog metadata omitted from a primary support-card row when available.',
+        'Supplemental support cards include catalog effects and hinted skills; detailed training-effect tables are unavailable when the primary support detail page does not list a card.',
+        'The complete support-card snapshot is overwritten on each crawl and sorted by support_card_id.',
+        'Support-card images and cropped selection templates are maintained by tools/crawl-support-card-images.py.',
         'Each Global育成形态 is stored as its own trainee_id entry.'
     )
+}
+
+$source.database_counts = [pscustomobject]@{
+    support_cards = $supportCards.Count
+    support_cards_from_umamusume_run = $supportRows.Count
+    support_cards_added_from_gacha_data = $supplementalSupportCards.Count
+    support_cards_repaired_from_gacha_data = $supportCardsRepairedFromCatalog
+}
+$source.support_card_catalog_source = [pscustomobject][ordered]@{
+    source_name = 'GachaData Global support-card catalog'
+    source_url = $supportCatalogUrl
+    source_type = 'unofficial-community-site'
+    region = 'global'
+    crawled_at_utc = $crawlStarted
+    cards_total = $supportCards.Count
+    cards_added = $supplementalSupportCards.Count
+}
+$existingMetaPath = Join-Path $OutDir 'meta.json'
+if (Test-Path -LiteralPath $existingMetaPath) {
+    $existingMeta = Get-Content -LiteralPath $existingMetaPath -Raw | ConvertFrom-Json
+    if ($null -ne $existingMeta.career_objective_source) {
+        $source.career_objective_source = $existingMeta.career_objective_source
+    }
 }
 
 Save-Json 'trainees.json' $trainees.ToArray()
@@ -428,5 +562,31 @@ Save-Json 'support_cards.json' $supportCards.ToArray()
 Save-Json 'base_characters.json' $baseCharacters.ToArray()
 Save-Json 'indexes.json' $indexes
 Save-Json 'meta.json' ([pscustomobject]$source)
+
+$repositoryRoot = Split-Path $PSScriptRoot -Parent
+$defaultDatabaseDirectory = Join-Path $repositoryRoot 'resource\uma\database\global'
+$resolvedOutDir = [System.IO.Path]::GetFullPath($OutDir)
+if (-not $SkipSupportCardImageRefresh -and
+    $resolvedOutDir.Equals(
+        [System.IO.Path]::GetFullPath($defaultDatabaseDirectory),
+        [System.StringComparison]::OrdinalIgnoreCase)) {
+    $imageCrawler = Join-Path $PSScriptRoot 'crawl-support-card-images.py'
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($null -eq $python) {
+        throw 'Python is required to refresh support-card images and selection templates.'
+    }
+
+    $imageDirectory = Join-Path $repositoryRoot 'resource\uma\assets\images\global\support_cards'
+    $templateDirectory = Join-Path $repositoryRoot 'resource\uma\assets\templates\global\support_cards'
+    & $python.Source $imageCrawler `
+        --database-dir $resolvedOutDir `
+        --output-dir $imageDirectory `
+        --template-dir $templateDirectory
+    if ($LASTEXITCODE -ne 0) {
+        throw "Support-card image/template refresh failed with exit code $LASTEXITCODE."
+    }
+} elseif (-not $SkipSupportCardImageRefresh) {
+    Write-Output 'Custom database output directory: run tools/crawl-support-card-images.py separately to refresh card images and selection templates.'
+}
 
 Write-Output ("Saved {0} trainees and {1} support cards to {2}" -f $trainees.Count, $supportCards.Count, $OutDir)
