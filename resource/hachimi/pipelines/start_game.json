@@ -108,7 +108,7 @@
     "CheckNotices": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/notices_close.png",
-      "templThreshold": 0.97,
+      "templThreshold": 0.96,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 250, 1420, 400, 100 ],
