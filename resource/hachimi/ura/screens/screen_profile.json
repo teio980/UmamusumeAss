@@ -1593,7 +1593,7 @@
                         "screenId":  "complete_career",
                         "recognition":  {
                                             "template":  "templates/complete_career_career_finish.png",
-                                            "matchColorText":  true,
+                                            "matchColorText":  false,
                                             "roi":  [
                                                         597,
                                                         1127,
