@@ -126,9 +126,9 @@ internal sealed class CareerSkillLearningFlow
             {
                 if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
                     return NavigationFailure("Could not return from Skills to Race Day.");
-                return CareerRuntimeResults.Failure(
-                    $"Could not uniquely find {skill.SkillName} on the Skills list; training stopped before the race.",
-                    "race_day");
+                Log(context,
+                    $"Could not uniquely find {skill.SkillName} on the Skills list; returned to Race Day and skipped it.");
+                continue;
             }
 
             if (!await ReturnToRaceDayAsync(context).ConfigureAwait(false))
