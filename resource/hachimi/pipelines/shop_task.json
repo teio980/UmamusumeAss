@@ -26,18 +26,28 @@
       "onErrorNext": ["back"]
     },
     "specialShop": {
-      "algorithm": "ClickRect",
-      "action": "ClickRect",
-      "specificRect": [270, 1320, 100, 120],
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/shop/shop_home_button.png",
+      "roi": [160, 1200, 300, 260],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
       "postDelay": 1500,
-      "next": ["dailySales"]
+      "next": ["dailySales"],
+      "onErrorNext": ["homeReturn"]
     },
     "dailySales": {
-      "algorithm": "ClickRect",
-      "action": "ClickRect",
-      "specificRect": [40, 1140, 400, 150],
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/shop/daily_sales.png",
+      "roi": [20, 580, 860, 710],
+      "templThreshold": 0.86,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 300,
       "postDelay": 1500,
-      "next": ["runShop"]
+      "next": ["runShop"],
+      "onErrorNext": ["homeReturn"]
     },
     "runShop": {
       "algorithm": "JustReturn",

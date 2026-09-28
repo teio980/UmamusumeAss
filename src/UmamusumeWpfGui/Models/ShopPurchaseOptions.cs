@@ -9,29 +9,35 @@ public sealed record ShopPurchaseOptions(
     bool BuySupportPoints,
     bool BuyFlags)
 {
+    public bool HasIndividualSelections => BuyStarPieces || BuyAlarmClock
+        || BuyPleasingParfait || BuyShoes || BuySupportPoints || BuyFlags;
+
     public IReadOnlyDictionary<string, int> ToMaxTimesOverrides()
     {
         var overrides = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         if (!SelectAll)
             overrides["shopSelectAll"] = 0;
-
-        for (var slot = 1; slot <= 21; slot++)
-        {
-            if (!SelectAll && !IsSlotSelected(slot))
-                overrides[$"shopBuy{slot}"] = 0;
-        }
-
         return overrides;
     }
 
-    public bool IsSlotSelected(int slot) => ((slot - 1) % 7 + 1) switch
+    internal bool IsSelected(ShopItemCategory category) => category switch
     {
-        1 or 2 => BuyStarPieces,
-        3 => BuyAlarmClock,
-        4 => BuyPleasingParfait,
-        5 => BuyShoes,
-        6 => BuySupportPoints,
-        7 => BuyFlags,
+        ShopItemCategory.StarPieces => BuyStarPieces,
+        ShopItemCategory.AlarmClock => BuyAlarmClock,
+        ShopItemCategory.PleasingParfait => BuyPleasingParfait,
+        ShopItemCategory.Shoes => BuyShoes,
+        ShopItemCategory.SupportPoints => BuySupportPoints,
+        ShopItemCategory.Flags => BuyFlags,
         _ => false,
     };
+}
+
+internal enum ShopItemCategory
+{
+    StarPieces,
+    AlarmClock,
+    PleasingParfait,
+    Shoes,
+    SupportPoints,
+    Flags,
 }

@@ -291,7 +291,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public async Task Shop_pipeline_skips_sold_out_items_and_returns_with_back()
+    public async Task Shop_pipeline_uses_select_all_or_ocr_and_returns_with_back()
     {
         var root = FindSolutionRoot();
         var path = Path.Combine(root, "resource", "hachimi", "pipelines", "shop.json");
@@ -299,10 +299,16 @@ public sealed class HachimiPipelineDefinitionTests
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
         Assert.NotNull(definition);
-        Assert.Equal("shopNoShopComplete", definition!.GetTask("shopProbe").OnErrorNext.Single());
-        Assert.False(definition.GetTask("shopBuy1").Required);
-        Assert.False(definition.GetTask("shopBuy21").Required);
-        Assert.Equal([680, 580, 220, 220], definition.GetTask("shopBuy1").Roi!);
+        var probe = definition!.GetTask("shopProbe");
+        Assert.Equal("DoNothing", probe.Action, ignoreCase: true);
+        Assert.Equal("templates/shop/daily_sales_header.png", probe.Template);
+        Assert.Equal([580, 60, 300, 110], probe.Roi!);
+        Assert.Equal("shopNoShopComplete", probe.OnErrorNext.Single());
+        Assert.Equal("shopSelectItems", definition.GetTask("shopSelectAll").ExceededNext.Single());
+        Assert.Equal("SelectShopItems", definition.GetTask("shopSelectItems").Action);
+        Assert.Equal("shopConfirm", definition.GetTask("shopSelectItems").Next.Single());
+        Assert.Equal("shopBack", definition.GetTask("shopSelectItems").OnErrorNext.Single());
+        Assert.DoesNotContain(definition.Tasks.Keys, name => name.StartsWith("shopBuy", StringComparison.Ordinal));
         var back = definition.GetTask("shopBack");
         Assert.Equal("ClickSelf", back.Action, ignoreCase: true);
         Assert.Equal("templates/shop/back.png", back.Template);
@@ -313,7 +319,7 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public void Shop_settings_repeat_each_trigger_for_three_daily_sales()
+    public void Shop_settings_choose_ocr_when_select_all_is_off()
     {
         var options = new ShopPurchaseOptions(
             SelectAll: false,
@@ -326,15 +332,14 @@ public sealed class HachimiPipelineDefinitionTests
 
         var overrides = options.ToMaxTimesOverrides();
 
-        Assert.Equal(16, overrides.Count);
-        foreach (var slot in Enumerable.Range(1, 21))
-        {
-            var triggerSlot = (slot - 1) % 7 + 1;
-            if (triggerSlot is 1 or 2)
-                Assert.DoesNotContain($"shopBuy{slot}", overrides.Keys);
-            else
-                Assert.Equal(0, overrides[$"shopBuy{slot}"]);
-        }
+        Assert.Equal(0, overrides["shopSelectAll"]);
+        Assert.Single(overrides);
+        Assert.True(options.HasIndividualSelections);
+        Assert.True(options.IsSelected(ShopItemCategory.StarPieces));
+        Assert.False(options.IsSelected(ShopItemCategory.AlarmClock));
+
+        var buyAll = options with { SelectAll = true };
+        Assert.Empty(buyAll.ToMaxTimesOverrides());
     }
 
     [Fact]
@@ -346,9 +351,18 @@ public sealed class HachimiPipelineDefinitionTests
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
 
         Assert.NotNull(definition);
-        Assert.Equal("ClickRect", definition!.GetTask("specialShop").Action, ignoreCase: true);
-        Assert.Equal([270, 1320, 100, 120], definition.GetTask("specialShop").SpecificRect!);
-        Assert.Equal([40, 1140, 400, 150], definition.GetTask("dailySales").SpecificRect!);
+        var specialShop = definition!.GetTask("specialShop");
+        Assert.Equal("MatchTemplate", specialShop.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", specialShop.Action, ignoreCase: true);
+        Assert.Equal("templates/shop/shop_home_button.png", specialShop.Template);
+        Assert.Equal([160, 1200, 300, 260], specialShop.Roi!);
+        Assert.Equal("homeReturn", specialShop.OnErrorNext.Single());
+        var dailySales = definition.GetTask("dailySales");
+        Assert.Equal("MatchTemplate", dailySales.Algorithm, ignoreCase: true);
+        Assert.Equal("ClickSelf", dailySales.Action, ignoreCase: true);
+        Assert.Equal("templates/shop/daily_sales.png", dailySales.Template);
+        Assert.Equal([20, 580, 860, 710], dailySales.Roi!);
+        Assert.Equal("homeReturn", dailySales.OnErrorNext.Single());
         var runShop = definition.GetTask("runShop");
         Assert.Equal("RunPipeline", runShop.Action, ignoreCase: true);
         Assert.Equal("shop.json", runShop.Pipeline);

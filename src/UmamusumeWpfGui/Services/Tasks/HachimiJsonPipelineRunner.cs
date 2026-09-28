@@ -15,6 +15,7 @@ public sealed class HachimiJsonPipelineRunner
     private readonly IAdbRuntime _adbRuntime;
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly ISettingsService _settingsService;
+    private readonly ShopItemSelector _shopItemSelector;
 
     public HachimiJsonPipelineRunner(
         IAdbRuntime adbRuntime,
@@ -27,6 +28,7 @@ public sealed class HachimiJsonPipelineRunner
         _adbRuntime = adbRuntime;
         _visualRuntime = visualRuntime;
         _settingsService = settingsService;
+        _shopItemSelector = new ShopItemSelector(visualRuntime);
     }
 
     public async Task<HachimiPipelineRunResult> RunAsync(
@@ -792,6 +794,23 @@ public sealed class HachimiJsonPipelineRunner
                     AddTaskLog(logSink, taskName, customResult.Message, LogEntryKind.Success);
                 }
 
+                break;
+
+            case "selectshopitems":
+                var shopOptions = runOptions.ShopPurchaseOptions
+                    ?? _settingsService.Load().Hachimi.Shop.ToOptions();
+                var selection = await _shopItemSelector.SelectAsync(
+                        connection, definition, shopOptions, logSink, cancellationToken)
+                    .ConfigureAwait(false);
+                AddSemanticLog(
+                    runOptions.TaskLogSink,
+                    "Result",
+                    $"Shop OCR: {selection.VerifiedRows} selected, {selection.SkippedRows} skipped.",
+                    selection.HasSelection
+                        ? HachimiTaskLogEventKind.Success
+                        : HachimiTaskLogEventKind.Info);
+                if (!selection.HasSelection)
+                    return TaskExecutionResult.Completed(taskName, "shopBack");
                 break;
 
             case "clickrect":
@@ -1727,6 +1746,9 @@ public sealed class HachimiJsonPipelineRunner
         var nestedEntry = task.Entry?.Trim() is { Length: > 0 } entry
             ? entry
             : "home";
+        var shopSettings = isShopPipeline
+            ? _settingsService.Load().Hachimi.Shop
+            : null;
         var nestedOptions = new HachimiPipelineRunOptions
         {
             PipelineDepth = parentOptions.PipelineDepth + 1,
@@ -1734,9 +1756,10 @@ public sealed class HachimiJsonPipelineRunner
             SemanticProfile = isShopPipeline
                 ? HachimiTaskLogProfile.Shop
                 : parentOptions.SemanticProfile,
-            MaxTimesOverrides = isShopPipeline
-                ? CreateShopOverrides(_settingsService.Load().Hachimi.Shop)
+            MaxTimesOverrides = shopSettings is not null
+                ? CreateShopOverrides(shopSettings)
                 : null,
+            ShopPurchaseOptions = shopSettings?.ToOptions(),
         };
 
         AddLog(
@@ -2582,6 +2605,9 @@ public sealed class HachimiPipelineRunOptions
     /// task and follow its exceededNext transition immediately.
     /// </summary>
     public IReadOnlyDictionary<string, int>? MaxTimesOverrides { get; init; }
+
+    /// <summary>Snapshot of the front-end shop choices for a nested shop run.</summary>
+    public ShopPurchaseOptions? ShopPurchaseOptions { get; init; }
 
     /// <summary>
     /// Runtime ROI adjustments supplied by a caller for settings-driven rows.

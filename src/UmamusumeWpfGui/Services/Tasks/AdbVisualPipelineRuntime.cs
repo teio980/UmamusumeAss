@@ -494,12 +494,12 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             referenceHeight,
             screenshot.Width,
             screenshot.Height);
-        // Keep the existing full-screen OCR behavior for Hachimi tasks. The
-        // Career top-left and goal regions are deliberately isolated before
-        // recognition because the character art and dialogue overlay vary.
+        // Most Hachimi tasks use full-screen OCR. Career and shop text are
+        // isolated because surrounding character art and footer labels vary.
         var cropToRoi = actualRoi is not null
             && (taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase)
-                || taskName.StartsWith("career_skill.", StringComparison.OrdinalIgnoreCase));
+                || taskName.StartsWith("career_skill.", StringComparison.OrdinalIgnoreCase)
+                || taskName.StartsWith("shop.items", StringComparison.OrdinalIgnoreCase));
         var ocrScreenshot = cropToRoi
             ? CropScreenshot(screenshot, actualRoi!, padding: 8)
             : screenshot;
