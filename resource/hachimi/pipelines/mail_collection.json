@@ -68,7 +68,7 @@
     "closeOptional": {
       "action": "ClickSelf",
       "template": "templates/mail_collection/close.png",
-      "roi": [0, 0, 900, 1600],
+      "roi": [100, 1350, 350, 250],
       "templThreshold": 0.86,
       "timeoutMs": 2500,
       "pollIntervalMs": 300,
