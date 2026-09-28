@@ -1,3 +1,4 @@
+using System.Globalization;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
@@ -187,26 +188,25 @@ internal sealed class CareerTurnFlow
                 && context.State.ObservedGoalText?.Contains("time", StringComparison.OrdinalIgnoreCase) == true
                 && context.State.GradeRaceTimesLeft is null)
             {
-                return CareerRuntimeResults.Failure(
-                    "A graded race-count goal is visible, but its remaining count could not be read by OCR; automation paused safely.",
-                    "career_main");
+                LogOcrFallback(
+                    context,
+                    "the remaining count for the graded race goal");
             }
 
             if (context.State.TurnsToGoal is null
                 && !context.State.HasPendingRace)
             {
-                return CareerRuntimeResults.Failure(
-                    "A race goal is visible, but its remaining-turn countdown could not be read; "
-                    + "automation paused safely before choosing an action.",
-                    "career_main");
+                LogOcrFallback(
+                    context,
+                    "the remaining-turn countdown for the race goal");
             }
 
             if (context.State.TurnsToGoal <= 0
                 && !context.State.HasPendingRace)
             {
-                return CareerRuntimeResults.Failure(
-                    $"Race goal reached: '{context.State.ObservedGoalText}', but no required race is available.",
-                    "career_main");
+                LogOcrFallback(
+                    context,
+                    "the race-goal deadline, so continuing with the available strategy");
             }
         }
 
@@ -220,17 +220,18 @@ internal sealed class CareerTurnFlow
                 || context.State.TurnsToGoal is null
                 || context.State.GradeRaceTimesLeft is null)
             {
-                return CareerRuntimeResults.Failure(
-                    "The grade race goal needs a readable date, countdown, remaining count, and graded race calendar; automation paused safely.",
-                    "career_main");
+                LogOcrFallback(
+                    context,
+                    "one or more graded race goal details; continuing with the available strategy");
             }
 
             if (context.State.TurnsToGoal <= 0
                 && context.State.GradeRaceTimesLeft > 0)
             {
-                return CareerRuntimeResults.Failure(
-                    $"The {context.State.TargetRaceGrade} goal still needs {context.State.GradeRaceTimesLeft} qualifying race(s), but its deadline has arrived.",
-                    "career_main");
+                LogOcrFallback(
+                    context,
+                    $"a possible deadline for the {context.State.TargetRaceGrade} race goal; "
+                    + "continuing with the available strategy");
             }
         }
 
@@ -239,23 +240,18 @@ internal sealed class CareerTurnFlow
             && context.State.TurnsToGoal is > 0
             && CareerGoalTextParser.ParseRaceCountLeft(context.State.ObservedGoalText) is > 0)
         {
-            var reason = $"A race-count goal is visible, but its grade could not be read "
-                + $"from goal OCR '{context.State.ObservedGoalText ?? "(empty)"}'; "
-                + "automation paused safely.";
-            return CareerRuntimeResults.Failure(
-                reason,
-                "career_main");
+            LogOcrFallback(
+                context,
+                $"the grade for race-count goal OCR '{context.State.ObservedGoalText ?? "(empty)"}'; "
+                + "continuing with the available strategy");
         }
 
-        if (context.Observation.EnergyPercent is not int energyPercent)
+        var energyPercent = context.Observation.EnergyPercent;
+        if (energyPercent is null)
         {
             context.LogSink?.Add(
                 "Career Training",
-                "Could not observe the career energy bar; pausing safely before choosing an action.",
-                LogEntryKind.Failure);
-            return CareerRuntimeResults.Failure(
-                "Could not observe a stable career energy bar.",
-                "career_main");
+                "Could not read the career energy bar by OCR; continuing with a cautious fallback if needed.");
         }
 
         var decision = context.Strategy.ChooseTurnAction(
@@ -264,6 +260,25 @@ internal sealed class CareerTurnFlow
         var availableActions = context.Scenario.GetAvailableActions(
             context.State,
             "career_main");
+        if (energyPercent is null && decision.Action == UraPlannedAction.Training)
+        {
+            if (availableActions.Contains(UraPlannedAction.Rest))
+            {
+                decision = new UraActionIntent(
+                    UraPlannedAction.Rest,
+                    null,
+                    "Energy could not be read by OCR; chose Rest as a cautious fallback.",
+                    false,
+                    [UraPlannedAction.Training]);
+            }
+            else
+            {
+                LogOcrFallback(
+                    context,
+                    "energy, and Rest is unavailable; continuing with the configured action");
+            }
+        }
+
         if (!availableActions.Contains(decision.Action))
         {
             return CareerRuntimeResults.Failure(
@@ -274,7 +289,7 @@ internal sealed class CareerTurnFlow
 
         context.LogSink?.Add(
             "URA Strategy",
-            $"Observed energy {energyPercent}% before choosing an action. {decision.Reason}");
+            $"Observed energy {energyPercent?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} before choosing an action. {decision.Reason}");
         var actionId = decision.Action switch
         {
             UraPlannedAction.Rest when context.State.CalendarStage == UraCalendarStage.SummerCamp
@@ -367,4 +382,9 @@ internal sealed class CareerTurnFlow
         state.GoalCompletionProbePending = false;
         state.GoalCompletionProbeArmed = true;
     }
+
+    private static void LogOcrFallback(CareerFlowContext context, string detail) =>
+        context.LogSink?.Add(
+            "Career Training",
+            $"OCR could not reliably read {detail}; continuing instead of stopping.");
 }
