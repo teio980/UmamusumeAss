@@ -176,7 +176,8 @@
   <sys:String x:Key="GrassCareerSupportDeckPresetLabel">Support deck preset</sys:String>
   <sys:String x:Key="GrassCareerManualSupportCardsLabel">Manual support cards</sys:String>
   <sys:String x:Key="GrassCareerSearchCardsPlaceholder">Search name or ID</sys:String>
-  <sys:String x:Key="GrassCareerManualCardIdsLabel">Manual card IDs (optional; comma-separated)</sys:String>
+  <sys:String x:Key="GrassCareerSelectedSupportCardsLabel">Selected cards</sys:String>
+  <sys:String x:Key="GrassCareerNoSupportCardsSelectedLabel">No cards selected</sys:String>
   <sys:String x:Key="GrassIndependentHint">These settings are applied by the Independent Training auto setup.</sys:String>
   <sys:String x:Key="GrassIndependentLineupStrategyLabel">Line Up Detail · strategy</sys:String>
   <sys:String x:Key="GrassIndependentTrainingFocusLabel">Training Focus</sys:String>

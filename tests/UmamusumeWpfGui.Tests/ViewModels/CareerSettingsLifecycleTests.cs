@@ -136,6 +136,7 @@ public sealed class CareerSettingsLifecycleTests
         public string GetTraineeLiveOutfitImageDirectory() => string.Empty;
         public string GetTraineeLiveOutfitImagePath(int baseCharacterId) => string.Empty;
         public string GetTraineeLiveOutfitReferenceImagePath(int baseCharacterId) => string.Empty;
+        public string GetSupportCardImagePath(int supportCardId) => string.Empty;
         public string GetTraineeReferenceImageDirectory() => string.Empty;
         public string GetTraineeReferenceImagePath(int traineeId) => string.Empty;
         public string GetMaintenanceTraineeReferenceImageDirectory() => string.Empty;

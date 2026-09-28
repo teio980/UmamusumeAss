@@ -398,13 +398,13 @@ public sealed class CareerSupportCardOption : INotifyPropertyChanged
 {
     private bool _isSelected;
 
-    public CareerSupportCardOption(UmaSupportCardRecord card)
+    public CareerSupportCardOption(UmaSupportCardRecord card, string? imageUrl = null)
     {
         SupportCardId = card.SupportCardId;
         Label = string.IsNullOrWhiteSpace(card.NameEn) ? $"Support card {card.SupportCardId}" : card.NameEn;
         Type = string.IsNullOrWhiteSpace(card.Type) ? "Unknown" : card.Type;
         Rarity = card.Rarity;
-        ImageUrl = card.ImageUrl;
+        ImageUrl = imageUrl ?? card.ImageUrl;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

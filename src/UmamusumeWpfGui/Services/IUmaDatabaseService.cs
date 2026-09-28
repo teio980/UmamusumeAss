@@ -44,6 +44,8 @@ public interface IUmaDatabaseService
 
     string GetTraineeLiveOutfitReferenceImagePath(int baseCharacterId);
 
+    string GetSupportCardImagePath(int supportCardId);
+
     string GetTraineeReferenceImageDirectory();
 
     string GetTraineeReferenceImagePath(int traineeId);

@@ -207,6 +207,11 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             GetMaintenanceTraineeReferenceImageDirectory(),
             baseCharacterId.ToString(System.Globalization.CultureInfo.InvariantCulture) + "_live.webp");
 
+    public string GetSupportCardImagePath(int supportCardId) =>
+        Path.Combine(
+            GetImageDirectory("support_cards"),
+            supportCardId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".webp");
+
     public string GetTraineeReferenceImageDirectory() =>
         Path.Combine(GetUmaResourceDirectory(), "system_reference");
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
@@ -31,6 +32,11 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
     public SupportDeckSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
         _umaDatabase = umaDatabase;
+        RemoveSupportCardCommand = new SupportCardRemoveCommand(parameter =>
+        {
+            if (parameter is CareerSupportCardOption option)
+                option.IsSelected = false;
+        });
         SubscribeToDatabaseLoadedIfNeeded();
 
         RefreshSupportCards();
@@ -39,6 +45,10 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<CareerSupportCardOption> FilteredSupportCardOptions { get; } = [];
+
+    public ObservableCollection<CareerSupportCardOption> SelectedSupportCardOptions { get; } = [];
+
+    public ICommand RemoveSupportCardCommand { get; }
 
     public ObservableCollection<CareerFriendSupportCardOption> FriendSupportCardOptions { get; } = [];
 
@@ -89,6 +99,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
                 foreach (var option in _allSupportCardOptions)
                     option.IsSelected = false;
                 _updatingSupportCards = false;
+                SyncSelectedSupportCardOptions();
                 if (_supportCardIdsText.Length > 0)
                 {
                     _supportCardIdsText = string.Empty;
@@ -321,6 +332,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
         var selectedIds = ParseSupportCardIdSet(_supportCardIdsText);
         _allSupportCardOptions.Clear();
         FilteredSupportCardOptions.Clear();
+        SelectedSupportCardOptions.Clear();
         FriendSupportCardOptions.Clear();
         FilteredFriendSupportCardOptions.Clear();
         SupportCardTypeOptions.Clear();
@@ -343,7 +355,8 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
                          .ThenBy(item => item.NameEn, StringComparer.OrdinalIgnoreCase)
                          .ThenBy(item => item.SupportCardId))
             {
-                var option = new CareerSupportCardOption(card)
+                var imageSource = GetSupportCardImageSource(card);
+                var option = new CareerSupportCardOption(card, imageSource)
                 {
                     IsSelected = selectedIds.Contains(card.SupportCardId),
                 };
@@ -359,7 +372,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
                     label,
                     typeLabel,
                     GetSupportRarityLabel(card.Rarity),
-                    card.ImageUrl)
+                    imageSource)
                 {
                     IsSelected = card.SupportCardId == _friendSupportCardId,
                 };
@@ -389,6 +402,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
 
         ApplySupportCardSearch();
         ApplyFriendSupportCardSearch();
+        SyncSelectedSupportCardOptions();
         NotifySupportCardState();
         NotifyFriendSupportCardState();
     }
@@ -441,6 +455,15 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
         }
     }
 
+    private string? GetSupportCardImageSource(UmaSupportCardRecord card)
+    {
+        if (_umaDatabase is null)
+            return card.ImageUrl;
+
+        var imagePath = _umaDatabase.GetSupportCardImagePath(card.SupportCardId);
+        return File.Exists(imagePath) ? new Uri(imagePath).AbsoluteUri : card.ImageUrl;
+    }
+
     private void OnSupportCardOptionChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_updatingSupportCards
@@ -462,6 +485,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
             .Where(item => item.IsSelected)
             .Select(item => item.SupportCardId.ToString(CultureInfo.InvariantCulture)));
         OnPropertyChanged(nameof(SupportCardIdsText));
+        SyncSelectedSupportCardOptions();
         NotifySupportCardState();
     }
 
@@ -482,6 +506,14 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
         foreach (var option in _allSupportCardOptions)
             option.IsSelected = selectedIds.Contains(option.SupportCardId);
         _updatingSupportCards = false;
+        SyncSelectedSupportCardOptions();
+    }
+
+    private void SyncSelectedSupportCardOptions()
+    {
+        SelectedSupportCardOptions.Clear();
+        foreach (var option in _allSupportCardOptions.Where(item => item.IsSelected))
+            SelectedSupportCardOptions.Add(option);
     }
 
     private void ApplySupportCardSearch()
@@ -614,4 +646,17 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private sealed class SupportCardRemoveCommand(Action<object?> execute) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => parameter is CareerSupportCardOption;
+
+        public void Execute(object? parameter) => execute(parameter);
+    }
 }

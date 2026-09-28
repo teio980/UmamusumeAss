@@ -174,7 +174,8 @@
   <sys:String x:Key="GrassCareerSupportDeckPresetLabel">支援卡组预设</sys:String>
   <sys:String x:Key="GrassCareerManualSupportCardsLabel">手动选择支援卡</sys:String>
   <sys:String x:Key="GrassCareerSearchCardsPlaceholder">按名称或 ID 搜索</sys:String>
-  <sys:String x:Key="GrassCareerManualCardIdsLabel">手动卡片 ID（可选，使用逗号分隔）</sys:String>
+  <sys:String x:Key="GrassCareerSelectedSupportCardsLabel">已选卡牌</sys:String>
+  <sys:String x:Key="GrassCareerNoSupportCardsSelectedLabel">尚未选择卡牌</sys:String>
   <sys:String x:Key="GrassIndependentHint">这些设置会由 Independent Training 自动配置使用。</sys:String>
   <sys:String x:Key="GrassIndependentLineupStrategyLabel">队伍详情 · 策略</sys:String>
   <sys:String x:Key="GrassIndependentTrainingFocusLabel">训练方向</sys:String>
