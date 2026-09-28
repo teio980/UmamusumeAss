@@ -7,7 +7,7 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerSettlementEntryTests
 {
     [Fact]
-    public async Task Complete_career_entry_stays_available_while_finish_dialog_is_disabled()
+    public async Task Complete_career_entry_and_finish_dialog_are_distinguished()
     {
         var root = FindWorkspaceRoot();
         var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
@@ -17,18 +17,26 @@ public sealed class CareerSettlementEntryTests
         var entry = pack.ScreenProfile.Find("complete_career_entry");
         var dialog = pack.ScreenProfile.Find("complete_career");
         Assert.NotNull(entry);
-        Assert.Null(dialog);
+        Assert.NotNull(dialog);
         Assert.Equal(CareerScreenKind.Settlement,
             CareerScreenClassification.Classify(entry.ScreenId));
         Assert.Equal("complete_career_entry_open", entry.FindAction("open")?.Task);
+        Assert.Equal("complete_career_career_finish", dialog.FindAction("finish")?.Task);
 
         var entryFrame = Load(Path.Combine(captures, "complete_career_entry.png"));
+        var dialogFrame = Load(Path.Combine(screens, "templates", "runtime_frames",
+            "ura_complete_career_next.png"));
         var entryTemplate = Load(Path.Combine(screens,
             entry.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var dialogTemplate = Load(Path.Combine(screens,
+            dialog.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
         var entryMatch = Match(entryFrame, entryTemplate, entry.Recognition);
         Assert.True(entryMatch.Found, $"Entry score {entryMatch.Score:0.000}.");
         Assert.InRange(entryMatch.CenterX, 65, 95);
         Assert.InRange(entryMatch.CenterY, 10, 40);
+        Assert.False(Match(entryFrame, dialogTemplate, dialog.Recognition).Found);
+        Assert.False(Match(dialogFrame, entryTemplate, entry.Recognition).Found);
+        Assert.True(Match(dialogFrame, dialogTemplate, dialog.Recognition).Found);
 
         var open = pack.ExecutionDefinition.GetTask("complete_career_entry_open");
         Assert.Equal("ClickSelf", open.Action);
