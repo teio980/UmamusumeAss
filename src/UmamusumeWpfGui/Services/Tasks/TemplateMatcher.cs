@@ -31,7 +31,8 @@ internal static class TemplateMatcher
         // runner grid at pixel precision.
         int candidateStep = 8,
         int sampleWidth = 16,
-        int sampleHeight = 16)
+        int sampleHeight = 16,
+        bool fullSearchOnMiss = true)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(template);
@@ -102,35 +103,34 @@ internal static class TemplateMatcher
             EvaluateScale(scale);
 
         // The rendered card size usually falls between two integer template
-        // scales. Recheck around the coarse winner at 0.01 increments; this
-        // avoids losing a genuinely identical crop merely because the
-        // supplied scale list landed 2-3 pixels away from its display size.
+        // scales. Refine at 0.01 increments near the coarse winner only;
+        // scanning the complete screen nine more times dominated card search.
         if (double.IsFinite(bestScale))
         {
             var coarseScale = bestScale;
-            for (var offset = -4; offset <= 4; offset++)
-                EvaluateScale(coarseScale + offset * 0.01d);
-        }
-
-        // A text-heavy card can have a narrow correlation peak between the
-        // coarse grid points. Repeating the same grid at more scales cannot
-        // recover that peak. On a miss, refine only around the best location
-        // at pixel precision, keeping the expensive full-ROI scan coarse.
-        if (double.IsFinite(bestScale) && bestScore < Math.Clamp(threshold, 0, 1))
-        {
-            var localScale = bestScale;
-            var padding = Math.Clamp(candidateStep, 1, 32);
+            var padding = Math.Clamp(candidateStep * 2, 8, 32);
             var localX = Math.Max(bounds.X, bestX - padding);
             var localY = Math.Max(bounds.Y, bestY - padding);
-            var largestWidth = (int)Math.Ceiling(template.Width * referenceScale * (localScale + 0.04d));
-            var largestHeight = (int)Math.Ceiling(template.Height * referenceScale * (localScale + 0.04d));
+            var largestWidth = (int)Math.Ceiling(
+                template.Width * referenceScale * (coarseScale + 0.04d));
+            var largestHeight = (int)Math.Ceiling(
+                template.Height * referenceScale * (coarseScale + 0.04d));
             var localBounds = new RoiBounds(
                 localX,
                 localY,
                 Math.Min(bounds.X + bounds.Width - localX, largestWidth + padding * 2),
                 Math.Min(bounds.Y + bounds.Height - localY, largestHeight + padding * 2));
             for (var offset = -4; offset <= 4; offset++)
-                EvaluateScale(localScale + offset * 0.01d, localBounds, searchStep: 1);
+                EvaluateScale(coarseScale + offset * 0.01d, localBounds, searchStep: 1);
+
+            // A shifted, text-heavy target can have a narrow peak outside the
+            // winning coarse cell. Keep that full-area recovery for ordinary
+            // scaled matching; support cards use a separate bounded fallback.
+            if (fullSearchOnMiss && bestScore < Math.Clamp(threshold, 0, 1))
+            {
+                for (var offset = -4; offset <= 4; offset++)
+                    EvaluateScale(coarseScale + offset * 0.01d, bounds, searchStep: 1);
+            }
         }
 
         if (bestScore == double.MinValue)

@@ -804,10 +804,18 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("MatchTemplateScaled", exactCard.Algorithm, ignoreCase: true);
         Assert.Equal("ClickSelf", exactCard.Action, ignoreCase: true);
         Assert.False(string.IsNullOrWhiteSpace(exactCard.Template));
-        Assert.Null(exactCard.Roi);
+        Assert.Equal([35, 180, 830, 1120], exactCard.Roi!);
+        Assert.Equal([1.10d], exactCard.ScaleCandidates);
+        Assert.Equal(1500, exactCard.TimeoutMilliseconds);
         Assert.Equal(
-            "support_select_support_card_exact_scroll",
+            "support_select_support_card_exact_fallback",
             exactCard.OnErrorNext.Single());
+        var exactFallback = definition.GetTask("support_select_support_card_exact_fallback");
+        Assert.Equal("MatchTemplateScaled", exactFallback.Algorithm, ignoreCase: true);
+        Assert.Equal(exactCard.Roi, exactFallback.Roi);
+        Assert.Equal(7, exactFallback.ScaleCandidates.Count);
+        Assert.Equal("support_select_support_card_exact_scroll",
+            exactFallback.OnErrorNext.Single());
         var exactScroll = definition.GetTask("support_select_support_card_exact_scroll");
         Assert.Equal("Swipe", exactScroll.Action, ignoreCase: true);
         Assert.Equal(

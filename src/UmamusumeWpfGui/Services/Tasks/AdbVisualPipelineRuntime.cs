@@ -340,7 +340,9 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     threshold,
                     referenceWidth,
                     referenceHeight,
-                    scaleCandidates)
+                    scaleCandidates,
+                    fullSearchOnMiss: !taskName.StartsWith(
+                        "support_select_support_card_exact", StringComparison.OrdinalIgnoreCase))
                 : TemplateMatcher.Find(
                     screen,
                     template,

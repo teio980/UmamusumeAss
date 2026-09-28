@@ -674,7 +674,7 @@
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "ClickSelf",
                                                                "template":  "templates/support/filter_tab.png",
-                                                               "templThreshold":  0.82,
+                                                               "templThreshold":  0.65,
                                                                "roi":  [
                                                                            430,
                                                                            120,
@@ -709,7 +709,7 @@
                                                             "algorithm":  "MatchTemplate",
                                                             "action":  "ClickSelf",
                                                             "template":  "templates/support/filter_r.png",
-                                                            "templThreshold":  0.82,
+                                                            "templThreshold":  0.78,
                                                             "roi":  [
                                                                         30,
                                                                         280,
@@ -725,7 +725,7 @@
                                                              "algorithm":  "MatchTemplate",
                                                              "action":  "ClickSelf",
                                                              "template":  "templates/support/filter_sr.png",
-                                                             "templThreshold":  0.82,
+                                                             "templThreshold":  0.78,
                                                              "roi":  [
                                                                          300,
                                                                          280,
@@ -741,7 +741,7 @@
                                                               "algorithm":  "MatchTemplate",
                                                               "action":  "ClickSelf",
                                                               "template":  "templates/support/filter_ssr.png",
-                                                              "templThreshold":  0.82,
+                                                              "templThreshold":  0.78,
                                                               "roi":  [
                                                                           590,
                                                                           280,
@@ -757,7 +757,7 @@
                                                                 "algorithm":  "MatchTemplate",
                                                                 "action":  "ClickSelf",
                                                                 "template":  "templates/support/filter_speed.png",
-                                                                "templThreshold":  0.82,
+                                                                "templThreshold":  0.78,
                                                                 "roi":  [
                                                                             20,
                                                                             450,
@@ -773,7 +773,7 @@
                                                                   "algorithm":  "MatchTemplate",
                                                                   "action":  "ClickSelf",
                                                                   "template":  "templates/support/filter_stamina.png",
-                                                                  "templThreshold":  0.82,
+                                                                  "templThreshold":  0.78,
                                                                   "roi":  [
                                                                               300,
                                                                               450,
@@ -789,7 +789,7 @@
                                                                 "algorithm":  "MatchTemplate",
                                                                 "action":  "ClickSelf",
                                                                 "template":  "templates/support/filter_power.png",
-                                                                "templThreshold":  0.82,
+                                                                "templThreshold":  0.78,
                                                                 "roi":  [
                                                                             590,
                                                                             450,
@@ -805,7 +805,7 @@
                                                                "algorithm":  "MatchTemplate",
                                                                "action":  "ClickSelf",
                                                                "template":  "templates/support/filter_guts.png",
-                                                               "templThreshold":  0.82,
+                                                               "templThreshold":  0.78,
                                                                "roi":  [
                                                                            20,
                                                                            550,
@@ -821,7 +821,7 @@
                                                               "algorithm":  "MatchTemplate",
                                                               "action":  "ClickSelf",
                                                               "template":  "templates/support/filter_wit.png",
-                                                              "templThreshold":  0.82,
+                                                              "templThreshold":  0.78,
                                                               "roi":  [
                                                                           300,
                                                                           550,
@@ -837,7 +837,7 @@
                                                                  "algorithm":  "MatchTemplate",
                                                                  "action":  "ClickSelf",
                                                                  "template":  "templates/support/filter_friend.png",
-                                                                 "templThreshold":  0.82,
+                                                                 "templThreshold":  0.78,
                                                                  "roi":  [
                                                                              590,
                                                                              550,
@@ -1193,25 +1193,18 @@
                                                                "action":  "ClickSelf",
                                                                "template":  "templates/support_cards/30028.png",
                                                                "templThreshold":  0.78,
+                                                               "roi":  [35, 180, 830, 1120],
                                                                "searchRois":  [],
                                                                "minScoreGap":  0.0,
-                                                               "scaleCandidates":  [
-                                                                                       0.80,
-                                                                                       0.85,
-                                                                                       0.90,
-                                                                                       0.95,
-                                                                                       1.0,
-                                                                                       1.05,
-                                                                                       1.10
-                                                                                   ],
+                                                               "scaleCandidates":  [1.10],
                                                                "preDelay":  0,
                                                                "postDelay":  450,
                                                                "waitMs":  0,
-                                                               "timeoutMs":  12000,
-                                                               "pollIntervalMs":  250,
+                                                               "timeoutMs":  1500,
+                                                               "pollIntervalMs":  100,
                                                                "next":  [],
                                                                "onErrorNext":  [
-                                                                                   "support_select_support_card_exact_scroll"
+                                                                                   "support_select_support_card_exact_fallback"
                                                                                ],
                                                                "exceededNext":  [],
                                                                "sub":  [],
@@ -1220,6 +1213,31 @@
                                                                "required":  true,
                                                                "success":  false
                                                            },
+                  "support_select_support_card_exact_fallback":  {
+                                                                        "algorithm":  "MatchTemplateScaled",
+                                                                        "action":  "ClickSelf",
+                                                                        "template":  "templates/support_cards/30028.png",
+                                                                        "templThreshold":  0.78,
+                                                                        "roi":  [35, 180, 830, 1120],
+                                                                        "searchRois":  [],
+                                                                        "minScoreGap":  0.0,
+                                                                        "scaleCandidates":  [0.80, 0.85, 0.90, 0.95, 1.0, 1.05, 1.10],
+                                                                        "preDelay":  0,
+                                                                        "postDelay":  450,
+                                                                        "waitMs":  0,
+                                                                        "timeoutMs":  2500,
+                                                                        "pollIntervalMs":  100,
+                                                                        "next":  [],
+                                                                        "onErrorNext":  [
+                                                                                            "support_select_support_card_exact_scroll"
+                                                                                        ],
+                                                                        "exceededNext":  [],
+                                                                        "sub":  [],
+                                                                        "monitorTasks":  [],
+                                                                        "maxTimes":  0,
+                                                                        "required":  true,
+                                                                        "success":  false
+                                                                    },
                    "support_select_support_card_exact_scroll":  {
                                                                     "algorithm":  "JustReturn",
                                                                     "action":  "Swipe",

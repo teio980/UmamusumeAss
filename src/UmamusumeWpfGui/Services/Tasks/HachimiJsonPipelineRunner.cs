@@ -542,7 +542,11 @@ public sealed class HachimiJsonPipelineRunner
                 + $"(threshold {task.TemplateThreshold:0.000}, timeout {effectiveTimeoutMilliseconds}ms, "
                 + $"poll {pollInterval}ms).");
 
-            var scaleCandidates = task.ScaleCandidates
+            var configuredScales = runOptions.ScaleCandidatesOverrides is not null
+                && runOptions.ScaleCandidatesOverrides.TryGetValue(taskName, out var scaleOverride)
+                    ? scaleOverride
+                    : task.ScaleCandidates;
+            var scaleCandidates = configuredScales
                 .Where(double.IsFinite)
                 .Where(candidate => candidate > 0)
                 .ToArray();
@@ -2621,6 +2625,12 @@ public sealed class HachimiPipelineRunOptions
     /// of those regions are eligible for this invocation.
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<int[]>>? SearchRoiOverrides { get; init; }
+
+    /// <summary>
+    /// Runtime scale candidates for layouts that render the same card at a
+    /// different size, such as the narrow borrowed-card list.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<double>>? ScaleCandidatesOverrides { get; init; }
 
     /// <summary>
     /// Runtime template paths supplied by a caller for data-driven cards.

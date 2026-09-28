@@ -281,6 +281,260 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.Equal("career_final_confirmation", result.LastScreenId);
         Assert.Contains(expectedFinalAction, harness.Actions.Calls);
         Assert.Equal(expectedFinalAction, harness.Actions.Calls[^1]);
+        if (supportDeckMode == "auto")
+        {
+            Assert.DoesNotContain(
+                harness.Actions.Calls,
+                call => call.StartsWith("support_select.ranked.filter_", StringComparison.Ordinal));
+        }
+        else if (supportDeckMode == "highest-star")
+        {
+            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_sr"));
+            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_ssr"));
+            Assert.DoesNotContain("support_select.ranked.filter_r", harness.Actions.Calls);
+            Assert.Equal("support_select.ranked.friend_sort_level",
+                harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
+            AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
+        }
+    }
+
+    [Fact]
+    public async Task Selected_support_cards_apply_exact_rarity_and_type_filters_in_order_including_guest()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        var ownCardIds = new[] { 10028, 20028, 30028, 30001, 20001 };
+        const int friendCardId = 10002;
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(
+                root,
+                continueExistingCareer: true,
+                supportDeckMode: "selected",
+                supportCardIds: ownCardIds,
+                friendSupportCardId: friendCardId),
+            state,
+            null);
+
+        Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
+        var expected = new List<string> { "support_select.reset_if_needed" };
+        foreach (var id in ownCardIds)
+        {
+            expected.AddRange(SelectedCardFilterActions(harness.Database, id));
+        }
+        expected.AddRange(SelectedCardFilterActions(harness.Database, friendCardId));
+        expected.Add("support_select.start");
+        Assert.Equal(expected, harness.Actions.Calls);
+        AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
+        Assert.DoesNotContain(harness.Actions.Calls,
+            call => call.Contains("sort_level", StringComparison.Ordinal)
+                || call == "support_select.ranked.sort_apply");
+        Assert.All(harness.Actions.ExactCardSearches.Take(5),
+            search => Assert.Null(search.Scales));
+        var friendSearch = harness.Actions.ExactCardSearches[5];
+        Assert.NotNull(friendSearch.Roi);
+        Assert.NotNull(friendSearch.Scales);
+        Assert.Equal([25, 270, 190, 990], friendSearch.Roi);
+        Assert.Equal([0.85d], friendSearch.Scales);
+    }
+
+    [Fact]
+    public async Task Sixth_selected_card_id_without_explicit_friend_uses_guest_slot()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        var cardIds = new[] { 10028, 20028, 30028, 30001, 20001, 10002 };
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection, harness.Pack,
+            CreateSettings(root, continueExistingCareer: true,
+                supportDeckMode: "selected", supportCardIds: cardIds),
+            state, null);
+
+        Assert.True(result.Succeeded, result.Message);
+        AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
+        Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.select_exact_card"));
+    }
+
+    [Fact]
+    public async Task Highest_star_with_a_specific_friend_filters_its_rarity_and_uses_friend_sort()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection, harness.Pack,
+            CreateSettings(root, continueExistingCareer: true,
+                supportDeckMode: "highest-star",
+                supportDeckPreset: "speed3-stamina3",
+                friendSupportCardId: 10002),
+            state, null);
+
+        Assert.True(result.Succeeded, result.Message);
+        AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
+        Assert.Equal(1, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_r"));
+        Assert.Equal("support_select.ranked.friend_sort_level",
+            harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
+        Assert.Equal("support_select.ranked.select_exact_card",
+            harness.Actions.Calls.Last(call => call.Contains("select_", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Selected_friend_surviving_reset_is_removed_then_reselected()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        var missedFriendPlusOnce = false;
+        harness.Actions.FailWhen = call =>
+        {
+            if (call != "support_select.open"
+                || harness.Actions.OpenSlotRois.Count != 6
+                || missedFriendPlusOnce)
+                return false;
+            missedFriendPlusOnce = true;
+            return true;
+        };
+        harness.Visual.RemoveTextVisible = true;
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection, harness.Pack,
+            CreateSettings(root, continueExistingCareer: true,
+                supportDeckMode: "selected",
+                supportCardIds: [10028, 20028, 30028, 30001, 20001],
+                friendSupportCardId: 10002),
+            state, null);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.True(missedFriendPlusOnce);
+        Assert.Equal(1, harness.Visual.RemoveTaps);
+        Assert.Equal((715, 850), Assert.Single(harness.Visual.DirectTaps));
+        Assert.Equal(7, harness.Actions.OpenSlotRois.Count);
+        AssertSupportSlotOrder(harness.Actions.OpenSlotRois.Take(6).ToList());
+        Assert.Equal([630, 770, 160, 160], harness.Actions.OpenSlotRois[6]);
+    }
+
+    [Fact]
+    public async Task Missing_fourth_owned_slot_stops_without_opening_friends()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.FailWhen = call =>
+            call == "support_select.open" && harness.Actions.OpenSlotRois.Count == 4;
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection, harness.Pack,
+            CreateSettings(root, continueExistingCareer: true,
+                supportDeckMode: "selected",
+                supportCardIds: [10028, 20028, 30028, 30001, 20001],
+                friendSupportCardId: 10002),
+            state, null);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(4, harness.Actions.OpenSlotRois.Count);
+        Assert.Equal([90, 770, 160, 160], harness.Actions.OpenSlotRois[3]);
+        Assert.DoesNotContain("support_select.start", harness.Actions.Calls);
+    }
+
+    [Fact]
+    public async Task Selected_support_filter_failure_stops_before_exact_card_click_and_reports_id()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.FailWhen = call => call == "support_select.ranked.filter_speed";
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(
+                root,
+                continueExistingCareer: true,
+                supportDeckMode: "selected",
+                supportCardIds: [30028, 10028, 20028, 30001, 20001]),
+            state,
+            null);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("30028", result.Message, StringComparison.Ordinal);
+        Assert.Contains("support_select.ranked.filter_speed", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.ranked.select_exact_card", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.start", harness.Actions.Calls);
+    }
+
+    [Fact]
+    public async Task Selected_support_card_with_unmapped_metadata_stops_and_reports_id()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        Assert.True(harness.Database.TryGetSupportCard(30028, out var card));
+        Assert.NotNull(card);
+        card!.Rarity = "unknown";
+        harness.Actions.SetScreen("support_select");
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection,
+            harness.Pack,
+            CreateSettings(
+                root,
+                continueExistingCareer: true,
+                supportDeckMode: "selected",
+                supportCardIds: [30028, 10028, 20028, 30001, 20001]),
+            state,
+            null);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("30028", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("support_select.open", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.ranked.select_exact_card", harness.Actions.Calls);
     }
 
     [Fact]
@@ -745,6 +999,50 @@ public sealed class IndependentTrainingBehaviorTests
     private static string Slug(string value) =>
         value.Trim().ToLowerInvariant().Replace(' ', '_');
 
+    private static string[] SelectedCardFilterActions(
+        UmaDatabaseService database,
+        int cardId)
+    {
+        Assert.True(database.TryGetSupportCard(cardId, out var card));
+        Assert.NotNull(card);
+        var rarityFilter = card!.Rarity switch
+        {
+            "1" => "r",
+            "2" => "sr",
+            "3" => "ssr",
+            _ => throw new InvalidOperationException($"Unexpected test rarity for {cardId}: {card.Rarity}"),
+        };
+        var typeFilter = SupportDeckPresetCatalog.GetFilterKey(card.Type)
+            ?? throw new InvalidOperationException($"Unexpected test type for {cardId}: {card.Type}");
+        return
+        [
+            "support_select.open",
+            "support_select.ranked.display_settings",
+            "support_select.ranked.filter_tab",
+            "support_select.ranked.filter_reset",
+            $"support_select.ranked.filter_{rarityFilter}",
+            $"support_select.ranked.filter_{typeFilter}",
+            "support_select.ranked.filter_apply",
+            "support_select.ranked.select_exact_card",
+        ];
+    }
+
+    private static void AssertSupportSlotOrder(List<int[]> rois)
+    {
+        int[][] expected =
+        [
+            [90, 420, 160, 160],
+            [360, 420, 160, 160],
+            [630, 420, 160, 160],
+            [90, 770, 160, 160],
+            [360, 770, 160, 160],
+            [630, 770, 160, 160],
+        ];
+        Assert.Equal(expected.Length, rois.Count);
+        for (var index = 0; index < expected.Length; index++)
+            Assert.Equal(expected[index], rois[index]);
+    }
+
     private static string FindSolutionRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -797,6 +1095,8 @@ public sealed class IndependentTrainingBehaviorTests
         public RecordingActionExecutor(RecordingVisualRuntime visual) => _visual = visual;
 
         public List<string> Calls { get; } = [];
+        public List<int[]> OpenSlotRois { get; } = [];
+        public List<(int[]? Roi, IReadOnlyList<double>? Scales)> ExactCardSearches { get; } = [];
         public List<string> SearchInputs { get; } = [];
         public Func<string, bool>? FailWhen { get; set; }
         public string? BlockAction { get; set; }
@@ -823,6 +1123,23 @@ public sealed class IndependentTrainingBehaviorTests
                 ? actionId
                 : $"{screenId}.{actionId}";
             Calls.Add(call);
+            if (call == "support_select.open")
+            {
+                Assert.NotNull(options?.SearchRoiOverrides);
+                Assert.True(options.SearchRoiOverrides.TryGetValue(
+                    "support_select_support_open", out var rois));
+                OpenSlotRois.Add(Assert.Single(rois).ToArray());
+            }
+            if (call == "support_select.ranked.select_exact_card")
+            {
+                int[]? roi = null;
+                IReadOnlyList<double>? scales = null;
+                if (options?.RoiOverrides is { } roiOverrides)
+                    roiOverrides.TryGetValue("support_select_support_card_exact", out roi);
+                if (options?.ScaleCandidatesOverrides is { } scaleOverrides)
+                    scaleOverrides.TryGetValue("support_select_support_card_exact", out scales);
+                ExactCardSearches.Add((roi, scales));
+            }
             if (options?.InputTextOverrides?.TryGetValue(
                     "independent_skills_search_input", out var input) == true)
             {
@@ -904,6 +1221,9 @@ public sealed class IndependentTrainingBehaviorTests
 
     private sealed class RecordingVisualRuntime : IVisualPipelineRuntime
     {
+        public bool RemoveTextVisible { get; set; }
+        public int RemoveTaps { get; private set; }
+        public List<(int X, int Y)> DirectTaps { get; } = [];
         private static readonly Dictionary<string, (int X, int Y)> Markers =
             new Dictionary<string, (int X, int Y)>(StringComparer.OrdinalIgnoreCase)
             {
@@ -1026,13 +1346,25 @@ public sealed class IndependentTrainingBehaviorTests
             int referenceHeight, int timeoutMilliseconds, int pollIntervalMilliseconds,
             string? language, string taskName, string? matchMode = null,
             int groupRowHeight = 0, int rowGap = 0, bool requireAllTokens = true,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<ScreenTextQueryResult?>(null);
+            CancellationToken cancellationToken = default)
+        {
+            if (!RemoveTextVisible || targetText != "Remove")
+                return Task.FromResult<ScreenTextQueryResult?>(null);
+            var candidate = new ScreenTextCandidate(
+                "Remove", new ScreenTextRect(380, 185, 140, 40), 1d, 1d);
+            return Task.FromResult<ScreenTextQueryResult?>(
+                new ScreenTextQueryResult(true, targetText, [candidate], candidate, false));
+        }
 
         public Task TapTextAsync(
             LastVerifiedConnection connection, ScreenTextCandidate match,
             int[]? clickOffset, int[]? rowExpansion, string taskName,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            if (taskName == "support_select_friend_remove")
+                RemoveTaps++;
+            return Task.CompletedTask;
+        }
 
         public Task TapMatchAsync(
             LastVerifiedConnection connection, TemplateMatchResult match,
@@ -1041,7 +1373,12 @@ public sealed class IndependentTrainingBehaviorTests
         public Task TapAsync(
             LastVerifiedConnection connection, int x, int y, int referenceWidth,
             int referenceHeight, string taskName,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            if (taskName == "support_select_friend_open_selected")
+                DirectTaps.Add((x, y));
+            return Task.CompletedTask;
+        }
 
         public Task<HsvColorProbeResult?> ProbeHsvAsync(
             LastVerifiedConnection connection, int centerXReference,

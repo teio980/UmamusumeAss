@@ -183,6 +183,16 @@ public sealed record CareerEntryNavigationResult(
 /// </summary>
 public sealed class CareerEntryNavigator
 {
+    private const string SupportOpenTask = "support_select_support_open";
+    private static readonly int[][] SupportSlotRois =
+    [
+        [90, 420, 160, 160],
+        [360, 420, 160, 160],
+        [630, 420, 160, 160],
+        [90, 770, 160, 160],
+        [360, 770, 160, 160],
+        [630, 770, 160, 160],
+    ];
     private const string FinalConfirmationScreenId = "career_final_confirmation";
     private const double EarlyRecognitionThreshold = 0.985;
     private const int MaxStableScreenRecognitionRetries = 30;
@@ -712,11 +722,17 @@ public sealed class CareerEntryNavigator
         if (!reset.Succeeded)
             return reset;
 
-        // Exact card templates are data-driven and the JSON action owns the
-        // click. Filtering/sorting remains optional for this lightweight
-        // entry component; the normal pipeline retains its richer selector.
-        foreach (var cardId in settings.SupportCardIds)
+        // The sixth card ID in older selections represents the guest slot.
+        // Keep that input format, but never open it as an owned-card slot.
+        var ownCardIds = settings.SupportCardIds.Take(5).ToArray();
+        var friendCardId = settings.FriendSupportCardId is > 0
+            ? settings.FriendSupportCardId
+            : settings.SupportCardIds.Count == 6
+                ? settings.SupportCardIds[5]
+                : null;
+        for (var slotIndex = 0; slotIndex < ownCardIds.Length; slotIndex++)
         {
+            var cardId = ownCardIds[slotIndex];
             if (!_umaDatabase.TryGetSupportCard(cardId, out var card)
                 || card is null
                 || !card.Available)
@@ -724,6 +740,14 @@ public sealed class CareerEntryNavigator
                 return new(false,
                     $"Configured support card {cardId.ToString(CultureInfo.InvariantCulture)} "
                         + "was not found or is unavailable.",
+                    "support_select");
+            }
+
+            if (!TryResolveSupportCardFilters(card, out var rarityFilter, out var typeFilter))
+            {
+                return new(false,
+                    $"Configured support card {cardId.ToString(CultureInfo.InvariantCulture)} "
+                        + $"has unmapped filter metadata (rarity '{card.Rarity}', type '{card.Type}').",
                     "support_select");
             }
 
@@ -735,75 +759,91 @@ public sealed class CareerEntryNavigator
                     "support_select");
             }
 
-            var open = await _actions.RunAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "open",
-                    logSink,
-                    cancellationToken)
+            var open = await OpenSupportSlotAsync(
+                    connection, pack, slotIndex, logSink, cancellationToken)
                 .ConfigureAwait(false);
             if (!open.Succeeded)
-                return open;
+                return AddSupportCardContext(open, cardId);
 
-            var select = await _actions.RunAsync(
+            var filter = await ConfigureSupportFilterAsync(
                     connection,
                     pack,
-                    "support_select",
-                    "ranked.select_exact_card",
-                    logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TemplateOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_exact"] = template,
-                        },
-                    })
-                .ConfigureAwait(false);
-            if (!select.Succeeded)
-                return select;
-        }
-
-        if (settings.FriendSupportCardId is > 0)
-        {
-            var friend = await _actions.RunAsync(
-                    connection,
-                    pack,
-                    "support_select",
-                    "open",
+                    [rarityFilter],
+                    typeFilter,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!friend.Succeeded)
-                return friend;
-            var friendTemplate = ResolveSupportTemplate(pack, settings.FriendSupportCardId.Value);
+            if (!filter.Succeeded)
+                return AddSupportCardContext(filter, cardId);
+
+            var select = await SelectExactSupportCardAsync(
+                    connection,
+                    pack,
+                    cardId,
+                    friendPage: false,
+                    logSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!select.Succeeded)
+                return AddSupportCardContext(select, cardId);
+        }
+
+        if (friendCardId is > 0)
+        {
+            if (!_umaDatabase.TryGetSupportCard(friendCardId.Value, out var friendCard)
+                || friendCard is null
+                || !friendCard.Available)
+            {
+                return new(false,
+                    $"Configured guest support card {friendCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                        + "was not found or is unavailable.",
+                    "support_select");
+            }
+
+            if (!TryResolveSupportCardFilters(friendCard, out var friendRarityFilter, out var friendTypeFilter))
+            {
+                return new(false,
+                    $"Configured guest support card {friendCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                        + $"has unmapped filter metadata (rarity '{friendCard.Rarity}', type '{friendCard.Type}').",
+                    "support_select");
+            }
+
+            var friendTemplate = ResolveSupportTemplate(pack, friendCardId.Value);
             if (friendTemplate is null)
             {
                 return new(false,
-                    $"Guest support card {settings.FriendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
+                    $"Guest support card {friendCardId.Value.ToString(CultureInfo.InvariantCulture)} "
                         + "has no local selection template.",
                     "support_select");
             }
-            var friendSelection = await _actions.RunAsync(
+
+            var friend = await OpenFriendSupportSlotAsync(
+                    connection, pack, logSink, cancellationToken)
+                .ConfigureAwait(false);
+            if (!friend.Succeeded)
+                return AddSupportCardContext(friend, friendCardId.Value);
+
+            var friendFilter = await ConfigureSupportFilterAsync(
                     connection,
                     pack,
-                    "support_select",
-                    "ranked.select_exact_card",
+                    [friendRarityFilter],
+                    friendTypeFilter,
                     logSink,
-                    cancellationToken,
-                    new HachimiPipelineRunOptions
-                    {
-                        TemplateOverrides = new Dictionary<string, string>(
-                            StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_exact"] = friendTemplate,
-                        },
-                    })
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!friendFilter.Succeeded)
+                return AddSupportCardContext(friendFilter, friendCardId.Value);
+
+            var friendSelection = await SelectExactSupportCardAsync(
+                    connection,
+                    pack,
+                    friendCardId.Value,
+                    friendPage: true,
+                    logSink,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (!friendSelection.Succeeded)
-                return friendSelection;
+                return AddSupportCardContext(friendSelection, friendCardId.Value);
         }
 
         return await _actions.RunAsync(
@@ -832,6 +872,7 @@ public sealed class CareerEntryNavigator
         }
 
         UmaSupportCardRecord? friendCard = null;
+        string? friendRarityFilter = null;
         if (settings.FriendSupportCardId is > 0)
         {
             if (!_umaDatabase.TryGetSupportCard(
@@ -845,6 +886,16 @@ public sealed class CareerEntryNavigator
                         + "was not found or is unavailable.",
                     "support_select");
             }
+
+            if (!TryResolveSupportCardFilters(friendCard, out var rarityFilter, out _))
+            {
+                return new(false,
+                    $"Configured guest support card {friendCard.SupportCardId.ToString(CultureInfo.InvariantCulture)} "
+                        + $"has unmapped filter metadata (rarity '{friendCard.Rarity}', type '{friendCard.Type}').",
+                    "support_select");
+            }
+
+            friendRarityFilter = rarityFilter;
         }
 
         var guestType = friendCard?.Type?.Trim();
@@ -890,31 +941,33 @@ public sealed class CareerEntryNavigator
                 "support_select");
         }
 
+        var ownSlotIndex = 0;
         foreach (var required in ownRequiredTypes)
         {
             for (var index = 0; index < required.Value; index++)
             {
-                var open = await _actions.RunAsync(
-                        connection,
-                        pack,
-                        "support_select",
-                        "open",
-                        logSink,
-                        cancellationToken)
+                var open = await OpenSupportSlotAsync(
+                        connection, pack, ownSlotIndex++, logSink, cancellationToken)
                     .ConfigureAwait(false);
                 if (!open.Succeeded)
                     return open;
 
-                var filter = await ConfigureHighestStarFilterAsync(
+                var filter = await ConfigureSupportFilterAsync(
                         connection,
                         pack,
+                        ["sr", "ssr"],
                         required.Key,
-                        friendPage: false,
                         logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (!filter.Succeeded)
                     return filter;
+
+                var sort = await ConfigureSupportSortAsync(
+                        connection, pack, friendPage: false, logSink, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!sort.Succeeded)
+                    return sort;
 
                 var selected = await SelectHighestSupportCardAsync(
                         connection,
@@ -929,27 +982,28 @@ public sealed class CareerEntryNavigator
             }
         }
 
-        var openGuest = await _actions.RunAsync(
-                connection,
-                pack,
-                "support_select",
-                "open",
-                logSink,
-                cancellationToken)
+        var openGuest = await OpenFriendSupportSlotAsync(
+                connection, pack, logSink, cancellationToken)
             .ConfigureAwait(false);
         if (!openGuest.Succeeded)
             return openGuest;
 
-        var guestFilter = await ConfigureHighestStarFilterAsync(
+        var guestFilter = await ConfigureSupportFilterAsync(
                 connection,
                 pack,
+                friendRarityFilter is not null ? [friendRarityFilter] : ["sr", "ssr"],
                 guestType,
-                friendPage: true,
                 logSink,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!guestFilter.Succeeded)
             return guestFilter;
+
+        var guestSort = await ConfigureSupportSortAsync(
+                connection, pack, friendPage: true, logSink, cancellationToken)
+            .ConfigureAwait(false);
+        if (!guestSort.Succeeded)
+            return guestSort;
 
         var guestSelection = friendCard is null
             ? await SelectHighestSupportCardAsync(
@@ -964,6 +1018,7 @@ public sealed class CareerEntryNavigator
                     connection,
                     pack,
                     friendCard.SupportCardId,
+                    friendPage: true,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -980,11 +1035,11 @@ public sealed class CareerEntryNavigator
             .ConfigureAwait(false);
     }
 
-    private async Task<CareerActionExecutionResult> ConfigureHighestStarFilterAsync(
+    private async Task<CareerActionExecutionResult> ConfigureSupportFilterAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
+        IReadOnlyList<string> rarityFilters,
         string supportType,
-        bool friendPage,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -996,21 +1051,26 @@ public sealed class CareerEntryNavigator
                 "support_select");
         }
 
-        var actions = new[]
+        if (rarityFilters.Count == 0
+            || rarityFilters.Any(rarity => rarity is not ("r" or "sr" or "ssr")))
+        {
+            return new(false,
+                "The requested support rarity filter is invalid.",
+                "support_select");
+        }
+
+        var actions = new List<string>
         {
             "ranked.display_settings",
-            friendPage ? "ranked.friend_sort_level" : "ranked.sort_level",
             "ranked.filter_tab",
             "ranked.filter_reset",
-            "ranked.filter_sr",
-            "ranked.filter_ssr",
+        };
+        actions.AddRange(rarityFilters.Select(rarity => $"ranked.filter_{rarity}"));
+        actions.AddRange(
+        [
             $"ranked.filter_{filterKey}",
             "ranked.filter_apply",
-            "ranked.display_settings",
-            friendPage ? "ranked.friend_sort_level" : "ranked.sort_level",
-            "ranked.sort_apply",
-            "ranked.sort_desc",
-        };
+        ]);
         foreach (var action in actions)
         {
             var result = await _actions.RunAsync(
@@ -1027,6 +1087,139 @@ public sealed class CareerEntryNavigator
 
         return CareerActionExecutionResult.Success("support_select");
     }
+
+    private async Task<CareerActionExecutionResult> ConfigureSupportSortAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        bool friendPage,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        string[] actions =
+        [
+            "ranked.display_settings",
+            friendPage ? "ranked.friend_sort_level" : "ranked.sort_level",
+            "ranked.sort_apply",
+            "ranked.sort_desc",
+        ];
+        foreach (var action in actions)
+        {
+            var result = await _actions.RunAsync(
+                    connection, pack, "support_select", action, logSink, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.Succeeded)
+                return result;
+        }
+
+        return CareerActionExecutionResult.Success("support_select");
+    }
+
+    private Task<CareerActionExecutionResult> OpenSupportSlotAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        int slotIndex,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        if ((uint)slotIndex >= SupportSlotRois.Length)
+        {
+            return Task.FromResult(new CareerActionExecutionResult(
+                false,
+                $"Support slot {slotIndex + 1} is outside the formation.",
+                "support_select"));
+        }
+
+        return _actions.RunAsync(
+            connection,
+            pack,
+            "support_select",
+            "open",
+            logSink,
+            cancellationToken,
+            new HachimiPipelineRunOptions
+            {
+                SearchRoiOverrides = new Dictionary<string, IReadOnlyList<int[]>>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    [SupportOpenTask] = [SupportSlotRois[slotIndex]],
+                },
+            });
+    }
+
+    private async Task<CareerActionExecutionResult> OpenFriendSupportSlotAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var open = await OpenSupportSlotAsync(
+                connection, pack, 5, logSink, cancellationToken)
+            .ConfigureAwait(false);
+        if (open.Succeeded)
+            return open;
+
+        // Formation Reset clears owned cards but keeps the borrowed card.
+        // A filled Friends slot opens a Borrow Card dialog with a Remove action.
+        await _visualRuntime.TapAsync(
+                connection, 715, 850, 900, 1600,
+                "support_select_friend_open_selected", cancellationToken)
+            .ConfigureAwait(false);
+        var remove = await _visualRuntime.WaitForTextAsync(
+                connection,
+                "Remove",
+                [20, 140, 860, 130],
+                0.85,
+                unique: true,
+                900,
+                1600,
+                2_500,
+                150,
+                "en-US",
+                "support_select_friend_remove_probe",
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (remove?.Found != true || remove.Match is null)
+        {
+            return new(false,
+                "The Friends slot is occupied, but the Borrow Card Remove action could not be verified.",
+                "support_select");
+        }
+
+        await _visualRuntime.TapTextAsync(
+                connection, remove.Match, null, null,
+                "support_select_friend_remove", cancellationToken)
+            .ConfigureAwait(false);
+        logSink?.Add("Career Training", "Removed the previous borrowed card before selecting a friend card.");
+        return await OpenSupportSlotAsync(
+                connection, pack, 5, logSink, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static bool TryResolveSupportCardFilters(
+        UmaSupportCardRecord card,
+        out string rarityFilter,
+        out string typeFilter)
+    {
+        rarityFilter = card.Rarity.Trim().ToLowerInvariant() switch
+        {
+            "1" or "r" => "r",
+            "2" or "sr" => "sr",
+            "3" or "ssr" => "ssr",
+            _ => string.Empty,
+        };
+        typeFilter = SupportDeckPresetCatalog.GetFilterKey(card.Type) ?? string.Empty;
+        return rarityFilter.Length > 0 && typeFilter.Length > 0;
+    }
+
+    private static CareerActionExecutionResult AddSupportCardContext(
+        CareerActionExecutionResult result,
+        int supportCardId) =>
+        result.Succeeded
+            ? result
+            : new(
+                false,
+                $"Support card {supportCardId.ToString(CultureInfo.InvariantCulture)}: {result.Message}",
+                result.LastScreenId);
 
     private async Task<CareerActionExecutionResult> SelectHighestSupportCardAsync(
         LastVerifiedConnection connection,
@@ -1078,6 +1271,7 @@ public sealed class CareerEntryNavigator
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         int supportCardId,
+        bool friendPage,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -1099,10 +1293,24 @@ public sealed class CareerEntryNavigator
                 cancellationToken,
                 new HachimiPipelineRunOptions
                 {
+                    RoiOverrides = friendPage
+                        ? new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_exact"] = [25, 270, 190, 990],
+                            ["support_select_support_card_exact_fallback"] = [25, 270, 190, 990],
+                        }
+                        : null,
+                    ScaleCandidatesOverrides = friendPage
+                        ? new Dictionary<string, IReadOnlyList<double>>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["support_select_support_card_exact"] = [0.85d],
+                        }
+                        : null,
                     TemplateOverrides = new Dictionary<string, string>(
                         StringComparer.OrdinalIgnoreCase)
                     {
                         ["support_select_support_card_exact"] = template,
+                        ["support_select_support_card_exact_fallback"] = template,
                     },
                 })
             .ConfigureAwait(false);
