@@ -343,6 +343,11 @@ internal sealed class CareerSkillLearningFlow
     {
         for (var attempt = 0; attempt < 5; attempt++)
         {
+            if (await IsRaceDayAsync(context).ConfigureAwait(false))
+            {
+                Log(context, "Returned from Skills to Race Day.");
+                return true;
+            }
             if (await TryTapTemplateAsync(context, "career_skill_learned_title.png",
                     [290, 455, 320, 110], "career_skill_learned_close.png",
                     [250, 975, 390, 130]).ConfigureAwait(false))
@@ -361,11 +366,14 @@ internal sealed class CareerSkillLearningFlow
                 Log(context, "Clicked Skills Back; waiting for Race Day.");
                 continue;
             }
-            if (await IsRaceDayAsync(context).ConfigureAwait(false))
-            {
-                Log(context, "Returned from Skills to Race Day.");
-                return true;
-            }
+            // The Skills Back text can fail to match after scrolling or on a
+            // slightly different render. The Skills page was confirmed before
+            // entering this recovery path, so use the known Back hit target as
+            // a fallback and verify the resulting page on the next pass.
+            await _visual.TapAsync(context.Connection, 95, 1541, Width, Height,
+                    "career_skill.back_fallback", context.CancellationToken)
+                .ConfigureAwait(false);
+            Log(context, "Skills Back template was not found; tapped its standard position.");
             await _visual.DelayAsync(300, context.CancellationToken).ConfigureAwait(false);
         }
         return await IsRaceDayAsync(context).ConfigureAwait(false);
