@@ -219,12 +219,18 @@ public sealed class UpdateCoordinator : IUpdateService
     private void PreserveTrustedProgramManifest()
     {
         var state = _state.Load();
+        var updatesRoot = Path.Combine(_appDataRoot, "updates");
+        // The trusted baseline normally already lives outside the disposable
+        // update cache. Only copy it when clearing that cache would otherwise
+        // delete the source files.
+        if (!IsPathUnderRoot(state.SignedManifestPath, updatesRoot))
+            return;
         if (!TryLoadTrustedProgramBaseline(state, out _, out _))
             return;
         var manifestPath = Path.Combine(_appDataRoot, "program-manifest.json");
         var signaturePath = Path.Combine(_appDataRoot, "program-manifest.sig");
-        File.Copy(state.SignedManifestPath!, manifestPath, overwrite: true);
-        File.Copy(state.SignedSignaturePath!, signaturePath, overwrite: true);
+        CopyIfDifferent(state.SignedManifestPath!, manifestPath);
+        CopyIfDifferent(state.SignedSignaturePath!, signaturePath);
         state.SignedManifestPath = manifestPath;
         state.SignedSignaturePath = signaturePath;
         state.ManifestSha256 = ManifestVerifier.Sha256File(manifestPath);
