@@ -182,6 +182,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         // Only skills confirmed as obtained need a small cache between runs.
         var state = scenario.CreateInitialState();
         state.TraineeId = settings.TraineeId;
+        // Normal Career does not persist its turn history. A resumed career
+        // must not assume it has a clean race streak before a non-race turn.
+        CareerRaceStreakPolicy.InitializeForRun(
+            state, settings.ContinueExistingCareer);
         var skillCache = new NormalCareerSkillCache(connection, settings.TraineeId);
         if (settings.ContinueExistingCareer)
         {

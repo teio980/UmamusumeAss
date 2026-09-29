@@ -172,11 +172,15 @@ internal sealed class CareerTurnFlow
             context.LogSink?.Add(
                 "Career Training",
                 "Infirmary is available; treating illness before the next turn action.");
-            return await _actions.RunAsync(
+            var infirmaryEntryResult = await _actions.RunAsync(
                     context,
                     "career_main",
                     "infirmary")
                 .ConfigureAwait(false);
+            if (infirmaryEntryResult is null)
+                CareerRaceStreakPolicy.BeginTurnAction(
+                    context.State, UraPlannedAction.Infirmary);
+            return infirmaryEntryResult;
         }
 
         if (string.Equals(
@@ -342,11 +346,14 @@ internal sealed class CareerTurnFlow
         context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
             context.State);
         context.State.GoalCompletionProbeArmed = false;
-        return await _actions.RunAsync(
+        var actionResult = await _actions.RunAsync(
                 context,
                 "career_main",
                 actionId)
             .ConfigureAwait(false);
+        if (actionResult is null)
+            CareerRaceStreakPolicy.BeginTurnAction(context.State, decision.Action);
+        return actionResult;
     }
 
     private static bool ShouldProbeGoalAfterAction(UraCareerSessionState state)

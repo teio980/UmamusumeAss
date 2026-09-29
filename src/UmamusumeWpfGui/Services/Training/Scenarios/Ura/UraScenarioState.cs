@@ -85,6 +85,11 @@ public sealed class UraCareerSessionState
     public string? CurrentRaceId { get; set; }
     public int RetryCount { get; set; }
     public bool HasPendingRace { get; set; }
+    // Saturated at two: the third consecutive race can trigger the game's
+    // warning. A turn is counted only after its next main page is observed.
+    public int ConsecutiveRaceTurns { get; set; }
+    public UraPlannedAction? PendingTurnAction { get; set; }
+    public int? PendingActionTurnIndex { get; set; }
     // When the race list has no races, skip another race attempt on this turn.
     [System.Text.Json.Serialization.JsonIgnore]
     public int? RaceUnavailableTurnIndex { get; set; }

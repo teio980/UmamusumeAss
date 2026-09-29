@@ -82,7 +82,8 @@ public sealed class UraDefaultStrategy
                 []);
         }
 
-        if (state.HasPendingRace)
+        var deferRace = CareerRaceStreakPolicy.ShouldDeferRace(module, state);
+        if (state.HasPendingRace && !deferRace)
         {
             var action = state.PhaseId.Equals("finale_underway", StringComparison.OrdinalIgnoreCase)
                 ? UraPlannedAction.FinaleRace
@@ -95,6 +96,8 @@ public sealed class UraDefaultStrategy
                 : state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
                     ? $"A qualifying race is available on {state.TurnPositionLabel}; {state.GradeRaceTimesLeft} result(s) remain."
                 : $"Required race '{state.CurrentRaceId ?? "unknown"}' is pending.";
+            if (CareerRaceStreakPolicy.WouldBeThirdRace(state))
+                reason = "The current goal requires a race despite two consecutive races. " + reason;
             return new(
                 action,
                 state.CurrentRaceId,
@@ -103,6 +106,10 @@ public sealed class UraDefaultStrategy
                 [UraPlannedAction.Rest]);
         }
 
+        var breakReason = deferRace
+            ? "Two consecutive races are confirmed or cannot be ruled out; delaying this race for a non-race turn. "
+            : string.Empty;
+
         if (state.CalendarStage == UraCalendarStage.Regular
             && state.Mood.Value is CareerMood mood
             && mood <= CareerMood.Normal)
@@ -110,7 +117,7 @@ public sealed class UraDefaultStrategy
             return new(
                 UraPlannedAction.Recreation,
                 null,
-                $"Observed mood {mood} is Normal or lower; choose Recreation.",
+                breakReason + $"Observed mood {mood} is Normal or lower; choose Recreation.",
                 false,
                 [UraPlannedAction.Rest]);
         }
@@ -120,7 +127,7 @@ public sealed class UraDefaultStrategy
             return new(
                 UraPlannedAction.Rest,
                 null,
-                $"Observed energy {energy}% is below the safety threshold {RestThreshold}%.",
+                breakReason + $"Observed energy {energy}% is below the safety threshold {RestThreshold}%.",
                 false,
                 [UraPlannedAction.Training]);
         }
@@ -128,7 +135,7 @@ public sealed class UraDefaultStrategy
         return new(
             UraPlannedAction.Training,
             TrainingType,
-            $"No required race is pending; strategy selected {TrainingType} training.",
+            breakReason + $"Strategy selected {TrainingType} training.",
             false,
             [UraPlannedAction.Rest]);
     }

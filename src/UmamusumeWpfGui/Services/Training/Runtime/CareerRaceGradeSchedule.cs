@@ -27,6 +27,21 @@ public sealed class CareerRaceGradeSchedule
         && _firstCardGradeRanks.TryGetValue(turnIndex, out var availableRank)
         && availableRank <= requiredRank;
 
+    public int CountQualifyingFirstCards(
+        int firstTurnIndex,
+        int lastTurnIndex,
+        string? goalGrade)
+    {
+        if (GradeRank(goalGrade) is not int requiredRank
+            || lastTurnIndex < firstTurnIndex)
+            return 0;
+
+        return _firstCardGradeRanks.Count(item =>
+            item.Key >= firstTurnIndex
+            && item.Key <= lastTurnIndex
+            && item.Value <= requiredRank);
+    }
+
     private static int? GradeRank(string? grade) => grade?.ToUpperInvariant() switch
     {
         "G1" => 1,

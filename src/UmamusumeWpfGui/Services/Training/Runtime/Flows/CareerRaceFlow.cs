@@ -45,6 +45,7 @@ internal sealed class CareerRaceFlow
                     // Recommended-or-first race selection below.
                     context.State.ObservedGoalKind = CareerGoalTextParser.Race;
                 }
+                LogRequiredThirdRaceOnResume(context);
                 var skillFailure = await _skillLearning.RunAsync(context).ConfigureAwait(false);
                 if (skillFailure is not null)
                     return skillFailure;
@@ -73,6 +74,9 @@ internal sealed class CareerRaceFlow
                     context.State.ObservedGoalKind = CareerGoalTextParser.Fans;
                 }
 
+                if (GuardOptionalRaceEntry(context) is { } raceListGuard)
+                    return raceListGuard;
+
                 context.LogSink?.Add(
                     "Career Training",
                     context.State.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
@@ -99,12 +103,16 @@ internal sealed class CareerRaceFlow
                         "back")
                     .ConfigureAwait(false);
             case "race_details":
+                if (GuardOptionalRaceEntry(context) is { } raceDetailsGuard)
+                    return raceDetailsGuard;
                 return await _actions.RunAsync(
                         context,
                         "race_details",
                         "confirm")
                     .ConfigureAwait(false);
             case "race_attributes":
+                if (GuardOptionalRaceEntry(context) is { } raceAttributesGuard)
+                    return raceAttributesGuard;
                 return await _actions.RunAsync(
                         context,
                         "race_attributes",
@@ -224,6 +232,36 @@ internal sealed class CareerRaceFlow
         return state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
             ? "fans_entry"
             : "recommended_entry";
+    }
+
+    private static CareerTrainingResult? GuardOptionalRaceEntry(CareerFlowContext context)
+    {
+        if (!CareerRaceStreakPolicy.ShouldDeferRace(
+                context.Scenario, context.State))
+        {
+            LogRequiredThirdRaceOnResume(context);
+            return null;
+        }
+
+        const string message = "Two consecutive races are confirmed or cannot be ruled out; "
+            + "this race can be delayed, but the current race page has no verified "
+            + "route back to a non-race action. Automation paused before entering a third race.";
+        context.LogSink?.Add("Career Training", message, LogEntryKind.Failure);
+        return CareerRuntimeResults.Failure(message, context.Observation.ScreenId);
+    }
+
+    private static void LogRequiredThirdRaceOnResume(CareerFlowContext context)
+    {
+        if (context.State.PendingTurnAction is not null
+            || !CareerRaceStreakPolicy.WouldBeThirdRace(context.State)
+            || !CareerRaceStreakPolicy.MustRaceNow(
+                context.Scenario, context.State))
+            return;
+
+        context.LogSink?.Add(
+            "Career Training",
+            "This required goal race is taking priority despite two consecutive races.",
+            LogEntryKind.Info);
     }
 
     private async Task<CareerTrainingResult?> HandleRaceRunnerResultAsync(

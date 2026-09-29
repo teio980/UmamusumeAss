@@ -64,6 +64,20 @@ public sealed class UraScenarioModule
 
     internal bool HasRaceGradeScheduleData => _raceGradeSchedule?.HasData == true;
 
+    internal int? CountLaterQualifyingRaceTurns(UraCareerSessionState state)
+    {
+        if (_raceGradeSchedule?.HasData != true
+            || state.TurnIndexSource != UraStateSource.Observed
+            || state.TurnsToGoal is not > 0
+            || state.TargetRaceGrade is null)
+            return null;
+
+        return _raceGradeSchedule.CountQualifyingFirstCards(
+            state.TurnIndex + 1,
+            state.TurnIndex + state.TurnsToGoal.Value - 1,
+            state.TargetRaceGrade);
+    }
+
     public UraRaceDefinition? CurrentRace(UraCareerSessionState state)
     {
         var objective = CurrentObjective(state);
@@ -267,6 +281,7 @@ public sealed class UraScenarioModule
 
             if (UraTurnPositionParser.TryParse(turnPositionText, out var turnPosition))
             {
+                CareerRaceStreakPolicy.ConfirmTurnAdvance(state, turnPosition.TurnIndex);
                 state.TurnIndex = turnPosition.TurnIndex;
                 state.TurnPositionLabel = turnPosition.Label;
                 state.CalendarStage = UraTurnPositionParser.GetCalendarStage(turnPosition);
