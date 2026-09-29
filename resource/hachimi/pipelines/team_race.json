@@ -141,8 +141,8 @@
     "teamShopProbe": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/shop/shop_title.png",
-      "roi": [0, 0, 400, 180],
+      "template": "templates/shop/daily_sales_header.png",
+      "roi": [580, 60, 300, 110],
       "templThreshold": 0.86,
       "timeoutMs": 5000,
       "pollIntervalMs": 250,
@@ -201,8 +201,8 @@
     "teamShopAfterHighscore": {
       "algorithm": "MatchTemplate",
       "action": "Wait",
-      "template": "templates/shop/shop_title.png",
-      "roi": [0, 0, 400, 180],
+      "template": "templates/shop/daily_sales_header.png",
+      "roi": [580, 60, 300, 110],
       "templThreshold": 0.86,
       "timeoutMs": 5000,
       "pollIntervalMs": 250,
@@ -212,8 +212,8 @@
       "onErrorNext": ["MiddleNext"]
     },
     "runRandomShop": {
-      "template": "templates/shop/shop_title.png",
-      "roi": [0, 0, 400, 180],
+      "template": "templates/shop/daily_sales_header.png",
+      "roi": [580, 60, 300, 110],
       "templThreshold": 0.86,
       "algorithm": "JustReturn",
       "action": "RunPipeline",

@@ -145,18 +145,25 @@ public sealed class HachimiPipelineDefinitionTests
         var path = Path.Combine(root, "resource", "hachimi", "pipelines", "team_race.json");
 
         var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+        var shopDefinition = await HachimiPipelineDefinitionLoader.LoadAsync(
+            Path.Combine(root, "resource", "hachimi", "pipelines", "shop.json"));
 
         Assert.NotNull(definition);
+        Assert.NotNull(shopDefinition);
         var trigger = definition!.GetTask("runRandomShop");
         var probe = definition.GetTask("teamShopProbe");
+        var shopEntry = shopDefinition!.GetTask("shopProbe");
         Assert.Equal("RunPipeline", trigger.Action);
         Assert.Equal("JustReturn", trigger.Algorithm);
         Assert.Equal("shop.json", trigger.Pipeline);
         Assert.Equal("shopProbe", trigger.Entry);
+        Assert.Equal(shopEntry.Template, trigger.Template);
+        Assert.Equal(shopEntry.Roi, trigger.Roi);
         Assert.Contains("MiddleNext", trigger.Next);
         Assert.Contains("MiddleNext", trigger.OnErrorNext);
         Assert.Equal("Wait", probe.Action);
-        Assert.Equal("templates/shop/shop_title.png", probe.Template);
+        Assert.Equal(shopEntry.Template, probe.Template);
+        Assert.Equal(shopEntry.Roi, probe.Roi);
         Assert.Contains("runRandomShop", probe.Next);
         Assert.Contains("newhighscoreProbe", probe.OnErrorNext);
         var saleProbe = definition.GetTask("teamSaleProbe");
@@ -249,8 +256,14 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains("runRandomShop", shopAfterHighScore.Next);
         Assert.Contains("MiddleNext", shopAfterHighScore.OnErrorNext);
         Assert.Equal(
-            "templates/shop/shop_title.png",
+            "templates/shop/daily_sales_header.png",
             definition.GetTask("runRandomShop").Template);
+        Assert.Equal(
+            definition.GetTask("runRandomShop").Template,
+            shopAfterHighScore.Template);
+        Assert.Equal(
+            definition.GetTask("runRandomShop").Roi,
+            shopAfterHighScore.Roi);
         Assert.Equal("ParallelMonitor", monitor.Algorithm);
         Assert.Contains("next", monitor.MonitorTasks);
         Assert.Contains("newhighscore", monitor.MonitorTasks);
