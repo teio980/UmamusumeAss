@@ -12,10 +12,10 @@
       "template": "templates/start_game/game_home_selected.png",
       "templThreshold": 0.8,
       "roi": [
-        250,
-        1400,
-        400,
-        200
+        360,
+        1460,
+        180,
+        130
       ],
       "preDelay": 0,
       "postDelay": 1200,
@@ -41,10 +41,10 @@
       "template": "templates/start_game/game_home_unselected.png",
       "templThreshold": 0.8,
       "roi": [
-        250,
-        1400,
-        400,
-        200
+        360,
+        1460,
+        180,
+        130
       ],
       "preDelay": 0,
       "postDelay": 1200,
