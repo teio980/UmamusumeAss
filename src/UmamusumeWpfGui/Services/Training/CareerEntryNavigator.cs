@@ -941,6 +941,12 @@ public sealed class CareerEntryNavigator
                 "support_select");
         }
 
+        var reset = await _actions.RunAsync(
+                connection, pack, "support_select", "reset_if_needed", logSink, cancellationToken)
+            .ConfigureAwait(false);
+        if (!reset.Succeeded)
+            return reset;
+
         var ownSlotIndex = 0;
         foreach (var required in ownRequiredTypes)
         {
@@ -974,6 +980,7 @@ public sealed class CareerEntryNavigator
                         pack,
                         required.Key,
                         friendPage: false,
+                        cardIndex: index,
                         logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -1011,6 +1018,7 @@ public sealed class CareerEntryNavigator
                     pack,
                     guestType,
                     friendPage: true,
+                    cardIndex: 0,
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false)
@@ -1226,6 +1234,7 @@ public sealed class CareerEntryNavigator
         UraScenarioPack pack,
         string supportType,
         bool friendPage,
+        int cardIndex,
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
@@ -1248,6 +1257,9 @@ public sealed class CareerEntryNavigator
         var taskPrefix = friendPage
             ? "support_select_support_friend_top_card_"
             : "support_select_support_top_card_";
+        // Already selected cards remain at the front of the filtered list.
+        // Move to the next card of this type when filling another owned slot.
+        var topCardRoi = new[] { 35 + 166 * cardIndex, 130, 165, 220 };
         return await _actions.RunAsync(
                 connection,
                 pack,
@@ -1263,6 +1275,13 @@ public sealed class CareerEntryNavigator
                         [taskPrefix + "ssr"] = typeTemplate,
                         [taskPrefix + "sr"] = typeTemplate,
                     },
+                    RoiOverrides = friendPage
+                        ? null
+                        : new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            [taskPrefix + "ssr"] = topCardRoi,
+                            [taskPrefix + "sr"] = topCardRoi,
+                        },
                 })
             .ConfigureAwait(false);
     }

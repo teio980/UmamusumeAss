@@ -289,12 +289,24 @@ public sealed class IndependentTrainingBehaviorTests
         }
         else if (supportDeckMode == "highest-star")
         {
+            Assert.Equal("support_select.reset_if_needed",
+                harness.Actions.Calls.First(call => call.StartsWith("support_select.", StringComparison.Ordinal)));
             Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_sr"));
             Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_ssr"));
             Assert.DoesNotContain("support_select.ranked.filter_r", harness.Actions.Calls);
             Assert.Equal("support_select.ranked.friend_sort_level",
                 harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
             AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
+            Assert.Equal(
+                new int[][]
+                {
+                    [35, 130, 165, 220],
+                    [201, 130, 165, 220],
+                    [35, 130, 165, 220],
+                    [201, 130, 165, 220],
+                    [367, 130, 165, 220],
+                },
+                harness.Actions.HighestCardSearchRois);
         }
     }
 
@@ -400,6 +412,32 @@ public sealed class IndependentTrainingBehaviorTests
             harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
         Assert.Equal("support_select.ranked.select_exact_card",
             harness.Actions.Calls.Last(call => call.Contains("select_", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Highest_star_reset_failure_stops_before_opening_a_slot()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
+        harness.Actions.SetScreen("support_select");
+        harness.Actions.FailWhen = call => call == "support_select.reset_if_needed";
+        var state = new CareerEntryNavigationState
+        {
+            Step = CareerEntryNavigationStep.Support,
+            LastScreenId = "support_select",
+        };
+
+        var result = await harness.Navigator.NavigateAsync(
+            Connection, harness.Pack,
+            CreateSettings(root, continueExistingCareer: true,
+                supportDeckMode: "highest-star",
+                supportDeckPreset: "speed3-stamina3"),
+            state, null);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(["support_select.reset_if_needed"], harness.Actions.Calls);
+        Assert.Empty(harness.Actions.OpenSlotRois);
     }
 
     [Fact]
@@ -1096,6 +1134,7 @@ public sealed class IndependentTrainingBehaviorTests
 
         public List<string> Calls { get; } = [];
         public List<int[]> OpenSlotRois { get; } = [];
+        public List<int[]> HighestCardSearchRois { get; } = [];
         public List<(int[]? Roi, IReadOnlyList<double>? Scales)> ExactCardSearches { get; } = [];
         public List<string> SearchInputs { get; } = [];
         public Func<string, bool>? FailWhen { get; set; }
@@ -1129,6 +1168,13 @@ public sealed class IndependentTrainingBehaviorTests
                 Assert.True(options.SearchRoiOverrides.TryGetValue(
                     "support_select_support_open", out var rois));
                 OpenSlotRois.Add(Assert.Single(rois).ToArray());
+            }
+            if (call == "support_select.ranked.select_highest_card")
+            {
+                Assert.NotNull(options?.RoiOverrides);
+                Assert.True(options.RoiOverrides.TryGetValue(
+                    "support_select_support_top_card_ssr", out var roi));
+                HighestCardSearchRois.Add(roi);
             }
             if (call == "support_select.ranked.select_exact_card")
             {
