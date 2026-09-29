@@ -64,6 +64,91 @@ public sealed class CareerRaceStreakPolicyTests
         Assert.Null(state.PendingTurnAction);
     }
 
+    [Theory]
+    [InlineData(UraPlannedAction.Training)]
+    [InlineData(UraPlannedAction.Rest)]
+    public async Task Pre_debut_countdown_confirms_a_non_race_turn(
+        UraPlannedAction action)
+    {
+        var scenario = new UraScenarioModule(await LoadPackAsync(),
+            useTraineeObjectives: false);
+        var state = scenario.CreateInitialState();
+        CareerRaceStreakPolicy.InitializeForRun(state, continueExistingCareer: true);
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: 4,
+            goalText: "Run in Junior Make Debut");
+        CareerRaceStreakPolicy.BeginTurnAction(state, action);
+
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: 4,
+            goalText: "Run in Junior Make Debut");
+        Assert.Equal(2, state.ConsecutiveRaceTurns);
+
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: 3,
+            goalText: "Run in Junior Make Debut");
+        Assert.Equal(0, state.ConsecutiveRaceTurns);
+        Assert.Null(state.PendingTurnAction);
+        Assert.Null(state.PendingActionTurnsToGoal);
+
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: 3,
+            goalText: "Run in Junior Make Debut");
+        Assert.Equal(0, state.ConsecutiveRaceTurns);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(4)]
+    [InlineData(2)]
+    public async Task Pre_debut_countdown_requires_a_confirmed_single_turn_advance(
+        int? observedTurnsToGoal)
+    {
+        var scenario = new UraScenarioModule(await LoadPackAsync(),
+            useTraineeObjectives: false);
+        var state = scenario.CreateInitialState();
+        CareerRaceStreakPolicy.InitializeForRun(state, continueExistingCareer: true);
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: 4);
+        CareerRaceStreakPolicy.BeginTurnAction(state, UraPlannedAction.Training);
+
+        scenario.ObserveScreen(state, "career_main", 1,
+            turnPositionText: "Junior Year Pre-Debut",
+            turnsToGoal: observedTurnsToGoal);
+
+        Assert.Equal(2, state.ConsecutiveRaceTurns);
+        Assert.Equal(UraPlannedAction.Training, state.PendingTurnAction);
+    }
+
+    [Fact]
+    public async Task Run_in_debut_goal_is_allowed_despite_unknown_resumed_race_history()
+    {
+        var scenario = new UraScenarioModule(await LoadPackAsync(),
+            useTraineeObjectives: false);
+        var state = scenario.CreateInitialState();
+        CareerRaceStreakPolicy.InitializeForRun(state, continueExistingCareer: true);
+        scenario.ObserveScreen(state, "race_day", 1,
+            goalText: "Run in Junior Make Debut");
+        scenario.ObserveScreen(state, "race_list", 1,
+            goalText: "Run in Junior Make Debut");
+
+        Assert.Equal(CareerGoalTextParser.Race, state.ObservedGoalKind);
+        Assert.False(CareerRaceStreakPolicy.ShouldDeferRace(scenario, state));
+
+        var actions = new RecordingActions();
+        var context = new CareerFlowContext(null!, null!, true, scenario,
+            new UraDefaultStrategy(), string.Empty, state,
+            new CareerObservation("race_list", 1), null, CancellationToken.None);
+        Assert.Null(await new CareerRaceFlow(ThrowingRuntime.Create(), actions)
+            .HandleAsync(context));
+        Assert.Equal(["race_list.recommended_entry"], actions.Calls);
+    }
+
     [Fact]
     public async Task Fans_race_is_deferred_after_two_races_but_runs_at_the_deadline()
     {

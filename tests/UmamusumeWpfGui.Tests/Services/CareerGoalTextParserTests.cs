@@ -34,6 +34,7 @@ public sealed class CareerGoalTextParserTests
     [Theory]
     [InlineData("Place 3rd or better in the Arima Kinen")]
     [InlineData("Participate in the Junior Make Debut")]
+    [InlineData("Run in Junior Make Debut")]
     public void Classifies_race_goal_from_visible_goal_text(string text)
     {
         Assert.Equal(CareerGoalTextParser.Race, CareerGoalTextParser.Classify(text));

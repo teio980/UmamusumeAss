@@ -281,7 +281,11 @@ public sealed class UraScenarioModule
 
             if (UraTurnPositionParser.TryParse(turnPositionText, out var turnPosition))
             {
-                CareerRaceStreakPolicy.ConfirmTurnAdvance(state, turnPosition.TurnIndex);
+                CareerRaceStreakPolicy.ConfirmTurnAdvance(
+                    state,
+                    turnPosition.TurnIndex,
+                    turnsToGoal,
+                    turnPosition.Phase == "pre-debut");
                 state.TurnIndex = turnPosition.TurnIndex;
                 state.TurnPositionLabel = turnPosition.Label;
                 state.CalendarStage = UraTurnPositionParser.GetCalendarStage(turnPosition);

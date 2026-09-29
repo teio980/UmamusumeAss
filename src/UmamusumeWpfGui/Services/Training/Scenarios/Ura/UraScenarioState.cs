@@ -90,6 +90,7 @@ public sealed class UraCareerSessionState
     public int ConsecutiveRaceTurns { get; set; }
     public UraPlannedAction? PendingTurnAction { get; set; }
     public int? PendingActionTurnIndex { get; set; }
+    public int? PendingActionTurnsToGoal { get; set; }
     // When the race list has no races, skip another race attempt on this turn.
     [System.Text.Json.Serialization.JsonIgnore]
     public int? RaceUnavailableTurnIndex { get; set; }

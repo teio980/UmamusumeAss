@@ -35,6 +35,9 @@ internal static partial class CareerGoalTextParser
     [GeneratedRegex(@"\bgoal\s+achieved\b", RegexOptions.IgnoreCase)]
     private static partial Regex GoalAchievedRegex();
 
+    [GeneratedRegex(@"\brun\s+in\b", RegexOptions.IgnoreCase)]
+    private static partial Regex RunInRaceRegex();
+
     public static int? ParseTurnsLeft(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -126,6 +129,7 @@ internal static partial class CareerGoalTextParser
             || normalized.Contains("place", StringComparison.Ordinal)
             || normalized.Contains("win", StringComparison.Ordinal)
             || normalized.Contains("participat", StringComparison.Ordinal)
+            || RunInRaceRegex().IsMatch(text)
             || normalized.Contains("g1", StringComparison.Ordinal)
             || normalized.Contains("g2", StringComparison.Ordinal)
             || normalized.Contains("g3", StringComparison.Ordinal)
