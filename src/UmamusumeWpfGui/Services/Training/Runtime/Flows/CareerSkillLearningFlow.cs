@@ -15,6 +15,9 @@ internal sealed class CareerSkillLearningFlow
     private const int Width = 900;
     private const int Height = 1600;
     private const int MaxScrolls = 60;
+    // Skills-page labels can resemble dialog headers, so only handle a modal
+    // when its title template is a strong match.
+    private const double ModalTitleThreshold = 0.9;
     private const string TemplateRoot = "templates/";
     private readonly IVisualPipelineRuntime _visual;
     private readonly CareerScreenObserver _screenObserver;
@@ -386,7 +389,7 @@ internal sealed class CareerSkillLearningFlow
     {
         var present = await _visual.WaitForColorMatchAsync(
                 context.Connection, TemplateRoot + marker, markerRoi,
-                0.8, Width, Height, 500, 200,
+                ModalTitleThreshold, Width, Height, 500, 200,
                 "career_skill." + marker,
                 context.Pack.ExecutionDefinition.BaseDirectory,
                 context.CancellationToken)
