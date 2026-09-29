@@ -224,10 +224,13 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             throw new InvalidOperationException(
                 $"Template for '{taskName}' could not be loaded.");
 
-        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
-            timeoutMilliseconds,
-            0,
-            10 * 60 * 1000));
+        var waitIndefinitely = timeoutMilliseconds == Timeout.Infinite;
+        var timeout = waitIndefinitely
+            ? Timeout.InfiniteTimeSpan
+            : TimeSpan.FromMilliseconds(Math.Clamp(
+                timeoutMilliseconds,
+                0,
+                10 * 60 * 1000));
         var poll = TimeSpan.FromMilliseconds(Math.Clamp(
             pollIntervalMilliseconds,
             50,
@@ -262,7 +265,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                     return match;
             }
 
-            if (Stopwatch.GetElapsedTime(started) >= timeout)
+            if (!waitIndefinitely && Stopwatch.GetElapsedTime(started) >= timeout)
                 return bestMatch;
 
             await DelayAsync((int)poll.TotalMilliseconds, cancellationToken)

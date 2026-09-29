@@ -167,7 +167,7 @@ public sealed class HachimiJsonPipelineRunner
                 + $"template={task.Template ?? "none"}, roi={FormatArray(task.Roi)}, "
                 + $"searchRois={effectiveSearchRois.Count}, minScoreGap={task.MinimumScoreGap:0.000}, "
                 + $"threshold={task.TemplateThreshold:0.000}, "
-                + $"timeout={ResolveTaskTimeoutMilliseconds(current, task, state.Options)}ms, "
+                + $"timeout={FormatTaskTimeout(ResolveTaskTimeoutMilliseconds(current, task, state.Options))}, "
                 + $"preDelay={task.PreDelay}ms, wait={task.WaitMilliseconds}ms, postDelay={task.PostDelay}ms.");
 
             var retryLimit = ResolveRetryLimit(current, task, state.Options);
@@ -539,7 +539,7 @@ public sealed class HachimiJsonPipelineRunner
                 logSink,
                 taskName,
                 $"Waiting for template '{templatePath}' in ROI {FormatArray(roi)} "
-                + $"(threshold {task.TemplateThreshold:0.000}, timeout {effectiveTimeoutMilliseconds}ms, "
+                + $"(threshold {task.TemplateThreshold:0.000}, timeout {FormatTaskTimeout(effectiveTimeoutMilliseconds)}, "
                 + $"poll {pollInterval}ms).");
 
             var configuredScales = runOptions.ScaleCandidatesOverrides is not null
@@ -1860,6 +1860,9 @@ public sealed class HachimiJsonPipelineRunner
         HachimiPipelineTask task,
         HachimiPipelineRunOptions options)
     {
+        if (task.TimeoutMilliseconds == Timeout.Infinite)
+            return Timeout.Infinite;
+
         var timeout = Math.Max(0, task.TimeoutMilliseconds);
         if (options.SemanticProfile != HachimiTaskLogProfile.Career
             || !IsCareerTask(taskName))
@@ -1876,6 +1879,11 @@ public sealed class HachimiJsonPipelineRunner
             : 15_000;
         return Math.Max(timeout, floor);
     }
+
+    private static string FormatTaskTimeout(int timeoutMilliseconds) =>
+        timeoutMilliseconds == Timeout.Infinite
+            ? "until found"
+            : $"{timeoutMilliseconds}ms";
 
     private static bool IsCareerTask(string taskName) =>
         taskName.Equals("home", StringComparison.OrdinalIgnoreCase)
@@ -1953,10 +1961,13 @@ public sealed class HachimiJsonPipelineRunner
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(
-            timeoutMilliseconds,
-            0,
-            10 * 60 * 1000));
+        var waitIndefinitely = timeoutMilliseconds == Timeout.Infinite;
+        var timeout = waitIndefinitely
+            ? Timeout.InfiniteTimeSpan
+            : TimeSpan.FromMilliseconds(Math.Clamp(
+                timeoutMilliseconds,
+                0,
+                10 * 60 * 1000));
         var started = Stopwatch.GetTimestamp();
         var scrolls = 0;
         var maxScrolls = Math.Clamp(task.MaxScrolls, 0, 100);
@@ -1967,11 +1978,13 @@ public sealed class HachimiJsonPipelineRunner
         while (true)
         {
             var elapsed = Stopwatch.GetElapsedTime(started);
-            var remainingMilliseconds = (int)Math.Clamp(
-                (timeout - elapsed).TotalMilliseconds,
-                0,
-                10 * 60 * 1000);
-            if (remainingMilliseconds <= 0)
+            var remainingMilliseconds = waitIndefinitely
+                ? 10 * 60 * 1000
+                : (int)Math.Clamp(
+                    (timeout - elapsed).TotalMilliseconds,
+                    0,
+                    10 * 60 * 1000);
+            if (!waitIndefinitely && remainingMilliseconds <= 0)
                 return latest;
 
             // A scrolling template search needs short attempts so it can
@@ -1982,7 +1995,9 @@ public sealed class HachimiJsonPipelineRunner
                 ? Math.Min(
                     remainingMilliseconds,
                     Math.Clamp(pollInterval * 2, 250, 2_000))
-                : remainingMilliseconds;
+                : waitIndefinitely
+                    ? Timeout.Infinite
+                    : remainingMilliseconds;
             latest = await WaitForTemplateAttemptAsync(
                     connection,
                     definition,
@@ -2000,7 +2015,7 @@ public sealed class HachimiJsonPipelineRunner
             if (latest?.Found == true)
                 return latest;
 
-            if (Stopwatch.GetElapsedTime(started) >= timeout)
+            if (!waitIndefinitely && Stopwatch.GetElapsedTime(started) >= timeout)
                 return latest;
 
             if (canScroll && scrolls < maxScrolls)

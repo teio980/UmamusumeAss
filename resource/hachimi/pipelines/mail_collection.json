@@ -59,7 +59,7 @@
       "template": "templates/mail_collection/close.png",
       "roi": [0, 0, 900, 1600],
       "templThreshold": 0.86,
-      "timeoutMs": 12000,
+      "timeoutMs": -1,
       "pollIntervalMs": 300,
       "postDelay": 1200,
       "maxTimes": 1,

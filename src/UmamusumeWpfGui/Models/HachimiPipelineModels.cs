@@ -193,6 +193,7 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("waitMs")]
     public int WaitMilliseconds { get; set; }
 
+    /// <summary>Use -1 to keep searching until the template is found or the task is canceled.</summary>
     [JsonPropertyName("timeoutMs")]
     public int TimeoutMilliseconds { get; set; } = 10_000;
 
