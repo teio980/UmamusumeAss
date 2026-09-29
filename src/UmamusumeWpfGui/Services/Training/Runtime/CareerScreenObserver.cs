@@ -588,6 +588,8 @@ public sealed class CareerScreenObserver
             "career_rating_record_updated" => -4,
             // The follow-limit popup can obscure any settlement page beneath it.
             "follow_trainer_limit" => -5,
+            // The gift-box overlay obscures the underlying settlement reward page.
+            "event_reward" => -5,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,

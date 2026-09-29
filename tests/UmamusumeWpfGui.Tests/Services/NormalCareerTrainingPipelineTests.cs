@@ -44,6 +44,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("race_live")]
     [InlineData("race_result")]
     [InlineData("career_complete")]
+    [InlineData("event_reward")]
     public void Live_career_pages_are_eligible_for_current_screen_recovery(string screenId)
     {
         Assert.True(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
@@ -62,6 +63,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("complete_career_entry", CareerScreenKind.Settlement)]
     [InlineData("career_result_close", CareerScreenKind.Settlement)]
     [InlineData("career_epithet", CareerScreenKind.Settlement)]
+    [InlineData("event_reward", CareerScreenKind.Settlement)]
     public void Runtime_observations_are_classified_before_flow_dispatch(
         string screenId,
         CareerScreenKind expected)

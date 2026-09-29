@@ -3309,6 +3309,17 @@
                                                     "required":  true,
                                                     "success":  false
                                                 },
+                  "event_reward_next": {
+                                           "algorithm": "MatchTemplateColor",
+                                           "action": "ClickSelf",
+                                           "template": "templates/event_reward_next_text.png",
+                                           "templThreshold": 0.88,
+                                           "roi": [395, 1435, 110, 75],
+                                           "postDelay": 650,
+                                           "timeoutMs": 12000,
+                                           "pollIntervalMs": 250,
+                                           "required": true
+                                       },
                   "rewards_rewards_next":  {
                                                "algorithm":  "MatchTemplateColor",
                                                "action":  "ClickSelf",

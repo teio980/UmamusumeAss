@@ -67,6 +67,12 @@ internal sealed class CareerSettlementFlow
                         "rewards",
                         "next")
                     .ConfigureAwait(false);
+            case "event_reward":
+                return await _actions.RunAsync(
+                        context,
+                        "event_reward",
+                        "next")
+                    .ConfigureAwait(false);
             case "sparks":
                 return await _actions.RunAsync(
                         context,

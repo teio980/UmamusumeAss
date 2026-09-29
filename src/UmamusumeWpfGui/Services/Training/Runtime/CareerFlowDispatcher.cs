@@ -176,6 +176,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "follow_trainer_limit"
             or "career_epithet"
             or "rewards"
+            or "event_reward"
             or "sparks"
             or "sparks_confirmation"
             or "career_complete"

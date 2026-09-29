@@ -7,6 +7,85 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerSettlementEntryTests
 {
     [Fact]
+    public async Task Rewards_after_event_reward_use_masked_title_and_opaque_cropped_next()
+    {
+        var root = FindWorkspaceRoot();
+        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
+        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
+        var rewards = pack.ScreenProfile.Find("rewards");
+        Assert.NotNull(rewards);
+        Assert.Equal("rewards_rewards_next", rewards.FindAction("next")?.Task);
+
+        var frame = Load(Path.Combine(captures, "event_reward_after_next.png"));
+        var ordinaryRewards = Load(Path.Combine(captures, "ura_rewards_next.png"));
+        var giftOverlay = Load(Path.Combine(captures, "event_reward_live.png"));
+        var header = Load(Path.Combine(screens, "templates", "rewards_header.png"));
+        Assert.Equal(0, header.RgbaPixels![3]);
+        Assert.True(Match(frame, header, rewards.Recognition).Found);
+        Assert.True(Match(ordinaryRewards, header, rewards.Recognition).Found);
+        Assert.False(Match(giftOverlay, header, rewards.Recognition).Found);
+
+        var nextTask = pack.ExecutionDefinition.GetTask("rewards_rewards_next");
+        var next = Load(Path.Combine(screens, "templates", "rewards_rewards_next.png"));
+        Assert.InRange(next.Width, 70, 90);
+        Assert.InRange(next.Height, 30, 45);
+        Assert.Equal(255, next.RgbaPixels![3]);
+        var match = TemplateMatcher.FindColor(frame, next, nextTask.Roi,
+            nextTask.TemplateThreshold, 900, 1600);
+        Assert.True(match.Found, $"Rewards Next score {match.Score:0.000}.");
+        Assert.InRange(match.CenterX, 440, 460);
+        Assert.InRange(match.CenterY, 1460, 1480);
+    }
+
+    [Fact]
+    public async Task Event_reward_gift_box_is_recognized_and_its_cropped_next_can_be_clicked()
+    {
+        var root = FindWorkspaceRoot();
+        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
+        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
+        var eventReward = pack.ScreenProfile.Find("event_reward");
+        Assert.NotNull(eventReward);
+        Assert.Equal(CareerScreenKind.Settlement,
+            CareerScreenClassification.Classify(eventReward.ScreenId));
+        Assert.Equal("event_reward_next", eventReward.FindAction("next")?.Task);
+
+        var frame = Load(Path.Combine(captures, "event_reward_live.png"));
+        var afterNext = Load(Path.Combine(captures, "event_reward_after_next.png"));
+        var ordinaryReward = Load(Path.Combine(captures, "ura_rewards_next.png"));
+        var box = Load(Path.Combine(screens, "templates", "event_reward_gift_box.png"));
+        var boxMatch = TemplateMatcher.FindColor(frame, box,
+            eventReward.Recognition.Roi, eventReward.Recognition.TemplateThreshold,
+            900, 1600);
+        Assert.True(boxMatch.Found, $"Gift box score {boxMatch.Score:0.000}.");
+        Assert.InRange(boxMatch.CenterX, 430, 470);
+        Assert.InRange(boxMatch.CenterY, 1270, 1310);
+        Assert.False(TemplateMatcher.FindColor(ordinaryReward, box,
+            eventReward.Recognition.Roi, eventReward.Recognition.TemplateThreshold,
+            900, 1600).Found);
+        Assert.False(TemplateMatcher.FindColor(afterNext, box,
+            eventReward.Recognition.Roi, eventReward.Recognition.TemplateThreshold,
+            900, 1600).Found);
+
+        var nextTask = pack.ExecutionDefinition.GetTask("event_reward_next");
+        Assert.Equal("ClickSelf", nextTask.Action);
+        Assert.Equal("MatchTemplateColor", nextTask.Algorithm);
+        var nextText = Load(Path.Combine(screens, "templates", "event_reward_next_text.png"));
+        Assert.InRange(nextText.Width, 70, 90);
+        Assert.InRange(nextText.Height, 30, 45);
+        var nextMatch = TemplateMatcher.FindColor(frame, nextText,
+            nextTask.Roi, nextTask.TemplateThreshold, 900, 1600);
+        Assert.True(nextMatch.Found, $"Next score {nextMatch.Score:0.000}.");
+        Assert.InRange(nextMatch.CenterX, 440, 460);
+        Assert.InRange(nextMatch.CenterY, 1460, 1480);
+        Assert.Equal(0, box.RgbaPixels![3]);
+        Assert.Equal(255, nextText.RgbaPixels![3]);
+    }
+
+    [Fact]
     public async Task Complete_career_entry_and_finish_dialog_are_distinguished()
     {
         var root = FindWorkspaceRoot();

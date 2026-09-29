@@ -1795,6 +1795,22 @@
                                     ]
                     },
                     {
+                        "screenId": "event_reward",
+                        "recognition": {
+                            "template": "templates/event_reward_gift_box.png",
+                            "matchAlphaTemplate": true,
+                            "roi": [280, 1160, 340, 250],
+                            "templThreshold": 0.88,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "event_reward.next",
+                                "task": "event_reward_next"
+                            }
+                        ]
+                    },
+                    {
                         "screenId":  "rewards",
                         "recognition":  {
                                             "template":  "templates/rewards_header.png",
@@ -1971,6 +1987,16 @@
                             "from":  "career_result",
                             "to":  "rewards",
                             "on":  "career.next"
+                        },
+                        {
+                            "from":  "rewards",
+                            "to":  "event_reward",
+                            "on":  "rewards.next"
+                        },
+                        {
+                            "from":  "event_reward",
+                            "to":  "rewards",
+                            "on":  "event_reward.next"
                         },
                         {
                             "from":  "rewards",
