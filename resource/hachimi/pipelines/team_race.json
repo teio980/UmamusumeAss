@@ -7,7 +7,7 @@
   "tasks": {
     "home": {
       "template": "templates/start_game/game_home_selected.png",
-      "roi": [250, 1400, 400, 200],
+      "roi": [360, 1460, 180, 130],
       "templThreshold": 0.8,
       "timeoutMs": 2500,
       "postDelay": 1200,
@@ -16,7 +16,7 @@
     },
     "homeAlt": {
       "template": "templates/start_game/game_home_unselected.png",
-      "roi": [250, 1400, 400, 200],
+      "roi": [360, 1460, 180, 130],
       "templThreshold": 0.8,
       "timeoutMs": 2500,
       "postDelay": 1200,
