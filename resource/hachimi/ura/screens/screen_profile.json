@@ -873,6 +873,28 @@
                                     ]
                     },
                     {
+                        "screenId": "claw_machine",
+                        "recognition": {
+                            "template": "templates/career/turn/claw_how_to_play.png",
+                            "roi": [680, 275, 210, 65],
+                            "templThreshold": 0.94,
+                            "matchColorText": true,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
+                        "screenId": "claw_machine_result",
+                        "recognition": {
+                            "template": "templates/career/turn/claw_result_cuties.png",
+                            "roi": [450, 430, 300, 70],
+                            "templThreshold": 0.92,
+                            "matchColorText": true,
+                            "stable": true
+                        },
+                        "actions": []
+                    },
+                    {
                         "screenId":  "recreation_selection",
                         "recognition":  {
                                             "template":  "templates/career/turn/recreation_selection_title.png",

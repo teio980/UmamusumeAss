@@ -26,6 +26,8 @@ internal static class CareerScreenClassification
             or "rest_confirmation"
             or "recreation_selection"
             or "recreation_confirmation"
+            or "claw_machine"
+            or "claw_machine_result"
             or "summer_rest_confirmation"
             or "infirmary_confirmation"
             => CareerScreenKind.Turn,

@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -15,6 +17,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     private readonly IAdbRuntime _adbRuntime;
     private readonly IAsyncDelay _asyncDelay;
     private readonly IScreenTextRecognizer _textRecognizer;
+    private readonly ConcurrentDictionary<string, HeldTouchDevice> _touchDevices = new();
 
     public AdbVisualPipelineRuntime(
         IAdbRuntime adbRuntime,
@@ -739,6 +742,99 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
                 $"ADB coordinate tap failed for '{taskName}': {result.Stderr}");
         }
     }
+
+    public Task TouchDownAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        SendTouchEventAsync(connection, "DOWN", x, y, referenceWidth,
+            referenceHeight, taskName, cancellationToken);
+
+    public Task TouchUpAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        SendTouchEventAsync(connection, "UP", x, y, referenceWidth,
+            referenceHeight, taskName, cancellationToken);
+
+    public Task TouchCancelAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        SendTouchEventAsync(connection, "CANCEL", x, y, referenceWidth,
+            referenceHeight, taskName, cancellationToken);
+
+    public async Task PrepareHeldTouchAsync(LastVerifiedConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        if (_touchDevices.ContainsKey(connection.Serial))
+            return;
+        var result = await _adbRuntime.ShellAsync(connection.AdbPath,
+            connection.Serial, ["getevent", "-lp"], cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"Could not inspect the touchscreen input device: {result.Stderr}");
+        foreach (var section in Regex.Split(result.Stdout,
+                     @"(?=add device \d+: /dev/input/event\d+)"))
+        {
+            if (!section.Contains("ABS_MT_POSITION_X", StringComparison.Ordinal)
+                || !section.Contains("ABS_MT_POSITION_Y", StringComparison.Ordinal))
+                continue;
+            var device = Regex.Match(section, @"/dev/input/event(?<id>\d+)");
+            var maxX = Regex.Match(section,
+                @"ABS_MT_POSITION_X\s+:.*?max\s+(?<max>\d+)");
+            var maxY = Regex.Match(section,
+                @"ABS_MT_POSITION_Y\s+:.*?max\s+(?<max>\d+)");
+            if (!device.Success || !maxX.Success || !maxY.Success
+                || !int.TryParse(maxX.Groups["max"].Value, out var touchMaxX)
+                || !int.TryParse(maxY.Groups["max"].Value, out var touchMaxY)
+                || touchMaxX <= 0 || touchMaxY <= 0)
+                continue;
+            _touchDevices[connection.Serial] = new HeldTouchDevice(
+                $"/dev/input/event{device.Groups["id"].Value}",
+                touchMaxX, touchMaxY,
+                section.Contains("BTN_TOOL_FINGER", StringComparison.Ordinal),
+                section.Contains("BTN_TOUCH", StringComparison.Ordinal));
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "No writable multi-touch input device was found for a held claw press.");
+    }
+
+    private async Task SendTouchEventAsync(LastVerifiedConnection connection,
+        string phase, int x, int y, int referenceWidth, int referenceHeight,
+        string taskName, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        var scaledX = ScaleCoordinate(x, Math.Max(1, referenceWidth), connection.Width);
+        var scaledY = ScaleCoordinate(y, Math.Max(1, referenceHeight), connection.Height);
+        await PrepareHeldTouchAsync(connection, cancellationToken).ConfigureAwait(false);
+        var device = _touchDevices[connection.Serial];
+        var path = device.Path;
+        var commands = new List<string>
+        {
+            $"sendevent {path} 3 47 0",
+            $"sendevent {path} 3 57 {(phase == "DOWN" ? "123" : "-1")}",
+        };
+        if (phase == "DOWN")
+        {
+            commands.Add($"sendevent {path} 3 53 {ScaleCoordinate(scaledX, connection.Width, device.MaxX)}");
+            commands.Add($"sendevent {path} 3 54 {ScaleCoordinate(scaledY, connection.Height, device.MaxY)}");
+        }
+        if (device.HasToolFinger)
+            commands.Add($"sendevent {path} 1 325 {(phase == "DOWN" ? "1" : "0")}");
+        if (device.HasTouch)
+            commands.Add($"sendevent {path} 1 330 {(phase == "DOWN" ? "1" : "0")}");
+        commands.Add($"sendevent {path} 0 0 0");
+        var result = await _adbRuntime.ShellAsync(connection.AdbPath, connection.Serial,
+                ["set -e; " + string.Join("; ", commands)],
+                cancellationToken).ConfigureAwait(false);
+        if (result.Error is not null || result.TimedOut || result.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"ADB touch {phase} failed for '{taskName}': {result.Stderr}");
+    }
+
+    private readonly record struct HeldTouchDevice(string Path, int MaxX,
+        int MaxY, bool HasToolFinger, bool HasTouch);
 
     public async Task<HsvColorProbeResult?> ProbeHsvAsync(
         LastVerifiedConnection connection,

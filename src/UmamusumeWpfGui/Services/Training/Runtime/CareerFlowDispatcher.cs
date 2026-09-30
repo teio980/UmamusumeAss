@@ -11,6 +11,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
     private readonly CareerSettlementFlow _settlementFlow;
+    private readonly CareerClawMachineFlow _clawMachineFlow;
     private readonly ICareerEventHandler _eventHandler;
     private IHachimiTaskLogSink? _taskLogSink;
 
@@ -34,6 +35,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
         _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
         _settlementFlow = new CareerSettlementFlow(this);
+        _clawMachineFlow = new CareerClawMachineFlow(visualRuntime);
     }
 
     internal void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) =>
@@ -133,6 +135,10 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
                     .ConfigureAwait(false),
             "inheritance_event"
                 => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
+            "claw_machine"
+                => await _clawMachineFlow.HandleAsync(context).ConfigureAwait(false),
+            "claw_machine_result"
+                => await _clawMachineFlow.HandleResultAsync(context).ConfigureAwait(false),
             "career_main"
             or "training_selection"
             or "training_result"

@@ -575,6 +575,8 @@ public sealed class CareerScreenObserver
             "career_main" when careerStartTransitionExpected => 1,
             "career_races_ready" when careerStartTransitionExpected => 2,
             "event_choice" => 0,
+            "claw_machine" => -1,
+            "claw_machine_result" => -2,
             "training_event" => 1,
             "scenario_event" => 2,
             // The optional Race Recommendations dialog can collide with the

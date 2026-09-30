@@ -191,6 +191,25 @@ public interface IVisualPipelineRuntime
         string taskName,
         CancellationToken cancellationToken = default);
 
+    Task PrepareHeldTouchAsync(LastVerifiedConnection connection,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Held touch is not available in this visual runtime.");
+
+    Task TouchDownAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Held touch is not available in this visual runtime.");
+
+    Task TouchUpAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Held touch is not available in this visual runtime.");
+
+    Task TouchCancelAsync(LastVerifiedConnection connection, int x, int y,
+        int referenceWidth, int referenceHeight, string taskName,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Held touch is not available in this visual runtime.");
+
     /// <summary>
     /// Samples a reference-space square until its HSV match ratio reaches the
     /// requested threshold or the timeout expires.  The runtime only provides
