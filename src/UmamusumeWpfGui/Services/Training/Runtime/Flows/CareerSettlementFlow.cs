@@ -53,7 +53,7 @@ internal sealed class CareerSettlementFlow
                 return await _actions.RunAsync(
                         context,
                         "follow_trainer_limit",
-                        "close")
+                        "cancel")
                     .ConfigureAwait(false);
             case "career_epithet":
                 return await _actions.RunAsync(

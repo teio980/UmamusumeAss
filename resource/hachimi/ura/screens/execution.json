@@ -3099,16 +3099,16 @@
                                                             "required":  true,
                                                             "success":  false
                                                         },
-                  "career_follow_trainer_limit_close":  {
+                  "career_follow_trainer_limit_cancel":  {
                                                             "algorithm":  "MatchTemplateColor",
                                                             "action":  "ClickSelf",
-                                                            "template":  "templates/follow_trainer_limit_close.png",
+                                                            "template":  "templates/follow_trainer_limit_cancel.png",
                                                             "templThreshold":  0.86,
                                                             "roi":  [
-                                                                        370,
-                                                                        985,
-                                                                        160,
-                                                                        120
+                                                                        170,
+                                                                        990,
+                                                                        170,
+                                                                        100
                                                                     ],
                                                             "preDelay":  0,
                                                             "postDelay":  650,

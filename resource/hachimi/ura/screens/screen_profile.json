@@ -1745,20 +1745,20 @@
                                                        180
                                                    ],
                                             "templThreshold":  0.90,
-                                            "requiredTemplate":  "templates/follow_trainer_limit_close.png",
+                                            "requiredTemplate":  "templates/follow_trainer_limit_cancel.png",
                                             "requiredTemplateRoi":  [
-                                                                          370,
-                                                                          985,
-                                                                          160,
-                                                                          120
+                                                                          170,
+                                                                          990,
+                                                                          170,
+                                                                          100
                                                                       ],
                                             "requiredTemplateThreshold":  0.78,
                                             "stable":  true
                                         },
                         "actions":  [
                                         {
-                                            "semanticId":  "career.follow_limit.close",
-                                            "task":  "career_follow_trainer_limit_close"
+                                            "semanticId":  "career.follow_limit.cancel",
+                                            "task":  "career_follow_trainer_limit_cancel"
                                         }
                                     ]
                     },
