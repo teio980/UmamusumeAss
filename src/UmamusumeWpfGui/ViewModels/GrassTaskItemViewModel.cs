@@ -13,6 +13,7 @@ public sealed class GrassTaskItemViewModel : INotifyPropertyChanged
     private string _description;
     private bool _isEnabled;
     private string _status = "Idle";
+    private GrassTaskExecutionProgress? _executionProgress;
 
     public GrassTaskItemViewModel(IGrassTaskModule module, bool isEnabled = true)
     {
@@ -56,7 +57,20 @@ public sealed class GrassTaskItemViewModel : INotifyPropertyChanged
                 return;
             _status = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayStatus));
         }
+    }
+
+    public string DisplayStatus => _executionProgress is { } progress
+        ? $"{Status} · {progress.DisplayText}"
+        : Status;
+
+    internal void SetExecutionProgress(GrassTaskExecutionProgress? progress)
+    {
+        if (_executionProgress == progress)
+            return;
+        _executionProgress = progress;
+        OnPropertyChanged(nameof(DisplayStatus));
     }
 
     internal void UpdateText(string name, string description)

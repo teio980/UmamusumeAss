@@ -150,6 +150,9 @@
   <sys:String x:Key="GrassCareerDeleteExistingLabel">删除已有 Career 数据</sys:String>
   <sys:String x:Key="GrassCareerDeleteExistingHint">勾选后删除已有 Career 数据并重新开始；不勾选则尝试 Resume。</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career 模式</sys:String>
+  <sys:String x:Key="GrassCareerRunCountLabel">运行次数</sys:String>
+  <sys:String x:Key="GrassCareerRunCountHint">输入正整数。每轮成功后继续下一轮，失败或取消时停止。</sys:String>
+  <sys:String x:Key="GrassCareerRunCountInvalid">运行次数必须是正整数。</sys:String>
   <sys:String x:Key="GrassNormalTrainingStrategyLabel">普通 Career · 训练策略</sys:String>
   <sys:String x:Key="GrassNormalLineupStrategyLabel">普通 Career · 策略</sys:String>
   <sys:String x:Key="GrassNormalRaceAlarmRetryLabel">比赛失败时消耗闹钟重赛</sys:String>
@@ -425,6 +428,8 @@
   <sys:String x:Key="GrassTaskCareerTrainingDescription">运行模块化剧本 Career 育成流程</sys:String>
   <sys:String x:Key="GrassCareerTrainingConnectionRequired">请连接设备并配置有效的 Career 育成设置。</sys:String>
   <sys:String x:Key="GrassCareerTrainingCanceled">Career 育成已取消。</sys:String>
+  <sys:String x:Key="GrassCareerTrainingRunStarting">正在开始第 {0}/{1} 次 Career 育成。</sys:String>
+  <sys:String x:Key="GrassCareerTrainingRunsCompleted">Career 育成已完成 {0}/{1} 次。</sys:String>
   <sys:String x:Key="GrassCareerTrainingStopRequested">已请求停止 Career 育成。</sys:String>
   <sys:String x:Key="GrassNormalCareerNotImplemented">普通育成暂未完成。</sys:String>
 </ResourceDictionary>

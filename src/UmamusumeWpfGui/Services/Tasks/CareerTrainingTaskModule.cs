@@ -89,6 +89,9 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             return $"Unknown Career mode '{Settings.CareerMode}'.";
         }
 
+        if (Settings.RunCount <= 0)
+            return Localize("GrassCareerRunCountInvalid", "Run count must be a positive whole number.");
+
         if (!Settings.IsIndependentCareer
             && (string.IsNullOrWhiteSpace(Settings.StrategyId)
                 || !UraStrategyRegistry.IsRegistered(Settings.StrategyId)))
@@ -155,6 +158,14 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
 
         try
         {
+            var runCount = Settings.RunCount;
+            var independentSettings = Settings.IsIndependentCareer
+                ? CareerTaskSettingsMapper.ToIndependentSettings(Settings)
+                : null;
+            var normalSettings = independentSettings is null
+                ? CareerTaskSettingsMapper.ToNormalSettings(Settings)
+                : null;
+            context.ReportProgress?.Invoke(new GrassTaskExecutionProgress(0, runCount));
             var deleteExistingCareerData = Settings.DeleteExistingCareerData;
             context.LogSink?.Add(
                 "Career Training",
@@ -174,31 +185,69 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                         ? " Independent setup will be applied after support selection."
                         : " Normal Career will use the final Start action."));
 
-            if (!Settings.IsIndependentCareer)
+            var completedRuns = 0;
+            var lastMessage = string.Empty;
+            while (completedRuns < runCount)
             {
-                var normalResult = await _normalPipeline.RunAsync(
+                cancellationToken.ThrowIfCancellationRequested();
+                var startingMessage = string.Format(
+                    CultureInfo.InvariantCulture,
+                    Localize("GrassCareerTrainingRunStarting", "Starting Career training run {0}/{1}."),
+                    completedRuns + 1,
+                    runCount);
+                Settings.SetStatus(startingMessage);
+                context.LogSink?.Add("Career Training", startingMessage);
+                context.TaskLogSink?.Add("Run", startingMessage, HachimiTaskLogEventKind.Action);
+
+                bool succeeded;
+                if (independentSettings is null)
+                {
+                    var result = await _normalPipeline.RunAsync(
                         connection,
-                        CareerTaskSettingsMapper.ToNormalSettings(Settings),
+                        normalSettings!,
                         context.LogSink,
                         context.TaskLogSink,
                         cancellationToken)
-                    .ConfigureAwait(false);
-                Settings.SetStatus(normalResult.Message);
-                return new GrassTaskExecutionResult(
-                    normalResult.Succeeded,
-                    false,
-                    normalResult.Message);
+                        .ConfigureAwait(false);
+                    succeeded = result.Succeeded;
+                    lastMessage = result.Message;
+                }
+                else
+                {
+                    var result = await _independentPipeline.RunAsync(
+                        connection,
+                        independentSettings,
+                        context.LogSink,
+                        context.TaskLogSink,
+                        cancellationToken)
+                        .ConfigureAwait(false);
+                    succeeded = result.Succeeded;
+                    lastMessage = result.Message;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!succeeded)
+                {
+                    Settings.SetStatus(lastMessage);
+                    return new GrassTaskExecutionResult(false, false, lastMessage);
+                }
+
+                completedRuns++;
+                context.ReportProgress?.Invoke(new GrassTaskExecutionProgress(completedRuns, runCount));
+                var completedMessage = string.Format(
+                    CultureInfo.InvariantCulture,
+                    Localize("GrassCareerTrainingRunsCompleted", "Career training completed: {0}/{1} run(s)."),
+                    completedRuns,
+                    runCount);
+                Settings.SetStatus(completedMessage);
+                context.TaskLogSink?.Add("Run", completedMessage, HachimiTaskLogEventKind.Success);
             }
 
-            var result = await _independentPipeline.RunAsync(
-                    connection,
-                    CareerTaskSettingsMapper.ToIndependentSettings(Settings),
-                    context.LogSink,
-                    context.TaskLogSink,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            Settings.SetStatus(result.Message);
-            return new GrassTaskExecutionResult(result.Succeeded, false, result.Message);
+            cancellationToken.ThrowIfCancellationRequested();
+            // Preserve the single-run result message for existing callers.
+            var message = runCount == 1 ? lastMessage : Settings.Status;
+            Settings.SetStatus(message);
+            return new GrassTaskExecutionResult(true, false, message);
         }
         catch (OperationCanceledException)
         {

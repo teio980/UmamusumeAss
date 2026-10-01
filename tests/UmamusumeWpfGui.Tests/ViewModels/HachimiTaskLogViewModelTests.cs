@@ -1,10 +1,35 @@
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests.ViewModels;
 
 public sealed class HachimiTaskLogViewModelTests
 {
+    [Fact]
+    public void Run_progress_stays_visible_after_completion_and_language_changes()
+    {
+        var log = new HachimiTaskLogViewModel();
+        log.BeginRun(
+            [("0:career-training", "Career Training")],
+            "Pending", "Running", "Completed", "Failed", "Canceled", "Skipped", "Queue started");
+        var group = Assert.Single(log.Tasks);
+        log.SetTaskStatus(group.TaskId, HachimiTaskLogStatus.Running);
+        log.SetTaskProgress(group.TaskId, new GrassTaskExecutionProgress(1, 3));
+        Assert.Equal("Running · 1/3", group.DisplayStatus);
+
+        log.SetTaskProgress(group.TaskId, new GrassTaskExecutionProgress(3, 3));
+        log.SetTaskStatus(group.TaskId, HachimiTaskLogStatus.Completed);
+        Assert.Equal("Completed · 3/3", group.DisplayStatus);
+        log.RefreshStatusText("等待", "运行中", "已完成", "失败", "取消", "跳过");
+        Assert.Equal("已完成 · 3/3", group.DisplayStatus);
+
+        log.BeginRun(
+            [("0:career-training", "Career Training")],
+            "Pending", "Running", "Completed", "Failed", "Canceled", "Skipped", "Queue started");
+        Assert.Equal("Pending", Assert.Single(log.Tasks).DisplayStatus);
+    }
+
     [Fact]
     public void BeginRunCreatesOrderedGroupsAndClearsThePreviousRun()
     {

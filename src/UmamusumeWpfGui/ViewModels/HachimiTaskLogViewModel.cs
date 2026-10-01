@@ -112,6 +112,14 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
         });
     }
 
+    public void SetTaskProgress(string taskId, GrassTaskExecutionProgress progress)
+    {
+        if (!_groups.TryGetValue(taskId, out var group))
+            return;
+
+        Dispatch(() => group.SetExecutionProgress(progress));
+    }
+
     public void AddTaskStep(
         string taskId,
         string step,

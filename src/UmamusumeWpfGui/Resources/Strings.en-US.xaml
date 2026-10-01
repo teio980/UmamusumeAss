@@ -152,6 +152,9 @@
   <sys:String x:Key="GrassCareerDeleteExistingLabel">Delete existing Career data</sys:String>
   <sys:String x:Key="GrassCareerDeleteExistingHint">When enabled, delete existing Career data and start fresh; otherwise attempt to resume.</sys:String>
   <sys:String x:Key="GrassCareerModeLabel">Career mode</sys:String>
+  <sys:String x:Key="GrassCareerRunCountLabel">Run count</sys:String>
+  <sys:String x:Key="GrassCareerRunCountHint">Enter a positive whole number. Continue after each successful run; stop on failure or cancellation.</sys:String>
+  <sys:String x:Key="GrassCareerRunCountInvalid">Run count must be a positive whole number.</sys:String>
   <sys:String x:Key="GrassNormalTrainingStrategyLabel">Normal Career · training strategy</sys:String>
   <sys:String x:Key="GrassNormalLineupStrategyLabel">Normal Career · strategy</sys:String>
   <sys:String x:Key="GrassNormalRaceAlarmRetryLabel">Use alarm clocks to retry failed races</sys:String>
@@ -424,6 +427,8 @@
   <sys:String x:Key="GrassTaskCareerTrainingDescription">Run a modular scenario training career</sys:String>
   <sys:String x:Key="GrassCareerTrainingConnectionRequired">Connect a device and configure a valid career training profile first.</sys:String>
   <sys:String x:Key="GrassCareerTrainingCanceled">Career training canceled.</sys:String>
+  <sys:String x:Key="GrassCareerTrainingRunStarting">Starting Career training run {0}/{1}.</sys:String>
+  <sys:String x:Key="GrassCareerTrainingRunsCompleted">Career training completed: {0}/{1} run(s).</sys:String>
   <sys:String x:Key="GrassCareerTrainingStopRequested">Career training stop requested.</sys:String>
   <sys:String x:Key="GrassNormalCareerNotImplemented">Normal Career is not completed yet.</sys:String>
 </ResourceDictionary>

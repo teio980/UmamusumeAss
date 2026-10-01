@@ -44,6 +44,99 @@ public sealed class CareerTrainingTaskModuleRoutingTests
         Assert.True(fixture.Independent.RunCalled);
     }
 
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("independent")]
+    public async Task Run_count_repeats_the_selected_pipeline_and_reports_completed_runs(string mode)
+    {
+        var fixture = await CreateFixtureAsync();
+        fixture.Module.Settings.CareerMode = mode;
+        fixture.Module.Settings.RunCountText = "3";
+        fixture.Independent.RunResult = new(true, "independent-ran", 2, "home");
+        var progress = new List<GrassTaskExecutionProgress>();
+
+        var result = await fixture.Module.ExecuteAsync(
+            new GrassTaskExecutionContext(fixture.Connection, ReportProgress: progress.Add));
+
+        Assert.True(result.Succeeded);
+        Assert.Contains("3/3", result.Message);
+        Assert.Equal(mode == "normal" ? 3 : 0, fixture.Normal.RunSettings.Count);
+        Assert.Equal(mode == "independent" ? 3 : 0, fixture.Independent.RunSettings.Count);
+        Assert.Equal(
+            [new(0, 3), new(1, 3), new(2, 3), new(3, 3)],
+            progress);
+    }
+
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("independent")]
+    public async Task A_failed_run_stops_repetition_and_does_not_increment_completed_runs(string mode)
+    {
+        var fixture = await CreateFixtureAsync();
+        fixture.Module.Settings.CareerMode = mode;
+        fixture.Module.Settings.RunCountText = "3";
+        fixture.Normal.ResultFactory = run => new(run == 1, "normal-result", 0, "home");
+        fixture.Independent.ResultFactory = run => new(run == 1, "independent-result", 0, "home");
+        var progress = new List<GrassTaskExecutionProgress>();
+
+        var result = await fixture.Module.ExecuteAsync(
+            new GrassTaskExecutionContext(fixture.Connection, ReportProgress: progress.Add));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(mode == "normal" ? 2 : 0, fixture.Normal.RunSettings.Count);
+        Assert.Equal(mode == "independent" ? 2 : 0, fixture.Independent.RunSettings.Count);
+        Assert.Equal([new(0, 3), new(1, 3)], progress);
+    }
+
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("independent")]
+    public async Task Cancellation_between_runs_keeps_the_completed_count_and_stops_repetition(string mode)
+    {
+        var fixture = await CreateFixtureAsync();
+        fixture.Module.Settings.CareerMode = mode;
+        fixture.Module.Settings.RunCountText = "3";
+        fixture.Independent.RunResult = new(true, "independent-ran", 2, "home");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new List<GrassTaskExecutionProgress>();
+
+        var result = await fixture.Module.ExecuteAsync(
+            new GrassTaskExecutionContext(fixture.Connection, ReportProgress: update =>
+            {
+                progress.Add(update);
+                if (update.CompletedRuns == 1)
+                    cancellation.Cancel();
+            }),
+            cancellation.Token);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("canceled", result.Message);
+        Assert.Equal(mode == "normal" ? 1 : 0, fixture.Normal.RunSettings.Count);
+        Assert.Equal(mode == "independent" ? 1 : 0, fixture.Independent.RunSettings.Count);
+        Assert.Equal([new(0, 3), new(1, 3)], progress);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("")]
+    [InlineData("abc")]
+    public async Task Invalid_run_count_does_not_start_a_pipeline(string runCount)
+    {
+        var fixture = await CreateFixtureAsync();
+        fixture.Module.Settings.RunCountText = runCount;
+        var context = new GrassTaskExecutionContext(fixture.Connection);
+
+        Assert.False(fixture.Module.CanExecute(context));
+        Assert.False(fixture.Module.Settings.IsValid);
+        var result = await fixture.Module.ExecuteAsync(context);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("positive whole number", result.Message);
+        Assert.False(fixture.Normal.RunCalled);
+        Assert.False(fixture.Independent.RunCalled);
+    }
+
     [Fact]
     public async Task Stop_in_independent_mode_only_stops_independent_pipeline()
     {
@@ -194,7 +287,11 @@ public sealed class CareerTrainingTaskModuleRoutingTests
 
     private sealed class FakeCareerPipeline : ICareerTrainingPipeline
     {
-        public bool RunCalled { get; private set; }
+        public bool RunCalled => RunSettings.Count > 0;
+
+        public List<CareerTrainingSettings> RunSettings { get; } = [];
+
+        public Func<int, CareerTrainingResult>? ResultFactory { get; set; }
 
         public bool StopCalled { get; private set; }
 
@@ -205,8 +302,9 @@ public sealed class CareerTrainingTaskModuleRoutingTests
             IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
-            RunCalled = true;
-            return Task.FromResult(new CareerTrainingResult(true, "normal-ran", 1, "normal"));
+            RunSettings.Add(settings);
+            return Task.FromResult(ResultFactory?.Invoke(RunSettings.Count)
+                ?? new CareerTrainingResult(true, "normal-ran", 1, "normal"));
         }
 
         public Task<CareerTrainingResult> StopAsync(
@@ -222,7 +320,11 @@ public sealed class CareerTrainingTaskModuleRoutingTests
 
     private sealed class FakeIndependentPipeline : IIndependentTrainingPipeline
     {
-        public bool RunCalled { get; private set; }
+        public bool RunCalled => RunSettings.Count > 0;
+
+        public List<IndependentTrainingSettings> RunSettings { get; } = [];
+
+        public Func<int, IndependentTrainingResult>? ResultFactory { get; set; }
 
         public bool StopCalled { get; private set; }
 
@@ -236,8 +338,8 @@ public sealed class CareerTrainingTaskModuleRoutingTests
             IHachimiTaskLogSink? taskLogSink = null,
             CancellationToken cancellationToken = default)
         {
-            RunCalled = true;
-            return Task.FromResult(RunResult);
+            RunSettings.Add(settings);
+            return Task.FromResult(ResultFactory?.Invoke(RunSettings.Count) ?? RunResult);
         }
 
         public Task<IndependentTrainingResult> StopAsync(

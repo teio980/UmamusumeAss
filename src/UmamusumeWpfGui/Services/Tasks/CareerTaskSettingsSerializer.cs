@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Globalization;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
@@ -17,6 +18,7 @@ public static class CareerTaskSettingsSerializer
             ["manifestPath"] = settings.ManifestPath,
             ["traineeId"] = settings.TraineeId,
             ["careerMode"] = settings.CareerMode,
+            ["runCount"] = settings.RunCount,
             ["normalLineupStrategy"] = settings.NormalLineupStrategy,
             ["retryFailedRaceWithAlarmClock"] = settings.RetryFailedRaceWithAlarmClock,
             ["normalEventHandling"] = settings.NormalEventHandling,
@@ -64,6 +66,8 @@ public static class CareerTaskSettingsSerializer
         // ignored while remaining harmless during import.
         settings.TraineeId = ReadNullableInt(values, "traineeId") ?? settings.TraineeId;
         settings.CareerMode = ReadString(values, "careerMode") ?? settings.CareerMode;
+        settings.RunCountText = (ReadNullableInt(values, "runCount") ?? 1)
+            .ToString(CultureInfo.InvariantCulture);
         settings.NormalLineupStrategy = ReadString(values, "normalLineupStrategy")
             // Profiles created before Normal Career had its own strategy field
             // used the Independent field for the same four game choices.

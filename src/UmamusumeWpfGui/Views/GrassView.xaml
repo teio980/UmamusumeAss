@@ -166,7 +166,7 @@
                       <StackPanel>
                         <TextBlock Text="{Binding Name}" FontWeight="Medium" />
                         <TextBlock Margin="0,2,0,0"
-                                   Text="{Binding Status}"
+                                   Text="{Binding DisplayStatus}"
                                    FontSize="11"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                       </StackPanel>
@@ -202,7 +202,7 @@
                     <StackPanel>
                       <TextBlock Text="{Binding Name}" FontWeight="Medium" />
                       <TextBlock Margin="0,2,0,0"
-                                 Text="{Binding Status}"
+                                 Text="{Binding DisplayStatus}"
                                  FontSize="11"
                                  Foreground="{DynamicResource TextSecondaryBrush}" />
                     </StackPanel>
@@ -298,7 +298,7 @@
                           <TextBlock Text="{Binding TaskName}"
                                      FontWeight="Medium" />
                           <TextBlock Grid.Column="1"
-                                     Text="{Binding StatusText}"
+                                     Text="{Binding DisplayStatus}"
                                      Foreground="{DynamicResource AccentPrimaryBrush}" />
                         </Grid>
                         <TextBlock Margin="0,6,0,0"

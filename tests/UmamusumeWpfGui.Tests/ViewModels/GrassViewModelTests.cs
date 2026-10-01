@@ -367,6 +367,45 @@ public sealed class GrassViewModelTests
     }
 
     [Fact]
+    public async Task Run_progress_updates_queue_and_log_without_changing_queue_success()
+    {
+        using var log = new LogViewModel();
+        var state = new ConnectionStateService();
+        state.UpdateLastVerified(new LastVerifiedConnection(
+            "adb.exe", "emulator-5554", "android-id", "35",
+            1080, 1920, 1080, 1920, DateTimeOffset.UtcNow));
+        state.SetState(ConnectionState.Connected);
+        var module = new ProgressGrassTaskModule();
+        var catalog = GrassTaskCatalog.CreateEmpty();
+        catalog.Register(module);
+        using var viewModel = new GrassViewModel(log, new FakeLocalizationService(), catalog, state);
+        viewModel.AddTaskCommand.Execute(null);
+        var task = Assert.Single(viewModel.Tasks);
+        module.BeforeProgress = () => Assert.Equal("Running", task.DisplayStatus);
+
+        viewModel.StartCommand.Execute(null);
+        await module.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal("Running · 1/2", task.DisplayStatus);
+        Assert.Equal("Running · 1/2", Assert.Single(viewModel.HachimiTaskLog.Tasks).DisplayStatus);
+        module.Finish.TrySetResult(true);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (viewModel.IsQueueOperationInProgress)
+            await Task.Delay(10, timeout.Token);
+
+        Assert.Equal("Completed", task.Status);
+        Assert.Equal("Completed · 2/2", task.DisplayStatus);
+        Assert.Equal("Completed · 2/2", Assert.Single(viewModel.HachimiTaskLog.Tasks).DisplayStatus);
+        Assert.Equal("Queue completed", viewModel.HachimiTaskLog.RunStatus);
+
+        // The second queue run must clear the previous count before the task reports progress.
+        viewModel.StartCommand.Execute(null);
+        while (viewModel.IsQueueOperationInProgress)
+            await Task.Delay(10, timeout.Token);
+        Assert.Equal("Queue completed", viewModel.HachimiTaskLog.RunStatus);
+    }
+
+    [Fact]
     public void LanguageChangedRefreshesTaskPresentation()
     {
         using var log = new LogViewModel();
@@ -539,6 +578,39 @@ public sealed class GrassViewModelTests
             StopCallCount++;
             return Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
         }
+    }
+
+    private sealed class ProgressGrassTaskModule : IGrassTaskModule
+    {
+        public TaskCompletionSource<bool> Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Finish { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Action? BeforeProgress { get; set; }
+        public GrassTaskDefinition Definition { get; } = new(
+            "progress-task", "ProgressTask", "ProgressTaskDescription", "Progress task", "Reports run progress");
+        public object Settings { get; } = new();
+        public JsonObject ExportSettings() => new();
+        public void ImportSettings(JsonObject settings) { }
+        public IGrassTaskModule CreateInstance() => this;
+        public bool CanExecute(GrassTaskExecutionContext context) => context.Connection is not null;
+
+        public async Task<GrassTaskExecutionResult> ExecuteAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            BeforeProgress?.Invoke();
+            context.ReportProgress?.Invoke(new GrassTaskExecutionProgress(1, 2));
+            Started.TrySetResult(true);
+            await Finish.Task.WaitAsync(cancellationToken);
+            context.ReportProgress?.Invoke(new GrassTaskExecutionProgress(2, 2));
+            return new GrassTaskExecutionResult(true, false, "completed");
+        }
+
+        public Task<GrassTaskExecutionResult> StopAsync(
+            GrassTaskExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GrassTaskExecutionResult(true, false, "stopped"));
     }
 
     private sealed class FailingGrassTaskModule : IGrassTaskModule

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.ViewModels;
 
@@ -9,6 +10,7 @@ public sealed class HachimiTaskLogGroupViewModel : INotifyPropertyChanged
 {
     private HachimiTaskLogStatus _status;
     private string _statusText;
+    private GrassTaskExecutionProgress? _executionProgress;
 
     internal HachimiTaskLogGroupViewModel(
         int order,
@@ -52,7 +54,20 @@ public sealed class HachimiTaskLogGroupViewModel : INotifyPropertyChanged
                 return;
             _statusText = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayStatus));
         }
+    }
+
+    public string DisplayStatus => _executionProgress is { } progress
+        ? $"{StatusText} · {progress.DisplayText}"
+        : StatusText;
+
+    internal void SetExecutionProgress(GrassTaskExecutionProgress progress)
+    {
+        if (_executionProgress == progress)
+            return;
+        _executionProgress = progress;
+        OnPropertyChanged(nameof(DisplayStatus));
     }
 
     public ObservableCollection<HachimiTaskLogEntry> Entries { get; } = [];

@@ -285,11 +285,14 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
     }
 
-    private GrassTaskExecutionContext CreateContext(IHachimiTaskLogSink? taskLogSink = null) =>
+    private GrassTaskExecutionContext CreateContext(
+        IHachimiTaskLogSink? taskLogSink = null,
+        Action<GrassTaskExecutionProgress>? reportProgress = null) =>
         new(
             IsConnected ? _connectionState?.LastVerifiedConnection : null,
             this,
-            taskLogSink);
+            taskLogSink,
+            reportProgress);
 
     private void AddTask()
     {
@@ -403,6 +406,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
             HachimiTaskLogEventKind.Info);
         foreach (var task in queuedTasks)
         {
+            task.SetExecutionProgress(null);
             AddScriptLog(
                 task.Name,
                 Localize("GrassScriptTaskQueued", "Task queued"));
@@ -548,7 +552,13 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
                 try
                 {
-                    var taskContext = CreateContext(HachimiTaskLog.ForTask(taskLogId));
+                    var taskContext = CreateContext(
+                        HachimiTaskLog.ForTask(taskLogId),
+                        progress =>
+                        {
+                            task.SetExecutionProgress(progress);
+                            HachimiTaskLog.SetTaskProgress(taskLogId, progress);
+                        });
                     if (!task.Module.CanExecute(taskContext))
                     {
                         task.Status = Localize("GrassTaskError", "Error");

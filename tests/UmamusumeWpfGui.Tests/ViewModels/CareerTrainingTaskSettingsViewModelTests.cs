@@ -12,6 +12,37 @@ namespace UmamusumeWpfGui.Tests.ViewModels;
 public sealed class CareerTrainingTaskSettingsViewModelTests
 {
     [Fact]
+    public void Run_count_defaults_to_one_and_round_trips_through_task_settings()
+    {
+        using var settings = new CareerTrainingTaskSettingsViewModel();
+        Assert.Equal(1, settings.RunCount);
+        settings.RunCountText = " 5 ";
+
+        var exported = CareerTaskSettingsSerializer.Export(settings);
+        using var imported = new CareerTrainingTaskSettingsViewModel();
+        CareerTaskSettingsSerializer.Import(imported, exported);
+
+        Assert.Equal(5, imported.RunCount);
+        Assert.Equal("5", imported.RunCountText);
+        CareerTaskSettingsSerializer.Import(imported, new JsonObject());
+        Assert.Equal(1, imported.RunCount);
+    }
+
+    [Theory]
+    [InlineData("{\"runCount\":0}")]
+    [InlineData("{\"runCount\":-3}")]
+    [InlineData("{\"runCount\":\"invalid\"}")]
+    [InlineData("{\"runCount\":null}")]
+    public void Invalid_persisted_run_count_falls_back_to_one(string json)
+    {
+        using var settings = new CareerTrainingTaskSettingsViewModel();
+
+        CareerTaskSettingsSerializer.Import(settings, JsonNode.Parse(json)!.AsObject());
+
+        Assert.Equal(1, settings.RunCount);
+    }
+
+    [Fact]
     public void Full_skill_catalog_exposes_gourmand_in_the_existing_picker()
     {
         var settings = new CareerTrainingTaskSettingsViewModel();

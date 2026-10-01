@@ -34,6 +34,19 @@
     </Border>
     <Border Style="{DynamicResource SettingCardStyle}"
             HorizontalAlignment="Stretch">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassCareerRunCountLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <TextBlock Text="{DynamicResource GrassCareerRunCountHint}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+        <ui:TextBox Width="120"
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Left"
+                    Text="{Binding RunCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch">
       <CheckBox IsChecked="{Binding DeleteExistingCareerData, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
         <StackPanel>
           <TextBlock Text="{DynamicResource GrassCareerDeleteExistingLabel}"

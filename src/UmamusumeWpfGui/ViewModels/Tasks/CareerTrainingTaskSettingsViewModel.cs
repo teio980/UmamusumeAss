@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
@@ -29,6 +30,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public const string IndependentLineupStrategyEnd = "end";
 
     private string _careerMode = IndependentCareerMode;
+    private string _runCountText = "1";
     private string _strategyId = DefaultStrategyId;
     private string _normalLineupStrategy = CareerStrategyCatalog.DefaultLineupStrategy;
     private string _normalEventHandling = DefaultEventHandling;
@@ -95,6 +97,22 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public bool IsKnownCareerMode =>
         CareerMode.Equals(NormalCareerMode, StringComparison.OrdinalIgnoreCase)
         || CareerMode.Equals(IndependentCareerMode, StringComparison.OrdinalIgnoreCase);
+
+    public string RunCountText
+    {
+        get => _runCountText;
+        set
+        {
+            if (!Set(ref _runCountText, value?.Trim() ?? string.Empty))
+                return;
+            OnPropertyChanged(nameof(RunCount));
+            OnPropertyChanged(nameof(IsValid));
+        }
+    }
+
+    public int RunCount => int.TryParse(
+        RunCountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+        && count > 0 ? count : 0;
 
     public string StrategyId
     {
@@ -295,6 +313,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         && Entry.IsManifestValid()
         && TraineeId is > 0
         && IsKnownCareerMode
+        && RunCount > 0
         && (IsIndependentCareer
             || (!string.IsNullOrWhiteSpace(StrategyId)
                 && UraStrategyRegistry.IsRegistered(StrategyId)

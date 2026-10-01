@@ -8,4 +8,5 @@ namespace UmamusumeWpfGui.Services.Tasks;
 public sealed record GrassTaskExecutionContext(
     LastVerifiedConnection? Connection,
     IGrassTaskLogSink? LogSink = null,
-    IHachimiTaskLogSink? TaskLogSink = null);
+    IHachimiTaskLogSink? TaskLogSink = null,
+    Action<GrassTaskExecutionProgress>? ReportProgress = null);
