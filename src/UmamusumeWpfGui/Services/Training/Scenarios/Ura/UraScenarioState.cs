@@ -88,6 +88,8 @@ public sealed class UraCareerSessionState
     // Saturated at two: the third consecutive race can trigger the game's
     // warning. A turn is counted only after its next main page is observed.
     public int ConsecutiveRaceTurns { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool RaceStreakWarningActionIssued { get; set; }
     public UraPlannedAction? PendingTurnAction { get; set; }
     public int? PendingActionTurnIndex { get; set; }
     public int? PendingActionTurnsToGoal { get; set; }

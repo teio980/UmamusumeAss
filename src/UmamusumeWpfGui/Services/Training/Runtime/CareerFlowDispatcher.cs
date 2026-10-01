@@ -82,6 +82,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             && observation.ScreenId is ("career_main" or "training_selection"
                 or "race_runner" or "race_day" or "race_list"
                 or "race_list_empty"
+                or "race_streak_warning"
                 or "race_details" or "race_attributes" or "race_playback"
                 or "race_playback_start"))
         {
@@ -95,6 +96,9 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             state.RaceRetryDialogActionIssued = false;
             state.RaceRetryDialogWaitCount = 0;
         }
+
+        if (observation.ScreenId != "race_streak_warning")
+            state.RaceStreakWarningActionIssued = false;
 
         // The guard belongs to one visit of the runner checkpoint. Any
         // transition away from that page opens the same reusable step for a
@@ -156,6 +160,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "race_trophy_won"
             or "race_playback_start"
             or "race_recommendations"
+            or "race_streak_warning"
             or "race_runner_result"
             or "career_races_ready"
             or "race_day"

@@ -25,6 +25,8 @@ internal sealed class CareerRaceFlow
         {
             case "race_retry_dialog":
                 return await HandleRaceRetryDialogAsync(context).ConfigureAwait(false);
+            case "race_streak_warning":
+                return await HandleRaceStreakWarningAsync(context).ConfigureAwait(false);
             case "career_races_ready":
                 context.State.RaceReplayFlowCompleted = false;
                 context.State.LastScreenId = "career_start_transition";
@@ -232,6 +234,51 @@ internal sealed class CareerRaceFlow
         return state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
             ? "fans_entry"
             : "recommended_entry";
+    }
+
+    private async Task<CareerTrainingResult?> HandleRaceStreakWarningAsync(
+        CareerFlowContext context)
+    {
+        var state = context.State;
+        if (state.RaceStreakWarningActionIssued)
+            return null;
+
+        state.HasPendingRace = true;
+        // The game's warning is direct evidence that at least two prior
+        // race turns occurred, including when the automation has just resumed.
+        state.ConsecutiveRaceTurns = CareerRaceStreakPolicy.MaximumOptionalRaceStreak;
+        if (!CareerRaceStreakPolicy.MustRaceNow(context.Scenario, state))
+        {
+            // On resume the modal blurs the goal banner. Cancel is a verified,
+            // non-turn-consuming route to reobserve Race Day or Career Main;
+            // the normal policy can then reopen a required race or defer it.
+            context.LogSink?.Add(
+                "Career Training",
+                "Consecutive-race warning recognized; this race can be postponed or its goal "
+                    + "is unknown. Selecting Cancel to reobserve the Career goal.",
+                LogEntryKind.Info);
+            var cancelResult = await _actions.RunAsync(
+                context, "race_streak_warning", "streak.cancel").ConfigureAwait(false);
+            if (cancelResult is null)
+                state.RaceStreakWarningActionIssued = true;
+            return cancelResult;
+        }
+
+        context.LogSink?.Add(
+            "Career Training",
+            "Consecutive-race warning recognized; this required goal race takes priority, so selecting OK.",
+            LogEntryKind.Info);
+        var result = await _actions.RunAsync(context, "race_streak_warning", "streak.confirm")
+            .ConfigureAwait(false);
+        if (result is null)
+        {
+            state.RaceStreakWarningActionIssued = true;
+            state.RaceReplayFlowCompleted = false;
+            state.LastAction = state.IsFinale ? UraPlannedAction.FinaleRace : UraPlannedAction.Race;
+            if (state.PendingTurnAction is null)
+                CareerRaceStreakPolicy.BeginTurnAction(state, state.LastAction);
+        }
+        return result;
     }
 
     private static CareerTrainingResult? GuardOptionalRaceEntry(CareerFlowContext context)

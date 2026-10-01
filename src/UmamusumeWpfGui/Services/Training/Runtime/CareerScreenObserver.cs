@@ -448,17 +448,19 @@ public sealed class CareerScreenObserver
             };
         }
 
-        if (best?.ScreenId is "race_day" or "race_list")
+        if (best?.ScreenId is "race_day" or "race_list" or "race_streak_warning")
         {
             var raceScreen = pack.ScreenProfile.Find(best.ScreenId);
             var ocrFrame = frames[^1];
             var goalText = await ReadRegionTextAsync(
                     ocrFrame,
                     raceScreen?.FindOcrRegion(
-                        best.ScreenId == "race_day" ? "race.objective" : "objective.title")?.ToRoi(),
+                        best.ScreenId == "race_list" ? "objective.title" : "race.objective")?.ToRoi(),
                     pack.ScreenProfile.ReferenceWidth,
                     pack.ScreenProfile.ReferenceHeight,
-                    $"{best.ScreenId}.objective.title",
+                    best.ScreenId == "race_streak_warning"
+                        ? "career_main.race_streak_warning.objective.title"
+                        : $"{best.ScreenId}.objective.title",
                     cancellationToken)
                 .ConfigureAwait(false);
             best = best with { GoalText = goalText };
@@ -583,6 +585,9 @@ public sealed class CareerScreenObserver
             // generic event-choice button template; its title identifies it
             // before that broader overlay check runs.
             "race_recommendations" => -1,
+            // The streak warning overlays Race Day or Career Main and shares
+            // generic dialog styling. Its orange warning text must win first.
+            "race_streak_warning" => -2,
             "race_retry_dialog" => -2,
             // The Epithet title is specific, unlike its generic Confirm! button.
             "career_epithet" => -4,

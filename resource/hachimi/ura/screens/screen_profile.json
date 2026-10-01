@@ -1032,11 +1032,41 @@
                                     ]
                     },
                     {
+                        "screenId": "race_streak_warning",
+                        "recognition": {
+                            "template": "templates/career/race/race_streak_warning_text.png",
+                            "matchColorText": true,
+                            "roi": [175, 580, 590, 90],
+                            "templThreshold": 0.94,
+                            "requiredTemplate": "templates/career/race/race_streak_warning_ok.png",
+                            "requiredTemplateRoi": [575, 1000, 150, 90],
+                            "requiredTemplateThreshold": 0.94,
+                            "stable": true
+                        },
+                        "ocrRegions": [
+                            {
+                                "semanticId": "race.objective",
+                                "bounds": { "x": 315, "y": 90, "width": 540, "height": 75 }
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "semanticId": "race.streak.confirm",
+                                "task": "race_streak_warning_probe"
+                            },
+                            {
+                                "semanticId": "race.streak.cancel",
+                                "task": "race_streak_warning_cancel_probe"
+                            }
+                        ]
+                    },
+                    {
                         "screenId": "race_list_empty",
                         "recognition": {
-                            "template": "templates/race_list_empty_no_races.png",
+                            "template": "templates/race_list_empty_no_races_text.png",
+                            "matchColorText": true,
                             "roi": [150, 940, 600, 150],
-                            "templThreshold": 0.84,
+                            "templThreshold": 0.94,
                             "stable": true
                         },
                         "actions": [

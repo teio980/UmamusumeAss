@@ -1951,6 +1951,46 @@
                                                    "action":  "JustReturn",
                                                    "success":  true
                                                },
+                  "race_streak_warning_probe": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "JustReturn",
+                      "template": "templates/career/race/race_streak_warning_text.png",
+                      "templThreshold": 0.94,
+                      "roi": [175, 580, 590, 90],
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "next": ["race_streak_warning_confirm"]
+                  },
+                  "race_streak_warning_confirm": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "ClickSelf",
+                      "template": "templates/career/race/race_streak_warning_ok.png",
+                      "templThreshold": 0.94,
+                      "roi": [575, 1000, 150, 90],
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "postDelay": 650
+                  },
+                  "race_streak_warning_cancel_probe": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "JustReturn",
+                      "template": "templates/career/race/race_streak_warning_text.png",
+                      "templThreshold": 0.94,
+                      "roi": [175, 580, 590, 90],
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "next": ["race_streak_warning_cancel"]
+                  },
+                  "race_streak_warning_cancel": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "ClickSelf",
+                      "template": "templates/career/race/race_streak_warning_cancel.png",
+                      "templThreshold": 0.94,
+                      "roi": [170, 1000, 180, 90],
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "postDelay": 650
+                  },
                   "race_recommendations_confirm":  {
                                                        "algorithm":  "MatchTemplate",
                                                        "action":  "ClickSelf",
