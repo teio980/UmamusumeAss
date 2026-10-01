@@ -175,7 +175,10 @@ public sealed record CareerEntryNavigationResult(
     bool Succeeded,
     string Message,
     string LastScreenId,
-    int ActionsCompleted);
+    int ActionsCompleted)
+{
+    public CareerObservation? ResumeObservation { get; init; }
+}
 
 /// <summary>
 /// Lightweight Home -> Career -> Final Confirmation navigation. Both
@@ -218,6 +221,7 @@ public sealed class CareerEntryNavigator
     private readonly UraTraineeSelector _traineeSelector;
     private readonly UraLegacySelector _legacySelector;
     private readonly ICareerActionExecutor _actions;
+    private readonly CareerScreenObserver _resumeObserver;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
         StringComparer.OrdinalIgnoreCase);
 
@@ -248,6 +252,7 @@ public sealed class CareerEntryNavigator
         _traineeSelector = traineeSelector ?? throw new ArgumentNullException(nameof(traineeSelector));
         _legacySelector = legacySelector ?? throw new ArgumentNullException(nameof(legacySelector));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _resumeObserver = new CareerScreenObserver(visualRuntime);
     }
 
     public async Task<CareerEntryNavigationResult> NavigateAsync(
@@ -303,8 +308,25 @@ public sealed class CareerEntryNavigator
         for (var attempt = 0; attempt < 160; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var observation = await ObserveAsync(connection, pack, state, cancellationToken)
-                .ConfigureAwait(false);
+            // Resume may reopen an objective banner, race result, or event.
+            // Use the runtime observer before a new session has any action
+            // history, rather than requiring Career Main underneath an overlay.
+            var resumingCareer = state.ResumeDirectlyToCareer
+                && state.Step == CareerEntryNavigationStep.Career;
+            var resumedCareer = resumingCareer
+                ? await _resumeObserver.ObserveAsync(
+                        connection, pack, new UraCareerSessionState(),
+                        careerStartTransitionExpected: false,
+                        cancellationToken: cancellationToken,
+                        careerOnly: true)
+                    .ConfigureAwait(false)
+                : null;
+            var observation = resumingCareer
+                ? resumedCareer is null
+                    ? null
+                    : new EntryObservation(resumedCareer.ScreenId, resumedCareer.Score)
+                : await ObserveAsync(connection, pack, state, cancellationToken)
+                    .ConfigureAwait(false);
             if (observation is null)
             {
                 state.RetryCount++;
@@ -316,6 +338,17 @@ public sealed class CareerEntryNavigator
 
             state.RetryCount = 0;
             state.LastScreenId = observation.ScreenId;
+            if (resumedCareer is not null)
+            {
+                return new(
+                    true,
+                    "Career entry reached the existing Career.",
+                    resumedCareer.ScreenId,
+                    state.ActionsCompleted)
+                {
+                    ResumeObservation = resumedCareer,
+                };
+            }
             var result = await HandleScreenAsync(
                     connection,
                     pack,

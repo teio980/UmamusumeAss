@@ -235,6 +235,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
         CareerEntryNavigationStep? startupEntryStep = null;
         CareerObservation? pendingResumeObservation = null;
+        var resumeRecoveryPending = false;
 
         // Recover the first supported mid-flow page before invoking the shared
         // Home -> Career navigator. Each recoverable page intentionally uses
@@ -259,6 +260,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
             if (currentCareer is { } observedCareer)
             {
+                resumeRecoveryPending = true;
                 state.CareerStarted = true;
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
                 state.LastScreenId = observedCareer.ScreenId;
@@ -342,10 +344,24 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     actionCount);
             }
 
-            if (entry.LastScreenId is "career_main" or "career_races_ready")
+            if (CareerScreenObserver.IsRuntimeCareerScreen(entry.LastScreenId))
             {
                 state.CareerStarted = true;
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+                if (entry.ResumeObservation is { } resumedCareer)
+                {
+                    resumeRecoveryPending = true;
+                    // Consume a verified overlay once. Reobserve Main so a
+                    // delayed goal banner can win before a turn is selected.
+                    if (resumedCareer.ScreenId is not "career_main"
+                        and not "career_races_ready")
+                    {
+                        pendingResumeObservation = resumedCareer;
+                    }
+                    logSink?.Add(
+                        "Career Training",
+                        $"Resumed Career screen recognized as {resumedCareer.ScreenId}.");
+                }
             }
             else
             {
@@ -558,7 +574,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     pack,
                     state,
                     careerStartTransitionExpected,
-                    cancellationToken)
+                    cancellationToken,
+                    resumeRecovery: resumeRecoveryPending)
                 .ConfigureAwait(false);
             if (observation is null)
             {
@@ -707,6 +724,9 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 return terminal with { ActionsCompleted = actionCount };
             }
 
+            // The first resumed action now supplies normal flow history.
+            // Keep recovery bounded to this handoff, not the whole Career.
+            resumeRecoveryPending = false;
             actionCount++;
         }
 

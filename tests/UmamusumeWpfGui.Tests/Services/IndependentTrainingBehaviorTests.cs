@@ -1322,6 +1322,8 @@ public sealed class IndependentTrainingBehaviorTests
                 SetHomePattern(pixels, (45, 180));
             if (_screen.Equals("scenario_select", StringComparison.OrdinalIgnoreCase))
                 SetMarker(pixels, Markers["scenario_card"]);
+            if (_screen.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+                SetMarker(pixels, (30, 150));
             return Task.FromResult<GrayImage?>(new GrayImage(100, 200, pixels));
         }
 

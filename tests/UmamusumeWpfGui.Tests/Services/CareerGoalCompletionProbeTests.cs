@@ -97,6 +97,36 @@ public sealed class CareerGoalCompletionProbeTests
         Assert.Equal(expectedScreen, observation?.ScreenId);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Resume_recovery_can_recognize_a_goal_without_previous_action_state(
+        bool resumeRecovery)
+    {
+        var pack = await LoadPackAsync();
+        var frame = GrayImageCodec.FromFile(Path.Combine(FindWorkspaceRoot(),
+            "testdata", "hachimi", "ura", "captures", "current_mid_year1.png"));
+        Assert.NotNull(frame);
+        var observer = new CareerScreenObserver(FrameVisualRuntime.Create(frame));
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = true,
+            LastScreenId = "career_main",
+        };
+        var connection = new LastVerifiedConnection(
+            "adb", "serial", "android", "version", 900, 1600, 900, 1600,
+            DateTimeOffset.UnixEpoch);
+
+        var observation = await observer.ObserveAsync(
+            connection, pack, state, false, CancellationToken.None,
+            resumeRecovery: resumeRecovery);
+
+        if (resumeRecovery)
+            Assert.Equal("goal_objective_complete", observation?.ScreenId);
+        else
+            Assert.NotEqual("goal_objective_complete", observation?.ScreenId);
+    }
+
     [Fact]
     public async Task Finale_goal_header_is_recognized_when_background_changes()
     {

@@ -59,7 +59,8 @@ public sealed class CareerScreenObserver
         UraCareerSessionState state,
         bool careerStartTransitionExpected,
         CancellationToken cancellationToken,
-        bool careerOnly = false)
+        bool careerOnly = false,
+        bool resumeRecovery = false)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(pack);
@@ -128,8 +129,10 @@ public sealed class CareerScreenObserver
                     StringComparison.OrdinalIgnoreCase))
             // Probe the banner after each non-race turn action or qualifying
             // race result. Keep it out of ordinary turn observations; the two
-            // Next pages are enabled by the recognized goal sequence.
-            .Where(screen => IsGoalFlowScreenEligible(screen.ScreenId, state))
+            // Next pages are enabled by the recognized goal sequence. Resume
+            // handoff reconstructs that sequence without prior action history.
+            .Where(screen => resumeRecovery
+                || IsGoalFlowScreenEligible(screen.ScreenId, state))
             .Where(screen => careerOnly
                 || state.CareerStarted
                 || state.TurnIndex > 0
