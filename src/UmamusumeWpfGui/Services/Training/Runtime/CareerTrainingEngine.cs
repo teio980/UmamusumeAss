@@ -390,7 +390,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 return setupFailure with { ActionsCompleted = actionCount };
         }
 
-        while (actionCount < 300)
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (state.AwaitingRecreationConfirmationGone)
@@ -729,11 +729,6 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             resumeRecoveryPending = false;
             actionCount++;
         }
-
-        return Failure(
-            "Career training exceeded the safety action limit and was paused.",
-            state.LastScreenId,
-            actionCount);
     }
 
     private static bool IsPendingNormalSetupStage(NormalCareerSetupStage stage) => stage is
