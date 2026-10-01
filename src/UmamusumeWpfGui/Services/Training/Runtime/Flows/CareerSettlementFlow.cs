@@ -98,9 +98,10 @@ internal sealed class CareerSettlementFlow
                         "close")
                     .ConfigureAwait(false);
             case "career_story_unlocked":
+            case "career_story_unlocked_compact":
                 return await _actions.RunAsync(
                         context,
-                        "career_story_unlocked",
+                        context.Observation.ScreenId,
                         "close")
                     .ConfigureAwait(false);
             default:

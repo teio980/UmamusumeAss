@@ -84,6 +84,7 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     [InlineData("career_complete", "to_home")]
     [InlineData("career_complete_close", "close")]
     [InlineData("career_story_unlocked", "close")]
+    [InlineData("career_story_unlocked_compact", "close")]
     public async Task Settlement_dispatches_the_matching_exit_action(string screenId, string actionId)
     {
         var actions = new RecordingActions();
@@ -96,27 +97,50 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("career_complete", false)]
-    [InlineData("career_complete_close", false)]
-    [InlineData("unknown", true)]
-    public async Task Unlocked_story_is_dismissed_on_the_way_home_and_on_resume(string previousScreen, bool resume)
+    [InlineData("career_complete", false, false)]
+    [InlineData("career_complete_close", false, false)]
+    [InlineData("unknown", true, false)]
+    [InlineData("career_story_unlocked_compact", false, false)]
+    [InlineData("career_complete", false, true)]
+    [InlineData("career_complete_close", false, true)]
+    [InlineData("unknown", true, true)]
+    [InlineData("career_story_unlocked", false, true)]
+    public async Task Unlocked_story_is_dismissed_on_the_way_home_and_on_resume(
+        string previousScreen, bool resume, bool compact)
     {
         var pack = await LoadPackAsync();
-        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures", "career_story_unlocked.png"));
+        var expectedScreenId = compact ? "career_story_unlocked_compact" : "career_story_unlocked";
+        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures", expectedScreenId + ".png"));
         var state = new UraCareerSessionState { CareerStarted = !resume, LastScreenId = previousScreen };
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
 
         var observation = await observer.ObserveAsync(Connection(), pack, state,
             false, CancellationToken.None, careerOnly: resume);
 
-        Assert.Equal("career_story_unlocked", observation?.ScreenId);
+        Assert.Equal(expectedScreenId, observation?.ScreenId);
+        Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
         var task = pack.ExecutionDefinition.GetTask(screen.FindAction("close")!.Task);
-        var match = TemplateMatcher.FindColor(frame, LoadResource(task.Template!), task.Roi,
+        var button = LoadResource(task.Template!);
+        var match = TemplateMatcher.FindColor(frame, button, task.Roi,
             task.TemplateThreshold, 900, 1600, requireTextContrast: true);
+        output.WriteLine($"{expectedScreenId}: title={observation.Score:0.000}, button={match.Score:0.000}, click=({match.CenterX},{match.CenterY}), size={button.Width}x{button.Height}");
         Assert.True(match.Found);
         Assert.InRange(match.CenterX, 435, 465);
-        Assert.InRange(match.CenterY, 1460, 1495);
+        Assert.InRange(match.CenterY, compact ? 1020 : 1460, compact ? 1065 : 1495);
+        if (compact)
+        {
+            var header = LoadResource(screen.Recognition.Template!);
+            Assert.InRange(header.Width, 235, 255);
+            Assert.InRange(header.Height, 30, 45);
+            Assert.InRange(button.Width, 80, 110);
+            Assert.InRange(button.Height, 25, 45);
+            foreach (var crop in new[] { header, button })
+            {
+                Assert.True(Enumerable.Range(0, crop.Width * crop.Height)
+                    .All(pixel => crop.RgbaPixels![pixel * 4 + 3] == 255));
+            }
+        }
         state.CareerStarted = true;
         state.LastScreenId = observation.ScreenId;
         Assert.True(CareerScreenObserver.IsReturningHome(state));
@@ -132,6 +156,20 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
             };
             Clear(incomplete, roi);
             Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(incomplete))
+                .ObserveAsync(Connection(), pack, state, false, CancellationToken.None));
+        }
+
+        // The compact story popup shares completion-dialog geometry. Its title
+        // must distinguish it from Career Complete and the tall story layout.
+        foreach (var unrelated in new[]
+        {
+            LoadCompletionFrame(false),
+            LoadCompletionFrame(true),
+            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
+                (compact ? "career_story_unlocked" : "career_story_unlocked_compact") + ".png")),
+        })
+        {
+            Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(unrelated))
                 .ObserveAsync(Connection(), pack, state, false, CancellationToken.None));
         }
     }

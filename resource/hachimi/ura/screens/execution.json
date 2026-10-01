@@ -3442,6 +3442,18 @@
                       "required": true,
                       "success": false
                   },
+                  "career_story_unlocked_compact_close": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "ClickSelf",
+                      "template": "templates/career_story_unlocked_compact_close.png",
+                      "templThreshold": 0.94,
+                      "roi": [395, 1010, 110, 75],
+                      "postDelay": 650,
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "required": true,
+                      "success": false
+                  },
                   "career_complete_close": {
                       "algorithm": "MatchTemplateColorText",
                       "action": "ClickSelf",

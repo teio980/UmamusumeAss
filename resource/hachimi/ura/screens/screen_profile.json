@@ -1913,6 +1913,25 @@
                         ]
                     },
                     {
+                        "screenId": "career_story_unlocked_compact",
+                        "recognition": {
+                            "template": "templates/career_story_unlocked_compact_header.png",
+                            "matchColorText": true,
+                            "roi": [315, 485, 270, 65],
+                            "templThreshold": 0.9,
+                            "requiredTemplate": "templates/career_story_unlocked_compact_close.png",
+                            "requiredTemplateRoi": [395, 1010, 110, 75],
+                            "requiredTemplateThreshold": 0.9,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "career.story.compact.close",
+                                "task": "career_story_unlocked_compact_close"
+                            }
+                        ]
+                    },
+                    {
                         "screenId": "career_complete_close",
                         "recognition": {
                             "template": "templates/career_complete_header.png",
@@ -2130,6 +2149,31 @@
                             "from": "career_story_unlocked",
                             "to": "home",
                             "on": "career.story.close"
+                        },
+                        {
+                            "from": "career_complete",
+                            "to": "career_story_unlocked_compact",
+                            "on": "career.to_home"
+                        },
+                        {
+                            "from": "career_complete_close",
+                            "to": "career_story_unlocked_compact",
+                            "on": "career.close"
+                        },
+                        {
+                            "from": "career_story_unlocked",
+                            "to": "career_story_unlocked_compact",
+                            "on": "career.story.close"
+                        },
+                        {
+                            "from": "career_story_unlocked_compact",
+                            "to": "career_story_unlocked",
+                            "on": "career.story.compact.close"
+                        },
+                        {
+                            "from": "career_story_unlocked_compact",
+                            "to": "home",
+                            "on": "career.story.compact.close"
                         }
                     ],
     "captureEvidence":  {

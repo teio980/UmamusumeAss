@@ -50,7 +50,8 @@ public sealed class CareerScreenObserver
     internal static bool IsReturningHome(UraCareerSessionState state) =>
         state.CareerStarted
         && (state.LastScreenId is "career_complete" or "career_complete_close"
-            or "career_story_unlocked" or "home_unselected");
+            or "career_story_unlocked" or "career_story_unlocked_compact"
+            or "home_unselected");
 
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
@@ -110,7 +111,8 @@ public sealed class CareerScreenObserver
                 || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
             .Where(screen => !returningHome
                 || (screen.ScreenId is "career_complete" or "career_complete_close"
-                    or "career_story_unlocked" or "home" or "home_unselected"))
+                    or "career_story_unlocked" or "career_story_unlocked_compact"
+                    or "home" or "home_unselected"))
             .Where(screen => !string.Equals(
                     screen.ScreenId,
                     "inheritance_event",
@@ -609,7 +611,7 @@ public sealed class CareerScreenObserver
             // Completion has two exit labels. Its title and matching button
             // must win over generic Close dialogs when resuming settlement.
             "career_complete" or "career_complete_close" => -4,
-            "career_story_unlocked" => -4,
+            "career_story_unlocked" or "career_story_unlocked_compact" => -4,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,

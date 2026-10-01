@@ -15,6 +15,8 @@ public sealed class CareerReturnHomeRecognitionTests
     [InlineData(false, "home_unselected", "career_complete_close")]
     [InlineData(true, "home", "career_story_unlocked")]
     [InlineData(false, "home_unselected", "career_story_unlocked")]
+    [InlineData(true, "home", "career_story_unlocked_compact")]
+    [InlineData(false, "home_unselected", "career_story_unlocked_compact")]
     public async Task Return_home_observer_distinguishes_selected_and_unselected_tabs(
         bool selected,
         string expectedScreenId,

@@ -193,6 +193,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             or "career_complete"
             or "career_complete_close"
             or "career_story_unlocked"
+            or "career_story_unlocked_compact"
                 => await _settlementFlow.HandleAsync(context).ConfigureAwait(false),
             _ => null,
         };

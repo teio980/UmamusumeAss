@@ -78,6 +78,7 @@ internal static class CareerScreenClassification
             or "career_complete"
             or "career_complete_close"
             or "career_story_unlocked"
+            or "career_story_unlocked_compact"
             => CareerScreenKind.Settlement,
 
         _ => CareerScreenKind.Unknown,
