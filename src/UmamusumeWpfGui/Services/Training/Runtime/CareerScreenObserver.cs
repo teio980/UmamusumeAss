@@ -33,6 +33,12 @@ public sealed class CareerScreenObserver
     {
         ArgumentNullException.ThrowIfNull(state);
         return IsRuntimeCareerScreen(screenId)
+            // Follow Trainer belongs to settlement. Turn confirmations share
+            // its green header and Cancel button, so keep this popup out of
+            // ordinary turn observations even if a visual match is found.
+            && (!screenId.Equals("follow_trainer_limit", StringComparison.OrdinalIgnoreCase)
+                || CareerScreenClassification.Classify(state.LastScreenId)
+                    == CareerScreenKind.Settlement)
             && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase))
@@ -43,7 +49,8 @@ public sealed class CareerScreenObserver
 
     internal static bool IsReturningHome(UraCareerSessionState state) =>
         state.CareerStarted
-        && (state.LastScreenId is "career_complete" or "home_unselected");
+        && (state.LastScreenId is "career_complete" or "career_complete_close"
+            or "career_story_unlocked" or "home_unselected");
 
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
@@ -91,7 +98,8 @@ public sealed class CareerScreenObserver
             // dialog after clicking Rest.
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
                 || (careerOnly
-                    && (screen.ScreenId is "career_epithet" or "career_rating_record_updated"))
+                    && (screen.ScreenId is "career_epithet" or "career_rating_record_updated"
+                        or "follow_trainer_limit"))
                 || (careerStartTransitionExpected
                     && screen.ScreenId == "career_intro_event")
                 || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
@@ -101,7 +109,8 @@ public sealed class CareerScreenObserver
                     == CareerScreenKind.Settlement
                 || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
             .Where(screen => !returningHome
-                || (screen.ScreenId is "career_complete" or "home" or "home_unselected"))
+                || (screen.ScreenId is "career_complete" or "career_complete_close"
+                    or "career_story_unlocked" or "home" or "home_unselected"))
             .Where(screen => !string.Equals(
                     screen.ScreenId,
                     "inheritance_event",
@@ -597,6 +606,10 @@ public sealed class CareerScreenObserver
             "follow_trainer_limit" => -5,
             // The gift-box overlay obscures the underlying settlement reward page.
             "event_reward" => -5,
+            // Completion has two exit labels. Its title and matching button
+            // must win over generic Close dialogs when resuming settlement.
+            "career_complete" or "career_complete_close" => -4,
+            "career_story_unlocked" => -4,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,

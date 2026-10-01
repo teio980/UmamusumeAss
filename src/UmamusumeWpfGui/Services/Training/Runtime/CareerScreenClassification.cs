@@ -76,6 +76,8 @@ internal static class CareerScreenClassification
             or "sparks"
             or "sparks_confirmation"
             or "career_complete"
+            or "career_complete_close"
+            or "career_story_unlocked"
             => CareerScreenKind.Settlement,
 
         _ => CareerScreenKind.Unknown,

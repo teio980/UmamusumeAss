@@ -1767,7 +1767,6 @@
                         "screenId":  "follow_trainer_limit",
                         "recognition":  {
                                             "template":  "templates/follow_trainer_limit_header.png",
-                                            "matchColorText":  true,
                                             "roi":  [
                                                        250,
                                                        450,
@@ -1896,6 +1895,43 @@
                                     ]
                     },
                     {
+                        "screenId": "career_story_unlocked",
+                        "recognition": {
+                            "template": "templates/career_story_unlocked_header.png",
+                            "roi": [280, 40, 340, 85],
+                            "templThreshold": 0.9,
+                            "requiredTemplate": "templates/career_story_unlocked_close.png",
+                            "requiredTemplateRoi": [380, 1425, 145, 95],
+                            "requiredTemplateThreshold": 0.9,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "career.story.close",
+                                "task": "career_story_unlocked_close"
+                            }
+                        ]
+                    },
+                    {
+                        "screenId": "career_complete_close",
+                        "recognition": {
+                            "template": "templates/career_complete_header.png",
+                            "matchColorText": true,
+                            "roi": [285, 475, 330, 85],
+                            "templThreshold": 0.88,
+                            "requiredTemplate": "templates/career_complete_close.png",
+                            "requiredTemplateRoi": [155, 1010, 190, 75],
+                            "requiredTemplateThreshold": 0.9,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "career.close",
+                                "task": "career_complete_close"
+                            }
+                        ]
+                    },
+                    {
                         "screenId":  "career_complete",
                         "recognition":  {
                                             "template":  "templates/career_complete_header.png",
@@ -1914,7 +1950,7 @@
                                                                        190,
                                                                        75
                                                                    ],
-                                            "requiredTemplateThreshold":  0.78,
+                                            "requiredTemplateThreshold":  0.9,
                                             "requiredText":  [
                                                                  "Career Complete",
                                                                  "To Home"
@@ -2059,6 +2095,41 @@
                             "from":  "career_complete",
                             "to":  "home",
                             "on":  "career.to_home"
+                        },
+                        {
+                            "from": "rewards",
+                            "to": "career_complete_close",
+                            "on": "rewards.next"
+                        },
+                        {
+                            "from": "follow_trainer_limit",
+                            "to": "career_complete",
+                            "on": "career.follow_limit.cancel"
+                        },
+                        {
+                            "from": "follow_trainer_limit",
+                            "to": "career_complete_close",
+                            "on": "career.follow_limit.cancel"
+                        },
+                        {
+                            "from": "career_complete_close",
+                            "to": "home",
+                            "on": "career.close"
+                        },
+                        {
+                            "from": "career_complete",
+                            "to": "career_story_unlocked",
+                            "on": "career.to_home"
+                        },
+                        {
+                            "from": "career_complete_close",
+                            "to": "career_story_unlocked",
+                            "on": "career.close"
+                        },
+                        {
+                            "from": "career_story_unlocked",
+                            "to": "home",
+                            "on": "career.story.close"
                         }
                     ],
     "captureEvidence":  {

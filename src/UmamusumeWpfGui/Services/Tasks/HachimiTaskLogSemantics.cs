@@ -375,7 +375,7 @@ internal static class HachimiTaskLogSemantics
             "complete_career_entry_open" => Step(
                 "Opening the Complete Career confirmation",
                 "Complete Career confirmation opened"),
-            "complete_career_career_finish" or "career_complete_career_to_home" => Step(
+            "complete_career_career_finish" or "career_complete_career_to_home" or "career_complete_close" => Step(
                 "Finishing Career",
                 "Career finished"),
             "career_rank_career_next" or "career_result_career_next" => Step(
@@ -387,6 +387,9 @@ internal static class HachimiTaskLogSemantics
             "event_reward_next" => Step(
                 "Continuing past the Event Reward",
                 "Event Reward continued"),
+            "career_story_unlocked_close" => Step(
+                "Closing the unlocked Career story",
+                "Unlocked Career story closed"),
             _ => default,
         };
     }

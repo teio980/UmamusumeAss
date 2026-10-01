@@ -3430,6 +3430,30 @@
                                                          "required":  true,
                                                          "success":  false
                                                      },
+                  "career_story_unlocked_close": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "ClickSelf",
+                      "template": "templates/career_story_unlocked_close.png",
+                      "templThreshold": 0.94,
+                      "roi": [380, 1425, 145, 95],
+                      "postDelay": 650,
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "required": true,
+                      "success": false
+                  },
+                  "career_complete_close": {
+                      "algorithm": "MatchTemplateColorText",
+                      "action": "ClickSelf",
+                      "template": "templates/career_complete_close.png",
+                      "templThreshold": 0.94,
+                      "roi": [155, 1010, 190, 75],
+                      "postDelay": 650,
+                      "timeoutMs": 12000,
+                      "pollIntervalMs": 250,
+                      "required": true,
+                      "success": false
+                  },
                   "inheritance_event_go": {
                     "algorithm": "MatchTemplateColor",
                     "action": "ClickSelf",

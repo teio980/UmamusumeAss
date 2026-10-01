@@ -91,6 +91,18 @@ internal sealed class CareerSettlementFlow
                         "career_complete",
                         "to_home")
                     .ConfigureAwait(false);
+            case "career_complete_close":
+                return await _actions.RunAsync(
+                        context,
+                        "career_complete_close",
+                        "close")
+                    .ConfigureAwait(false);
+            case "career_story_unlocked":
+                return await _actions.RunAsync(
+                        context,
+                        "career_story_unlocked",
+                        "close")
+                    .ConfigureAwait(false);
             default:
                 return null;
         }

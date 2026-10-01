@@ -9,11 +9,16 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerReturnHomeRecognitionTests
 {
     [Theory]
-    [InlineData(true, "home")]
-    [InlineData(false, "home_unselected")]
+    [InlineData(true, "home", "career_complete")]
+    [InlineData(false, "home_unselected", "career_complete")]
+    [InlineData(true, "home", "career_complete_close")]
+    [InlineData(false, "home_unselected", "career_complete_close")]
+    [InlineData(true, "home", "career_story_unlocked")]
+    [InlineData(false, "home_unselected", "career_story_unlocked")]
     public async Task Return_home_observer_distinguishes_selected_and_unselected_tabs(
         bool selected,
-        string expectedScreenId)
+        string expectedScreenId,
+        string completionScreenId)
     {
         var selectedPixels = Enumerable.Range(0, 144)
             .Select(index => (byte)((index * 73 + index / 12 * 31) % 256))
@@ -70,7 +75,7 @@ public sealed class CareerReturnHomeRecognitionTests
         var state = new UraCareerSessionState
         {
             CareerStarted = true,
-            LastScreenId = "career_complete",
+            LastScreenId = completionScreenId,
         };
 
         var observation = await observer.ObserveAsync(
