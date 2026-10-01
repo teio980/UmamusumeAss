@@ -576,6 +576,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                     var result = await task.Module.ExecuteAsync(
                         taskContext,
                         operationCts.Token).ConfigureAwait(true);
+                    operationCts.Token.ThrowIfCancellationRequested();
                     task.Status = result.Succeeded
                         ? Localize("GrassTaskCompleted", "Completed")
                         : Localize("GrassTaskError", "Error");

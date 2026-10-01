@@ -318,8 +318,10 @@ public sealed class GrassViewModelTests
                 && entry.Details == "completed");
     }
 
-    [Fact]
-    public async Task StopCancelsTheScriptWithoutCallingTaskStopOrClosingTheGame()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StopCancelsTheScriptWithoutCallingTaskStopOrClosingTheGame(bool returnsFailure)
     {
         using var log = new LogViewModel();
         var state = new ConnectionStateService();
@@ -346,6 +348,7 @@ public sealed class GrassViewModelTests
         viewModel.AddTaskCommand.Execute(null);
         var taskModule = Assert.IsType<BlockingGrassTaskModule>(
             viewModel.SelectedTask!.Module);
+        taskModule.ReturnFailureOnCancellation = returnsFailure;
 
         viewModel.StartCommand.Execute(null);
         await taskModule.Started.Task;
@@ -359,6 +362,8 @@ public sealed class GrassViewModelTests
 
         Assert.Equal(0, taskModule.StopCallCount);
         Assert.False(viewModel.IsQueueRunning);
+        Assert.Equal("Queue canceled", viewModel.HachimiTaskLog.RunStatus);
+        Assert.Equal(HachimiTaskLogStatus.Canceled, Assert.Single(viewModel.HachimiTaskLog.Tasks).Status);
     }
 
     [Fact]
@@ -489,6 +494,8 @@ public sealed class GrassViewModelTests
 
         public int StopCallCount { get; private set; }
 
+        public bool ReturnFailureOnCancellation { get; set; }
+
         public GrassTaskDefinition Definition { get; } = new(
             "blocking-task",
             "BlockingTask",
@@ -514,7 +521,14 @@ public sealed class GrassViewModelTests
             CancellationToken cancellationToken = default)
         {
             Started.TrySetResult(true);
-            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (ReturnFailureOnCancellation)
+            {
+                return new GrassTaskExecutionResult(false, false, "canceled");
+            }
             return new GrassTaskExecutionResult(true, false, "completed");
         }
 
