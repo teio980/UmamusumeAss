@@ -795,6 +795,68 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Fact]
+    public async Task Date_reset_during_skill_setup_reopens_lineup_and_preserves_completed_selections()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var fixture = new DateChangedDialogRecoveryTests.Fixture();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot, fixture.Recovery);
+        var catalog = IndependentTrainingCatalog.Load(root);
+        var skills = SelectSkills(catalog, 2);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.ConfigureSkills,
+            AgendaIndex = 2,
+            SkillIndex = 1,
+            CurrentSkillId = skills[1],
+            LastConfirmedScreen = "career_final_confirmation",
+        });
+        harness.Actions.InterruptOnceAt = "independent.skills.open";
+        fixture.AfterStartup = () => harness.Actions.SetScreen("home");
+        var result = await harness.Pipeline.RunAsync(Connection,
+            CreateSettings(root, true, skillIds: skills), null);
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(["ok", "launch", "startup"], fixture.Events);
+        Assert.Contains("task:home", harness.Actions.Calls);
+        Assert.Contains("career_continue.resume", harness.Actions.Calls);
+        Assert.Contains("independent.select_mode", harness.Actions.Calls);
+        Assert.Contains("independent.lineup.expand", harness.Actions.Calls);
+        Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
+        Assert.Equal([catalog.Skills.First(skill => skill.SkillId == skills[1]).EffectiveSearchText], harness.Actions.SearchInputs);
+        var checkpoint = await harness.Store.LoadAsync();
+        Assert.Equal(2, checkpoint!.AgendaIndex);
+        Assert.Equal(2, checkpoint.SkillIndex);
+        Assert.True(checkpoint.CompletionVerified);
+    }
+
+    [Fact]
+    public async Task Date_reset_after_independent_start_only_verifies_home_without_starting_again()
+    {
+        var root = FindSolutionRoot();
+        await using var scope = new TestScope();
+        var fixture = new DateChangedDialogRecoveryTests.Fixture();
+        var harness = await CreateHarnessAsync(root, scope.CheckpointRoot, fixture.Recovery);
+        await harness.Store.SaveAsync(new IndependentTrainingSessionState
+        {
+            Stage = IndependentTrainingStage.HandlePostStartDialog,
+            AgendaIndex = 2,
+            SkillIndex = 3,
+            LastConfirmedScreen = "independent_start_issued",
+        });
+        harness.Actions.InterruptOnceAt = IndependentTrainingCatalog.PostStartOkSemanticAction();
+        fixture.AfterStartup = () => harness.Actions.SetScreen("home");
+        var result = await harness.Pipeline.RunAsync(Connection, CreateSettings(root, true), null);
+        Assert.True(result.Succeeded, result.Message);
+        Assert.DoesNotContain("independent.start", harness.Actions.Calls);
+        Assert.DoesNotContain("task:home", harness.Actions.Calls);
+        Assert.Contains(IndependentTrainingCatalog.PostStartHomeProbeSemanticAction(), harness.Actions.Calls);
+        var checkpoint = await harness.Store.LoadAsync();
+        Assert.Equal(2, checkpoint!.AgendaIndex);
+        Assert.Equal(3, checkpoint.SkillIndex);
+        Assert.True(checkpoint.CompletionVerified);
+    }
+
+    [Fact]
     public async Task Newly_crawled_gourmand_uses_search_and_ocr_without_a_static_row()
     {
         var root = FindSolutionRoot();
@@ -953,7 +1015,8 @@ public sealed class IndependentTrainingBehaviorTests
         }
     }
 
-    private static async Task<BehaviorHarness> CreateHarnessAsync(string root, string checkpointRoot)
+    private static async Task<BehaviorHarness> CreateHarnessAsync(string root, string checkpointRoot,
+        DateChangedDialogRecovery? recovery = null)
     {
         var visual = new RecordingVisualRuntime();
         var actions = new RecordingActionExecutor(visual);
@@ -975,7 +1038,7 @@ public sealed class IndependentTrainingBehaviorTests
             database,
             navigator,
             actions,
-            traineeId => new IndependentCheckpointStore(traineeId, checkpointRoot));
+            traineeId => new IndependentCheckpointStore(traineeId, checkpointRoot), recovery);
         var pack = await UraScenarioPackLoader.LoadAsync(
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
         return new BehaviorHarness(
@@ -1138,6 +1201,7 @@ public sealed class IndependentTrainingBehaviorTests
         public List<(int[]? Roi, IReadOnlyList<double>? Scales)> ExactCardSearches { get; } = [];
         public List<string> SearchInputs { get; } = [];
         public Func<string, bool>? FailWhen { get; set; }
+        public string? InterruptOnceAt { get; set; }
         public string? BlockAction { get; set; }
         public bool ReturnsHomeAfterDelete { get; set; }
         public bool ReturnsCareerAfterResume { get; set; }
@@ -1162,6 +1226,11 @@ public sealed class IndependentTrainingBehaviorTests
                 ? actionId
                 : $"{screenId}.{actionId}";
             Calls.Add(call);
+            if (call == InterruptOnceAt)
+            {
+                InterruptOnceAt = null;
+                throw new DateChangedInterruptionException();
+            }
             if (call == "support_select.open")
             {
                 Assert.NotNull(options?.SearchRoiOverrides);

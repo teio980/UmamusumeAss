@@ -45,7 +45,7 @@ internal sealed class CareerClawMachineFlow
         {
             throw;
         }
-        catch (Exception error)
+        catch (Exception error) when (error is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             return Fail($"Held-touch input is unavailable: {error.Message}");
         }
@@ -223,7 +223,7 @@ internal sealed class CareerClawMachineFlow
         {
             throw;
         }
-        catch (Exception error)
+        catch (Exception error) when (error is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             return Failure($"Claw input failed: {error.Message}");
         }
@@ -237,7 +237,7 @@ internal sealed class CareerClawMachineFlow
                         ButtonY, ReferenceWidth, ReferenceHeight,
                         "claw_cancel", CancellationToken.None).ConfigureAwait(false);
                 }
-                catch (Exception error)
+                catch (Exception error) when (error is not DateChangedInterruptionException and not DateChangedRecoveryException)
                 {
                     context.LogSink?.Add("Career Training",
                         $"Could not cancel the held claw control: {error.Message}");

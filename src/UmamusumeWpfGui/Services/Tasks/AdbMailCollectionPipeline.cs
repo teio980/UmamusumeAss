@@ -75,7 +75,7 @@ public sealed class AdbMailCollectionPipeline : IMailCollectionPipeline
             taskLogSink?.Add("Result", "Mailbox collection was stopped.", HachimiTaskLogEventKind.Warning);
             return new MailCollectionPipelineResult(false, "Email collection was stopped.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
             taskLogSink?.Add(

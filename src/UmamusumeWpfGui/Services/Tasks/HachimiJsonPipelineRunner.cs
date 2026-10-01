@@ -16,11 +16,13 @@ public sealed class HachimiJsonPipelineRunner
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly ISettingsService _settingsService;
     private readonly ShopItemSelector _shopItemSelector;
+    private readonly DateChangedDialogRecovery? _dateChangedRecovery;
 
     public HachimiJsonPipelineRunner(
         IAdbRuntime adbRuntime,
         IVisualPipelineRuntime visualRuntime,
-        ISettingsService settingsService)
+        ISettingsService settingsService,
+        DateChangedDialogRecovery? dateChangedRecovery = null)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(visualRuntime);
@@ -29,6 +31,7 @@ public sealed class HachimiJsonPipelineRunner
         _visualRuntime = visualRuntime;
         _settingsService = settingsService;
         _shopItemSelector = new ShopItemSelector(visualRuntime);
+        _dateChangedRecovery = dateChangedRecovery;
     }
 
     public async Task<HachimiPipelineRunResult> RunAsync(
@@ -90,14 +93,40 @@ public sealed class HachimiJsonPipelineRunner
             StringComparer.OrdinalIgnoreCase);
 
         var state = new RunState(options ?? new HachimiPipelineRunOptions());
-        return await RunGraphAsync(
-                connection,
-                definition,
-                entryTask,
-                state,
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var ownsRecovery = _dateChangedRecovery is not null && GameAutomationScope.Current is null;
+        using var scope = ownsRecovery ? new GameAutomationScope(logSink, state.Options.TaskLogSink, connection) : null;
+        while (true)
+        {
+            try
+            {
+                return await RunGraphAsync(connection, definition, entryTask, state, logSink, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (DateChangedInterruptionException) when (ownsRecovery)
+            {
+                try
+                {
+                    await _dateChangedRecovery!.RecoverAsync(connection, cancellationToken).ConfigureAwait(false);
+                }
+                catch (DateChangedRecoveryException exception)
+                {
+                    return Fail(logSink, exception.Message, state.CompletedUnits, "date_changed_recovery");
+                }
+                var confirmed = scope!.ConfirmedRaceUnits.GetValueOrDefault(state.Options.SemanticProfile);
+                state.CompletedUnits = Math.Max(state.CompletedUnits, confirmed);
+                if (scope.PendingShopExchanges.Count > 0 || scope.PendingRaceUnits.Count > 0)
+                    return Fail(logSink, "Home recovered, but the interrupted purchase/race submission could not be confirmed; it will not be submitted again.", state.CompletedUnits, "date_changed_recovery");
+                if (RequestedRaceUnits(state.Options) is int requested && confirmed >= requested)
+                    return Succeed(state, "date_changed_recovery");
+                state.ResetNavigation(confirmed);
+                if (!entryTask.Equals("home", StringComparison.OrdinalIgnoreCase))
+                    return Fail(logSink, "Home recovered, but this standalone JSON pipeline has no Home resume entry.", state.CompletedUnits, "date_changed_recovery");
+            }
+            catch (DateChangedRecoveryException exception) when (ownsRecovery)
+            {
+                return Fail(logSink, exception.Message, state.CompletedUnits, "date_changed_recovery");
+            }
+        }
     }
 
     private async Task<HachimiPipelineRunResult> RunGraphAsync(
@@ -125,7 +154,7 @@ public sealed class HachimiJsonPipelineRunner
             }
 
             var taskCount = state.GetTaskCount(current, task);
-            if (HasExceededLimit(current, task, taskCount, state.Options))
+            if (HasExceededLimit(current, task, taskCount, state.Options, state.RecoveredRaceUnits))
             {
                 AddLog(
                     logSink,
@@ -192,7 +221,7 @@ public sealed class HachimiJsonPipelineRunner
                 {
                     throw;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
                 {
                     // A broken screenshot/OCR/template adapter must be
                     // treated as a task failure so JSON recovery branches can
@@ -508,7 +537,7 @@ public sealed class HachimiJsonPipelineRunner
             {
                 throw;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 return TaskExecutionResult.RetryableFailure(
                     $"OCR task '{taskName}' failed: {exception.Message}");
@@ -578,7 +607,7 @@ public sealed class HachimiJsonPipelineRunner
             {
                 throw;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 return TaskExecutionResult.RetryableFailure(
                     $"Visual task '{taskName}' failed: {exception.Message}");
@@ -604,6 +633,13 @@ public sealed class HachimiJsonPipelineRunner
             if (action == "clickself" && task.ReuseLastMatchOnRetry)
                 state.RememberLastMatch(taskName, match);
         }
+
+        ObserveRecoveryEvidence(definition, taskName, runOptions);
+        if (_dateChangedRecovery is not null && action is not ("wait" or "donothing" or "justreturn" or ""))
+            await _dateChangedRecovery.Guard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (taskName.Equals("shopProbe", StringComparison.OrdinalIgnoreCase)
+            && GameAutomationScope.Current?.ConfirmedShopExchanges.Contains(ShopRecoveryKey(definition)) == true)
+            return TaskExecutionResult.Completed(taskName, "shopBack");
 
         switch (action)
         {
@@ -1160,6 +1196,8 @@ public sealed class HachimiJsonPipelineRunner
                     $"JSON task '{taskName}' uses unsupported action '{task.Action}'.");
         }
 
+        RecordRecoverySubmission(definition, taskName, runOptions);
+
         if (task.WaitMilliseconds > 0)
         {
             await _visualRuntime.DelayAsync(task.WaitMilliseconds, cancellationToken)
@@ -1502,6 +1540,8 @@ public sealed class HachimiJsonPipelineRunner
                         cancellationToken)
                     .ConfigureAwait(false);
                 lastMatches = matches;
+                foreach (var candidate in candidates.Where(candidate => matches.TryGetValue(candidate.Name, out var evidence) && evidence.Found))
+                    ObserveRecoveryEvidence(definition, candidate.Name, runOptions);
 
                 // A matched stop condition always suppresses stale button
                 // actions in the same screenshot. Some end markers are only
@@ -1704,6 +1744,7 @@ public sealed class HachimiJsonPipelineRunner
 
         if (!actionResult.Succeeded)
             return actionResult;
+        RecordRecoverySubmission(definition, candidate.Name, runOptions);
 
         if (task.WaitMilliseconds > 0)
         {
@@ -1905,23 +1946,80 @@ public sealed class HachimiJsonPipelineRunner
         return settings.ToOptions().ToMaxTimesOverrides();
     }
 
+    internal static int? RequestedRaceUnits(HachimiPipelineRunOptions options)
+    {
+        var key = options.SemanticProfile switch
+        {
+            HachimiTaskLogProfile.TeamRace => "raceAdvance",
+            HachimiTaskLogProfile.DailyRace => "multiRaceModeGate",
+            _ => null,
+        };
+        return key is not null && options.MaxTimesOverrides?.TryGetValue(key, out var count) == true
+            ? count + 1 : null;
+    }
+
+    private static string ShopRecoveryKey(HachimiPipelineDefinition definition) =>
+        Path.GetFullPath(Path.Combine(definition.BaseDirectory, "shop.json"));
+
+    internal static void ObserveRecoveryEvidence(HachimiPipelineDefinition definition,
+        string taskName, HachimiPipelineRunOptions options)
+    {
+        var scope = GameAutomationScope.Current;
+        if (scope is null)
+            return;
+        if (taskName.Equals("shopExchangeComplete", StringComparison.OrdinalIgnoreCase))
+        {
+            var key = ShopRecoveryKey(definition);
+            scope.PendingShopExchanges.Remove(key);
+            scope.ConfirmedShopExchanges.Add(key);
+        }
+        var profile = options.SemanticProfile;
+        var provesResult = profile switch
+        {
+            HachimiTaskLogProfile.TeamRace => taskName is "next" or "MiddleNext" or "nexttwo" or "raceagain" or "teamRaceAfterShop" or "finalNext",
+            HachimiTaskLogProfile.DailyRace => taskName is "multiRaceComplete" or "previewNext" or "racePlaybackResult" or "finalNext" or "finalNextSupport",
+            _ => false,
+        };
+        if (provesResult && scope.PendingRaceUnits.Remove(profile, out var units))
+            scope.ConfirmedRaceUnits[profile] = scope.ConfirmedRaceUnits.GetValueOrDefault(profile) + units;
+    }
+
+    internal static void RecordRecoverySubmission(HachimiPipelineDefinition definition,
+        string taskName, HachimiPipelineRunOptions options)
+    {
+        var scope = GameAutomationScope.Current;
+        if (scope is null)
+            return;
+        if (taskName.Equals("shopExchangeConfirm", StringComparison.OrdinalIgnoreCase))
+            scope.PendingShopExchanges.Add(ShopRecoveryKey(definition));
+        if (taskName.Equals("independent_training_start", StringComparison.OrdinalIgnoreCase))
+            scope.IndependentStartSubmitted = true;
+        var profile = options.SemanticProfile;
+        if (profile == HachimiTaskLogProfile.TeamRace && taskName == "itemRace")
+            scope.PendingRaceUnits[profile] = 1;
+        if (profile == HachimiTaskLogProfile.DailyRace && taskName is "itemsRace" or "multiRaceTicketConfirm")
+            scope.PendingRaceUnits[profile] = taskName == "multiRaceTicketConfirm"
+                ? Math.Max(1, (RequestedRaceUnits(options) ?? 1) - scope.ConfirmedRaceUnits.GetValueOrDefault(profile)) : 1;
+    }
+
     private static bool HasExceededLimit(
         string taskName,
         HachimiPipelineTask task,
         int taskCount,
-        HachimiPipelineRunOptions options)
+        HachimiPipelineRunOptions options,
+        int recoveredRaceUnits = 0)
     {
         if (options.MaxTimesOverrides is not null
             && options.MaxTimesOverrides.TryGetValue(taskName, out var overrideLimit))
         {
-            return taskCount >= Math.Max(0, overrideLimit);
+            return taskCount >= Math.Max(0, overrideLimit - (taskName.StartsWith("multiRace", StringComparison.OrdinalIgnoreCase) ? recoveredRaceUnits : 0));
         }
 
         if (task.CountKey is { Length: > 0 } countKey
             && options.MaxTimesOverrides is not null
             && options.MaxTimesOverrides.TryGetValue(countKey, out overrideLimit))
         {
-            return taskCount >= Math.Max(0, overrideLimit);
+            return taskCount >= Math.Max(0, overrideLimit - (countKey.Equals("raceAdvance", StringComparison.OrdinalIgnoreCase) ? recoveredRaceUnits : 0));
         }
 
         return task.MaxTimes > 0 && taskCount >= task.MaxTimes;
@@ -2550,6 +2648,14 @@ public sealed class HachimiJsonPipelineRunner
         public HachimiPipelineRunOptions Options { get; }
 
         public int CompletedUnits { get; set; }
+        public int RecoveredRaceUnits { get; private set; }
+
+        public void ResetNavigation(int confirmedRaceUnits)
+        {
+            _taskCounts.Clear();
+            _lastMatches.Clear();
+            RecoveredRaceUnits = confirmedRaceUnits;
+        }
 
         public int GetTaskCount(string taskName, HachimiPipelineTask task) =>
             _taskCounts.TryGetValue(GetCountKey(taskName, task), out var count)

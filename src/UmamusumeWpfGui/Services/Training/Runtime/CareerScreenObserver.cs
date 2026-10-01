@@ -171,7 +171,7 @@ public sealed class CareerScreenObserver
             {
                 throw;
             }
-            catch
+            catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 // A single dropped screenshot is a transient observation
                 // miss. Returning null lets the engine use its bounded
@@ -561,7 +561,7 @@ public sealed class CareerScreenObserver
         {
             throw;
         }
-        catch
+        catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             return null;
         }

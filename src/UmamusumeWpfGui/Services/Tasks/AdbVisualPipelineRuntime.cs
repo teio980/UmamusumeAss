@@ -17,12 +17,14 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     private readonly IAdbRuntime _adbRuntime;
     private readonly IAsyncDelay _asyncDelay;
     private readonly IScreenTextRecognizer _textRecognizer;
+    private readonly DateChangedDialogGuard? _dateChangedGuard;
     private readonly ConcurrentDictionary<string, HeldTouchDevice> _touchDevices = new();
 
     public AdbVisualPipelineRuntime(
         IAdbRuntime adbRuntime,
         IAsyncDelay asyncDelay,
-        IScreenTextRecognizer textRecognizer)
+        IScreenTextRecognizer textRecognizer,
+        DateChangedDialogGuard? dateChangedGuard = null)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(asyncDelay);
@@ -30,6 +32,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         _adbRuntime = adbRuntime;
         _asyncDelay = asyncDelay;
         _textRecognizer = textRecognizer;
+        _dateChangedGuard = dateChangedGuard;
     }
 
     public async Task<GrayImage?> CaptureGrayAsync(
@@ -421,6 +424,9 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     {
         ArgumentNullException.ThrowIfNull(connection);
 
+        if (_dateChangedGuard is not null)
+            await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
         var result = await _adbRuntime.TapAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -698,6 +704,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(match);
+        if (_dateChangedGuard is not null)
+            await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
         var bounds = match.Bounds.Expand(rowExpansion);
         var offsetX = clickOffset is { Length: >= 2 } ? clickOffset[0] : 0;
         var offsetY = clickOffset is { Length: >= 2 } ? clickOffset[1] : 0;
@@ -727,6 +735,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
+        if (_dateChangedGuard is not null)
+            await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
         var scaledX = ScaleCoordinate(x, Math.Max(1, referenceWidth), connection.Width);
         var scaledY = ScaleCoordinate(y, Math.Max(1, referenceHeight), connection.Height);
         var result = await _adbRuntime.TapAsync(
@@ -805,6 +815,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         string taskName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
+        if (phase == "DOWN" && _dateChangedGuard is not null)
+            await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
         var scaledX = ScaleCoordinate(x, Math.Max(1, referenceWidth), connection.Width);
         var scaledY = ScaleCoordinate(y, Math.Max(1, referenceHeight), connection.Height);
         await PrepareHeldTouchAsync(connection, cancellationToken).ConfigureAwait(false);
@@ -953,6 +965,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         var endY = ScaleCoordinate(coordinates[3], height, connection.Height);
         var duration = Math.Clamp(coordinates[4], 100, 3_000);
 
+        if (_dateChangedGuard is not null)
+            await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
         var result = await _adbRuntime.SwipeAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -994,10 +1008,13 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
 
     public Task DelayAsync(
         int milliseconds,
-        CancellationToken cancellationToken = default) =>
-        _asyncDelay.DelayAsync(
-            TimeSpan.FromMilliseconds(Math.Max(0, milliseconds)),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var duration = TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
+        return _dateChangedGuard is not null && GameAutomationScope.Current?.Connection is { } connection
+            ? _dateChangedGuard.DelayAsync(connection, duration, cancellationToken)
+            : _asyncDelay.DelayAsync(duration, cancellationToken);
+    }
 
     private async Task<AdbScreenshotResult?> CaptureScreenshotAsync(
         LastVerifiedConnection connection,
@@ -1005,12 +1022,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     {
         ArgumentNullException.ThrowIfNull(connection);
 
-        var raw = await _adbRuntime.DecodeRawScreenshotAsync(
-                connection.AdbPath,
-                connection.Serial,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return raw.Value is { } decoded
+        var raw = await CaptureRawScreenshotAsync(connection, cancellationToken).ConfigureAwait(false);
+        return raw is { } decoded
             ? new AdbScreenshotResult(AdbScreenshotMethod.Raw, [], TimeSpan.Zero, decoded)
             : null;
     }
@@ -1020,12 +1033,22 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
-        var raw = await _adbRuntime.DecodeRawScreenshotAsync(
-                connection.AdbPath,
-                connection.Serial,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return raw.Value;
+        while (true)
+        {
+            var raw = await _adbRuntime.DecodeRawScreenshotAsync(
+                    connection.AdbPath,
+                    connection.Serial,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (_dateChangedGuard is not null && GameAutomationScope.Current is not null && raw.Value is { } decoded)
+            {
+                var frame = GrayImageCodec.FromScreenshot(new AdbScreenshotResult(
+                    AdbScreenshotMethod.Raw, [], TimeSpan.Zero, decoded));
+                if (await _dateChangedGuard.InspectAsync(connection, frame, cancellationToken).ConfigureAwait(false))
+                    continue;
+            }
+            return raw.Value;
+        }
     }
 
     private static HsvColorProbeResult MeasureHsvRegion(

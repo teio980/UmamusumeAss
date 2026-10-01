@@ -55,7 +55,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
             {
                 throw;
             }
-            catch
+            catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 frame = null;
             }

@@ -75,6 +75,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<IVisualPipelineRuntime>()
             .To<AdbVisualPipelineRuntime>()
             .InSingletonScope();
+        builder.Bind<DateChangedDialogGuard>().ToSelf().InSingletonScope();
+        builder.Bind<DateChangedDialogRecovery>().ToSelf().InSingletonScope();
         builder.Bind<HachimiJsonPipelineRunner>()
             .ToSelf()
             .InSingletonScope();

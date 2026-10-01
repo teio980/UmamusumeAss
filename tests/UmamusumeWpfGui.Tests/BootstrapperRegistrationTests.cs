@@ -2,6 +2,7 @@ using StyletIoC;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests;
@@ -39,6 +40,8 @@ public sealed class BootstrapperRegistrationTests
         Assert.NotNull(container.Get<ISettingsService>());
         Assert.NotNull(container.Get<ILocalizationService>());
         Assert.NotNull(container.Get<IWinAdapter>());
+        Assert.NotNull(container.Get<DateChangedDialogGuard>());
+        Assert.NotNull(container.Get<DateChangedDialogRecovery>());
 
         Assert.NotNull(container.Get<LogViewModel>());
         Assert.NotNull(container.Get<SettingsViewModel>());

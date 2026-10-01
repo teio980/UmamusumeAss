@@ -18,6 +18,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
     private readonly CareerScreenObserver _screenObserver;
     private readonly CareerStartupRecoveryDetector _startupRecoveryDetector;
     private readonly NormalCareerStartupFlow _startupFlow;
+    private readonly DateChangedDialogRecovery? _dateChangedRecovery;
+    private readonly Func<LastVerifiedConnection, int, NormalCareerSkillCache> _skillCacheFactory;
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
     private IHachimiTaskLogSink? _taskLogSink;
@@ -26,7 +28,20 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
         CareerEntryNavigator entryNavigator,
-        HachimiJsonPipelineRunner jsonRunner)
+        HachimiJsonPipelineRunner jsonRunner,
+        DateChangedDialogRecovery? dateChangedRecovery = null)
+        : this(visualRuntime, umaDatabase, entryNavigator, jsonRunner, dateChangedRecovery,
+            (connection, traineeId) => new NormalCareerSkillCache(connection, traineeId))
+    {
+    }
+
+    internal CareerTrainingEngine(
+        IVisualPipelineRuntime visualRuntime,
+        IUmaDatabaseService umaDatabase,
+        CareerEntryNavigator entryNavigator,
+        HachimiJsonPipelineRunner jsonRunner,
+        DateChangedDialogRecovery? dateChangedRecovery,
+        Func<LastVerifiedConnection, int, NormalCareerSkillCache> skillCacheFactory)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
         ArgumentNullException.ThrowIfNull(umaDatabase);
@@ -34,6 +49,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         ArgumentNullException.ThrowIfNull(jsonRunner);
         _visualRuntime = visualRuntime;
         _umaDatabase = umaDatabase;
+        _dateChangedRecovery = dateChangedRecovery;
+        _skillCacheFactory = skillCacheFactory ?? throw new ArgumentNullException(nameof(skillCacheFactory));
         _entryNavigator = entryNavigator;
         _flowDispatcher = new CareerFlowDispatcher(visualRuntime, jsonRunner);
         _screenObserver = new CareerScreenObserver(visualRuntime);
@@ -86,8 +103,27 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         {
             _taskLogSink = taskLogSink;
             _flowDispatcher.SetTaskLogSink(taskLogSink);
-            return await RunCoreAsync(connection, settings, logSink, linked.Token)
-                .ConfigureAwait(false);
+            using var scope = _dateChangedRecovery is not null && GameAutomationScope.Current is null
+                ? new GameAutomationScope(logSink, taskLogSink, connection) : null;
+            var effectiveSettings = settings;
+            while (true)
+            {
+                try
+                {
+                    return await RunCoreAsync(connection, effectiveSettings, logSink, linked.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (DateChangedInterruptionException) when (_dateChangedRecovery is not null)
+                {
+                    await _dateChangedRecovery.RecoverAsync(connection, linked.Token).ConfigureAwait(false);
+                    effectiveSettings = effectiveSettings with { ContinueExistingCareer = true };
+                }
+            }
+        }
+        catch (DateChangedRecoveryException exception)
+        {
+            logSink?.Add("Career Training", exception.Message, LogEntryKind.Failure);
+            return Failure(exception.Message, "date_changed_recovery");
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
@@ -186,7 +222,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         // must not assume it has a clean race streak before a non-race turn.
         CareerRaceStreakPolicy.InitializeForRun(
             state, settings.ContinueExistingCareer);
-        var skillCache = new NormalCareerSkillCache(connection, settings.TraineeId);
+        var skillCache = _skillCacheFactory(connection, settings.TraineeId);
         if (settings.ContinueExistingCareer)
         {
             state.NormalLearnedSkillIds.AddRange(
@@ -431,7 +467,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 {
                     throw;
                 }
-                catch
+                catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
                 {
                     recreationFrame = null;
                 }
@@ -512,7 +548,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 {
                     throw;
                 }
-                catch
+                catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
                 {
                     restFrame = null;
                 }

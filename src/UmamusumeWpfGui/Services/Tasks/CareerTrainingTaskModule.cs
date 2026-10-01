@@ -256,7 +256,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
             Settings.SetStatus(message);
             return new GrassTaskExecutionResult(false, false, message);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             context.TaskLogSink?.Add(
                 "Result",

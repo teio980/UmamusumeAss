@@ -8,11 +8,6 @@ using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
-
-
-
-
-
 public sealed class AdbStartGamePipeline : IStartGamePipeline
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -23,21 +18,24 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
     private readonly IAdbRuntime _adbRuntime;
     private readonly IAsyncDelay _asyncDelay;
     private readonly string _definitionPath;
+    private readonly DateChangedDialogGuard? _dateChangedGuard;
 
     public AdbStartGamePipeline(
         IAdbRuntime adbRuntime,
-        IAsyncDelay asyncDelay)
+        IAsyncDelay asyncDelay,
+        DateChangedDialogGuard? dateChangedGuard = null)
         : this(
             adbRuntime,
             asyncDelay,
-            ResourcePathRuntime.Resolve(HachimiResourcePaths.StartGameDefinition))
+            ResourcePathRuntime.Resolve(HachimiResourcePaths.StartGameDefinition), dateChangedGuard)
     {
     }
 
     internal AdbStartGamePipeline(
         IAdbRuntime adbRuntime,
         IAsyncDelay asyncDelay,
-        string definitionPath)
+        string definitionPath,
+        DateChangedDialogGuard? dateChangedGuard = null)
     {
         ArgumentNullException.ThrowIfNull(adbRuntime);
         ArgumentNullException.ThrowIfNull(asyncDelay);
@@ -45,6 +43,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         _adbRuntime = adbRuntime;
         _asyncDelay = asyncDelay;
         _definitionPath = definitionPath;
+        _dateChangedGuard = dateChangedGuard;
     }
 
     public async Task<StartGamePipelineResult> RunAsync(
@@ -53,6 +52,45 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         IGrassTaskLogSink? logSink = null,
         IHachimiTaskLogSink? taskLogSink = null,
         CancellationToken cancellationToken = default)
+    {
+        using var ownedScope = _dateChangedGuard is not null && GameAutomationScope.Current is null
+            ? new GameAutomationScope(logSink, taskLogSink, connection) : null;
+        var scope = GameAutomationScope.Current;
+        var wasRecovering = scope?.Recovering ?? false;
+        if (scope is not null)
+            scope.Recovering = true;
+        try
+        {
+            // A reset between a match and its tap invalidates the startup chain.
+            // Re-enter the same monitor rather than invoking another StartGame.
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    return await RunCoreAsync(connection, packageName, logSink, taskLogSink, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (DateChangedInterruptionException) when (_dateChangedGuard is not null) { }
+            }
+            return Fail(logSink, "Repeated Date Changed interruptions prevented startup recovery.");
+        }
+        catch (DateChangedRecoveryException exception)
+        {
+            return Fail(logSink, exception.Message);
+        }
+        finally
+        {
+            if (scope is not null)
+                scope.Recovering = wasRecovering;
+        }
+    }
+
+    private async Task<StartGamePipelineResult> RunCoreAsync(
+        LastVerifiedConnection connection,
+        string packageName,
+        IGrassTaskLogSink? logSink,
+        IHachimiTaskLogSink? taskLogSink,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageName);
@@ -241,9 +279,6 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             if (template is not null)
             {
 
-
-
-
                 var screenshot = await CapturePipelineScreenshotAsync(
                     connection,
                     cancellationToken).ConfigureAwait(false);
@@ -267,7 +302,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             {
                 if (task.PreDelay > 0)
                 {
-                    await _asyncDelay.DelayAsync(
+                    await DelayAsync(connection,
                         TimeSpan.FromMilliseconds(task.PreDelay),
                         cancellationToken).ConfigureAwait(false);
                 }
@@ -283,7 +318,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
                 if (task.PostDelay > 0)
                 {
-                    await _asyncDelay.DelayAsync(
+                    await DelayAsync(connection,
                         TimeSpan.FromMilliseconds(task.PostDelay),
                         cancellationToken).ConfigureAwait(false);
                 }
@@ -314,7 +349,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     $"Timed out waiting for '{taskName}'. {diagnostics}".TrimEnd());
             }
 
-            await _asyncDelay.DelayAsync(poll, cancellationToken).ConfigureAwait(false);
+            await DelayAsync(connection, poll, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -405,9 +440,17 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var generation = GameAutomationScope.Current?.Generation;
             var screenshot = await CapturePipelineScreenshotAsync(
                 connection,
                 cancellationToken).ConfigureAwait(false);
+            if (generation != GameAutomationScope.Current?.Generation)
+            {
+                chainIndex = -1;
+                lastMatches = null;
+                lastScreen = null;
+                continue;
+            }
             var screen = screenshot is null ? null : GrayImageCodec.FromScreenshot(screenshot);
             if (screen is not null)
             {
@@ -433,7 +476,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                         "StartupMonitor",
                         $"Startup success task '{successMatch.Value.Name}' detected; "
                         + $"waiting {Math.Max(0, monitorTask.SuccessConfirmationDelayMilliseconds)}ms before confirmation.");
-                    await _asyncDelay.DelayAsync(
+                    await DelayAsync(connection,
                         TimeSpan.FromMilliseconds(Math.Max(
                             0,
                             monitorTask.SuccessConfirmationDelayMilliseconds)),
@@ -585,7 +628,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     $"Timed out waiting for startup monitor '{taskName}'.");
             }
 
-            await _asyncDelay.DelayAsync(poll, cancellationToken).ConfigureAwait(false);
+            await DelayAsync(connection, poll, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -627,7 +670,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         var task = candidate.Task;
         if (task.PreDelay > 0)
         {
-            await _asyncDelay.DelayAsync(
+            await DelayAsync(connection,
                 TimeSpan.FromMilliseconds(task.PreDelay),
                 cancellationToken).ConfigureAwait(false);
         }
@@ -643,7 +686,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
         if (task.PostDelay > 0)
         {
-            await _asyncDelay.DelayAsync(
+            await DelayAsync(connection,
                 TimeSpan.FromMilliseconds(task.PostDelay),
                 cancellationToken).ConfigureAwait(false);
         }
@@ -695,7 +738,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                     : 0;
             if (wait > 0)
             {
-                await _asyncDelay.DelayAsync(
+                await DelayAsync(connection,
                     TimeSpan.FromMilliseconds(wait),
                     cancellationToken).ConfigureAwait(false);
             }
@@ -707,6 +750,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
         {
             if (match is not { Found: true })
                 return new PipelineTaskResult(false, "ClickSelf requires a matched template.");
+
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
 
             var result = await _adbRuntime.TapAsync(
                 connection.AdbPath,
@@ -723,6 +769,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             if (point is null)
                 return new PipelineTaskResult(false, "ClickRect requires specificRect.");
 
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
             var result = await _adbRuntime.TapAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -737,6 +786,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             var point = ResolvePoint(task, task.SpecificRect, screen, connection);
             if (point is null)
                 return new PipelineTaskResult(false, "TapToStart requires specificRect.");
+
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
 
             var result = await _adbRuntime.TapAsync(
                 connection.AdbPath,
@@ -754,6 +806,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             if (start is null || end is null)
                 return new PipelineTaskResult(false, "Swipe requires specificRect and rectMove.");
 
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
             var result = await _adbRuntime.SwipeAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -768,6 +823,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
         if (action.Equals("Back", StringComparison.OrdinalIgnoreCase))
         {
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
             var result = await _adbRuntime.BackAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -777,6 +835,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
         if (action.Equals("Input", StringComparison.OrdinalIgnoreCase))
         {
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
             var result = await _adbRuntime.InputTextAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -787,6 +848,9 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
 
         if (action.Equals("KeyEvent", StringComparison.OrdinalIgnoreCase))
         {
+            if (_dateChangedGuard is not null)
+                await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
+
             var result = await _adbRuntime.KeyEventAsync(
                 connection.AdbPath,
                 connection.Serial,
@@ -837,6 +901,11 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             cancellationToken).ConfigureAwait(false);
     }
 
+    private Task DelayAsync(LastVerifiedConnection connection, TimeSpan duration, CancellationToken token) =>
+        _dateChangedGuard is not null
+            ? _dateChangedGuard.DelayAsync(connection, duration, token)
+            : _asyncDelay.DelayAsync(duration, token);
+
     private async Task<AdbScreenshotResult?> CapturePipelineScreenshotAsync(
         LastVerifiedConnection connection,
         CancellationToken cancellationToken)
@@ -845,6 +914,13 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             connection.AdbPath,
             connection.Serial,
             cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (_dateChangedGuard is not null && raw.Value is { } framePixels)
+        {
+            var frame = GrayImageCodec.FromScreenshot(new AdbScreenshotResult(
+                AdbScreenshotMethod.Raw, [], TimeSpan.Zero, framePixels));
+            if (await _dateChangedGuard.InspectAsync(connection, frame, cancellationToken).ConfigureAwait(false))
+                return null;
+        }
         return raw.Value is { } decoded
             ? new AdbScreenshotResult(
                 AdbScreenshotMethod.Raw,

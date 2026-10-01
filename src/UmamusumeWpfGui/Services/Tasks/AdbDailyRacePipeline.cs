@@ -169,7 +169,7 @@ public sealed class AdbDailyRacePipeline : IDailyRacePipeline
             taskLogSink?.Add("Result", "Daily Race was stopped.", HachimiTaskLogEventKind.Warning);
             return new DailyRacePipelineResult(false, 0, "Daily Race was stopped.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
             taskLogSink?.Add(

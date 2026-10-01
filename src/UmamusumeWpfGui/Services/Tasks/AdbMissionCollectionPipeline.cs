@@ -71,7 +71,7 @@ public sealed class AdbMissionCollectionPipeline : IMissionCollectionPipeline
             taskLogSink?.Add("Result", "Mission collection was stopped.", HachimiTaskLogEventKind.Warning);
             return new MissionCollectionPipelineResult(false, "Mission collection was stopped.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not DateChangedInterruptionException and not DateChangedRecoveryException)
         {
             AddLog(logSink, ex.Message, LogEntryKind.Failure);
             taskLogSink?.Add(

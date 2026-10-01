@@ -83,11 +83,13 @@ public sealed class CareerSkillLearningFlowTests
         Assert.Empty(actions.ActionIds);
     }
 
-    [Fact]
-    public async Task Cached_learned_skill_skips_points_ocr_and_skills_page()
+    [Theory]
+    [InlineData("Professor of Curvature")]
+    [InlineData("Gourmand")]
+    public async Task Cached_learned_skill_skips_points_ocr_and_skills_page(string skillName)
     {
         var skillId = IndependentTrainingCatalog.Load(FindRoot()).Skills
-            .Single(skill => skill.SkillName == "Professor of Curvature").SkillId;
+            .Single(skill => skill.SkillName == skillName).SkillId;
         var actions = new RecordingActions();
         var state = new UraCareerSessionState();
         state.NormalLearnedSkillIds.Add(skillId);

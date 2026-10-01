@@ -20,6 +20,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     private readonly CareerEntryNavigator _entryNavigator;
     private readonly ICareerActionExecutor _actions;
     private readonly Func<int, IndependentCheckpointStore> _checkpointStoreFactory;
+    private readonly DateChangedDialogRecovery? _dateChangedRecovery;
     private readonly object _runLock = new();
     private CancellationTokenSource? _runCancellation;
     private IHachimiTaskLogSink? _taskLogSink;
@@ -28,13 +29,14 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         IVisualPipelineRuntime visualRuntime,
         IUmaDatabaseService umaDatabase,
         CareerEntryNavigator entryNavigator,
-        CareerJsonActionExecutor actions)
+        CareerJsonActionExecutor actions,
+        DateChangedDialogRecovery? dateChangedRecovery = null)
         : this(
             visualRuntime,
             umaDatabase,
             entryNavigator,
             actions,
-            traineeId => new IndependentCheckpointStore(traineeId))
+            traineeId => new IndependentCheckpointStore(traineeId), dateChangedRecovery)
     {
     }
 
@@ -43,12 +45,14 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         IUmaDatabaseService umaDatabase,
         CareerEntryNavigator entryNavigator,
         ICareerActionExecutor actions,
-        Func<int, IndependentCheckpointStore> checkpointStoreFactory)
+        Func<int, IndependentCheckpointStore> checkpointStoreFactory,
+        DateChangedDialogRecovery? dateChangedRecovery = null)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
         _umaDatabase = umaDatabase ?? throw new ArgumentNullException(nameof(umaDatabase));
         _entryNavigator = entryNavigator ?? throw new ArgumentNullException(nameof(entryNavigator));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _dateChangedRecovery = dateChangedRecovery;
         _checkpointStoreFactory = checkpointStoreFactory
             ?? throw new ArgumentNullException(nameof(checkpointStoreFactory));
     }
@@ -74,8 +78,29 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         try
         {
             _taskLogSink = taskLogSink;
-            return await RunCoreAsync(connection, settings, logSink, linked.Token)
-                .ConfigureAwait(false);
+            using var scope = _dateChangedRecovery is not null && GameAutomationScope.Current is null
+                ? new GameAutomationScope(logSink, taskLogSink, connection) : null;
+            var effectiveSettings = settings;
+            var recoverFromHome = false;
+            while (true)
+            {
+                try
+                {
+                    return await RunCoreAsync(connection, effectiveSettings, logSink, linked.Token, recoverFromHome)
+                        .ConfigureAwait(false);
+                }
+                catch (DateChangedInterruptionException) when (_dateChangedRecovery is not null)
+                {
+                    await _dateChangedRecovery.RecoverAsync(connection, linked.Token).ConfigureAwait(false);
+                    effectiveSettings = effectiveSettings with { ContinueExistingCareer = true };
+                    recoverFromHome = true;
+                }
+            }
+        }
+        catch (DateChangedRecoveryException exception)
+        {
+            logSink?.Add("Independent Training", exception.Message, LogEntryKind.Failure);
+            return Failure(exception.Message, "date_changed_recovery");
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
@@ -113,7 +138,8 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         LastVerifiedConnection connection,
         IndependentTrainingSettings settings,
         IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool recoverFromHome = false)
     {
         if (!_umaDatabase.TryGetTrainee(settings.TraineeId, out var trainee)
             || trainee is null
@@ -186,6 +212,55 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     "Independent Training",
                     "No new Independent checkpoint found; migrated the old URA checkpoint best-effort.",
                     LogEntryKind.Info);
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        if (recoverFromHome)
+        {
+            // Startup has deliberately moved the device to Home. A saved setup
+            // cursor is useful only after the shared entry flow is reopened.
+            if (state.Stage >= IndependentTrainingStage.HandlePostStartDialog
+                || GameAutomationScope.Current?.IndependentStartSubmitted == true
+                || state.LastConfirmedScreen.Equals(StartIssuedScreenId, StringComparison.OrdinalIgnoreCase))
+            {
+                state.Stage = IndependentTrainingStage.ReturnHome;
+                state.LastConfirmedScreen = "home";
+                await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            }
+            else if (IsEntryStage(state.Stage))
+            {
+                state.Stage = IndependentTrainingStage.EnterCareer;
+                state.LastConfirmedScreen = "home";
+            }
+            else
+            {
+                var entryState = new CareerEntryNavigationState
+                {
+                    Step = CareerEntryNavigationStep.Home,
+                    LastScreenId = "home",
+                };
+                var entry = await _entryNavigator.NavigateAsync(connection, pack, settings, entryState,
+                    logSink, progressCallback: null, _taskLogSink, cancellationToken).ConfigureAwait(false);
+                runtime.AdoptEntryProgress(entryState);
+                if (!entry.Succeeded)
+                    return Failure(entry.Message, entry.LastScreenId, runtime.ActionsCompleted);
+                state.LastConfirmedScreen = FinalConfirmationScreenId;
+                if (state.Stage > IndependentTrainingStage.SelectIndependentMode)
+                {
+                    var mode = await RunIndependentActionAsync(connection, pack, state, runtime,
+                        "independent.select_mode", logSink, cancellationToken).ConfigureAwait(false);
+                    if (mode is not null)
+                        return mode;
+                }
+                if (state.Stage >= IndependentTrainingStage.ConfigureFocus
+                    && state.Stage <= IndependentTrainingStage.CollapseLineup)
+                {
+                    var lineup = await RunIndependentActionAsync(connection, pack, state, runtime,
+                        "independent.lineup.expand", logSink, cancellationToken).ConfigureAwait(false);
+                    if (lineup is not null)
+                        return lineup;
+                }
                 await checkpointStore.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             }
         }

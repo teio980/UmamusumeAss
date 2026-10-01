@@ -88,6 +88,51 @@ public sealed class CareerGoalResumeTests
         Assert.Equal(["home", "home_home_career", "career_continue_resume"], runtime.TappedTasks);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Daily_reset_after_learning_gourmand_keeps_the_skill_and_resumes_the_same_career_from_home(bool raceDay)
+    {
+        var root = FindWorkspaceRoot();
+        var expectedTask = raceDay ? "race_day_race_open_list" : "goal_update_goal_update_next";
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var frame = raceDay
+            ? GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi", "ura", "screens", "captures", "career_skill_race_day_662_sample.png"))!
+            : LoadGoalFrame(root, "goal3_update.png");
+        var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
+        var runtime = (ResumeVisualRuntime)(object)visual;
+        runtime.EntryFrame = GrayImageCodec.FromFile(Path.Combine(root, "testdata", "hachimi", "ura", "captures", "home.jpg"));
+        runtime.ContinueFrame = CreateContinueFrame(root);
+        var fixture = new DateChangedDialogRecoveryTests.Fixture();
+        var connection = new LastVerifiedConnection("adb", "date-changed-test", Guid.NewGuid().ToString("N"), "version",
+            900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
+        var cacheDirectory = Path.Combine(Path.GetTempPath(), "date-changed-skills-" + Guid.NewGuid().ToString("N"));
+        var cache = new NormalCareerSkillCache(connection, 100602, cacheDirectory);
+        runtime.BeforeNextCapture = async () =>
+        {
+            // The original run started with Restart selected and learned this
+            // skill before Skills Back was covered by the Date Changed modal.
+            await cache.SaveAsync([201351]);
+            throw new DateChangedInterruptionException();
+        };
+        try
+        {
+            var result = await RunEngineAsync(root, visual, cancellation.Token, fixture.Recovery,
+                continueExistingCareer: false, connection, cacheDirectory, normalSkillIds: [201351]);
+            Assert.False(result.Succeeded); // The fixture stops after the next goal action.
+            Assert.Equal("canceled", result.LastScreenId);
+            Assert.Equal(["ok", "launch", "startup"], fixture.Events);
+            Assert.Equal(["home", "home_home_career", "career_continue_resume", expectedTask], runtime.TappedTasks);
+            Assert.Equal([201351], await cache.LoadAsync());
+            Assert.Null(GameAutomationScope.Current);
+        }
+        finally
+        {
+            await cache.ClearAsync();
+            if (Directory.Exists(cacheDirectory)) Directory.Delete(cacheDirectory);
+        }
+    }
+
     private static GrayImage LoadGoalFrame(string root, string captureName)
     {
         var path = captureName == "ura_finale_entry.png"
@@ -113,7 +158,12 @@ public sealed class CareerGoalResumeTests
     private static async Task<CareerTrainingResult> RunEngineAsync(
         string root,
         IVisualPipelineRuntime visual,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateChangedDialogRecovery? recovery = null,
+        bool continueExistingCareer = true,
+        LastVerifiedConnection? connection = null,
+        string? cacheDirectory = null,
+        IReadOnlyList<int>? normalSkillIds = null)
     {
         var database = new UmaDatabaseService();
         await database.LoadAsync(Path.Combine(root, "resource"), cancellationToken);
@@ -128,11 +178,12 @@ public sealed class CareerGoalResumeTests
             new UraTraineeSelector(visual, database),
             new UraLegacySelector(visual, runner),
             new CareerJsonActionExecutor(runner));
-        var engine = new CareerTrainingEngine(visual, database, navigator, runner);
+        var engine = new CareerTrainingEngine(visual, database, navigator, runner, recovery,
+            (device, traineeId) => new NormalCareerSkillCache(device, traineeId, cacheDirectory));
         var settings = new CareerTrainingSettings(
             Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"),
             100602,
-            ContinueExistingCareer: true,
+            ContinueExistingCareer: continueExistingCareer,
             SupportCardIds: [],
             SupportDeckMode: "auto",
             SupportDeckPreset: "",
@@ -144,8 +195,9 @@ public sealed class CareerGoalResumeTests
             UseLegacyGuest: false,
             UseCachedLegacy: false,
             LegacyAttributeSparks: [],
-            LegacyAptitudeSparks: []);
-        var connection = new LastVerifiedConnection("adb", "serial", "android", "version",
+            LegacyAptitudeSparks: [],
+            NormalSkillIds: normalSkillIds);
+        connection ??= new LastVerifiedConnection("adb", "serial", "android", "version",
             900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
 
         return await engine.RunAsync(connection, settings, logSink: null,
@@ -180,6 +232,7 @@ public sealed class CareerGoalResumeTests
         public GrayImage? MainFrame { get; set; }
         public int MainCapturesRemaining { get; set; }
         public int MissingCapturesRemaining { get; set; }
+        public Func<Task<GrayImage?>>? BeforeNextCapture { get; set; }
 
         public static IVisualPipelineRuntime Create(
             GrayImage frame,
@@ -200,6 +253,11 @@ public sealed class CareerGoalResumeTests
             {
                 case "CaptureGrayAsync":
                     Captures++;
+                    if (BeforeNextCapture is { } before)
+                    {
+                        BeforeNextCapture = null;
+                        return before();
+                    }
                     if (EntryFrame is not null)
                         return Task.FromResult<GrayImage?>(EntryFrame);
                     if (MissingCapturesRemaining > 0)
@@ -221,6 +279,7 @@ public sealed class CareerGoalResumeTests
                 case "DetectTextAsync":
                     return Task.FromResult<ScreenTextRecognitionResult?>(null);
                 case "WaitForMatchAsync":
+                case "WaitForColorMatchAsync":
                     Assert.Contains((string)args![8]!,
                         new[] { "home", "home_home_career", "career_continue_resume", ExpectedTask });
                     return Task.FromResult<TemplateMatchResult?>(
