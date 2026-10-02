@@ -46,6 +46,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("career_complete")]
     [InlineData("career_complete_close")]
     [InlineData("career_story_unlocked")]
+    [InlineData("career_story_unlocked_to_home")]
     [InlineData("event_reward")]
     public void Live_career_pages_are_eligible_for_current_screen_recovery(string screenId)
     {
@@ -68,6 +69,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("event_reward", CareerScreenKind.Settlement)]
     [InlineData("career_complete_close", CareerScreenKind.Settlement)]
     [InlineData("career_story_unlocked", CareerScreenKind.Settlement)]
+    [InlineData("career_story_unlocked_to_home", CareerScreenKind.Settlement)]
     public void Runtime_observations_are_classified_before_flow_dispatch(
         string screenId,
         CareerScreenKind expected)
@@ -75,16 +77,19 @@ public sealed class NormalCareerTrainingPipelineTests
         Assert.Equal(expected, AdbNormalCareerTrainingPipeline.ClassifyRuntimeScreen(screenId));
     }
 
-    [Fact]
-    public void Epithet_is_resumable_and_only_eligible_after_the_result_close()
+    [Theory]
+    [InlineData("career_main", false)]
+    [InlineData("career_result_close", true)]
+    [InlineData("career_rating_record_updated", true)]
+    [InlineData("career_epithet", true)]
+    public void Epithet_is_resumable_and_eligible_after_optional_settlement_popups(
+        string previousScreen, bool eligible)
     {
         Assert.True(CareerScreenObserver.IsInitialResumeCandidate("career_epithet"));
         Assert.True(CareerScreenObserver.IsInitialResumeCandidate("career_result"));
         Assert.True(CareerScreenObserver.IsRuntimeCareerScreen("career_epithet"));
-        var state = new UraCareerSessionState { LastScreenId = "career_main" };
-        Assert.False(CareerScreenObserver.IsEligibleForCareerPhase("career_epithet", state));
-        state.LastScreenId = "career_result_close";
-        Assert.True(CareerScreenObserver.IsEligibleForCareerPhase("career_epithet", state));
+        var state = new UraCareerSessionState { LastScreenId = previousScreen };
+        Assert.Equal(eligible, CareerScreenObserver.IsEligibleForCareerPhase("career_epithet", state));
     }
 
     [Theory]

@@ -10,6 +10,39 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
 {
     [Theory]
+    [InlineData("career_result_close", false)]
+    [InlineData("career_rating_record_updated", false)]
+    [InlineData("career_epithet", false)]
+    [InlineData("unknown", true)]
+    public async Task Epithet_after_optional_rating_popup_is_recognized_and_confirm_is_clickable(
+        string previousScreen, bool resume)
+    {
+        var pack = await LoadPackAsync();
+        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura",
+            "captures", "career_epithet_after_rating_record_updated.png"));
+        var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = !resume,
+            LastScreenId = previousScreen,
+        };
+
+        var observation = await observer.ObserveAsync(Connection(), pack, state,
+            false, CancellationToken.None, careerOnly: resume);
+
+        Assert.Equal("career_epithet", observation?.ScreenId);
+        Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
+        var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("epithet_confirm")!.Task);
+        var match = TemplateMatcher.FindColor(frame, LoadResource(task.Template!), task.Roi,
+            task.TemplateThreshold, 900, 1600);
+        output.WriteLine($"Epithet: title={observation.Score:0.000}, button={match.Score:0.000}, click=({match.CenterX},{match.CenterY})");
+        Assert.True(match.Found);
+        Assert.InRange(match.CenterX, 435, 465);
+        Assert.InRange(match.CenterY, 1450, 1500);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -85,6 +118,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     [InlineData("career_complete_close", "close")]
     [InlineData("career_story_unlocked", "close")]
     [InlineData("career_story_unlocked_compact", "close")]
+    [InlineData("career_story_unlocked_to_home", "to_home")]
+    [InlineData("career_epithet", "epithet_confirm")]
     public async Task Settlement_dispatches_the_matching_exit_action(string screenId, string actionId)
     {
         var actions = new RecordingActions();
@@ -94,6 +129,72 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
 
         Assert.Null(await new CareerSettlementFlow(actions).HandleAsync(context));
         Assert.Equal((screenId, actionId), actions.LastAction);
+    }
+
+    [Theory]
+    [InlineData("career_complete", false)]
+    [InlineData("career_complete_close", false)]
+    [InlineData("career_story_unlocked", false)]
+    [InlineData("career_story_unlocked_compact", false)]
+    [InlineData("career_story_unlocked_to_home", false)]
+    [InlineData("unknown", true)]
+    public async Task Unlocked_story_to_home_is_recognized_and_clickable_on_resume(
+        string previousScreen, bool resume)
+    {
+        var pack = await LoadPackAsync();
+        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura",
+            "captures", "career_story_unlocked_to_home.png"));
+        var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = !resume,
+            LastScreenId = previousScreen,
+        };
+
+        var observation = await observer.ObserveAsync(Connection(), pack, state,
+            false, CancellationToken.None, careerOnly: resume);
+
+        Assert.Equal("career_story_unlocked_to_home", observation?.ScreenId);
+        Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
+        var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("to_home")!.Task);
+        var match = TemplateMatcher.FindColor(frame, LoadResource(task.Template!), task.Roi,
+            task.TemplateThreshold, 900, 1600, requireTextContrast: true);
+        output.WriteLine($"Story To Home: title={observation.Score:0.000}, button={match.Score:0.000}, click=({match.CenterX},{match.CenterY})");
+        Assert.True(match.Found);
+        Assert.InRange(match.CenterX, 435, 465);
+        Assert.InRange(match.CenterY, 1020, 1065);
+
+        state.CareerStarted = true;
+        state.LastScreenId = observation.ScreenId;
+        Assert.True(CareerScreenObserver.IsReturningHome(state));
+
+        // Require both the Story Unlocked title and its centered To Home label.
+        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [screen] } };
+        foreach (var roi in new[] { screen.Recognition.Roi!, screen.Recognition.RequiredTemplateRoi! })
+        {
+            var incomplete = frame with
+            {
+                Pixels = (byte[])frame.Pixels.Clone(),
+                RgbaPixels = (byte[])frame.RgbaPixels!.Clone(),
+            };
+            Clear(incomplete, roi);
+            Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(incomplete))
+                .ObserveAsync(Connection(), pack, state, false, CancellationToken.None));
+        }
+        foreach (var unrelated in new[]
+        {
+            LoadCompletionFrame(false),
+            LoadCompletionFrame(true),
+            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
+                "career_story_unlocked_compact.png")),
+            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
+                "career_story_unlocked.png")),
+        })
+        {
+            Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(unrelated))
+                .ObserveAsync(Connection(), pack, state, false, CancellationToken.None));
+        }
     }
 
     [Theory]

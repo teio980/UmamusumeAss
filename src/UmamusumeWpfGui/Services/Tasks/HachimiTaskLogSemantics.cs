@@ -390,6 +390,9 @@ internal static class HachimiTaskLogSemantics
             "career_story_unlocked_close" => Step(
                 "Closing the unlocked Career story",
                 "Unlocked Career story closed"),
+            "career_story_unlocked_to_home" => Step(
+                "Returning to Home after the unlocked Career story",
+                "Return to Home requested after the unlocked Career story"),
             _ => default,
         };
     }

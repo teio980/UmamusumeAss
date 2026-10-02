@@ -41,6 +41,8 @@ public sealed class CareerScreenObserver
                     == CareerScreenKind.Settlement)
             && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
+                // A new rating record inserts an optional Next popup before Epithet.
+                || state.LastScreenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase))
             && (!screenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
@@ -51,6 +53,7 @@ public sealed class CareerScreenObserver
         state.CareerStarted
         && (state.LastScreenId is "career_complete" or "career_complete_close"
             or "career_story_unlocked" or "career_story_unlocked_compact"
+            or "career_story_unlocked_to_home"
             or "home_unselected");
 
     public async Task<CareerObservation?> ObserveAsync(
@@ -113,6 +116,7 @@ public sealed class CareerScreenObserver
             .Where(screen => !returningHome
                 || (screen.ScreenId is "career_complete" or "career_complete_close"
                     or "career_story_unlocked" or "career_story_unlocked_compact"
+                    or "career_story_unlocked_to_home"
                     or "home" or "home_unselected"))
             .Where(screen => !string.Equals(
                     screen.ScreenId,
@@ -617,7 +621,8 @@ public sealed class CareerScreenObserver
             // Completion has two exit labels. Its title and matching button
             // must win over generic Close dialogs when resuming settlement.
             "career_complete" or "career_complete_close" => -4,
-            "career_story_unlocked" or "career_story_unlocked_compact" => -4,
+            "career_story_unlocked" or "career_story_unlocked_compact"
+                or "career_story_unlocked_to_home" => -4,
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,
