@@ -13,6 +13,7 @@ public sealed class CareerGoalResumeTests
     [InlineData("goal3_update.png", "goal_update_goal_update_next")]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next")]
     [InlineData("ura_finale_entry.png", "goal_complete_goal_next")]
+    [InlineData("goal_incomplete.png", "goal_incomplete_next")]
     public async Task Resuming_on_a_goal_page_clicks_its_next(
         string captureName,
         string expectedTask)
@@ -29,10 +30,76 @@ public sealed class CareerGoalResumeTests
         Assert.Equal(2, runtime.Captures);
     }
 
+    [Fact]
+    public async Task Incomplete_goal_enters_existing_settlement_and_completes_only_at_home()
+    {
+        var root = FindWorkspaceRoot();
+        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
+        var templates = Path.Combine(root, "resource", "hachimi", "ura", "screens",
+            "templates", "runtime_frames");
+        GrayImage Load(string path) => GrayImageCodec.FromFile(path)
+            ?? throw new InvalidDataException($"Could not load {path}.");
+        var tasks = new[]
+        {
+            "goal_incomplete_next", "complete_career_entry_open",
+            "complete_career_career_finish", "career_complete_career_to_home",
+        };
+        var visual = DispatchProxy.Create<IVisualPipelineRuntime, SettlementVisualRuntime>();
+        var runtime = (SettlementVisualRuntime)(object)visual;
+        runtime.Frames =
+        [
+            Load(Path.Combine(captures, "goal_incomplete.png")),
+            Load(Path.Combine(captures, "complete_career_entry.png")),
+            Load(Path.Combine(templates, "ura_complete_career_next.png")),
+            Load(Path.Combine(templates, "ura_rewards_support_next.png")),
+            Load(Path.Combine(templates, "ura_returned_home.png")),
+        ];
+        runtime.ExpectedTasks = tasks;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var result = await RunEngineAsync(root, visual, cancellation.Token,
+            connection: new LastVerifiedConnection("adb", "goal-incomplete-test", "android",
+                "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch));
+
+        Assert.True(result.Succeeded,
+            $"{result.Message}; last={result.LastScreenId}; tasks={string.Join(",", runtime.TappedTasks)}");
+        Assert.Equal("home", result.LastScreenId);
+        Assert.Equal(tasks, runtime.TappedTasks);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Incomplete_goal_is_recognized_after_a_race_without_a_completion_probe(
+        bool retryDeclined)
+    {
+        var root = FindWorkspaceRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(root,
+            "resource", "hachimi", "ura", "manifest.json"));
+        var frame = LoadGoalFrame(root, "goal_incomplete.png");
+        var observer = new CareerScreenObserver(
+            CareerCompleteRecognitionTests.CapturedFrameRuntime.Create(frame));
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = true,
+            LastScreenId = "race_runner_result",
+            RaceRetryDeclined = retryDeclined,
+        };
+        var connection = new LastVerifiedConnection("adb", "serial", "android", "version",
+            900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
+
+        var observation = await observer.ObserveAsync(connection, pack, state,
+            false, CancellationToken.None);
+
+        Assert.Equal("goal_incomplete", observation?.ScreenId);
+        Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
+    }
+
     [Theory]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next", false, 0)]
     [InlineData("goal3_update.png", "goal_update_goal_update_next", false, 0)]
     [InlineData("ura_finale_entry.png", "goal_complete_goal_next", false, 0)]
+    [InlineData("goal_incomplete.png", "goal_incomplete_next", false, 0)]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next", true, 0)]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next", false, 4)]
     public async Task Home_resume_hands_the_goal_page_to_the_turn_engine(
@@ -305,6 +372,52 @@ public sealed class CareerGoalResumeTests
                 default:
                     throw new InvalidOperationException(
                         $"Unexpected visual runtime call: {targetMethod?.Name}.");
+            }
+        }
+    }
+
+    public class SettlementVisualRuntime : DispatchProxy
+    {
+        public GrayImage[] Frames { get; set; } = [];
+        public string[] ExpectedTasks { get; set; } = [];
+        public List<string> TappedTasks { get; } = [];
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            switch (targetMethod?.Name)
+            {
+                case "CaptureGrayAsync":
+                    return Task.FromResult<GrayImage?>(Frames[TappedTasks.Count]);
+                case "LoadTemplateAsync":
+                    return Task.FromResult(GrayImageCodec.FromFile(
+                        Path.Combine((string)args![1]!, (string)args[0]!)));
+                case "DelayAsync":
+                    return Task.CompletedTask;
+                case "DetectTextAsync":
+                    return Task.FromResult<ScreenTextRecognitionResult?>(null);
+                case "WaitForMatchAsync":
+                case "WaitForColorMatchAsync":
+                case "WaitForColorTextMatchAsync":
+                    Assert.Equal(ExpectedTasks[TappedTasks.Count], (string)args![8]!);
+                    var template = GrayImageCodec.FromFile(
+                        Path.Combine((string)args[9]!, (string)args[1]!));
+                    Assert.NotNull(template);
+                    var frame = Frames[TappedTasks.Count];
+                    var match = targetMethod.Name == "WaitForMatchAsync"
+                        ? TemplateMatcher.Find(frame, template, (int[]?)args[2],
+                            (double)args[3]!, 900, 1600)
+                        : TemplateMatcher.FindColor(frame, template, (int[]?)args[2],
+                            (double)args[3]!, 900, 1600,
+                            requireTextContrast: targetMethod.Name == "WaitForColorTextMatchAsync");
+                    Assert.True(match.Found, $"{args[8]} score {match.Score:0.000}.");
+                    return Task.FromResult<TemplateMatchResult?>(match);
+                case "TapMatchAsync":
+                    Assert.Equal(ExpectedTasks[TappedTasks.Count], (string)args![2]!);
+                    TappedTasks.Add((string)args[2]!);
+                    return Task.CompletedTask;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unexpected settlement runtime call: {targetMethod?.Name}.");
             }
         }
     }

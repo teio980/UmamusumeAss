@@ -2929,6 +2929,18 @@
                                                        "required":  true,
                                                        "success":  false
                                                    },
+                  "goal_incomplete_next":  {
+                                                  "algorithm":  "MatchTemplateColor",
+                                                  "action":  "ClickSelf",
+                                                  "template":  "templates/goal_incomplete_next.png",
+                                                  "templThreshold":  0.88,
+                                                  "roi":  [270, 1400, 360, 150],
+                                                  "preDelay":  0,
+                                                  "postDelay":  700,
+                                                  "waitMs":  0,
+                                                  "timeoutMs":  12000,
+                                                  "pollIntervalMs":  250
+                                              },
                   "goal_complete_goal_next":  {
                                                   "algorithm":  "MatchTemplate",
                                                   "action":  "ClickSelf",

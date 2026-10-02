@@ -1541,6 +1541,22 @@
                                     ]
                     },
                     {
+                        "screenId":  "goal_incomplete",
+                        "recognition":  {
+                                            "template":  "templates/goal_incomplete_header.png",
+                                            "roi":  [135, 115, 640, 105],
+                                            "templThreshold":  0.90,
+                                            "matchColorText":  true,
+                                            "stable":  true
+                                        },
+                        "actions":  [
+                                        {
+                                            "semanticId":  "goal.next",
+                                            "task":  "goal_incomplete_next"
+                                        }
+                                    ]
+                    },
+                    {
                         "screenId":  "goal_update",
                         "recognition":  {
                                             "template":  "templates/goal_update_goals_achieved_text.png",

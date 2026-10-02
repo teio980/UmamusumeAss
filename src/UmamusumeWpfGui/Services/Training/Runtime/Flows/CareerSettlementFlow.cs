@@ -13,6 +13,15 @@ internal sealed class CareerSettlementFlow
     {
         switch (context.Observation.ScreenId)
         {
+            case "goal_incomplete":
+                context.LogSink?.Add(
+                    "Career Training",
+                    "Goal Incomplete recognized; selecting Next and continuing to Career settlement.");
+                return await _actions.RunAsync(
+                        context,
+                        "goal_incomplete",
+                        "next")
+                    .ConfigureAwait(false);
             case "complete_career_entry":
                 return await _actions.RunAsync(
                         context,

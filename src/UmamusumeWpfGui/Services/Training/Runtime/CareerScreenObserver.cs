@@ -621,6 +621,7 @@ public sealed class CareerScreenObserver
             // The Finish dialog contains text that resembles generic race
             // notices; recognize its specific green button first.
             "complete_career" => -3,
+            "goal_incomplete" => -3,
             "goal_objective_complete" => 3,
             "goal_update" => 3,
             "goal_complete" => 2,

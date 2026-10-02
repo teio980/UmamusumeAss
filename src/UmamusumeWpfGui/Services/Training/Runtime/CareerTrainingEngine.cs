@@ -305,6 +305,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 // verified screen once from the current UI before observing
                 // the next screen.
                 if (observedCareer.ScreenId is "inheritance_event"
+                    or "goal_incomplete"
                     or "goal_objective_complete"
                     or "goal_update"
                     or "goal_complete")
