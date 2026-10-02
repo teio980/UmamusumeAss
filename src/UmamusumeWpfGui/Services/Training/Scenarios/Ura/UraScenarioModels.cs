@@ -376,6 +376,9 @@ public sealed class UraScreenProfile
     [JsonPropertyName("scenarioSelection")]
     public CareerScenarioSelectionDefinition? ScenarioSelection { get; set; }
 
+    [JsonPropertyName("clawMachine")]
+    public CareerClawMachineSettings ClawMachine { get; set; } = new();
+
     [JsonPropertyName("screens")]
     public List<UraScreenDefinition> Screens { get; set; } = [];
 

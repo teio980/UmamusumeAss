@@ -2,8 +2,9 @@ using System.IO;
 using System.Reflection;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
 
@@ -11,170 +12,195 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class CareerClawMachineTests
 {
-    [Fact]
-    public async Task How_to_play_crop_recognizes_only_crane_game()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(5)]
+    public async Task Fixed_holds_finish_the_observed_credits_without_tracking_plushes(int credit)
     {
-        var screens = ScreensDirectory();
-        var templatePath = Path.Combine(screens, "templates", "career",
-            "turn", "claw_how_to_play.png");
-        using (var image = Image.Load<Rgb24>(templatePath))
-        {
-            Assert.InRange(image.Width, 110, 150);
-            Assert.InRange(image.Height, 25, 40);
-        }
-        Assert.Equal((byte)2, File.ReadAllBytes(templatePath)[25]); // PNG RGB, no alpha.
+        var pack = await LoadPackAsync();
+        var frame = Capture("claw_machine_ready.png");
+        var marker = Match(frame, "claw_how_to_play.png");
+        Assert.True(CareerClawVision.TryFindControl(frame, marker, pack.ScreenProfile.ClawMachine, out var button));
+        // Remove the entire playfield. Only CREDIT, How to Play and the control remain.
+        var pixels = (byte[])frame.RgbaPixels!.Clone();
+        var bottom = button.Top - (int)Math.Ceiling(button.Width * pack.ScreenProfile.ClawMachine.ControlBorderPaddingRatio);
+        for (var y = marker.Y + marker.Height; y < bottom; y++)
+            for (var x = 0; x < frame.Width; x++)
+            {
+                var offset = (y * frame.Width + x) * 4;
+                pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = 100;
+            }
+        var runtime = SequenceRuntime.Create(new(frame.Width, frame.Height, [], pixels), credit);
+        var recorded = (SequenceRuntime)(object)runtime;
 
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            FindWorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
-        var screen = pack.ScreenProfile.Find("claw_machine");
-        Assert.NotNull(screen);
-        Assert.Single(screen.Templates);
-        Assert.Null(screen.Recognition.RequiredTemplate);
+        Assert.Null(await new CareerClawMachineFlow(runtime).HandleAsync(Context(pack)));
 
-        var template = GrayImageCodec.FromFile(templatePath)!;
-        foreach (var (capture, expected) in new[]
-                 {
-                     ("claw_machine_ready.png", true),
-                     ("recreation_main.png", false),
-                     ("recreation_confirmation.png", false),
-                     ("recreation_event_choice.png", false),
-                 })
-        {
-            var frame = GrayImageCodec.FromFile(Path.Combine(screens,
-                "captures", capture))!;
-            var match = TemplateMatcher.FindColor(frame, template,
-                screen.Recognition.Roi, screen.Recognition.TemplateThreshold,
-                900, 1600, requireTextContrast: true);
-            Assert.Equal(expected, match.Found);
-        }
+        Assert.Equal(credit, recorded.DownCount);
+        Assert.Equal(credit, recorded.UpCount);
+        Assert.Equal(0, recorded.CancelCount);
+        Assert.Equal(1, recorded.TapCount);
+        Assert.Equal(credit, recorded.HoldDurations.Count);
+        Assert.All(recorded.HoldDurations, duration => Assert.Equal(pack.ScreenProfile.ClawMachine.HoldDurationMs, duration));
     }
 
     [Fact]
-    public void Vision_finds_an_exposed_face_and_both_claw_arms()
+    public async Task Credit_is_read_from_the_screenshot_before_pressing()
     {
-        var frame = GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(),
-            "captures", "claw_machine_ready.png"))!;
-        Assert.True(CareerClawVision.TryFindTarget(frame, null, out var target));
-        Assert.InRange(target.X, 740, 820);
-        Assert.InRange(target.Y, 830, 915);
-        Assert.True(CareerClawVision.TryFindClaw(frame, null, out var claw));
-        Assert.InRange(claw.X, 300, 350);
-        Assert.InRange(claw.Y, 405, 455);
-
-        var nextFrame = GrayImageCodec.FromFile(Path.Combine(
-            ScreensDirectory(), "captures", "claw_machine_credit2.png"))!;
-        Assert.False(CareerClawVision.TryFindTarget(nextFrame, null,
-            out _));
-    }
-
-    [Fact]
-    public void Result_title_is_distinct_from_the_ready_and_recreation_screens()
-    {
-        var screens = ScreensDirectory();
-        var template = GrayImageCodec.FromFile(Path.Combine(screens,
-            "templates", "career", "turn", "claw_result_cuties.png"))!;
-        foreach (var (capture, expected) in new[]
-                 {
-                     ("claw_machine_result.png", true),
-                     ("claw_machine_ready.png", false),
-                     ("recreation_main.png", false),
-                 })
-        {
-            var frame = GrayImageCodec.FromFile(Path.Combine(screens,
-                "captures", capture))!;
-            var match = TemplateMatcher.FindColor(frame, template,
-                [450, 430, 300, 70], 0.92, 900, 1600,
-                requireTextContrast: true);
-            Assert.Equal(expected, match.Found);
-        }
+        var pack = await LoadPackAsync();
+        var runtime = SequenceRuntime.Create(Capture("claw_machine_credit2.png"), 2);
+        ((SequenceRuntime)(object)runtime).UseActualOcr = true;
+        var ready = await new CareerClawMachineFlow(runtime).WaitForNextAsync(Context(pack),
+            LoadMarker("claw_how_to_play.png"), LoadMarker("claw_result_cuties.png"), null, TimeSpan.FromSeconds(10));
+        Assert.Equal(2, ready?.Ready?.Credit);
+        Assert.Equal(0, ((SequenceRuntime)(object)runtime).DownCount);
     }
 
     [Theory]
-    [InlineData("claw_machine_ready.png", "claw_machine")]
-    [InlineData("claw_machine_result.png", "claw_machine_result")]
-    public async Task Career_observer_routes_both_crane_screens(
-        string capture, string expectedScreen)
+    [InlineData(4, false)]
+    [InlineData(2, true)]
+    public async Task A_previous_credit_cannot_trigger_an_extra_hold(int previousCredit, bool shouldWait)
     {
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            FindWorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
-        var frame = GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(),
-            "captures", capture))!;
-        var visual = CareerGoalCompletionProbeTests.FrameVisualRuntime.Create(frame);
-        var state = new UraCareerSessionState
-        {
-            CareerStarted = true,
-            LastScreenId = "recreation_confirmation",
-        };
-        var connection = new LastVerifiedConnection("adb", "serial", "android",
-            "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
-
-        var observed = await new CareerScreenObserver(visual).ObserveAsync(
-            connection, pack, state, false, CancellationToken.None);
-
-        Assert.Equal(expectedScreen, observed?.ScreenId);
+        var runtime = SequenceRuntime.Create(Capture("claw_machine_credit2.png"), 2);
+        var observed = await new CareerClawMachineFlow(runtime).WaitForNextAsync(Context(await LoadPackAsync()),
+            LoadMarker("claw_how_to_play.png"), LoadMarker("claw_result_cuties.png"), previousCredit,
+            TimeSpan.FromMilliseconds(shouldWait ? 100 : 5000));
+        if (shouldWait) Assert.Null(observed);
+        else Assert.Equal(2, observed?.Ready?.Credit);
+        Assert.Equal(0, ((SequenceRuntime)(object)runtime).DownCount);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(7)]
+    [InlineData(12)]
+    public void Credit_parser_uses_the_observed_number(int credit) =>
+        Assert.Equal(credit, CareerClawMachineFlow.ParseCredit(new(
+            [new ScreenTextDetection($"CREDIT {credit}", new(10, 10, 300, 40))], "en-US")));
+
     [Fact]
-    public async Task Credit_counter_is_readable_from_the_capture()
+    public void Prize_and_ambiguous_numbers_are_not_remaining_credits()
     {
-        using var image = Image.Load<Rgba32>(Path.Combine(
-            ScreensDirectory(), "captures", "claw_machine_ready.png"));
-        image.Mutate(context => context.Crop(new Rectangle(555, 15, 325, 75))
-            .Resize(650, 150));
-        var pixels = new byte[image.Width * image.Height * 4];
-        image.CopyPixelDataTo(pixels);
-        var recognized = await new WindowsOcrTextRecognizer().RecognizeAsync(
-            new AdbRawScreenshot(image.Width, image.Height, pixels), "en-US");
-        Assert.Contains(recognized.Detections, detection =>
-            detection.Text.Contains('3'));
+        var label = new ScreenTextDetection("CREDIT", new(10, 10, 100, 40));
+        var number = new ScreenTextDetection("7", new(200, 10, 50, 40));
+        var prize = new ScreenTextDetection("PRIZES 2", new(10, 100, 300, 40));
+        Assert.Equal(7, CareerClawMachineFlow.ParseCredit(new([label, number, prize], "en-US")));
+        Assert.Null(CareerClawMachineFlow.ParseCredit(new([prize], "en-US")));
+        Assert.Null(CareerClawMachineFlow.ParseCredit(new([label, number, number with { Text = "8" }], "en-US")));
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Failed_or_cancelled_tracking_releases_the_held_control(
-        bool cancel)
+    public async Task An_interrupted_hold_always_releases_the_touch(bool cancel)
     {
         using var source = new CancellationTokenSource();
-        var runtime = TouchFailureRuntime.Create(source, cancel);
-        var connection = new LastVerifiedConnection("adb", "serial", "android",
-            "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
-        var context = new CareerFlowContext(connection, null!, true, null!,
-            null!, string.Empty, new UraCareerSessionState(),
-            new CareerObservation("claw_machine", 1), null, source.Token);
+        var pack = await LoadPackAsync();
+        var frame = Capture("claw_machine_ready.png");
+        Assert.True(CareerClawVision.TryFindControl(frame, Match(frame, "claw_how_to_play.png"),
+            pack.ScreenProfile.ClawMachine, out var control));
+        var runtime = SequenceRuntime.Create(frame, 3);
+        var recorded = (SequenceRuntime)(object)runtime;
+        recorded.FailHold = true;
+        recorded.CancelSource = cancel ? source : null;
+        var ready = new CareerClawMachineFlow.ReadyFrame(3, control, frame.Width, frame.Height);
         var flow = new CareerClawMachineFlow(runtime);
-        var ready = new CareerClawMachineFlow.ReadyFrame(2,
-            new CareerClawVision.Point(780, 880),
-            new CareerClawVision.Point(320, 430));
-
         if (cancel)
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                flow.GrabAsync(context, ready));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => flow.PressControlAsync(Context(pack, source.Token), ready));
         else
-            Assert.False((await flow.GrabAsync(context, ready))?.Succeeded);
-
-        var recorded = (TouchFailureRuntime)(object)runtime;
+            Assert.False((await flow.PressControlAsync(Context(pack), ready))?.Succeeded);
         Assert.Equal(1, recorded.DownCount);
         Assert.Equal(0, recorded.UpCount);
         Assert.Equal(1, recorded.CancelCount);
     }
 
-    public class TouchFailureRuntime : DispatchProxy
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(-140, 40)]
+    public async Task Control_and_result_buttons_use_their_detected_positions(int dx, int dy)
     {
-        public CancellationTokenSource Source { get; set; } = null!;
-        public bool CancelOnCapture { get; set; }
+        var runtime = SequenceRuntime.Create(Shift(Capture("claw_machine_ready.png"), dx, dy), 1);
+        var recorded = (SequenceRuntime)(object)runtime;
+        recorded.ResultFrame = Shift(Capture("claw_machine_result.png"), dx, dy);
+        Assert.Null(await new CareerClawMachineFlow(runtime).HandleAsync(Context(await LoadPackAsync())));
+        Assert.InRange(recorded.DownPoint.X, 440 + dx, 470 + dx);
+        Assert.InRange(recorded.DownPoint.Y, 1380 + dy, 1420 + dy);
+        Assert.InRange(recorded.TapPoint.X, 440 + dx, 460 + dx);
+        Assert.InRange(recorded.TapPoint.Y, 1460 + dy, 1490 + dy);
+    }
+
+    [Theory]
+    [InlineData("claw_machine_ready.png", "claw_machine")]
+    [InlineData("claw_machine_result.png", "claw_machine_result")]
+    public async Task Career_observer_routes_the_game_and_result(string capture, string expected)
+    {
+        var visual = CareerGoalCompletionProbeTests.FrameVisualRuntime.Create(Capture(capture));
+        var context = Context(await LoadPackAsync());
+        var observed = await new CareerScreenObserver(visual).ObserveAsync(context.Connection, context.Pack,
+            new UraCareerSessionState { CareerStarted = true, LastScreenId = "recreation_confirmation" },
+            false, CancellationToken.None);
+        Assert.Equal(expected, observed?.ScreenId);
+    }
+
+    [Fact]
+    public void Game_and_result_markers_reject_the_recreation_screen()
+    {
+        var frame = Capture("recreation_main.png");
+        Assert.False(Match(frame, "claw_how_to_play.png").Found);
+        Assert.False(Match(frame, "claw_result_cuties.png").Found);
+    }
+
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task Live_ADB_finishes_the_remaining_credits_and_closes_the_result()
+    {
+        if (Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_CLAW_RUN") != "1") return;
+        using var source = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var delay = new AsyncDelay();
+        var visual = new AdbVisualPipelineRuntime(new AdbRuntime(new AdbRunner(TimeSpan.FromSeconds(15)), delay),
+            delay, new WindowsOcrTextRecognizer());
+        var connection = new LastVerifiedConnection(
+            Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_ADB") ?? @"C:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe",
+            Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_SERIAL") ?? "127.0.0.1:16384",
+            "claw validation", "android", 900, 1600, 900, 1600, DateTimeOffset.UtcNow);
+        var context = Context(await LoadPackAsync(), source.Token) with { Connection = connection, LogSink = new ConsoleSink() };
+        Assert.Null(await new CareerClawMachineFlow(visual).HandleAsync(context));
+    }
+
+    private sealed class ConsoleSink : IGrassTaskLogSink
+    {
+        public void Add(string type, string details, LogEntryKind kind = LogEntryKind.Info) =>
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} {type}: {details}");
+    }
+
+    public class SequenceRuntime : DispatchProxy
+    {
+        private GrayImage _ready = null!;
+        private int _initialCredit;
+        private int _readCredit;
+        private bool _holding;
+        private int? _previousCredit;
+        public GrayImage ResultFrame { get; set; } = null!;
+        public bool UseActualOcr { get; set; }
+        public bool FailHold { get; set; }
+        public CancellationTokenSource? CancelSource { get; set; }
         public int DownCount { get; private set; }
         public int UpCount { get; private set; }
         public int CancelCount { get; private set; }
+        public int TapCount { get; private set; }
+        public List<int> HoldDurations { get; } = [];
+        public (int X, int Y) DownPoint { get; private set; }
+        public (int X, int Y) TapPoint { get; private set; }
 
-        public static IVisualPipelineRuntime Create(
-            CancellationTokenSource source, bool cancel)
+        public static IVisualPipelineRuntime Create(GrayImage frame, int credit)
         {
-            var runtime = DispatchProxy.Create<IVisualPipelineRuntime,
-                TouchFailureRuntime>();
-            var proxy = (TouchFailureRuntime)(object)runtime;
-            proxy.Source = source;
-            proxy.CancelOnCapture = cancel;
+            var runtime = DispatchProxy.Create<IVisualPipelineRuntime, SequenceRuntime>();
+            var recorded = (SequenceRuntime)(object)runtime;
+            recorded._ready = frame;
+            recorded._initialCredit = credit;
+            recorded.ResultFrame = Capture("claw_machine_result.png");
             return runtime;
         }
 
@@ -182,43 +208,87 @@ public sealed class CareerClawMachineTests
         {
             switch (targetMethod?.Name)
             {
+                case "PrepareHeldTouchAsync":
+                    return Task.CompletedTask;
+                case "LoadTemplateAsync":
+                    return Task.FromResult(GrayImageCodec.FromFile(Path.Combine((string)args![1]!, (string)args[0]!)));
+                case "CaptureGrayAsync":
+                    if (TapCount > 0) return Task.FromResult<GrayImage?>(Capture("recreation_main.png"));
+                    if (UpCount >= _initialCredit) return Task.FromResult<GrayImage?>(ResultFrame);
+                    _readCredit = _previousCredit ?? _initialCredit - UpCount;
+                    _previousCredit = null;
+                    return Task.FromResult<GrayImage?>(_ready);
+                case "DetectTextAsync":
+                    return UseActualOcr ? ReadTextAsync((GrayImage)args![0]!)
+                        : Task.FromResult<ScreenTextRecognitionResult?>(new(
+                            [new ScreenTextDetection($"CREDIT {_readCredit}", new(10, 10, 300, 40))], "en-US"));
                 case "TouchDownAsync":
                     DownCount++;
+                    _holding = true;
+                    DownPoint = ((int)args![1]!, (int)args[2]!);
+                    return Task.CompletedTask;
+                case "DelayAsync":
+                    if (_holding)
+                    {
+                        HoldDurations.Add((int)args![0]!);
+                        if (FailHold)
+                        {
+                            if (CancelSource is { } source)
+                            {
+                                source.Cancel();
+                                return Task.FromCanceled(source.Token);
+                            }
+                            return Task.FromException(new InvalidOperationException("hold interrupted"));
+                        }
+                    }
                     return Task.CompletedTask;
                 case "TouchUpAsync":
+                    _previousCredit = _initialCredit - UpCount;
                     UpCount++;
+                    _holding = false;
                     return Task.CompletedTask;
                 case "TouchCancelAsync":
                     CancelCount++;
+                    _holding = false;
                     return Task.CompletedTask;
-                case "CaptureGrayAsync":
-                    if (CancelOnCapture)
-                    {
-                        Source.Cancel();
-                        return Task.FromCanceled<GrayImage?>(Source.Token);
-                    }
-                    return Task.FromException<GrayImage?>(
-                        new InvalidOperationException("capture failed"));
+                case "TapAsync":
+                    TapCount++;
+                    TapPoint = ((int)args![1]!, (int)args[2]!);
+                    return Task.CompletedTask;
                 default:
-                    throw new InvalidOperationException(
-                        $"Unexpected visual runtime call: {targetMethod?.Name}.");
+                    throw new InvalidOperationException($"Unexpected visual runtime call: {targetMethod?.Name}.");
             }
         }
+
+        private static async Task<ScreenTextRecognitionResult?> ReadTextAsync(GrayImage frame) =>
+            await new WindowsOcrTextRecognizer().RecognizeAsync(new(frame.Width, frame.Height, frame.RgbaPixels!), "en-US");
     }
 
-    private static string ScreensDirectory() => Path.Combine(
-        FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-
-    private static string FindWorkspaceRoot()
+    private static GrayImage Capture(string name) => GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(), "captures", name))!;
+    private static GrayImage LoadMarker(string name) => GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(), "templates", "career", "turn", name))!;
+    private static TemplateMatchResult Match(GrayImage frame, string name) => CareerClawVision.MatchMarker(frame,
+        LoadMarker(name), new UraScreenProfile(), new UraScreenRecognition { TemplateThreshold = 0.92, MatchColorText = true });
+    private static Task<UraScenarioPack> LoadPackAsync() => UraScenarioPackLoader.LoadAsync(Path.Combine(WorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
+    private static CareerFlowContext Context(UraScenarioPack pack, CancellationToken token = default) =>
+        new(new("adb", "serial", "android", "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch), pack,
+            true, null!, null!, string.Empty, new(), new("claw_machine", 1), null, token);
+    private static string ScreensDirectory() => Path.Combine(WorkspaceRoot(), "resource", "hachimi", "ura", "screens");
+    private static string WorkspaceRoot()
     {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "resource",
-                    "hachimi", "ura", "manifest.json")))
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+            if (Directory.Exists(Path.Combine(directory.FullName, "tests", "UmamusumeWpfGui.Tests"))
+                && File.Exists(Path.Combine(directory.FullName, "resource", "hachimi", "ura", "manifest.json")))
                 return directory.FullName;
-        }
-
         throw new DirectoryNotFoundException("Could not locate URA resources.");
+    }
+    private static GrayImage Shift(GrayImage frame, int dx, int dy)
+    {
+        var pixels = new byte[frame.Width * frame.Height * 4];
+        for (var y = 0; y < frame.Height; y++)
+            for (var x = 0; x < frame.Width; x++)
+                if (x + dx >= 0 && x + dx < frame.Width && y + dy >= 0 && y + dy < frame.Height)
+                    Array.Copy(frame.RgbaPixels!, (y * frame.Width + x) * 4, pixels,
+                        ((y + dy) * frame.Width + x + dx) * 4, 4);
+        return new(frame.Width, frame.Height, [], pixels);
     }
 }

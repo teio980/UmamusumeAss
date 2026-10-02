@@ -7,6 +7,30 @@
     "referenceWidth":  900,
     "referenceHeight":  1600,
     "coordinateSpace":  "reference_pixels",
+    "clawMachine": {
+        "markerSearchScale": 0.25,
+        "markerCandidateThreshold": 0.80,
+        "creditLabelTemplate": "templates/career/turn/claw_credit_label.png",
+        "creditLabelThreshold": 0.94,
+        "ocrScale": 2,
+        "creditOcrPaddingLabelRatio": 0.25,
+        "controlBorderPaddingRatio": 0.10,
+        "readyTimeoutMs": 12000,
+        "nextAttemptTimeoutMs": 45000,
+        "resultTimeoutMs": 25000,
+        "exitTimeoutMs": 20000,
+        "pollIntervalMs": 200,
+        "holdDurationMs": 1000,
+        "stableSamples": 2,
+        "stableToleranceControlRatio": 0.08,
+        "controlPinkPixelRatio": 0.08,
+        "whiteControlColor": {"minimumRgb": [235,220,235], "maximumRgb": [255,255,255]},
+        "pinkControlColor": {"minimumRgb": [210,0,140], "maximumRgb": [255,229,255], "redMinusGreen": [20,255], "greenMinusBlue": [-255,-15]},
+        "resultButtonColor": {"minimumRgb": [60,150,0], "maximumRgb": [190,255,120]},
+        "ocrTextColor": {"minimumRgb": [235,235,235], "maximumRgb": [255,255,255]},
+        "controlShape": {"minimumAreaRatio": 0.01, "maximumAreaRatio": 0.15, "minimumWidthRatio": 0.18, "maximumWidthRatio": 0.50, "minimumHeightRatio": 0.10, "maximumHeightRatio": 0.30, "minimumAspectRatio": 0.65, "maximumAspectRatio": 1.5},
+        "resultButtonShape": {"minimumAreaRatio": 0.005, "maximumAreaRatio": 0.10, "minimumWidthRatio": 0.15, "maximumWidthRatio": 0.65, "minimumHeightRatio": 0.025, "maximumHeightRatio": 0.15, "minimumAspectRatio": 2, "maximumAspectRatio": 8}
+    },
     "captureRoot":  "templates/runtime_frames/",
     "stableFramePolicy":  {
                               "minimumStableSamples":  2,
@@ -876,7 +900,6 @@
                         "screenId": "claw_machine",
                         "recognition": {
                             "template": "templates/career/turn/claw_how_to_play.png",
-                            "roi": [680, 275, 210, 65],
                             "templThreshold": 0.94,
                             "matchColorText": true,
                             "stable": true
@@ -887,7 +910,6 @@
                         "screenId": "claw_machine_result",
                         "recognition": {
                             "template": "templates/career/turn/claw_result_cuties.png",
-                            "roi": [450, 430, 300, 70],
                             "templThreshold": 0.92,
                             "matchColorText": true,
                             "stable": true

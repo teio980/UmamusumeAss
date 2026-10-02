@@ -214,7 +214,10 @@ public sealed class CareerScreenObserver
                             "goal_complete", StringComparison.OrdinalIgnoreCase)
                         ? screen.Recognition.RequiredTemplateRoi
                         : null;
-                    var match = finaleHeaderRoi is [var x, var y, var width, var height]
+                    var match = screen.ScreenId is "claw_machine" or "claw_machine_result"
+                        ? CareerClawVision.MatchMarker(frame, grayTemplate,
+                            pack.ScreenProfile, screen.Recognition)
+                        : finaleHeaderRoi is [var x, var y, var width, var height]
                         ? MatchGoalCompleteHeader(
                             frame, grayTemplate, x, y, width, height,
                             finaleHeaderRoi,
