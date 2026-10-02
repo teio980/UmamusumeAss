@@ -1,3 +1,4 @@
+using StyletIoC;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
@@ -8,6 +9,9 @@ public sealed class AdbNormalCareerTrainingPipeline : ICareerTrainingPipeline
 {
     private readonly CareerTrainingEngine _engine;
 
+    // The compatibility overload creates an unguarded engine; automation must
+    // use the registered engine with Date Changed recovery attached.
+    [Inject]
     public AdbNormalCareerTrainingPipeline(CareerTrainingEngine engine)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));

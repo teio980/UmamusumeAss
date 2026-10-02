@@ -1,8 +1,10 @@
+using System.Reflection;
 using StyletIoC;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests;
@@ -46,6 +48,26 @@ public sealed class BootstrapperRegistrationTests
         Assert.NotNull(container.Get<LogViewModel>());
         Assert.NotNull(container.Get<SettingsViewModel>());
         Assert.NotNull(container.Get<RootViewModel>());
+    }
+
+    [Fact]
+    public void Bootstrapper_NormalCareerPipeline_UsesRegisteredEngineWithDateChangedRecovery()
+    {
+        var builder = new StyletIoCBuilder();
+        new TestBootstrapper().CallConfigureIoC(builder);
+        var container = builder.BuildContainer();
+
+        var pipeline = Assert.IsType<AdbNormalCareerTrainingPipeline>(container.Get<ICareerTrainingPipeline>());
+        var engine = typeof(AdbNormalCareerTrainingPipeline)
+            .GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(pipeline);
+        Assert.Same(container.Get<CareerTrainingEngine>(), engine);
+        Assert.Same(container.Get<DateChangedDialogRecovery>(), typeof(CareerTrainingEngine)
+            .GetField("_dateChangedRecovery", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(engine));
+        Assert.Same(container.Get<DateChangedDialogGuard>(), typeof(AdbVisualPipelineRuntime)
+            .GetField("_dateChangedGuard", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(container.Get<IVisualPipelineRuntime>()));
     }
 
     [Fact]
