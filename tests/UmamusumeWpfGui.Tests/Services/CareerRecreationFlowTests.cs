@@ -147,6 +147,36 @@ public sealed class CareerRecreationFlowTests
             + $"position=({match.X},{match.Y}).");
     }
 
+    [Theory]
+    [InlineData("recreation_title_source_biwa.png", 475, true)]
+    [InlineData("training_selection_biwa_summer.png", 365, false)]
+    public async Task Recreation_title_preserves_background_and_rejects_white_hair(
+        string captureName,
+        int roiY,
+        bool expected)
+    {
+        var pack = await LoadPackAsync();
+        var screen = pack.ScreenProfile.Find("recreation_selection");
+        Assert.NotNull(screen);
+        var template = Load(Path.Combine(ScreensDirectory(),
+            screen.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var frame = Load(Path.Combine(FindWorkspaceRoot(),
+            "testdata", "hachimi", "ura", "captures", captureName));
+
+        Assert.NotNull(template.RgbaPixels);
+        Assert.All(template.RgbaPixels.Chunk(4),
+            pixel => Assert.Equal(byte.MaxValue, pixel[3]));
+
+        var roi = (int[])screen.Recognition.Roi!.Clone();
+        roi[1] = roiY;
+        var match = TemplateMatcher.FindColor(frame, template,
+            roi, screen.Recognition.TemplateThreshold,
+            900, 1600, requireTextContrast: true);
+        Assert.True(match.Found == expected,
+            $"Recreation title on {captureName}: expected={expected}, score={match.Score:0.000}, "
+            + $"position=({match.X},{match.Y}).");
+    }
+
     [Fact]
     public async Task Existing_event_choice_screen_handles_the_recreation_result()
     {
@@ -183,7 +213,9 @@ public sealed class CareerRecreationFlowTests
              directory = directory.Parent)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                    "resource", "hachimi", "ura", "manifest.json")))
+                    "resource", "hachimi", "ura", "manifest.json"))
+                && Directory.Exists(Path.Combine(directory.FullName,
+                    "testdata", "hachimi", "ura", "captures")))
                 return directory.FullName;
         }
 
