@@ -65,6 +65,14 @@ public sealed class UraTraineeSelector
             ["End"] = [20, 1060, 280, 180],
         };
 
+    // The label ROI is also searched for this checkbox template; TapMatchAsync
+    // then uses the live match bounds instead of a preset screen point.
+    private const string CareerCheckboxTemplate =
+        "templates/career_filter_checkbox_unselected.png";
+
+    private static readonly double[] FilterCheckboxScaleCandidates =
+        [0.70, 0.80, 0.90, 1.00, 1.10, 1.20];
+
     private static readonly RunnerCell[] RunnerCells =
     [
         new(20, 800, 160, 190),
@@ -292,15 +300,46 @@ public sealed class UraTraineeSelector
                 continue;
             }
 
+            var checkboxMatch = await _visualRuntime.WaitForMatchScaledAsync(
+                    connection,
+                    CareerCheckboxTemplate,
+                    roi,
+                    0.78,
+                    definition.ReferenceWidth,
+                    definition.ReferenceHeight,
+                    8_000,
+                    250,
+                    "careerRunnerFilterCheckbox",
+                    definition.BaseDirectory,
+                    FilterCheckboxScaleCandidates,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (checkboxMatch is not { Found: true })
+            {
+                missingLabels.Add(label);
+                logSink?.Add(
+                    "Career Training",
+                    $"Could not visually locate the {label} aptitude checkbox.",
+                    LogEntryKind.Failure);
+                continue;
+            }
+
             try
             {
                 await _visualRuntime.TapMatchAsync(
                         connection,
-                        match,
-                        "careerRunnerFilterOption",
+                        checkboxMatch,
+                        "careerRunnerFilterCheckbox",
                         cancellationToken)
                     .ConfigureAwait(false);
                 clicked++;
+                logSink?.Add(
+                    "Career Training",
+                    $"Tapped the matched {label} aptitude checkbox at "
+                    + $"({checkboxMatch.CenterX.ToString(CultureInfo.InvariantCulture)},"
+                    + $"{checkboxMatch.CenterY.ToString(CultureInfo.InvariantCulture)}); "
+                    + $"score {checkboxMatch.Score:0.000}.",
+                    LogEntryKind.Info);
             }
             catch (InvalidOperationException)
             {
