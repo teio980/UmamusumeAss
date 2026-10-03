@@ -39,6 +39,9 @@ public sealed class CareerScreenObserver
             && (!screenId.Equals("follow_trainer_limit", StringComparison.OrdinalIgnoreCase)
                 || CareerScreenClassification.Classify(state.LastScreenId)
                     == CareerScreenKind.Settlement)
+            && (!screenId.Equals("rewards_collected", StringComparison.OrdinalIgnoreCase)
+                || CareerScreenClassification.Classify(state.LastScreenId)
+                    == CareerScreenKind.Settlement)
             && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
                 || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
                 // A new rating record inserts an optional Next popup before Epithet.
@@ -104,7 +107,7 @@ public sealed class CareerScreenObserver
             .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
                 || (careerOnly
                     && (screen.ScreenId is "career_epithet" or "career_rating_record_updated"
-                        or "follow_trainer_limit"))
+                        or "follow_trainer_limit" or "rewards_collected"))
                 || (careerStartTransitionExpected
                     && screen.ScreenId == "career_intro_event")
                 || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
@@ -618,6 +621,8 @@ public sealed class CareerScreenObserver
             "follow_trainer_limit" => -5,
             // The gift-box overlay obscures the underlying settlement reward page.
             "event_reward" => -5,
+            // Collected rewards open a Close popup over the reward summary.
+            "rewards_collected" => -6,
             // Completion has two exit labels. Its title and matching button
             // must win over generic Close dialogs when resuming settlement.
             "career_complete" or "career_complete_close" => -4,

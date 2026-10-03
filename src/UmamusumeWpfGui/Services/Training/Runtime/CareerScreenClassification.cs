@@ -73,6 +73,7 @@ internal static class CareerScreenClassification
             or "follow_trainer_limit"
             or "career_epithet"
             or "rewards"
+            or "rewards_collected"
             or "event_reward"
             or "sparks"
             or "sparks_confirmation"

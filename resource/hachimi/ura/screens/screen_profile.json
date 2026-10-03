@@ -1884,6 +1884,25 @@
                                     ]
                     },
                     {
+                        "screenId": "rewards_collected",
+                        "recognition": {
+                            "template": "templates/rewards_collected_header.png",
+                            "matchColorText": true,
+                            "roi": [250, 250, 400, 400],
+                            "templThreshold": 0.96,
+                            "requiredTemplate": "templates/rewards_collected_close.png",
+                            "requiredTemplateRoi": [250, 950, 400, 450],
+                            "requiredTemplateThreshold": 0.90,
+                            "stable": true
+                        },
+                        "actions": [
+                            {
+                                "semanticId": "rewards_collected.close",
+                                "task": "rewards_collected_close"
+                            }
+                        ]
+                    },
+                    {
                         "screenId": "event_reward",
                         "recognition": {
                             "template": "templates/event_reward_gift_box.png",
@@ -2161,6 +2180,16 @@
                             "from":  "rewards",
                             "to":  "event_reward",
                             "on":  "rewards.next"
+                        },
+                        {
+                            "from": "rewards",
+                            "to": "rewards_collected",
+                            "on": "rewards.next"
+                        },
+                        {
+                            "from": "rewards_collected",
+                            "to": "rewards",
+                            "on": "rewards_collected.close"
                         },
                         {
                             "from":  "event_reward",

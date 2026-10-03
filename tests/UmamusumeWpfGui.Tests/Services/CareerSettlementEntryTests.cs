@@ -1,4 +1,5 @@
 using System.IO;
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
 
@@ -6,6 +7,114 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class CareerSettlementEntryTests
 {
+    [Theory]
+    [InlineData("rewards", false, true)]
+    [InlineData("rewards_collected", false, true)]
+    [InlineData("unknown", true, true)]
+    [InlineData("career_main", false, false)]
+    public async Task Collected_rewards_popup_is_recognized_during_settlement_and_on_resume(
+        string previousScreen, bool resume, bool expected)
+    {
+        var root = FindWorkspaceRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
+        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura",
+            "captures", "rewards_collected.png"));
+        if (!expected)
+        {
+            // Isolate the popup to check its phase gate independently of
+            // unrelated turn templates against an out-of-phase capture.
+            pack = pack with
+            {
+                ScreenProfile = new UraScreenProfile
+                {
+                    Screens = [pack.ScreenProfile.Find("rewards_collected")!],
+                },
+            };
+        }
+        var observer = new CareerScreenObserver(
+            CareerFollowTrainerRecognitionTests.CapturedFrameRuntime.Create(frame));
+        var connection = new LastVerifiedConnection(
+            "adb", "serial", "android", "version", 900, 1600, 900, 1600,
+            DateTimeOffset.UnixEpoch);
+        var state = new UraCareerSessionState
+        {
+            CareerStarted = !resume,
+            LastScreenId = previousScreen,
+        };
+
+        var observation = await observer.ObserveAsync(connection, pack, state,
+            false, CancellationToken.None, careerOnly: resume);
+
+        if (!expected)
+        {
+            Assert.Null(observation);
+            return;
+        }
+        Assert.Equal("rewards_collected", observation?.ScreenId);
+        Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
+        var popup = pack.ScreenProfile.Find("rewards_collected")!;
+        var task = pack.ExecutionDefinition.GetTask(popup.FindAction("close")!.Task);
+        var close = Load(Path.Combine(root, "resource", "hachimi", "ura", "screens",
+            task.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var match = TemplateMatcher.FindColor(frame, close, task.Roi,
+            task.TemplateThreshold, 900, 1600);
+        Assert.True(match.Found, $"Collected rewards Close score {match.Score:0.000}.");
+        Assert.InRange(match.CenterX, 440, 460);
+        Assert.InRange(match.CenterY, 1030, 1055);
+        Assert.False(CareerScreenObserver.IsReturningHome(
+            new UraCareerSessionState { CareerStarted = true, LastScreenId = "rewards_collected" }));
+    }
+
+    [Theory]
+    [InlineData("ura_rewards_next.png")]
+    [InlineData("event_reward_live.png")]
+    [InlineData("event_reward_after_next.png")]
+    [InlineData("career_story_unlocked_compact.png")]
+    [InlineData("career_story_unlocked.png")]
+    [InlineData("career_complete_close.png")]
+    public async Task Collected_rewards_title_rejects_other_reward_pages(string capture)
+    {
+        var root = FindWorkspaceRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
+        var popup = pack.ScreenProfile.Find("rewards_collected")!;
+        var header = Load(Path.Combine(root, "resource", "hachimi", "ura", "screens",
+            popup.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura", "captures", capture));
+
+        Assert.Equal(0, header.RgbaPixels![3]);
+        Assert.False(Match(frame, header, popup.Recognition).Found);
+    }
+
+    [Fact]
+    public async Task Collected_rewards_requires_a_close_button()
+    {
+        var root = FindWorkspaceRoot();
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
+        var popup = pack.ScreenProfile.Find("rewards_collected")!;
+        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [popup] } };
+        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura", "captures",
+            "rewards_collected.png"));
+        // Leave the title intact but remove the button so a partial/animating
+        // modal cannot be accepted as a stable actionable screen.
+        for (var y = 950; y < 1400; y++)
+        {
+            Array.Fill(frame.Pixels, (byte)255, y * frame.Width + 250, 400);
+            Array.Fill(frame.RgbaPixels!, (byte)255, (y * frame.Width + 250) * 4, 400 * 4);
+        }
+        var observer = new CareerScreenObserver(
+            CareerFollowTrainerRecognitionTests.CapturedFrameRuntime.Create(frame));
+        var connection = new LastVerifiedConnection(
+            "adb", "serial", "android", "version", 900, 1600, 900, 1600,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.Null(await observer.ObserveAsync(connection, pack,
+            new UraCareerSessionState { CareerStarted = true, LastScreenId = "rewards" },
+            false, CancellationToken.None));
+    }
+
     [Fact]
     public async Task Rewards_after_event_reward_use_masked_title_and_opaque_cropped_next()
     {

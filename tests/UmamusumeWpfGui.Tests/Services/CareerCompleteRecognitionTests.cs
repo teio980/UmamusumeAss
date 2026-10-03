@@ -120,6 +120,7 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     [InlineData("career_story_unlocked_compact", "close")]
     [InlineData("career_story_unlocked_to_home", "to_home")]
     [InlineData("career_epithet", "epithet_confirm")]
+    [InlineData("rewards_collected", "close")]
     public async Task Settlement_dispatches_the_matching_exit_action(string screenId, string actionId)
     {
         var actions = new RecordingActions();

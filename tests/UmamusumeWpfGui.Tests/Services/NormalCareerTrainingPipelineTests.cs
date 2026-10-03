@@ -48,6 +48,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("career_story_unlocked")]
     [InlineData("career_story_unlocked_to_home")]
     [InlineData("event_reward")]
+    [InlineData("rewards_collected")]
     public void Live_career_pages_are_eligible_for_current_screen_recovery(string screenId)
     {
         Assert.True(AdbNormalCareerTrainingPipeline.IsRuntimeCareerScreen(screenId));
@@ -67,6 +68,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("career_result_close", CareerScreenKind.Settlement)]
     [InlineData("career_epithet", CareerScreenKind.Settlement)]
     [InlineData("event_reward", CareerScreenKind.Settlement)]
+    [InlineData("rewards_collected", CareerScreenKind.Settlement)]
     [InlineData("career_complete_close", CareerScreenKind.Settlement)]
     [InlineData("career_story_unlocked", CareerScreenKind.Settlement)]
     [InlineData("career_story_unlocked_to_home", CareerScreenKind.Settlement)]
