@@ -343,8 +343,20 @@ public sealed class UraEventDefinition
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
 
+    [JsonPropertyName("ocrTitle")]
+    public UraEventTitleRecognition? OcrTitle { get; set; }
+
     [JsonPropertyName("nextState")]
     public string? NextState { get; set; }
+}
+
+public sealed class UraEventTitleRecognition
+{
+    [JsonPropertyName("screenId")]
+    public string ScreenId { get; set; } = string.Empty;
+
+    [JsonPropertyName("actionId")]
+    public string ActionId { get; set; } = string.Empty;
 }
 
 public sealed class UraEventTrigger
@@ -790,7 +802,7 @@ public sealed class UraScenarioPackLoader
 
         ValidateObjectives(objectives, definition, races);
         ValidateRaces(races, objectives, definition, rootDirectory);
-        ValidateEvents(events, definition, objectives, races);
+        ValidateEvents(events, definition, objectives, races, profile, execution);
         ValidateScreens(
             profile,
             execution,
@@ -969,11 +981,14 @@ public sealed class UraScenarioPackLoader
         UraEventDocument events,
         UraScenarioDefinition definition,
         UraObjectiveDocument objectives,
-        UraRaceDocument races)
+        UraRaceDocument races,
+        UraScreenProfile profile,
+        HachimiPipelineDefinition execution)
     {
         var phaseIds = definition.Phases.Select(item => item.PhaseId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var eventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var ocrTitles = new HashSet<(string ScreenId, string Title)>();
         foreach (var item in events.Events)
         {
             if (string.IsNullOrWhiteSpace(item.EventId) || !eventIds.Add(item.EventId))
@@ -992,6 +1007,38 @@ public sealed class UraScenarioPackLoader
             {
                 throw new InvalidDataException(
                     $"URA event '{item.EventId}' references missing race.");
+            }
+
+            if (item.OcrTitle is not { } recognition)
+                continue;
+
+            if (string.IsNullOrWhiteSpace(item.Title)
+                || string.IsNullOrWhiteSpace(recognition.ScreenId)
+                || string.IsNullOrWhiteSpace(recognition.ActionId))
+            {
+                throw new InvalidDataException(
+                    $"URA event '{item.EventId}' has an empty OCR title, screen, or action.");
+            }
+
+            var normalizedTitle = CareerEventTitleRecognizer.NormalizeTitle(item.Title);
+            var screen = profile.Find(recognition.ScreenId);
+            var action = screen?.FindAction(recognition.ActionId);
+            var bounds = screen?.FindOcrRegion(CareerEventTitleRecognizer.TitleRegionId)?.Bounds;
+            if (normalizedTitle.Length == 0
+                || !ocrTitles.Add((recognition.ScreenId.ToUpperInvariant(), normalizedTitle))
+                || screen is null
+                || CareerScreenClassification.Classify(screen.ScreenId) != CareerScreenKind.Event
+                || action is null
+                || !execution.Tasks.TryGetValue(action.Task, out var task)
+                || !task.Algorithm.Equals("MatchTemplate", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(task.Template)
+                || bounds is null
+                || bounds.X < 0 || bounds.Y < 0 || bounds.Width <= 0 || bounds.Height <= 0
+                || (long)bounds.X + bounds.Width > profile.ReferenceWidth
+                || (long)bounds.Y + bounds.Height > profile.ReferenceHeight)
+            {
+                throw new InvalidDataException(
+                    $"URA event '{item.EventId}' has an invalid OCR title, screen, action, or event.title region.");
             }
         }
     }

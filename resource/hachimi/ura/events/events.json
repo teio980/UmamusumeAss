@@ -3,6 +3,15 @@
   "scenarioId": "ura",
   "events": [
     {
+      "eventId": "acupuncturist_no_worries",
+      "phase": "career",
+      "title": "Just an Acupuncturist, No Worries! ☆",
+      "ocrTitle": {
+        "screenId": "event_choice",
+        "actionId": "choice_first"
+      }
+    },
+    {
       "eventId": "ura_entry",
       "phase": "career",
       "trigger": {"afterObjectiveId": "career_goals_complete"},

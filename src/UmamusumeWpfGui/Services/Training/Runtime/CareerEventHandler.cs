@@ -21,6 +21,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly ICareerFlowActionRunner _actions;
+    private readonly CareerEventTitleRecognizer _eventTitleRecognizer;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templates =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -30,6 +31,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _eventTitleRecognizer = new CareerEventTitleRecognizer(visualRuntime);
     }
 
     public async Task<CareerTrainingResult?> TryRecognizeAndHandleAsync(
@@ -37,6 +39,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
     {
         var started = Stopwatch.GetTimestamp();
         string? observedEvent = null;
+        string? observedEventId = null;
         var stableSamples = 0;
         var quietSamples = 0;
 
@@ -63,6 +66,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
             if (frame is not null)
             {
                 (string ScreenId, string ActionId)? recognized = null;
+                CareerEventTitleMatch? titleMatch = null;
                 foreach (var candidate in Events)
                 {
                     if (await MatchesAsync(frame, context.Pack, candidate.ScreenId,
@@ -71,21 +75,40 @@ internal sealed class CareerEventHandler : ICareerEventHandler
                         recognized = candidate;
                         break;
                     }
+
+                    titleMatch = await _eventTitleRecognizer.RecognizeAsync(
+                            frame, context.Pack, candidate.ScreenId, context.CancellationToken)
+                        .ConfigureAwait(false);
+                    if (titleMatch is not null)
+                    {
+                        recognized = (candidate.ScreenId, titleMatch.Event.OcrTitle!.ActionId);
+                        break;
+                    }
                 }
 
                 if (recognized is { } eventScreen)
                 {
                     quietSamples = 0;
                     stableSamples = observedEvent == eventScreen.ScreenId
+                        && observedEventId == titleMatch?.Event.EventId
                         ? stableSamples + 1
                         : 1;
                     observedEvent = eventScreen.ScreenId;
+                    observedEventId = titleMatch?.Event.EventId;
                     if (stableSamples >= 2)
                     {
+                        if (titleMatch is not null)
+                        {
+                            context = context with { Observation = titleMatch.Observation };
+                            context.LogSink?.Add("Career Training",
+                                $"Event '{titleMatch.Event.EventId}' recognized via OCR title: "
+                                + $"'{titleMatch.Title}'; action '{eventScreen.ActionId}'.");
+                        }
                         var result = await _actions.RunAsync(
                                 context,
                                 eventScreen.ScreenId,
-                                eventScreen.ActionId)
+                                eventScreen.ActionId,
+                                titleMatch?.RunOptions)
                             .ConfigureAwait(false);
                         if (result is not null)
                             return result;
@@ -97,6 +120,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
                 else
                 {
                     observedEvent = null;
+                    observedEventId = null;
                     stableSamples = 0;
                     quietSamples++;
                     if (await MatchesAsync(frame, context.Pack, "training_result",

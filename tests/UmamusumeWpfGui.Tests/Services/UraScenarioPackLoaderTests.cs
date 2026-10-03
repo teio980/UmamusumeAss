@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json.Nodes;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
@@ -47,6 +48,13 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal("ura", pack.Objectives.ScenarioId);
         Assert.Equal("ura", pack.Races.ScenarioId);
         Assert.Equal("ura", pack.Events.ScenarioId);
+        var ocrEvent = Assert.Single(pack.Events.Events, item => item.OcrTitle is not null);
+        Assert.Equal("acupuncturist_no_worries", ocrEvent.EventId);
+        Assert.Equal("Just an Acupuncturist, No Worries! ☆", ocrEvent.Title);
+        Assert.Equal("event_choice", ocrEvent.OcrTitle!.ScreenId);
+        Assert.Equal("choice_first", ocrEvent.OcrTitle.ActionId);
+        Assert.Equal([140, 295, 620, 65],
+            pack.ScreenProfile.Find("event_choice")!.FindOcrRegion("event.title")!.ToRoi()!);
         Assert.Equal("ura", pack.ScreenProfile.ScenarioId);
         Assert.NotEmpty(pack.ExecutionDefinition.Tasks);
         Assert.Equal(
@@ -493,6 +501,61 @@ public sealed class UraScenarioPackLoaderTests
         {
             if (Directory.Exists(tempRoot))
                 Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("title")]
+    [InlineData("screen")]
+    [InlineData("action")]
+    [InlineData("region")]
+    [InlineData("duplicate")]
+    public async Task LoadAsync_rejects_invalid_ocr_event_configuration(string invalidField)
+    {
+        var sourcePack = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ura-ocr-loader-" + Guid.NewGuid().ToString("N"));
+        CopyDirectory(sourcePack, tempRoot);
+        try
+        {
+            var eventsPath = Path.Combine(tempRoot, "events", "events.json");
+            var events = JsonNode.Parse(await File.ReadAllTextAsync(eventsPath))!;
+            var entries = events["events"]!.AsArray();
+            var ocrEvent = entries.Single(item => item?["eventId"]?.GetValue<string>()
+                == "acupuncturist_no_worries")!;
+            switch (invalidField)
+            {
+                case "title":
+                    ocrEvent["title"] = " ";
+                    break;
+                case "screen":
+                    ocrEvent["ocrTitle"]!["screenId"] = "missing_screen";
+                    break;
+                case "action":
+                    ocrEvent["ocrTitle"]!["actionId"] = "missing_action";
+                    break;
+                case "duplicate":
+                    var duplicate = ocrEvent.DeepClone();
+                    duplicate["eventId"] = "duplicate_ocr_title";
+                    entries.Add(duplicate);
+                    break;
+                case "region":
+                    var profilePath = Path.Combine(tempRoot, "screens", "screen_profile.json");
+                    var profile = JsonNode.Parse(await File.ReadAllTextAsync(profilePath))!;
+                    var screen = profile["screens"]!.AsArray().Single(item =>
+                        item?["screenId"]?.GetValue<string>() == "event_choice")!;
+                    screen["ocrRegions"]![0]!["bounds"]!["width"] = 0;
+                    await File.WriteAllTextAsync(profilePath, profile.ToJsonString());
+                    break;
+            }
+            await File.WriteAllTextAsync(eventsPath, events.ToJsonString());
+
+            var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+                UraScenarioPackLoader.LoadAsync(Path.Combine(tempRoot, "manifest.json")));
+            Assert.Contains("OCR", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
         }
     }
 

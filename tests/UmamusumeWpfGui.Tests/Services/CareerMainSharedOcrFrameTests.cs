@@ -78,8 +78,10 @@ public sealed class CareerMainSharedOcrFrameTests
         Assert.Same(ocrFrame, Assert.Single(recorder.OcrCalls).Frame);
     }
 
-    [Fact]
-    public async Task Frame_ocr_keeps_cropping_and_restores_screen_coordinates_without_adb()
+    [Theory]
+    [InlineData("career_main.objective.title")]
+    [InlineData("career_event.event_choice.title")]
+    public async Task Frame_ocr_keeps_cropping_and_restores_screen_coordinates_without_adb(string taskName)
     {
         var pixels = Enumerable.Repeat((byte)100, 100 * 100).ToArray();
         var rgba = new byte[100 * 100 * 4];
@@ -97,7 +99,7 @@ public sealed class CareerMainSharedOcrFrameTests
 
         var result = await runtime.DetectTextAsync(
             frame, [10, 10, 20, 20], 50, 50,
-            "en-US", "career_main.objective.title");
+            "en-US", taskName);
 
         Assert.Equal(1, recognizer.CallCount);
         Assert.Equal((56, 56), recognizer.LastSize);

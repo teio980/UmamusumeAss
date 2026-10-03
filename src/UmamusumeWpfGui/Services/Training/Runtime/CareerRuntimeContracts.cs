@@ -17,7 +17,9 @@ public sealed record CareerObservation(
     string? GoalText = null,
     int? FansToGoal = null,
     bool InfirmaryAvailable = false,
-    string? MoodText = null)
+    string? MoodText = null,
+    string? EventId = null,
+    string? EventTitle = null)
 {
     public CareerScreenKind Kind => CareerScreenClassification.Classify(ScreenId);
 }

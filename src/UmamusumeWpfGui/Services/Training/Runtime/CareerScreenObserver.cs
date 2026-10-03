@@ -13,6 +13,7 @@ public sealed class CareerScreenObserver
     private const int RecognitionPriorityScale = 10;
 
     private readonly IVisualPipelineRuntime _visualRuntime;
+    private readonly CareerEventTitleRecognizer _eventTitleRecognizer;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
         StringComparer.OrdinalIgnoreCase);
 
@@ -24,6 +25,7 @@ public sealed class CareerScreenObserver
     public CareerScreenObserver(IVisualPipelineRuntime visualRuntime)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
+        _eventTitleRecognizer = new CareerEventTitleRecognizer(visualRuntime);
     }
 
     internal static bool IsRuntimeCareerScreen(string screenId) =>
@@ -309,6 +311,14 @@ public sealed class CareerScreenObserver
                         break;
                 }
 
+                if (screenBest is null)
+                {
+                    var titleMatch = await _eventTitleRecognizer.RecognizeAsync(
+                            frame, pack, screen.ScreenId, cancellationToken)
+                        .ConfigureAwait(false);
+                    screenBest = titleMatch?.Observation;
+                }
+
                 // View Results can open the placings page directly, without
                 // showing the Replay label used by the playback-result path.
                 // In that case the known runner checkpoint and pending race
@@ -383,7 +393,8 @@ public sealed class CareerScreenObserver
         // captured sample. In particular, transient race-result frames during
         // FinalNext navigation must not re-enter the completed result flow.
         if (best is not null
-            && pack.ScreenProfile.Find(best.ScreenId)?.Recognition.Stable == true)
+            && (best.EventId is not null
+                || pack.ScreenProfile.Find(best.ScreenId)?.Recognition.Stable == true))
         {
             var stableScreenId = best.ScreenId;
             if (frames.Count != 2
@@ -392,6 +403,8 @@ public sealed class CareerScreenObserver
                     !string.Equals(
                         observation?.ScreenId,
                         stableScreenId,
+                        StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(observation?.EventId, best.EventId,
                         StringComparison.OrdinalIgnoreCase)))
             {
                 return null;

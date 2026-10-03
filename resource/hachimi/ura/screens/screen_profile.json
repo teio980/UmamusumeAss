@@ -844,6 +844,12 @@
                     },
                     {
                         "screenId":  "event_choice",
+                        "ocrRegions": [
+                            {
+                                "semanticId": "event.title",
+                                "bounds": { "x": 140, "y": 295, "width": 620, "height": 65 }
+                            }
+                        ],
                         "recognition":  {
                                             "template":  "templates/event_effects_button.png",
                                             "roi":  [

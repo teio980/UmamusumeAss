@@ -512,6 +512,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         // isolated because surrounding character art and footer labels vary.
         var cropToRoi = actualRoi is not null
             && (taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase)
+                || taskName.StartsWith("career_event.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("career_skill.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("shop.items", StringComparison.OrdinalIgnoreCase));
         var ocrScreenshot = cropToRoi
