@@ -16,6 +16,11 @@ public sealed class CareerScreenObserver
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
         StringComparer.OrdinalIgnoreCase);
 
+    internal IReadOnlyList<GrayImage> LastFrames { get; private set; } = [];
+    internal IReadOnlyList<string> LastCandidateScreenIds { get; private set; } = [];
+    internal IReadOnlyList<string?> LastFrameScreenIds { get; private set; } = [];
+    internal IReadOnlyList<string> LastCaptureErrors { get; private set; } = [];
+
     public CareerScreenObserver(IVisualPipelineRuntime visualRuntime)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
@@ -163,6 +168,9 @@ public sealed class CareerScreenObserver
                 expectedActionConfirmationScreenId))
             .ToArray();
 
+        LastCandidateScreenIds = candidates.Select(screen => screen.ScreenId).ToArray();
+        LastFrameScreenIds = [];
+        var captureErrors = new List<string>();
         var frames = new List<GrayImage>(capacity: 2);
         for (var sample = 0; sample < 2; sample++)
         {
@@ -184,6 +192,7 @@ public sealed class CareerScreenObserver
                 // miss. Returning null lets the engine use its bounded
                 // recognition retry window instead of failing the whole
                 // Career run immediately.
+                captureErrors.Add($"{exception.GetType().Name}: {exception.Message}");
                 frame = null;
             }
             if (frame is not null)
@@ -193,6 +202,8 @@ public sealed class CareerScreenObserver
                     .ConfigureAwait(false);
         }
 
+        LastFrames = frames.ToArray();
+        LastCaptureErrors = captureErrors.ToArray();
         if (frames.Count == 0)
             return null;
 
@@ -365,6 +376,8 @@ public sealed class CareerScreenObserver
                 bestPriority = framePriority;
             }
         }
+
+        LastFrameScreenIds = frameObservations.Select(observation => observation?.ScreenId).ToArray();
 
         // A screen marked stable must be the winning recognition in every
         // captured sample. In particular, transient race-result frames during

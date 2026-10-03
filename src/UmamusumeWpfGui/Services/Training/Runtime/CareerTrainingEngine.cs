@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -10,6 +12,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 {
     private const string CareerStartTransitionScreenId = "career_start_transition";
     private const int StableScreenRecognitionRetryLimit = 30;
+    private static readonly JsonSerializerOptions DiagnosticJsonOptions = new()
+    {
+        WriteIndented = true,
+    };
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
@@ -196,6 +202,13 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         logSink?.Add(
             "Career Training",
             $"Loaded {pack.Manifest.DisplayName} for {trainee.NameEn} ({trainee.TraineeId}).");
+        var assembly = typeof(CareerTrainingEngine).Assembly;
+        logSink?.Add(
+            "Career Training",
+            $"Runtime source: {assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration}; "
+            + $"executable='{Environment.ProcessPath}'; build={assembly.ManifestModule.ModuleVersionId}; "
+            + $"manifest='{pack.ManifestPath}'; "
+            + $"Goal Incomplete recognition={(pack.ScreenProfile.Find("goal_incomplete") is null ? "missing" : "loaded")}.");
 
         // The running objective is reconstructed from the visible Career UI.
         // Only graded race dates come from the local race calendar.
@@ -627,6 +640,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     continue;
                 }
 
+                await SaveRecognitionFailureAsync(
+                        connection, pack, state, careerStartTransitionExpected,
+                        logSink, cancellationToken)
+                    .ConfigureAwait(false);
                 return Failure(
                     "Could not recognize a stable Career screen; automation paused safely.",
                     state.LastScreenId,
@@ -912,6 +929,95 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             throw new InvalidOperationException(
                 $"Configured guest support card {settings.FriendSupportCardId.Value.ToString(CultureInfo.InvariantCulture)} "
                 + $"has type '{friendCard.Type}' which is not part of preset '{settings.SupportDeckPreset}'.");
+        }
+    }
+
+    private async Task SaveRecognitionFailureAsync(
+        LastVerifiedConnection connection,
+        UraScenarioPack pack,
+        UraCareerSessionState state,
+        bool careerStartTransitionExpected,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var directory = Path.Combine(
+            HachimiResourcePaths.GetDebugDirectory("career"),
+            "unrecognized-" + DateTimeOffset.UtcNow.ToString(
+                "yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture));
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var assembly = typeof(CareerTrainingEngine).Assembly;
+            var diagnostics = new
+            {
+                Configuration = assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration,
+                Executable = Environment.ProcessPath,
+                AssemblyBuild = assembly.ManifestModule.ModuleVersionId,
+                AppBase = AppContext.BaseDirectory,
+                ResourceBase = ResourcePathRuntime.BaseDirectory,
+                pack.ManifestPath,
+                ScreenProfile = Path.Combine(pack.RootDirectory, pack.Manifest.Screens),
+                Execution = Path.Combine(pack.RootDirectory, pack.Manifest.Execution),
+                state.LastScreenId,
+                LastAction = state.LastAction.ToString(),
+                state.CareerStarted,
+                state.TurnIndex,
+                NormalSetupStage = state.NormalSetupStage.ToString(),
+                state.RaceReplayFlowCompleted,
+                state.GoalCompletionProbeArmed,
+                state.RaceRetryDeclined,
+                state.InheritanceEventPending,
+                CareerStartTransitionExpected = careerStartTransitionExpected,
+                ReturningHome = CareerScreenObserver.IsReturningHome(state),
+                GoalIncompleteRecognition = pack.ScreenProfile.Find("goal_incomplete")?.Recognition,
+                GoalIncompleteEligible = CareerScreenObserver.IsEligibleForCareerPhase(
+                    "goal_incomplete", state),
+                CandidateScreenIds = _screenObserver.LastCandidateScreenIds,
+                FrameScreenIds = _screenObserver.LastFrameScreenIds,
+                CaptureErrors = _screenObserver.LastCaptureErrors,
+                Frames = _screenObserver.LastFrames.Select(frame => new { frame.Width, frame.Height }),
+            };
+            var path = Path.Combine(directory, "state.json");
+            await File.WriteAllTextAsync(
+                    path, JsonSerializer.Serialize(diagnostics, DiagnosticJsonOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            logSink?.Add("Career Training",
+                $"Recognition failure after '{state.LastScreenId}'; diagnostics: '{path}'.");
+            for (var index = 0; index < _screenObserver.LastFrames.Count; index++)
+            {
+                var frame = _screenObserver.LastFrames[index];
+                var rgba = frame.RgbaPixels;
+                if (rgba is null)
+                {
+                    rgba = new byte[checked(frame.Width * frame.Height * 4)];
+                    for (var pixel = 0; pixel < frame.Pixels.Length; pixel++)
+                    {
+                        rgba[pixel * 4] = frame.Pixels[pixel];
+                        rgba[pixel * 4 + 1] = frame.Pixels[pixel];
+                        rgba[pixel * 4 + 2] = frame.Pixels[pixel];
+                        rgba[pixel * 4 + 3] = 255;
+                    }
+                }
+                GrayImageCodec.SaveScreenshot(
+                    new AdbScreenshotResult(AdbScreenshotMethod.Raw, [], TimeSpan.Zero,
+                        new AdbRawScreenshot(frame.Width, frame.Height, rgba)),
+                    Path.Combine(directory, $"sample-{index + 1}.png"));
+            }
+            if (_screenObserver.LastFrames.Count == 0)
+            {
+                await _visualRuntime.SaveScreenshotAsync(
+                        connection, directory, "screen", cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException
+            and not DateChangedInterruptionException and not DateChangedRecoveryException)
+        {
+            // Failure evidence is best-effort and must not replace the original
+            // recognition failure if a screenshot or file cannot be saved.
+            logSink?.Add("Career Training",
+                $"Could not save recognition failure evidence: {exception.Message}");
         }
     }
 
