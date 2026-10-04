@@ -131,13 +131,9 @@ internal static class CareerObservationPolicy
             return false;
         }
 
-        if (Is(screenId, "inheritance_event")
-            && !state.InheritanceEventPending
-            && !careerOnly)
-        {
-            return false;
-        }
-
+        // Races and goal transitions can reach inheritance without a calendar
+        // prediction. Always admit the visible GO overlay; the pending flag
+        // only prevents another action on the underlying main page.
         // Once the late-March action is selected, wait for the GO overlay
         // instead of starting another turn from the underlying main page.
         if (state.InheritanceEventPending && Is(screenId, "career_main"))
