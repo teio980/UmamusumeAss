@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Input;
@@ -63,6 +64,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private HachimiPipelineDefinition? _pipelineDefinition;
     private string? _pipelineDefinitionPath;
     private string? _loadedScenarioManifestPath;
+    private ScenarioExecutionPackage? _loadedScenarioPackage;
     private ScenarioPackageFileEditorItem? _selectedScenarioPackageFile;
     private string _scenarioPackageStatusText = "Load a scenario manifest to edit its complete package.";
     private string? _selectedPipelineFile;
@@ -658,17 +660,18 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             string definitionPath;
             string loadedDescription;
             string? scenarioManifestPath = null;
+            ScenarioExecutionPackage? scenarioPackage = null;
             if (IsScenarioManifest(path))
             {
-                var pack = await ScenarioPackageLoader.LoadExecutionAsync(path)
+                scenarioPackage = await ScenarioPackageLoader.LoadExecutionAsync(path)
                     .ConfigureAwait(true);
-                definition = pack.ExecutionDefinition;
-                definitionPath = pack.ExecutionPath;
+                definition = scenarioPackage.ExecutionDefinition;
+                definitionPath = scenarioPackage.ExecutionPath;
                 loadedDescription =
-                    $"Loaded {pack.DisplayName} ({pack.ScenarioId}) scenario package; "
-                    + $"editing its execution definition ({pack.ExecutionDefinition.Tasks.Count} task(s)).";
+                    $"Loaded {scenarioPackage.DisplayName} ({scenarioPackage.ScenarioId}) scenario package; "
+                    + $"editing its execution definition ({scenarioPackage.ExecutionDefinition.Tasks.Count} task(s)).";
                 scenarioManifestPath = path;
-                LoadScenarioPackageFiles(path, pack.RootDirectory);
+                LoadScenarioPackageFiles(path, scenarioPackage);
             }
             else
             {
@@ -694,6 +697,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _pipelineDefinition = definition;
             _pipelineDefinitionPath = definitionPath;
             _loadedScenarioManifestPath = scenarioManifestPath;
+            _loadedScenarioPackage = scenarioPackage;
             PipelineName = definition.Name;
             PipelineDescription = definition.Description;
             PipelineReferenceWidthText = definition.ReferenceWidth.ToString(CultureInfo.InvariantCulture);
@@ -987,6 +991,12 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             path = Path.GetFullPath(path);
+            if (_loadedScenarioPackage is not null)
+            {
+                SaveScenarioExecutionDefinition(definition);
+                return;
+            }
+
             var writePath = ResourcePathRuntime.ResolveWritePath(path);
             Directory.CreateDirectory(Path.GetDirectoryName(writePath)!);
             File.WriteAllText(writePath, JsonSerializer.Serialize(definition, PipelineJsonOptions));
@@ -1005,13 +1015,217 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         }
     }
 
-    private void LoadScenarioPackageFiles(string manifestPath, string rootDirectory)
+    private void SaveScenarioExecutionDefinition(HachimiPipelineDefinition definition)
+    {
+        var package = _loadedScenarioPackage
+            ?? throw new InvalidOperationException("No source-aware scenario package is loaded.");
+        var resources = package.VisualResources
+            ?? throw new InvalidOperationException("The loaded scenario package has no visual source map.");
+        var executionFiles = package.ExecutionFragmentPaths
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (executionFiles.Count == 0)
+            throw new InvalidDataException("The scenario manifest does not declare execution fragments.");
+
+        var definitionsBySource = new Dictionary<string, List<KeyValuePair<string, HachimiPipelineTask>>>(
+            StringComparer.OrdinalIgnoreCase);
+        var defaultSource = Path.GetFullPath(package.ExecutionPath);
+        var selectedExecutionSource = SelectedScenarioPackageFile is { IsExecution: true } selectedFile
+            ? Path.GetFullPath(selectedFile.FullPath)
+            : defaultSource;
+        if (!executionFiles.Contains(selectedExecutionSource))
+            selectedExecutionSource = defaultSource;
+        foreach (var pair in definition.Tasks)
+        {
+            var sourcePath = resources.TaskSourceFiles.TryGetValue(pair.Key, out var originalSource)
+                ? Path.GetFullPath(originalSource)
+                : selectedExecutionSource;
+            if (!executionFiles.Contains(sourcePath))
+                throw new InvalidDataException(
+                    $"Task '{pair.Key}' has provenance outside the manifest's execution fragments.");
+            if (!definitionsBySource.TryGetValue(sourcePath, out var tasks))
+            {
+                tasks = [];
+                definitionsBySource[sourcePath] = tasks;
+            }
+            tasks.Add(pair);
+        }
+
+        var stagedFragments = new Dictionary<string, (ScenarioPackageFileEditorItem? EditorFile, string JsonText)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var sourcePath in executionFiles)
+        {
+            var sourceFile = FindScenarioPackageFile(sourcePath);
+            var sourceText = sourceFile?.JsonText ?? File.ReadAllText(sourcePath);
+            var root = JsonNode.Parse(sourceText) as JsonObject
+                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' must have an object root.");
+            if (sourcePath.Equals(defaultSource, StringComparison.OrdinalIgnoreCase))
+            {
+                root["name"] = definition.Name;
+                root["schemaVersion"] = definition.SchemaVersion;
+                root["description"] = definition.Description;
+                root["referenceWidth"] = definition.ReferenceWidth;
+                root["referenceHeight"] = definition.ReferenceHeight;
+                if (definition.Timing is not null)
+                    root["timing"] = JsonSerializer.SerializeToNode(definition.Timing, PipelineJsonOptions);
+            }
+
+            var taskMap = root["tasks"] as JsonObject
+                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' has no tasks object.");
+            foreach (var source in resources.TaskSourceFiles)
+            {
+                if (!Path.GetFullPath(source.Value).Equals(sourcePath, StringComparison.OrdinalIgnoreCase)
+                    || definition.Tasks.ContainsKey(source.Key))
+                {
+                    continue;
+                }
+                taskMap.Remove(source.Key);
+            }
+
+            if (definitionsBySource.TryGetValue(sourcePath, out var currentTasks))
+            {
+                foreach (var pair in currentTasks)
+                {
+                    var originalTask = taskMap[pair.Key] as JsonObject;
+                    if (originalTask is null)
+                    {
+                        originalTask = new JsonObject();
+                        taskMap[pair.Key] = originalTask;
+                    }
+                    var serialized = JsonSerializer.SerializeToNode(pair.Value, PipelineJsonOptions) as JsonObject
+                        ?? throw new InvalidDataException($"Task '{pair.Key}' could not be serialized.");
+                    PreserveSourceRelativeTemplatePaths(
+                        serialized,
+                        pair.Key,
+                        sourcePath,
+                        definition,
+                        resources);
+                    MergeTaskProperties(originalTask, serialized);
+                }
+            }
+
+            var formatted = JsonSerializer.Serialize(root, PipelineJsonOptions);
+            stagedFragments[sourcePath] = (sourceFile, formatted);
+        }
+
+        foreach (var (sourcePath, staged) in stagedFragments)
+        {
+            var writePath = ResourcePathRuntime.ResolveWritePath(sourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(writePath)!);
+            File.WriteAllText(writePath, staged.JsonText);
+            if (staged.EditorFile is not null)
+                staged.EditorFile.JsonText = staged.JsonText;
+        }
+
+        var updatedPackage = ScenarioPackageLoader.LoadExecutionAsync(package.ManifestPath)
+            .GetAwaiter()
+            .GetResult();
+        _loadedScenarioPackage = updatedPackage;
+        _pipelineDefinition = updatedPackage.ExecutionDefinition;
+        _pipelineDefinitionPath = updatedPackage.ExecutionPath;
+        SetPipelineStatus(
+            $"Saved scenario execution across {updatedPackage.ExecutionFragmentPaths.Count} source fragment(s). "
+            + "Task templates and outcomes remain attached to their originating tasks.");
+        RefreshPipelineFiles();
+    }
+
+    private static void MergeTaskProperties(JsonObject original, JsonObject edited)
+    {
+        foreach (var property in edited)
+            original[property.Key] = property.Value?.DeepClone();
+
+        foreach (var propertyName in new[]
+        {
+            "pipeline", "entry", "template", "templateCollection", "keyCode", "successTask", "countAs", "outcome",
+        })
+        {
+            if (!edited.ContainsKey(propertyName))
+                original.Remove(propertyName);
+        }
+    }
+
+    internal static void PreserveSourceRelativeTemplatePaths(
+        JsonObject serializedTask,
+        string taskId,
+        string sourcePath,
+        HachimiPipelineDefinition definition,
+        CareerVisualResourcePackage resources)
+    {
+        var sourceDirectory = Path.GetDirectoryName(sourcePath)!;
+        if (serializedTask["template"] is JsonValue templateValue
+            && templateValue.TryGetValue<string>(out var template)
+            && !string.IsNullOrWhiteSpace(template))
+        {
+            var original = resources.GetOriginalTaskTemplate(taskId);
+            resources.TryGetResolvedTaskTemplate(taskId, out var resolved);
+            var editedPath = resources.ResolveVisualResource(
+                ResolveEditorResourcePath(definition.BaseDirectory, template));
+            if (!File.Exists(editedPath))
+                throw new FileNotFoundException($"Career task '{taskId}' template does not exist.", editedPath);
+            serializedTask["template"] = original is not null
+                    && resolved is not null
+                    && Path.GetFullPath(editedPath).Equals(Path.GetFullPath(resolved), StringComparison.OrdinalIgnoreCase)
+                ? original
+                : Path.GetRelativePath(sourceDirectory, editedPath).Replace(Path.DirectorySeparatorChar, '/');
+        }
+
+        if (serializedTask["transitionTemplates"] is not JsonArray transitionArray)
+            return;
+        var originalTransitions = resources.GetOriginalTaskTransitionTemplates(taskId);
+        var resolvedTransitions = resources.GetResolvedTaskTransitionTemplates(taskId);
+        for (var index = 0; index < transitionArray.Count; index++)
+        {
+            if (transitionArray[index] is not JsonValue transitionValue
+                || !transitionValue.TryGetValue<string>(out var transition)
+                || string.IsNullOrWhiteSpace(transition))
+            {
+                continue;
+            }
+
+            var editedPath = ResolveEditorResourcePath(definition.BaseDirectory, transition);
+            var resolvedEditedPath = resources.ResolveVisualResource(editedPath);
+            if (!File.Exists(resolvedEditedPath))
+                throw new FileNotFoundException(
+                    $"Career task '{taskId}' transition template does not exist.",
+                    resolvedEditedPath);
+            if (index < originalTransitions.Count
+                && index < resolvedTransitions.Count
+                && Path.GetFullPath(resolvedEditedPath).Equals(
+                    Path.GetFullPath(resolvedTransitions[index]),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                transitionArray[index] = originalTransitions[index];
+            }
+            else
+            {
+                transitionArray[index] = Path.GetRelativePath(sourceDirectory, resolvedEditedPath)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+            }
+        }
+    }
+
+    private static string ResolveEditorResourcePath(string baseDirectory, string relativeOrAbsolutePath) =>
+        Path.GetFullPath(Path.IsPathRooted(relativeOrAbsolutePath)
+            ? relativeOrAbsolutePath
+            : Path.Combine(baseDirectory, relativeOrAbsolutePath));
+
+    private ScenarioPackageFileEditorItem? FindScenarioPackageFile(string fullPath) =>
+        _scenarioPackageFiles.FirstOrDefault(file =>
+            Path.GetFullPath(file.FullPath).Equals(Path.GetFullPath(fullPath), StringComparison.OrdinalIgnoreCase));
+
+    private void LoadScenarioPackageFiles(string manifestPath, ScenarioExecutionPackage package)
     {
         _scenarioPackageFiles.Clear();
+        var rootDirectory = package.RootDirectory;
         var files = Directory.EnumerateFiles(
                 rootDirectory,
                 "*.json",
                 SearchOption.AllDirectories)
+            .Concat(package.ScreenFragmentPaths)
+            .Concat(package.ExecutionFragmentPaths)
+            .Append(package.ResourceCatalogPath)
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => string.Equals(
                     Path.GetFullPath(path),
                     Path.GetFullPath(manifestPath),
@@ -1056,6 +1270,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     {
         _scenarioPackageFiles.Clear();
         SelectedScenarioPackageFile = null;
+        _loadedScenarioPackage = null;
         _scenarioPackageStatusText = "Load a scenario manifest to edit its complete package.";
         OnPropertyChanged(nameof(ScenarioPackageStatusText));
         OnPropertyChanged(nameof(ScenarioPackageFiles));
@@ -1082,9 +1297,27 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
         }
 
-        _scenarioPackageStatusText = errors.Count == 0
-            ? $"Package JSON validation passed: {_scenarioPackageFiles.Count} file(s)."
-            : "Package validation failed: " + string.Join(" | ", errors);
+        if (errors.Count == 0)
+        {
+            try
+            {
+                _ = CareerVisualPackageLoader.LoadAsync(_loadedScenarioManifestPath)
+                    .GetAwaiter()
+                    .GetResult();
+                var unsaved = _scenarioPackageFiles.Count(file =>
+                    !File.ReadAllText(file.FullPath).Equals(file.JsonText, StringComparison.Ordinal));
+                _scenarioPackageStatusText = unsaved == 0
+                    ? $"Strict package validation passed: {_scenarioPackageFiles.Count} JSON file(s), all fragments, bindings, and resources resolved."
+                    : $"On-disk package validation passed. {unsaved} edited fragment(s) have unsaved text; save them for full semantic validation of those edits.";
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception.Message);
+            }
+        }
+
+        if (errors.Count > 0)
+            _scenarioPackageStatusText = "Package validation failed: " + string.Join(" | ", errors);
         OnPropertyChanged(nameof(ScenarioPackageStatusText));
     }
 
@@ -1100,7 +1333,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             var formatted = JsonSerializer.Serialize(document.RootElement, PipelineJsonOptions);
             File.WriteAllText(ResourcePathRuntime.ResolveWritePath(file.FullPath), formatted);
             file.JsonText = formatted;
-            _scenarioPackageStatusText = $"Saved {file.RelativePath}.";
+            _scenarioPackageStatusText = $"Saved source document {file.RelativePath}.";
+            if (_loadedScenarioPackage is not null)
+                TryRefreshLoadedScenarioPackage();
             OnPropertyChanged(nameof(ScenarioPackageStatusText));
         }
         catch (JsonException exception)
@@ -1113,6 +1348,34 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             _scenarioPackageStatusText = $"Could not save {file.RelativePath}: {exception.Message}";
             OnPropertyChanged(nameof(ScenarioPackageStatusText));
+        }
+    }
+
+    private void TryRefreshLoadedScenarioPackage()
+    {
+        if (_loadedScenarioManifestPath is null)
+            return;
+        try
+        {
+            var updated = ScenarioPackageLoader.LoadExecutionAsync(_loadedScenarioManifestPath)
+                .GetAwaiter()
+                .GetResult();
+            _loadedScenarioPackage = updated;
+            _pipelineDefinition = updated.ExecutionDefinition;
+            _pipelineDefinitionPath = updated.ExecutionPath;
+            ClearPipelineTaskItems();
+            foreach (var pair in updated.ExecutionDefinition.Tasks)
+            {
+                var item = HachimiPipelineTaskEditorItem.FromTask(pair.Key, pair.Value);
+                item.PropertyChanged += OnPipelineTaskEditorPropertyChanged;
+                _pipelineTasks.Add(item);
+            }
+            SelectedPipelineTask = _pipelineTasks.FirstOrDefault();
+        }
+        catch (Exception exception)
+        {
+            _scenarioPackageStatusText =
+                $"Saved source document. Package reload reports: {exception.Message}";
         }
     }
 

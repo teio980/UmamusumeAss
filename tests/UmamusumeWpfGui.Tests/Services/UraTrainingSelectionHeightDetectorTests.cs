@@ -14,7 +14,6 @@ public sealed class UraTrainingSelectionHeightDetectorTests
     public async Task Raised_speed_is_found_across_training_screen_variants(string captureName)
     {
         var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
         var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
             root, "resource", "hachimi", "ura", "manifest.json"));
         var screenshot = GrayImageCodec.FromFile(Path.Combine(
@@ -24,10 +23,8 @@ public sealed class UraTrainingSelectionHeightDetectorTests
 
         var templates = UraTrainingTypeCatalog.SupportedTypes.ToDictionary(
             type => type,
-            type => GrayImageCodec.FromFile(Path.Combine(
-                screens,
-                pack.ExecutionDefinition.GetTask($"training_selection_training_{type}")
-                    .Template!))!);
+            type => GrayImageCodec.FromFile(pack.VisualResources!.ResolveTaskTemplate(
+                $"training_selection_training_{type}"))!);
 
         if (captureName == "turn3_training_selection.png")
         {
@@ -83,8 +80,8 @@ public sealed class UraTrainingSelectionHeightDetectorTests
         var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
             root, "resource", "hachimi", "ura", "manifest.json"));
         var recognition = pack.ScreenProfile.Find("training_selection")!.Recognition;
-        var header = GrayImageCodec.FromFile(Path.Combine(
-            root, "resource", "hachimi", "ura", "screens", recognition.Template!));
+        var header = GrayImageCodec.FromFile(pack.VisualResources!.ResolveScreenTemplate(
+            pack.ScreenProfile.Find("training_selection")!, recognition.Template!));
         var screenshot = GrayImageCodec.FromFile(Path.Combine(
             root, "testdata", "hachimi", "ura", "captures", captureName));
 

@@ -39,7 +39,7 @@ public static class UraTrainingTypeCatalog
     }
 }
 
-public sealed class UraDefaultStrategy
+public sealed class UraDefaultStrategy : ICareerTrainingStrategy<UraCareerSessionState>
 {
     private readonly string _trainingType;
 
@@ -64,6 +64,22 @@ public sealed class UraDefaultStrategy
 
     public int RestThreshold { get; }
     public string TrainingType => _trainingType;
+
+    public UraActionIntent Choose(
+        CareerSessionState<UraCareerSessionState> session,
+        ICareerScenarioModule<UraCareerSessionState> scenario)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(scenario);
+        if (scenario is not UraScenarioModule uraScenario)
+        {
+            throw new ArgumentException(
+                "The URA default strategy requires the URA scenario module.",
+                nameof(scenario));
+        }
+
+        return ChooseTurnAction(uraScenario, session.Scenario);
+    }
 
     public UraActionIntent ChooseTurnAction(
         UraScenarioModule module,

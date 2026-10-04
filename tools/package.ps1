@@ -151,39 +151,29 @@ if ($proc.ExitCode -ne 0) {
     throw "dotnet publish failed with exit code $($proc.ExitCode)"
 }
 
-$uraSource = Join-Path $SolutionRoot "resource\hachimi\ura"
-$pipelineSource = Join-Path $SolutionRoot "resource\hachimi\pipelines"
 $uraPublish = Join-Path $PublishDir "resource\hachimi\ura"
-$pipelinePublish = Join-Path $PublishDir "resource\hachimi\pipelines"
-$uraPublishParent = Join-Path $PublishDir "resource\hachimi"
-if (-not (Test-Path -LiteralPath $uraSource)) {
-    throw "URA scenario source package is incomplete: $uraSource"
-}
-if (-not (Test-Path -LiteralPath $pipelineSource)) {
-    throw "Hachimi pipeline source package is incomplete: $pipelineSource"
-}
-if (-not (Test-Path -LiteralPath $pipelinePublish)) {
-    throw "Hachimi pipeline resources were not staged into publish output: $pipelinePublish"
-}
-if (-not (Test-Path -LiteralPath $uraPublish)) {
-    New-Item -ItemType Directory -Path $uraPublishParent -Force | Out-Null
-    Copy-Item -LiteralPath $uraSource -Destination $uraPublishParent -Recurse -Force
-}
-if (-not (Test-Path -LiteralPath $uraPublish)) {
-    throw "URA scenario package was not staged into publish output: $uraPublish"
-}
-$uraFiles = @(Get-ChildItem -LiteralPath $uraSource -File -Recurse)
-$missingUraFiles = @(
-    foreach ($uraFile in $uraFiles) {
-        $relativePath = $uraFile.FullName.Substring($uraSource.Length + 1)
-        $publishedPath = Join-Path $uraPublish $relativePath
-        if (-not (Test-Path -LiteralPath $publishedPath)) {
-            $relativePath
-        }
+$uraFiles = @()
+foreach ($resourcePackage in @("ura", "career", "pipelines")) {
+    $sourcePackage = Join-Path $SolutionRoot "resource\hachimi\$resourcePackage"
+    $publishedPackage = Join-Path $PublishDir "resource\hachimi\$resourcePackage"
+    if (-not (Test-Path -LiteralPath $sourcePackage) -or -not (Test-Path -LiteralPath $publishedPackage)) {
+        throw "Hachimi resource package '$resourcePackage' was not staged into publish output."
     }
-)
-if ($missingUraFiles.Count -gt 0) {
-    throw "URA scenario files were not staged into publish output: $($missingUraFiles -join ', ')"
+    $runtimeFiles = @(Get-ChildItem -LiteralPath $sourcePackage -File -Recurse | Where-Object {
+        $_.FullName -notmatch '[\\/]testdata[\\/]' -and
+            $_.FullName -notmatch '[\\/]debug[\\/]' -and
+            $_.FullName -notmatch '[\\/]ura[\\/]screens[\\/]captures[\\/]'
+    })
+    if ($resourcePackage -eq "ura") { $uraFiles = $runtimeFiles }
+    $missingFiles = @(
+        foreach ($runtimeFile in $runtimeFiles) {
+            $relativePath = $runtimeFile.FullName.Substring($sourcePackage.Length + 1)
+            if (-not (Test-Path -LiteralPath (Join-Path $publishedPackage $relativePath))) { $relativePath }
+        }
+    )
+    if ($missingFiles.Count -gt 0) {
+        throw "Hachimi '$resourcePackage' files were not staged: $($missingFiles -join ', ')"
+    }
 }
 Write-Host "OK"
 Write-Host ""

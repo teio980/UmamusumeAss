@@ -14,7 +14,8 @@ public sealed class CareerFollowTrainerRecognitionTests
     public async Task Recreation_confirmation_is_not_canceled_as_a_follow_limit_popup(bool resume)
     {
         var pack = await LoadPackAsync();
-        var frame = Load(Path.Combine(ScreensDirectory(), "captures", "recreation_confirmation.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, "recreation_confirmation.png"));
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
         var state = new UraCareerSessionState
         {
@@ -38,10 +39,12 @@ public sealed class CareerFollowTrainerRecognitionTests
     public async Task Follow_title_rejects_other_green_confirmation_headers(string capture)
     {
         var pack = await LoadPackAsync();
-        var recognition = pack.ScreenProfile.Find("follow_trainer_limit")!.Recognition;
-        var template = Load(Path.Combine(ScreensDirectory(),
-            recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(ScreensDirectory(), "captures", capture));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var popup = pack.ScreenProfile.Find("follow_trainer_limit")!;
+        var recognition = popup.Recognition;
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            popup, recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, capture));
         var match = recognition.MatchColorText
             ? TemplateMatcher.FindColor(frame, template, recognition.Roi,
                 recognition.TemplateThreshold, 900, 1600, requireTextContrast: true)
@@ -61,16 +64,23 @@ public sealed class CareerFollowTrainerRecognitionTests
     {
         var pack = await LoadPackAsync();
         var popup = pack.ScreenProfile.Find("follow_trainer_limit")!;
-        // Isolate the popup so this also verifies its phase gate when the
-        // exact title and Cancel button are present in the captured frame.
-        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [popup] } };
+        // Retain the previous screen's metadata so the phase gate can
+        // classify settlement history while probing the popup.
+        pack = pack with
+        {
+            ScreenProfile = new UraScreenProfile
+            {
+                Screens = [popup, pack.ScreenProfile.Find("career_result_close")!],
+                VisualResources = pack.ScreenProfile.VisualResources,
+            },
+        };
         var frame = new GrayImage(900, 1600,
             Enumerable.Repeat((byte)255, 900 * 1600).ToArray(),
             Enumerable.Repeat((byte)255, 900 * 1600 * 4).ToArray());
-        Stamp(frame, Load(Path.Combine(ScreensDirectory(),
-            "templates", "follow_trainer_limit_header.png")), 320, 480);
-        Stamp(frame, Load(Path.Combine(ScreensDirectory(),
-            "templates", "follow_trainer_limit_cancel.png")), 190, 1020);
+        Stamp(frame, Load(pack.VisualResources!.ResolveScreenTemplate(
+            popup, popup.Recognition.Template!)), 320, 480);
+        Stamp(frame, Load(pack.VisualResources.ResolveScreenTemplate(
+            popup, popup.Recognition.RequiredTemplate!)), 190, 1020);
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
         var state = new UraCareerSessionState
         {
@@ -101,21 +111,8 @@ public sealed class CareerFollowTrainerRecognitionTests
     private static GrayImage Load(string path) => GrayImageCodec.FromFile(path)
         ?? throw new FileNotFoundException("Missing test image.", path);
 
-    private static Task<UraScenarioPack> LoadPackAsync() => UraScenarioPackLoader.LoadAsync(
-        Path.Combine(ScreensDirectory(), "..", "manifest.json"));
-
-    private static string ScreensDirectory()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            var screens = Path.Combine(directory.FullName, "resource", "hachimi", "ura", "screens");
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return screens;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
     public class CapturedFrameRuntime : DispatchProxy
     {

@@ -33,7 +33,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "career_races_ready",
-                        "races")
+                        "action.races")
                     .ConfigureAwait(false);
             case "race_day":
                 context.State.RaceReplayFlowCompleted = false;
@@ -54,7 +54,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "race_day",
-                        "open_list")
+                        "race.open_list")
                     .ConfigureAwait(false);
             case "race_recommendations":
                 context.LogSink?.Add(
@@ -64,7 +64,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "race_recommendations",
-                        "confirm")
+                        "race.recommendations.confirm")
                     .ConfigureAwait(false);
             case "race_list":
                 if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
@@ -110,7 +110,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "race_details",
-                        "confirm")
+                        "race.confirm")
                     .ConfigureAwait(false);
             case "race_attributes":
                 if (GuardOptionalRaceEntry(context) is { } raceAttributesGuard)
@@ -118,13 +118,13 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "race_attributes",
-                        "start_playback")
+                        "race.start_playback")
                     .ConfigureAwait(false);
             case "race_playback":
                 return await _actions.RunAsync(
                         context,
                         "race_playback",
-                        "play")
+                        "race.play")
                     .ConfigureAwait(false);
             case "race_playback_start":
                 context.State.RaceReplayFlowCompleted = false;
@@ -170,13 +170,13 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "race_playback_settings",
-                        "playback_settings_ok")
+                        "race.playback_settings_ok")
                     .ConfigureAwait(false);
             case "race_live":
                 return await _actions.RunAsync(
                         context,
                         "race_live",
-                        "live_next")
+                        "race.live_next")
                     .ConfigureAwait(false);
             case "goal_update":
                 context.LogSink?.Add(
@@ -186,7 +186,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "goal_update",
-                        "update_next")
+                        "goal.update_next")
                     .ConfigureAwait(false);
             case "goal_objective_complete":
                 context.LogSink?.Add(
@@ -196,7 +196,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "goal_objective_complete",
-                        "next")
+                        "goal.next")
                     .ConfigureAwait(false);
             case "race_result":
                 return await HandleRaceResultAsync(context).ConfigureAwait(false);
@@ -204,13 +204,13 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "reward",
-                        "next")
+                        "reward.next")
                     .ConfigureAwait(false);
             case "reward_support":
                 return await _actions.RunAsync(
                         context,
                         "reward_support",
-                        "next")
+                        "reward.next")
                     .ConfigureAwait(false);
             case "goal_complete":
                 context.State.HasPendingRace = true;
@@ -221,7 +221,7 @@ internal sealed class CareerRaceFlow
                 return await _actions.RunAsync(
                         context,
                         "goal_complete",
-                        "next")
+                        "goal.next")
                     .ConfigureAwait(false);
             default:
                 return null;
@@ -232,8 +232,8 @@ internal sealed class CareerRaceFlow
     {
         ArgumentNullException.ThrowIfNull(state);
         return state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount
-            ? "fans_entry"
-            : "recommended_entry";
+            ? "race.fans_entry"
+            : "race.recommended_entry";
     }
 
     private async Task<CareerTrainingResult?> HandleRaceStreakWarningAsync(
@@ -258,7 +258,7 @@ internal sealed class CareerRaceFlow
                     + "is unknown. Selecting Cancel to reobserve the Career goal.",
                 LogEntryKind.Info);
             var cancelResult = await _actions.RunAsync(
-                context, "race_streak_warning", "streak.cancel").ConfigureAwait(false);
+                context, "race_streak_warning", "race.streak.cancel").ConfigureAwait(false);
             if (cancelResult is null)
                 state.RaceStreakWarningActionIssued = true;
             return cancelResult;
@@ -268,7 +268,7 @@ internal sealed class CareerRaceFlow
             "Career Training",
             "Consecutive-race warning recognized; this required goal race takes priority, so selecting OK.",
             LogEntryKind.Info);
-        var result = await _actions.RunAsync(context, "race_streak_warning", "streak.confirm")
+        var result = await _actions.RunAsync(context, "race_streak_warning", "race.streak.confirm")
             .ConfigureAwait(false);
         if (result is null)
         {
@@ -349,7 +349,7 @@ internal sealed class CareerRaceFlow
                 "Career Training",
                 "Alarm clock retry was declined; advancing the result toward Career settlement.",
                 LogEntryKind.Info);
-            return await _actions.RunAsync(context, "race_result", "next")
+            return await _actions.RunAsync(context, "race_result", "result.next")
                 .ConfigureAwait(false);
         }
 
@@ -397,7 +397,7 @@ internal sealed class CareerRaceFlow
         return await _actions.RunAsync(
                 context,
                 "race_result",
-                "next")
+                "result.next")
             .ConfigureAwait(false);
     }
 

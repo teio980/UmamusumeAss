@@ -44,6 +44,7 @@ public sealed class CareerReturnHomeRecognitionTests
                 new UraScreenDefinition
                 {
                     ScreenId = "home",
+                    Flow = "entry",
                     Recognition = new UraScreenRecognition
                     {
                         Template = "home-selected.png",
@@ -55,6 +56,7 @@ public sealed class CareerReturnHomeRecognitionTests
                 new UraScreenDefinition
                 {
                     ScreenId = "home_unselected",
+                    Flow = "entry",
                     Recognition = new UraScreenRecognition
                     {
                         Template = "home-unselected.png",

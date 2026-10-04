@@ -21,16 +21,15 @@ public sealed record CareerObservation(
     string? EventId = null,
     string? EventTitle = null)
 {
-    public CareerScreenKind Kind => CareerScreenClassification.Classify(ScreenId);
-}
+    /// <summary>
+    /// Category stamped by the observer using the active scenario profile.
+    /// Directly-created observations retain the built-in catalog fallback.
+    /// </summary>
+    public CareerScreenKind? ClassifiedKind { get; init; }
 
-/// <summary>
-/// A semantic decision returned by a career strategy.
-/// </summary>
-public sealed record CareerDecision(
-    string ActionId,
-    string? TargetId,
-    string Reason);
+    public CareerScreenKind Kind => ClassifiedKind
+        ?? CareerScreenClassification.Classify(ScreenId);
+}
 
 /// <summary>
 /// State owned by the generic career runtime.
@@ -40,9 +39,10 @@ public sealed class CareerRuntimeState
     public string ScenarioId { get; set; } = string.Empty;
     public string PhaseId { get; set; } = string.Empty;
     public int TurnIndex { get; set; }
-    public int? Energy { get; set; }
+    public UraObservedValue<int> Energy { get; set; } =
+        UraObservedValueFactory.Unknown<int>();
     public string LastScreenId { get; set; } = "unknown";
-    public string? LastAction { get; set; }
+    public UraPlannedAction LastAction { get; set; }
     public bool CareerStarted { get; set; }
 }
 
@@ -51,20 +51,6 @@ public sealed class CareerRuntimeState
 /// </summary>
 public sealed class CareerSessionState<TScenarioState>
 {
-    public CareerRuntimeState Runtime { get; set; } = new();
-    public TScenarioState Scenario { get; set; } = default!;
-}
-
-/// <summary>
-/// Versioned Normal checkpoint envelope. Independent Training keeps its own
-/// session and checkpoint types.
-/// </summary>
-public sealed class CareerCheckpoint<TScenarioState>
-{
-    public const int CurrentVersion = 1;
-
-    public int Version { get; set; } = CurrentVersion;
-    public string Mode { get; set; } = "normal";
     public CareerRuntimeState Runtime { get; set; } = new();
     public TScenarioState Scenario { get; set; } = default!;
 }
@@ -82,7 +68,9 @@ public interface ICareerScenarioModule<TScenarioState>
 
 public interface ICareerTrainingStrategy<TScenarioState>
 {
-    CareerDecision Choose(CareerSessionState<TScenarioState> session);
+    UraActionIntent Choose(
+        CareerSessionState<TScenarioState> session,
+        ICareerScenarioModule<TScenarioState> scenario);
 }
 
 internal sealed record CareerFlowContext(
@@ -90,7 +78,7 @@ internal sealed record CareerFlowContext(
     UraScenarioPack Pack,
     bool PauseOnUnknownOutcome,
     UraScenarioModule Scenario,
-    UraDefaultStrategy Strategy,
+    ICareerTrainingStrategy<UraCareerSessionState> Strategy,
     string LineupStrategy,
     UraCareerSessionState State,
     CareerObservation Observation,
@@ -99,7 +87,18 @@ internal sealed record CareerFlowContext(
     string EventHandling = CareerEventHandlingModes.Default,
     bool RetryFailedRaceWithAlarmClock = false,
     IReadOnlyList<int>? NormalSkillIds = null,
-    Func<int, Task>? RememberNormalSkillAsync = null);
+    Func<int, Task>? RememberNormalSkillAsync = null)
+{
+    public UraActionIntent ChooseAction()
+    {
+        var session = new CareerSessionState<UraCareerSessionState>
+        {
+            Runtime = State.Runtime,
+            Scenario = State,
+        };
+        return Strategy.Choose(session, Scenario);
+    }
+}
 
 internal interface ICareerFlowActionRunner
 {

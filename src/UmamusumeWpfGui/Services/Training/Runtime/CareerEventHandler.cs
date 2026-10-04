@@ -13,10 +13,10 @@ internal sealed class CareerEventHandler : ICareerEventHandler
 {
     private static readonly (string ScreenId, string ActionId)[] Events =
     [
-        ("event_choice", "choice_first"),
-        ("training_event", "advance"),
-        ("scenario_event", "advance"),
-        ("career_intro_event", "advance"),
+        ("event_choice", "event.choice_first"),
+        ("training_event", "event.advance"),
+        ("scenario_event", "event.advance"),
+        ("career_intro_event", "event.advance"),
     ];
 
     private readonly IVisualPipelineRuntime _visualRuntime;
@@ -153,7 +153,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
 
         foreach (var templatePath in screen.Templates)
         {
-            var template = await LoadTemplateAsync(pack, templatePath, cancellationToken)
+            var template = await LoadTemplateAsync(pack, screen, templatePath, cancellationToken)
                 .ConfigureAwait(false);
             if (template is null || !TemplateMatcher.Find(
                     frame,
@@ -171,6 +171,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
 
             var required = await LoadTemplateAsync(
                     pack,
+                    screen,
                     screen.Recognition.RequiredTemplate,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -191,10 +192,13 @@ internal sealed class CareerEventHandler : ICareerEventHandler
 
     private Task<GrayImage?> LoadTemplateAsync(
         UraScenarioPack pack,
+        UraScreenDefinition screen,
         string relativePath,
         CancellationToken cancellationToken)
     {
-        var path = UraScenarioResourceResolver.Resolve(pack, relativePath);
+        var path = screen.SourceDirectory is not null
+            ? UraScenarioResourceResolver.Resolve(pack, screen, relativePath)
+            : UraScenarioResourceResolver.Resolve(pack, relativePath);
         return _templates.GetOrAdd(path,
                 key => new Lazy<Task<GrayImage?>>(() =>
                     _visualRuntime.LoadTemplateAsync(

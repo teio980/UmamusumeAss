@@ -18,6 +18,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private string _entry = string.Empty;
     private string _swipeText = string.Empty;
     private string _template = string.Empty;
+    private string _templateCollection = string.Empty;
     private string _templateThresholdText = "0.86";
     private string _roiText = string.Empty;
     private string _fallbackRoiText = string.Empty;
@@ -43,6 +44,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private bool _required = true;
     private bool _success;
     private string _countAs = string.Empty;
+    private string _outcome = string.Empty;
 
     private HachimiPipelineTaskEditorItem(string name)
     {
@@ -64,6 +66,14 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     public string SwipeText { get => _swipeText; set => Set(ref _swipeText, value); }
 
     public string Template { get => _template; set => Set(ref _template, value); }
+
+    // Not exposed as a separate editor field yet; preserve the declared
+    // catalog source for dynamic-template tasks across edits and clones.
+    public string TemplateCollection
+    {
+        get => _templateCollection;
+        set => Set(ref _templateCollection, value);
+    }
 
     public string TemplateThresholdText
     {
@@ -181,6 +191,10 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
 
     public string CountAs { get => _countAs; set => Set(ref _countAs, value); }
 
+    // Kept as a passthrough until the task editor exposes outcome explicitly.
+    // It carries terminal result contracts through ordinary edits and clones.
+    public string Outcome { get => _outcome; set => Set(ref _outcome, value); }
+
     public static HachimiPipelineTaskEditorItem FromTask(
         string name,
         HachimiPipelineTask task)
@@ -196,6 +210,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             Entry = task.Entry ?? string.Empty,
             SwipeText = FormatArray(task.Swipe),
             Template = task.Template ?? string.Empty,
+            TemplateCollection = task.TemplateCollection ?? string.Empty,
             TemplateThresholdText = task.TemplateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
             RoiText = FormatArray(task.Roi),
             FallbackRoiText = FormatArray(task.FallbackRoi),
@@ -221,6 +236,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             Required = task.Required,
             Success = task.Success,
             CountAs = task.CountAs ?? string.Empty,
+            Outcome = task.Outcome ?? string.Empty,
         };
     }
 
@@ -235,6 +251,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         Entry = Entry,
         SwipeText = SwipeText,
         Template = Template,
+        TemplateCollection = TemplateCollection,
         TemplateThresholdText = TemplateThresholdText,
         RoiText = RoiText,
         FallbackRoiText = FallbackRoiText,
@@ -260,6 +277,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         Required = Required,
         Success = Success,
         CountAs = CountAs,
+        Outcome = Outcome,
     };
 
     public HachimiPipelineTask ToTask()
@@ -279,6 +297,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         task.Entry = OptionalText(Entry);
         task.Swipe = ParseArray(SwipeText, nameof(SwipeText), expectedLength: 5);
         task.Template = OptionalText(Template);
+        task.TemplateCollection = OptionalText(TemplateCollection);
         task.TemplateThreshold = ParseDouble(
             TemplateThresholdText,
             nameof(TemplateThresholdText),
@@ -321,6 +340,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         task.Required = Required;
         task.Success = Success;
         task.CountAs = OptionalText(CountAs);
+        task.Outcome = OptionalText(Outcome);
     }
 
     public string? GetFirstValidationError()

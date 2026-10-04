@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Services;
 
@@ -15,7 +16,7 @@ public static class CliDiagnostics
 {
     private const string Switch = "--diagnostics";
     private const string DefaultTask = "independent_skills_search_checkbox_ocr";
-    private const string DefaultDefinition = HachimiResourcePaths.UraExecution;
+    private const string DefaultDefinition = HachimiResourcePaths.UraManifest;
 
     public static bool IsRequested(IReadOnlyList<string> args) =>
         args.Any(argument => argument.Equals(Switch, StringComparison.OrdinalIgnoreCase));
@@ -128,9 +129,16 @@ public static class CliDiagnostics
 
             var definitionPath = ResolveDefinitionPath(options.DefinitionPath);
             var logSink = new ConsoleLogSink();
+            var definition = Path.GetFileName(definitionPath).Equals("manifest.json", StringComparison.OrdinalIgnoreCase)
+                ? (await ScenarioPackageLoader.LoadExecutionAsync(definitionPath, cancellationToken)
+                    .ConfigureAwait(false)).ExecutionDefinition
+                : await HachimiPipelineDefinitionLoader.LoadAsync(definitionPath, cancellationToken)
+                    .ConfigureAwait(false);
+            if (definition is null)
+                throw new InvalidDataException($"Diagnostic definition '{definitionPath}' is invalid.");
             var result = await runner.RunAsync(
                     connection,
-                    definitionPath,
+                    definition,
                     options.TaskName,
                     new HachimiPipelineRunOptions
                     {

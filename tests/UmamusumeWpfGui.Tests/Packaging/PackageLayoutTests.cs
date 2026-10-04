@@ -161,7 +161,11 @@ public sealed class PackageLayoutTests : IDisposable
         "resource/hachimi/pipelines/daily_race.json",
         "resource/hachimi/pipelines/templates/daily_race/daily_program.png",
         "resource/hachimi/ura/manifest.json",
-        "resource/hachimi/ura/screens/templates/runtime_frames/debut_race_result_wait.png",
+        "resource/hachimi/career/catalog.json",
+        "resource/hachimi/career/race/profile.json",
+        "resource/hachimi/career/race/execution.json",
+        "resource/hachimi/career/race/templates/race_result_result_next.png",
+        "resource/hachimi/career/race/templates/runtime_frames/debut_race_result_wait.png",
         "resource.inventory.json",
         "app-version.json",
     ];

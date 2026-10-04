@@ -1,0 +1,3132 @@
+{
+  "schemaVersion": 1,
+  "assets": {
+    "career.entry.trainee.filter.type.speed": {
+      "path": "entry/templates/support_cards/type_speed.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.speed": {
+      "path": "entry/templates/support_cards/type_speed.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.speed": {
+      "path": "entry/templates/support_cards/friend_type_speed.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.type.stamina": {
+      "path": "entry/templates/support_cards/type_stamina.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.stamina": {
+      "path": "entry/templates/support_cards/type_stamina.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.stamina": {
+      "path": "entry/templates/support_cards/friend_type_stamina.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.type.power": {
+      "path": "entry/templates/support_cards/type_power.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.power": {
+      "path": "entry/templates/support_cards/type_power.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.power": {
+      "path": "entry/templates/support_cards/friend_type_power.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.type.guts": {
+      "path": "entry/templates/support_cards/type_guts.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.guts": {
+      "path": "entry/templates/support_cards/type_guts.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.guts": {
+      "path": "entry/templates/support_cards/friend_type_guts.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.type.wit": {
+      "path": "entry/templates/support_cards/type_wit.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.wit": {
+      "path": "entry/templates/support_cards/type_wit.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.wit": {
+      "path": "entry/templates/support_cards/friend_type_wit.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.type.friend": {
+      "path": "entry/templates/support_cards/type_friend.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend": {
+      "path": "entry/templates/support_cards/type_friend.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.type.friend.friend": {
+      "path": "entry/templates/support_cards/friend_type_friend.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.card_rank.ssr": {
+      "path": "entry/templates/support_cards/ssr_badge.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.card_rank.sr": {
+      "path": "entry/templates/support_cards/sr_badge.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.card_rank.r": {
+      "path": "entry/templates/support_cards/r_badge.png",
+      "threshold": 0.78
+    },
+    "career.entry.scenario.ura_card": {
+      "path": "entry/templates/scenario_select_ura_card.png",
+      "roi": [
+        420,
+        420,
+        200,
+        380
+      ],
+      "threshold": 0.78
+    },
+    "career.turn.claw.credit_label": {
+      "path": "turn/templates/career/turn/claw_credit_label.png",
+      "threshold": 0.94
+    },
+    "career.entry.legacy.legacy1_cached_record": {
+      "path": "entry/templates/legacy/legacy1_cached_record.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy1_slot": {
+      "path": "entry/templates/legacy/legacy1_slot.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy2_cached_record": {
+      "path": "entry/templates/legacy/legacy2_cached_record.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy2_slot": {
+      "path": "entry/templates/legacy/legacy2_slot.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_auto_select": {
+      "path": "entry/templates/legacy/legacy_auto_select.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_auto_select_include_guests": {
+      "path": "entry/templates/legacy/legacy_auto_select_include_guests.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_auto_select_include_guests_on": {
+      "path": "entry/templates/legacy/legacy_auto_select_include_guests_on.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_auto_select_ok": {
+      "path": "entry/templates/legacy/legacy_auto_select_ok.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_confirm_selection": {
+      "path": "entry/templates/legacy/legacy_confirm_selection.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_display_button": {
+      "path": "entry/templates/legacy/legacy_display_button.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_display_filter_tab": {
+      "path": "entry/templates/legacy/legacy_display_filter_tab.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_display_sparks": {
+      "path": "entry/templates/legacy/legacy_display_sparks.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_filter_ok": {
+      "path": "entry/templates/legacy/legacy_filter_ok.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_filter_reset": {
+      "path": "entry/templates/legacy/legacy_filter_reset.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_guests_tab": {
+      "path": "entry/templates/legacy/legacy_guests_tab.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_next_enabled": {
+      "path": "entry/templates/legacy/legacy_next_enabled.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_select_header": {
+      "path": "entry/templates/legacy/legacy_select_header.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_select_header_cropped": {
+      "path": "entry/templates/legacy/legacy_select_header_cropped.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_sort_asc": {
+      "path": "entry/templates/legacy/legacy_sort_asc.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_sort_desc": {
+      "path": "entry/templates/legacy/legacy_sort_desc.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_trainee_badge": {
+      "path": "entry/templates/legacy/legacy_trainee_badge.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_view_sparks_off": {
+      "path": "entry/templates/legacy/legacy_view_sparks_off.png",
+      "threshold": 0.78
+    },
+    "career.entry.legacy.legacy_view_sparks_on": {
+      "path": "entry/templates/legacy/legacy_view_sparks_on.png",
+      "threshold": 0.78
+    },
+    "career.skill.back": {
+      "path": "skill/templates/career_skill_back.png",
+      "threshold": 0.8
+    },
+    "career.skill.plus": {
+      "path": "skill/templates/career_skill_plus.png",
+      "threshold": 0.82
+    },
+    "career.skill.confirm": {
+      "path": "skill/templates/career_skill_confirm.png",
+      "threshold": 0.8
+    },
+    "career.skill.confirmation.title": {
+      "path": "skill/templates/career_skill_confirmation_title.png",
+      "threshold": 0.9
+    },
+    "career.skill.confirmation.learn": {
+      "path": "skill/templates/career_skill_confirmation_learn.png",
+      "threshold": 0.8
+    },
+    "career.skill.confirmation.cancel": {
+      "path": "skill/templates/career_skill_confirmation_cancel.png",
+      "threshold": 0.8
+    },
+    "career.skill.learned.title": {
+      "path": "skill/templates/career_skill_learned_title.png",
+      "threshold": 0.9
+    },
+    "career.skill.learned.close": {
+      "path": "skill/templates/career_skill_learned_close.png",
+      "threshold": 0.8
+    },
+    "career.skill.exit.title": {
+      "path": "skill/templates/career_skill_exit_title.png",
+      "threshold": 0.9
+    },
+    "career.skill.exit.ok": {
+      "path": "skill/templates/career_skill_exit_ok.png",
+      "threshold": 0.8
+    },
+    "career.entry.trainee.display_button": {
+      "path": "entry/templates/trainee/runner_display_button.png",
+      "threshold": 0.8
+    },
+    "career.entry.trainee.filter_tab": {
+      "path": "entry/templates/trainee/runner_filter_tab.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter_confirm": {
+      "path": "entry/templates/trainee/runner_filter_confirm.png",
+      "threshold": 0.8
+    },
+    "career.entry.trainee.filter_checkbox": {
+      "path": "entry/templates/career_filter_checkbox_unselected.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.turf": {
+      "path": "entry/templates/trainee/runner_filter_turf.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.dirt": {
+      "path": "entry/templates/trainee/runner_filter_dirt.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.sprint": {
+      "path": "entry/templates/trainee/runner_filter_sprint.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.mile": {
+      "path": "entry/templates/trainee/runner_filter_mile.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.medium": {
+      "path": "entry/templates/trainee/runner_filter_medium.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.long": {
+      "path": "entry/templates/trainee/runner_filter_long.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.front": {
+      "path": "entry/templates/trainee/runner_filter_front.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.pace": {
+      "path": "entry/templates/trainee/runner_filter_pace.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.late": {
+      "path": "entry/templates/trainee/runner_filter_late.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.filter.aptitude.end": {
+      "path": "entry/templates/trainee/runner_filter_end.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_display_button": {
+      "path": "entry/templates/trainee/runner_display_button.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_tab": {
+      "path": "entry/templates/trainee/runner_filter_tab.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_confirm": {
+      "path": "entry/templates/trainee/runner_filter_confirm.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_turf": {
+      "path": "entry/templates/trainee/runner_filter_turf.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_dirt": {
+      "path": "entry/templates/trainee/runner_filter_dirt.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_sprint": {
+      "path": "entry/templates/trainee/runner_filter_sprint.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_mile": {
+      "path": "entry/templates/trainee/runner_filter_mile.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_medium": {
+      "path": "entry/templates/trainee/runner_filter_medium.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_long": {
+      "path": "entry/templates/trainee/runner_filter_long.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_front": {
+      "path": "entry/templates/trainee/runner_filter_front.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_pace": {
+      "path": "entry/templates/trainee/runner_filter_pace.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_late": {
+      "path": "entry/templates/trainee/runner_filter_late.png",
+      "threshold": 0.78
+    },
+    "career.entry.trainee.runner_filter_end": {
+      "path": "entry/templates/trainee/runner_filter_end.png",
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.rank.r": {
+      "path": "entry/templates/support/filter_r.png",
+      "roi": [
+        30,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.rank.sr": {
+      "path": "entry/templates/support/filter_sr.png",
+      "roi": [
+        300,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.rank.ssr": {
+      "path": "entry/templates/support/filter_ssr.png",
+      "roi": [
+        590,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.speed": {
+      "path": "entry/templates/support/filter_speed.png",
+      "roi": [
+        20,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.stamina": {
+      "path": "entry/templates/support/filter_stamina.png",
+      "roi": [
+        300,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.power": {
+      "path": "entry/templates/support/filter_power.png",
+      "roi": [
+        590,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.guts": {
+      "path": "entry/templates/support/filter_guts.png",
+      "roi": [
+        20,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.wit": {
+      "path": "entry/templates/support/filter_wit.png",
+      "roi": [
+        300,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.friend": {
+      "path": "entry/templates/support/filter_friend.png",
+      "roi": [
+        590,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.display_settings": {
+      "path": "entry/templates/support/display_settings_icon.png",
+      "roi": [
+        650,
+        1270,
+        120,
+        120
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.sort_level": {
+      "path": "entry/templates/support/sort_level_live.png",
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.sort_level_selected": {
+      "path": "entry/templates/support/sort_level_selected.png",
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.friend_sort_level": {
+      "path": "entry/templates/support/sort_level_friend_live.png",
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.friend_sort_level_selected": {
+      "path": "entry/templates/support/sort_level_friend_selected.png",
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.sort_apply": {
+      "path": "entry/templates/support/sort_apply.png",
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.filter_tab": {
+      "path": "entry/templates/support/filter_tab.png",
+      "roi": [
+        430,
+        120,
+        450,
+        110
+      ],
+      "threshold": 0.65
+    },
+    "career.entry.support.filter_reset": {
+      "path": "entry/templates/support/filter_reset.png",
+      "roi": [
+        600,
+        1260,
+        280,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.filter_apply": {
+      "path": "entry/templates/support/filter_apply.png",
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.sort_asc": {
+      "path": "entry/templates/support/sort_asc_live.png",
+      "roi": [
+        700,
+        1300,
+        200,
+        100
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.open": {
+      "path": "entry/templates/support/support_open.png",
+      "threshold": 0.82
+    },
+    "career.infirmary.available": {
+      "path": "turn/templates/career/turn/infirmary_available.png",
+      "threshold": 0.9
+    },
+    "career.infirmary.unavailable": {
+      "path": "turn/templates/career/turn/infirmary_unavailable.png",
+      "threshold": 0.9
+    }
+  },
+  "regions": {
+    "career.entry.screen.early_exit": {
+      "threshold": 0.985
+    },
+    "independent.skills.search.checkbox.fallback": {
+      "roi": [
+        20,
+        120,
+        150,
+        220
+      ],
+      "metadata": {
+        "rowHeight": 140,
+        "visibleRows": 8
+      }
+    },
+    "career.skill.points": {
+      "roi": [
+        750,
+        1140,
+        115,
+        75
+      ],
+      "focusedRoi": [
+        760,
+        1145,
+        95,
+        65
+      ]
+    },
+    "career.skill.list": {
+      "roi": [
+        155,
+        590,
+        475,
+        690
+      ],
+      "metadata": {
+        "maxPages": 60,
+        "scrollDelayMs": 500
+      }
+    },
+    "career.skill.row_status": {
+      "roi": [
+        625,
+        575,
+        220,
+        155
+      ],
+      "metadata": {
+        "rowTopOffset": -15,
+        "width": 220,
+        "height": 155
+      }
+    },
+    "career.skill.price": {
+      "roi": [
+        685,
+        545,
+        95,
+        80
+      ],
+      "metadata": {
+        "centerYOffset": -40
+      }
+    },
+    "career.skill.scroll": {
+      "roi": [
+        470,
+        690,
+        1,
+        480
+      ],
+      "metadata": {
+        "swipe": [
+          470,
+          1170,
+          470,
+          690,
+          450
+        ],
+        "scrollDelayMs": 500
+      }
+    },
+    "career.skill.confirmation.name": {
+      "roi": [
+        185,
+        150,
+        660,
+        130
+      ],
+      "metadata": {
+        "minSimilarity": 0.84
+      }
+    },
+    "career.entry.support.card_selection": {
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "metadata": {
+        "horizontalStep": 166
+      }
+    },
+    "career.entry.support.friend_slot.open": {
+      "roi": [
+        715,
+        850,
+        1,
+        1
+      ],
+      "metadata": {
+        "center": [
+          715,
+          850
+        ]
+      }
+    },
+    "career.entry.support.friend_remove": {
+      "roi": [
+        20,
+        140,
+        860,
+        130
+      ],
+      "threshold": 0.85
+    },
+    "career.entry.support.friend_card_list": {
+      "roi": [
+        25,
+        270,
+        190,
+        990
+      ],
+      "metadata": {
+        "scaleCandidates": [
+          0.85
+        ]
+      }
+    },
+    "career.entry.support.slot.1": {
+      "roi": [
+        90,
+        420,
+        160,
+        160
+      ]
+    },
+    "career.entry.support.slot.2": {
+      "roi": [
+        360,
+        420,
+        160,
+        160
+      ]
+    },
+    "career.entry.support.slot.3": {
+      "roi": [
+        630,
+        420,
+        160,
+        160
+      ]
+    },
+    "career.entry.support.slot.4": {
+      "roi": [
+        90,
+        770,
+        160,
+        160
+      ]
+    },
+    "career.entry.support.slot.5": {
+      "roi": [
+        360,
+        770,
+        160,
+        160
+      ]
+    },
+    "career.entry.support.slot.6": {
+      "roi": [
+        630,
+        770,
+        160,
+        160
+      ]
+    },
+    "career.entry.legacy.cell.1": {
+      "roi": [
+        195,
+        860,
+        160,
+        190
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "badgeRoi": [
+          195,
+          860,
+          160,
+          75
+        ]
+      }
+    },
+    "career.entry.legacy.cell.2": {
+      "roi": [
+        370,
+        860,
+        160,
+        190
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "badgeRoi": [
+          370,
+          860,
+          160,
+          75
+        ]
+      }
+    },
+    "career.entry.legacy.cell.3": {
+      "roi": [
+        545,
+        860,
+        160,
+        190
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "badgeRoi": [
+          545,
+          860,
+          160,
+          75
+        ]
+      }
+    },
+    "career.entry.legacy.cell.4": {
+      "roi": [
+        720,
+        860,
+        160,
+        190
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "badgeRoi": [
+          720,
+          860,
+          160,
+          75
+        ]
+      }
+    },
+    "career.entry.legacy.filter.speed": {
+      "roi": [
+        90,
+        345,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.stamina": {
+      "roi": [
+        370,
+        345,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.power": {
+      "roi": [
+        652,
+        345,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.guts": {
+      "roi": [
+        90,
+        440,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.wit": {
+      "roi": [
+        370,
+        440,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.turf": {
+      "roi": [
+        90,
+        860,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.dirt": {
+      "roi": [
+        370,
+        860,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.sprint": {
+      "roi": [
+        652,
+        860,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.mile": {
+      "roi": [
+        90,
+        956,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.medium": {
+      "roi": [
+        370,
+        956,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.long": {
+      "roi": [
+        652,
+        956,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.front": {
+      "roi": [
+        90,
+        1050,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.pace": {
+      "roi": [
+        370,
+        1050,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.late": {
+      "roi": [
+        652,
+        1050,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.end": {
+      "roi": [
+        90,
+        1145,
+        1,
+        1
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.sort": {
+      "roi": [
+        730,
+        1130,
+        170,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.ok": {
+      "roi": [
+        430,
+        1350,
+        430,
+        200
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.next": {
+      "roi": [
+        250,
+        1250,
+        400,
+        200
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.trainee.card.cell.1": {
+      "roi": [
+        20,
+        800,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.2": {
+      "roi": [
+        195,
+        800,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.3": {
+      "roi": [
+        370,
+        800,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.4": {
+      "roi": [
+        545,
+        800,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.5": {
+      "roi": [
+        720,
+        800,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.6": {
+      "roi": [
+        20,
+        1010,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.7": {
+      "roi": [
+        195,
+        1010,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.8": {
+      "roi": [
+        370,
+        1010,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.9": {
+      "roi": [
+        545,
+        1010,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.10": {
+      "roi": [
+        720,
+        1010,
+        160,
+        190
+      ]
+    },
+    "career.entry.trainee.card.cell.11": {
+      "roi": [
+        20,
+        1220,
+        160,
+        65
+      ]
+    },
+    "career.entry.trainee.card.cell.12": {
+      "roi": [
+        195,
+        1220,
+        160,
+        65
+      ]
+    },
+    "career.entry.trainee.card.cell.13": {
+      "roi": [
+        370,
+        1220,
+        160,
+        65
+      ]
+    },
+    "career.entry.trainee.card.cell.14": {
+      "roi": [
+        545,
+        1220,
+        160,
+        65
+      ]
+    },
+    "career.entry.trainee.card.cell.15": {
+      "roi": [
+        720,
+        1220,
+        160,
+        65
+      ]
+    },
+    "career.entry.trainee.display_button": {
+      "roi": [
+        400,
+        1100,
+        500,
+        250
+      ],
+      "metadata": {
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350
+      }
+    },
+    "career.entry.trainee.filter_tab": {
+      "roi": [
+        500,
+        120,
+        300,
+        120
+      ],
+      "metadata": {
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350
+      }
+    },
+    "career.entry.trainee.filter_reset": {
+      "roi": [
+        620,
+        1280,
+        260,
+        110
+      ],
+      "metadata": {
+        "tapDelayMs": 250
+      }
+    },
+    "career.entry.trainee.filter_confirm": {
+      "roi": [
+        300,
+        1300,
+        550,
+        250
+      ],
+      "metadata": {
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 700
+      }
+    },
+    "career.entry.trainee.filter.aptitude.turf": {
+      "roi": [
+        20,
+        520,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.dirt": {
+      "roi": [
+        300,
+        520,
+        300,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.sprint": {
+      "roi": [
+        20,
+        700,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.mile": {
+      "roi": [
+        300,
+        700,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.medium": {
+      "roi": [
+        580,
+        700,
+        300,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.long": {
+      "roi": [
+        20,
+        790,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.front": {
+      "roi": [
+        20,
+        970,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.pace": {
+      "roi": [
+        300,
+        970,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.late": {
+      "roi": [
+        580,
+        970,
+        300,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.trainee.filter.aptitude.end": {
+      "roi": [
+        20,
+        1060,
+        280,
+        180
+      ],
+      "threshold": 0.78,
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250
+      }
+    },
+    "career.entry.legacy.cached1": {
+      "roi": [
+        145,
+        1050,
+        190,
+        120
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.cached2": {
+      "roi": [
+        545,
+        1050,
+        205,
+        120
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.auto_select": {
+      "roi": [
+        430,
+        1140,
+        450,
+        170
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.auto_select.confirm": {
+      "roi": [
+        430,
+        930,
+        430,
+        220
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.guest.checkbox": {
+      "roi": [
+        270,
+        770,
+        180,
+        180
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.guests.tab": {
+      "roi": [
+        400,
+        760,
+        480,
+        130
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.confirm_selection": {
+      "roi": [
+        250,
+        1250,
+        400,
+        200
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.view_sparks": {
+      "roi": [
+        0,
+        1140,
+        300,
+        160
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.display.open": {
+      "roi": [
+        500,
+        1100,
+        350,
+        200
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.display.sparks": {
+      "roi": [
+        0,
+        350,
+        300,
+        200
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.display.filter_tab": {
+      "roi": [
+        430,
+        100,
+        450,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.legacy.filter.reset": {
+      "roi": [
+        550,
+        1200,
+        350,
+        220
+      ],
+      "threshold": 0.78
+    },
+    "career.skill.row_name": {
+      "roi": [
+        140,
+        585,
+        510,
+        645
+      ],
+      "metadata": {
+        "xMin": 140,
+        "xMax": 650,
+        "yMin": 585,
+        "yMax": 1230,
+        "minSimilarity": 0.84
+      }
+    },
+    "career.skill.plus_search": {
+      "roi": [
+        775,
+        0,
+        85,
+        0
+      ],
+      "metadata": {
+        "yFromFoundPlus": true,
+        "yOffset": 20,
+        "minimumY": 595,
+        "maximumY": 1190,
+        "heightFromBottom": 1280,
+        "maxHeight": 155,
+        "minimumHeight": 1,
+        "tapDelayMs": 350
+      }
+    },
+    "career.skill.confirmation.title": {
+      "roi": [
+        290,
+        25,
+        320,
+        105
+      ],
+      "threshold": 0.9,
+      "metadata": {
+        "waitTimeoutMs": 500,
+        "markerWaitTimeoutMs": 500,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.learned.title": {
+      "roi": [
+        290,
+        455,
+        320,
+        110
+      ],
+      "threshold": 0.9,
+      "metadata": {
+        "waitTimeoutMs": 500,
+        "markerWaitTimeoutMs": 500,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.exit.title": {
+      "roi": [
+        245,
+        730,
+        420,
+        100
+      ],
+      "threshold": 0.9,
+      "metadata": {
+        "waitTimeoutMs": 500,
+        "markerWaitTimeoutMs": 500,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.back": {
+      "roi": [
+        0,
+        1480,
+        185,
+        110
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200,
+        "fallbackCenter": [
+          95,
+          1541
+        ]
+      }
+    },
+    "career.skill.confirm": {
+      "roi": [
+        345,
+        1310,
+        210,
+        80
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.confirmation.learn": {
+      "roi": [
+        455,
+        1410,
+        385,
+        130
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.confirmation.cancel": {
+      "roi": [
+        60,
+        1410,
+        385,
+        130
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.learned.close": {
+      "roi": [
+        250,
+        975,
+        390,
+        130
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.skill.exit.ok": {
+      "roi": [
+        455,
+        970,
+        385,
+        145
+      ],
+      "threshold": 0.8,
+      "metadata": {
+        "waitTimeoutMs": 5000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 350,
+        "markerPollIntervalMs": 200
+      }
+    },
+    "career.entry.support.filter.rank.r": {
+      "roi": [
+        30,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.rank.sr": {
+      "roi": [
+        300,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.rank.ssr": {
+      "roi": [
+        590,
+        280,
+        260,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.speed": {
+      "roi": [
+        20,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.stamina": {
+      "roi": [
+        300,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.power": {
+      "roi": [
+        590,
+        450,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.guts": {
+      "roi": [
+        20,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.wit": {
+      "roi": [
+        300,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.filter.type.friend": {
+      "roi": [
+        590,
+        550,
+        300,
+        150
+      ],
+      "threshold": 0.78
+    },
+    "career.entry.support.action.display_settings": {
+      "roi": [
+        650,
+        1270,
+        120,
+        120
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.sort_level": {
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.sort_level_selected": {
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.friend_sort_level": {
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.friend_sort_level_selected": {
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.sort_apply": {
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.filter_tab": {
+      "roi": [
+        430,
+        120,
+        450,
+        110
+      ],
+      "threshold": 0.65
+    },
+    "career.entry.support.action.filter_reset": {
+      "roi": [
+        600,
+        1260,
+        280,
+        130
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.filter_apply": {
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.support.action.sort_asc": {
+      "roi": [
+        700,
+        1300,
+        200,
+        100
+      ],
+      "threshold": 0.82
+    },
+    "career.entry.trainee.card.matching_policy": {
+      "metadata": {
+        "minimumMatchScore": 0.7,
+        "minimumSystemReferenceMatchScore": 0.7,
+        "maxScrolls": 16,
+        "swipe": [
+          760,
+          1150,
+          760,
+          850,
+          550
+        ],
+        "scrollDelayMs": 350,
+        "sampleScaleCandidates": [
+          0.32,
+          0.36,
+          0.4,
+          0.44,
+          0.48,
+          0.52,
+          0.56,
+          0.6,
+          0.64,
+          0.68,
+          0.72,
+          0.76,
+          0.8,
+          0.84,
+          0.88,
+          0.92,
+          0.96,
+          1.0
+        ],
+        "preciseSampleScaleCandidates": [
+          0.32,
+          0.36,
+          0.4,
+          0.44,
+          0.48,
+          0.52,
+          0.56,
+          0.6,
+          0.64,
+          0.68,
+          0.72,
+          0.76,
+          0.8,
+          0.84,
+          0.88,
+          0.92,
+          0.96,
+          1.0
+        ]
+      }
+    },
+    "career.entry.trainee.filter.checkbox": {
+      "metadata": {
+        "scaleCandidates": [
+          0.7,
+          0.8,
+          0.9,
+          1.0,
+          1.1,
+          1.2
+        ],
+        "waitTimeoutMs": 8000,
+        "pollIntervalMs": 250,
+        "tapDelayMs": 150
+      }
+    },
+    "career.infirmary.button": {
+      "roi": [
+        130,
+        1410,
+        170,
+        62
+      ],
+      "threshold": 0.9,
+      "metadata": {
+        "buttonRois": [
+          [
+            130,
+            1410,
+            170,
+            62
+          ],
+          [
+            250,
+            1410,
+            170,
+            62
+          ]
+        ],
+        "scoreGap": 0.08
+      }
+    },
+    "career.race.result.runtime_frame_match": {
+      "threshold": 0.8,
+      "metadata": {
+        "maximumConfidence": 0.99,
+        "waitTimeoutMs": 2500,
+        "pollIntervalMs": 250
+      }
+    }
+  },
+  "collections": {
+    "independent.race_card": {
+      "root": "modes/independent/templates/independent/race_cards",
+      "pattern": "{id}.png",
+      "legacyPatterns": [
+        "templates/independent/race_cards/{id}.png",
+        "screens/templates/independent/race_cards/{id}.png"
+      ]
+    },
+    "career.runtime_frame": {
+      "root": "race/templates/runtime_frames",
+      "pattern": "{name}.png",
+      "legacyPatterns": [
+        "templates/runtime_frames/{name}.png",
+        "screens/templates/runtime_frames/{name}.png"
+      ]
+    }
+  },
+  "aliases": {
+    "templates/career_complete_career_to_home.png": "settlement/templates/career_complete_career_to_home.png",
+    "screens/templates/career_complete_career_to_home.png": "settlement/templates/career_complete_career_to_home.png",
+    "templates/career_complete_close.png": "settlement/templates/career_complete_close.png",
+    "screens/templates/career_complete_close.png": "settlement/templates/career_complete_close.png",
+    "templates/career_complete_header.png": "settlement/templates/career_complete_header.png",
+    "screens/templates/career_complete_header.png": "settlement/templates/career_complete_header.png",
+    "templates/career_continue_delete.png": "modes/normal/templates/career_continue_delete.png",
+    "screens/templates/career_continue_delete.png": "modes/normal/templates/career_continue_delete.png",
+    "templates/career_continue_delete_close.png": "modes/normal/templates/career_continue_delete_close.png",
+    "screens/templates/career_continue_delete_close.png": "modes/normal/templates/career_continue_delete_close.png",
+    "templates/career_continue_delete_confirm.png": "modes/normal/templates/career_continue_delete_confirm.png",
+    "screens/templates/career_continue_delete_confirm.png": "modes/normal/templates/career_continue_delete_confirm.png",
+    "templates/career_continue_header.png": "modes/normal/templates/career_continue_header.png",
+    "screens/templates/career_continue_header.png": "modes/normal/templates/career_continue_header.png",
+    "templates/career_continue_resume.png": "modes/normal/templates/career_continue_resume.png",
+    "screens/templates/career_continue_resume.png": "modes/normal/templates/career_continue_resume.png",
+    "templates/career_entry_career_start.png": "entry/templates/career_entry_career_start.png",
+    "screens/templates/career_entry_career_start.png": "entry/templates/career_entry_career_start.png",
+    "templates/career_epithet_confirm.png": "settlement/templates/career_epithet_confirm.png",
+    "screens/templates/career_epithet_confirm.png": "settlement/templates/career_epithet_confirm.png",
+    "templates/career_epithet_header.png": "settlement/templates/career_epithet_header.png",
+    "screens/templates/career_epithet_header.png": "settlement/templates/career_epithet_header.png",
+    "templates/career_filter_checkbox_unselected.png": "entry/templates/career_filter_checkbox_unselected.png",
+    "screens/templates/career_filter_checkbox_unselected.png": "entry/templates/career_filter_checkbox_unselected.png",
+    "templates/career_final_confirmation_title.png": "modes/normal/templates/career_final_confirmation_title.png",
+    "screens/templates/career_final_confirmation_title.png": "modes/normal/templates/career_final_confirmation_title.png",
+    "templates/career_intro_event_event_advance.png": "entry/templates/career_intro_event_event_advance.png",
+    "screens/templates/career_intro_event_event_advance.png": "entry/templates/career_intro_event_event_advance.png",
+    "templates/career_intro_event_skip_confirm.png": "modes/normal/templates/career_intro_event_skip_confirm.png",
+    "screens/templates/career_intro_event_skip_confirm.png": "modes/normal/templates/career_intro_event_skip_confirm.png",
+    "templates/career_main_action_finale_races.png": "turn/templates/career_main_action_finale_races.png",
+    "screens/templates/career_main_action_finale_races.png": "turn/templates/career_main_action_finale_races.png",
+    "templates/career_main_action_rest.png": "turn/templates/career_main_action_rest.png",
+    "screens/templates/career_main_action_rest.png": "turn/templates/career_main_action_rest.png",
+    "templates/career_main_action_training.png": "turn/templates/career_main_action_training.png",
+    "screens/templates/career_main_action_training.png": "turn/templates/career_main_action_training.png",
+    "templates/career_main_goal_details.png": "turn/templates/career_main_goal_details.png",
+    "screens/templates/career_main_goal_details.png": "turn/templates/career_main_goal_details.png",
+    "templates/career_main_header.png": "turn/templates/career_main_header.png",
+    "screens/templates/career_main_header.png": "turn/templates/career_main_header.png",
+    "templates/career_races_ready_action_races.png": "race/templates/career_races_ready_action_races.png",
+    "screens/templates/career_races_ready_action_races.png": "race/templates/career_races_ready_action_races.png",
+    "templates/career_rank_career_next.png": "settlement/templates/career_rank_career_next.png",
+    "screens/templates/career_rank_career_next.png": "settlement/templates/career_rank_career_next.png",
+    "templates/career_rating_record_updated_header.png": "settlement/templates/career_rating_record_updated_header.png",
+    "screens/templates/career_rating_record_updated_header.png": "settlement/templates/career_rating_record_updated_header.png",
+    "templates/career_rating_record_updated_next.png": "settlement/templates/career_rating_record_updated_next.png",
+    "screens/templates/career_rating_record_updated_next.png": "settlement/templates/career_rating_record_updated_next.png",
+    "templates/career_result_career_next.png": "settlement/templates/career_result_career_next.png",
+    "screens/templates/career_result_career_next.png": "settlement/templates/career_result_career_next.png",
+    "templates/career_result_close.png": "settlement/templates/career_result_close.png",
+    "screens/templates/career_result_close.png": "settlement/templates/career_result_close.png",
+    "templates/career_result_next_text.png": "settlement/templates/career_result_next_text.png",
+    "screens/templates/career_result_next_text.png": "settlement/templates/career_result_next_text.png",
+    "templates/career_result_record_header.png": "settlement/templates/career_result_record_header.png",
+    "screens/templates/career_result_record_header.png": "settlement/templates/career_result_record_header.png",
+    "templates/career_skill_back.png": "skill/templates/career_skill_back.png",
+    "screens/templates/career_skill_back.png": "skill/templates/career_skill_back.png",
+    "templates/career_skill_confirm.png": "skill/templates/career_skill_confirm.png",
+    "screens/templates/career_skill_confirm.png": "skill/templates/career_skill_confirm.png",
+    "templates/career_skill_confirmation_cancel.png": "skill/templates/career_skill_confirmation_cancel.png",
+    "screens/templates/career_skill_confirmation_cancel.png": "skill/templates/career_skill_confirmation_cancel.png",
+    "templates/career_skill_confirmation_learn.png": "skill/templates/career_skill_confirmation_learn.png",
+    "screens/templates/career_skill_confirmation_learn.png": "skill/templates/career_skill_confirmation_learn.png",
+    "templates/career_skill_confirmation_title.png": "skill/templates/career_skill_confirmation_title.png",
+    "screens/templates/career_skill_confirmation_title.png": "skill/templates/career_skill_confirmation_title.png",
+    "templates/career_skill_exit_ok.png": "skill/templates/career_skill_exit_ok.png",
+    "screens/templates/career_skill_exit_ok.png": "skill/templates/career_skill_exit_ok.png",
+    "templates/career_skill_exit_title.png": "skill/templates/career_skill_exit_title.png",
+    "screens/templates/career_skill_exit_title.png": "skill/templates/career_skill_exit_title.png",
+    "templates/career_skill_learned_close.png": "skill/templates/career_skill_learned_close.png",
+    "screens/templates/career_skill_learned_close.png": "skill/templates/career_skill_learned_close.png",
+    "templates/career_skill_learned_title.png": "skill/templates/career_skill_learned_title.png",
+    "screens/templates/career_skill_learned_title.png": "skill/templates/career_skill_learned_title.png",
+    "templates/career_skill_plus.png": "skill/templates/career_skill_plus.png",
+    "screens/templates/career_skill_plus.png": "skill/templates/career_skill_plus.png",
+    "templates/career_story_unlocked_close.png": "settlement/templates/career_story_unlocked_close.png",
+    "screens/templates/career_story_unlocked_close.png": "settlement/templates/career_story_unlocked_close.png",
+    "templates/career_story_unlocked_compact_close.png": "settlement/templates/career_story_unlocked_compact_close.png",
+    "screens/templates/career_story_unlocked_compact_close.png": "settlement/templates/career_story_unlocked_compact_close.png",
+    "templates/career_story_unlocked_compact_header.png": "settlement/templates/career_story_unlocked_compact_header.png",
+    "screens/templates/career_story_unlocked_compact_header.png": "settlement/templates/career_story_unlocked_compact_header.png",
+    "templates/career_story_unlocked_header.png": "settlement/templates/career_story_unlocked_header.png",
+    "screens/templates/career_story_unlocked_header.png": "settlement/templates/career_story_unlocked_header.png",
+    "templates/complete_career_career_finish.png": "settlement/templates/complete_career_career_finish.png",
+    "screens/templates/complete_career_career_finish.png": "settlement/templates/complete_career_career_finish.png",
+    "templates/complete_career_entry_header.png": "settlement/templates/complete_career_entry_header.png",
+    "screens/templates/complete_career_entry_header.png": "settlement/templates/complete_career_entry_header.png",
+    "templates/complete_career_entry_text.png": "settlement/templates/complete_career_entry_text.png",
+    "screens/templates/complete_career_entry_text.png": "settlement/templates/complete_career_entry_text.png",
+    "templates/event_choice_event_choice_first.png": "event/templates/event_choice_event_choice_first.png",
+    "screens/templates/event_choice_event_choice_first.png": "event/templates/event_choice_event_choice_first.png",
+    "templates/event_choice_green_hoof.png": "event/templates/event_choice_green_hoof.png",
+    "screens/templates/event_choice_green_hoof.png": "event/templates/event_choice_green_hoof.png",
+    "templates/event_effects_button.png": "event/templates/event_effects_button.png",
+    "screens/templates/event_effects_button.png": "event/templates/event_effects_button.png",
+    "templates/event_reward_gift_box.png": "event/templates/event_reward_gift_box.png",
+    "screens/templates/event_reward_gift_box.png": "event/templates/event_reward_gift_box.png",
+    "templates/event_reward_next_text.png": "event/templates/event_reward_next_text.png",
+    "screens/templates/event_reward_next_text.png": "event/templates/event_reward_next_text.png",
+    "templates/follow_trainer_limit_cancel.png": "settlement/templates/follow_trainer_limit_cancel.png",
+    "screens/templates/follow_trainer_limit_cancel.png": "settlement/templates/follow_trainer_limit_cancel.png",
+    "templates/follow_trainer_limit_header.png": "settlement/templates/follow_trainer_limit_header.png",
+    "screens/templates/follow_trainer_limit_header.png": "settlement/templates/follow_trainer_limit_header.png",
+    "templates/goal_complete_goal_next.png": "settlement/templates/goal_complete_goal_next.png",
+    "screens/templates/goal_complete_goal_next.png": "settlement/templates/goal_complete_goal_next.png",
+    "templates/goal_complete_header.png": "settlement/templates/goal_complete_header.png",
+    "screens/templates/goal_complete_header.png": "settlement/templates/goal_complete_header.png",
+    "templates/goal_incomplete_header.png": "settlement/templates/goal_incomplete_header.png",
+    "screens/templates/goal_incomplete_header.png": "settlement/templates/goal_incomplete_header.png",
+    "templates/goal_incomplete_next.png": "settlement/templates/goal_incomplete_next.png",
+    "screens/templates/goal_incomplete_next.png": "settlement/templates/goal_incomplete_next.png",
+    "templates/goal_update_goals_achieved_text.png": "settlement/templates/goal_update_goals_achieved_text.png",
+    "screens/templates/goal_update_goals_achieved_text.png": "settlement/templates/goal_update_goals_achieved_text.png",
+    "templates/goal_update_goal_update_next.png": "settlement/templates/goal_update_goal_update_next.png",
+    "screens/templates/goal_update_goal_update_next.png": "settlement/templates/goal_update_goal_update_next.png",
+    "templates/home_home_career.png": "entry/templates/home_home_career.png",
+    "screens/templates/home_home_career.png": "entry/templates/home_home_career.png",
+    "templates/home_home_career_active_label.png": "entry/templates/home_home_career_active_label.png",
+    "screens/templates/home_home_career_active_label.png": "entry/templates/home_home_career_active_label.png",
+    "templates/home_selected.png": "entry/templates/home_selected.png",
+    "screens/templates/home_selected.png": "entry/templates/home_selected.png",
+    "templates/home_unselected.png": "entry/templates/home_unselected.png",
+    "screens/templates/home_unselected.png": "entry/templates/home_unselected.png",
+    "templates/inheritance_event_go.png": "event/templates/inheritance_event_go.png",
+    "screens/templates/inheritance_event_go.png": "event/templates/inheritance_event_go.png",
+    "templates/legacy_select_legacy_next.png": "entry/templates/legacy_select_legacy_next.png",
+    "screens/templates/legacy_select_legacy_next.png": "entry/templates/legacy_select_legacy_next.png",
+    "templates/race_attributes_race_start_playback.png": "race/templates/race_attributes_race_start_playback.png",
+    "screens/templates/race_attributes_race_start_playback.png": "race/templates/race_attributes_race_start_playback.png",
+    "templates/race_day_race_open_list.png": "race/templates/race_day_race_open_list.png",
+    "screens/templates/race_day_race_open_list.png": "race/templates/race_day_race_open_list.png",
+    "templates/race_day_skills_open.png": "race/templates/race_day_skills_open.png",
+    "screens/templates/race_day_skills_open.png": "race/templates/race_day_skills_open.png",
+    "templates/race_details_race_cancel.png": "race/templates/race_details_race_cancel.png",
+    "screens/templates/race_details_race_cancel.png": "race/templates/race_details_race_cancel.png",
+    "templates/race_details_race_confirm.png": "race/templates/race_details_race_confirm.png",
+    "screens/templates/race_details_race_confirm.png": "race/templates/race_details_race_confirm.png",
+    "templates/race_list_empty_back.png": "race/templates/race_list_empty_back.png",
+    "screens/templates/race_list_empty_back.png": "race/templates/race_list_empty_back.png",
+    "templates/race_list_empty_no_races.png": "race/templates/race_list_empty_no_races.png",
+    "screens/templates/race_list_empty_no_races.png": "race/templates/race_list_empty_no_races.png",
+    "templates/race_list_empty_no_races_text.png": "race/templates/race_list_empty_no_races_text.png",
+    "screens/templates/race_list_empty_no_races_text.png": "race/templates/race_list_empty_no_races_text.png",
+    "templates/race_list_race_goal_entry.png": "race/templates/race_list_race_goal_entry.png",
+    "screens/templates/race_list_race_goal_entry.png": "race/templates/race_list_race_goal_entry.png",
+    "templates/race_list_recommended.png": "race/templates/race_list_recommended.png",
+    "screens/templates/race_list_recommended.png": "race/templates/race_list_recommended.png",
+    "templates/race_live_race_live_next.png": "race/templates/race_live_race_live_next.png",
+    "screens/templates/race_live_race_live_next.png": "race/templates/race_live_race_live_next.png",
+    "templates/race_playback_race_play.png": "race/templates/race_playback_race_play.png",
+    "screens/templates/race_playback_race_play.png": "race/templates/race_playback_race_play.png",
+    "templates/race_playback_settings_race_playback_settings_ok.png": "race/templates/race_playback_settings_race_playback_settings_ok.png",
+    "screens/templates/race_playback_settings_race_playback_settings_ok.png": "race/templates/race_playback_settings_race_playback_settings_ok.png",
+    "templates/race_result_result_next.png": "race/templates/race_result_result_next.png",
+    "screens/templates/race_result_result_next.png": "race/templates/race_result_result_next.png",
+    "templates/rest_confirmation_rest_confirm.png": "turn/templates/rest_confirmation_rest_confirm.png",
+    "screens/templates/rest_confirmation_rest_confirm.png": "turn/templates/rest_confirmation_rest_confirm.png",
+    "templates/rewards_collected_close.png": "settlement/templates/rewards_collected_close.png",
+    "screens/templates/rewards_collected_close.png": "settlement/templates/rewards_collected_close.png",
+    "templates/rewards_collected_header.png": "settlement/templates/rewards_collected_header.png",
+    "screens/templates/rewards_collected_header.png": "settlement/templates/rewards_collected_header.png",
+    "templates/rewards_header.png": "settlement/templates/rewards_header.png",
+    "screens/templates/rewards_header.png": "settlement/templates/rewards_header.png",
+    "templates/rewards_rewards_next.png": "settlement/templates/rewards_rewards_next.png",
+    "screens/templates/rewards_rewards_next.png": "settlement/templates/rewards_rewards_next.png",
+    "templates/reward_reward_next.png": "settlement/templates/reward_reward_next.png",
+    "screens/templates/reward_reward_next.png": "settlement/templates/reward_reward_next.png",
+    "templates/reward_support_reward_next.png": "settlement/templates/reward_support_reward_next.png",
+    "screens/templates/reward_support_reward_next.png": "settlement/templates/reward_support_reward_next.png",
+    "templates/scenario_event_event_advance.png": "entry/templates/scenario_event_event_advance.png",
+    "screens/templates/scenario_event_event_advance.png": "entry/templates/scenario_event_event_advance.png",
+    "templates/scenario_intro_scenario_next.png": "entry/templates/scenario_intro_scenario_next.png",
+    "screens/templates/scenario_intro_scenario_next.png": "entry/templates/scenario_intro_scenario_next.png",
+    "templates/scenario_select_header.png": "entry/templates/scenario_select_header.png",
+    "screens/templates/scenario_select_header.png": "entry/templates/scenario_select_header.png",
+    "templates/scenario_select_scenario_next.png": "entry/templates/scenario_select_scenario_next.png",
+    "screens/templates/scenario_select_scenario_next.png": "entry/templates/scenario_select_scenario_next.png",
+    "templates/scenario_select_ura_card.png": "entry/templates/scenario_select_ura_card.png",
+    "screens/templates/scenario_select_ura_card.png": "entry/templates/scenario_select_ura_card.png",
+    "templates/sparks_confirmation_sparks_keep.png": "settlement/templates/sparks_confirmation_sparks_keep.png",
+    "screens/templates/sparks_confirmation_sparks_keep.png": "settlement/templates/sparks_confirmation_sparks_keep.png",
+    "templates/sparks_sparks_confirm.png": "settlement/templates/sparks_sparks_confirm.png",
+    "screens/templates/sparks_sparks_confirm.png": "settlement/templates/sparks_sparks_confirm.png",
+    "templates/support_autofill_confirmation_support_autofill_ok.png": "modes/normal/templates/support_autofill_confirmation_support_autofill_ok.png",
+    "screens/templates/support_autofill_confirmation_support_autofill_ok.png": "modes/normal/templates/support_autofill_confirmation_support_autofill_ok.png",
+    "templates/support_ready_support_start.png": "modes/normal/templates/support_ready_support_start.png",
+    "screens/templates/support_ready_support_start.png": "modes/normal/templates/support_ready_support_start.png",
+    "templates/support_select_support_auto_fill.png": "modes/normal/templates/support_select_support_auto_fill.png",
+    "screens/templates/support_select_support_auto_fill.png": "modes/normal/templates/support_select_support_auto_fill.png",
+    "templates/support_select_support_reset.png": "entry/templates/support_select_support_reset.png",
+    "screens/templates/support_select_support_reset.png": "entry/templates/support_select_support_reset.png",
+    "templates/support_select_support_reset_disabled.png": "entry/templates/support_select_support_reset_disabled.png",
+    "screens/templates/support_select_support_reset_disabled.png": "entry/templates/support_select_support_reset_disabled.png",
+    "templates/support_select_support_reset_ok.png": "entry/templates/support_select_support_reset_ok.png",
+    "screens/templates/support_select_support_reset_ok.png": "entry/templates/support_select_support_reset_ok.png",
+    "templates/support_select_support_start.png": "entry/templates/support_select_support_start.png",
+    "screens/templates/support_select_support_start.png": "entry/templates/support_select_support_start.png",
+    "templates/trainee_select_trainee_next.png": "entry/templates/trainee_select_trainee_next.png",
+    "screens/templates/trainee_select_trainee_next.png": "entry/templates/trainee_select_trainee_next.png",
+    "templates/training_event_event_advance.png": "training/templates/training_event_event_advance.png",
+    "screens/templates/training_event_event_advance.png": "training/templates/training_event_event_advance.png",
+    "templates/training_result_event_advance.png": "training/templates/training_result_event_advance.png",
+    "screens/templates/training_result_event_advance.png": "training/templates/training_result_event_advance.png",
+    "templates/training_selection_header.png": "training/templates/training_selection_header.png",
+    "screens/templates/training_selection_header.png": "training/templates/training_selection_header.png",
+    "templates/training_selection_training_guts.png": "training/templates/training_selection_training_guts.png",
+    "screens/templates/training_selection_training_guts.png": "training/templates/training_selection_training_guts.png",
+    "templates/training_selection_training_power.png": "training/templates/training_selection_training_power.png",
+    "screens/templates/training_selection_training_power.png": "training/templates/training_selection_training_power.png",
+    "templates/training_selection_training_speed.png": "training/templates/training_selection_training_speed.png",
+    "screens/templates/training_selection_training_speed.png": "training/templates/training_selection_training_speed.png",
+    "templates/training_selection_training_stamina.png": "training/templates/training_selection_training_stamina.png",
+    "screens/templates/training_selection_training_stamina.png": "training/templates/training_selection_training_stamina.png",
+    "templates/training_selection_training_wit.png": "training/templates/training_selection_training_wit.png",
+    "screens/templates/training_selection_training_wit.png": "training/templates/training_selection_training_wit.png",
+    "templates/career/race/race_entry_race.png": "race/templates/career/race/race_entry_race.png",
+    "screens/templates/career/race/race_entry_race.png": "race/templates/career/race/race_entry_race.png",
+    "templates/career/race/race_entry_view_results.png": "race/templates/career/race/race_entry_view_results.png",
+    "screens/templates/career/race/race_entry_view_results.png": "race/templates/career/race/race_entry_view_results.png",
+    "templates/career/race/race_entry_view_results_lock.png": "race/templates/career/race/race_entry_view_results_lock.png",
+    "screens/templates/career/race/race_entry_view_results_lock.png": "race/templates/career/race/race_entry_view_results_lock.png",
+    "templates/career/race/race_last_next.png": "race/templates/career/race/race_last_next.png",
+    "screens/templates/career/race/race_last_next.png": "race/templates/career/race/race_last_next.png",
+    "templates/career/race/race_playback_ok.png": "race/templates/career/race/race_playback_ok.png",
+    "screens/templates/career/race/race_playback_ok.png": "race/templates/career/race/race_playback_ok.png",
+    "templates/career/race/race_playback_skip.png": "race/templates/career/race/race_playback_skip.png",
+    "screens/templates/career/race/race_playback_skip.png": "race/templates/career/race/race_playback_skip.png",
+    "templates/career/race/race_playback_start.png": "race/templates/career/race/race_playback_start.png",
+    "screens/templates/career/race/race_playback_start.png": "race/templates/career/race/race_playback_start.png",
+    "templates/career/race/race_recommendations_confirm.png": "race/templates/career/race/race_recommendations_confirm.png",
+    "screens/templates/career/race/race_recommendations_confirm.png": "race/templates/career/race/race_recommendations_confirm.png",
+    "templates/career/race/race_recommendations_title.png": "race/templates/career/race/race_recommendations_title.png",
+    "screens/templates/career/race/race_recommendations_title.png": "race/templates/career/race/race_recommendations_title.png",
+    "templates/career/race/race_result_next.png": "race/templates/career/race/race_result_next.png",
+    "screens/templates/career/race/race_result_next.png": "race/templates/career/race/race_result_next.png",
+    "templates/career/race/race_result_replay.png": "race/templates/career/race/race_result_replay.png",
+    "screens/templates/career/race/race_result_replay.png": "race/templates/career/race/race_result_replay.png",
+    "templates/career/race/race_retry_alarm_prompt.png": "race/templates/career/race/race_retry_alarm_prompt.png",
+    "screens/templates/career/race/race_retry_alarm_prompt.png": "race/templates/career/race/race_retry_alarm_prompt.png",
+    "templates/career/race/race_retry_cancel.png": "race/templates/career/race/race_retry_cancel.png",
+    "screens/templates/career/race/race_retry_cancel.png": "race/templates/career/race/race_retry_cancel.png",
+    "templates/career/race/race_retry_dialog_title.png": "race/templates/career/race/race_retry_dialog_title.png",
+    "screens/templates/career/race/race_retry_dialog_title.png": "race/templates/career/race/race_retry_dialog_title.png",
+    "templates/career/race/race_retry_try_again.png": "race/templates/career/race/race_retry_try_again.png",
+    "screens/templates/career/race/race_retry_try_again.png": "race/templates/career/race/race_retry_try_again.png",
+    "templates/career/race/race_runner_label.png": "race/templates/career/race/race_runner_label.png",
+    "screens/templates/career/race/race_runner_label.png": "race/templates/career/race/race_runner_label.png",
+    "templates/career/race/race_strategy_change.png": "race/templates/career/race/race_strategy_change.png",
+    "screens/templates/career/race/race_strategy_change.png": "race/templates/career/race/race_strategy_change.png",
+    "templates/career/race/race_strategy_selected_marker.png": "race/templates/career/race/race_strategy_selected_marker.png",
+    "screens/templates/career/race/race_strategy_selected_marker.png": "race/templates/career/race/race_strategy_selected_marker.png",
+    "templates/career/race/race_streak_warning_cancel.png": "race/templates/career/race/race_streak_warning_cancel.png",
+    "screens/templates/career/race/race_streak_warning_cancel.png": "race/templates/career/race/race_streak_warning_cancel.png",
+    "templates/career/race/race_streak_warning_ok.png": "race/templates/career/race/race_streak_warning_ok.png",
+    "screens/templates/career/race/race_streak_warning_ok.png": "race/templates/career/race/race_streak_warning_ok.png",
+    "templates/career/race/race_streak_warning_text.png": "race/templates/career/race/race_streak_warning_text.png",
+    "screens/templates/career/race/race_streak_warning_text.png": "race/templates/career/race/race_streak_warning_text.png",
+    "templates/career/race/race_trophy_close.png": "race/templates/career/race/race_trophy_close.png",
+    "screens/templates/career/race/race_trophy_close.png": "race/templates/career/race/race_trophy_close.png",
+    "templates/career/race/race_trophy_won.png": "race/templates/career/race/race_trophy_won.png",
+    "screens/templates/career/race/race_trophy_won.png": "race/templates/career/race/race_trophy_won.png",
+    "templates/career/race/race_view_results_tap.png": "race/templates/career/race/race_view_results_tap.png",
+    "screens/templates/career/race/race_view_results_tap.png": "race/templates/career/race/race_view_results_tap.png",
+    "templates/career/turn/claw_credit_label.png": "turn/templates/career/turn/claw_credit_label.png",
+    "screens/templates/career/turn/claw_credit_label.png": "turn/templates/career/turn/claw_credit_label.png",
+    "templates/career/turn/claw_how_to_play.png": "turn/templates/career/turn/claw_how_to_play.png",
+    "screens/templates/career/turn/claw_how_to_play.png": "turn/templates/career/turn/claw_how_to_play.png",
+    "templates/career/turn/claw_result_cuties.png": "turn/templates/career/turn/claw_result_cuties.png",
+    "screens/templates/career/turn/claw_result_cuties.png": "turn/templates/career/turn/claw_result_cuties.png",
+    "templates/career/turn/infirmary_available.png": "turn/templates/career/turn/infirmary_available.png",
+    "screens/templates/career/turn/infirmary_available.png": "turn/templates/career/turn/infirmary_available.png",
+    "templates/career/turn/infirmary_confirmation_ok.png": "turn/templates/career/turn/infirmary_confirmation_ok.png",
+    "screens/templates/career/turn/infirmary_confirmation_ok.png": "turn/templates/career/turn/infirmary_confirmation_ok.png",
+    "templates/career/turn/infirmary_confirmation_title.png": "turn/templates/career/turn/infirmary_confirmation_title.png",
+    "screens/templates/career/turn/infirmary_confirmation_title.png": "turn/templates/career/turn/infirmary_confirmation_title.png",
+    "templates/career/turn/infirmary_unavailable.png": "turn/templates/career/turn/infirmary_unavailable.png",
+    "screens/templates/career/turn/infirmary_unavailable.png": "turn/templates/career/turn/infirmary_unavailable.png",
+    "templates/career/turn/recreation_action.png": "turn/templates/career/turn/recreation_action.png",
+    "screens/templates/career/turn/recreation_action.png": "turn/templates/career/turn/recreation_action.png",
+    "templates/career/turn/recreation_ok.png": "turn/templates/career/turn/recreation_ok.png",
+    "screens/templates/career/turn/recreation_ok.png": "turn/templates/career/turn/recreation_ok.png",
+    "templates/career/turn/recreation_prompt.png": "turn/templates/career/turn/recreation_prompt.png",
+    "screens/templates/career/turn/recreation_prompt.png": "turn/templates/career/turn/recreation_prompt.png",
+    "templates/career/turn/recreation_selection_title.png": "turn/templates/career/turn/recreation_selection_title.png",
+    "screens/templates/career/turn/recreation_selection_title.png": "turn/templates/career/turn/recreation_selection_title.png",
+    "templates/career/turn/recreation_trainee.png": "turn/templates/career/turn/recreation_trainee.png",
+    "screens/templates/career/turn/recreation_trainee.png": "turn/templates/career/turn/recreation_trainee.png",
+    "templates/career/turn/summer_rest_action.png": "turn/templates/career/turn/summer_rest_action.png",
+    "screens/templates/career/turn/summer_rest_action.png": "turn/templates/career/turn/summer_rest_action.png",
+    "templates/career/turn/summer_rest_confirmation_title.png": "turn/templates/career/turn/summer_rest_confirmation_title.png",
+    "screens/templates/career/turn/summer_rest_confirmation_title.png": "turn/templates/career/turn/summer_rest_confirmation_title.png",
+    "templates/independent/agenda_close.png": "modes/independent/templates/independent/agenda_close.png",
+    "screens/templates/independent/agenda_close.png": "modes/independent/templates/independent/agenda_close.png",
+    "templates/independent/agenda_edit.png": "modes/independent/templates/independent/agenda_edit.png",
+    "screens/templates/independent/agenda_edit.png": "modes/independent/templates/independent/agenda_edit.png",
+    "templates/independent/agenda_header.png": "modes/independent/templates/independent/agenda_header.png",
+    "screens/templates/independent/agenda_header.png": "modes/independent/templates/independent/agenda_header.png",
+    "templates/independent/agenda_plus.png": "modes/independent/templates/independent/agenda_plus.png",
+    "screens/templates/independent/agenda_plus.png": "modes/independent/templates/independent/agenda_plus.png",
+    "templates/independent/agenda_race_save.png": "modes/independent/templates/independent/agenda_race_save.png",
+    "screens/templates/independent/agenda_race_save.png": "modes/independent/templates/independent/agenda_race_save.png",
+    "templates/independent/agenda_reset.png": "modes/independent/templates/independent/agenda_reset.png",
+    "screens/templates/independent/agenda_reset.png": "modes/independent/templates/independent/agenda_reset.png",
+    "templates/independent/agenda_reset_confirm.png": "modes/independent/templates/independent/agenda_reset_confirm.png",
+    "screens/templates/independent/agenda_reset_confirm.png": "modes/independent/templates/independent/agenda_reset_confirm.png",
+    "templates/independent/agenda_reset_done_close.png": "modes/independent/templates/independent/agenda_reset_done_close.png",
+    "screens/templates/independent/agenda_reset_done_close.png": "modes/independent/templates/independent/agenda_reset_done_close.png",
+    "templates/independent/agenda_year_classic_selected.png": "modes/independent/templates/independent/agenda_year_classic_selected.png",
+    "screens/templates/independent/agenda_year_classic_selected.png": "modes/independent/templates/independent/agenda_year_classic_selected.png",
+    "templates/independent/agenda_year_classic_unselected.png": "modes/independent/templates/independent/agenda_year_classic_unselected.png",
+    "screens/templates/independent/agenda_year_classic_unselected.png": "modes/independent/templates/independent/agenda_year_classic_unselected.png",
+    "templates/independent/agenda_year_junior_selected.png": "modes/independent/templates/independent/agenda_year_junior_selected.png",
+    "screens/templates/independent/agenda_year_junior_selected.png": "modes/independent/templates/independent/agenda_year_junior_selected.png",
+    "templates/independent/agenda_year_junior_unselected.png": "modes/independent/templates/independent/agenda_year_junior_unselected.png",
+    "screens/templates/independent/agenda_year_junior_unselected.png": "modes/independent/templates/independent/agenda_year_junior_unselected.png",
+    "templates/independent/agenda_year_senior_selected.png": "modes/independent/templates/independent/agenda_year_senior_selected.png",
+    "screens/templates/independent/agenda_year_senior_selected.png": "modes/independent/templates/independent/agenda_year_senior_selected.png",
+    "templates/independent/agenda_year_senior_unselected.png": "modes/independent/templates/independent/agenda_year_senior_unselected.png",
+    "screens/templates/independent/agenda_year_senior_unselected.png": "modes/independent/templates/independent/agenda_year_senior_unselected.png",
+    "templates/independent/career_final_confirmation_header.png": "modes/independent/templates/independent/career_final_confirmation_header.png",
+    "screens/templates/independent/career_final_confirmation_header.png": "modes/independent/templates/independent/career_final_confirmation_header.png",
+    "templates/independent/focus_balanced_unselected.png": "modes/independent/templates/independent/focus_balanced_unselected.png",
+    "screens/templates/independent/focus_balanced_unselected.png": "modes/independent/templates/independent/focus_balanced_unselected.png",
+    "templates/independent/focus_sprint_unselected.png": "modes/independent/templates/independent/focus_sprint_unselected.png",
+    "screens/templates/independent/focus_sprint_unselected.png": "modes/independent/templates/independent/focus_sprint_unselected.png",
+    "templates/independent/focus_stamina_unselected.png": "modes/independent/templates/independent/focus_stamina_unselected.png",
+    "screens/templates/independent/focus_stamina_unselected.png": "modes/independent/templates/independent/focus_stamina_unselected.png",
+    "templates/independent/home_returned_home_tab.png": "modes/independent/templates/independent/home_returned_home_tab.png",
+    "screens/templates/independent/home_returned_home_tab.png": "modes/independent/templates/independent/home_returned_home_tab.png",
+    "templates/independent/independent_post_start_menu.png": "modes/independent/templates/independent/independent_post_start_menu.png",
+    "screens/templates/independent/independent_post_start_menu.png": "modes/independent/templates/independent/independent_post_start_menu.png",
+    "templates/independent/independent_post_start_to_home.png": "modes/independent/templates/independent/independent_post_start_to_home.png",
+    "screens/templates/independent/independent_post_start_to_home.png": "modes/independent/templates/independent/independent_post_start_to_home.png",
+    "templates/independent/independent_training_start.png": "modes/independent/templates/independent/independent_training_start.png",
+    "screens/templates/independent/independent_training_start.png": "modes/independent/templates/independent/independent_training_start.png",
+    "templates/independent/lineup_closed_right.png": "modes/independent/templates/independent/lineup_closed_right.png",
+    "screens/templates/independent/lineup_closed_right.png": "modes/independent/templates/independent/lineup_closed_right.png",
+    "templates/independent/lineup_details_header.png": "modes/independent/templates/independent/lineup_details_header.png",
+    "screens/templates/independent/lineup_details_header.png": "modes/independent/templates/independent/lineup_details_header.png",
+    "templates/independent/lineup_open_down.png": "modes/independent/templates/independent/lineup_open_down.png",
+    "screens/templates/independent/lineup_open_down.png": "modes/independent/templates/independent/lineup_open_down.png",
+    "templates/independent/mode_independent_selected.png": "modes/independent/templates/independent/mode_independent_selected.png",
+    "screens/templates/independent/mode_independent_selected.png": "modes/independent/templates/independent/mode_independent_selected.png",
+    "templates/independent/mode_independent_unselected.png": "modes/independent/templates/independent/mode_independent_unselected.png",
+    "screens/templates/independent/mode_independent_unselected.png": "modes/independent/templates/independent/mode_independent_unselected.png",
+    "templates/independent/skills_add.png": "modes/independent/templates/independent/skills_add.png",
+    "screens/templates/independent/skills_add.png": "modes/independent/templates/independent/skills_add.png",
+    "templates/independent/skills_checkbox_unselected.png": "modes/independent/templates/independent/skills_checkbox_unselected.png",
+    "screens/templates/independent/skills_checkbox_unselected.png": "modes/independent/templates/independent/skills_checkbox_unselected.png",
+    "templates/independent/skills_confirm.png": "modes/independent/templates/independent/skills_confirm.png",
+    "screens/templates/independent/skills_confirm.png": "modes/independent/templates/independent/skills_confirm.png",
+    "templates/independent/skills_main_reset.png": "modes/independent/templates/independent/skills_main_reset.png",
+    "screens/templates/independent/skills_main_reset.png": "modes/independent/templates/independent/skills_main_reset.png",
+    "templates/independent/skills_reset_confirmed.png": "modes/independent/templates/independent/skills_reset_confirmed.png",
+    "screens/templates/independent/skills_reset_confirmed.png": "modes/independent/templates/independent/skills_reset_confirmed.png",
+    "templates/independent/skills_search_field.png": "modes/independent/templates/independent/skills_search_field.png",
+    "screens/templates/independent/skills_search_field.png": "modes/independent/templates/independent/skills_search_field.png",
+    "templates/independent/skills_search_reset.png": "modes/independent/templates/independent/skills_search_reset.png",
+    "screens/templates/independent/skills_search_reset.png": "modes/independent/templates/independent/skills_search_reset.png",
+    "templates/independent/skills_search_reset_active.png": "modes/independent/templates/independent/skills_search_reset_active.png",
+    "screens/templates/independent/skills_search_reset_active.png": "modes/independent/templates/independent/skills_search_reset_active.png",
+    "templates/independent/strategy_change.png": "modes/independent/templates/independent/strategy_change.png",
+    "screens/templates/independent/strategy_change.png": "modes/independent/templates/independent/strategy_change.png",
+    "templates/independent/strategy_confirm.png": "modes/independent/templates/independent/strategy_confirm.png",
+    "screens/templates/independent/strategy_confirm.png": "modes/independent/templates/independent/strategy_confirm.png",
+    "templates/independent/strategy_option_end.png": "modes/independent/templates/independent/strategy_option_end.png",
+    "screens/templates/independent/strategy_option_end.png": "modes/independent/templates/independent/strategy_option_end.png",
+    "templates/independent/strategy_option_front.png": "modes/independent/templates/independent/strategy_option_front.png",
+    "screens/templates/independent/strategy_option_front.png": "modes/independent/templates/independent/strategy_option_front.png",
+    "templates/independent/strategy_option_late.png": "modes/independent/templates/independent/strategy_option_late.png",
+    "screens/templates/independent/strategy_option_late.png": "modes/independent/templates/independent/strategy_option_late.png",
+    "templates/independent/strategy_option_pace.png": "modes/independent/templates/independent/strategy_option_pace.png",
+    "screens/templates/independent/strategy_option_pace.png": "modes/independent/templates/independent/strategy_option_pace.png",
+    "templates/independent/strategy_selected_corner.png": "modes/independent/templates/independent/strategy_selected_corner.png",
+    "screens/templates/independent/strategy_selected_corner.png": "modes/independent/templates/independent/strategy_selected_corner.png",
+    "templates/independent/training_focus_header.png": "modes/independent/templates/independent/training_focus_header.png",
+    "screens/templates/independent/training_focus_header.png": "modes/independent/templates/independent/training_focus_header.png",
+    "templates/independent/training_independently_available.png": "modes/independent/templates/independent/training_independently_available.png",
+    "screens/templates/independent/training_independently_available.png": "modes/independent/templates/independent/training_independently_available.png",
+    "templates/independent/race_cards/1001.png": "modes/independent/templates/independent/race_cards/1001.png",
+    "screens/templates/independent/race_cards/1001.png": "modes/independent/templates/independent/race_cards/1001.png",
+    "templates/independent/race_cards/1002.png": "modes/independent/templates/independent/race_cards/1002.png",
+    "screens/templates/independent/race_cards/1002.png": "modes/independent/templates/independent/race_cards/1002.png",
+    "templates/independent/race_cards/1003.png": "modes/independent/templates/independent/race_cards/1003.png",
+    "screens/templates/independent/race_cards/1003.png": "modes/independent/templates/independent/race_cards/1003.png",
+    "templates/independent/race_cards/1004.png": "modes/independent/templates/independent/race_cards/1004.png",
+    "screens/templates/independent/race_cards/1004.png": "modes/independent/templates/independent/race_cards/1004.png",
+    "templates/independent/race_cards/1005.png": "modes/independent/templates/independent/race_cards/1005.png",
+    "screens/templates/independent/race_cards/1005.png": "modes/independent/templates/independent/race_cards/1005.png",
+    "templates/independent/race_cards/1006.png": "modes/independent/templates/independent/race_cards/1006.png",
+    "screens/templates/independent/race_cards/1006.png": "modes/independent/templates/independent/race_cards/1006.png",
+    "templates/independent/race_cards/1007.png": "modes/independent/templates/independent/race_cards/1007.png",
+    "screens/templates/independent/race_cards/1007.png": "modes/independent/templates/independent/race_cards/1007.png",
+    "templates/independent/race_cards/1008.png": "modes/independent/templates/independent/race_cards/1008.png",
+    "screens/templates/independent/race_cards/1008.png": "modes/independent/templates/independent/race_cards/1008.png",
+    "templates/independent/race_cards/1009.png": "modes/independent/templates/independent/race_cards/1009.png",
+    "screens/templates/independent/race_cards/1009.png": "modes/independent/templates/independent/race_cards/1009.png",
+    "templates/independent/race_cards/1010.png": "modes/independent/templates/independent/race_cards/1010.png",
+    "screens/templates/independent/race_cards/1010.png": "modes/independent/templates/independent/race_cards/1010.png",
+    "templates/independent/race_cards/1011.png": "modes/independent/templates/independent/race_cards/1011.png",
+    "screens/templates/independent/race_cards/1011.png": "modes/independent/templates/independent/race_cards/1011.png",
+    "templates/independent/race_cards/1012.png": "modes/independent/templates/independent/race_cards/1012.png",
+    "screens/templates/independent/race_cards/1012.png": "modes/independent/templates/independent/race_cards/1012.png",
+    "templates/independent/race_cards/1013.png": "modes/independent/templates/independent/race_cards/1013.png",
+    "screens/templates/independent/race_cards/1013.png": "modes/independent/templates/independent/race_cards/1013.png",
+    "templates/independent/race_cards/1014.png": "modes/independent/templates/independent/race_cards/1014.png",
+    "screens/templates/independent/race_cards/1014.png": "modes/independent/templates/independent/race_cards/1014.png",
+    "templates/independent/race_cards/1015.png": "modes/independent/templates/independent/race_cards/1015.png",
+    "screens/templates/independent/race_cards/1015.png": "modes/independent/templates/independent/race_cards/1015.png",
+    "templates/independent/race_cards/1016.png": "modes/independent/templates/independent/race_cards/1016.png",
+    "screens/templates/independent/race_cards/1016.png": "modes/independent/templates/independent/race_cards/1016.png",
+    "templates/independent/race_cards/1017.png": "modes/independent/templates/independent/race_cards/1017.png",
+    "screens/templates/independent/race_cards/1017.png": "modes/independent/templates/independent/race_cards/1017.png",
+    "templates/independent/race_cards/1018.png": "modes/independent/templates/independent/race_cards/1018.png",
+    "screens/templates/independent/race_cards/1018.png": "modes/independent/templates/independent/race_cards/1018.png",
+    "templates/independent/race_cards/1019.png": "modes/independent/templates/independent/race_cards/1019.png",
+    "screens/templates/independent/race_cards/1019.png": "modes/independent/templates/independent/race_cards/1019.png",
+    "templates/independent/race_cards/1020.png": "modes/independent/templates/independent/race_cards/1020.png",
+    "screens/templates/independent/race_cards/1020.png": "modes/independent/templates/independent/race_cards/1020.png",
+    "templates/independent/race_cards/1021.png": "modes/independent/templates/independent/race_cards/1021.png",
+    "screens/templates/independent/race_cards/1021.png": "modes/independent/templates/independent/race_cards/1021.png",
+    "templates/independent/race_cards/1022.png": "modes/independent/templates/independent/race_cards/1022.png",
+    "screens/templates/independent/race_cards/1022.png": "modes/independent/templates/independent/race_cards/1022.png",
+    "templates/independent/race_cards/1023.png": "modes/independent/templates/independent/race_cards/1023.png",
+    "screens/templates/independent/race_cards/1023.png": "modes/independent/templates/independent/race_cards/1023.png",
+    "templates/independent/race_cards/1024.png": "modes/independent/templates/independent/race_cards/1024.png",
+    "screens/templates/independent/race_cards/1024.png": "modes/independent/templates/independent/race_cards/1024.png",
+    "templates/independent/race_cards/1101.png": "modes/independent/templates/independent/race_cards/1101.png",
+    "screens/templates/independent/race_cards/1101.png": "modes/independent/templates/independent/race_cards/1101.png",
+    "templates/independent/race_cards/1102.png": "modes/independent/templates/independent/race_cards/1102.png",
+    "screens/templates/independent/race_cards/1102.png": "modes/independent/templates/independent/race_cards/1102.png",
+    "templates/independent/race_cards/1103.png": "modes/independent/templates/independent/race_cards/1103.png",
+    "screens/templates/independent/race_cards/1103.png": "modes/independent/templates/independent/race_cards/1103.png",
+    "templates/independent/race_cards/1104.png": "modes/independent/templates/independent/race_cards/1104.png",
+    "screens/templates/independent/race_cards/1104.png": "modes/independent/templates/independent/race_cards/1104.png",
+    "templates/independent/race_cards/1105.png": "modes/independent/templates/independent/race_cards/1105.png",
+    "screens/templates/independent/race_cards/1105.png": "modes/independent/templates/independent/race_cards/1105.png",
+    "templates/independent/race_cards/1106.png": "modes/independent/templates/independent/race_cards/1106.png",
+    "screens/templates/independent/race_cards/1106.png": "modes/independent/templates/independent/race_cards/1106.png",
+    "templates/independent/race_cards/1107.png": "modes/independent/templates/independent/race_cards/1107.png",
+    "screens/templates/independent/race_cards/1107.png": "modes/independent/templates/independent/race_cards/1107.png",
+    "templates/independent/race_cards/1108.png": "modes/independent/templates/independent/race_cards/1108.png",
+    "screens/templates/independent/race_cards/1108.png": "modes/independent/templates/independent/race_cards/1108.png",
+    "templates/independent/race_cards/1109.png": "modes/independent/templates/independent/race_cards/1109.png",
+    "screens/templates/independent/race_cards/1109.png": "modes/independent/templates/independent/race_cards/1109.png",
+    "templates/independent/race_cards/1110.png": "modes/independent/templates/independent/race_cards/1110.png",
+    "screens/templates/independent/race_cards/1110.png": "modes/independent/templates/independent/race_cards/1110.png",
+    "templates/independent/race_cards/2001.png": "modes/independent/templates/independent/race_cards/2001.png",
+    "screens/templates/independent/race_cards/2001.png": "modes/independent/templates/independent/race_cards/2001.png",
+    "templates/independent/race_cards/2002.png": "modes/independent/templates/independent/race_cards/2002.png",
+    "screens/templates/independent/race_cards/2002.png": "modes/independent/templates/independent/race_cards/2002.png",
+    "templates/independent/race_cards/2003.png": "modes/independent/templates/independent/race_cards/2003.png",
+    "screens/templates/independent/race_cards/2003.png": "modes/independent/templates/independent/race_cards/2003.png",
+    "templates/independent/race_cards/2004.png": "modes/independent/templates/independent/race_cards/2004.png",
+    "screens/templates/independent/race_cards/2004.png": "modes/independent/templates/independent/race_cards/2004.png",
+    "templates/independent/race_cards/2005.png": "modes/independent/templates/independent/race_cards/2005.png",
+    "screens/templates/independent/race_cards/2005.png": "modes/independent/templates/independent/race_cards/2005.png",
+    "templates/independent/race_cards/2006.png": "modes/independent/templates/independent/race_cards/2006.png",
+    "screens/templates/independent/race_cards/2006.png": "modes/independent/templates/independent/race_cards/2006.png",
+    "templates/independent/race_cards/2007.png": "modes/independent/templates/independent/race_cards/2007.png",
+    "screens/templates/independent/race_cards/2007.png": "modes/independent/templates/independent/race_cards/2007.png",
+    "templates/independent/race_cards/2008.png": "modes/independent/templates/independent/race_cards/2008.png",
+    "screens/templates/independent/race_cards/2008.png": "modes/independent/templates/independent/race_cards/2008.png",
+    "templates/independent/race_cards/2009.png": "modes/independent/templates/independent/race_cards/2009.png",
+    "screens/templates/independent/race_cards/2009.png": "modes/independent/templates/independent/race_cards/2009.png",
+    "templates/independent/race_cards/2010.png": "modes/independent/templates/independent/race_cards/2010.png",
+    "screens/templates/independent/race_cards/2010.png": "modes/independent/templates/independent/race_cards/2010.png",
+    "templates/independent/race_cards/2011.png": "modes/independent/templates/independent/race_cards/2011.png",
+    "screens/templates/independent/race_cards/2011.png": "modes/independent/templates/independent/race_cards/2011.png",
+    "templates/independent/race_cards/2012.png": "modes/independent/templates/independent/race_cards/2012.png",
+    "screens/templates/independent/race_cards/2012.png": "modes/independent/templates/independent/race_cards/2012.png",
+    "templates/independent/race_cards/2013.png": "modes/independent/templates/independent/race_cards/2013.png",
+    "screens/templates/independent/race_cards/2013.png": "modes/independent/templates/independent/race_cards/2013.png",
+    "templates/independent/race_cards/2014.png": "modes/independent/templates/independent/race_cards/2014.png",
+    "screens/templates/independent/race_cards/2014.png": "modes/independent/templates/independent/race_cards/2014.png",
+    "templates/independent/race_cards/2015.png": "modes/independent/templates/independent/race_cards/2015.png",
+    "screens/templates/independent/race_cards/2015.png": "modes/independent/templates/independent/race_cards/2015.png",
+    "templates/independent/race_cards/2016.png": "modes/independent/templates/independent/race_cards/2016.png",
+    "screens/templates/independent/race_cards/2016.png": "modes/independent/templates/independent/race_cards/2016.png",
+    "templates/independent/race_cards/2017.png": "modes/independent/templates/independent/race_cards/2017.png",
+    "screens/templates/independent/race_cards/2017.png": "modes/independent/templates/independent/race_cards/2017.png",
+    "templates/independent/race_cards/2018.png": "modes/independent/templates/independent/race_cards/2018.png",
+    "screens/templates/independent/race_cards/2018.png": "modes/independent/templates/independent/race_cards/2018.png",
+    "templates/independent/race_cards/2019.png": "modes/independent/templates/independent/race_cards/2019.png",
+    "screens/templates/independent/race_cards/2019.png": "modes/independent/templates/independent/race_cards/2019.png",
+    "templates/independent/race_cards/2020.png": "modes/independent/templates/independent/race_cards/2020.png",
+    "screens/templates/independent/race_cards/2020.png": "modes/independent/templates/independent/race_cards/2020.png",
+    "templates/independent/race_cards/2021.png": "modes/independent/templates/independent/race_cards/2021.png",
+    "screens/templates/independent/race_cards/2021.png": "modes/independent/templates/independent/race_cards/2021.png",
+    "templates/independent/race_cards/2022.png": "modes/independent/templates/independent/race_cards/2022.png",
+    "screens/templates/independent/race_cards/2022.png": "modes/independent/templates/independent/race_cards/2022.png",
+    "templates/independent/race_cards/2023.png": "modes/independent/templates/independent/race_cards/2023.png",
+    "screens/templates/independent/race_cards/2023.png": "modes/independent/templates/independent/race_cards/2023.png",
+    "templates/independent/race_cards/2024.png": "modes/independent/templates/independent/race_cards/2024.png",
+    "screens/templates/independent/race_cards/2024.png": "modes/independent/templates/independent/race_cards/2024.png",
+    "templates/independent/race_cards/2025.png": "modes/independent/templates/independent/race_cards/2025.png",
+    "screens/templates/independent/race_cards/2025.png": "modes/independent/templates/independent/race_cards/2025.png",
+    "templates/independent/race_cards/2026.png": "modes/independent/templates/independent/race_cards/2026.png",
+    "screens/templates/independent/race_cards/2026.png": "modes/independent/templates/independent/race_cards/2026.png",
+    "templates/independent/race_cards/2027.png": "modes/independent/templates/independent/race_cards/2027.png",
+    "screens/templates/independent/race_cards/2027.png": "modes/independent/templates/independent/race_cards/2027.png",
+    "templates/independent/race_cards/2028.png": "modes/independent/templates/independent/race_cards/2028.png",
+    "screens/templates/independent/race_cards/2028.png": "modes/independent/templates/independent/race_cards/2028.png",
+    "templates/independent/race_cards/2029.png": "modes/independent/templates/independent/race_cards/2029.png",
+    "screens/templates/independent/race_cards/2029.png": "modes/independent/templates/independent/race_cards/2029.png",
+    "templates/independent/race_cards/2030.png": "modes/independent/templates/independent/race_cards/2030.png",
+    "screens/templates/independent/race_cards/2030.png": "modes/independent/templates/independent/race_cards/2030.png",
+    "templates/independent/race_cards/2031.png": "modes/independent/templates/independent/race_cards/2031.png",
+    "screens/templates/independent/race_cards/2031.png": "modes/independent/templates/independent/race_cards/2031.png",
+    "templates/independent/race_cards/2032.png": "modes/independent/templates/independent/race_cards/2032.png",
+    "screens/templates/independent/race_cards/2032.png": "modes/independent/templates/independent/race_cards/2032.png",
+    "templates/independent/race_cards/2033.png": "modes/independent/templates/independent/race_cards/2033.png",
+    "screens/templates/independent/race_cards/2033.png": "modes/independent/templates/independent/race_cards/2033.png",
+    "templates/independent/race_cards/2034.png": "modes/independent/templates/independent/race_cards/2034.png",
+    "screens/templates/independent/race_cards/2034.png": "modes/independent/templates/independent/race_cards/2034.png",
+    "templates/independent/race_cards/2036.png": "modes/independent/templates/independent/race_cards/2036.png",
+    "screens/templates/independent/race_cards/2036.png": "modes/independent/templates/independent/race_cards/2036.png",
+    "templates/independent/race_cards/2037.png": "modes/independent/templates/independent/race_cards/2037.png",
+    "screens/templates/independent/race_cards/2037.png": "modes/independent/templates/independent/race_cards/2037.png",
+    "templates/independent/race_cards/2038.png": "modes/independent/templates/independent/race_cards/2038.png",
+    "screens/templates/independent/race_cards/2038.png": "modes/independent/templates/independent/race_cards/2038.png",
+    "templates/independent/race_cards/2039.png": "modes/independent/templates/independent/race_cards/2039.png",
+    "screens/templates/independent/race_cards/2039.png": "modes/independent/templates/independent/race_cards/2039.png",
+    "templates/independent/race_cards/2040.png": "modes/independent/templates/independent/race_cards/2040.png",
+    "screens/templates/independent/race_cards/2040.png": "modes/independent/templates/independent/race_cards/2040.png",
+    "templates/independent/race_cards/2041.png": "modes/independent/templates/independent/race_cards/2041.png",
+    "screens/templates/independent/race_cards/2041.png": "modes/independent/templates/independent/race_cards/2041.png",
+    "templates/independent/race_cards/3001.png": "modes/independent/templates/independent/race_cards/3001.png",
+    "screens/templates/independent/race_cards/3001.png": "modes/independent/templates/independent/race_cards/3001.png",
+    "templates/independent/race_cards/3002.png": "modes/independent/templates/independent/race_cards/3002.png",
+    "screens/templates/independent/race_cards/3002.png": "modes/independent/templates/independent/race_cards/3002.png",
+    "templates/independent/race_cards/3003.png": "modes/independent/templates/independent/race_cards/3003.png",
+    "screens/templates/independent/race_cards/3003.png": "modes/independent/templates/independent/race_cards/3003.png",
+    "templates/independent/race_cards/3004.png": "modes/independent/templates/independent/race_cards/3004.png",
+    "screens/templates/independent/race_cards/3004.png": "modes/independent/templates/independent/race_cards/3004.png",
+    "templates/independent/race_cards/3005.png": "modes/independent/templates/independent/race_cards/3005.png",
+    "screens/templates/independent/race_cards/3005.png": "modes/independent/templates/independent/race_cards/3005.png",
+    "templates/independent/race_cards/3006.png": "modes/independent/templates/independent/race_cards/3006.png",
+    "screens/templates/independent/race_cards/3006.png": "modes/independent/templates/independent/race_cards/3006.png",
+    "templates/independent/race_cards/3007.png": "modes/independent/templates/independent/race_cards/3007.png",
+    "screens/templates/independent/race_cards/3007.png": "modes/independent/templates/independent/race_cards/3007.png",
+    "templates/independent/race_cards/3008.png": "modes/independent/templates/independent/race_cards/3008.png",
+    "screens/templates/independent/race_cards/3008.png": "modes/independent/templates/independent/race_cards/3008.png",
+    "templates/independent/race_cards/3009.png": "modes/independent/templates/independent/race_cards/3009.png",
+    "screens/templates/independent/race_cards/3009.png": "modes/independent/templates/independent/race_cards/3009.png",
+    "templates/independent/race_cards/3010.png": "modes/independent/templates/independent/race_cards/3010.png",
+    "screens/templates/independent/race_cards/3010.png": "modes/independent/templates/independent/race_cards/3010.png",
+    "templates/independent/race_cards/3011.png": "modes/independent/templates/independent/race_cards/3011.png",
+    "screens/templates/independent/race_cards/3011.png": "modes/independent/templates/independent/race_cards/3011.png",
+    "templates/independent/race_cards/3012.png": "modes/independent/templates/independent/race_cards/3012.png",
+    "screens/templates/independent/race_cards/3012.png": "modes/independent/templates/independent/race_cards/3012.png",
+    "templates/independent/race_cards/3013.png": "modes/independent/templates/independent/race_cards/3013.png",
+    "screens/templates/independent/race_cards/3013.png": "modes/independent/templates/independent/race_cards/3013.png",
+    "templates/independent/race_cards/3014.png": "modes/independent/templates/independent/race_cards/3014.png",
+    "screens/templates/independent/race_cards/3014.png": "modes/independent/templates/independent/race_cards/3014.png",
+    "templates/independent/race_cards/3015.png": "modes/independent/templates/independent/race_cards/3015.png",
+    "screens/templates/independent/race_cards/3015.png": "modes/independent/templates/independent/race_cards/3015.png",
+    "templates/independent/race_cards/3016.png": "modes/independent/templates/independent/race_cards/3016.png",
+    "screens/templates/independent/race_cards/3016.png": "modes/independent/templates/independent/race_cards/3016.png",
+    "templates/independent/race_cards/3017.png": "modes/independent/templates/independent/race_cards/3017.png",
+    "screens/templates/independent/race_cards/3017.png": "modes/independent/templates/independent/race_cards/3017.png",
+    "templates/independent/race_cards/3018.png": "modes/independent/templates/independent/race_cards/3018.png",
+    "screens/templates/independent/race_cards/3018.png": "modes/independent/templates/independent/race_cards/3018.png",
+    "templates/independent/race_cards/3019.png": "modes/independent/templates/independent/race_cards/3019.png",
+    "screens/templates/independent/race_cards/3019.png": "modes/independent/templates/independent/race_cards/3019.png",
+    "templates/independent/race_cards/3020.png": "modes/independent/templates/independent/race_cards/3020.png",
+    "screens/templates/independent/race_cards/3020.png": "modes/independent/templates/independent/race_cards/3020.png",
+    "templates/independent/race_cards/3021.png": "modes/independent/templates/independent/race_cards/3021.png",
+    "screens/templates/independent/race_cards/3021.png": "modes/independent/templates/independent/race_cards/3021.png",
+    "templates/independent/race_cards/3022.png": "modes/independent/templates/independent/race_cards/3022.png",
+    "screens/templates/independent/race_cards/3022.png": "modes/independent/templates/independent/race_cards/3022.png",
+    "templates/independent/race_cards/3023.png": "modes/independent/templates/independent/race_cards/3023.png",
+    "screens/templates/independent/race_cards/3023.png": "modes/independent/templates/independent/race_cards/3023.png",
+    "templates/independent/race_cards/3024.png": "modes/independent/templates/independent/race_cards/3024.png",
+    "screens/templates/independent/race_cards/3024.png": "modes/independent/templates/independent/race_cards/3024.png",
+    "templates/independent/race_cards/3025.png": "modes/independent/templates/independent/race_cards/3025.png",
+    "screens/templates/independent/race_cards/3025.png": "modes/independent/templates/independent/race_cards/3025.png",
+    "templates/independent/race_cards/3026.png": "modes/independent/templates/independent/race_cards/3026.png",
+    "screens/templates/independent/race_cards/3026.png": "modes/independent/templates/independent/race_cards/3026.png",
+    "templates/independent/race_cards/3027.png": "modes/independent/templates/independent/race_cards/3027.png",
+    "screens/templates/independent/race_cards/3027.png": "modes/independent/templates/independent/race_cards/3027.png",
+    "templates/independent/race_cards/3028.png": "modes/independent/templates/independent/race_cards/3028.png",
+    "screens/templates/independent/race_cards/3028.png": "modes/independent/templates/independent/race_cards/3028.png",
+    "templates/independent/race_cards/3029.png": "modes/independent/templates/independent/race_cards/3029.png",
+    "screens/templates/independent/race_cards/3029.png": "modes/independent/templates/independent/race_cards/3029.png",
+    "templates/independent/race_cards/3030.png": "modes/independent/templates/independent/race_cards/3030.png",
+    "screens/templates/independent/race_cards/3030.png": "modes/independent/templates/independent/race_cards/3030.png",
+    "templates/independent/race_cards/3031.png": "modes/independent/templates/independent/race_cards/3031.png",
+    "screens/templates/independent/race_cards/3031.png": "modes/independent/templates/independent/race_cards/3031.png",
+    "templates/independent/race_cards/3032.png": "modes/independent/templates/independent/race_cards/3032.png",
+    "screens/templates/independent/race_cards/3032.png": "modes/independent/templates/independent/race_cards/3032.png",
+    "templates/independent/race_cards/3033.png": "modes/independent/templates/independent/race_cards/3033.png",
+    "screens/templates/independent/race_cards/3033.png": "modes/independent/templates/independent/race_cards/3033.png",
+    "templates/independent/race_cards/3034.png": "modes/independent/templates/independent/race_cards/3034.png",
+    "screens/templates/independent/race_cards/3034.png": "modes/independent/templates/independent/race_cards/3034.png",
+    "templates/independent/race_cards/3035.png": "modes/independent/templates/independent/race_cards/3035.png",
+    "screens/templates/independent/race_cards/3035.png": "modes/independent/templates/independent/race_cards/3035.png",
+    "templates/independent/race_cards/3036.png": "modes/independent/templates/independent/race_cards/3036.png",
+    "screens/templates/independent/race_cards/3036.png": "modes/independent/templates/independent/race_cards/3036.png",
+    "templates/independent/race_cards/3037.png": "modes/independent/templates/independent/race_cards/3037.png",
+    "screens/templates/independent/race_cards/3037.png": "modes/independent/templates/independent/race_cards/3037.png",
+    "templates/independent/race_cards/3038.png": "modes/independent/templates/independent/race_cards/3038.png",
+    "screens/templates/independent/race_cards/3038.png": "modes/independent/templates/independent/race_cards/3038.png",
+    "templates/independent/race_cards/3039.png": "modes/independent/templates/independent/race_cards/3039.png",
+    "screens/templates/independent/race_cards/3039.png": "modes/independent/templates/independent/race_cards/3039.png",
+    "templates/independent/race_cards/3040.png": "modes/independent/templates/independent/race_cards/3040.png",
+    "screens/templates/independent/race_cards/3040.png": "modes/independent/templates/independent/race_cards/3040.png",
+    "templates/independent/race_cards/3041.png": "modes/independent/templates/independent/race_cards/3041.png",
+    "screens/templates/independent/race_cards/3041.png": "modes/independent/templates/independent/race_cards/3041.png",
+    "templates/independent/race_cards/3042.png": "modes/independent/templates/independent/race_cards/3042.png",
+    "screens/templates/independent/race_cards/3042.png": "modes/independent/templates/independent/race_cards/3042.png",
+    "templates/independent/race_cards/3043.png": "modes/independent/templates/independent/race_cards/3043.png",
+    "screens/templates/independent/race_cards/3043.png": "modes/independent/templates/independent/race_cards/3043.png",
+    "templates/independent/race_cards/3044.png": "modes/independent/templates/independent/race_cards/3044.png",
+    "screens/templates/independent/race_cards/3044.png": "modes/independent/templates/independent/race_cards/3044.png",
+    "templates/independent/race_cards/3045.png": "modes/independent/templates/independent/race_cards/3045.png",
+    "screens/templates/independent/race_cards/3045.png": "modes/independent/templates/independent/race_cards/3045.png",
+    "templates/independent/race_cards/3046.png": "modes/independent/templates/independent/race_cards/3046.png",
+    "screens/templates/independent/race_cards/3046.png": "modes/independent/templates/independent/race_cards/3046.png",
+    "templates/independent/race_cards/3047.png": "modes/independent/templates/independent/race_cards/3047.png",
+    "screens/templates/independent/race_cards/3047.png": "modes/independent/templates/independent/race_cards/3047.png",
+    "templates/independent/race_cards/3048.png": "modes/independent/templates/independent/race_cards/3048.png",
+    "screens/templates/independent/race_cards/3048.png": "modes/independent/templates/independent/race_cards/3048.png",
+    "templates/independent/race_cards/3049.png": "modes/independent/templates/independent/race_cards/3049.png",
+    "screens/templates/independent/race_cards/3049.png": "modes/independent/templates/independent/race_cards/3049.png",
+    "templates/independent/race_cards/3050.png": "modes/independent/templates/independent/race_cards/3050.png",
+    "screens/templates/independent/race_cards/3050.png": "modes/independent/templates/independent/race_cards/3050.png",
+    "templates/independent/race_cards/3051.png": "modes/independent/templates/independent/race_cards/3051.png",
+    "screens/templates/independent/race_cards/3051.png": "modes/independent/templates/independent/race_cards/3051.png",
+    "templates/independent/race_cards/3052.png": "modes/independent/templates/independent/race_cards/3052.png",
+    "screens/templates/independent/race_cards/3052.png": "modes/independent/templates/independent/race_cards/3052.png",
+    "templates/independent/race_cards/3053.png": "modes/independent/templates/independent/race_cards/3053.png",
+    "screens/templates/independent/race_cards/3053.png": "modes/independent/templates/independent/race_cards/3053.png",
+    "templates/independent/race_cards/3054.png": "modes/independent/templates/independent/race_cards/3054.png",
+    "screens/templates/independent/race_cards/3054.png": "modes/independent/templates/independent/race_cards/3054.png",
+    "templates/independent/race_cards/3055.png": "modes/independent/templates/independent/race_cards/3055.png",
+    "screens/templates/independent/race_cards/3055.png": "modes/independent/templates/independent/race_cards/3055.png",
+    "templates/independent/race_cards/3056.png": "modes/independent/templates/independent/race_cards/3056.png",
+    "screens/templates/independent/race_cards/3056.png": "modes/independent/templates/independent/race_cards/3056.png",
+    "templates/independent/race_cards/3057.png": "modes/independent/templates/independent/race_cards/3057.png",
+    "screens/templates/independent/race_cards/3057.png": "modes/independent/templates/independent/race_cards/3057.png",
+    "templates/independent/race_cards/3058.png": "modes/independent/templates/independent/race_cards/3058.png",
+    "screens/templates/independent/race_cards/3058.png": "modes/independent/templates/independent/race_cards/3058.png",
+    "templates/independent/race_cards/3059.png": "modes/independent/templates/independent/race_cards/3059.png",
+    "screens/templates/independent/race_cards/3059.png": "modes/independent/templates/independent/race_cards/3059.png",
+    "templates/independent/race_cards/3060.png": "modes/independent/templates/independent/race_cards/3060.png",
+    "screens/templates/independent/race_cards/3060.png": "modes/independent/templates/independent/race_cards/3060.png",
+    "templates/independent/race_cards/3061.png": "modes/independent/templates/independent/race_cards/3061.png",
+    "screens/templates/independent/race_cards/3061.png": "modes/independent/templates/independent/race_cards/3061.png",
+    "templates/independent/race_cards/3062.png": "modes/independent/templates/independent/race_cards/3062.png",
+    "screens/templates/independent/race_cards/3062.png": "modes/independent/templates/independent/race_cards/3062.png",
+    "templates/independent/race_cards/3063.png": "modes/independent/templates/independent/race_cards/3063.png",
+    "screens/templates/independent/race_cards/3063.png": "modes/independent/templates/independent/race_cards/3063.png",
+    "templates/independent/race_cards/3064.png": "modes/independent/templates/independent/race_cards/3064.png",
+    "screens/templates/independent/race_cards/3064.png": "modes/independent/templates/independent/race_cards/3064.png",
+    "templates/independent/race_cards/3065.png": "modes/independent/templates/independent/race_cards/3065.png",
+    "screens/templates/independent/race_cards/3065.png": "modes/independent/templates/independent/race_cards/3065.png",
+    "templates/independent/race_cards/3066.png": "modes/independent/templates/independent/race_cards/3066.png",
+    "screens/templates/independent/race_cards/3066.png": "modes/independent/templates/independent/race_cards/3066.png",
+    "templates/independent/race_cards/3067.png": "modes/independent/templates/independent/race_cards/3067.png",
+    "screens/templates/independent/race_cards/3067.png": "modes/independent/templates/independent/race_cards/3067.png",
+    "templates/independent/race_cards/3068.png": "modes/independent/templates/independent/race_cards/3068.png",
+    "screens/templates/independent/race_cards/3068.png": "modes/independent/templates/independent/race_cards/3068.png",
+    "templates/independent/race_cards/3069.png": "modes/independent/templates/independent/race_cards/3069.png",
+    "screens/templates/independent/race_cards/3069.png": "modes/independent/templates/independent/race_cards/3069.png",
+    "templates/independent/race_cards/3070.png": "modes/independent/templates/independent/race_cards/3070.png",
+    "screens/templates/independent/race_cards/3070.png": "modes/independent/templates/independent/race_cards/3070.png",
+    "templates/independent/race_cards/3071.png": "modes/independent/templates/independent/race_cards/3071.png",
+    "screens/templates/independent/race_cards/3071.png": "modes/independent/templates/independent/race_cards/3071.png",
+    "templates/independent/race_cards/3072.png": "modes/independent/templates/independent/race_cards/3072.png",
+    "screens/templates/independent/race_cards/3072.png": "modes/independent/templates/independent/race_cards/3072.png",
+    "templates/independent/race_cards/3073.png": "modes/independent/templates/independent/race_cards/3073.png",
+    "screens/templates/independent/race_cards/3073.png": "modes/independent/templates/independent/race_cards/3073.png",
+    "templates/independent/race_cards/3074.png": "modes/independent/templates/independent/race_cards/3074.png",
+    "screens/templates/independent/race_cards/3074.png": "modes/independent/templates/independent/race_cards/3074.png",
+    "templates/independent/race_cards/3075.png": "modes/independent/templates/independent/race_cards/3075.png",
+    "screens/templates/independent/race_cards/3075.png": "modes/independent/templates/independent/race_cards/3075.png",
+    "templates/independent/race_cards/3076.png": "modes/independent/templates/independent/race_cards/3076.png",
+    "screens/templates/independent/race_cards/3076.png": "modes/independent/templates/independent/race_cards/3076.png",
+    "templates/independent/race_cards/3077.png": "modes/independent/templates/independent/race_cards/3077.png",
+    "screens/templates/independent/race_cards/3077.png": "modes/independent/templates/independent/race_cards/3077.png",
+    "templates/independent/race_cards/4001.png": "modes/independent/templates/independent/race_cards/4001.png",
+    "screens/templates/independent/race_cards/4001.png": "modes/independent/templates/independent/race_cards/4001.png",
+    "templates/independent/race_cards/4002.png": "modes/independent/templates/independent/race_cards/4002.png",
+    "screens/templates/independent/race_cards/4002.png": "modes/independent/templates/independent/race_cards/4002.png",
+    "templates/independent/race_cards/4003.png": "modes/independent/templates/independent/race_cards/4003.png",
+    "screens/templates/independent/race_cards/4003.png": "modes/independent/templates/independent/race_cards/4003.png",
+    "templates/independent/race_cards/4004.png": "modes/independent/templates/independent/race_cards/4004.png",
+    "screens/templates/independent/race_cards/4004.png": "modes/independent/templates/independent/race_cards/4004.png",
+    "templates/independent/race_cards/4005.png": "modes/independent/templates/independent/race_cards/4005.png",
+    "screens/templates/independent/race_cards/4005.png": "modes/independent/templates/independent/race_cards/4005.png",
+    "templates/independent/race_cards/4006.png": "modes/independent/templates/independent/race_cards/4006.png",
+    "screens/templates/independent/race_cards/4006.png": "modes/independent/templates/independent/race_cards/4006.png",
+    "templates/independent/race_cards/4007.png": "modes/independent/templates/independent/race_cards/4007.png",
+    "screens/templates/independent/race_cards/4007.png": "modes/independent/templates/independent/race_cards/4007.png",
+    "templates/independent/race_cards/4008.png": "modes/independent/templates/independent/race_cards/4008.png",
+    "screens/templates/independent/race_cards/4008.png": "modes/independent/templates/independent/race_cards/4008.png",
+    "templates/independent/race_cards/4009.png": "modes/independent/templates/independent/race_cards/4009.png",
+    "screens/templates/independent/race_cards/4009.png": "modes/independent/templates/independent/race_cards/4009.png",
+    "templates/independent/race_cards/4010.png": "modes/independent/templates/independent/race_cards/4010.png",
+    "screens/templates/independent/race_cards/4010.png": "modes/independent/templates/independent/race_cards/4010.png",
+    "templates/independent/race_cards/4011.png": "modes/independent/templates/independent/race_cards/4011.png",
+    "screens/templates/independent/race_cards/4011.png": "modes/independent/templates/independent/race_cards/4011.png",
+    "templates/independent/race_cards/4012.png": "modes/independent/templates/independent/race_cards/4012.png",
+    "screens/templates/independent/race_cards/4012.png": "modes/independent/templates/independent/race_cards/4012.png",
+    "templates/independent/race_cards/4013.png": "modes/independent/templates/independent/race_cards/4013.png",
+    "screens/templates/independent/race_cards/4013.png": "modes/independent/templates/independent/race_cards/4013.png",
+    "templates/independent/race_cards/4014.png": "modes/independent/templates/independent/race_cards/4014.png",
+    "screens/templates/independent/race_cards/4014.png": "modes/independent/templates/independent/race_cards/4014.png",
+    "templates/independent/race_cards/4015.png": "modes/independent/templates/independent/race_cards/4015.png",
+    "screens/templates/independent/race_cards/4015.png": "modes/independent/templates/independent/race_cards/4015.png",
+    "templates/independent/race_cards/4016.png": "modes/independent/templates/independent/race_cards/4016.png",
+    "screens/templates/independent/race_cards/4016.png": "modes/independent/templates/independent/race_cards/4016.png",
+    "templates/independent/race_cards/4017.png": "modes/independent/templates/independent/race_cards/4017.png",
+    "screens/templates/independent/race_cards/4017.png": "modes/independent/templates/independent/race_cards/4017.png",
+    "templates/independent/race_cards/4018.png": "modes/independent/templates/independent/race_cards/4018.png",
+    "screens/templates/independent/race_cards/4018.png": "modes/independent/templates/independent/race_cards/4018.png",
+    "templates/independent/race_cards/4019.png": "modes/independent/templates/independent/race_cards/4019.png",
+    "screens/templates/independent/race_cards/4019.png": "modes/independent/templates/independent/race_cards/4019.png",
+    "templates/independent/race_cards/4020.png": "modes/independent/templates/independent/race_cards/4020.png",
+    "screens/templates/independent/race_cards/4020.png": "modes/independent/templates/independent/race_cards/4020.png",
+    "templates/independent/race_cards/4021.png": "modes/independent/templates/independent/race_cards/4021.png",
+    "screens/templates/independent/race_cards/4021.png": "modes/independent/templates/independent/race_cards/4021.png",
+    "templates/independent/race_cards/4022.png": "modes/independent/templates/independent/race_cards/4022.png",
+    "screens/templates/independent/race_cards/4022.png": "modes/independent/templates/independent/race_cards/4022.png",
+    "templates/independent/race_cards/4023.png": "modes/independent/templates/independent/race_cards/4023.png",
+    "screens/templates/independent/race_cards/4023.png": "modes/independent/templates/independent/race_cards/4023.png",
+    "templates/independent/race_cards/4024.png": "modes/independent/templates/independent/race_cards/4024.png",
+    "screens/templates/independent/race_cards/4024.png": "modes/independent/templates/independent/race_cards/4024.png",
+    "templates/independent/race_cards/4025.png": "modes/independent/templates/independent/race_cards/4025.png",
+    "screens/templates/independent/race_cards/4025.png": "modes/independent/templates/independent/race_cards/4025.png",
+    "templates/independent/race_cards/4026.png": "modes/independent/templates/independent/race_cards/4026.png",
+    "screens/templates/independent/race_cards/4026.png": "modes/independent/templates/independent/race_cards/4026.png",
+    "templates/independent/race_cards/4027.png": "modes/independent/templates/independent/race_cards/4027.png",
+    "screens/templates/independent/race_cards/4027.png": "modes/independent/templates/independent/race_cards/4027.png",
+    "templates/independent/race_cards/4028.png": "modes/independent/templates/independent/race_cards/4028.png",
+    "screens/templates/independent/race_cards/4028.png": "modes/independent/templates/independent/race_cards/4028.png",
+    "templates/independent/race_cards/4030.png": "modes/independent/templates/independent/race_cards/4030.png",
+    "screens/templates/independent/race_cards/4030.png": "modes/independent/templates/independent/race_cards/4030.png",
+    "templates/independent/race_cards/4031.png": "modes/independent/templates/independent/race_cards/4031.png",
+    "screens/templates/independent/race_cards/4031.png": "modes/independent/templates/independent/race_cards/4031.png",
+    "templates/independent/race_cards/4032.png": "modes/independent/templates/independent/race_cards/4032.png",
+    "screens/templates/independent/race_cards/4032.png": "modes/independent/templates/independent/race_cards/4032.png",
+    "templates/independent/race_cards/4033.png": "modes/independent/templates/independent/race_cards/4033.png",
+    "screens/templates/independent/race_cards/4033.png": "modes/independent/templates/independent/race_cards/4033.png",
+    "templates/independent/race_cards/4035.png": "modes/independent/templates/independent/race_cards/4035.png",
+    "screens/templates/independent/race_cards/4035.png": "modes/independent/templates/independent/race_cards/4035.png",
+    "templates/independent/race_cards/4036.png": "modes/independent/templates/independent/race_cards/4036.png",
+    "screens/templates/independent/race_cards/4036.png": "modes/independent/templates/independent/race_cards/4036.png",
+    "templates/independent/race_cards/4037.png": "modes/independent/templates/independent/race_cards/4037.png",
+    "screens/templates/independent/race_cards/4037.png": "modes/independent/templates/independent/race_cards/4037.png",
+    "templates/independent/race_cards/4038.png": "modes/independent/templates/independent/race_cards/4038.png",
+    "screens/templates/independent/race_cards/4038.png": "modes/independent/templates/independent/race_cards/4038.png",
+    "templates/independent/race_cards/4039.png": "modes/independent/templates/independent/race_cards/4039.png",
+    "screens/templates/independent/race_cards/4039.png": "modes/independent/templates/independent/race_cards/4039.png",
+    "templates/independent/race_cards/4040.png": "modes/independent/templates/independent/race_cards/4040.png",
+    "screens/templates/independent/race_cards/4040.png": "modes/independent/templates/independent/race_cards/4040.png",
+    "templates/independent/race_cards/4041.png": "modes/independent/templates/independent/race_cards/4041.png",
+    "screens/templates/independent/race_cards/4041.png": "modes/independent/templates/independent/race_cards/4041.png",
+    "templates/independent/race_cards/4042.png": "modes/independent/templates/independent/race_cards/4042.png",
+    "screens/templates/independent/race_cards/4042.png": "modes/independent/templates/independent/race_cards/4042.png",
+    "templates/independent/race_cards/4043.png": "modes/independent/templates/independent/race_cards/4043.png",
+    "screens/templates/independent/race_cards/4043.png": "modes/independent/templates/independent/race_cards/4043.png",
+    "templates/independent/race_cards/4044.png": "modes/independent/templates/independent/race_cards/4044.png",
+    "screens/templates/independent/race_cards/4044.png": "modes/independent/templates/independent/race_cards/4044.png",
+    "templates/independent/race_cards/4045.png": "modes/independent/templates/independent/race_cards/4045.png",
+    "screens/templates/independent/race_cards/4045.png": "modes/independent/templates/independent/race_cards/4045.png",
+    "templates/independent/race_cards/4046.png": "modes/independent/templates/independent/race_cards/4046.png",
+    "screens/templates/independent/race_cards/4046.png": "modes/independent/templates/independent/race_cards/4046.png",
+    "templates/independent/race_cards/4047.png": "modes/independent/templates/independent/race_cards/4047.png",
+    "screens/templates/independent/race_cards/4047.png": "modes/independent/templates/independent/race_cards/4047.png",
+    "templates/independent/race_cards/4048.png": "modes/independent/templates/independent/race_cards/4048.png",
+    "screens/templates/independent/race_cards/4048.png": "modes/independent/templates/independent/race_cards/4048.png",
+    "templates/independent/race_cards/4049.png": "modes/independent/templates/independent/race_cards/4049.png",
+    "screens/templates/independent/race_cards/4049.png": "modes/independent/templates/independent/race_cards/4049.png",
+    "templates/independent/race_cards/4050.png": "modes/independent/templates/independent/race_cards/4050.png",
+    "screens/templates/independent/race_cards/4050.png": "modes/independent/templates/independent/race_cards/4050.png",
+    "templates/independent/race_cards/4051.png": "modes/independent/templates/independent/race_cards/4051.png",
+    "screens/templates/independent/race_cards/4051.png": "modes/independent/templates/independent/race_cards/4051.png",
+    "templates/independent/race_cards/4052.png": "modes/independent/templates/independent/race_cards/4052.png",
+    "screens/templates/independent/race_cards/4052.png": "modes/independent/templates/independent/race_cards/4052.png",
+    "templates/independent/race_cards/4053.png": "modes/independent/templates/independent/race_cards/4053.png",
+    "screens/templates/independent/race_cards/4053.png": "modes/independent/templates/independent/race_cards/4053.png",
+    "templates/independent/race_cards/4054.png": "modes/independent/templates/independent/race_cards/4054.png",
+    "screens/templates/independent/race_cards/4054.png": "modes/independent/templates/independent/race_cards/4054.png",
+    "templates/independent/race_cards/4055.png": "modes/independent/templates/independent/race_cards/4055.png",
+    "screens/templates/independent/race_cards/4055.png": "modes/independent/templates/independent/race_cards/4055.png",
+    "templates/independent/race_cards/4056.png": "modes/independent/templates/independent/race_cards/4056.png",
+    "screens/templates/independent/race_cards/4056.png": "modes/independent/templates/independent/race_cards/4056.png",
+    "templates/independent/race_cards/4057.png": "modes/independent/templates/independent/race_cards/4057.png",
+    "screens/templates/independent/race_cards/4057.png": "modes/independent/templates/independent/race_cards/4057.png",
+    "templates/independent/race_cards/4058.png": "modes/independent/templates/independent/race_cards/4058.png",
+    "screens/templates/independent/race_cards/4058.png": "modes/independent/templates/independent/race_cards/4058.png",
+    "templates/independent/race_cards/4059.png": "modes/independent/templates/independent/race_cards/4059.png",
+    "screens/templates/independent/race_cards/4059.png": "modes/independent/templates/independent/race_cards/4059.png",
+    "templates/independent/race_cards/4060.png": "modes/independent/templates/independent/race_cards/4060.png",
+    "screens/templates/independent/race_cards/4060.png": "modes/independent/templates/independent/race_cards/4060.png",
+    "templates/independent/race_cards/4061.png": "modes/independent/templates/independent/race_cards/4061.png",
+    "screens/templates/independent/race_cards/4061.png": "modes/independent/templates/independent/race_cards/4061.png",
+    "templates/independent/race_cards/4062.png": "modes/independent/templates/independent/race_cards/4062.png",
+    "screens/templates/independent/race_cards/4062.png": "modes/independent/templates/independent/race_cards/4062.png",
+    "templates/independent/race_cards/4063.png": "modes/independent/templates/independent/race_cards/4063.png",
+    "screens/templates/independent/race_cards/4063.png": "modes/independent/templates/independent/race_cards/4063.png",
+    "templates/independent/race_cards/4064.png": "modes/independent/templates/independent/race_cards/4064.png",
+    "screens/templates/independent/race_cards/4064.png": "modes/independent/templates/independent/race_cards/4064.png",
+    "templates/independent/race_cards/4065.png": "modes/independent/templates/independent/race_cards/4065.png",
+    "screens/templates/independent/race_cards/4065.png": "modes/independent/templates/independent/race_cards/4065.png",
+    "templates/independent/race_cards/4066.png": "modes/independent/templates/independent/race_cards/4066.png",
+    "screens/templates/independent/race_cards/4066.png": "modes/independent/templates/independent/race_cards/4066.png",
+    "templates/independent/race_cards/4068.png": "modes/independent/templates/independent/race_cards/4068.png",
+    "screens/templates/independent/race_cards/4068.png": "modes/independent/templates/independent/race_cards/4068.png",
+    "templates/independent/race_cards/4069.png": "modes/independent/templates/independent/race_cards/4069.png",
+    "screens/templates/independent/race_cards/4069.png": "modes/independent/templates/independent/race_cards/4069.png",
+    "templates/independent/race_cards/4070.png": "modes/independent/templates/independent/race_cards/4070.png",
+    "screens/templates/independent/race_cards/4070.png": "modes/independent/templates/independent/race_cards/4070.png",
+    "templates/independent/race_cards/4071.png": "modes/independent/templates/independent/race_cards/4071.png",
+    "screens/templates/independent/race_cards/4071.png": "modes/independent/templates/independent/race_cards/4071.png",
+    "templates/independent/race_cards/4072.png": "modes/independent/templates/independent/race_cards/4072.png",
+    "screens/templates/independent/race_cards/4072.png": "modes/independent/templates/independent/race_cards/4072.png",
+    "templates/independent/race_cards/4073.png": "modes/independent/templates/independent/race_cards/4073.png",
+    "screens/templates/independent/race_cards/4073.png": "modes/independent/templates/independent/race_cards/4073.png",
+    "templates/independent/race_cards/4074.png": "modes/independent/templates/independent/race_cards/4074.png",
+    "screens/templates/independent/race_cards/4074.png": "modes/independent/templates/independent/race_cards/4074.png",
+    "templates/independent/race_cards/4075.png": "modes/independent/templates/independent/race_cards/4075.png",
+    "screens/templates/independent/race_cards/4075.png": "modes/independent/templates/independent/race_cards/4075.png",
+    "templates/independent/race_cards/4076.png": "modes/independent/templates/independent/race_cards/4076.png",
+    "screens/templates/independent/race_cards/4076.png": "modes/independent/templates/independent/race_cards/4076.png",
+    "templates/independent/race_cards/4077.png": "modes/independent/templates/independent/race_cards/4077.png",
+    "screens/templates/independent/race_cards/4077.png": "modes/independent/templates/independent/race_cards/4077.png",
+    "templates/independent/race_cards/4079.png": "modes/independent/templates/independent/race_cards/4079.png",
+    "screens/templates/independent/race_cards/4079.png": "modes/independent/templates/independent/race_cards/4079.png",
+    "templates/independent/race_cards/4080.png": "modes/independent/templates/independent/race_cards/4080.png",
+    "screens/templates/independent/race_cards/4080.png": "modes/independent/templates/independent/race_cards/4080.png",
+    "templates/independent/race_cards/4081.png": "modes/independent/templates/independent/race_cards/4081.png",
+    "screens/templates/independent/race_cards/4081.png": "modes/independent/templates/independent/race_cards/4081.png",
+    "templates/independent/race_cards/4082.png": "modes/independent/templates/independent/race_cards/4082.png",
+    "screens/templates/independent/race_cards/4082.png": "modes/independent/templates/independent/race_cards/4082.png",
+    "templates/independent/race_cards/4083.png": "modes/independent/templates/independent/race_cards/4083.png",
+    "screens/templates/independent/race_cards/4083.png": "modes/independent/templates/independent/race_cards/4083.png",
+    "templates/independent/race_cards/4084.png": "modes/independent/templates/independent/race_cards/4084.png",
+    "screens/templates/independent/race_cards/4084.png": "modes/independent/templates/independent/race_cards/4084.png",
+    "templates/independent/race_cards/4085.png": "modes/independent/templates/independent/race_cards/4085.png",
+    "screens/templates/independent/race_cards/4085.png": "modes/independent/templates/independent/race_cards/4085.png",
+    "templates/independent/race_cards/4086.png": "modes/independent/templates/independent/race_cards/4086.png",
+    "screens/templates/independent/race_cards/4086.png": "modes/independent/templates/independent/race_cards/4086.png",
+    "templates/independent/race_cards/4087.png": "modes/independent/templates/independent/race_cards/4087.png",
+    "screens/templates/independent/race_cards/4087.png": "modes/independent/templates/independent/race_cards/4087.png",
+    "templates/independent/race_cards/4088.png": "modes/independent/templates/independent/race_cards/4088.png",
+    "screens/templates/independent/race_cards/4088.png": "modes/independent/templates/independent/race_cards/4088.png",
+    "templates/independent/race_cards/4089.png": "modes/independent/templates/independent/race_cards/4089.png",
+    "screens/templates/independent/race_cards/4089.png": "modes/independent/templates/independent/race_cards/4089.png",
+    "templates/independent/race_cards/4090.png": "modes/independent/templates/independent/race_cards/4090.png",
+    "screens/templates/independent/race_cards/4090.png": "modes/independent/templates/independent/race_cards/4090.png",
+    "templates/independent/race_cards/4091.png": "modes/independent/templates/independent/race_cards/4091.png",
+    "screens/templates/independent/race_cards/4091.png": "modes/independent/templates/independent/race_cards/4091.png",
+    "templates/independent/race_cards/4092.png": "modes/independent/templates/independent/race_cards/4092.png",
+    "screens/templates/independent/race_cards/4092.png": "modes/independent/templates/independent/race_cards/4092.png",
+    "templates/independent/race_cards/4093.png": "modes/independent/templates/independent/race_cards/4093.png",
+    "screens/templates/independent/race_cards/4093.png": "modes/independent/templates/independent/race_cards/4093.png",
+    "templates/independent/race_cards/4094.png": "modes/independent/templates/independent/race_cards/4094.png",
+    "screens/templates/independent/race_cards/4094.png": "modes/independent/templates/independent/race_cards/4094.png",
+    "templates/independent/race_cards/4095.png": "modes/independent/templates/independent/race_cards/4095.png",
+    "screens/templates/independent/race_cards/4095.png": "modes/independent/templates/independent/race_cards/4095.png",
+    "templates/independent/race_cards/4096.png": "modes/independent/templates/independent/race_cards/4096.png",
+    "screens/templates/independent/race_cards/4096.png": "modes/independent/templates/independent/race_cards/4096.png",
+    "templates/independent/race_cards/4097.png": "modes/independent/templates/independent/race_cards/4097.png",
+    "screens/templates/independent/race_cards/4097.png": "modes/independent/templates/independent/race_cards/4097.png",
+    "templates/independent/race_cards/4098.png": "modes/independent/templates/independent/race_cards/4098.png",
+    "screens/templates/independent/race_cards/4098.png": "modes/independent/templates/independent/race_cards/4098.png",
+    "templates/independent/race_cards/4099.png": "modes/independent/templates/independent/race_cards/4099.png",
+    "screens/templates/independent/race_cards/4099.png": "modes/independent/templates/independent/race_cards/4099.png",
+    "templates/independent/race_cards/4100.png": "modes/independent/templates/independent/race_cards/4100.png",
+    "screens/templates/independent/race_cards/4100.png": "modes/independent/templates/independent/race_cards/4100.png",
+    "templates/independent/race_cards/4101.png": "modes/independent/templates/independent/race_cards/4101.png",
+    "screens/templates/independent/race_cards/4101.png": "modes/independent/templates/independent/race_cards/4101.png",
+    "templates/independent/race_cards/4102.png": "modes/independent/templates/independent/race_cards/4102.png",
+    "screens/templates/independent/race_cards/4102.png": "modes/independent/templates/independent/race_cards/4102.png",
+    "templates/independent/race_cards/4103.png": "modes/independent/templates/independent/race_cards/4103.png",
+    "screens/templates/independent/race_cards/4103.png": "modes/independent/templates/independent/race_cards/4103.png",
+    "templates/independent/race_cards/4104.png": "modes/independent/templates/independent/race_cards/4104.png",
+    "screens/templates/independent/race_cards/4104.png": "modes/independent/templates/independent/race_cards/4104.png",
+    "templates/independent/race_cards/4105.png": "modes/independent/templates/independent/race_cards/4105.png",
+    "screens/templates/independent/race_cards/4105.png": "modes/independent/templates/independent/race_cards/4105.png",
+    "templates/independent/race_cards/4106.png": "modes/independent/templates/independent/race_cards/4106.png",
+    "screens/templates/independent/race_cards/4106.png": "modes/independent/templates/independent/race_cards/4106.png",
+    "templates/independent/race_cards/4107.png": "modes/independent/templates/independent/race_cards/4107.png",
+    "screens/templates/independent/race_cards/4107.png": "modes/independent/templates/independent/race_cards/4107.png",
+    "templates/independent/race_cards/4108.png": "modes/independent/templates/independent/race_cards/4108.png",
+    "screens/templates/independent/race_cards/4108.png": "modes/independent/templates/independent/race_cards/4108.png",
+    "templates/independent/race_cards/4109.png": "modes/independent/templates/independent/race_cards/4109.png",
+    "screens/templates/independent/race_cards/4109.png": "modes/independent/templates/independent/race_cards/4109.png",
+    "templates/independent/race_cards/4110.png": "modes/independent/templates/independent/race_cards/4110.png",
+    "screens/templates/independent/race_cards/4110.png": "modes/independent/templates/independent/race_cards/4110.png",
+    "templates/independent/race_cards/4111.png": "modes/independent/templates/independent/race_cards/4111.png",
+    "screens/templates/independent/race_cards/4111.png": "modes/independent/templates/independent/race_cards/4111.png",
+    "templates/independent/race_cards/4112.png": "modes/independent/templates/independent/race_cards/4112.png",
+    "screens/templates/independent/race_cards/4112.png": "modes/independent/templates/independent/race_cards/4112.png",
+    "templates/independent/race_cards/4113.png": "modes/independent/templates/independent/race_cards/4113.png",
+    "screens/templates/independent/race_cards/4113.png": "modes/independent/templates/independent/race_cards/4113.png",
+    "templates/independent/race_cards/4114.png": "modes/independent/templates/independent/race_cards/4114.png",
+    "screens/templates/independent/race_cards/4114.png": "modes/independent/templates/independent/race_cards/4114.png",
+    "templates/independent/race_cards/4115.png": "modes/independent/templates/independent/race_cards/4115.png",
+    "screens/templates/independent/race_cards/4115.png": "modes/independent/templates/independent/race_cards/4115.png",
+    "templates/independent/race_cards/4116.png": "modes/independent/templates/independent/race_cards/4116.png",
+    "screens/templates/independent/race_cards/4116.png": "modes/independent/templates/independent/race_cards/4116.png",
+    "templates/independent/race_cards/4118.png": "modes/independent/templates/independent/race_cards/4118.png",
+    "screens/templates/independent/race_cards/4118.png": "modes/independent/templates/independent/race_cards/4118.png",
+    "templates/independent/race_cards/4119.png": "modes/independent/templates/independent/race_cards/4119.png",
+    "screens/templates/independent/race_cards/4119.png": "modes/independent/templates/independent/race_cards/4119.png",
+    "templates/independent/race_cards/4120.png": "modes/independent/templates/independent/race_cards/4120.png",
+    "screens/templates/independent/race_cards/4120.png": "modes/independent/templates/independent/race_cards/4120.png",
+    "templates/independent/race_cards/4121.png": "modes/independent/templates/independent/race_cards/4121.png",
+    "screens/templates/independent/race_cards/4121.png": "modes/independent/templates/independent/race_cards/4121.png",
+    "templates/independent/race_cards/4122.png": "modes/independent/templates/independent/race_cards/4122.png",
+    "screens/templates/independent/race_cards/4122.png": "modes/independent/templates/independent/race_cards/4122.png",
+    "templates/independent/race_cards/4123.png": "modes/independent/templates/independent/race_cards/4123.png",
+    "screens/templates/independent/race_cards/4123.png": "modes/independent/templates/independent/race_cards/4123.png",
+    "templates/independent/race_cards/4124.png": "modes/independent/templates/independent/race_cards/4124.png",
+    "screens/templates/independent/race_cards/4124.png": "modes/independent/templates/independent/race_cards/4124.png",
+    "templates/legacy/legacy1_cached_record.png": "entry/templates/legacy/legacy1_cached_record.png",
+    "screens/templates/legacy/legacy1_cached_record.png": "entry/templates/legacy/legacy1_cached_record.png",
+    "templates/legacy/legacy1_slot.png": "entry/templates/legacy/legacy1_slot.png",
+    "screens/templates/legacy/legacy1_slot.png": "entry/templates/legacy/legacy1_slot.png",
+    "templates/legacy/legacy2_cached_record.png": "entry/templates/legacy/legacy2_cached_record.png",
+    "screens/templates/legacy/legacy2_cached_record.png": "entry/templates/legacy/legacy2_cached_record.png",
+    "templates/legacy/legacy2_slot.png": "entry/templates/legacy/legacy2_slot.png",
+    "screens/templates/legacy/legacy2_slot.png": "entry/templates/legacy/legacy2_slot.png",
+    "templates/legacy/legacy_auto_select.png": "entry/templates/legacy/legacy_auto_select.png",
+    "screens/templates/legacy/legacy_auto_select.png": "entry/templates/legacy/legacy_auto_select.png",
+    "templates/legacy/legacy_auto_select_include_guests.png": "entry/templates/legacy/legacy_auto_select_include_guests.png",
+    "screens/templates/legacy/legacy_auto_select_include_guests.png": "entry/templates/legacy/legacy_auto_select_include_guests.png",
+    "templates/legacy/legacy_auto_select_include_guests_on.png": "entry/templates/legacy/legacy_auto_select_include_guests_on.png",
+    "screens/templates/legacy/legacy_auto_select_include_guests_on.png": "entry/templates/legacy/legacy_auto_select_include_guests_on.png",
+    "templates/legacy/legacy_auto_select_ok.png": "entry/templates/legacy/legacy_auto_select_ok.png",
+    "screens/templates/legacy/legacy_auto_select_ok.png": "entry/templates/legacy/legacy_auto_select_ok.png",
+    "templates/legacy/legacy_confirm_selection.png": "entry/templates/legacy/legacy_confirm_selection.png",
+    "screens/templates/legacy/legacy_confirm_selection.png": "entry/templates/legacy/legacy_confirm_selection.png",
+    "templates/legacy/legacy_display_button.png": "entry/templates/legacy/legacy_display_button.png",
+    "screens/templates/legacy/legacy_display_button.png": "entry/templates/legacy/legacy_display_button.png",
+    "templates/legacy/legacy_display_filter_tab.png": "entry/templates/legacy/legacy_display_filter_tab.png",
+    "screens/templates/legacy/legacy_display_filter_tab.png": "entry/templates/legacy/legacy_display_filter_tab.png",
+    "templates/legacy/legacy_display_sparks.png": "entry/templates/legacy/legacy_display_sparks.png",
+    "screens/templates/legacy/legacy_display_sparks.png": "entry/templates/legacy/legacy_display_sparks.png",
+    "templates/legacy/legacy_filter_ok.png": "entry/templates/legacy/legacy_filter_ok.png",
+    "screens/templates/legacy/legacy_filter_ok.png": "entry/templates/legacy/legacy_filter_ok.png",
+    "templates/legacy/legacy_filter_reset.png": "entry/templates/legacy/legacy_filter_reset.png",
+    "screens/templates/legacy/legacy_filter_reset.png": "entry/templates/legacy/legacy_filter_reset.png",
+    "templates/legacy/legacy_guests_tab.png": "entry/templates/legacy/legacy_guests_tab.png",
+    "screens/templates/legacy/legacy_guests_tab.png": "entry/templates/legacy/legacy_guests_tab.png",
+    "templates/legacy/legacy_next_enabled.png": "entry/templates/legacy/legacy_next_enabled.png",
+    "screens/templates/legacy/legacy_next_enabled.png": "entry/templates/legacy/legacy_next_enabled.png",
+    "templates/legacy/legacy_select_header.png": "entry/templates/legacy/legacy_select_header.png",
+    "screens/templates/legacy/legacy_select_header.png": "entry/templates/legacy/legacy_select_header.png",
+    "templates/legacy/legacy_select_header_cropped.png": "entry/templates/legacy/legacy_select_header_cropped.png",
+    "screens/templates/legacy/legacy_select_header_cropped.png": "entry/templates/legacy/legacy_select_header_cropped.png",
+    "templates/legacy/legacy_sort_asc.png": "entry/templates/legacy/legacy_sort_asc.png",
+    "screens/templates/legacy/legacy_sort_asc.png": "entry/templates/legacy/legacy_sort_asc.png",
+    "templates/legacy/legacy_sort_desc.png": "entry/templates/legacy/legacy_sort_desc.png",
+    "screens/templates/legacy/legacy_sort_desc.png": "entry/templates/legacy/legacy_sort_desc.png",
+    "templates/legacy/legacy_trainee_badge.png": "entry/templates/legacy/legacy_trainee_badge.png",
+    "screens/templates/legacy/legacy_trainee_badge.png": "entry/templates/legacy/legacy_trainee_badge.png",
+    "templates/legacy/legacy_view_sparks_off.png": "entry/templates/legacy/legacy_view_sparks_off.png",
+    "screens/templates/legacy/legacy_view_sparks_off.png": "entry/templates/legacy/legacy_view_sparks_off.png",
+    "templates/legacy/legacy_view_sparks_on.png": "entry/templates/legacy/legacy_view_sparks_on.png",
+    "screens/templates/legacy/legacy_view_sparks_on.png": "entry/templates/legacy/legacy_view_sparks_on.png",
+    "templates/normal/deck_title.png": "modes/normal/templates/normal/deck_title.png",
+    "screens/templates/normal/deck_title.png": "modes/normal/templates/normal/deck_title.png",
+    "templates/normal/legacy1_title.png": "modes/normal/templates/normal/legacy1_title.png",
+    "screens/templates/normal/legacy1_title.png": "modes/normal/templates/normal/legacy1_title.png",
+    "templates/normal/mode_normal_selected.png": "modes/normal/templates/normal/mode_normal_selected.png",
+    "screens/templates/normal/mode_normal_selected.png": "modes/normal/templates/normal/mode_normal_selected.png",
+    "templates/normal/quick_mode_confirm.png": "modes/normal/templates/normal/quick_mode_confirm.png",
+    "screens/templates/normal/quick_mode_confirm.png": "modes/normal/templates/normal/quick_mode_confirm.png",
+    "templates/normal/quick_mode_header.png": "modes/normal/templates/normal/quick_mode_header.png",
+    "screens/templates/normal/quick_mode_header.png": "modes/normal/templates/normal/quick_mode_header.png",
+    "templates/normal/quick_mode_shorten_selected.png": "modes/normal/templates/normal/quick_mode_shorten_selected.png",
+    "screens/templates/normal/quick_mode_shorten_selected.png": "modes/normal/templates/normal/quick_mode_shorten_selected.png",
+    "templates/normal/quick_mode_shorten_unselected.png": "modes/normal/templates/normal/quick_mode_shorten_unselected.png",
+    "screens/templates/normal/quick_mode_shorten_unselected.png": "modes/normal/templates/normal/quick_mode_shorten_unselected.png",
+    "templates/normal/quick_mode_skip_off.png": "modes/normal/templates/normal/quick_mode_skip_off.png",
+    "screens/templates/normal/quick_mode_skip_off.png": "modes/normal/templates/normal/quick_mode_skip_off.png",
+    "templates/normal/quick_mode_skip_one.png": "modes/normal/templates/normal/quick_mode_skip_one.png",
+    "screens/templates/normal/quick_mode_skip_one.png": "modes/normal/templates/normal/quick_mode_skip_one.png",
+    "templates/normal/quick_mode_skip_two.png": "modes/normal/templates/normal/quick_mode_skip_two.png",
+    "screens/templates/normal/quick_mode_skip_two.png": "modes/normal/templates/normal/quick_mode_skip_two.png",
+    "templates/normal/scenario_record_header.png": "modes/normal/templates/normal/scenario_record_header.png",
+    "screens/templates/normal/scenario_record_header.png": "modes/normal/templates/normal/scenario_record_header.png",
+    "templates/normal/strategy_change.png": "modes/normal/templates/normal/strategy_change.png",
+    "screens/templates/normal/strategy_change.png": "modes/normal/templates/normal/strategy_change.png",
+    "templates/normal/trainee_select_career_info.png": "modes/normal/templates/normal/trainee_select_career_info.png",
+    "screens/templates/normal/trainee_select_career_info.png": "modes/normal/templates/normal/trainee_select_career_info.png",
+    "templates/runtime_frames/career_intro_event_skip_ura.png": "race/templates/runtime_frames/career_intro_event_skip_ura.png",
+    "screens/templates/runtime_frames/career_intro_event_skip_ura.png": "race/templates/runtime_frames/career_intro_event_skip_ura.png",
+    "templates/runtime_frames/career_intro_event_ura.png": "race/templates/runtime_frames/career_intro_event_ura.png",
+    "screens/templates/runtime_frames/career_intro_event_ura.png": "race/templates/runtime_frames/career_intro_event_ura.png",
+    "templates/runtime_frames/classic_milech_race_day_final.png": "race/templates/runtime_frames/classic_milech_race_day_final.png",
+    "screens/templates/runtime_frames/classic_milech_race_day_final.png": "race/templates/runtime_frames/classic_milech_race_day_final.png",
+    "templates/runtime_frames/fan_goal_race_list_header.png": "race/templates/runtime_frames/fan_goal_race_list_header.png",
+    "screens/templates/runtime_frames/fan_goal_race_list_header.png": "race/templates/runtime_frames/fan_goal_race_list_header.png",
+    "templates/runtime_frames/goal2_main_ready.png": "race/templates/runtime_frames/goal2_main_ready.png",
+    "screens/templates/runtime_frames/goal2_main_ready.png": "race/templates/runtime_frames/goal2_main_ready.png",
+    "templates/runtime_frames/goal2_main_start.png": "race/templates/runtime_frames/goal2_main_start.png",
+    "screens/templates/runtime_frames/goal2_main_start.png": "race/templates/runtime_frames/goal2_main_start.png",
+    "templates/runtime_frames/goal3_main_start.png": "race/templates/runtime_frames/goal3_main_start.png",
+    "screens/templates/runtime_frames/goal3_main_start.png": "race/templates/runtime_frames/goal3_main_start.png",
+    "templates/runtime_frames/intro_tazuna_ura.png": "race/templates/runtime_frames/intro_tazuna_ura.png",
+    "screens/templates/runtime_frames/intro_tazuna_ura.png": "race/templates/runtime_frames/intro_tazuna_ura.png",
+    "templates/runtime_frames/race_day_race_button_text.png": "race/templates/runtime_frames/race_day_race_button_text.png",
+    "screens/templates/runtime_frames/race_day_race_button_text.png": "race/templates/runtime_frames/race_day_race_button_text.png",
+    "templates/runtime_frames/rest_confirmation_dialog.png": "race/templates/runtime_frames/rest_confirmation_dialog.png",
+    "screens/templates/runtime_frames/rest_confirmation_dialog.png": "race/templates/runtime_frames/rest_confirmation_dialog.png",
+    "templates/runtime_frames/scenario_select_ura.png": "race/templates/runtime_frames/scenario_select_ura.png",
+    "screens/templates/runtime_frames/scenario_select_ura.png": "race/templates/runtime_frames/scenario_select_ura.png",
+    "templates/runtime_frames/senior_arima_race_live.png": "race/templates/runtime_frames/senior_arima_race_live.png",
+    "screens/templates/runtime_frames/senior_arima_race_live.png": "race/templates/runtime_frames/senior_arima_race_live.png",
+    "templates/runtime_frames/senior_arima_result.png": "race/templates/runtime_frames/senior_arima_result.png",
+    "screens/templates/runtime_frames/senior_arima_result.png": "race/templates/runtime_frames/senior_arima_result.png",
+    "templates/runtime_frames/senior_arima_reward.png": "race/templates/runtime_frames/senior_arima_reward.png",
+    "screens/templates/runtime_frames/senior_arima_reward.png": "race/templates/runtime_frames/senior_arima_reward.png",
+    "templates/runtime_frames/senior_year_main_ready.png": "race/templates/runtime_frames/senior_year_main_ready.png",
+    "screens/templates/runtime_frames/senior_year_main_ready.png": "race/templates/runtime_frames/senior_year_main_ready.png",
+    "templates/runtime_frames/support_event_result_ura.png": "race/templates/runtime_frames/support_event_result_ura.png",
+    "screens/templates/runtime_frames/support_event_result_ura.png": "race/templates/runtime_frames/support_event_result_ura.png",
+    "templates/runtime_frames/trainee_event_result_ura.png": "race/templates/runtime_frames/trainee_event_result_ura.png",
+    "screens/templates/runtime_frames/trainee_event_result_ura.png": "race/templates/runtime_frames/trainee_event_result_ura.png",
+    "templates/runtime_frames/training_duel_result_ura.png": "race/templates/runtime_frames/training_duel_result_ura.png",
+    "screens/templates/runtime_frames/training_duel_result_ura.png": "race/templates/runtime_frames/training_duel_result_ura.png",
+    "templates/runtime_frames/training_event_ura.png": "race/templates/runtime_frames/training_event_ura.png",
+    "screens/templates/runtime_frames/training_event_ura.png": "race/templates/runtime_frames/training_event_ura.png",
+    "templates/runtime_frames/training_partner_result_ura.png": "race/templates/runtime_frames/training_partner_result_ura.png",
+    "screens/templates/runtime_frames/training_partner_result_ura.png": "race/templates/runtime_frames/training_partner_result_ura.png",
+    "templates/runtime_frames/training_result_ura.png": "race/templates/runtime_frames/training_result_ura.png",
+    "screens/templates/runtime_frames/training_result_ura.png": "race/templates/runtime_frames/training_result_ura.png",
+    "templates/runtime_frames/training_turn2_result_ura.png": "race/templates/runtime_frames/training_turn2_result_ura.png",
+    "screens/templates/runtime_frames/training_turn2_result_ura.png": "race/templates/runtime_frames/training_turn2_result_ura.png",
+    "templates/runtime_frames/ura_career_rank_next.png": "race/templates/runtime_frames/ura_career_rank_next.png",
+    "screens/templates/runtime_frames/ura_career_rank_next.png": "race/templates/runtime_frames/ura_career_rank_next.png",
+    "templates/runtime_frames/ura_finale_after_goal_next.png": "race/templates/runtime_frames/ura_finale_after_goal_next.png",
+    "screens/templates/runtime_frames/ura_finale_after_goal_next.png": "race/templates/runtime_frames/ura_finale_after_goal_next.png",
+    "templates/runtime_frames/ura_finale_entry.png": "race/templates/runtime_frames/ura_finale_entry.png",
+    "screens/templates/runtime_frames/ura_finale_entry.png": "race/templates/runtime_frames/ura_finale_entry.png",
+    "templates/runtime_frames/ura_finale_main_ready.png": "race/templates/runtime_frames/ura_finale_main_ready.png",
+    "screens/templates/runtime_frames/ura_finale_main_ready.png": "race/templates/runtime_frames/ura_finale_main_ready.png",
+    "templates/runtime_frames/ura_final_attributes.png": "race/templates/runtime_frames/ura_final_attributes.png",
+    "screens/templates/runtime_frames/ura_final_attributes.png": "race/templates/runtime_frames/ura_final_attributes.png",
+    "templates/runtime_frames/ura_final_attributes2.png": "race/templates/runtime_frames/ura_final_attributes2.png",
+    "screens/templates/runtime_frames/ura_final_attributes2.png": "race/templates/runtime_frames/ura_final_attributes2.png",
+    "templates/runtime_frames/ura_final_finish.png": "race/templates/runtime_frames/ura_final_finish.png",
+    "screens/templates/runtime_frames/ura_final_finish.png": "race/templates/runtime_frames/ura_final_finish.png",
+    "templates/runtime_frames/ura_final_race_day.png": "race/templates/runtime_frames/ura_final_race_day.png",
+    "screens/templates/runtime_frames/ura_final_race_day.png": "race/templates/runtime_frames/ura_final_race_day.png",
+    "templates/runtime_frames/ura_final_race_live.png": "race/templates/runtime_frames/ura_final_race_live.png",
+    "screens/templates/runtime_frames/ura_final_race_live.png": "race/templates/runtime_frames/ura_final_race_live.png",
+    "templates/runtime_frames/ura_final_reward.png": "race/templates/runtime_frames/ura_final_reward.png",
+    "screens/templates/runtime_frames/ura_final_reward.png": "race/templates/runtime_frames/ura_final_reward.png",
+    "templates/runtime_frames/ura_final_runner_ready2.png": "race/templates/runtime_frames/ura_final_runner_ready2.png",
+    "screens/templates/runtime_frames/ura_final_runner_ready2.png": "race/templates/runtime_frames/ura_final_runner_ready2.png",
+    "templates/runtime_frames/ura_late_oct_goal_ready.png": "race/templates/runtime_frames/ura_late_oct_goal_ready.png",
+    "screens/templates/runtime_frames/ura_late_oct_goal_ready.png": "race/templates/runtime_frames/ura_late_oct_goal_ready.png",
+    "templates/runtime_frames/ura_post_finish_loaded.png": "race/templates/runtime_frames/ura_post_finish_loaded.png",
+    "screens/templates/runtime_frames/ura_post_finish_loaded.png": "race/templates/runtime_frames/ura_post_finish_loaded.png",
+    "templates/runtime_frames/ura_prelim_attributes.png": "race/templates/runtime_frames/ura_prelim_attributes.png",
+    "screens/templates/runtime_frames/ura_prelim_attributes.png": "race/templates/runtime_frames/ura_prelim_attributes.png",
+    "templates/runtime_frames/ura_prelim_attributes2.png": "race/templates/runtime_frames/ura_prelim_attributes2.png",
+    "screens/templates/runtime_frames/ura_prelim_attributes2.png": "race/templates/runtime_frames/ura_prelim_attributes2.png",
+    "templates/runtime_frames/ura_prelim_finish.png": "race/templates/runtime_frames/ura_prelim_finish.png",
+    "screens/templates/runtime_frames/ura_prelim_finish.png": "race/templates/runtime_frames/ura_prelim_finish.png",
+    "templates/runtime_frames/ura_prelim_playback_ready.png": "race/templates/runtime_frames/ura_prelim_playback_ready.png",
+    "screens/templates/runtime_frames/ura_prelim_playback_ready.png": "race/templates/runtime_frames/ura_prelim_playback_ready.png",
+    "templates/runtime_frames/ura_prelim_races_active.png": "race/templates/runtime_frames/ura_prelim_races_active.png",
+    "screens/templates/runtime_frames/ura_prelim_races_active.png": "race/templates/runtime_frames/ura_prelim_races_active.png",
+    "templates/runtime_frames/ura_prelim_race_day.png": "race/templates/runtime_frames/ura_prelim_race_day.png",
+    "screens/templates/runtime_frames/ura_prelim_race_day.png": "race/templates/runtime_frames/ura_prelim_race_day.png",
+    "templates/runtime_frames/ura_prelim_result_or_live.png": "race/templates/runtime_frames/ura_prelim_result_or_live.png",
+    "screens/templates/runtime_frames/ura_prelim_result_or_live.png": "race/templates/runtime_frames/ura_prelim_result_or_live.png",
+    "templates/runtime_frames/ura_prelim_reward.png": "race/templates/runtime_frames/ura_prelim_reward.png",
+    "screens/templates/runtime_frames/ura_prelim_reward.png": "race/templates/runtime_frames/ura_prelim_reward.png",
+    "templates/runtime_frames/ura_prelim_runner_ready.png": "race/templates/runtime_frames/ura_prelim_runner_ready.png",
+    "screens/templates/runtime_frames/ura_prelim_runner_ready.png": "race/templates/runtime_frames/ura_prelim_runner_ready.png",
+    "templates/runtime_frames/ura_prelim_runner_ready2.png": "race/templates/runtime_frames/ura_prelim_runner_ready2.png",
+    "screens/templates/runtime_frames/ura_prelim_runner_ready2.png": "race/templates/runtime_frames/ura_prelim_runner_ready2.png",
+    "templates/runtime_frames/ura_rewards_support_loaded.png": "race/templates/runtime_frames/ura_rewards_support_loaded.png",
+    "screens/templates/runtime_frames/ura_rewards_support_loaded.png": "race/templates/runtime_frames/ura_rewards_support_loaded.png",
+    "templates/runtime_frames/ura_semifinal_attributes.png": "race/templates/runtime_frames/ura_semifinal_attributes.png",
+    "screens/templates/runtime_frames/ura_semifinal_attributes.png": "race/templates/runtime_frames/ura_semifinal_attributes.png",
+    "templates/runtime_frames/ura_semifinal_finish.png": "race/templates/runtime_frames/ura_semifinal_finish.png",
+    "screens/templates/runtime_frames/ura_semifinal_finish.png": "race/templates/runtime_frames/ura_semifinal_finish.png",
+    "templates/runtime_frames/ura_semifinal_race_live.png": "race/templates/runtime_frames/ura_semifinal_race_live.png",
+    "screens/templates/runtime_frames/ura_semifinal_race_live.png": "race/templates/runtime_frames/ura_semifinal_race_live.png",
+    "templates/runtime_frames/ura_semifinal_result.png": "race/templates/runtime_frames/ura_semifinal_result.png",
+    "screens/templates/runtime_frames/ura_semifinal_result.png": "race/templates/runtime_frames/ura_semifinal_result.png",
+    "templates/runtime_frames/ura_semifinal_reward.png": "race/templates/runtime_frames/ura_semifinal_reward.png",
+    "screens/templates/runtime_frames/ura_semifinal_reward.png": "race/templates/runtime_frames/ura_semifinal_reward.png",
+    "templates/runtime_frames/ura_semifinal_runner_ready.png": "race/templates/runtime_frames/ura_semifinal_runner_ready.png",
+    "screens/templates/runtime_frames/ura_semifinal_runner_ready.png": "race/templates/runtime_frames/ura_semifinal_runner_ready.png",
+    "templates/runtime_frames/ura_semifinal_runner_ready2.png": "race/templates/runtime_frames/ura_semifinal_runner_ready2.png",
+    "screens/templates/runtime_frames/ura_semifinal_runner_ready2.png": "race/templates/runtime_frames/ura_semifinal_runner_ready2.png",
+    "templates/runtime_frames/ura_sparks_confirmed.png": "race/templates/runtime_frames/ura_sparks_confirmed.png",
+    "screens/templates/runtime_frames/ura_sparks_confirmed.png": "race/templates/runtime_frames/ura_sparks_confirmed.png",
+    "templates/runtime_frames/year2_nhk_race_day.png": "race/templates/runtime_frames/year2_nhk_race_day.png",
+    "screens/templates/runtime_frames/year2_nhk_race_day.png": "race/templates/runtime_frames/year2_nhk_race_day.png",
+    "templates/support/display_settings.png": "entry/templates/support/display_settings.png",
+    "screens/templates/support/display_settings.png": "entry/templates/support/display_settings.png",
+    "templates/support/display_settings_icon.png": "entry/templates/support/display_settings_icon.png",
+    "screens/templates/support/display_settings_icon.png": "entry/templates/support/display_settings_icon.png",
+    "templates/support/display_settings_uncap.png": "entry/templates/support/display_settings_uncap.png",
+    "screens/templates/support/display_settings_uncap.png": "entry/templates/support/display_settings_uncap.png",
+    "templates/support/filter_apply.png": "entry/templates/support/filter_apply.png",
+    "screens/templates/support/filter_apply.png": "entry/templates/support/filter_apply.png",
+    "templates/support/filter_friend.png": "entry/templates/support/filter_friend.png",
+    "screens/templates/support/filter_friend.png": "entry/templates/support/filter_friend.png",
+    "templates/support/filter_guts.png": "entry/templates/support/filter_guts.png",
+    "screens/templates/support/filter_guts.png": "entry/templates/support/filter_guts.png",
+    "templates/support/filter_power.png": "entry/templates/support/filter_power.png",
+    "screens/templates/support/filter_power.png": "entry/templates/support/filter_power.png",
+    "templates/support/filter_r.png": "entry/templates/support/filter_r.png",
+    "screens/templates/support/filter_r.png": "entry/templates/support/filter_r.png",
+    "templates/support/filter_reset.png": "entry/templates/support/filter_reset.png",
+    "screens/templates/support/filter_reset.png": "entry/templates/support/filter_reset.png",
+    "templates/support/filter_speed.png": "entry/templates/support/filter_speed.png",
+    "screens/templates/support/filter_speed.png": "entry/templates/support/filter_speed.png",
+    "templates/support/filter_sr.png": "entry/templates/support/filter_sr.png",
+    "screens/templates/support/filter_sr.png": "entry/templates/support/filter_sr.png",
+    "templates/support/filter_ssr.png": "entry/templates/support/filter_ssr.png",
+    "screens/templates/support/filter_ssr.png": "entry/templates/support/filter_ssr.png",
+    "templates/support/filter_stamina.png": "entry/templates/support/filter_stamina.png",
+    "screens/templates/support/filter_stamina.png": "entry/templates/support/filter_stamina.png",
+    "templates/support/filter_tab.png": "entry/templates/support/filter_tab.png",
+    "screens/templates/support/filter_tab.png": "entry/templates/support/filter_tab.png",
+    "templates/support/filter_wit.png": "entry/templates/support/filter_wit.png",
+    "screens/templates/support/filter_wit.png": "entry/templates/support/filter_wit.png",
+    "templates/support/selected.png": "entry/templates/support/selected.png",
+    "screens/templates/support/selected.png": "entry/templates/support/selected.png",
+    "templates/support/sort_apply.png": "entry/templates/support/sort_apply.png",
+    "screens/templates/support/sort_apply.png": "entry/templates/support/sort_apply.png",
+    "templates/support/sort_asc_live.png": "entry/templates/support/sort_asc_live.png",
+    "screens/templates/support/sort_asc_live.png": "entry/templates/support/sort_asc_live.png",
+    "templates/support/sort_level_friend_live.png": "entry/templates/support/sort_level_friend_live.png",
+    "screens/templates/support/sort_level_friend_live.png": "entry/templates/support/sort_level_friend_live.png",
+    "templates/support/sort_level_friend_selected.png": "entry/templates/support/sort_level_friend_selected.png",
+    "screens/templates/support/sort_level_friend_selected.png": "entry/templates/support/sort_level_friend_selected.png",
+    "templates/support/sort_level_live.png": "entry/templates/support/sort_level_live.png",
+    "screens/templates/support/sort_level_live.png": "entry/templates/support/sort_level_live.png",
+    "templates/support/sort_level_selected.png": "entry/templates/support/sort_level_selected.png",
+    "screens/templates/support/sort_level_selected.png": "entry/templates/support/sort_level_selected.png",
+    "templates/support/support_close.png": "entry/templates/support/support_close.png",
+    "screens/templates/support/support_close.png": "entry/templates/support/support_close.png",
+    "templates/support/support_open.png": "entry/templates/support/support_open.png",
+    "screens/templates/support/support_open.png": "entry/templates/support/support_open.png",
+    "templates/support_cards/30028.png": "entry/templates/support_cards/30028.png",
+    "screens/templates/support_cards/30028.png": "entry/templates/support_cards/30028.png",
+    "templates/support_cards/friend_type_friend.png": "entry/templates/support_cards/friend_type_friend.png",
+    "screens/templates/support_cards/friend_type_friend.png": "entry/templates/support_cards/friend_type_friend.png",
+    "templates/support_cards/friend_type_guts.png": "entry/templates/support_cards/friend_type_guts.png",
+    "screens/templates/support_cards/friend_type_guts.png": "entry/templates/support_cards/friend_type_guts.png",
+    "templates/support_cards/friend_type_power.png": "entry/templates/support_cards/friend_type_power.png",
+    "screens/templates/support_cards/friend_type_power.png": "entry/templates/support_cards/friend_type_power.png",
+    "templates/support_cards/friend_type_speed.png": "entry/templates/support_cards/friend_type_speed.png",
+    "screens/templates/support_cards/friend_type_speed.png": "entry/templates/support_cards/friend_type_speed.png",
+    "templates/support_cards/friend_type_stamina.png": "entry/templates/support_cards/friend_type_stamina.png",
+    "screens/templates/support_cards/friend_type_stamina.png": "entry/templates/support_cards/friend_type_stamina.png",
+    "templates/support_cards/friend_type_wit.png": "entry/templates/support_cards/friend_type_wit.png",
+    "screens/templates/support_cards/friend_type_wit.png": "entry/templates/support_cards/friend_type_wit.png",
+    "templates/support_cards/r_badge.png": "entry/templates/support_cards/r_badge.png",
+    "screens/templates/support_cards/r_badge.png": "entry/templates/support_cards/r_badge.png",
+    "templates/support_cards/sort_asc.png": "entry/templates/support_cards/sort_asc.png",
+    "screens/templates/support_cards/sort_asc.png": "entry/templates/support_cards/sort_asc.png",
+    "templates/support_cards/sort_desc.png": "entry/templates/support_cards/sort_desc.png",
+    "screens/templates/support_cards/sort_desc.png": "entry/templates/support_cards/sort_desc.png",
+    "templates/support_cards/sr_badge.png": "entry/templates/support_cards/sr_badge.png",
+    "screens/templates/support_cards/sr_badge.png": "entry/templates/support_cards/sr_badge.png",
+    "templates/support_cards/ssr_badge.png": "entry/templates/support_cards/ssr_badge.png",
+    "screens/templates/support_cards/ssr_badge.png": "entry/templates/support_cards/ssr_badge.png",
+    "templates/support_cards/type_friend.png": "entry/templates/support_cards/type_friend.png",
+    "screens/templates/support_cards/type_friend.png": "entry/templates/support_cards/type_friend.png",
+    "templates/support_cards/type_guts.png": "entry/templates/support_cards/type_guts.png",
+    "screens/templates/support_cards/type_guts.png": "entry/templates/support_cards/type_guts.png",
+    "templates/support_cards/type_power.png": "entry/templates/support_cards/type_power.png",
+    "screens/templates/support_cards/type_power.png": "entry/templates/support_cards/type_power.png",
+    "templates/support_cards/type_speed.png": "entry/templates/support_cards/type_speed.png",
+    "screens/templates/support_cards/type_speed.png": "entry/templates/support_cards/type_speed.png",
+    "templates/support_cards/type_stamina.png": "entry/templates/support_cards/type_stamina.png",
+    "screens/templates/support_cards/type_stamina.png": "entry/templates/support_cards/type_stamina.png",
+    "templates/support_cards/type_wit.png": "entry/templates/support_cards/type_wit.png",
+    "screens/templates/support_cards/type_wit.png": "entry/templates/support_cards/type_wit.png",
+    "templates/training_selection_logos/guts.png": "training/templates/training_selection_logos/guts.png",
+    "screens/templates/training_selection_logos/guts.png": "training/templates/training_selection_logos/guts.png",
+    "templates/training_selection_logos/power.png": "training/templates/training_selection_logos/power.png",
+    "screens/templates/training_selection_logos/power.png": "training/templates/training_selection_logos/power.png",
+    "templates/training_selection_logos/speed.png": "training/templates/training_selection_logos/speed.png",
+    "screens/templates/training_selection_logos/speed.png": "training/templates/training_selection_logos/speed.png",
+    "templates/training_selection_logos/stamina.png": "training/templates/training_selection_logos/stamina.png",
+    "screens/templates/training_selection_logos/stamina.png": "training/templates/training_selection_logos/stamina.png",
+    "templates/training_selection_logos/wit.png": "training/templates/training_selection_logos/wit.png",
+    "screens/templates/training_selection_logos/wit.png": "training/templates/training_selection_logos/wit.png",
+    "templates/training_selection_variants/lv1/active-green/guts.png": "training/templates/training_selection_variants/lv1/active-green/guts.png",
+    "screens/templates/training_selection_variants/lv1/active-green/guts.png": "training/templates/training_selection_variants/lv1/active-green/guts.png",
+    "templates/training_selection_variants/lv1/active-green/power.png": "training/templates/training_selection_variants/lv1/active-green/power.png",
+    "screens/templates/training_selection_variants/lv1/active-green/power.png": "training/templates/training_selection_variants/lv1/active-green/power.png",
+    "templates/training_selection_variants/lv1/active-green/speed.png": "training/templates/training_selection_variants/lv1/active-green/speed.png",
+    "screens/templates/training_selection_variants/lv1/active-green/speed.png": "training/templates/training_selection_variants/lv1/active-green/speed.png",
+    "templates/training_selection_variants/lv1/active-green/stamina.png": "training/templates/training_selection_variants/lv1/active-green/stamina.png",
+    "screens/templates/training_selection_variants/lv1/active-green/stamina.png": "training/templates/training_selection_variants/lv1/active-green/stamina.png",
+    "templates/training_selection_variants/lv1/active-green/wit.png": "training/templates/training_selection_variants/lv1/active-green/wit.png",
+    "screens/templates/training_selection_variants/lv1/active-green/wit.png": "training/templates/training_selection_variants/lv1/active-green/wit.png",
+    "../../pipelines/templates/start_game/game_home_unselected.png": "entry/templates/start_game/game_home_unselected.png",
+    "../../pipelines/templates/start_game/game_home_selected.png": "entry/templates/start_game/game_home_selected.png"
+  }
+}

@@ -31,40 +31,34 @@ public sealed class CareerScreenObserver
     internal static bool IsRuntimeCareerScreen(string screenId) =>
         CareerScreenClassification.IsRuntimeScreen(screenId);
 
+    internal static bool IsRuntimeCareerScreen(
+        string screenId,
+        UraScreenProfile profile) =>
+        CareerObservationPolicy.IsRuntimeCareerScreen(screenId, profile);
+
     internal static bool IsInitialResumeCandidate(string screenId) =>
         IsRuntimeCareerScreen(screenId);
+
+    internal static bool IsInitialResumeCandidate(
+        string screenId,
+        UraScreenProfile profile) =>
+        CareerObservationPolicy.IsInitialResumeCandidate(screenId, profile);
 
     internal static bool IsEligibleForCareerPhase(
         string screenId,
         UraCareerSessionState state)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        return IsRuntimeCareerScreen(screenId)
-            // Follow Trainer belongs to settlement. Turn confirmations share
-            // its green header and Cancel button, so keep this popup out of
-            // ordinary turn observations even if a visual match is found.
-            && (!screenId.Equals("follow_trainer_limit", StringComparison.OrdinalIgnoreCase)
-                || CareerScreenClassification.Classify(state.LastScreenId)
-                    == CareerScreenKind.Settlement)
-            && (!screenId.Equals("rewards_collected", StringComparison.OrdinalIgnoreCase)
-                || CareerScreenClassification.Classify(state.LastScreenId)
-                    == CareerScreenKind.Settlement)
-            && (!screenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
-                // A new rating record inserts an optional Next popup before Epithet.
-                || state.LastScreenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals("career_epithet", StringComparison.OrdinalIgnoreCase))
-            && (!screenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals("career_result_close", StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals("career_rating_record_updated", StringComparison.OrdinalIgnoreCase));
+        return CareerObservationPolicy.IsEligibleForCareerPhase(screenId, state);
     }
 
+    internal static bool IsEligibleForCareerPhase(
+        string screenId,
+        UraCareerSessionState state,
+        UraScreenProfile profile) =>
+        CareerObservationPolicy.IsEligibleForCareerPhase(screenId, state, profile);
+
     internal static bool IsReturningHome(UraCareerSessionState state) =>
-        state.CareerStarted
-        && (state.LastScreenId is "career_complete" or "career_complete_close"
-            or "career_story_unlocked" or "career_story_unlocked_compact"
-            or "career_story_unlocked_to_home"
-            or "home_unselected");
+        CareerObservationPolicy.IsReturningHome(state);
 
     public async Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
@@ -100,74 +94,26 @@ public sealed class CareerScreenObserver
         // Finishing Career is a one-way flow. A short race-list message can
         // match text in the finish dialog, so do not re-enter race or turn
         // handling after a settlement screen has been observed.
-        var settlementInProgress = CareerScreenClassification.Classify(state.LastScreenId)
+        var settlementInProgress = CareerScreenClassification.Classify(
+                state.LastScreenId, pack.ScreenProfile)
             == CareerScreenKind.Settlement;
         var returningHome = IsReturningHome(state);
 
         var candidates = pack.ScreenProfile.Screens
-            .Where(screen => !careerOnly || IsInitialResumeCandidate(screen.ScreenId))
-            // Once the run has reached the Career turn screen, only Career
-            // runtime screens are valid. Startup dialogs such as
-            // support_autofill_confirmation use a generic green OK-button
-            // template and can otherwise collide with the Rest confirmation
-            // dialog after clicking Rest.
-            .Where(screen => IsEligibleForCareerPhase(screen.ScreenId, state)
-                || (careerOnly
-                    && (screen.ScreenId is "career_epithet" or "career_rating_record_updated"
-                        or "follow_trainer_limit" or "rewards_collected"))
-                || (careerStartTransitionExpected
-                    && screen.ScreenId == "career_intro_event")
-                || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
-            .Where(screen => careerOnly
-                || !settlementInProgress
-                || CareerScreenClassification.Classify(screen.ScreenId)
-                    == CareerScreenKind.Settlement
-                || (returningHome && (screen.ScreenId is "home" or "home_unselected")))
-            .Where(screen => !returningHome
-                || (screen.ScreenId is "career_complete" or "career_complete_close"
-                    or "career_story_unlocked" or "career_story_unlocked_compact"
-                    or "career_story_unlocked_to_home"
-                    or "home" or "home_unselected"))
-            .Where(screen => !string.Equals(
-                    screen.ScreenId,
-                    "inheritance_event",
-                    StringComparison.OrdinalIgnoreCase)
-                || state.InheritanceEventPending
-                || careerOnly)
-            // Once the late-March action is selected, wait for the GO overlay
-            // instead of starting another turn from the underlying main page.
-            .Where(screen => !state.InheritanceEventPending
-                || !string.Equals(
-                    screen.ScreenId,
-                    "career_main",
-                    StringComparison.OrdinalIgnoreCase))
-            // Probe the banner after each non-race turn action or qualifying
-            // race result. Keep it out of ordinary turn observations; the two
-            // Next pages are enabled by the recognized goal sequence. Resume
-            // handoff reconstructs that sequence without prior action history.
-            .Where(screen => resumeRecovery
-                || IsGoalFlowScreenEligible(screen.ScreenId, state))
-            .Where(screen => careerOnly
-                || state.CareerStarted
-                || state.TurnIndex > 0
-                || (careerStartTransitionExpected
-                    && screen.ScreenId == "career_intro_event")
-                || screen.ScreenId is "career_main"
-                    or "career_races_ready"
-                    or "training_selection"
-                    or "training_result"
-                    or "training_event"
-                    or "goal_objective_complete"
-                    or "goal_update"
-                    or "goal_complete")
-            .Where(screen => !careerStartTransitionExpected
-                || screen.ScreenId is "career_intro_event"
-                    or "career_main"
-                    or "career_races_ready")
+            .Where(screen => CareerObservationPolicy.IsCandidate(
+                screen,
+                pack.ScreenProfile,
+                state,
+                careerOnly,
+                careerStartTransitionExpected,
+                resumeRecovery,
+                settlementInProgress,
+                returningHome))
             .OrderBy(screen => GetCandidateRecognitionPriority(
-                screen.ScreenId,
+                screen,
                 careerStartTransitionExpected,
                 expectedActionConfirmationScreenId))
+            .ThenBy(screen => pack.ScreenProfile.Screens.IndexOf(screen))
             .ToArray();
 
         LastCandidateScreenIds = candidates.Select(screen => screen.ScreenId).ToArray();
@@ -221,7 +167,7 @@ public sealed class CareerScreenObserver
                 CareerObservation? screenBest = null;
                 foreach (var template in screen.Templates)
                 {
-                    var path = ResolveCapture(pack, template);
+                    var path = ResolveCapture(pack, screen, template);
                     var grayTemplate = await LoadTemplateCachedAsync(path, cancellationToken)
                         .ConfigureAwait(false);
                     if (grayTemplate is null)
@@ -335,7 +281,7 @@ public sealed class CareerScreenObserver
                     && !string.IsNullOrWhiteSpace(screen.Recognition.RequiredTemplate))
                 {
                     var nextTemplate = await LoadTemplateCachedAsync(
-                            ResolveCapture(pack, screen.Recognition.RequiredTemplate),
+                            ResolveCapture(pack, screen, screen.Recognition.RequiredTemplate),
                             cancellationToken)
                         .ConfigureAwait(false);
                     if (nextTemplate is not null)
@@ -361,7 +307,11 @@ public sealed class CareerScreenObserver
                 // main screen visible, so a recognized event or result wins.
                 if (screenBest is not null)
                 {
-                    frameBest = screenBest;
+                    frameBest = screenBest with
+                    {
+                        ClassifiedKind = CareerScreenClassification.Classify(
+                            screen.ScreenId, pack.ScreenProfile),
+                    };
                     break;
                 }
             }
@@ -373,9 +323,9 @@ public sealed class CareerScreenObserver
             if (frameBest.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
                 mainFrameCount++;
 
-            var framePriority = GetScreenRecognitionPriority(
-                frameBest.ScreenId,
-                careerStartTransitionExpected);
+            var framePriority = pack.ScreenProfile.Find(frameBest.ScreenId) is { } observedScreen
+                ? GetScreenRecognitionPriority(observedScreen, careerStartTransitionExpected)
+                : int.MaxValue;
             if (best is null
                 || framePriority < bestPriority
                 || (framePriority == bestPriority
@@ -422,23 +372,31 @@ public sealed class CareerScreenObserver
 
         if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
-            var availableTemplate = await LoadTemplateCachedAsync(
-                    ResolveCapture(pack, CareerInfirmaryDetector.AvailableTemplatePath),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var unavailableTemplate = await LoadTemplateCachedAsync(
-                    ResolveCapture(pack, CareerInfirmaryDetector.UnavailableTemplatePath),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var infirmaryAvailable = availableTemplate is not null
-                && unavailableTemplate is not null
-                && frames.Count == 2
-                && frames.All(frame => CareerInfirmaryDetector.IsAvailable(
-                    frame,
-                    availableTemplate,
-                    unavailableTemplate,
-                    pack.ScreenProfile.ReferenceWidth,
-                    pack.ScreenProfile.ReferenceHeight));
+            var infirmaryAvailable = false;
+            if (frames.Count == 2
+                && CareerInfirmaryDetector.TryGetVisualPolicy(
+                    pack.ScreenProfile,
+                    out var infirmaryPolicy)
+                && infirmaryPolicy is not null)
+            {
+                var availableTemplate = await LoadTemplateCachedAsync(
+                        infirmaryPolicy.AvailableTemplatePath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                var unavailableTemplate = await LoadTemplateCachedAsync(
+                        infirmaryPolicy.UnavailableTemplatePath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                infirmaryAvailable = availableTemplate is not null
+                    && unavailableTemplate is not null
+                    && frames.All(frame => CareerInfirmaryDetector.IsAvailable(
+                        frame,
+                        availableTemplate,
+                        unavailableTemplate,
+                        pack.ScreenProfile.ReferenceWidth,
+                        pack.ScreenProfile.ReferenceHeight,
+                        infirmaryPolicy));
+            }
             var careerMain = pack.ScreenProfile.Find("career_main");
             var turnsLeftRoi = careerMain?.FindOcrRegion("objective.turns_left")?.ToRoi();
             var ocrFrame = frames[^1];
@@ -530,7 +488,7 @@ public sealed class CareerScreenObserver
             return true;
 
         var requiredTemplate = await LoadTemplateCachedAsync(
-                ResolveCapture(pack, requiredPath),
+                ResolveCapture(pack, screen, requiredPath),
                 cancellationToken)
             .ConfigureAwait(false);
         if (requiredTemplate is null)
@@ -617,104 +575,39 @@ public sealed class CareerScreenObserver
     }
 
     private static int GetScreenRecognitionPriority(
-        string screenId,
+        UraScreenDefinition screen,
         bool careerStartTransitionExpected)
     {
-        return screenId switch
+        if (careerStartTransitionExpected)
         {
-            "inheritance_event" => -3,
-            "career_intro_event" when careerStartTransitionExpected => 0,
-            "career_main" when careerStartTransitionExpected => 1,
-            "career_races_ready" when careerStartTransitionExpected => 2,
-            "event_choice" => 0,
-            "claw_machine" => -1,
-            "claw_machine_result" => -2,
-            "training_event" => 1,
-            "scenario_event" => 2,
-            // The optional Race Recommendations dialog can collide with the
-            // generic event-choice button template; its title identifies it
-            // before that broader overlay check runs.
-            "race_recommendations" => -1,
-            // The streak warning overlays Race Day or Career Main and shares
-            // generic dialog styling. Its orange warning text must win first.
-            "race_streak_warning" => -2,
-            "race_retry_dialog" => -2,
-            // The Epithet title is specific, unlike its generic Confirm! button.
-            "career_epithet" => -4,
-            // The Rating Record Updated banner is specific to the post-settlement continuation.
-            "career_rating_record_updated" => -4,
-            // The follow-limit popup can obscure any settlement page beneath it.
-            "follow_trainer_limit" => -5,
-            // The gift-box overlay obscures the underlying settlement reward page.
-            "event_reward" => -5,
-            // Collected rewards open a Close popup over the reward summary.
-            "rewards_collected" => -6,
-            // Completion has two exit labels. Its title and matching button
-            // must win over generic Close dialogs when resuming settlement.
-            "career_complete" or "career_complete_close" => -4,
-            "career_story_unlocked" or "career_story_unlocked_compact"
-                or "career_story_unlocked_to_home" => -4,
-            // The Finish dialog contains text that resembles generic race
-            // notices; recognize its specific green button first.
-            "complete_career" => -3,
-            "goal_incomplete" => -3,
-            "goal_objective_complete" => 3,
-            "goal_update" => 3,
-            "goal_complete" => 2,
-            "training_result" => 4,
-            "infirmary_confirmation" => 5,
-            "recreation_selection" => 5,
-            "recreation_confirmation" => 5,
-            "summer_rest_confirmation" => 5,
-            "rest_confirmation" => 5,
-            "training_selection" => 6,
-            "career_races_ready" => 7,
-            // Race Day is an overlay on Career Main. Prefer its tight banner
-            // template so a restart resumes at the race entry instead of
-            // issuing another turn action on the page underneath.
-            "race_day" => 8,
-            "career_main" => 9,
-            // The Race Details dialog overlays Race List, whose header can
-            // remain visible underneath it. Prefer the dialog so its Race
-            // confirmation button is handled instead of selecting again.
-            "race_details" => 10,
-            // The no-races notice appears inside Race List, so it must be
-            // checked before the broader list-header template.
-            "race_list_empty" => 10,
-            "race_list" => 11,
-            // Trophy Won is an optional overlay over the runner page. It
-            // must be recognized before runner so the hidden page cannot
-            // receive a strategy click through the modal.
-            "race_trophy_won" => 11,
-            // Race! is a resumable checkpoint and must win over the broader
-            // runner/playback templates, both of which can still be visible
-            // underneath the button page after a restart.
-            "race_playback_start" => 12,
-            // Replay is the end-of-race marker for the reusable normal-race
-            // flow. It is separate from the legacy race_result screen.
-            "race_runner_result" => 13,
-            "race_runner" => 14,
-            "race_attributes" => 16,
-            "race_playback_settings" => 17,
-            "race_playback" => 18,
-            _ => 20,
-        };
+            var startupOverride = screen.ScreenId switch
+            {
+                "career_intro_event" => 0,
+                "career_main" => 1,
+                "career_races_ready" => 2,
+                _ => (int?)null,
+            };
+            if (startupOverride is int priority)
+                return priority;
+        }
+
+        return CareerScreenClassification.GetRecognitionPriority(screen);
     }
 
     private static int GetCandidateRecognitionPriority(
-        string screenId,
+        UraScreenDefinition screen,
         bool careerStartTransitionExpected,
         string? expectedActionConfirmationScreenId)
     {
         var priority = GetScreenRecognitionPriority(
-            screenId,
+            screen,
             careerStartTransitionExpected);
         if (expectedActionConfirmationScreenId is null)
-            return priority;
+            return priority * RecognitionPriorityScale;
 
         // Keep event and goal overlays ahead of the expected action dialog,
         // but check that dialog before training-result and underlying screens.
-        if (screenId.Equals(
+        if (screen.ScreenId.Equals(
                 expectedActionConfirmationScreenId,
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -722,41 +615,6 @@ public sealed class CareerScreenObserver
         }
 
         return priority * RecognitionPriorityScale;
-    }
-
-    private static bool IsGoalFlowScreenEligible(
-        string screenId,
-        UraCareerSessionState state)
-    {
-        if (!state.CareerStarted)
-            return true;
-
-        // A resumed session can start directly on race_runner, where the
-        // objective text is no longer visible. Once its result flow finishes,
-        // admit the goal page even though the objective-specific probe could
-        // not be armed from the missing goal classification.
-        var resumedRaceFlowCompleted = state.RaceReplayFlowCompleted
-            && state.LastScreenId.Equals(
-                CareerRaceRunnerCheckpointHandler.ScreenId,
-                StringComparison.OrdinalIgnoreCase);
-
-        return screenId switch
-        {
-            "goal_objective_complete" => state.GoalCompletionProbeArmed
-                || resumedRaceFlowCompleted,
-            "goal_update" => state.LastScreenId.Equals(
-                "goal_objective_complete",
-                StringComparison.OrdinalIgnoreCase),
-            "goal_complete" => state.GoalCompletionProbeArmed
-                || resumedRaceFlowCompleted
-                || state.LastScreenId.Equals(
-                    "goal_objective_complete",
-                    StringComparison.OrdinalIgnoreCase)
-                || state.LastScreenId.Equals(
-                    "goal_update",
-                    StringComparison.OrdinalIgnoreCase),
-            _ => true,
-        };
     }
 
     private Task<GrayImage?> LoadTemplateCachedAsync(
@@ -774,6 +632,11 @@ public sealed class CareerScreenObserver
         return lazy.Value.WaitAsync(cancellationToken);
     }
 
-    private static string ResolveCapture(UraScenarioPack pack, string relativePath) =>
-        UraScenarioResourceResolver.Resolve(pack, relativePath);
+    private static string ResolveCapture(
+        UraScenarioPack pack,
+        UraScreenDefinition screen,
+        string relativePath) =>
+        screen.SourceDirectory is not null
+            ? UraScenarioResourceResolver.Resolve(pack, screen, relativePath)
+            : UraScenarioResourceResolver.Resolve(pack, relativePath);
 }

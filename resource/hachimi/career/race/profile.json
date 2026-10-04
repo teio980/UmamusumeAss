@@ -1,0 +1,768 @@
+{
+  "$schema": "uma.screen.profile.fragment.v1",
+  "profileId": "ura.global.900x1600.v1",
+  "scenarioId": "ura",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "screens": [
+    {
+      "screenId": "reward",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_reward.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_reward.png",
+          "templates/runtime_frames/ura_semifinal_reward.png",
+          "templates/runtime_frames/senior_arima_reward.png"
+        ],
+        "requiredText": [
+          "Fans",
+          "Items"
+        ],
+        "stable": true,
+        "priority": 20
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "reward.fans",
+          "bounds": {
+            "x": 230,
+            "y": 1130,
+            "width": 500,
+            "height": 90
+          }
+        },
+        {
+          "semanticId": "reward.class",
+          "bounds": {
+            "x": 180,
+            "y": 760,
+            "width": 550,
+            "height": 400
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "reward.next",
+          "task": "reward_reward_next"
+        }
+      ],
+      "flow": "race",
+      "order": 47
+    },
+    {
+      "screenId": "reward_support",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_rewards_support_loaded.png",
+        "requiredText": [
+          "REWARDS",
+          "Support Cards"
+        ],
+        "stable": true,
+        "priority": 20
+      },
+      "actions": [
+        {
+          "semanticId": "reward.next",
+          "task": "reward_support_reward_next"
+        }
+      ],
+      "flow": "race",
+      "order": 48
+    },
+    {
+      "screenId": "career_races_ready",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_finale_main_ready.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_races_active.png",
+          "templates/runtime_frames/ura_late_oct_goal_ready.png",
+          "templates/runtime_frames/goal2_main_ready.png",
+          "templates/runtime_frames/goal2_main_start.png",
+          "templates/runtime_frames/goal3_main_start.png",
+          "templates/runtime_frames/senior_year_main_ready.png"
+        ],
+        "requiredText": [
+          "Races"
+        ],
+        "stable": true,
+        "priority": 7
+      },
+      "actions": [
+        {
+          "semanticId": "action.races",
+          "task": "career_races_ready_action_races"
+        }
+      ],
+      "flow": "race",
+      "order": 16
+    },
+    {
+      "screenId": "race_day",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_race_day.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_race_day.png",
+          "templates/runtime_frames/year2_nhk_race_day.png",
+          "templates/runtime_frames/classic_milech_race_day_final.png"
+        ],
+        "roi": [
+          545,
+          1230,
+          190,
+          55
+        ],
+        "requiredText": [
+          "Race Day"
+        ],
+        "stable": true,
+        "priority": 8
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "race.objective",
+          "bounds": {
+            "x": 315,
+            "y": 90,
+            "width": 540,
+            "height": 75
+          }
+        },
+        {
+          "semanticId": "stats.summary",
+          "bounds": {
+            "x": 25,
+            "y": 1100,
+            "width": 850,
+            "height": 115
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.open_list",
+          "task": "race_day_race_open_list"
+        },
+        {
+          "semanticId": "skills.open",
+          "task": "race_day_skills_open"
+        }
+      ],
+      "flow": "race",
+      "order": 31
+    },
+    {
+      "screenId": "race_recommendations",
+      "recognition": {
+        "template": "templates/career/race/race_recommendations_title.png",
+        "roi": [
+          0,
+          35,
+          900,
+          85
+        ],
+        "templThreshold": 0.86,
+        "stable": true,
+        "priority": -1
+      },
+      "actions": [
+        {
+          "semanticId": "race.recommendations.confirm",
+          "task": "race_recommendations_confirm"
+        }
+      ],
+      "flow": "race",
+      "order": 32
+    },
+    {
+      "screenId": "race_streak_warning",
+      "recognition": {
+        "template": "templates/career/race/race_streak_warning_text.png",
+        "matchColorText": true,
+        "roi": [
+          175,
+          580,
+          590,
+          90
+        ],
+        "templThreshold": 0.94,
+        "requiredTemplate": "templates/career/race/race_streak_warning_ok.png",
+        "requiredTemplateRoi": [
+          575,
+          1000,
+          150,
+          90
+        ],
+        "requiredTemplateThreshold": 0.94,
+        "stable": true,
+        "priority": -2
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "race.objective",
+          "bounds": {
+            "x": 315,
+            "y": 90,
+            "width": 540,
+            "height": 75
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.streak.confirm",
+          "task": "race_streak_warning_probe"
+        },
+        {
+          "semanticId": "race.streak.cancel",
+          "task": "race_streak_warning_cancel_probe"
+        }
+      ],
+      "flow": "race",
+      "order": 33
+    },
+    {
+      "screenId": "race_list_empty",
+      "recognition": {
+        "template": "templates/race_list_empty_no_races_text.png",
+        "matchColorText": true,
+        "roi": [
+          150,
+          940,
+          600,
+          150
+        ],
+        "templThreshold": 0.94,
+        "stable": true,
+        "priority": 10
+      },
+      "actions": [
+        {
+          "semanticId": "back",
+          "task": "race_list_empty_back"
+        }
+      ],
+      "flow": "race",
+      "order": 34
+    },
+    {
+      "screenId": "race_list",
+      "recognition": {
+        "template": "templates/runtime_frames/fan_goal_race_list_header.png",
+        "templates": [],
+        "roi": [
+          0,
+          0,
+          150,
+          50
+        ],
+        "templThreshold": 0.82,
+        "requiredText": [
+          "Race List"
+        ],
+        "stable": true,
+        "priority": 11
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "objective.title",
+          "bounds": {
+            "x": 315,
+            "y": 90,
+            "width": 520,
+            "height": 80
+          }
+        },
+        {
+          "semanticId": "race.name",
+          "bounds": {
+            "x": 300,
+            "y": 250,
+            "width": 500,
+            "height": 100
+          }
+        },
+        {
+          "semanticId": "race.course",
+          "bounds": {
+            "x": 410,
+            "y": 520,
+            "width": 440,
+            "height": 105
+          }
+        },
+        {
+          "semanticId": "race.field_size",
+          "bounds": {
+            "x": 400,
+            "y": 550,
+            "width": 260,
+            "height": 60
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.recommended_entry",
+          "task": "race_list_race_recommended_entry"
+        },
+        {
+          "semanticId": "race.goal_entry",
+          "task": "race_list_race_goal_entry"
+        },
+        {
+          "semanticId": "race.fans_entry",
+          "task": "race_list_race_fans_entry"
+        }
+      ],
+      "flow": "race",
+      "order": 35
+    },
+    {
+      "screenId": "race_trophy_won",
+      "recognition": {
+        "template": "templates/career/race/race_trophy_won.png",
+        "roi": [
+          140,
+          330,
+          650,
+          150
+        ],
+        "stable": true,
+        "templThreshold": 0.9,
+        "priority": 11
+      },
+      "actions": [
+        {
+          "semanticId": "trophy.close",
+          "task": "race_runner_trophy_close"
+        }
+      ],
+      "flow": "race",
+      "order": 36
+    },
+    {
+      "screenId": "race_playback_start",
+      "recognition": {
+        "template": "templates/career/race/race_playback_start.png",
+        "roi": [
+          320,
+          1380,
+          260,
+          180
+        ],
+        "stable": true,
+        "templThreshold": 0.92,
+        "priority": 12
+      },
+      "actions": [
+        {
+          "semanticId": "race.play",
+          "task": "race_runner_playback_start"
+        }
+      ],
+      "flow": "race",
+      "order": 37
+    },
+    {
+      "screenId": "race_retry_dialog",
+      "recognition": {
+        "template": "templates/career/race/race_retry_dialog_title.png",
+        "roi": [
+          320,
+          350,
+          270,
+          120
+        ],
+        "requiredTemplate": "templates/career/race/race_retry_alarm_prompt.png",
+        "requiredTemplateRoi": [
+          40,
+          570,
+          820,
+          100
+        ],
+        "requiredTemplateThreshold": 0.88,
+        "stable": true,
+        "templThreshold": 0.88,
+        "priority": -2
+      },
+      "actions": [
+        {
+          "semanticId": "retry_with_alarm_clock",
+          "task": "race_retry_try_again_probe"
+        },
+        {
+          "semanticId": "cancel",
+          "task": "race_retry_cancel"
+        }
+      ],
+      "flow": "race",
+      "order": 38
+    },
+    {
+      "screenId": "race_runner_result",
+      "recognition": {
+        "template": "templates/career/race/race_result_replay.png",
+        "roi": [
+          680,
+          520,
+          210,
+          150
+        ],
+        "requiredTemplate": "templates/career/race/race_result_next.png",
+        "requiredTemplateRoi": [
+          240,
+          1380,
+          420,
+          180
+        ],
+        "requiredTemplateThreshold": 0.82,
+        "stable": true,
+        "templThreshold": 0.82,
+        "priority": 13
+      },
+      "actions": [
+        {
+          "semanticId": "result.next",
+          "task": "race_runner_result_next"
+        }
+      ],
+      "flow": "race",
+      "order": 39
+    },
+    {
+      "screenId": "race_runner",
+      "recognition": {
+        "template": "templates/career/race/race_runner_label.png",
+        "roi": [
+          700,
+          1060,
+          180,
+          140
+        ],
+        "stable": true,
+        "templThreshold": 0.88,
+        "priority": 14
+      },
+      "actions": [
+        {
+          "semanticId": "strategy.apply.front",
+          "task": "race_runner_strategy_apply_front"
+        },
+        {
+          "semanticId": "strategy.apply.pace",
+          "task": "race_runner_strategy_apply_pace"
+        },
+        {
+          "semanticId": "strategy.apply.late",
+          "task": "race_runner_strategy_apply_late"
+        },
+        {
+          "semanticId": "strategy.apply.end",
+          "task": "race_runner_strategy_apply_end"
+        },
+        {
+          "semanticId": "entry.view_results",
+          "task": "race_runner_entry_view_results"
+        },
+        {
+          "semanticId": "entry.start",
+          "task": "race_runner_entry_start"
+        }
+      ],
+      "flow": "race",
+      "order": 40
+    },
+    {
+      "screenId": "race_details",
+      "recognition": {
+        "template": "templates/race_details_race_confirm.png",
+        "roi": [
+          470,
+          1090,
+          360,
+          130
+        ],
+        "templThreshold": 0.78,
+        "requiredText": [
+          "Race Details",
+          "Enter race?"
+        ],
+        "stable": true,
+        "priority": 10
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "race.details",
+          "bounds": {
+            "x": 25,
+            "y": 450,
+            "width": 850,
+            "height": 500
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.confirm",
+          "task": "race_details_race_confirm"
+        },
+        {
+          "semanticId": "race.cancel",
+          "task": "race_details_race_cancel"
+        }
+      ],
+      "flow": "race",
+      "order": 41
+    },
+    {
+      "screenId": "race_attributes",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_attributes2.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_attributes.png",
+          "templates/runtime_frames/ura_prelim_attributes2.png",
+          "templates/runtime_frames/ura_semifinal_attributes.png",
+          "templates/runtime_frames/ura_final_attributes.png"
+        ],
+        "requiredText": [
+          "Attributes",
+          "Stats",
+          "Aptitude"
+        ],
+        "stable": true,
+        "priority": 16
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "race.runner_attributes",
+          "bounds": {
+            "x": 430,
+            "y": 215,
+            "width": 450,
+            "height": 770
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.start_playback",
+          "task": "race_attributes_race_start_playback"
+        }
+      ],
+      "flow": "race",
+      "order": 42
+    },
+    {
+      "screenId": "race_playback",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_runner_ready2.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_runner_ready.png",
+          "templates/runtime_frames/ura_prelim_runner_ready2.png",
+          "templates/runtime_frames/ura_semifinal_runner_ready.png",
+          "templates/runtime_frames/ura_semifinal_runner_ready2.png"
+        ],
+        "requiredText": [
+          "Race!"
+        ],
+        "stable": true,
+        "priority": 18
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "race.runners",
+          "bounds": {
+            "x": 35,
+            "y": 235,
+            "width": 840,
+            "height": 1120
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "race.play",
+          "task": "race_playback_race_play"
+        }
+      ],
+      "flow": "race",
+      "order": 43
+    },
+    {
+      "screenId": "race_playback_settings",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_prelim_playback_ready.png",
+        "requiredText": [
+          "Race Playback",
+          "OK"
+        ],
+        "stable": true,
+        "priority": 17
+      },
+      "actions": [
+        {
+          "semanticId": "race.playback_settings_ok",
+          "task": "race_playback_settings_race_playback_settings_ok"
+        }
+      ],
+      "flow": "race",
+      "order": 44
+    },
+    {
+      "screenId": "race_live",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_race_live.png",
+        "templates": [
+          "templates/runtime_frames/ura_semifinal_race_live.png",
+          "templates/runtime_frames/ura_prelim_result_or_live.png",
+          "templates/runtime_frames/senior_arima_race_live.png"
+        ],
+        "requiredText": [
+          "START",
+          "FINISH"
+        ],
+        "stable": false,
+        "priority": 20
+      },
+      "actions": [
+        {
+          "semanticId": "race.live_next",
+          "task": "race_live_race_live_next"
+        }
+      ],
+      "flow": "race",
+      "order": 45
+    },
+    {
+      "screenId": "race_result",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_final_finish.png",
+        "templates": [
+          "templates/runtime_frames/ura_prelim_finish.png",
+          "templates/runtime_frames/ura_semifinal_finish.png",
+          "templates/runtime_frames/ura_semifinal_result.png",
+          "templates/runtime_frames/senior_arima_result.png"
+        ],
+        "requiredText": [
+          "1st"
+        ],
+        "stable": true,
+        "priority": 20
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "result.placement",
+          "bounds": {
+            "x": 40,
+            "y": 250,
+            "width": 820,
+            "height": 700
+          }
+        },
+        {
+          "semanticId": "result.time",
+          "bounds": {
+            "x": 700,
+            "y": 790,
+            "width": 150,
+            "height": 100
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "result.next",
+          "task": "race_result_result_next"
+        }
+      ],
+      "flow": "race",
+      "order": 46
+    },
+    {
+      "screenId": "goal_update",
+      "recognition": {
+        "template": "../settlement/templates/goal_update_goals_achieved_text.png",
+        "roi": [
+          55,
+          1215,
+          205,
+          48
+        ],
+        "templThreshold": 0.88,
+        "matchColorText": true,
+        "stable": true,
+        "priority": 3
+      },
+      "actions": [
+        {
+          "semanticId": "goal.update_next",
+          "task": "goal_update_goal_update_next"
+        }
+      ],
+      "flow": "race",
+      "order": 50
+    },
+    {
+      "screenId": "goal_objective_complete",
+      "recognition": {
+        "template": "../settlement/templates/goal_complete_header.png",
+        "roi": [
+          288,
+          315,
+          333,
+          114
+        ],
+        "templThreshold": 0.78,
+        "stable": true,
+        "priority": 3
+      },
+      "actions": [
+        {
+          "semanticId": "goal.next",
+          "task": "goal_complete_goal_next"
+        }
+      ],
+      "flow": "race",
+      "order": 51
+    },
+    {
+      "screenId": "goal_complete",
+      "recognition": {
+        "template": "templates/runtime_frames/ura_finale_entry.png",
+        "requiredTemplate": "templates/runtime_frames/ura_finale_entry.png",
+        "requiredTemplateRoi": [
+          288,
+          315,
+          333,
+          114
+        ],
+        "requiredTemplateThreshold": 0.9,
+        "requiredText": [
+          "All goals achieved!"
+        ],
+        "stable": true,
+        "priority": 2
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "goal.status",
+          "bounds": {
+            "x": 40,
+            "y": 250,
+            "width": 820,
+            "height": 700
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "goal.next",
+          "task": "goal_complete_goal_next"
+        }
+      ],
+      "flow": "race",
+      "order": 52
+    }
+  ]
+}

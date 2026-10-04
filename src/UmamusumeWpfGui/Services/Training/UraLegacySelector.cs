@@ -11,40 +11,9 @@ namespace UmamusumeWpfGui.Services.Training;
 /// </summary>
 public sealed class UraLegacySelector
 {
-    private const int ReferenceWidth = 900;
-    private const int ReferenceHeight = 1600;
-    private const double TemplateThreshold = 0.78;
-
-    private static readonly LegacyCell[] FirstRowCells =
-    [
-        new(195, 860, 160, 190),
-        new(370, 860, 160, 190),
-        new(545, 860, 160, 190),
-        new(720, 860, 160, 190),
-    ];
-
-    private static readonly Dictionary<string, LegacyFilterOption> FilterOptions =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Speed"] = new("Speed", 90, 345),
-            ["Stamina"] = new("Stamina", 370, 345),
-            ["Power"] = new("Power", 652, 345),
-            ["Guts"] = new("Guts", 90, 440),
-            ["Wit"] = new("Wit", 370, 440),
-            ["Turf"] = new("Turf", 90, 860),
-            ["Dirt"] = new("Dirt", 370, 860),
-            ["Sprint"] = new("Sprint", 652, 860),
-            ["Mile"] = new("Mile", 90, 956),
-            ["Medium"] = new("Medium", 370, 956),
-            ["Long"] = new("Long", 652, 956),
-            ["Front"] = new("Front", 90, 1050),
-            ["Pace"] = new("Pace", 370, 1050),
-            ["Late"] = new("Late", 652, 1050),
-            ["End"] = new("End", 90, 1145),
-        };
-
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private readonly AsyncLocal<CareerVisualResourcePackage?> _activeResources = new();
 
     public UraLegacySelector(
         IVisualPipelineRuntime visualRuntime,
@@ -61,11 +30,14 @@ public sealed class UraLegacySelector
         HachimiPipelineDefinition definition,
         ICareerEntrySelectionSettings settings,
         IGrassTaskLogSink? logSink,
+        CareerVisualResourcePackage? visualResources,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(settings);
+        _activeResources.Value = visualResources
+            ?? throw new InvalidDataException("Career Legacy selection requires its visual resource package.");
 
         var slotStates = await DetectLegacySlotsAsync(
                 connection,
@@ -85,9 +57,9 @@ public sealed class UraLegacySelector
             if (!await TapTemplateAsync(
                     connection,
                     definition,
-                    "legacy_next_enabled.png",
-                    [250, 1250, 400, 200],
-                    "uraLegacyNextCached",
+                    "career.entry.legacy.legacy_next_enabled",
+                    "career.entry.legacy.next",
+                "uraLegacyNextCached",
                     cancellationToken)
                 .ConfigureAwait(false))
             {
@@ -149,17 +121,17 @@ public sealed class UraLegacySelector
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var templateName = slot == 1
-            ? "legacy1_cached_record.png"
-            : "legacy2_cached_record.png";
-        var roi = slot == 1
-            ? new[] { 145, 1050, 190, 120 }
-            : new[] { 545, 1050, 205, 120 };
+        var assetId = slot == 1
+            ? "career.entry.legacy.legacy1_cached_record"
+            : "career.entry.legacy.legacy2_cached_record";
+        var regionId = slot == 1
+            ? "career.entry.legacy.cached1"
+            : "career.entry.legacy.cached2";
         var match = await FindTemplateAsync(
                 connection,
                 definition,
-                templateName,
-                roi,
+                assetId,
+                regionId,
                 $"uraLegacy{slot}CachedRecord",
                 1_500,
                 cancellationToken)
@@ -184,8 +156,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_auto_select.png",
-                [430, 1140, 450, 170],
+                "career.entry.legacy.legacy_auto_select",
+                "career.entry.legacy.auto_select",
                 "uraLegacyAutoSelect",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -206,8 +178,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_auto_select_ok.png",
-                [430, 930, 430, 220],
+                "career.entry.legacy.legacy_auto_select_ok",
+                "career.entry.legacy.auto_select.confirm",
                 "uraLegacyAutoSelectConfirm",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -218,8 +190,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_next_enabled.png",
-                [250, 1250, 400, 200],
+                "career.entry.legacy.legacy_next_enabled",
+                "career.entry.legacy.next",
                 "uraLegacyNext",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -238,8 +210,8 @@ public sealed class UraLegacySelector
         var off = await FindTemplateAsync(
                 connection,
                 definition,
-                "legacy_auto_select_include_guests.png",
-                [270, 770, 180, 180],
+                "career.entry.legacy.legacy_auto_select_include_guests",
+                "career.entry.legacy.guest.checkbox",
                 "uraLegacyAutoSelectGuestsOff",
                 2_500,
                 cancellationToken)
@@ -258,8 +230,8 @@ public sealed class UraLegacySelector
         return await FindTemplateAsync(
                 connection,
                 definition,
-                "legacy_auto_select_include_guests_on.png",
-                [270, 770, 180, 180],
+                "career.entry.legacy.legacy_auto_select_include_guests_on",
+                "career.entry.legacy.guest.checkbox",
                 "uraLegacyAutoSelectGuestsOn",
                 2_500,
                 cancellationToken)
@@ -305,8 +277,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_next_enabled.png",
-                [250, 1250, 400, 200],
+                "career.entry.legacy.legacy_next_enabled",
+                "career.entry.legacy.next",
                 "uraLegacyNext",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -377,8 +349,8 @@ public sealed class UraLegacySelector
             && !await TapTemplateAsync(
                     connection,
                     definition,
-                    "legacy_guests_tab.png",
-                    [400, 760, 480, 130],
+                    "career.entry.legacy.legacy_guests_tab",
+                    "career.entry.legacy.guests.tab",
                     "uraLegacyGuests",
                     cancellationToken)
                 .ConfigureAwait(false))
@@ -409,8 +381,8 @@ public sealed class UraLegacySelector
                 connection,
                 cell.Value.X + cell.Value.Width / 2,
                 cell.Value.Y + cell.Value.Height / 2,
-                ReferenceWidth,
-                ReferenceHeight,
+                definition.ReferenceWidth,
+                definition.ReferenceHeight,
                 $"uraLegacy{slot}Pick",
                 cancellationToken)
             .ConfigureAwait(false);
@@ -418,8 +390,8 @@ public sealed class UraLegacySelector
         return await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_confirm_selection.png",
-                [250, 1250, 400, 200],
+                "career.entry.legacy.legacy_confirm_selection",
+                "career.entry.legacy.confirm_selection",
                 $"uraLegacy{slot}Confirm",
                 cancellationToken)
             .ConfigureAwait(false);
@@ -451,8 +423,8 @@ public sealed class UraLegacySelector
         var off = await FindTemplateAsync(
                 connection,
                 definition,
-                "legacy_view_sparks_off.png",
-                [0, 1140, 300, 160],
+                "career.entry.legacy.legacy_view_sparks_off",
+                "career.entry.legacy.view_sparks",
                 "uraLegacyViewSparksOff",
                 2_500,
                 cancellationToken)
@@ -469,8 +441,8 @@ public sealed class UraLegacySelector
         else if (await FindTemplateAsync(
                      connection,
                      definition,
-                     "legacy_view_sparks_on.png",
-                     [0, 1140, 300, 160],
+                     "career.entry.legacy.legacy_view_sparks_on",
+                     "career.entry.legacy.view_sparks",
                      "uraLegacyViewSparksOnCheck",
                      2_500,
                      cancellationToken)
@@ -482,8 +454,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_display_button.png",
-                [500, 1100, 350, 200],
+                "career.entry.legacy.legacy_display_button",
+                "career.entry.legacy.display.open",
                 "uraLegacyDisplayOpen",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -494,8 +466,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_display_sparks.png",
-                [0, 350, 300, 200],
+                "career.entry.legacy.legacy_display_sparks",
+                "career.entry.legacy.display.sparks",
                 "uraLegacySortSparks",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -506,8 +478,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_display_filter_tab.png",
-                [430, 100, 450, 150],
+                "career.entry.legacy.legacy_display_filter_tab",
+                "career.entry.legacy.display.filter_tab",
                 "uraLegacyFilterTab",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -518,8 +490,8 @@ public sealed class UraLegacySelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_filter_reset.png",
-                [550, 1200, 350, 220],
+                "career.entry.legacy.legacy_filter_reset",
+                "career.entry.legacy.filter.reset",
                 "uraLegacyFilterReset",
                 cancellationToken)
             .ConfigureAwait(false))
@@ -529,16 +501,15 @@ public sealed class UraLegacySelector
 
         foreach (var key in settings.LegacyAttributeSparks.Concat(settings.LegacyAptitudeSparks))
         {
-            if (!FilterOptions.TryGetValue(key.Trim(), out var option))
+            var normalized = NormalizeFilterKey(key);
+            if (normalized is null)
                 continue;
 
-            await _visualRuntime.TapAsync(
+            await TapRegionCenterAsync(
                     connection,
-                    option.X,
-                    option.Y,
-                    ReferenceWidth,
-                    ReferenceHeight,
-                    $"uraLegacyFilter{option.Name}",
+                    definition,
+                    $"career.entry.legacy.filter.{normalized}",
+                    $"uraLegacyFilter{normalized}",
                     cancellationToken)
                 .ConfigureAwait(false);
             await _visualRuntime.DelayAsync(100, cancellationToken).ConfigureAwait(false);
@@ -547,8 +518,8 @@ public sealed class UraLegacySelector
         return await TapTemplateAsync(
                 connection,
                 definition,
-                "legacy_filter_ok.png",
-                [430, 1350, 430, 200],
+                "career.entry.legacy.legacy_filter_ok",
+                "career.entry.legacy.filter.ok",
                 "uraLegacyFilterOk",
                 cancellationToken)
             .ConfigureAwait(false)
@@ -564,12 +535,11 @@ public sealed class UraLegacySelector
         HachimiPipelineDefinition definition,
         CancellationToken cancellationToken)
     {
-        var roi = new[] { 730, 1130, 170, 150 };
         var ascending = await FindTemplateAsync(
                 connection,
                 definition,
-                "legacy_sort_asc.png",
-                roi,
+                "career.entry.legacy.legacy_sort_asc",
+                "career.entry.legacy.sort",
                 "uraLegacySortAscending",
                 2_500,
                 cancellationToken)
@@ -587,8 +557,8 @@ public sealed class UraLegacySelector
         return await FindTemplateAsync(
                 connection,
                 definition,
-                "legacy_sort_desc.png",
-                roi,
+                "career.entry.legacy.legacy_sort_desc",
+                "career.entry.legacy.sort",
                 "uraLegacySortDescendingCheck",
                 2_500,
                 cancellationToken)
@@ -607,22 +577,29 @@ public sealed class UraLegacySelector
             return null;
 
         var traineeBadge = await _visualRuntime.LoadTemplateAsync(
-                "templates/legacy/legacy_trainee_badge.png",
+                ResolveAsset("career.entry.legacy.legacy_trainee_badge"),
                 definition.BaseDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
         if (traineeBadge is null)
-            return FirstRowCells[0];
-
-        foreach (var cell in FirstRowCells)
         {
+            var cells = GetLegacyCells();
+            return cells.Count > 0 ? cells[0] : null;
+        }
+
+        foreach (var cell in GetLegacyCells())
+        {
+            var region = RequireRegion(cell.RegionId);
+            var badgeRoi = region.FocusedRoi is { Length: >= 4 } focusedRoi
+                ? focusedRoi
+                : GetRequiredMetadataRoi(region, "badgeRoi");
             var badge = TemplateMatcher.Find(
                 frame,
                 traineeBadge,
-                [cell.X, cell.Y, cell.Width, 75],
-                0.78,
-                ReferenceWidth,
-                ReferenceHeight);
+                badgeRoi,
+                ResolveAssetThreshold("career.entry.legacy.legacy_trainee_badge"),
+                definition.ReferenceWidth,
+                definition.ReferenceHeight);
             if (badge.Found)
             {
                 logSink?.Add(
@@ -640,16 +617,16 @@ public sealed class UraLegacySelector
     private async Task<bool> TapTemplateAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        string templateName,
-        int[] roi,
+        string assetId,
+        string regionId,
         string actionName,
         CancellationToken cancellationToken)
     {
         var match = await FindTemplateAsync(
                 connection,
                 definition,
-                templateName,
-                roi,
+                assetId,
+                regionId,
                 actionName,
                 8_000,
                 cancellationToken)
@@ -669,17 +646,17 @@ public sealed class UraLegacySelector
     private async Task<TemplateMatchResult?> FindTemplateAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        string templateName,
-        int[] roi,
+        string assetId,
+        string regionId,
         string actionName,
         int timeoutMilliseconds,
         CancellationToken cancellationToken)
     {
         return await _visualRuntime.WaitForMatchAsync(
                 connection,
-                $"templates/legacy/{templateName}",
-                roi,
-                TemplateThreshold,
+                ResolveAsset(assetId),
+                GetRequiredRegionRoi(regionId),
+                ResolveAssetThreshold(assetId),
                 definition.ReferenceWidth,
                 definition.ReferenceHeight,
                 timeoutMilliseconds,
@@ -693,15 +670,94 @@ public sealed class UraLegacySelector
     private static UraLegacySelectionResult Failure(string message) =>
         new(false, message);
 
+    private CareerVisualResourcePackage Resources =>
+        _activeResources.Value
+            ?? throw new InvalidDataException("Career Legacy visual resources are not active.");
+
+    private string ResolveAsset(string assetId) => Resources.ResolveVisualResource(assetId);
+
+    private double ResolveAssetThreshold(string assetId)
+    {
+        if (Resources.TryGetAsset(assetId, out var asset) && asset?.Threshold is { } threshold)
+            return threshold;
+        throw new InvalidDataException($"Career Legacy asset '{assetId}' has no threshold.");
+    }
+
+    private int[] GetRequiredRegionRoi(string regionId) =>
+        RequireRegion(regionId).Roi is { Length: >= 4 } roi
+            ? roi
+            : throw new InvalidDataException($"Career Legacy region '{regionId}' has no ROI.");
+
+    private CareerVisualRegionDefinition RequireRegion(string regionId) =>
+        Resources.TryGetRegion(regionId, out var region) && region is not null
+            ? region
+            : throw new InvalidDataException($"Career Legacy visual region '{regionId}' is missing.");
+
+    private async Task TapRegionCenterAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string regionId,
+        string actionName,
+        CancellationToken cancellationToken)
+    {
+        var roi = GetRequiredRegionRoi(regionId);
+        var x = (int)Math.Round((roi[0] + roi[2] / 2d)
+            * Math.Max(1, connection.Width) / Math.Max(1, definition.ReferenceWidth));
+        var y = (int)Math.Round((roi[1] + roi[3] / 2d)
+            * Math.Max(1, connection.Height) / Math.Max(1, definition.ReferenceHeight));
+        await _visualRuntime.TapMatchAsync(
+                connection,
+                new TemplateMatchResult(true, 1d, x, y, 1, 1),
+                actionName,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private List<LegacyCell> GetLegacyCells()
+    {
+        var cells = new List<LegacyCell>(4);
+        for (var index = 1; index <= 4; index++)
+        {
+            var regionId = $"career.entry.legacy.cell.{index}";
+            var roi = GetRequiredRegionRoi(regionId);
+            cells.Add(new LegacyCell(roi[0], roi[1], roi[2], roi[3], regionId));
+        }
+        return cells;
+    }
+
+    private static int[] GetRequiredMetadataRoi(
+        CareerVisualRegionDefinition region,
+        string metadataName)
+    {
+        if (region.Metadata?.TryGetValue(metadataName, out var value) != true
+            || value.ValueKind != System.Text.Json.JsonValueKind.Array)
+        {
+            throw new InvalidDataException(
+                $"Career Legacy region '{region.Id}' is missing '{metadataName}' metadata.");
+        }
+        var roi = value.EnumerateArray().Select(item => item.GetInt32()).ToArray();
+        return roi.Length >= 4
+            ? roi
+            : throw new InvalidDataException(
+                $"Career Legacy region '{region.Id}' has invalid '{metadataName}' metadata.");
+    }
+
+    private static string? NormalizeFilterKey(string key) => key.Trim().ToLowerInvariant() switch
+    {
+        "wisdom" => "wit",
+        "speed" or "stamina" or "power" or "guts" or "wit" or "turf" or "dirt"
+            or "sprint" or "mile" or "medium" or "long" or "front" or "pace" or "late" or "end"
+            => key.Trim().ToLowerInvariant(),
+        _ => null,
+    };
+
     private enum LegacySlotState
     {
         Unknown,
         Cached,
     }
 
-    private readonly record struct LegacyCell(int X, int Y, int Width, int Height);
-
-    private sealed record LegacyFilterOption(string Name, int X, int Y);
+    private readonly record struct LegacyCell(int X, int Y, int Width, int Height, string RegionId);
 }
 
 public sealed record UraLegacySelectionResult(bool Succeeded, string Message);

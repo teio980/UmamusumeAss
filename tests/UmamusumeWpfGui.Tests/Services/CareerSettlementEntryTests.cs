@@ -16,10 +16,8 @@ public sealed class CareerSettlementEntryTests
         string previousScreen, bool resume, bool expected)
     {
         var root = FindWorkspaceRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
-        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura",
-            "captures", "rewards_collected.png"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, "rewards_collected.png"));
         if (!expected)
         {
             // Isolate the popup to check its phase gate independently of
@@ -29,6 +27,7 @@ public sealed class CareerSettlementEntryTests
                 ScreenProfile = new UraScreenProfile
                 {
                     Screens = [pack.ScreenProfile.Find("rewards_collected")!],
+                    VisualResources = pack.ScreenProfile.VisualResources,
                 },
             };
         }
@@ -54,9 +53,8 @@ public sealed class CareerSettlementEntryTests
         Assert.Equal("rewards_collected", observation?.ScreenId);
         Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var popup = pack.ScreenProfile.Find("rewards_collected")!;
-        var task = pack.ExecutionDefinition.GetTask(popup.FindAction("close")!.Task);
-        var close = Load(Path.Combine(root, "resource", "hachimi", "ura", "screens",
-            task.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var task = pack.ExecutionDefinition.GetTask(popup.FindAction("rewards_collected.close")!.Task);
+        var close = Load(CareerTestResourceResolver.ResolveUraVisualResource(pack, task.Template!));
         var match = TemplateMatcher.FindColor(frame, close, task.Roi,
             task.TemplateThreshold, 900, 1600);
         Assert.True(match.Found, $"Collected rewards Close score {match.Score:0.000}.");
@@ -76,12 +74,11 @@ public sealed class CareerSettlementEntryTests
     public async Task Collected_rewards_title_rejects_other_reward_pages(string capture)
     {
         var root = FindWorkspaceRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var popup = pack.ScreenProfile.Find("rewards_collected")!;
-        var header = Load(Path.Combine(root, "resource", "hachimi", "ura", "screens",
-            popup.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura", "captures", capture));
+        var header = Load(CareerTestResourceResolver.ResolveUraScreenTemplate(
+            pack, popup, popup.Recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, capture));
 
         Assert.Equal(0, header.RgbaPixels![3]);
         Assert.False(Match(frame, header, popup.Recognition).Found);
@@ -91,12 +88,17 @@ public sealed class CareerSettlementEntryTests
     public async Task Collected_rewards_requires_a_close_button()
     {
         var root = FindWorkspaceRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var popup = pack.ScreenProfile.Find("rewards_collected")!;
-        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [popup] } };
-        var frame = Load(Path.Combine(root, "testdata", "hachimi", "ura", "captures",
-            "rewards_collected.png"));
+        pack = pack with
+        {
+            ScreenProfile = new UraScreenProfile
+            {
+                Screens = [popup],
+                VisualResources = pack.ScreenProfile.VisualResources,
+            },
+        };
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, "rewards_collected.png"));
         // Leave the title intact but remove the button so a partial/animating
         // modal cannot be accepted as a stable actionable screen.
         for (var y = 950; y < 1400; y++)
@@ -119,25 +121,23 @@ public sealed class CareerSettlementEntryTests
     public async Task Rewards_after_event_reward_use_masked_title_and_opaque_cropped_next()
     {
         var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
-        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var rewards = pack.ScreenProfile.Find("rewards");
         Assert.NotNull(rewards);
-        Assert.Equal("rewards_rewards_next", rewards.FindAction("next")?.Task);
+        Assert.Equal("rewards_rewards_next", rewards.FindAction("rewards.next")?.Task);
 
-        var frame = Load(Path.Combine(captures, "event_reward_after_next.png"));
-        var ordinaryRewards = Load(Path.Combine(captures, "ura_rewards_next.png"));
-        var giftOverlay = Load(Path.Combine(captures, "event_reward_live.png"));
-        var header = Load(Path.Combine(screens, "templates", "rewards_header.png"));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, "event_reward_after_next.png"));
+        var ordinaryRewards = Load(CareerTestResourceResolver.FindUraCapture(root, "ura_rewards_next.png"));
+        var giftOverlay = Load(CareerTestResourceResolver.FindUraCapture(root, "event_reward_live.png"));
+        var header = Load(CareerTestResourceResolver.ResolveUraScreenTemplate(
+            pack, rewards, rewards.Recognition.Template!));
         Assert.Equal(0, header.RgbaPixels![3]);
         Assert.True(Match(frame, header, rewards.Recognition).Found);
         Assert.True(Match(ordinaryRewards, header, rewards.Recognition).Found);
         Assert.False(Match(giftOverlay, header, rewards.Recognition).Found);
 
         var nextTask = pack.ExecutionDefinition.GetTask("rewards_rewards_next");
-        var next = Load(Path.Combine(screens, "templates", "rewards_rewards_next.png"));
+        var next = Load(CareerTestResourceResolver.ResolveUraVisualResource(pack, "templates/rewards_rewards_next.png"));
         Assert.InRange(next.Width, 70, 90);
         Assert.InRange(next.Height, 30, 45);
         Assert.Equal(255, next.RgbaPixels![3]);
@@ -152,20 +152,18 @@ public sealed class CareerSettlementEntryTests
     public async Task Event_reward_gift_box_is_recognized_and_its_cropped_next_can_be_clicked()
     {
         var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
-        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var eventReward = pack.ScreenProfile.Find("event_reward");
         Assert.NotNull(eventReward);
         Assert.Equal(CareerScreenKind.Settlement,
-            CareerScreenClassification.Classify(eventReward.ScreenId));
-        Assert.Equal("event_reward_next", eventReward.FindAction("next")?.Task);
+            CareerScreenClassification.Classify(eventReward.ScreenId, pack.ScreenProfile));
+        Assert.Equal("event_reward_next", eventReward.FindAction("event_reward.next")?.Task);
 
-        var frame = Load(Path.Combine(captures, "event_reward_live.png"));
-        var afterNext = Load(Path.Combine(captures, "event_reward_after_next.png"));
-        var ordinaryReward = Load(Path.Combine(captures, "ura_rewards_next.png"));
-        var box = Load(Path.Combine(screens, "templates", "event_reward_gift_box.png"));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, "event_reward_live.png"));
+        var afterNext = Load(CareerTestResourceResolver.FindUraCapture(root, "event_reward_after_next.png"));
+        var ordinaryReward = Load(CareerTestResourceResolver.FindUraCapture(root, "ura_rewards_next.png"));
+        var box = Load(CareerTestResourceResolver.ResolveUraScreenTemplate(
+            pack, eventReward, eventReward.Recognition.Template!));
         var boxMatch = TemplateMatcher.FindColor(frame, box,
             eventReward.Recognition.Roi, eventReward.Recognition.TemplateThreshold,
             900, 1600);
@@ -182,7 +180,7 @@ public sealed class CareerSettlementEntryTests
         var nextTask = pack.ExecutionDefinition.GetTask("event_reward_next");
         Assert.Equal("ClickSelf", nextTask.Action);
         Assert.Equal("MatchTemplateColor", nextTask.Algorithm);
-        var nextText = Load(Path.Combine(screens, "templates", "event_reward_next_text.png"));
+        var nextText = Load(CareerTestResourceResolver.ResolveUraVisualResource(pack, "templates/event_reward_next_text.png"));
         Assert.InRange(nextText.Width, 70, 90);
         Assert.InRange(nextText.Height, 30, 45);
         var nextMatch = TemplateMatcher.FindColor(frame, nextText,
@@ -198,26 +196,22 @@ public sealed class CareerSettlementEntryTests
     public async Task Complete_career_entry_and_finish_dialog_are_distinguished()
     {
         var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
-        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var entry = pack.ScreenProfile.Find("complete_career_entry");
         var dialog = pack.ScreenProfile.Find("complete_career");
         Assert.NotNull(entry);
         Assert.NotNull(dialog);
         Assert.Equal(CareerScreenKind.Settlement,
-            CareerScreenClassification.Classify(entry.ScreenId));
-        Assert.Equal("complete_career_entry_open", entry.FindAction("open")?.Task);
-        Assert.Equal("complete_career_career_finish", dialog.FindAction("finish")?.Task);
+            CareerScreenClassification.Classify(entry.ScreenId, pack.ScreenProfile));
+        Assert.Equal("complete_career_entry_open", entry.FindAction("career.open")?.Task);
+        Assert.Equal("complete_career_career_finish", dialog.FindAction("career.finish")?.Task);
 
-        var entryFrame = Load(Path.Combine(captures, "complete_career_entry.png"));
-        var dialogFrame = Load(Path.Combine(screens, "templates", "runtime_frames",
-            "ura_complete_career_next.png"));
-        var entryTemplate = Load(Path.Combine(screens,
-            entry.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var dialogTemplate = Load(Path.Combine(screens,
-            dialog.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var entryFrame = Load(CareerTestResourceResolver.FindUraCapture(root, "complete_career_entry.png"));
+        var dialogFrame = Load(CareerTestResourceResolver.FindUraCapture(root, "ura_complete_career_next.png"));
+        var entryTemplate = Load(CareerTestResourceResolver.ResolveUraScreenTemplate(
+            pack, entry, entry.Recognition.Template!));
+        var dialogTemplate = Load(CareerTestResourceResolver.ResolveUraScreenTemplate(
+            pack, dialog, dialog.Recognition.Template!));
         var entryMatch = Match(entryFrame, entryTemplate, entry.Recognition);
         Assert.True(entryMatch.Found, $"Entry score {entryMatch.Score:0.000}.");
         Assert.InRange(entryMatch.CenterX, 65, 95);
@@ -229,16 +223,15 @@ public sealed class CareerSettlementEntryTests
         var open = pack.ExecutionDefinition.GetTask("complete_career_entry_open");
         Assert.Equal("ClickSelf", open.Action);
         Assert.Equal("MatchTemplateColor", open.Algorithm);
-        var actionTemplate = Load(Path.Combine(screens,
-            open.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var actionTemplate = Load(CareerTestResourceResolver.ResolveUraVisualResource(pack, open.Template!));
         var actionMatch = TemplateMatcher.FindColor(entryFrame, actionTemplate,
             open.Roi, open.TemplateThreshold, 900, 1600);
         Assert.True(actionMatch.Found, $"Click score {actionMatch.Score:0.000}.");
         Assert.InRange(actionMatch.CenterX, 590, 690);
         Assert.InRange(actionMatch.CenterY, 1320, 1380);
 
-        var trainingSelectionFrame = Load(Path.Combine(captures,
-            "training_selection_turn15_ura.png"));
+        var trainingSelectionFrame = Load(CareerTestResourceResolver.FindUraCapture(
+            root, "training_selection_turn15_ura.png"));
         Assert.False(Match(trainingSelectionFrame, entryTemplate, entry.Recognition).Found);
         Assert.False(TemplateMatcher.FindColor(trainingSelectionFrame, actionTemplate,
             open.Roi, open.TemplateThreshold, 900, 1600).Found);
@@ -268,16 +261,5 @@ public sealed class CareerSettlementEntryTests
         GrayImageCodec.FromFile(path)
         ?? throw new FileNotFoundException("Could not load settlement image.", path);
 
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static string FindWorkspaceRoot() => CareerTestResourceResolver.FindWorkspaceRoot();
 }

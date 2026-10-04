@@ -76,43 +76,56 @@ public sealed class HachimiResourceReferenceTests
             HachimiResourcePaths.UraManifest.Replace('/', Path.DirectorySeparatorChar));
         var pack = await UraScenarioPackLoader.LoadAsync(manifestPath);
 
-        var runtimeFrames = Path.Combine(
-            pack.RootDirectory,
-            "screens",
+        Assert.NotNull(pack.VisualResources);
+        var legacyTemplates = Path.Combine(
+            Path.GetDirectoryName(pack.ManifestPath)!,
+            "..",
+            "career",
+            "entry",
             "templates",
-            "runtime_frames");
-        Assert.Equal(92, Directory.EnumerateFiles(runtimeFrames).Count());
-        Assert.Equal(
-            23,
-            Directory.EnumerateFiles(
-                Path.Combine(pack.RootDirectory, "screens", "templates", "legacy")).Count());
-        Assert.Equal(
-            270,
-            Directory.EnumerateFiles(
-                Path.Combine(
-                    pack.RootDirectory,
-                    "screens",
-                    "templates",
-                    "independent",
-                    "race_cards")).Count());
+            "legacy");
+        Assert.True(Directory.EnumerateFiles(legacyTemplates).Any());
+        Assert.True(pack.VisualResources!.DynamicCollections.ContainsKey("independent.race_card"));
+        Assert.True(pack.VisualResources.DynamicCollections.ContainsKey("career.runtime_frame"));
+        Assert.True(Directory.EnumerateFiles(
+            pack.VisualResources.DynamicCollections["independent.race_card"].RootDirectory).Any());
 
-        var profilePath = Path.Combine(pack.RootDirectory, "screens", "screen_profile.json");
-        using var profile = JsonDocument.Parse(File.ReadAllText(profilePath));
-        foreach (var reference in EnumerateResourceStrings(profile.RootElement))
+        foreach (var screen in pack.ScreenProfile.Screens)
         {
-            var path = UraScenarioResourceResolver.Resolve(pack.RootDirectory, reference);
-            Assert.True(
-                File.Exists(path),
-                $"URA screen profile references missing '{reference}' (resolved to '{path}').");
+            foreach (var reference in screen.Templates)
+            {
+                var path = UraScenarioResourceResolver.Resolve(pack, screen, reference);
+                Assert.True(File.Exists(path), $"Screen '{screen.ScreenId}' references missing '{reference}'.");
+            }
         }
 
-        using var races = JsonDocument.Parse(File.ReadAllText(
-            Path.Combine(pack.RootDirectory, "races.json")));
-        foreach (var reference in EnumerateResourceStrings(races.RootElement)
-                     .Where(item => item.Contains("runtime_frames", StringComparison.OrdinalIgnoreCase)))
+        foreach (var reference in pack.Races.Races
+                     .Select(race => race.ObservedOutcome?.Capture)
+                     .Where(path => !string.IsNullOrWhiteSpace(path)))
         {
-            var path = UraScenarioResourceResolver.Resolve(pack.RootDirectory, reference);
+            Assert.False(reference!.StartsWith("testdata/", StringComparison.OrdinalIgnoreCase), reference);
+            var path = UraScenarioResourceResolver.Resolve(pack, reference!);
             Assert.True(File.Exists(path), path);
+            var runtimeFrameId = $"career.runtime_frame:{Path.GetFileNameWithoutExtension(reference)}";
+            var runtimeFramePath = pack.VisualResources!.ResolveVisualResource(runtimeFrameId);
+            var runtimeFrameRoot = pack.VisualResources.DynamicCollections["career.runtime_frame"].RootDirectory;
+            Assert.Equal(
+                Path.GetFullPath(Path.Combine(runtimeFrameRoot, Path.GetFileName(reference!))),
+                Path.GetFullPath(runtimeFramePath));
+            Assert.True(
+                File.Exists(runtimeFramePath),
+                runtimeFrameId);
+        }
+
+        foreach (var task in pack.ExecutionDefinition.Tasks.Keys)
+        {
+            if (pack.VisualResources.TaskSourceFiles.ContainsKey(task)
+                && !string.IsNullOrWhiteSpace(pack.VisualResources.GetOriginalTaskTemplate(task)))
+            {
+                Assert.True(File.Exists(pack.VisualResources.ResolveTaskTemplate(task)), task);
+            }
+            foreach (var transition in pack.VisualResources.GetResolvedTaskTransitionTemplates(task))
+                Assert.True(File.Exists(transition), task);
         }
     }
 

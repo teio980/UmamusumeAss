@@ -1,150 +1,12 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
-
-public sealed record CareerActionExecutionResult(
-    bool Succeeded,
-    string Message,
-    string LastScreenId)
-{
-    public static CareerActionExecutionResult Success(string screenId) =>
-        new(true, string.Empty, screenId);
-}
-
-/// <summary>
-/// Internal seam for behavior tests. Production callers continue to use the
-/// public <see cref="CareerJsonActionExecutor"/> constructor path.
-/// </summary>
-internal interface ICareerActionExecutor
-{
-    Task<CareerActionExecutionResult> RunAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string screenId,
-        string actionId,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null,
-        bool allowVisualMiss = false);
-
-    Task<CareerActionExecutionResult> RunTaskAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string taskName,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null);
-}
-
-internal interface ICareerTaskLogAware
-{
-    void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink);
-}
-
-/// <summary>
-/// The small JSON action adapter shared by the entry navigator and
-/// Independent setup. It owns no career strategy or session state.
-/// </summary>
-public sealed class CareerJsonActionExecutor : ICareerActionExecutor, ICareerTaskLogAware
-{
-    private readonly HachimiJsonPipelineRunner _jsonRunner;
-    private IHachimiTaskLogSink? _taskLogSink;
-
-    public CareerJsonActionExecutor(HachimiJsonPipelineRunner jsonRunner)
-    {
-        _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
-    }
-
-    public void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) => _taskLogSink = taskLogSink;
-
-    public async Task<CareerActionExecutionResult> RunAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string screenId,
-        string actionId,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null,
-        bool allowVisualMiss = false)
-    {
-        options ??= new HachimiPipelineRunOptions();
-        options.TaskLogSink ??= _taskLogSink;
-        options.SemanticProfile = HachimiTaskLogProfile.Career;
-        var resolvedScreenId = screenId;
-        if (resolvedScreenId.Equals("career_entry", StringComparison.OrdinalIgnoreCase)
-            && pack.ScreenProfile.Find("career_entry") is null)
-        {
-            resolvedScreenId = "career_final_confirmation";
-        }
-
-        var screen = pack.ScreenProfile.Find(resolvedScreenId);
-        if (screen is null)
-        {
-            return new(false,
-                $"Screen '{resolvedScreenId}' is missing from screen_profile.json.",
-                resolvedScreenId);
-        }
-
-        var action = screen.FindAction(actionId);
-        if (action is null || string.IsNullOrWhiteSpace(action.Task))
-        {
-            return new(false,
-                $"Screen action '{resolvedScreenId}.{actionId}' is missing from screen_profile.json.",
-                resolvedScreenId);
-        }
-
-        var result = await _jsonRunner.RunAsync(
-                connection,
-                pack.ExecutionDefinition,
-                action.Task,
-                options,
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (result.Succeeded)
-            return CareerActionExecutionResult.Success(resolvedScreenId);
-
-        if (allowVisualMiss && IsVisualTaskTimeout(result.Message))
-            return CareerActionExecutionResult.Success(resolvedScreenId);
-
-        return new(false,
-            $"Could not execute JSON task '{action.Task}' for '{resolvedScreenId}.{actionId}': "
-                + result.Message,
-            resolvedScreenId);
-    }
-
-    public static bool IsVisualTaskTimeout(string message) =>
-        message.StartsWith("Timed out waiting for JSON task '", StringComparison.Ordinal);
-
-    public async Task<CareerActionExecutionResult> RunTaskAsync(
-        LastVerifiedConnection connection,
-        UraScenarioPack pack,
-        string taskName,
-        IGrassTaskLogSink? logSink,
-        CancellationToken cancellationToken,
-        HachimiPipelineRunOptions? options = null)
-    {
-        options ??= new HachimiPipelineRunOptions();
-        options.TaskLogSink ??= _taskLogSink;
-        options.SemanticProfile = HachimiTaskLogProfile.Career;
-        var result = await _jsonRunner.RunAsync(
-                connection,
-                pack.ExecutionDefinition,
-                taskName,
-                options,
-                logSink,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return result.Succeeded
-            ? CareerActionExecutionResult.Success(taskName)
-            : new(false, result.Message, taskName);
-    }
-}
 
 public enum CareerEntryNavigationStep
 {
@@ -186,18 +48,7 @@ public sealed record CareerEntryNavigationResult(
 /// </summary>
 public sealed class CareerEntryNavigator
 {
-    private const string SupportOpenTask = "support_select_support_open";
-    private static readonly int[][] SupportSlotRois =
-    [
-        [90, 420, 160, 160],
-        [360, 420, 160, 160],
-        [630, 420, 160, 160],
-        [90, 770, 160, 160],
-        [360, 770, 160, 160],
-        [630, 770, 160, 160],
-    ];
     private const string FinalConfirmationScreenId = "career_final_confirmation";
-    private const double EarlyRecognitionThreshold = 0.985;
     private const int MaxStableScreenRecognitionRetries = 30;
 
     private static readonly HashSet<string> EntryScreenIds =
@@ -434,7 +285,7 @@ public sealed class CareerEntryNavigator
                             connection,
                             pack,
                             "home",
-                            "career",
+                            "home.career",
                             logSink,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -463,7 +314,9 @@ public sealed class CareerEntryNavigator
                         connection,
                         pack,
                         "career_continue",
-                        settings.ContinueExistingCareer ? "resume" : "delete",
+                        settings.ContinueExistingCareer
+                            ? "career.continue.resume"
+                            : "career.continue.delete",
                         logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -546,7 +399,7 @@ public sealed class CareerEntryNavigator
                         connection,
                         pack,
                         "trainee_select",
-                        "pick",
+                        "trainee.pick",
                         logSink,
                         cancellationToken,
                         new HachimiPipelineRunOptions
@@ -566,6 +419,7 @@ public sealed class CareerEntryNavigator
                                         task,
                                         settings.TraineeId,
                                         actionLogSink,
+                                        pack.VisualResources,
                                         actionCancellationToken)
                                     .ConfigureAwait(false);
                                 return selection.Succeeded
@@ -623,7 +477,7 @@ public sealed class CareerEntryNavigator
                         connection,
                         pack,
                         "support_autofill_confirmation",
-                        "autofill_ok",
+                        "support.autofill_ok",
                         logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -637,7 +491,7 @@ public sealed class CareerEntryNavigator
                         connection,
                         pack,
                         "support_ready",
-                        "start",
+                        "support.start",
                         logSink,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -675,7 +529,7 @@ public sealed class CareerEntryNavigator
                 connection,
                 pack,
                 "legacy_select",
-                "choose",
+                "legacy.choose",
                 logSink,
                 cancellationToken,
                 new HachimiPipelineRunOptions
@@ -693,6 +547,7 @@ public sealed class CareerEntryNavigator
                                 definition,
                                 settings,
                                 actionLogSink,
+                                pack.VisualResources,
                                 actionCancellationToken)
                             .ConfigureAwait(false);
                         return selection.Succeeded
@@ -722,7 +577,7 @@ public sealed class CareerEntryNavigator
                     connection,
                     pack,
                     "support_select",
-                    "auto_fill",
+                    "support.auto_fill",
                     logSink,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -750,7 +605,7 @@ public sealed class CareerEntryNavigator
         }
 
         var reset = await _actions.RunAsync(
-                connection, pack, "support_select", "reset_if_needed", logSink, cancellationToken)
+                connection, pack, "support_select", "support.reset_if_needed", logSink, cancellationToken)
             .ConfigureAwait(false);
         if (!reset.Succeeded)
             return reset;
@@ -883,7 +738,7 @@ public sealed class CareerEntryNavigator
                 connection,
                 pack,
                 "support_select",
-                "start",
+                "support.start",
                 logSink,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -975,7 +830,7 @@ public sealed class CareerEntryNavigator
         }
 
         var reset = await _actions.RunAsync(
-                connection, pack, "support_select", "reset_if_needed", logSink, cancellationToken)
+                connection, pack, "support_select", "support.reset_if_needed", logSink, cancellationToken)
             .ConfigureAwait(false);
         if (!reset.Succeeded)
             return reset;
@@ -1070,7 +925,7 @@ public sealed class CareerEntryNavigator
                 connection,
                 pack,
                 "support_select",
-                "start",
+                "support.start",
                 logSink,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -1102,15 +957,15 @@ public sealed class CareerEntryNavigator
 
         var actions = new List<string>
         {
-            "ranked.display_settings",
-            "ranked.filter_tab",
-            "ranked.filter_reset",
+            "support.ranked.display_settings",
+            "support.ranked.filter_tab",
+            "support.ranked.filter_reset",
         };
-        actions.AddRange(rarityFilters.Select(rarity => $"ranked.filter_{rarity}"));
+        actions.AddRange(rarityFilters.Select(rarity => $"support.ranked.filter_{rarity}"));
         actions.AddRange(
         [
-            $"ranked.filter_{filterKey}",
-            "ranked.filter_apply",
+            $"support.ranked.filter_{filterKey}",
+            "support.ranked.filter_apply",
         ]);
         foreach (var action in actions)
         {
@@ -1138,10 +993,10 @@ public sealed class CareerEntryNavigator
     {
         string[] actions =
         [
-            "ranked.display_settings",
-            friendPage ? "ranked.friend_sort_level" : "ranked.sort_level",
-            "ranked.sort_apply",
-            "ranked.sort_desc",
+            "support.ranked.display_settings",
+            friendPage ? "support.ranked.friend_sort_level" : "support.ranked.sort_level",
+            "support.ranked.sort_apply",
+            "support.ranked.sort_desc",
         ];
         foreach (var action in actions)
         {
@@ -1162,7 +1017,7 @@ public sealed class CareerEntryNavigator
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        if ((uint)slotIndex >= SupportSlotRois.Length)
+        if (slotIndex < 0)
         {
             return Task.FromResult(new CareerActionExecutionResult(
                 false,
@@ -1170,11 +1025,24 @@ public sealed class CareerEntryNavigator
                 "support_select"));
         }
 
+        if (pack.VisualResources?.TryGetRegion(
+                $"career.entry.support.slot.{slotIndex + 1}",
+                out var slotRegion) != true
+            || slotRegion?.Roi is not { Length: >= 4 } slotRoi)
+        {
+            return Task.FromResult(new CareerActionExecutionResult(
+                false,
+                $"Career visual catalog is missing support slot {slotIndex + 1} ROI.",
+                "support_select"));
+        }
+
+        var openTask = GetDeclaredTaskName(pack, "support_select", "support.open");
+
         return _actions.RunAsync(
             connection,
             pack,
             "support_select",
-            "open",
+            "support.open",
             logSink,
             cancellationToken,
             new HachimiPipelineRunOptions
@@ -1182,7 +1050,7 @@ public sealed class CareerEntryNavigator
                 SearchRoiOverrides = new Dictionary<string, IReadOnlyList<int[]>>(
                     StringComparer.OrdinalIgnoreCase)
                 {
-                    [SupportOpenTask] = [SupportSlotRois[slotIndex]],
+                    [openTask] = [(int[])slotRoi.Clone()],
                 },
             });
     }
@@ -1201,18 +1069,26 @@ public sealed class CareerEntryNavigator
 
         // Formation Reset clears owned cards but keeps the borrowed card.
         // A filled Friends slot opens a Borrow Card dialog with a Remove action.
+        var friendSlotCenter = GetRequiredRegionCenter(pack, "career.entry.support.friend_slot.open");
         await _visualRuntime.TapAsync(
-                connection, 715, 850, 900, 1600,
+                connection,
+                friendSlotCenter.X,
+                friendSlotCenter.Y,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight,
                 "support_select_friend_open_selected", cancellationToken)
             .ConfigureAwait(false);
+        var removeRegion = RequireVisualRegion(pack, "career.entry.support.friend_remove");
+        var removeRoi = GetRequiredRegionRoi(pack, "career.entry.support.friend_remove");
         var remove = await _visualRuntime.WaitForTextAsync(
                 connection,
                 "Remove",
-                [20, 140, 860, 130],
-                0.85,
+                removeRoi,
+                removeRegion.Threshold
+                    ?? throw new InvalidDataException("Support friend Remove threshold is missing."),
                 unique: true,
-                900,
-                1600,
+                pack.ScreenProfile.ReferenceWidth,
+                pack.ScreenProfile.ReferenceHeight,
                 2_500,
                 150,
                 "en-US",
@@ -1272,14 +1148,10 @@ public sealed class CareerEntryNavigator
         CancellationToken cancellationToken)
     {
         var filterKey = SupportDeckPresetCatalog.GetFilterKey(supportType);
-        var templatePrefix = friendPage
-            ? "friend_type_"
-            : "type_";
-        var typeTemplate = filterKey is null
-            ? null
-            : UraScenarioResourceResolver.Resolve(
-                pack,
-                $"screens/templates/support_cards/{templatePrefix}{filterKey}.png");
+        var visualResourceId = $"career.entry.support.type.{(friendPage ? "friend." : string.Empty)}{filterKey}";
+        var typeTemplate = filterKey is not null && pack.VisualResources is not null
+            ? pack.VisualResources.ResolveVisualResource(visualResourceId)
+            : null;
         if (typeTemplate is null || !File.Exists(typeTemplate))
         {
             return new(false,
@@ -1287,34 +1159,50 @@ public sealed class CareerEntryNavigator
                 "support_select");
         }
 
-        var taskPrefix = friendPage
-            ? "support_select_support_friend_top_card_"
-            : "support_select_support_top_card_";
+        var actionId = friendPage
+            ? "support.ranked.select_friend_highest_card"
+            : "support.ranked.select_highest_card";
+        var templateTaskIds = GetActionTemplateTaskIds(pack, "support_select", actionId);
+        if (templateTaskIds.Count == 0)
+        {
+            return new(false,
+                $"Support action '{actionId}' has no declared template tasks.",
+                "support_select");
+        }
         // Already selected cards remain at the front of the filtered list.
         // Move to the next card of this type when filling another owned slot.
-        var topCardRoi = new[] { 35 + 166 * cardIndex, 130, 165, 220 };
+        int[]? topCardRoi = null;
+        if (!friendPage)
+        {
+            var baseCardRegion = RequireVisualRegion(pack, "career.entry.support.card_selection");
+            if (baseCardRegion.Roi is not { Length: >= 4 })
+            {
+                return new(false,
+                    "Support card selection region is missing its base ROI.",
+                    "support_select");
+            }
+            topCardRoi = (int[])baseCardRegion.Roi.Clone();
+            topCardRoi[0] += GetRegionMetadataInt(baseCardRegion, "horizontalStep") * cardIndex;
+        }
         return await _actions.RunAsync(
                 connection,
                 pack,
                 "support_select",
-                friendPage ? "ranked.select_friend_highest_card" : "ranked.select_highest_card",
+                actionId,
                 logSink,
                 cancellationToken,
                 new HachimiPipelineRunOptions
                 {
-                    TemplateOverrides = new Dictionary<string, string>(
-                        StringComparer.OrdinalIgnoreCase)
-                    {
-                        [taskPrefix + "ssr"] = typeTemplate,
-                        [taskPrefix + "sr"] = typeTemplate,
-                    },
+                    TemplateOverrides = templateTaskIds.ToDictionary(
+                        taskId => taskId,
+                        _ => typeTemplate,
+                        StringComparer.OrdinalIgnoreCase),
                     RoiOverrides = friendPage
                         ? null
-                        : new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
-                        {
-                            [taskPrefix + "ssr"] = topCardRoi,
-                            [taskPrefix + "sr"] = topCardRoi,
-                        },
+                        : templateTaskIds.ToDictionary(
+                            taskId => taskId,
+                            _ => (int[])topCardRoi!.Clone(),
+                            StringComparer.OrdinalIgnoreCase),
                 })
             .ConfigureAwait(false);
     }
@@ -1336,34 +1224,47 @@ public sealed class CareerEntryNavigator
                 "support_select");
         }
 
+        var semanticActionId = "support.ranked.select_exact_card";
+        var templateTaskIds = GetActionTemplateTaskIds(
+            pack, "support_select", semanticActionId);
+        if (templateTaskIds.Count == 0)
+        {
+            return new(false,
+                $"Support action '{semanticActionId}' has no declared template tasks.",
+                "support_select");
+        }
+        var friendCardRegion = friendPage
+            ? RequireVisualRegion(pack, "career.entry.support.friend_card_list")
+            : null;
+        var rootTaskId = GetDeclaredTaskName(pack, "support_select", semanticActionId);
+
         return await _actions.RunAsync(
                 connection,
                 pack,
                 "support_select",
-                "ranked.select_exact_card",
+                semanticActionId,
                 logSink,
                 cancellationToken,
                 new HachimiPipelineRunOptions
                 {
                     RoiOverrides = friendPage
-                        ? new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
-                        {
-                            ["support_select_support_card_exact"] = [25, 270, 190, 990],
-                            ["support_select_support_card_exact_fallback"] = [25, 270, 190, 990],
-                        }
+                        ? templateTaskIds.ToDictionary(
+                            taskId => taskId,
+                            _ => GetRequiredRegionRoi(
+                                pack, "career.entry.support.friend_card_list"),
+                            StringComparer.OrdinalIgnoreCase)
                         : null,
                     ScaleCandidatesOverrides = friendPage
                         ? new Dictionary<string, IReadOnlyList<double>>(StringComparer.OrdinalIgnoreCase)
                         {
-                            ["support_select_support_card_exact"] = [0.85d],
+                            [rootTaskId] = GetRequiredRegionScaleCandidates(
+                                friendCardRegion!, "scaleCandidates"),
                         }
                         : null,
-                    TemplateOverrides = new Dictionary<string, string>(
-                        StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["support_select_support_card_exact"] = template,
-                        ["support_select_support_card_exact_fallback"] = template,
-                    },
+                    TemplateOverrides = templateTaskIds.ToDictionary(
+                        taskId => taskId,
+                        _ => template,
+                        StringComparer.OrdinalIgnoreCase),
                 })
             .ConfigureAwait(false);
     }
@@ -1378,7 +1279,7 @@ public sealed class CareerEntryNavigator
         if (selection is null)
         {
             return await _actions.RunAsync(
-                    connection, pack, "scenario_select", "next", logSink, cancellationToken)
+                    connection, pack, "scenario_select", "scenario.next", logSink, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -1387,27 +1288,23 @@ public sealed class CareerEntryNavigator
         if (frame is null)
             return new(false, "Could not capture the scenario selection screen.", "scenario_select");
 
-        TemplateMatchResult? best = null;
-        foreach (var templatePath in selection.Recognition.GetTemplates())
-        {
-            var template = await LoadTemplateCachedAsync(
-                    UraScenarioResourceResolver.Resolve(pack, templatePath),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (template is null)
-                continue;
-            var match = TemplateMatcher.Find(
+        var resources = pack.VisualResources
+            ?? throw new InvalidDataException("Career scenario selection visual resources are not loaded.");
+        var template = await LoadTemplateCachedAsync(
+                resources.ResolveVisualResource("career.entry.scenario.ura_card"),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var best = template is null
+            ? null
+            : TemplateMatcher.Find(
                 frame,
                 template,
                 selection.Recognition.Roi,
                 selection.Recognition.TemplateThreshold,
                 pack.ScreenProfile.ReferenceWidth,
                 pack.ScreenProfile.ReferenceHeight);
-            if (match.Found && (best is null || match.Score > best.Score))
-                best = match;
-        }
 
-        var action = best is { Found: true } ? "next" : "next_card";
+        var action = best is { Found: true } ? "scenario.next" : "scenario.next_card";
         return await _actions.RunAsync(
                 connection, pack, "scenario_select", action, logSink, cancellationToken)
             .ConfigureAwait(false);
@@ -1449,6 +1346,12 @@ public sealed class CareerEntryNavigator
                 || screen.ScreenId is not "career_main" and not "career_races_ready")
             .OrderBy(screen => GetPriority(screen.ScreenId))
             .ToArray();
+        var earlyExitThreshold = RequireVisualRegion(
+                pack,
+                "career.entry.screen.early_exit")
+            .Threshold
+            ?? throw new InvalidDataException(
+                "Career entry early-exit threshold is missing from the visual catalog.");
 
         var frames = new List<GrayImage>(2);
         for (var sample = 0; sample < 2; sample++)
@@ -1472,7 +1375,7 @@ public sealed class CareerEntryNavigator
                 foreach (var templatePath in screen.Templates)
                 {
                     var template = await LoadTemplateCachedAsync(
-                            UraScenarioResourceResolver.Resolve(pack, templatePath),
+                            ResolveScreenTemplate(pack, screen, templatePath),
                             cancellationToken)
                         .ConfigureAwait(false);
                     if (template is null)
@@ -1489,10 +1392,10 @@ public sealed class CareerEntryNavigator
                     {
                         frameBest = new(screen.ScreenId, match.Score);
                     }
-                    if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                    if (frameBest is { } early && early.Score >= earlyExitThreshold)
                         break;
                 }
-                if (frameBest is { Score: >= EarlyRecognitionThreshold })
+                if (frameBest is { } earlyFrame && earlyFrame.Score >= earlyExitThreshold)
                     break;
             }
             if (frameBest is not null && (best is null || frameBest.Score > best.Score))
@@ -1511,6 +1414,133 @@ public sealed class CareerEntryNavigator
                 () => _visualRuntime.LoadTemplateAsync(key, string.Empty, CancellationToken.None),
                 LazyThreadSafetyMode.ExecutionAndPublication));
         return lazy.Value.WaitAsync(cancellationToken);
+    }
+
+    private static string ResolveScreenTemplate(
+        UraScenarioPack pack,
+        UraScreenDefinition screen,
+        string relativePath) =>
+        pack.VisualResources?.ResolveScreenTemplate(screen, relativePath)
+            ?? throw new InvalidDataException("Career visual resource package is not loaded.");
+
+    private static CareerVisualRegionDefinition RequireVisualRegion(
+        UraScenarioPack pack,
+        string regionId)
+    {
+        if (pack.VisualResources?.TryGetRegion(regionId, out var region) == true
+            && region is not null)
+        {
+            return region;
+        }
+
+        throw new InvalidDataException(
+            $"Career visual catalog is missing region '{regionId}'.");
+    }
+
+    private static int[] GetRequiredRegionRoi(UraScenarioPack pack, string regionId) =>
+        RequireVisualRegion(pack, regionId).Roi is { Length: >= 4 } roi
+            ? (int[])roi.Clone()
+            : throw new InvalidDataException(
+                $"Career visual region '{regionId}' is missing its ROI.");
+
+    private static (int X, int Y) GetRequiredRegionCenter(
+        UraScenarioPack pack,
+        string regionId)
+    {
+        var roi = GetRequiredRegionRoi(pack, regionId);
+        return (roi[0] + roi[2] / 2, roi[1] + roi[3] / 2);
+    }
+
+    private static int GetRegionMetadataInt(
+        CareerVisualRegionDefinition region,
+        string name)
+    {
+        if (region.Metadata?.TryGetValue(name, out var value) == true
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var result))
+        {
+            return result;
+        }
+
+        throw new InvalidDataException(
+            $"Career visual region '{region.Id}' is missing integer '{name}' metadata.");
+    }
+
+    private static double[] GetRequiredRegionScaleCandidates(
+        UraScenarioPack pack,
+        string regionId,
+        string metadataName) =>
+        GetRequiredRegionScaleCandidates(RequireVisualRegion(pack, regionId), metadataName);
+
+    private static double[] GetRequiredRegionScaleCandidates(
+        CareerVisualRegionDefinition region,
+        string metadataName)
+    {
+        if (region.Metadata?.TryGetValue(metadataName, out var value) != true
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidDataException(
+                $"Career visual region '{region.Id}' is missing '{metadataName}' metadata.");
+        }
+
+        var candidates = value.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.Number)
+            .Select(item => item.GetDouble())
+            .ToArray();
+        return candidates.Length > 0
+            ? candidates
+            : throw new InvalidDataException(
+                $"Career visual region '{region.Id}' has empty '{metadataName}' metadata.");
+    }
+
+    private static string GetDeclaredTaskName(
+        UraScenarioPack pack,
+        string screenId,
+        string semanticActionId)
+    {
+        var screen = pack.ScreenProfile.Find(screenId);
+        var action = screen?.FindAction(semanticActionId);
+        return !string.IsNullOrWhiteSpace(action?.Task)
+            ? action.Task
+            : throw new InvalidDataException(
+                $"Screen '{screenId}' does not declare semantic action '{semanticActionId}'.");
+    }
+
+    private static List<string> GetActionTemplateTaskIds(
+        UraScenarioPack pack,
+        string screenId,
+        string semanticActionId)
+    {
+        var root = GetDeclaredTaskName(pack, screenId, semanticActionId);
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var templateTasks = new List<string>();
+        pending.Push(root);
+        while (pending.TryPop(out var taskName))
+        {
+            if (!visited.Add(taskName)
+                || !pack.ExecutionDefinition.TryGetTask(taskName, out var task)
+                || task is null)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(task.Template))
+                templateTasks.Add(taskName);
+            foreach (var next in task.Next
+                         .Concat(task.OnErrorNext)
+                         .Concat(task.ExceededNext)
+                         .Concat(task.Sub)
+                         .Concat(task.MonitorTasks)
+                         .Concat(task.SuccessTasks)
+                         .Concat(task.SuccessTask is null ? Array.Empty<string>() : [task.SuccessTask]))
+            {
+                if (!string.IsNullOrWhiteSpace(next))
+                    pending.Push(next);
+            }
+        }
+
+        return templateTasks;
     }
 
     private string? ResolveSupportTemplate(UraScenarioPack pack, int supportCardId)

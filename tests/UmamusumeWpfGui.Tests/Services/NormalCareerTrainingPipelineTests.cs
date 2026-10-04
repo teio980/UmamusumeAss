@@ -62,6 +62,7 @@ public sealed class NormalCareerTrainingPipelineTests
     [InlineData("race_runner_result", CareerScreenKind.Race)]
     [InlineData("race_trophy_won", CareerScreenKind.Race)]
     [InlineData("race_playback_start", CareerScreenKind.Race)]
+    [InlineData("career_intro_event", CareerScreenKind.Event)]
     [InlineData("event_choice", CareerScreenKind.Event)]
     [InlineData("career_result", CareerScreenKind.Settlement)]
     [InlineData("complete_career_entry", CareerScreenKind.Settlement)]
@@ -157,7 +158,7 @@ public sealed class NormalCareerTrainingPipelineTests
     public void Race_list_resume_without_goal_context_uses_recommended_entry()
     {
         Assert.Equal(
-            "recommended_entry",
+            "race.recommended_entry",
             CareerRaceFlow.GetRaceListActionId(new UraCareerSessionState()));
     }
 
@@ -169,7 +170,7 @@ public sealed class NormalCareerTrainingPipelineTests
             ObservedGoalKind = CareerGoalTextParser.Race,
         };
 
-        Assert.Equal("recommended_entry", CareerRaceFlow.GetRaceListActionId(state));
+        Assert.Equal("race.recommended_entry", CareerRaceFlow.GetRaceListActionId(state));
     }
 
     [Fact]
@@ -180,6 +181,6 @@ public sealed class NormalCareerTrainingPipelineTests
             ObservedGoalKind = CareerGoalTextParser.GradeRaceCount,
         };
 
-        Assert.Equal("fans_entry", CareerRaceFlow.GetRaceListActionId(state));
+        Assert.Equal("race.fans_entry", CareerRaceFlow.GetRaceListActionId(state));
     }
 }

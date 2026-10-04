@@ -656,7 +656,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                             TargetTextOverrides = new Dictionary<string, string>(
                                 StringComparer.OrdinalIgnoreCase)
                             {
-                                ["independent_agenda_race_find"] = target,
+                                [GetDeclaredTaskName(
+                                    pack,
+                                    IndependentTrainingCatalog.AgendaRaceSemanticAction())] = target,
                             },
                         })
                     .ConfigureAwait(false);
@@ -675,7 +677,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                                 TargetTextOverrides = new Dictionary<string, string>(
                                     StringComparer.OrdinalIgnoreCase)
                                 {
-                                    ["independent_agenda_race_verify"] = target,
+                                    [GetDeclaredTaskName(
+                                        pack,
+                                        IndependentTrainingCatalog.AgendaRaceVerifySemanticAction())] = target,
                                 },
                             })
                         .ConfigureAwait(false);
@@ -683,7 +687,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         return verify;
                     selected = true;
                 }
-                else if (!IndependentTrainingContracts.IsAgendaOcrRecognitionMiss(ocr.Message, target))
+                else if (!IndependentTrainingContracts.IsAgendaOcrRecognitionMiss(ocr.FailureKind))
                 {
                     return ocr;
                 }
@@ -702,13 +706,17 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     .ConfigureAwait(false);
                 if (rewind is not null)
                     return rewind;
-                var cardPath = IndependentTrainingCatalog.TryResolveRaceCardImagePath(
-                    pickerRace,
-                    pack.ExecutionDefinition.BaseDirectory);
-                if (cardPath is null)
+                string cardPath;
+                try
+                {
+                    cardPath = pack.VisualResources?.ResolveVisualResource(
+                        $"independent.race_card:{pickerRace.RaceId.ToString(CultureInfo.InvariantCulture)}")
+                        ?? throw new FileNotFoundException("Career visual resource catalog is unavailable.");
+                }
+                catch (Exception error) when (error is FileNotFoundException or InvalidDataException)
                 {
                     return Failure(
-                        $"Independent agenda race '{selection.RaceName}' has no Race ID card asset.",
+                        $"Independent agenda race '{selection.RaceName}' has no declared Race ID card asset: {error.Message}",
                         state.LastConfirmedScreen,
                         runtime.ActionsCompleted);
                 }
@@ -731,9 +739,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                                 TemplateOverrides = new Dictionary<string, string>(
                                     StringComparer.OrdinalIgnoreCase)
                                 {
-                                    [action.EndsWith("verify", StringComparison.OrdinalIgnoreCase)
-                                        ? "independent_agenda_race_card_verify"
-                                        : "independent_agenda_race_card_find"] = cardPath,
+                                    [GetDeclaredTaskName(pack, action)] = cardPath,
                                 },
                             })
                         .ConfigureAwait(false);
@@ -867,7 +873,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         InputTextOverrides = new Dictionary<string, string>(
                             StringComparer.OrdinalIgnoreCase)
                         {
-                            ["independent_skills_search_input"] = skill.EffectiveSearchText,
+                            [GetDeclaredTaskName(
+                                pack,
+                                IndependentTrainingCatalog.SkillSearchInputSemanticAction())] = skill.EffectiveSearchText,
                         },
                     })
                 .ConfigureAwait(false);
@@ -912,7 +920,9 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                         TargetTextOverrides = new Dictionary<string, string>(
                             StringComparer.OrdinalIgnoreCase)
                         {
-                            ["independent_skills_search_checkbox_ocr"] = skill.OcrTargetText,
+                            [GetDeclaredTaskName(
+                                pack,
+                                IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction())] = skill.OcrTargetText,
                         },
                     })
                 .ConfigureAwait(false);
@@ -939,8 +949,10 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                             RoiOverrides = new Dictionary<string, int[]>(
                                 StringComparer.OrdinalIgnoreCase)
                             {
-                                ["independent_skills_search_checkbox"] =
-                                    IndependentTrainingCatalog.GetSkillPickerCheckboxFallbackRoi(pickerRow),
+                                [GetDeclaredTaskName(
+                                    pack,
+                                    IndependentTrainingCatalog.SkillSearchCheckboxFallbackSemanticAction())] =
+                                    GetSkillPickerCheckboxFallbackRoi(pack, pickerRow),
                             },
                         })
                     .ConfigureAwait(false);
@@ -1081,7 +1093,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         var result = await _actions.RunAsync(
                 connection,
                 pack,
-                "career_entry",
+                FinalConfirmationScreenId,
                 action,
                 logSink,
                 cancellationToken,
@@ -1098,8 +1110,15 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
                     HachimiTaskLogEventKind.Failure);
             }
             runtime.RecordActionFailure();
-            return Failure(result.Message, state.LastConfirmedScreen, runtime.ActionsCompleted);
+            return Failure(
+                result.Message,
+                state.LastConfirmedScreen,
+                runtime.ActionsCompleted,
+                result.FailureKind);
         }
+        if (result.Status == CareerActionStatus.NotApplicable)
+            return null;
+
         if (hasSemanticStep)
         {
             _taskLogSink?.Add(
@@ -1115,6 +1134,50 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     private static bool IsEntryStage(IndependentTrainingStage stage) =>
         (int)stage <= (int)IndependentTrainingStage.OpenFinalConfirmation;
 
+    private static int[] GetSkillPickerCheckboxFallbackRoi(
+        UraScenarioPack pack,
+        int pickerRow)
+    {
+        if (pack.VisualResources?.TryGetRegion(
+                "independent.skills.search.checkbox.fallback",
+                out var region) != true
+            || region?.Roi is not { Length: >= 4 })
+        {
+            throw new InvalidDataException(
+                "Independent skill checkbox fallback region is missing from the Career visual catalog.");
+        }
+
+        var rowHeight = GetRegionMetadataInt(region, "rowHeight");
+        var visibleRows = GetRegionMetadataInt(region, "visibleRows");
+        var row = Math.Clamp(pickerRow, 0, Math.Max(0, visibleRows - 1));
+        return [region.Roi[0], region.Roi[1] + row * rowHeight, region.Roi[2], region.Roi[3]];
+    }
+
+    private static int GetRegionMetadataInt(CareerVisualRegionDefinition region, string name)
+    {
+        if (region.Metadata?.TryGetValue(name, out var value) == true
+            && value.ValueKind == System.Text.Json.JsonValueKind.Number
+            && value.TryGetInt32(out var result))
+        {
+            return result;
+        }
+
+        throw new InvalidDataException(
+            $"Independent skill checkbox fallback region has no integer '{name}' metadata.");
+    }
+
+    private static string GetDeclaredTaskName(UraScenarioPack pack, string semanticActionId)
+    {
+        var screen = pack.ScreenProfile.Find(FinalConfirmationScreenId)
+            ?? throw new InvalidDataException(
+                $"Final Confirmation screen is missing the '{semanticActionId}' action.");
+        var action = screen.FindAction(semanticActionId);
+        return !string.IsNullOrWhiteSpace(action?.Task)
+            ? action.Task
+            : throw new InvalidDataException(
+                $"Final Confirmation semantic action '{semanticActionId}' is not declared.");
+    }
+
     private async Task<bool> DetectFinalConfirmationStartupPageAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
@@ -1129,8 +1192,10 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
         if (frame is null)
             return false;
 
+        var resources = pack.VisualResources
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
         var template = await _visualRuntime.LoadTemplateAsync(
-                UraScenarioResourceResolver.Resolve(pack, screen.Templates[0]),
+                resources.ResolveScreenTemplate(screen, screen.Templates[0]),
                 string.Empty,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -1246,6 +1311,7 @@ public sealed class AdbIndependentTrainingPipeline : IIndependentTrainingPipelin
     private static IndependentTrainingResult Failure(
         string message,
         string lastScreenId,
-        int actionsCompleted = 0) =>
-        new(false, message, actionsCompleted, lastScreenId);
+        int actionsCompleted = 0,
+        HachimiFailureKind failureKind = HachimiFailureKind.None) =>
+        new(false, message, actionsCompleted, lastScreenId) { FailureKind = failureKind };
 }

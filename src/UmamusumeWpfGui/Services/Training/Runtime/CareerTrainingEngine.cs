@@ -230,6 +230,11 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         // The visible game screen reconstructs Career progress after a restart.
         // Only skills confirmed as obtained need a small cache between runs.
         var state = scenario.CreateInitialState();
+        var session = new CareerSessionState<UraCareerSessionState>
+        {
+            Runtime = state.Runtime,
+            Scenario = state,
+        };
         state.TraineeId = settings.TraineeId;
         // Normal Career does not persist its turn history. A resumed career
         // must not assume it has a clean race streak before a non-race turn.
@@ -347,11 +352,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
         }
 
         var actionCount = 0;
-        var setupObservationRetryCount = 0;
-        var restOkProbeCount = 0;
-        GrayImage? restOkTemplate = null;
-        var recreationOkProbeCount = 0;
-        GrayImage? recreationOkTemplate = null;
+        var completionObserver = new CareerActionCompletionObserver(_visualRuntime, StableScreenRecognitionRetryLimit);
         var homeTabSelectionIssued = false;
         var homeTabSelectionRetryCount = 0;
         string? lastLoggedCareerStatus = null;
@@ -394,7 +395,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     actionCount);
             }
 
-            if (CareerScreenObserver.IsRuntimeCareerScreen(entry.LastScreenId))
+            if (CareerScreenObserver.IsRuntimeCareerScreen(entry.LastScreenId, pack.ScreenProfile))
             {
                 state.CareerStarted = true;
                 state.NormalSetupStage = NormalCareerSetupStage.InCareer;
@@ -440,350 +441,178 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 return setupFailure with { ActionsCompleted = actionCount };
         }
 
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (state.AwaitingRecreationConfirmationGone)
+        var bindings = new CareerRuntimeLoopBindings(
+            IsStartTransitionExpected: () => !state.CareerStarted
+                && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain,
+            BeforeObservationAsync: async loopCancellation =>
             {
-                if (!pack.ExecutionDefinition.TryGetTask(
-                        "recreation_confirmation_ok", out var recreationConfirmTask)
-                    || recreationConfirmTask is null
-                    || string.IsNullOrWhiteSpace(recreationConfirmTask.Template))
-                {
-                    return Failure(
-                        "Recreation OK template is missing; automation paused safely.",
-                        "recreation_confirmation",
-                        actionCount);
-                }
-
-                recreationOkTemplate ??= await _visualRuntime.LoadTemplateAsync(
-                        recreationConfirmTask.Template,
-                        pack.ExecutionDefinition.BaseDirectory,
-                        cancellationToken)
+                var completion = await completionObserver.ObserveAsync(
+                        connection, pack, state, logSink, loopCancellation)
                     .ConfigureAwait(false);
-                if (recreationOkTemplate is null)
+                if (completion is { Succeeded: false })
+                    return Failure(completion.Message, completion.LastScreenId, actionCount);
+                if (completion?.Status == CareerActionStatus.AwaitingConfirmation)
                 {
-                    return Failure(
-                        "Recreation OK template could not be loaded; automation paused safely.",
-                        "recreation_confirmation",
-                        actionCount);
+                    return new CareerRuntimeStep(AwaitingTransition: true);
+                }
+                if (completion?.LastScreenId == "rest_confirmation")
+                {
+                    var eventResult = await _flowDispatcher.TryHandleEventAsync(
+                            new CareerFlowContext(connection, pack, settings.PauseOnUnknownOutcome,
+                                scenario, strategy, settings.LineupStrategy, state,
+                                new CareerObservation("rest_confirmation", 1), logSink,
+                                loopCancellation, settings.EventHandling))
+                        .ConfigureAwait(false);
+                    if (eventResult is not null)
+                        return eventResult;
                 }
 
-                GrayImage? recreationFrame;
-                try
+                return new CareerRuntimeStep();
+            },
+            ObserveAsync: (startExpected, recoveryPending, loopCancellation) =>
+                _screenObserver.ObserveAsync(connection, pack, state, startExpected,
+                    loopCancellation, resumeRecovery: recoveryPending),
+            HandleObservationAsync: async (observation, loopCancellation) =>
+            {
+                var performedActions = 0;
+                if (observation.ScreenId == "home")
                 {
-                    recreationFrame = await _visualRuntime.CaptureGrayAsync(
-                            connection,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    await skillCache.ClearAsync().ConfigureAwait(false);
+                    return new CareerTrainingResult(
+                        true,
+                        "URA career completed and returned to Home.",
+                        actionCount,
+                        observation.ScreenId);
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+
+                if (observation.ScreenId == "home_unselected")
                 {
-                    throw;
-                }
-                catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
-                {
-                    recreationFrame = null;
-                }
-                if (recreationFrame is not null
-                    && !TemplateMatcher.FindColor(
-                        recreationFrame,
-                        recreationOkTemplate,
-                        recreationConfirmTask.Roi,
-                        recreationConfirmTask.TemplateThreshold,
-                        pack.ExecutionDefinition.ReferenceWidth,
-                        pack.ExecutionDefinition.ReferenceHeight,
-                        requireTextContrast: true).Found)
-                {
-                    state.AwaitingRecreationConfirmationGone = false;
-                    recreationOkProbeCount = 0;
-                    logSink?.Add(
-                        "Career Training",
-                        "Recreation OK button disappeared; continuing to the next screen.");
-                }
-                else
-                {
-                    recreationOkProbeCount++;
-                    if (recreationOkProbeCount >= StableScreenRecognitionRetryLimit)
+                    if (!homeTabSelectionIssued)
                     {
-                        return Failure(
-                            "Recreation OK button did not disappear; automation paused safely.",
-                            "recreation_confirmation",
-                            actionCount);
-                    }
-
-                    await _visualRuntime.DelayAsync(250, cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
-                }
-            }
-            if (state.AwaitingRestConfirmationGone)
-            {
-                if (!pack.ExecutionDefinition.TryGetTask(
-                        "rest_confirmation_rest_confirm", out var confirmTask)
-                    || confirmTask is null
-                    || string.IsNullOrWhiteSpace(confirmTask.Template))
-                {
-                    return Failure(
-                        "Rest OK template is missing; automation paused safely.",
-                        "rest_confirmation",
-                        actionCount);
-                }
-
-                restOkTemplate ??= await _visualRuntime.LoadTemplateAsync(
-                        confirmTask.Template,
-                        pack.ExecutionDefinition.BaseDirectory,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (restOkTemplate is null)
-                {
-                    return Failure(
-                        "Rest OK template could not be loaded; automation paused safely.",
-                        "rest_confirmation",
-                        actionCount);
-                }
-
-                if (restOkProbeCount == 0)
-                {
-                    logSink?.Add(
-                        "Career Training",
-                        "Rest OK was clicked; waiting for its button to disappear.");
-                }
-
-                GrayImage? restFrame;
-                try
-                {
-                    restFrame = await _visualRuntime.CaptureGrayAsync(
-                            connection,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
-                {
-                    restFrame = null;
-                }
-
-                if (restFrame is not null
-                    && CareerRestConfirmationGate.HasOkDisappeared(
-                        restFrame,
-                        restOkTemplate,
-                        confirmTask,
-                        pack.ExecutionDefinition.ReferenceWidth,
-                        pack.ExecutionDefinition.ReferenceHeight))
-                {
-                    state.AwaitingRestConfirmationGone = false;
-                    restOkProbeCount = 0;
-                    logSink?.Add(
-                        "Career Training",
-                        "Rest OK button disappeared; continuing to the next screen.");
-
-                    var restEventResult = await _flowDispatcher.TryHandleEventAsync(
-                            new CareerFlowContext(
+                        logSink?.Add("Career Training", "Home tab is visible but not selected; selecting Home.");
+                        var selectHome = await _flowDispatcher.RunScreenActionAsync(
                                 connection,
                                 pack,
-                                settings.PauseOnUnknownOutcome,
-                                scenario,
-                                strategy,
-                                settings.LineupStrategy,
-                                state,
-                                new CareerObservation("rest_confirmation", 1),
+                                "home_unselected",
+                                "home.select",
                                 logSink,
-                                cancellationToken,
-                                settings.EventHandling))
-                        .ConfigureAwait(false);
-                    if (restEventResult is not null)
-                        return restEventResult with { ActionsCompleted = actionCount };
-                }
-                else
-                {
-                    restOkProbeCount++;
-                    if (restOkProbeCount >= StableScreenRecognitionRetryLimit)
+                                loopCancellation)
+                            .ConfigureAwait(false);
+                        if (selectHome is not null)
+                        {
+                            // The unselected template may disappear between observation
+                            // and the action probe because Home became selected.
+                            logSink?.Add(
+                                "Career Training",
+                                "Home tab tap was not confirmed; checking whether Home became selected.");
+                        }
+                        else
+                        {
+                            performedActions++;
+                        }
+
+                        homeTabSelectionIssued = true;
+                        state.LastScreenId = "home_unselected";
+                    }
+                    else if (++homeTabSelectionRetryCount >= StableScreenRecognitionRetryLimit)
                     {
                         return Failure(
-                            "Rest OK button did not disappear; automation paused safely.",
-                            "rest_confirmation",
+                            "Home tab did not become selected after tapping it; automation paused safely.",
+                            observation.ScreenId,
                             actionCount);
                     }
 
-                    await _visualRuntime.DelayAsync(250, cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
-                }
-            }
-
-            careerStartTransitionExpected = !state.CareerStarted
-                && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain;
-            var observation = pendingResumeObservation;
-            pendingResumeObservation = null;
-            observation ??= await _screenObserver.ObserveAsync(
-                    connection,
-                    pack,
-                    state,
-                    careerStartTransitionExpected,
-                    cancellationToken,
-                    resumeRecovery: resumeRecoveryPending)
-                .ConfigureAwait(false);
-            if (observation is null)
-            {
-                var setupRetryLimit = careerStartTransitionExpected
-                    ? 40
-                    : StableScreenRecognitionRetryLimit;
-                if (setupObservationRetryCount < setupRetryLimit)
-                {
-                    setupObservationRetryCount++;
-                    await _visualRuntime.DelayAsync(250, cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
+                    return new CareerRuntimeStep(ActionsCompleted: performedActions, AwaitingTransition: true);
                 }
 
-                await SaveRecognitionFailureAsync(
-                        connection, pack, state, careerStartTransitionExpected,
-                        logSink, cancellationToken)
-                    .ConfigureAwait(false);
-                return Failure(
-                    "Could not recognize a stable Career screen; automation paused safely.",
-                    state.LastScreenId,
-                    actionCount);
-            }
-
-            setupObservationRetryCount = 0;
-            if (observation.ScreenId == "home")
-            {
-                await skillCache.ClearAsync().ConfigureAwait(false);
-                return new CareerTrainingResult(
-                    true,
-                    "URA career completed and returned to Home.",
-                    actionCount,
-                    observation.ScreenId);
-            }
-
-            if (observation.ScreenId == "home_unselected")
-            {
-                if (!homeTabSelectionIssued)
-                {
-                    logSink?.Add("Career Training", "Home tab is visible but not selected; selecting Home.");
-                    var selectHome = await _flowDispatcher.RunScreenActionAsync(
-                            connection,
-                            pack,
-                            "home_unselected",
-                            "home.select",
-                            logSink,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (selectHome is not null)
-                    {
-                        // The unselected template may disappear between observation
-                        // and the action probe because Home became selected.
-                        logSink?.Add(
-                            "Career Training",
-                            "Home tab tap was not confirmed; checking whether Home became selected.");
-                    }
-                    else
-                    {
-                        actionCount++;
-                    }
-
-                    homeTabSelectionIssued = true;
-                    state.LastScreenId = "home_unselected";
-                }
-                else if (++homeTabSelectionRetryCount >= StableScreenRecognitionRetryLimit)
+                if (observation.Kind is CareerScreenKind.Unknown)
                 {
                     return Failure(
-                        "Home tab did not become selected after tapping it; automation paused safely.",
+                        $"Recognized unsupported Career screen '{observation.ScreenId}'; automation paused safely.",
                         observation.ScreenId,
                         actionCount);
                 }
 
-                await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
-                continue;
-            }
-
-            if (observation.Kind is CareerScreenKind.Unknown)
-            {
-                return Failure(
-                    $"Recognized unsupported Career screen '{observation.ScreenId}'; automation paused safely.",
-                    observation.ScreenId,
-                    actionCount);
-            }
-
-            state.LastScreenId = observation.ScreenId;
-            scenario.ObserveScreen(
-                state,
-                observation.ScreenId,
-                observation.Score,
-                observation.EnergyPercent,
-                observation.EnergyConfidence,
-                observation.TurnPositionText,
-                observation.TurnsToGoal,
-                observation.GoalText,
-                observation.FansToGoal,
-                observation.MoodText);
-            if (observation.ScreenId == "career_main"
-                && !string.IsNullOrWhiteSpace(observation.GoalText)
-                && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
-            {
+                state.LastScreenId = observation.ScreenId;
+                ObserveScenario(scenario, session, observation);
+                if (observation.ScreenId == "career_main"
+                    && !string.IsNullOrWhiteSpace(observation.GoalText)
+                    && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
+                {
+                    logSink?.Add(
+                        "Career Training",
+                        $"Grade race goal: grade={state.TargetRaceGrade}, turn={state.TurnIndex}, "
+                        + $"remaining={state.GradeRaceTimesLeft?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}, "
+                        + $"racePending={state.HasPendingRace}.");
+                }
+                if (state.CareerStarted)
+                    state.NormalSetupStage = NormalCareerSetupStage.InCareer;
+                if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+                {
+                    var careerStatus = FormatCareerStatus(observation, state);
+                    if (!string.Equals(careerStatus, lastLoggedCareerStatus, StringComparison.Ordinal))
+                    {
+                        _taskLogSink?.Add(
+                            "Career status",
+                            careerStatus,
+                            HachimiTaskLogEventKind.Detection);
+                        lastLoggedCareerStatus = careerStatus;
+                    }
+                }
                 logSink?.Add(
                     "Career Training",
-                    $"Grade race goal: grade={state.TargetRaceGrade}, turn={state.TurnIndex}, "
-                    + $"remaining={state.GradeRaceTimesLeft?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}, "
-                    + $"racePending={state.HasPendingRace}.");
-            }
-            if (state.CareerStarted)
-                state.NormalSetupStage = NormalCareerSetupStage.InCareer;
-            if (observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
-            {
-                var careerStatus = FormatCareerStatus(observation, state);
-                if (!string.Equals(careerStatus, lastLoggedCareerStatus, StringComparison.Ordinal))
+                    $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
+                if (IsImportantCareerScreen(observation.ScreenId))
                 {
                     _taskLogSink?.Add(
-                        "Career status",
-                        careerStatus,
+                        "Screen",
+                        $"Reached {FriendlyCareerScreen(observation.ScreenId)}.",
                         HachimiTaskLogEventKind.Detection);
-                    lastLoggedCareerStatus = careerStatus;
                 }
-            }
-            logSink?.Add(
-                "Career Training",
-                $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
-            if (IsImportantCareerScreen(observation.ScreenId))
-            {
-                _taskLogSink?.Add(
-                    "Screen",
-                    $"Reached {FriendlyCareerScreen(observation.ScreenId)}.",
-                    HachimiTaskLogEventKind.Detection);
-            }
 
-            var terminal = await _flowDispatcher.DispatchAsync(
-                    connection,
-                    pack,
-                    settings.PauseOnUnknownOutcome,
-                    scenario,
-                    strategy,
-                    settings.LineupStrategy,
-                    state,
-                    observation,
-                    logSink,
-                    settings.EventHandling,
-                    cancellationToken,
-                    settings.RetryFailedRaceWithAlarmClock,
-                    settings.EffectiveNormalSkillIds,
-                    RememberNormalSkillAsync)
-                .ConfigureAwait(false);
-            if (terminal is not null)
-            {
-                return terminal with { ActionsCompleted = actionCount };
-            }
+                var terminal = await _flowDispatcher.DispatchAsync(
+                        connection,
+                        pack,
+                        settings.PauseOnUnknownOutcome,
+                        scenario,
+                        strategy,
+                        settings.LineupStrategy,
+                        state,
+                        observation,
+                        logSink,
+                        settings.EventHandling,
+                        loopCancellation,
+                        settings.RetryFailedRaceWithAlarmClock,
+                        settings.EffectiveNormalSkillIds,
+                        RememberNormalSkillAsync)
+                    .ConfigureAwait(false);
+                if (terminal is not null)
+                {
+                    return terminal;
+                }
 
-            // The first resumed action now supplies normal flow history.
-            // Keep recovery bounded to this handoff, not the whole Career.
-            resumeRecoveryPending = false;
-            actionCount++;
-        }
+                // The first resumed action now supplies normal flow history.
+                // Keep recovery bounded to this handoff, not the whole Career.
+                return new CareerRuntimeStep(ActionsCompleted: 1);
+            },
+            SaveRecognitionFailureAsync: loopCancellation => SaveRecognitionFailureAsync(
+                connection, pack, state, !state.CareerStarted
+                    && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain,
+                logSink, loopCancellation),
+            DelayAsync: (milliseconds, loopCancellation) =>
+                _visualRuntime.DelayAsync(milliseconds, loopCancellation));
+        return await CareerRuntimeLoop.RunAsync(state.Runtime, bindings, actionCount,
+                pendingResumeObservation, resumeRecoveryPending, cancellationToken,
+                recognitionRetryLimit: StableScreenRecognitionRetryLimit)
+            .ConfigureAwait(false);
     }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859",
+        Justification = "This boundary accepts scenario modules through the shared runtime contract.")]
+    private static void ObserveScenario<TScenarioState>(
+        ICareerScenarioModule<TScenarioState> module,
+        CareerSessionState<TScenarioState> session,
+        CareerObservation observation) => module.Observe(session, observation);
 
     private static bool IsPendingNormalSetupStage(NormalCareerSetupStage stage) => stage is
         NormalCareerSetupStage.ConfigureMode
@@ -956,8 +785,9 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 AppBase = AppContext.BaseDirectory,
                 ResourceBase = ResourcePathRuntime.BaseDirectory,
                 pack.ManifestPath,
-                ScreenProfile = Path.Combine(pack.RootDirectory, pack.Manifest.Screens),
-                Execution = Path.Combine(pack.RootDirectory, pack.Manifest.Execution),
+                ScreenProfiles = pack.Manifest.Screens.Select(path => Path.GetFullPath(Path.Combine(pack.RootDirectory, path))),
+                Executions = pack.Manifest.Execution.Select(path => Path.GetFullPath(Path.Combine(pack.RootDirectory, path))),
+                ResourceCatalog = Path.GetFullPath(Path.Combine(pack.RootDirectory, pack.Manifest.ResourceCatalog)),
                 state.LastScreenId,
                 LastAction = state.LastAction.ToString(),
                 state.CareerStarted,
@@ -971,8 +801,11 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 ReturningHome = CareerScreenObserver.IsReturningHome(state),
                 GoalIncompleteRecognition = pack.ScreenProfile.Find("goal_incomplete")?.Recognition,
                 GoalIncompleteEligible = CareerScreenObserver.IsEligibleForCareerPhase(
-                    "goal_incomplete", state),
+                    "goal_incomplete", state, pack.ScreenProfile),
                 CandidateScreenIds = _screenObserver.LastCandidateScreenIds,
+                CandidateSources = _screenObserver.LastCandidateScreenIds.ToDictionary(
+                    screenId => screenId,
+                    screenId => pack.ScreenProfile.Find(screenId)?.SourceFile),
                 FrameScreenIds = _screenObserver.LastFrameScreenIds,
                 CaptureErrors = _screenObserver.LastCaptureErrors,
                 Frames = _screenObserver.LastFrames.Select(frame => new { frame.Width, frame.Height }),

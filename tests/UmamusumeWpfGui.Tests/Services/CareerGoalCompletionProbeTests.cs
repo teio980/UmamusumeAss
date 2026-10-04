@@ -1,6 +1,5 @@
 using System.IO;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
 
@@ -40,7 +39,14 @@ public sealed class CareerGoalCompletionProbeTests
             null, CancellationToken.None);
 
         Assert.Null(await flow.HandleAsync(main));
-        Assert.Equal($"career_main.{action}", actions.Calls[0]);
+        var expectedMainAction = action switch
+        {
+            "training" => "action.training",
+            "rest" => "action.rest",
+            "recreation" => "action.recreation",
+            _ => "action.infirmary",
+        };
+        Assert.Equal($"career_main.{expectedMainAction}", actions.Calls[0]);
         Assert.True(state.GoalCompletionProbePending);
         Assert.False(state.GoalCompletionProbeArmed);
 
@@ -60,22 +66,17 @@ public sealed class CareerGoalCompletionProbeTests
     }
 
     [Theory]
-    [InlineData("current_mid_year1.png", "goal_objective_complete", false)]
-    [InlineData("year2_after_nhk_goal_update_ready.png", "goal_objective_complete", false)]
-    [InlineData("ura_finale_entry_boundary.png", "goal_objective_complete", false)]
-    [InlineData("ura_finale_entry.png", "goal_complete", true)]
+    [InlineData("current_mid_year1.png", "goal_objective_complete")]
+    [InlineData("year2_after_nhk_goal_update_ready.png", "goal_objective_complete")]
+    [InlineData("ura_finale_entry_boundary.png", "goal_objective_complete")]
+    [InlineData("ura_finale_entry.png", "goal_complete")]
     public async Task Armed_probe_recognizes_the_goal_banner_on_a_real_capture(
         string captureName,
-        string expectedScreen,
-        bool finaleTemplate)
+        string expectedScreen)
     {
         var root = FindWorkspaceRoot();
         var pack = await LoadPackAsync();
-        var framePath = finaleTemplate
-            ? Path.Combine(root, "resource", "hachimi", "ura", "screens",
-                "templates", "runtime_frames", captureName)
-            : Path.Combine(root, "testdata", "hachimi", "ura", "captures",
-                captureName);
+        var framePath = CareerTestResourceResolver.FindUraCapture(root, captureName);
         var frame = GrayImageCodec.FromFile(framePath);
         Assert.NotNull(frame);
 
@@ -104,8 +105,8 @@ public sealed class CareerGoalCompletionProbeTests
         bool resumeRecovery)
     {
         var pack = await LoadPackAsync();
-        var frame = GrayImageCodec.FromFile(Path.Combine(FindWorkspaceRoot(),
-            "testdata", "hachimi", "ura", "captures", "current_mid_year1.png"));
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            FindWorkspaceRoot(), "current_mid_year1.png"));
         Assert.NotNull(frame);
         var observer = new CareerScreenObserver(FrameVisualRuntime.Create(frame));
         var state = new UraCareerSessionState
@@ -132,8 +133,9 @@ public sealed class CareerGoalCompletionProbeTests
     {
         var root = FindWorkspaceRoot();
         var pack = await LoadPackAsync();
-        var template = GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi",
-            "ura", "screens", "templates", "runtime_frames", "ura_finale_entry.png"));
+        var template = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/runtime_frames/ura_finale_entry.png"));
         Assert.NotNull(template);
 
         var pixels = (byte[])template.Pixels.Clone();
@@ -196,36 +198,11 @@ public sealed class CareerGoalCompletionProbeTests
         Assert.True(state.GoalCompletionProbeArmed);
     }
 
-    private static async Task<UraScenarioPack> LoadPackAsync() =>
-        await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            FindWorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
-    private static string FindWorkspaceRoot([CallerFilePath] string sourceFile = "")
-    {
-        foreach (var start in new[]
-                 {
-                     AppContext.BaseDirectory,
-                     Directory.GetCurrentDirectory(),
-                     Path.GetDirectoryName(sourceFile) ?? string.Empty,
-                 })
-        {
-            if (string.IsNullOrWhiteSpace(start))
-                continue;
-            for (var directory = new DirectoryInfo(start);
-                 directory is not null;
-                 directory = directory.Parent)
-            {
-                if (File.Exists(Path.Combine(directory.FullName,
-                        "resource", "hachimi", "ura", "manifest.json"))
-                    && File.Exists(Path.Combine(directory.FullName,
-                        "testdata", "hachimi", "ura", "captures",
-                        "year2_after_nhk_goal_update_ready.png")))
-                    return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static string FindWorkspaceRoot() =>
+        CareerTestResourceResolver.FindWorkspaceRoot();
 
     private sealed class RecordingActions : ICareerFlowActionRunner
     {

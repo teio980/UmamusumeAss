@@ -6,7 +6,11 @@
   "entryState": "career_start",
   "turnModel": {
     "unit": "turn",
-    "careerYears": ["junior", "classic", "senior"],
+    "careerYears": [
+      "junior",
+      "classic",
+      "senior"
+    ],
     "actionsPerTurn": 1,
     "raceConsumesTurn": true,
     "finaleUsesTurnLabel": "finale_underway"
@@ -15,19 +19,37 @@
     {
       "phaseId": "career",
       "order": 1,
-      "allowedActions": ["training", "rest", "recreation", "skills", "race", "scenario_event"],
+      "allowedActions": [
+        "training",
+        "rest",
+        "recreation",
+        "skills",
+        "race",
+        "scenario_event"
+      ],
       "exitWhen": "all_objectives_complete"
     },
     {
       "phaseId": "finale_underway",
       "order": 2,
-      "allowedActions": ["training", "rest", "recreation", "skills", "finale_race", "scenario_event"],
+      "allowedActions": [
+        "training",
+        "rest",
+        "recreation",
+        "skills",
+        "finale_race",
+        "scenario_event"
+      ],
       "exitWhen": "final_series_complete"
     },
     {
       "phaseId": "finished",
       "order": 3,
-      "allowedActions": ["view_result", "view_rewards", "view_ending"],
+      "allowedActions": [
+        "view_result",
+        "view_rewards",
+        "view_ending"
+      ],
       "terminal": true
     }
   ],
@@ -56,18 +78,22 @@
     "retryCount"
   ],
   "hooks": {
-    "beforeAction": ["resolve_common_state", "resolve_available_actions"],
-    "afterAction": ["reconcile_screen", "apply_objective_progress", "persist_checkpoint"],
-    "onRaceFinished": ["apply_race_reward", "advance_finale_stage"],
-    "onPhaseChanged": ["apply_scenario_event", "refresh_screen_profile"]
-  },
-  "validationRun": {
-    "method": "adb",
-    "device": "emulator-5554",
-    "resolution": {"width": 900, "height": 1600},
-    "traineeId": "oguri_cap",
-    "result": "completed",
-    "finaleResult": "won",
-    "captureDirectory": "screens/templates/runtime_frames/"
+    "beforeAction": [
+      "resolve_common_state",
+      "resolve_available_actions"
+    ],
+    "afterAction": [
+      "reconcile_screen",
+      "apply_objective_progress",
+      "persist_checkpoint"
+    ],
+    "onRaceFinished": [
+      "apply_race_reward",
+      "advance_finale_stage"
+    ],
+    "onPhaseChanged": [
+      "apply_scenario_event",
+      "refresh_screen_profile"
+    ]
   }
 }

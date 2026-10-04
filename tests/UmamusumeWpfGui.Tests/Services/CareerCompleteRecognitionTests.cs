@@ -18,8 +18,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         string previousScreen, bool resume)
     {
         var pack = await LoadPackAsync();
-        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura",
-            "captures", "career_epithet_after_rating_record_updated.png"));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(
+            WorkspaceRoot(), "career_epithet_after_rating_record_updated.png"));
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
         var state = new UraCareerSessionState
         {
@@ -33,7 +33,7 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.Equal("career_epithet", observation?.ScreenId);
         Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
-        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("epithet_confirm")!.Task);
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("career.epithet_confirm")!.Task);
         var match = TemplateMatcher.FindColor(frame, LoadResource(task.Template!), task.Roi,
             task.TemplateThreshold, 900, 1600);
         output.WriteLine($"Epithet: title={observation.Score:0.000}, button={match.Score:0.000}, click=({match.CenterX},{match.CenterY})");
@@ -65,7 +65,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.Equal(expectedScreenId, observation?.ScreenId);
         Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var screen = pack.ScreenProfile.Find(expectedScreenId)!;
-        var task = pack.ExecutionDefinition.GetTask(screen.FindAction(close ? "close" : "to_home")!.Task);
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction(
+            close ? "career.close" : "career.to_home")!.Task);
         var template = LoadResource(task.Template!);
         var match = TemplateMatcher.FindColor(frame, template, task.Roi,
             task.TemplateThreshold, 900, 1600,
@@ -114,13 +115,13 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("career_complete", "to_home")]
-    [InlineData("career_complete_close", "close")]
-    [InlineData("career_story_unlocked", "close")]
-    [InlineData("career_story_unlocked_compact", "close")]
-    [InlineData("career_story_unlocked_to_home", "to_home")]
-    [InlineData("career_epithet", "epithet_confirm")]
-    [InlineData("rewards_collected", "close")]
+    [InlineData("career_complete", "career.to_home")]
+    [InlineData("career_complete_close", "career.close")]
+    [InlineData("career_story_unlocked", "career.story.close")]
+    [InlineData("career_story_unlocked_compact", "career.story.compact.close")]
+    [InlineData("career_story_unlocked_to_home", "career.story.to_home")]
+    [InlineData("career_epithet", "career.epithet_confirm")]
+    [InlineData("rewards_collected", "rewards_collected.close")]
     public async Task Settlement_dispatches_the_matching_exit_action(string screenId, string actionId)
     {
         var actions = new RecordingActions();
@@ -143,8 +144,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         string previousScreen, bool resume)
     {
         var pack = await LoadPackAsync();
-        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura",
-            "captures", "career_story_unlocked_to_home.png"));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(
+            WorkspaceRoot(), "career_story_unlocked_to_home.png"));
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
         var state = new UraCareerSessionState
         {
@@ -158,7 +159,7 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.Equal("career_story_unlocked_to_home", observation?.ScreenId);
         Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
-        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("to_home")!.Task);
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("career.story.to_home")!.Task);
         var match = TemplateMatcher.FindColor(frame, LoadResource(task.Template!), task.Roi,
             task.TemplateThreshold, 900, 1600, requireTextContrast: true);
         output.WriteLine($"Story To Home: title={observation.Score:0.000}, button={match.Score:0.000}, click=({match.CenterX},{match.CenterY})");
@@ -171,7 +172,14 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.True(CareerScreenObserver.IsReturningHome(state));
 
         // Require both the Story Unlocked title and its centered To Home label.
-        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [screen] } };
+        pack = pack with
+        {
+            ScreenProfile = new UraScreenProfile
+            {
+                Screens = [screen],
+                VisualResources = pack.ScreenProfile.VisualResources,
+            },
+        };
         foreach (var roi in new[] { screen.Recognition.Roi!, screen.Recognition.RequiredTemplateRoi! })
         {
             var incomplete = frame with
@@ -187,10 +195,10 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         {
             LoadCompletionFrame(false),
             LoadCompletionFrame(true),
-            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
-                "career_story_unlocked_compact.png")),
-            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
-                "career_story_unlocked.png")),
+            Load(CareerTestResourceResolver.FindUraCapture(
+                WorkspaceRoot(), "career_story_unlocked_compact.png")),
+            Load(CareerTestResourceResolver.FindUraCapture(
+                WorkspaceRoot(), "career_story_unlocked.png")),
         })
         {
             Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(unrelated))
@@ -212,7 +220,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     {
         var pack = await LoadPackAsync();
         var expectedScreenId = compact ? "career_story_unlocked_compact" : "career_story_unlocked";
-        var frame = Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures", expectedScreenId + ".png"));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(
+            WorkspaceRoot(), expectedScreenId + ".png"));
         var state = new UraCareerSessionState { CareerStarted = !resume, LastScreenId = previousScreen };
         var observer = new CareerScreenObserver(CapturedFrameRuntime.Create(frame));
 
@@ -222,7 +231,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.Equal(expectedScreenId, observation?.ScreenId);
         Assert.Equal(CareerScreenKind.Settlement, observation?.Kind);
         var screen = pack.ScreenProfile.Find(observation!.ScreenId)!;
-        var task = pack.ExecutionDefinition.GetTask(screen.FindAction("close")!.Task);
+        var task = pack.ExecutionDefinition.GetTask(screen.FindAction(
+            compact ? "career.story.compact.close" : "career.story.close")!.Task);
         var button = LoadResource(task.Template!);
         var match = TemplateMatcher.FindColor(frame, button, task.Roi,
             task.TemplateThreshold, 900, 1600, requireTextContrast: true);
@@ -232,7 +242,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.InRange(match.CenterY, compact ? 1020 : 1460, compact ? 1065 : 1495);
         if (compact)
         {
-            var header = LoadResource(screen.Recognition.Template!);
+            var header = Load(pack.VisualResources!.ResolveScreenTemplate(
+                screen, screen.Recognition.Template!));
             Assert.InRange(header.Width, 235, 255);
             Assert.InRange(header.Height, 30, 45);
             Assert.InRange(button.Width, 80, 110);
@@ -248,7 +259,14 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         Assert.True(CareerScreenObserver.IsReturningHome(state));
 
         // A generic Close label alone must not identify this optional overlay.
-        pack = pack with { ScreenProfile = new UraScreenProfile { Screens = [screen] } };
+        pack = pack with
+        {
+            ScreenProfile = new UraScreenProfile
+            {
+                Screens = [screen],
+                VisualResources = pack.ScreenProfile.VisualResources,
+            },
+        };
         foreach (var roi in new[] { screen.Recognition.Roi!, screen.Recognition.RequiredTemplateRoi! })
         {
             var incomplete = frame with
@@ -267,8 +285,8 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
         {
             LoadCompletionFrame(false),
             LoadCompletionFrame(true),
-            Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
-                (compact ? "career_story_unlocked" : "career_story_unlocked_compact") + ".png")),
+            Load(CareerTestResourceResolver.FindUraCapture(
+                WorkspaceRoot(), (compact ? "career_story_unlocked" : "career_story_unlocked_compact") + ".png")),
         })
         {
             Assert.Null(await new CareerScreenObserver(CapturedFrameRuntime.Create(unrelated))
@@ -286,11 +304,13 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     }
 
     private static GrayImage LoadCompletionFrame(bool close) => close
-        ? Load(Path.Combine(WorkspaceRoot(), "testdata", "hachimi", "ura", "captures", "career_complete_close.png"))
-        : LoadResource("templates/runtime_frames/ura_rewards_support_next.png");
+        ? Load(CareerTestResourceResolver.FindUraCapture(
+            WorkspaceRoot(), "career_complete_close.png"))
+        : Load(CareerTestResourceResolver.FindUraCapture(
+            WorkspaceRoot(), "ura_rewards_support_next.png"));
 
-    private static GrayImage LoadResource(string relativePath) => Load(Path.Combine(
-        ScreensDirectory(), relativePath.Replace('/', Path.DirectorySeparatorChar)));
+    private static GrayImage LoadResource(string relativePath) => Load(
+        CareerTestResourceResolver.ResolveBuiltInUraVisualResource(relativePath));
 
     private static GrayImage Load(string path) => GrayImageCodec.FromFile(path)
         ?? throw new FileNotFoundException("Missing completion image.", path);
@@ -298,23 +318,10 @@ public sealed class CareerCompleteRecognitionTests(ITestOutputHelper output)
     private static LastVerifiedConnection Connection() => new(
         "adb", "serial", "android", "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
 
-    private static Task<UraScenarioPack> LoadPackAsync() => UraScenarioPackLoader.LoadAsync(
-        Path.Combine(ScreensDirectory(), "..", "manifest.json"));
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
-    private static string ScreensDirectory() => Path.Combine(
-        WorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-
-    private static string WorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static string WorkspaceRoot() => CareerTestResourceResolver.FindWorkspaceRoot();
 
     private sealed class RecordingActions : ICareerFlowActionRunner
     {

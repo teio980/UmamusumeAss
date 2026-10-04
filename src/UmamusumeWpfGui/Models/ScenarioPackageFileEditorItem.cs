@@ -29,9 +29,11 @@ public sealed class ScenarioPackageFileEditorItem : INotifyPropertyChanged
 
     public string FileName => Path.GetFileName(RelativePath);
 
-    public bool IsExecution => RelativePath.Equals(
-        "screens/execution.json",
-        StringComparison.OrdinalIgnoreCase);
+    public bool IsExecution => FileName.Equals("execution.json", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsScreenProfile => FileName.Equals("profile.json", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsResourceCatalog => FileName.Equals("catalog.json", StringComparison.OrdinalIgnoreCase);
 
     // The execution definition is part of the scenario package too. It must
     // remain editable here; otherwise the DeveloperTool can inspect the

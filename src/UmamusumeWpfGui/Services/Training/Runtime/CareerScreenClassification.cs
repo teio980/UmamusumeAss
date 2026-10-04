@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace UmamusumeWpfGui.Services.Training;
 
 /// <summary>
@@ -15,78 +17,103 @@ public enum CareerScreenKind
     Settlement,
 }
 
+/// <summary>
+/// Resolves runtime categories from the scenario screen catalog. The
+/// profile-specific overload must be used by runtime code so different
+/// scenario packs never share classification state.
+/// </summary>
 internal static class CareerScreenClassification
 {
-    public static CareerScreenKind Classify(string? screenId) => screenId switch
+    private static readonly Lazy<IReadOnlyDictionary<string, CatalogEntry>> BuiltInKinds =
+        new(LoadBuiltInKinds, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static CareerScreenKind Classify(string? screenId) =>
+        !string.IsNullOrWhiteSpace(screenId)
+        && BuiltInKinds.Value.TryGetValue(screenId, out var entry)
+            ? entry.Kind
+            : CareerScreenKind.Unknown;
+
+    public static CareerScreenKind Classify(
+        string? screenId,
+        UraScreenProfile profile)
     {
-        "career_main" => CareerScreenKind.Main,
+        ArgumentNullException.ThrowIfNull(profile);
+        if (string.IsNullOrWhiteSpace(screenId))
+            return CareerScreenKind.Unknown;
 
-        "training_selection"
-            or "training_result"
-            or "rest_confirmation"
-            or "recreation_selection"
-            or "recreation_confirmation"
-            or "claw_machine"
-            or "claw_machine_result"
-            or "summer_rest_confirmation"
-            or "infirmary_confirmation"
-            => CareerScreenKind.Turn,
+        var screen = profile.Find(screenId);
+        if (screen is null)
+            return CareerScreenKind.Unknown;
 
-        "career_races_ready"
-            or "race_day"
-            or "race_recommendations"
-            or "race_streak_warning"
-            or "race_list"
-            or "race_list_empty"
-            or "race_runner"
-            or "race_retry_dialog"
-            or "race_runner_result"
-            or "race_trophy_won"
-            or "race_playback_start"
-            or "race_details"
-            or "race_attributes"
-            or "race_playback"
-            or "race_playback_settings"
-            or "race_live"
-            or "race_result"
-            or "reward"
-            or "reward_support"
-            or "goal_objective_complete"
-            or "goal_update"
-            or "goal_complete"
-            => CareerScreenKind.Race,
+        // Screens written before Flow metadata was introduced retain the
+        // built-in classification for compatibility. A present Flow always
+        // wins, including setup and other non-runtime flows.
+        return string.IsNullOrWhiteSpace(screen.Flow)
+            ? Classify(screenId)
+            : ClassifyFlow(screen.Flow);
+    }
 
-        "career_intro_event"
-            or "training_event"
-            or "event_choice"
-            or "scenario_event"
-            or "inheritance_event"
-            => CareerScreenKind.Event,
+    public static int GetRecognitionPriority(UraScreenDefinition screen)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        if (screen.Recognition.PrioritySpecified)
+            return screen.Recognition.Priority;
 
-        "goal_incomplete"
-            or "complete_career_entry"
-            or "complete_career"
-            or "career_rank"
-            or "career_rating_record_updated"
-            or "career_result"
-            or "career_result_close"
-            or "follow_trainer_limit"
-            or "career_epithet"
-            or "rewards"
-            or "rewards_collected"
-            or "event_reward"
-            or "sparks"
-            or "sparks_confirmation"
-            or "career_complete"
-            or "career_complete_close"
-            or "career_story_unlocked"
-            or "career_story_unlocked_compact"
-            or "career_story_unlocked_to_home"
-            => CareerScreenKind.Settlement,
-
-        _ => CareerScreenKind.Unknown,
-    };
+        // The default value also represents an omitted priority in legacy
+        // profiles. Reuse the built-in metadata snapshot for those profiles;
+        // new profiles carry an explicit value for every screen.
+        return !string.IsNullOrWhiteSpace(screen.ScreenId)
+            && BuiltInKinds.Value.TryGetValue(screen.ScreenId, out var entry)
+                ? entry.Priority
+                : screen.Recognition.Priority;
+    }
 
     public static bool IsRuntimeScreen(string? screenId) =>
-        Classify(screenId) is not CareerScreenKind.Unknown;
+        IsRuntimeKind(Classify(screenId));
+
+    public static bool IsRuntimeScreen(
+        string? screenId,
+        UraScreenProfile profile) =>
+        IsRuntimeKind(Classify(screenId, profile));
+
+    internal static CareerScreenKind ClassifyFlow(string? flow) =>
+        flow?.Trim().ToLowerInvariant() switch
+        {
+            "main" => CareerScreenKind.Main,
+            "turn" => CareerScreenKind.Turn,
+            "race" => CareerScreenKind.Race,
+            "event" => CareerScreenKind.Event,
+            "settlement" => CareerScreenKind.Settlement,
+            // Setup and non-Normal career flows are deliberately outside the
+            // stable Career runtime. Their owners are expressed by Flow too,
+            // but they keep the historical Unknown runtime classification.
+            _ => CareerScreenKind.Unknown,
+        };
+
+    private static bool IsRuntimeKind(CareerScreenKind kind) =>
+        kind is CareerScreenKind.Main
+            or CareerScreenKind.Turn
+            or CareerScreenKind.Race
+            or CareerScreenKind.Event
+            or CareerScreenKind.Settlement;
+
+    private static ReadOnlyDictionary<string, CatalogEntry> LoadBuiltInKinds()
+    {
+        var profile = UraScenarioPackLoader.LoadScreenProfileAsync(
+                UmamusumeWpfGui.Services.HachimiResourcePaths.UraManifest)
+            .GetAwaiter()
+            .GetResult();
+        var kinds = profile.Screens
+            .Where(screen => !string.IsNullOrWhiteSpace(screen.ScreenId))
+            .GroupBy(screen => screen.ScreenId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => new CatalogEntry(
+                    ClassifyFlow(group.Last().Flow),
+                    group.Last().Recognition.Priority),
+                StringComparer.OrdinalIgnoreCase);
+        return new ReadOnlyDictionary<string, CatalogEntry>(kinds);
+    }
+
+    private sealed record CatalogEntry(CareerScreenKind Kind, int Priority);
 }

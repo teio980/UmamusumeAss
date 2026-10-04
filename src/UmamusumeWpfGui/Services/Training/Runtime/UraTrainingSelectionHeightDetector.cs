@@ -43,13 +43,15 @@ internal sealed class UraTrainingSelectionHeightDetector
             return new(null, [], "The training selection screenshot could not be captured.");
 
         var definition = pack.ExecutionDefinition;
-        var recognition = pack.ScreenProfile.Find("training_selection")?.Recognition;
+        var screenDefinition = pack.ScreenProfile.Find("training_selection");
+        var recognition = screenDefinition?.Recognition;
         if (recognition is null || string.IsNullOrWhiteSpace(recognition.Template))
             return new(null, [], "The training selection header is not configured.");
 
+        var resources = pack.VisualResources
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
         var header = await LoadTemplateCachedAsync(
-                recognition.Template,
-                definition.BaseDirectory,
+                resources.ResolveScreenTemplate(screenDefinition!, recognition.Template),
                 cancellationToken)
             .ConfigureAwait(false);
         if (header is null)
@@ -66,8 +68,7 @@ internal sealed class UraTrainingSelectionHeightDetector
                 return new(null, [], $"The {trainingType} training logo is not configured.");
 
             var template = await LoadTemplateCachedAsync(
-                    normal.Template,
-                    definition.BaseDirectory,
+                    resources.ResolveTaskTemplate($"training_selection_training_{trainingType}"),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (template is null)
@@ -93,13 +94,15 @@ internal sealed class UraTrainingSelectionHeightDetector
             return null;
 
         var definition = pack.ExecutionDefinition;
-        var normal = definition.GetTask($"training_selection_training_{trainingType}");
+        var taskId = $"training_selection_training_{trainingType}";
+        var normal = definition.GetTask(taskId);
         if (string.IsNullOrWhiteSpace(normal.Template))
             return null;
 
+        var resources = pack.VisualResources
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
         var template = await LoadTemplateCachedAsync(
-                normal.Template,
-                definition.BaseDirectory,
+                resources.ResolveTaskTemplate(taskId),
                 cancellationToken)
             .ConfigureAwait(false);
         return template is null
@@ -108,16 +111,13 @@ internal sealed class UraTrainingSelectionHeightDetector
     }
 
     private Task<GrayImage?> LoadTemplateCachedAsync(
-        string? templatePath,
-        string baseDirectory,
+        string templatePath,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(templatePath))
             return Task.FromResult<GrayImage?>(null);
 
-        var fullPath = Path.GetFullPath(Path.IsPathRooted(templatePath)
-            ? templatePath
-            : Path.Combine(baseDirectory, templatePath));
+        var fullPath = Path.GetFullPath(templatePath);
         var lazy = _templateCache.GetOrAdd(
             fullPath,
             key => new Lazy<Task<GrayImage?>>(

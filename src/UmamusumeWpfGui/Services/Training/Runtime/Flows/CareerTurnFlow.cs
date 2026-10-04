@@ -29,9 +29,7 @@ internal sealed class CareerTurnFlow
                     // training picker before the in-memory pending type was
                     // persisted. Re-evaluate the configured strategy so the
                     // picker is a valid mid-career checkpoint.
-                    var resumedDecision = context.Strategy.ChooseTurnAction(
-                        context.Scenario,
-                        context.State);
+                    var resumedDecision = context.ChooseAction();
                     if (resumedDecision.Action != UraPlannedAction.Training
                         || !UraTrainingTypeCatalog.TryNormalize(
                             resumedDecision.TargetId,
@@ -72,14 +70,14 @@ internal sealed class CareerTurnFlow
                 return await _actions.RunAsync(
                         context,
                         context.Observation.ScreenId,
-                        "advance")
+                        "event.advance")
                     .ConfigureAwait(false);
             case "inheritance_event":
             {
                 var inheritanceResult = await _actions.RunAsync(
                         context,
                         "inheritance_event",
-                        "go")
+                        "inheritance.go")
                     .ConfigureAwait(false);
                 if (inheritanceResult is null)
                     context.State.InheritanceEventPending = false;
@@ -92,7 +90,7 @@ internal sealed class CareerTurnFlow
                 var restConfirmationResult = await _actions.RunAsync(
                         context,
                         context.Observation.ScreenId,
-                        "confirm")
+                        "rest.confirm")
                     .ConfigureAwait(false);
                 if (restConfirmationResult is null)
                     context.State.AwaitingRestConfirmationGone = true;
@@ -103,7 +101,7 @@ internal sealed class CareerTurnFlow
                 return await _actions.RunAsync(
                         context,
                         "recreation_selection",
-                        "trainee")
+                        "recreation.trainee")
                     .ConfigureAwait(false);
             case "recreation_confirmation":
                 context.State.LastAction = UraPlannedAction.Recreation;
@@ -111,7 +109,7 @@ internal sealed class CareerTurnFlow
                 var recreationConfirmationResult = await _actions.RunAsync(
                         context,
                         "recreation_confirmation",
-                        "confirm")
+                        "recreation.confirm")
                     .ConfigureAwait(false);
                 if (recreationConfirmationResult is null)
                     context.State.AwaitingRecreationConfirmationGone = true;
@@ -122,7 +120,7 @@ internal sealed class CareerTurnFlow
                 var infirmaryResult = await _actions.RunAsync(
                         context,
                         "infirmary_confirmation",
-                        "confirm")
+                        "infirmary.confirm")
                     .ConfigureAwait(false);
                 if (infirmaryResult is null)
                     context.LogSink?.Add("Career Training", "Infirmary treatment confirmed.");
@@ -175,7 +173,7 @@ internal sealed class CareerTurnFlow
             var infirmaryEntryResult = await _actions.RunAsync(
                     context,
                     "career_main",
-                    "infirmary")
+                    "action.infirmary")
                 .ConfigureAwait(false);
             if (infirmaryEntryResult is null)
                 CareerRaceStreakPolicy.BeginTurnAction(
@@ -258,9 +256,7 @@ internal sealed class CareerTurnFlow
                 "Could not read the career energy bar by OCR; continuing with a cautious fallback if needed.");
         }
 
-        var decision = context.Strategy.ChooseTurnAction(
-            context.Scenario,
-            context.State);
+        var decision = context.ChooseAction();
         var availableActions = context.Scenario.GetAvailableActions(
             context.State,
             "career_main");
@@ -297,12 +293,12 @@ internal sealed class CareerTurnFlow
         var actionId = decision.Action switch
         {
             UraPlannedAction.Rest when context.State.CalendarStage == UraCalendarStage.SummerCamp
-                => "summer_rest",
-            UraPlannedAction.Rest => "rest",
-            UraPlannedAction.Recreation => "recreation",
-            UraPlannedAction.Race => "races",
-            UraPlannedAction.FinaleRace => "finale_races",
-            UraPlannedAction.Training => "training",
+                => "action.summer_rest",
+            UraPlannedAction.Rest => "action.rest",
+            UraPlannedAction.Recreation => "action.recreation",
+            UraPlannedAction.Race => "action.races",
+            UraPlannedAction.FinaleRace => "action.finale_races",
+            UraPlannedAction.Training => "action.training",
             _ => string.Empty,
         };
         if (actionId.Length == 0)

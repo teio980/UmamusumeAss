@@ -24,7 +24,7 @@ public sealed class CareerEventTitleRecognitionTests
         var frame = LoadChoiceFrame();
         var screen = pack.ScreenProfile.Find("event_choice")!;
         var effects = GrayImageCodec.FromFile(UraScenarioResourceResolver.Resolve(
-            pack, screen.Recognition.Template!))!;
+            pack, screen, screen.Recognition.Template!))!;
         Assert.False(TemplateMatcher.Find(frame, effects, screen.Recognition.Roi,
             screen.Recognition.TemplateThreshold, 900, 1600).Found);
         var runtime = RecordingRuntime.Create(frame, _ => TextResult(Title, frame), out var recorder);
@@ -65,7 +65,7 @@ public sealed class CareerEventTitleRecognitionTests
 
         Assert.Null(result);
         Assert.Equal(1, actions.CallCount);
-        Assert.Equal(("event_choice", "choice_first"), actions.LastAction);
+        Assert.Equal(("event_choice", "event.choice_first"), actions.LastAction);
         Assert.Equal(EventId, actions.Context?.Observation.EventId);
         Assert.Equal(Title, actions.Context?.Observation.EventTitle);
         Assert.Equal(2, recorder.CaptureCount);
@@ -115,8 +115,9 @@ public sealed class CareerEventTitleRecognitionTests
     public async Task Dialogue_without_choice_marker_skips_ocr_and_actions()
     {
         var pack = await CreateEventPackAsync();
-        var frame = GrayImageCodec.FromFile(UraScenarioResourceResolver.Resolve(pack,
-            "templates/runtime_frames/trainee_event_choice_ura.png"))!;
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            FindWorkspaceRoot(), "trainee_event_choice_ura.png"))!;
+        Assert.NotNull(frame);
         var runtime = RecordingRuntime.Create(frame, _ => TextResult(Title, frame), out var recorder);
         Assert.Null(await ObserveAsync(runtime, pack));
         var actions = new RecordingActions();
@@ -141,7 +142,7 @@ public sealed class CareerEventTitleRecognitionTests
                     {
                         EventId = "other", Title = otherTitle,
                         OcrTitle = new UraEventTitleRecognition
-                            { ScreenId = "event_choice", ActionId = "choice_first" },
+                            { ScreenId = "event_choice", ActionId = "event.choice_first" },
                     }],
             },
         };
@@ -184,8 +185,9 @@ public sealed class CareerEventTitleRecognitionTests
         var pack = await CreateEventPackAsync();
         Assert.All(pack.Events.Events.Where(item => item.EventId != EventId),
             item => Assert.Null(item.OcrTitle));
-        var frame = GrayImageCodec.FromFile(UraScenarioResourceResolver.Resolve(pack,
-            "templates/runtime_frames/support_event_choice_ura.png"))!;
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            FindWorkspaceRoot(), "support_event_choice_ura.png"))!;
+        Assert.NotNull(frame);
         var runtime = RecordingRuntime.Create(frame,
             _ => throw new InvalidOperationException("Effects should bypass OCR"), out var recorder);
 
@@ -195,7 +197,7 @@ public sealed class CareerEventTitleRecognitionTests
 
         Assert.Equal("event_choice", observation?.ScreenId);
         Assert.Null(observation?.EventId);
-        Assert.Equal(("event_choice", "choice_first"), actions.LastAction);
+        Assert.Equal(("event_choice", "event.choice_first"), actions.LastAction);
         Assert.Empty(recorder.OcrFrames);
     }
 
@@ -205,8 +207,8 @@ public sealed class CareerEventTitleRecognitionTests
     public async Task Choice_readiness_scales_with_screen_resolution(int width, int height)
     {
         var pack = await CreateEventPackAsync();
-        using var image = Image.Load<Rgba32>(Path.Combine(FindWorkspaceRoot(),
-            "testdata", "hachimi", "ura", "captures", "acupuncturist_no_worries_choice.png"));
+        using var image = Image.Load<Rgba32>(CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "acupuncturist_no_worries_choice.png"));
         image.Mutate(context => context.Resize(width, height));
         using var encoded = new MemoryStream();
         image.SaveAsPng(encoded);
@@ -231,13 +233,14 @@ public sealed class CareerEventTitleRecognitionTests
                 ReferenceWidth = pack.ScreenProfile.ReferenceWidth,
                 ReferenceHeight = pack.ScreenProfile.ReferenceHeight,
                 Screens = [pack.ScreenProfile.Find("event_choice")!],
+                VisualResources = pack.ScreenProfile.VisualResources,
             },
         };
     }
 
-    private static GrayImage LoadChoiceFrame() => GrayImageCodec.FromFile(Path.Combine(
-        FindWorkspaceRoot(), "testdata", "hachimi", "ura", "captures",
-        "acupuncturist_no_worries_choice.png"))!;
+    private static GrayImage LoadChoiceFrame() => GrayImageCodec.FromFile(
+        CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "acupuncturist_no_worries_choice.png"))!;
 
     private static ScreenTextRecognitionResult? TextResult(string? title, GrayImage frame) =>
         title is null ? null : new ScreenTextRecognitionResult(
@@ -257,16 +260,7 @@ public sealed class CareerEventTitleRecognitionTests
             new UraCareerSessionState(), new CareerObservation("event_choice", 1), log, CancellationToken.None);
 
     private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "testdata", "hachimi", "ura",
-                    "captures", "acupuncturist_no_worries_choice.png")))
-                return directory.FullName;
-        }
-        throw new DirectoryNotFoundException("Could not locate the event capture fixture.");
-    }
+        => CareerTestResourceResolver.FindWorkspaceRoot();
 
     public class RecordingRuntime : DispatchProxy
     {

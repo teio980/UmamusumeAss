@@ -3,6 +3,7 @@ using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 using Xunit.Abstractions;
 
 namespace UmamusumeWpfGui.Tests.Services;
@@ -22,8 +23,8 @@ public sealed class UraTrainingSelectionLiveTests
             return;
 
         var root = FindWorkspaceRoot();
-        var definitionPath = Path.Combine(
-            root, "resource", "hachimi", "ura", "screens", "execution.json");
+        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
+            root, "resource", "hachimi", "ura", "manifest.json"));
         var adbPath = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_ADB")
             ?? @"C:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe";
         var serial = Environment.GetEnvironmentVariable("UMAMUSUME_LIVE_SERIAL")
@@ -45,7 +46,7 @@ public sealed class UraTrainingSelectionLiveTests
         var logs = new RecordingLogSink();
         var result = await runner.RunAsync(
             connection,
-            definitionPath,
+            pack.ExecutionDefinition,
             phase == "normal"
                 ? "training_selection_training_speed"
                 : "training_selection_speed_raised_probe",

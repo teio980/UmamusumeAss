@@ -136,6 +136,7 @@ public sealed class CareerMainSharedOcrFrameTests
                 new UraScreenDefinition
                 {
                     ScreenId = screenId,
+                    Flow = screenId == "career_main" ? "main" : "race",
                     Recognition = new UraScreenRecognition
                     {
                         Template = screenId == "career_main" ? "main.png" : "race.png",

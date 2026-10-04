@@ -206,13 +206,19 @@ public sealed class CareerRuntimeEventBoundaryTests
                 new UraScreenDefinition
                 {
                     ScreenId = "training_selection",
+                    Flow = "turn",
                     Actions = [new UraScreenAction { SemanticId = "advance", Task = "no_op" }],
                 },
                 new UraScreenDefinition
                 {
                     ScreenId = "training_result",
+                    Flow = "turn",
                     Actions = [new UraScreenAction { SemanticId = "advance", Task = "no_op" }],
                 },
+                new UraScreenDefinition { ScreenId = "career_intro_event", Flow = "event" },
+                new UraScreenDefinition { ScreenId = "training_event", Flow = "event" },
+                new UraScreenDefinition { ScreenId = "event_choice", Flow = "event" },
+                new UraScreenDefinition { ScreenId = "scenario_event", Flow = "event" },
             ],
         };
 
@@ -239,21 +245,25 @@ public sealed class CareerRuntimeEventBoundaryTests
                 new UraScreenDefinition
                 {
                     ScreenId = "career_intro_event",
+                    Flow = "event",
                     Recognition = new UraScreenRecognition { Template = "intro.png" },
                 },
                 new UraScreenDefinition
                 {
                     ScreenId = "training_event",
+                    Flow = "event",
                     Recognition = new UraScreenRecognition { Template = "training-event.png" },
                 },
                 new UraScreenDefinition
                 {
                     ScreenId = "event_choice",
+                    Flow = "event",
                     Recognition = new UraScreenRecognition { Template = "choice.png" },
                 },
                 new UraScreenDefinition
                 {
                     ScreenId = "scenario_event",
+                    Flow = "event",
                     Recognition = new UraScreenRecognition { Template = "scenario.png" },
                 },
             ],

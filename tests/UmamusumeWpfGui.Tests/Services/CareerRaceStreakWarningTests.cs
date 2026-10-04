@@ -36,8 +36,10 @@ public sealed class CareerRaceStreakWarningTests
     {
         var pack = await LoadPackAsync();
         var recognition = pack.ScreenProfile.Find("race_list_empty")!.Recognition;
-        var template = Load(Path.Combine(ScreensDirectory(), recognition.Template!));
-        var frame = Load(Path.Combine(Root(), "testdata", "hachimi", "ura", "captures", capture));
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            pack.ScreenProfile.Find("race_list_empty")!, recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), capture));
 
         var match = TemplateMatcher.FindColor(frame, template, recognition.Roi,
             recognition.TemplateThreshold, 900, 1600, requireTextContrast: true);
@@ -50,7 +52,8 @@ public sealed class CareerRaceStreakWarningTests
     {
         var pack = await LoadPackAsync();
         var screen = pack.ScreenProfile.Find("race_list_empty")!;
-        var template = Load(Path.Combine(ScreensDirectory(), screen.Recognition.Template!));
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            screen, screen.Recognition.Template!));
         var frame = new GrayImage(900, 1600,
             Enumerable.Repeat((byte)255, 900 * 1600).ToArray(),
             Enumerable.Repeat((byte)255, 900 * 1600 * 4).ToArray());
@@ -96,7 +99,7 @@ public sealed class CareerRaceStreakWarningTests
         {
             Assert.Null(result);
             Assert.Null(await flow.HandleAsync(context));
-            Assert.Equal(["race_streak_warning.streak.confirm"], actions.Calls);
+            Assert.Equal(["race_streak_warning.race.streak.confirm"], actions.Calls);
             Assert.Equal(state.IsFinale ? UraPlannedAction.FinaleRace : UraPlannedAction.Race,
                 state.PendingTurnAction);
         }
@@ -104,7 +107,7 @@ public sealed class CareerRaceStreakWarningTests
         {
             Assert.Null(result);
             Assert.Null(await flow.HandleAsync(context));
-            Assert.Equal(["race_streak_warning.streak.cancel"], actions.Calls);
+            Assert.Equal(["race_streak_warning.race.streak.cancel"], actions.Calls);
             Assert.Null(state.PendingTurnAction);
         }
     }
@@ -135,16 +138,18 @@ public sealed class CareerRaceStreakWarningTests
     {
         var pack = await LoadPackAsync();
         var warning = pack.ScreenProfile.Find("race_streak_warning")!;
-        var probe = pack.ExecutionDefinition.GetTask(warning.Actions
-            .Single(action => action.SemanticId == "race.streak.confirm").Task);
+        var probeId = warning.Actions
+            .Single(action => action.SemanticId == "race.streak.confirm").Task;
+        var probe = pack.ExecutionDefinition.GetTask(probeId);
         var confirm = pack.ExecutionDefinition.GetTask(probe.Next.Single());
         Assert.Equal("MatchTemplateColorText", probe.Algorithm);
         Assert.Equal("JustReturn", probe.Action);
         Assert.Equal("MatchTemplateColorText", confirm.Algorithm);
         Assert.Equal("ClickSelf", confirm.Action);
-        foreach (var task in new[] { probe, confirm })
+        foreach (var taskId in new[] { probeId, probe.Next.Single() })
         {
-            var template = Load(Path.Combine(ScreensDirectory(), task.Template!));
+            var task = pack.ExecutionDefinition.GetTask(taskId);
+            var template = Load(pack.VisualResources!.ResolveTaskTemplate(taskId));
             Assert.InRange(template.Width, 1, 300);
             Assert.InRange(template.Height, 1, 45);
             Assert.All(template.RgbaPixels!.Where((_, index) => index % 4 == 3),
@@ -168,24 +173,12 @@ public sealed class CareerRaceStreakWarningTests
 
     private static LastVerifiedConnection Connection() => new(
         "adb", "serial", "android", "version", 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
-    private static GrayImage WarningFrame() => Load(Path.Combine(
-        Root(), "testdata", "hachimi", "ura", "captures", "race_streak_warning.png"));
+    private static GrayImage WarningFrame() => Load(CareerTestResourceResolver.FindUraCapture(
+        CareerTestResourceResolver.FindWorkspaceRoot(), "race_streak_warning.png"));
     private static GrayImage Load(string path) => GrayImageCodec.FromFile(path)
         ?? throw new FileNotFoundException("Missing test image.", path);
-    private static Task<UraScenarioPack> LoadPackAsync() => UraScenarioPackLoader.LoadAsync(
-        Path.Combine(ScreensDirectory(), "..", "manifest.json"));
-    private static string ScreensDirectory() => Path.Combine(Root(), "resource", "hachimi", "ura", "screens");
-
-    private static string Root()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-        }
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
     private sealed class RecordingActions : ICareerFlowActionRunner
     {

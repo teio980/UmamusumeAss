@@ -14,7 +14,6 @@ public static class HachimiResourcePaths
     public const string ResourceRoot = "resource/hachimi";
     public const string PipelinesRoot = ResourceRoot + "/pipelines";
     public const string UraManifest = ResourceRoot + "/ura/manifest.json";
-    public const string UraExecution = ResourceRoot + "/ura/screens/execution.json";
 
     public const string DailyRaceDefinition = PipelinesRoot + "/daily_race.json";
     public const string MailCollectionDefinition = PipelinesRoot + "/mail_collection.json";

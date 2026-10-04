@@ -1,0 +1,132 @@
+{
+  "$schema": "uma.screen.profile.fragment.v1",
+  "profileId": "ura.global.900x1600.v1",
+  "scenarioId": "ura",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "screens": [
+    {
+      "screenId": "event_choice",
+      "ocrRegions": [
+        {
+          "semanticId": "event.title",
+          "bounds": {
+            "x": 140,
+            "y": 295,
+            "width": 620,
+            "height": 65
+          }
+        }
+      ],
+      "recognition": {
+        "template": "templates/event_effects_button.png",
+        "roi": [
+          640,
+          1200,
+          230,
+          100
+        ],
+        "templThreshold": 0.82,
+        "requiredText": [
+          "Career"
+        ],
+        "stable": true,
+        "priority": 0
+      },
+      "actions": [
+        {
+          "semanticId": "event.choice_first",
+          "task": "event_choice_event_choice_first"
+        }
+      ],
+      "flow": "event",
+      "order": 22
+    },
+    {
+      "screenId": "inheritance_event",
+      "recognition": {
+        "template": "templates/inheritance_event_go.png",
+        "roi": [
+          300,
+          1150,
+          300,
+          320
+        ],
+        "templThreshold": 0.76,
+        "matchAlphaTemplate": true,
+        "stable": true,
+        "priority": -3
+      },
+      "actions": [
+        {
+          "semanticId": "inheritance.go",
+          "task": "inheritance_event_go"
+        }
+      ],
+      "flow": "event",
+      "order": 23
+    },
+    {
+      "screenId": "scenario_event",
+      "recognition": {
+        "template": "../race/templates/runtime_frames/ura_finale_after_goal_next.png",
+        "requiredText": [
+          "Main Scenario Event"
+        ],
+        "stable": true,
+        "priority": 2
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "event.title",
+          "bounds": {
+            "x": 70,
+            "y": 245,
+            "width": 700,
+            "height": 130
+          }
+        },
+        {
+          "semanticId": "event.body",
+          "bounds": {
+            "x": 35,
+            "y": 1130,
+            "width": 830,
+            "height": 330
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "event.advance",
+          "task": "scenario_event_event_advance"
+        }
+      ],
+      "flow": "event",
+      "order": 53
+    },
+    {
+      "screenId": "training_event",
+      "recognition": {
+        "template": "../race/templates/runtime_frames/training_event_ura.png",
+        "templates": [
+          "../race/templates/runtime_frames/support_event_result_ura.png",
+          "../race/templates/runtime_frames/trainee_event_result_ura.png"
+        ],
+        "requiredText": [
+          "Career"
+        ],
+        "stable": true,
+        "priority": 1
+      },
+      "actions": [
+        {
+          "semanticId": "event.advance",
+          "task": "training_event_event_advance"
+        }
+      ],
+      "flow": "event",
+      "order": 21
+    }
+  ]
+}

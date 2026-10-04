@@ -5,7 +5,7 @@ namespace UmamusumeWpfGui.Services.Training;
 
 public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 {
-    private readonly HachimiJsonPipelineRunner _jsonRunner;
+    private readonly CareerJsonActionExecutor _actionExecutor;
     private readonly UraTrainingSelectionHeightDetector _trainingSelectionDetector;
     private readonly CareerTurnFlow _turnFlow;
     private readonly CareerRaceFlow _raceFlow;
@@ -28,7 +28,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         ICareerEventHandler? eventHandler)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
-        _jsonRunner = jsonRunner ?? throw new ArgumentNullException(nameof(jsonRunner));
+        _actionExecutor = new CareerJsonActionExecutor(jsonRunner);
         _eventHandler = eventHandler ?? new CareerEventHandler(visualRuntime, this);
         _trainingSelectionDetector = new UraTrainingSelectionHeightDetector(visualRuntime);
         _turnFlow = new CareerTurnFlow(this);
@@ -38,8 +38,11 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _clawMachineFlow = new CareerClawMachineFlow(visualRuntime);
     }
 
-    internal void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink) =>
+    internal void SetTaskLogSink(IHachimiTaskLogSink? taskLogSink)
+    {
         _taskLogSink = taskLogSink;
+        _actionExecutor.SetTaskLogSink(taskLogSink);
+    }
 
     internal Task<CareerTrainingResult?> TryHandleEventAsync(
         CareerFlowContext context) =>
@@ -127,78 +130,23 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             normalSkillIds,
             rememberNormalSkillAsync);
 
-        var isSupportedScreen = CareerScreenClassification.IsRuntimeScreen(
-            observation.ScreenId);
+        var kind = CareerScreenClassification.Classify(observation.ScreenId, pack.ScreenProfile);
+        var isSupportedScreen = kind != CareerScreenKind.Unknown;
         var result = observation.ScreenId switch
         {
-            "career_intro_event"
-            or "training_event"
-            or "event_choice"
-            or "scenario_event"
-                => await _eventHandler.TryRecognizeAndHandleAsync(context)
-                    .ConfigureAwait(false),
-            "inheritance_event"
-                => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
-            "claw_machine"
-                => await _clawMachineFlow.HandleAsync(context).ConfigureAwait(false),
-            "claw_machine_result"
-                => await _clawMachineFlow.HandleResultAsync(context).ConfigureAwait(false),
-            "career_main"
-            or "training_selection"
-            or "training_result"
-            or "rest_confirmation"
-            or "recreation_selection"
-            or "recreation_confirmation"
-            or "summer_rest_confirmation"
-            or "infirmary_confirmation"
-                => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
-            "race_runner"
-                => await _raceRunnerHandler.HandleAsync(context)
-                    .ConfigureAwait(false),
-            "race_retry_dialog"
-                => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
-            "race_trophy_won"
-            or "race_playback_start"
-            or "race_recommendations"
-            or "race_streak_warning"
-            or "race_runner_result"
-            or "career_races_ready"
-            or "race_day"
-            or "race_list"
-            or "race_list_empty"
-            or "race_details"
-            or "race_attributes"
-            or "race_playback"
-            or "race_playback_settings"
-            or "race_live"
-            or "goal_objective_complete"
-            or "goal_update"
-            or "race_result"
-            or "reward"
-            or "reward_support"
-            or "goal_complete"
-                => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
-            "goal_incomplete"
-            or "complete_career_entry"
-            or "complete_career"
-            or "career_rank"
-            or "career_rating_record_updated"
-            or "career_result"
-            or "career_result_close"
-            or "follow_trainer_limit"
-            or "career_epithet"
-            or "rewards"
-            or "rewards_collected"
-            or "event_reward"
-            or "sparks"
-            or "sparks_confirmation"
-            or "career_complete"
-            or "career_complete_close"
-            or "career_story_unlocked"
-            or "career_story_unlocked_compact"
-            or "career_story_unlocked_to_home"
-                => await _settlementFlow.HandleAsync(context).ConfigureAwait(false),
-            _ => null,
+            "inheritance_event" => await _turnFlow.HandleAsync(context).ConfigureAwait(false),
+            "claw_machine" => await _clawMachineFlow.HandleAsync(context).ConfigureAwait(false),
+            "claw_machine_result" => await _clawMachineFlow.HandleResultAsync(context).ConfigureAwait(false),
+            "race_runner" => await _raceRunnerHandler.HandleAsync(context).ConfigureAwait(false),
+            _ => kind switch
+            {
+                CareerScreenKind.Main or CareerScreenKind.Turn =>
+                    await _turnFlow.HandleAsync(context).ConfigureAwait(false),
+                CareerScreenKind.Race => await _raceFlow.HandleAsync(context).ConfigureAwait(false),
+                CareerScreenKind.Event => await _eventHandler.TryRecognizeAndHandleAsync(context).ConfigureAwait(false),
+                CareerScreenKind.Settlement => await _settlementFlow.HandleAsync(context).ConfigureAwait(false),
+                _ => null,
+            },
         };
 
         if (result is not null || isSupportedScreen || !pauseOnUnknownOutcome)
@@ -249,7 +197,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         if (screen is null)
         {
             return CareerRuntimeResults.Failure(
-                $"Screen '{screenId}' is missing from screen_profile.json.",
+                $"Screen '{screenId}' is missing from the Career screen fragments.",
                 screenId);
         }
 
@@ -257,7 +205,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         if (action is null || string.IsNullOrWhiteSpace(action.Task))
         {
             return CareerRuntimeResults.Failure(
-                $"Screen action '{screenId}.{actionId}' is missing from screen_profile.json.",
+                $"Screen action '{screenId}.{actionId}' is missing from the Career screen fragments.",
                 screenId);
         }
 
@@ -327,13 +275,13 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             }
         }
 
-        var result = await _jsonRunner.RunAsync(
+        var result = await _actionExecutor.RunTaskAsync(
                 connection,
-                pack.ExecutionDefinition,
+                pack,
                 entryTask,
-                options: options,
-                logSink: logSink,
-                cancellationToken: cancellationToken)
+                logSink,
+                cancellationToken,
+                options)
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
@@ -345,14 +293,14 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         if (state is not null
             && screenId == CareerRaceRunnerCheckpointHandler.ScreenId
             && actionId == "entry.view_results"
-            && result.LastTask == "race_runner_last_next")
+            && result.Outcome == "race.replay.completed")
         {
             CareerRaceFlow.MarkReplayFlowCompleted(state);
         }
 
         if (state is not null && screenId == "race_retry_dialog")
         {
-            state.RaceRetryDeclined = result.LastTask == "race_retry_cancel";
+            state.RaceRetryDeclined = result.Outcome == "race.retry.declined";
         }
 
         if (state is not null

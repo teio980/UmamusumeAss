@@ -42,7 +42,7 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\resource\hachimi\**\*"
-             Exclude="..\..\resource\hachimi\debug\**\*"
+             Exclude="..\..\resource\hachimi\debug\**\*;..\..\resource\hachimi\**\testdata\**\*;..\..\resource\hachimi\ura\screens\captures\**\*"
              Link="resource\hachimi\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />

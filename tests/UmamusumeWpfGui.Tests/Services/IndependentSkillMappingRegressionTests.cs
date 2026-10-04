@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.Json;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
 
@@ -10,7 +9,7 @@ public sealed class IndependentSkillMappingRegressionTests
     [Fact]
     public void Complete_catalog_keeps_all_skill_rows_and_previous_verified_mappings()
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        var catalog = IndependentTrainingCatalog.Load(CareerTestResourceResolver.FindWorkspaceRoot());
 
         Assert.Equal(725, catalog.Skills.Count);
         Assert.Equal("global", catalog.SkillSource.Region);
@@ -34,7 +33,7 @@ public sealed class IndependentSkillMappingRegressionTests
     [Fact]
     public void Complete_catalog_contains_gourmand_and_marks_unverified_searches()
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        var catalog = IndependentTrainingCatalog.Load(CareerTestResourceResolver.FindWorkspaceRoot());
         var gourmand = Assert.Single(catalog.Skills, skill => skill.SkillId == 201351);
 
         Assert.Equal("Gourmand", gourmand.SkillName);
@@ -50,7 +49,7 @@ public sealed class IndependentSkillMappingRegressionTests
     [Fact]
     public void Numeric_skill_retains_the_short_verified_query_and_ocr_name()
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        var catalog = IndependentTrainingCatalog.Load(CareerTestResourceResolver.FindWorkspaceRoot());
         var skill = Assert.Single(catalog.Skills, item => item.SkillId == 201412);
 
         Assert.Equal("1,500,000 CC", skill.SkillName);
@@ -65,7 +64,7 @@ public sealed class IndependentSkillMappingRegressionTests
     [Fact]
     public void Ocr_failure_can_resolve_the_verified_checkbox_fallback_row()
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
+        var catalog = IndependentTrainingCatalog.Load(CareerTestResourceResolver.FindWorkspaceRoot());
         var skill = Assert.Single(catalog.Skills, item => item.SkillId == 201412);
 
         Assert.True(
@@ -95,24 +94,8 @@ public sealed class IndependentSkillMappingRegressionTests
     [Fact]
     public async Task Skill_selection_keeps_ocr_primary_and_verified_template_fallback()
     {
-        var root = FindSolutionRoot();
-        var executionPath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json");
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         var ocr = definition!.GetTask("independent_skills_search_checkbox_ocr");
         Assert.Equal("OcrText", ocr.Algorithm, ignoreCase: true);
@@ -126,17 +109,12 @@ public sealed class IndependentSkillMappingRegressionTests
         Assert.Equal([20, 120, 150, 220], fallback.Roi!);
         Assert.False(string.IsNullOrWhiteSpace(fallback.Template));
 
-        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(profilePath));
-        var career = document.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "career_final_confirmation");
-        var actions = career.GetProperty("actions")
-            .EnumerateArray()
-            .ToDictionary(
-                item => item.GetProperty("semanticId").GetString()!,
-                item => item.GetProperty("task").GetString()!,
-                StringComparer.OrdinalIgnoreCase);
+        var career = pack.ScreenProfile.Find("career_final_confirmation");
+        Assert.NotNull(career);
+        var actions = career!.Actions.ToDictionary(
+            item => item.SemanticId,
+            item => item.Task,
+            StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(
             "independent_skills_search_checkbox_ocr",
@@ -146,16 +124,4 @@ public sealed class IndependentSkillMappingRegressionTests
             actions["independent.skills.search.checkbox.fallback"]);
     }
 
-    private static string FindSolutionRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root.");
-    }
 }

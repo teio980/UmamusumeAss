@@ -52,7 +52,7 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal("acupuncturist_no_worries", ocrEvent.EventId);
         Assert.Equal("Just an Acupuncturist, No Worries! ☆", ocrEvent.Title);
         Assert.Equal("event_choice", ocrEvent.OcrTitle!.ScreenId);
-        Assert.Equal("choice_first", ocrEvent.OcrTitle.ActionId);
+        Assert.Equal("event.choice_first", ocrEvent.OcrTitle.ActionId);
         Assert.Equal([140, 295, 620, 65],
             pack.ScreenProfile.Find("event_choice")!.FindOcrRegion("event.title")!.ToRoi()!);
         Assert.Equal("ura", pack.ScreenProfile.ScenarioId);
@@ -63,6 +63,13 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(
             15,
             pack.ExecutionDefinition.Tasks["trainee_select_pick"].SearchRois.Count);
+        var raceCardFind = pack.ExecutionDefinition.Tasks["independent_agenda_race_card_find"];
+        var raceCardVerify = pack.ExecutionDefinition.Tasks["independent_agenda_race_card_verify"];
+        Assert.Null(raceCardFind.Template);
+        Assert.Null(raceCardVerify.Template);
+        Assert.Equal("independent.race_card", raceCardFind.TemplateCollection);
+        Assert.Equal("independent.race_card", raceCardVerify.TemplateCollection);
+        Assert.Contains("independent.race_card", pack.VisualResources!.DynamicCollections.Keys);
         var speedEntry = pack.ExecutionDefinition.Tasks["training_selection_training_speed"];
         var speedClick = pack.ExecutionDefinition.Tasks["training_selection_speed_first_click"];
         Assert.Equal("JustReturn", speedEntry.Action);
@@ -166,7 +173,7 @@ public sealed class UraScenarioPackLoaderTests
             raceRunnerResult.FindAction("result.next")?.Task);
         Assert.Equal(
             "templates/career/race/race_strategy_selected_marker.png",
-            pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Template);
+            OriginalTaskTemplate(pack, "race_runner_strategy_apply_pace"));
         Assert.Equal(
             "MatchTemplateColor",
             pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].Algorithm);
@@ -175,18 +182,18 @@ public sealed class UraScenarioPackLoaderTests
             pack.ExecutionDefinition.Tasks["race_runner_strategy_apply_pace"].OnErrorNext);
         Assert.Equal(
             "templates/career/race/race_strategy_change.png",
-            pack.ExecutionDefinition.Tasks["race_runner_strategy_change_pace"].Template);
-        Assert.Equal(
-            "templates/independent/strategy_confirm.png",
-            pack.ExecutionDefinition.Tasks["race_runner_strategy_save"].Template);
+            OriginalTaskTemplate(pack, "race_runner_strategy_change_pace"));
+        var strategySaveTemplate = pack.VisualResources!.ResolveTaskTemplate("race_runner_strategy_save");
+        Assert.Equal("strategy_confirm.png", Path.GetFileName(strategySaveTemplate));
+        Assert.True(File.Exists(strategySaveTemplate));
         Assert.Equal(
             "templates/career/race/race_entry_race.png",
-            pack.ExecutionDefinition.Tasks["race_runner_entry_start"].Template);
+            OriginalTaskTemplate(pack, "race_runner_entry_start"));
         var viewResultsProbe = pack.ExecutionDefinition.Tasks["race_runner_entry_view_results"];
         Assert.Equal("JustReturn", viewResultsProbe.Action);
         Assert.Equal(
             "templates/career/race/race_entry_view_results_lock.png",
-            viewResultsProbe.Template);
+            OriginalTaskTemplate(pack, "race_runner_entry_view_results"));
         Assert.Equal([170, 1380, 100, 100], viewResultsProbe.Roi!);
         Assert.Equal(
             ["race_runner_entry_start"],
@@ -196,13 +203,13 @@ public sealed class UraScenarioPackLoaderTests
             viewResultsProbe.OnErrorNext);
         Assert.Equal(
             "templates/career/race/race_entry_view_results.png",
-            pack.ExecutionDefinition.Tasks["race_runner_entry_view_results_click"].Template);
+            OriginalTaskTemplate(pack, "race_runner_entry_view_results_click"));
         var viewResultsTap = pack.ExecutionDefinition.Tasks["race_runner_view_results_tap"];
         Assert.Equal("MatchTemplateColor", viewResultsTap.Algorithm);
         Assert.Equal("ClickSelfUntilTransition", viewResultsTap.Action);
         Assert.Equal(
             "templates/career/race/race_view_results_tap.png",
-            viewResultsTap.Template);
+            OriginalTaskTemplate(pack, "race_runner_view_results_tap"));
         Assert.True(viewResultsTap.RepeatTapUntilTransition);
         Assert.Equal(4, viewResultsTap.MaxClickAttempts);
         Assert.Equal(
@@ -210,7 +217,7 @@ public sealed class UraScenarioPackLoaderTests
                 "templates/career/race/race_result_next.png",
                 "templates/career/race/race_retry_dialog_title.png",
             ],
-            viewResultsTap.TransitionTemplates);
+            OriginalTaskTransitions(pack, "race_runner_view_results_tap"));
         Assert.True(viewResultsTap.PollTransitionTemplatesTogether);
         Assert.Equal([300, 1200, 300, 250], viewResultsTap.Roi!);
         Assert.Equal(600_000, viewResultsTap.TimeoutMilliseconds);
@@ -230,21 +237,21 @@ public sealed class UraScenarioPackLoaderTests
             pack.ExecutionDefinition.Tasks["race_retry_try_again"].Action);
         Assert.Equal(
             "templates/career/race/race_playback_ok.png",
-            pack.ExecutionDefinition.Tasks["race_runner_playback_ok"].Template);
+            OriginalTaskTemplate(pack, "race_runner_playback_ok"));
         var trophyClose = pack.ExecutionDefinition.Tasks["race_runner_trophy_close"];
         Assert.Equal("MatchTemplateColor", trophyClose.Algorithm);
         Assert.Equal("ClickSelf", trophyClose.Action);
         Assert.Equal(
             "templates/career/race/race_trophy_close.png",
-            trophyClose.Template);
+            OriginalTaskTemplate(pack, "race_runner_trophy_close"));
         Assert.Equal([300, 1080, 300, 180], trophyClose.Roi!);
         Assert.Empty(trophyClose.FallbackRoi ?? []);
-        Assert.Empty(trophyClose.TransitionTemplates);
+        Assert.Empty(OriginalTaskTransitions(pack, "race_runner_trophy_close"));
         Assert.False(trophyClose.Success);
         Assert.Equal(["race_runner_result_flow"], trophyClose.Next);
         Assert.Equal(
             "templates/career/race/race_playback_start.png",
-            pack.ExecutionDefinition.Tasks["race_runner_playback_start"].Template);
+            OriginalTaskTemplate(pack, "race_runner_playback_start"));
         var racePlaybackStart = pack.ExecutionDefinition.Tasks["race_runner_playback_start"];
         Assert.Equal("MatchTemplateColor", racePlaybackStart.Algorithm);
         Assert.Equal("ClickSelf", racePlaybackStart.Action);
@@ -263,7 +270,7 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Contains("race_runner_result_flow", playbackMonitor.SuccessTasks);
         Assert.Equal(
             "templates/career/race/race_trophy_won.png",
-            pack.ExecutionDefinition.Tasks["race_runner_trophy_probe"].Template);
+            OriginalTaskTemplate(pack, "race_runner_trophy_probe"));
         Assert.Equal(
             2000,
             pack.ExecutionDefinition.Tasks["race_runner_result_flow"].MonitorStableMilliseconds);
@@ -272,7 +279,7 @@ public sealed class UraScenarioPackLoaderTests
             pack.ExecutionDefinition.Tasks["race_runner_trophy_probe"].Next);
         Assert.Equal(
             "templates/career/race/race_result_replay.png",
-            pack.ExecutionDefinition.Tasks["race_runner_result_flow"].Template);
+            OriginalTaskTemplate(pack, "race_runner_result_flow"));
         Assert.Equal(
             [680, 520, 210, 150],
             pack.ExecutionDefinition.Tasks["race_runner_result_flow"].Roi!);
@@ -284,48 +291,43 @@ public sealed class UraScenarioPackLoaderTests
             pack.ExecutionDefinition.Tasks["race_runner_playback_skip"].MaxTimes);
         Assert.Equal(
             "templates/career/race/race_result_next.png",
-            pack.ExecutionDefinition.Tasks["race_runner_result_next"].Template);
+            OriginalTaskTemplate(pack, "race_runner_result_next"));
         Assert.Equal(
             "templates/career/race/race_last_next.png",
-            pack.ExecutionDefinition.Tasks["race_runner_last_next"].Template);
-        Assert.True(File.Exists(Path.Combine(
-            FindWorkspaceRoot(),
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            raceRunner.Recognition.Template!)));
+            OriginalTaskTemplate(pack, "race_runner_last_next"));
+        Assert.True(File.Exists(UraScenarioResourceResolver.Resolve(
+            pack, raceRunner, raceRunner.Recognition.Template!)));
         Assert.Equal("home", pack.ScreenProfile.Find("home")?.EntryTask);
         Assert.Equal(
-            "templates/career_continue_header.png",
+            "../modes/normal/templates/career_continue_header.png",
             pack.ScreenProfile.Find("career_continue")?.Recognition.Template);
         Assert.Equal(
             "career_continue_resume",
-            pack.ScreenProfile.Find("career_continue")?.FindAction("resume")?.Task);
+            pack.ScreenProfile.Find("career_continue")?.FindAction("career.continue.resume")?.Task);
         Assert.Equal(
             "career_continue_delete",
-            pack.ScreenProfile.Find("career_continue")?.FindAction("delete")?.Task);
+            pack.ScreenProfile.Find("career_continue")?.FindAction("career.continue.delete")?.Task);
         Assert.Equal(
             "templates/career_continue_resume.png",
-            pack.ExecutionDefinition.Tasks["career_continue_resume"].Template);
+            OriginalTaskTemplate(pack, "career_continue_resume"));
         Assert.Equal(
             "templates/career_continue_delete.png",
-            pack.ExecutionDefinition.Tasks["career_continue_delete"].Template);
+            OriginalTaskTemplate(pack, "career_continue_delete"));
         Assert.Equal(
             "templates/career_continue_delete_confirm.png",
-            pack.ExecutionDefinition.Tasks["career_continue_delete_confirm"].Template);
+            OriginalTaskTemplate(pack, "career_continue_delete_confirm"));
         Assert.Contains(
             "career_continue_delete_confirm",
             pack.ExecutionDefinition.Tasks["career_continue_delete"].Next);
         Assert.Equal(
             "support_select_support_display_settings",
-            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.display_settings")?.Task);
+            pack.ScreenProfile.Find("support_select")?.FindAction("support.ranked.display_settings")?.Task);
         Assert.Equal(
             "support_select_support_sort_level",
-            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.sort_level")?.Task);
+            pack.ScreenProfile.Find("support_select")?.FindAction("support.ranked.sort_level")?.Task);
         Assert.Equal(
             "support_select_support_sort_apply",
-            pack.ScreenProfile.Find("support_select")?.FindAction("ranked.sort_apply")?.Task);
+            pack.ScreenProfile.Find("support_select")?.FindAction("support.ranked.sort_apply")?.Task);
         Assert.Equal(
             "templates/scenario_select_header.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.Template);
@@ -342,13 +344,9 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(ScenarioStartupHeaderRoi, scenarioStartup?.Recognition.Roi);
         Assert.Equal(0.88, scenarioStartup?.Recognition.TemplateThreshold);
         Assert.Single(scenarioStartup?.Templates ?? []);
-        Assert.True(File.Exists(Path.Combine(
-            FindWorkspaceRoot(),
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            scenarioStartup!.Recognition.Template!)));
+        Assert.NotNull(scenarioStartup);
+        Assert.True(File.Exists(UraScenarioResourceResolver.Resolve(
+            pack, scenarioStartup, scenarioStartup.Recognition.Template!)));
         var traineeStartup = pack.ScreenProfile.Find("normal_trainee_select_startup");
         Assert.Equal(
             "templates/normal/trainee_select_career_info.png",
@@ -356,9 +354,11 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal(TraineeCareerInfoRoi, traineeStartup!.Recognition.Roi!);
         Assert.Single(traineeStartup?.Templates ?? []);
         var traineeSelect = pack.ScreenProfile.Find("trainee_select");
+        Assert.NotNull(traineeStartup);
+        Assert.NotNull(traineeSelect);
         Assert.Equal(
-            traineeStartup!.Recognition.Template,
-            traineeSelect?.Recognition.Template);
+            UraScenarioResourceResolver.Resolve(pack, traineeStartup, traineeStartup.Recognition.Template!),
+            UraScenarioResourceResolver.Resolve(pack, traineeSelect!, traineeSelect!.Recognition.Template!));
         Assert.Equal(
             TraineeCareerInfoRoi,
             traineeSelect?.Recognition.Roi);
@@ -377,28 +377,19 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal([200, 1050, 500, 400], careerMain.Recognition.RequiredTemplateRoi!);
         Assert.Equal(0.78, careerMain.Recognition.RequiredTemplateThreshold);
         Assert.Single(careerMain.Templates);
-        Assert.True(File.Exists(Path.Combine(
-            FindWorkspaceRoot(),
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            careerMain!.Recognition.Template!)));
+        Assert.True(File.Exists(UraScenarioResourceResolver.Resolve(
+            pack, careerMain!, careerMain.Recognition.Template!)));
         var trainingSelection = pack.ScreenProfile.Find("training_selection");
         Assert.Equal(
-            "templates/training_selection_header.png",
+            "../training/templates/training_selection_header.png",
             trainingSelection?.Recognition.Template);
+        Assert.NotNull(trainingSelection);
         Assert.Equal([0, 0, 120, 50], trainingSelection!.Recognition.Roi!);
         Assert.Equal(0.92, trainingSelection?.Recognition.TemplateThreshold);
-        Assert.True(File.Exists(Path.Combine(
-            FindWorkspaceRoot(),
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            trainingSelection!.Recognition.Template!)));
+        Assert.True(File.Exists(UraScenarioResourceResolver.Resolve(
+            pack, trainingSelection!, trainingSelection!.Recognition.Template!)));
         Assert.Contains(
-            "templates/runtime_frames/scenario_select_ura.png",
+            "../race/templates/runtime_frames/scenario_select_ura.png",
             pack.ScreenProfile.Find("scenario_select")?.Recognition.AlternativeTemplates
                 ?? []);
         Assert.Equal("ura", pack.ScreenProfile.ScenarioSelection?.ScenarioId);
@@ -412,11 +403,11 @@ public sealed class UraScenarioPackLoaderTests
             ScenarioNextCardRect,
             pack.ExecutionDefinition.Tasks["scenario_select_scenario_next_card"].SpecificRect);
         Assert.Equal(
-            "../../pipelines/templates/start_game/game_home_selected.png",
-            pack.ExecutionDefinition.Tasks["home"].Template);
+            "templates/start_game/game_home_selected.png",
+            OriginalTaskTemplate(pack, "home"));
         Assert.Equal(
-            "../../pipelines/templates/start_game/game_home_unselected.png",
-            pack.ExecutionDefinition.Tasks["homeAlt"].Template);
+            "templates/start_game/game_home_unselected.png",
+            OriginalTaskTemplate(pack, "homeAlt"));
         Assert.Equal(10_000, pack.ExecutionDefinition.Tasks["home"].TimeoutMilliseconds);
         Assert.Equal(2, pack.ExecutionDefinition.Tasks["home"].RetryTimes);
         Assert.Equal(15_000, pack.ExecutionDefinition.Tasks["career_main_action_training"].TimeoutMilliseconds);
@@ -428,13 +419,13 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["homeAlt"].Next);
         Assert.Equal(
             "templates/home_home_career.png",
-            pack.ExecutionDefinition.Tasks["home_home_career"].Template);
+            OriginalTaskTemplate(pack, "home_home_career"));
         Assert.Contains(
             "home_home_career_active",
             pack.ExecutionDefinition.Tasks["home_home_career"].OnErrorNext);
         Assert.Equal(
             "templates/home_home_career_active_label.png",
-            pack.ExecutionDefinition.Tasks["home_home_career_active"].Template);
+            OriginalTaskTemplate(pack, "home_home_career_active"));
         Assert.Equal(
             "ClickSelf",
             pack.ExecutionDefinition.Tasks["home_home_career_active"].Action);
@@ -469,7 +460,7 @@ public sealed class UraScenarioPackLoaderTests
         Assert.Equal("ura", package.ScenarioId);
         Assert.Equal("URA Finale", package.DisplayName);
         Assert.EndsWith(
-            Path.Combine("screens", "execution.json"),
+            Path.Combine("entry", "execution.json"),
             package.ExecutionPath,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal("career-training-execution", package.ExecutionDefinition.Name);
@@ -481,12 +472,15 @@ public sealed class UraScenarioPackLoaderTests
         var root = FindWorkspaceRoot();
         var sourcePack = Path.Combine(
             root, "resource", "hachimi", "ura");
-        var tempRoot = Path.Combine(Path.GetTempPath(), "ura-loader-" + Guid.NewGuid().ToString("N"));
+        var tempBase = Path.Combine(Path.GetTempPath(), "ura-loader-" + Guid.NewGuid().ToString("N"));
+        var tempRoot = Path.Combine(tempBase, "ura");
         CopyDirectory(sourcePack, tempRoot);
+        CopyDirectory(Path.Combine(root, "resource", "hachimi", "career"),
+            Path.Combine(tempBase, "career"));
         try
         {
             var manifestPath = Path.Combine(tempRoot, "manifest.json");
-            var profilePath = Path.Combine(tempRoot, "screens", "screen_profile.json");
+            var profilePath = Path.Combine(tempBase, "career", "race", "profile.json");
             var profile = await File.ReadAllTextAsync(profilePath);
             profile = profile.Replace(
                 "templates/runtime_frames/ura_prelim_races_active.png",
@@ -499,8 +493,56 @@ public sealed class UraScenarioPackLoaderTests
         }
         finally
         {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, recursive: true);
+            if (Directory.Exists(tempBase))
+                Directory.Delete(tempBase, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_resolves_observed_race_captures_when_testdata_is_not_published()
+    {
+        var root = FindWorkspaceRoot();
+        var temporaryRoot = Path.Combine(
+            Path.GetTempPath(), "ura-published-no-testdata-" + Guid.NewGuid().ToString("N"));
+        var resourcesRoot = Path.Combine(temporaryRoot, "resource");
+        var hachimiRoot = Path.Combine(resourcesRoot, "hachimi");
+        var uraRoot = Path.Combine(hachimiRoot, "ura");
+
+        try
+        {
+            CopyDirectoryExcludingTestData(
+                Path.Combine(root, "resource", "hachimi", "ura"),
+                uraRoot);
+            CopyDirectory(
+                Path.Combine(root, "resource", "hachimi", "career"),
+                Path.Combine(hachimiRoot, "career"));
+            CopyDirectory(
+                Path.Combine(root, "resource", "uma", "database", "global"),
+                Path.Combine(resourcesRoot, "uma", "database", "global"));
+
+            Assert.False(Directory.Exists(Path.Combine(uraRoot, "testdata")));
+
+            var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(uraRoot, "manifest.json"));
+
+            var resources = pack.VisualResources
+                ?? throw new InvalidOperationException("The loaded URA pack has no visual resources.");
+            var runtimeFrames = resources.DynamicCollections["career.runtime_frame"];
+            foreach (var race in pack.Races.Races.Where(item => item.ObservedOutcome is not null))
+            {
+                var capture = race.ObservedOutcome!.Capture!;
+                Assert.False(capture.StartsWith("testdata/", StringComparison.OrdinalIgnoreCase));
+                var runtimeFrameId = $"career.runtime_frame:{Path.GetFileNameWithoutExtension(capture)}";
+                var path = resources.ResolveVisualResource(runtimeFrameId);
+                Assert.Equal(
+                    Path.GetFullPath(Path.Combine(runtimeFrames.RootDirectory, Path.GetFileName(capture)!)),
+                    Path.GetFullPath(path));
+                Assert.True(File.Exists(path), $"{race.RaceId}: {path}");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(temporaryRoot))
+                Directory.Delete(temporaryRoot, recursive: true);
         }
     }
 
@@ -513,8 +555,11 @@ public sealed class UraScenarioPackLoaderTests
     public async Task LoadAsync_rejects_invalid_ocr_event_configuration(string invalidField)
     {
         var sourcePack = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura");
-        var tempRoot = Path.Combine(Path.GetTempPath(), "ura-ocr-loader-" + Guid.NewGuid().ToString("N"));
+        var tempBase = Path.Combine(Path.GetTempPath(), "ura-ocr-loader-" + Guid.NewGuid().ToString("N"));
+        var tempRoot = Path.Combine(tempBase, "ura");
         CopyDirectory(sourcePack, tempRoot);
+        CopyDirectory(Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "career"),
+            Path.Combine(tempBase, "career"));
         try
         {
             var eventsPath = Path.Combine(tempRoot, "events", "events.json");
@@ -539,7 +584,7 @@ public sealed class UraScenarioPackLoaderTests
                     entries.Add(duplicate);
                     break;
                 case "region":
-                    var profilePath = Path.Combine(tempRoot, "screens", "screen_profile.json");
+                    var profilePath = Path.Combine(tempBase, "career", "event", "profile.json");
                     var profile = JsonNode.Parse(await File.ReadAllTextAsync(profilePath))!;
                     var screen = profile["screens"]!.AsArray().Single(item =>
                         item?["screenId"]?.GetValue<string>() == "event_choice")!;
@@ -555,9 +600,16 @@ public sealed class UraScenarioPackLoaderTests
         }
         finally
         {
-            Directory.Delete(tempRoot, recursive: true);
+            Directory.Delete(tempBase, recursive: true);
         }
     }
+
+    private static string OriginalTaskTemplate(UraScenarioPack pack, string taskId) =>
+        pack.VisualResources!.GetOriginalTaskTemplate(taskId)
+            ?? throw new InvalidOperationException($"Task '{taskId}' has no source template.");
+
+    private static IReadOnlyList<string> OriginalTaskTransitions(UraScenarioPack pack, string taskId) =>
+        pack.VisualResources!.GetOriginalTaskTransitionTemplates(taskId);
 
     private static string FindWorkspaceRoot()
     {
@@ -579,5 +631,20 @@ public sealed class UraScenarioPackLoaderTests
             File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
         foreach (var directory in Directory.EnumerateDirectories(source))
             CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+    }
+
+    private static void CopyDirectoryExcludingTestData(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source))
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        foreach (var directory in Directory.EnumerateDirectories(source))
+        {
+            if (Path.GetFileName(directory).Equals("testdata", StringComparison.OrdinalIgnoreCase))
+                continue;
+            CopyDirectoryExcludingTestData(
+                directory,
+                Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 }

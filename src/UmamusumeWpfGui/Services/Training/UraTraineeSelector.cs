@@ -16,81 +16,7 @@ namespace UmamusumeWpfGui.Services.Training;
 /// </summary>
 public sealed class UraTraineeSelector
 {
-    private const int ReferenceWidth = 900;
-    private const int ReferenceHeight = 1600;
-    private const int MaximumScrolls = 16;
-    private const double MinimumMatchScore = 0.70;
-    private const double MinimumSystemReferenceMatchScore = 0.70;
-    private const string SharedTemplatePrefix = "../../pipelines/";
-    private const string CareerFilterTabTemplate = "../../../uma/career_filter_tab.png";
-
-    private static readonly double[] ScreenshotCropScaleCandidates =
-        [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
-
-    private static readonly double[] PreciseScreenshotCropScaleCandidates =
-        [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
-
-    private static readonly int[] RunnerSwipe = [760, 1150, 760, 850, 550];
-
-    private static readonly Dictionary<string, string> FilterTemplatePaths =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Turf"] = "templates/daily_race/runner_filter_turf.png",
-            ["Dirt"] = "templates/daily_race/runner_filter_dirt.png",
-            ["Sprint"] = "templates/daily_race/runner_filter_sprint.png",
-            ["Mile"] = "templates/daily_race/runner_filter_mile.png",
-            ["Medium"] = "templates/daily_race/runner_filter_medium.png",
-            ["Long"] = "templates/daily_race/runner_filter_long.png",
-            ["Front"] = "templates/daily_race/runner_filter_front.png",
-            ["Pace"] = "templates/daily_race/runner_filter_pace.png",
-            ["Late"] = "templates/daily_race/runner_filter_late.png",
-            ["End"] = "templates/daily_race/runner_filter_end.png",
-        };
-
-    // Career's Display Settings page currently contains Stars before Track.
-    // These ROIs are intentionally owned by Career instead of changing the
-    // Daily Race selector's coordinates.
-    private static readonly Dictionary<string, int[]> FilterTemplateRois =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Turf"] = [20, 520, 280, 180],
-            ["Dirt"] = [300, 520, 300, 180],
-            ["Sprint"] = [20, 700, 280, 180],
-            ["Mile"] = [300, 700, 280, 180],
-            ["Medium"] = [580, 700, 300, 180],
-            ["Long"] = [20, 790, 280, 180],
-            ["Front"] = [20, 970, 280, 180],
-            ["Pace"] = [300, 970, 280, 180],
-            ["Late"] = [580, 970, 300, 180],
-            ["End"] = [20, 1060, 280, 180],
-        };
-
-    // The label ROI is also searched for this checkbox template; TapMatchAsync
-    // then uses the live match bounds instead of a preset screen point.
-    private const string CareerCheckboxTemplate =
-        "templates/career_filter_checkbox_unselected.png";
-
-    private static readonly double[] FilterCheckboxScaleCandidates =
-        [0.70, 0.80, 0.90, 1.00, 1.10, 1.20];
-
-    private static readonly RunnerCell[] RunnerCells =
-    [
-        new(20, 800, 160, 190),
-        new(195, 800, 160, 190),
-        new(370, 800, 160, 190),
-        new(545, 800, 160, 190),
-        new(720, 800, 160, 190),
-        new(20, 1010, 160, 190),
-        new(195, 1010, 160, 190),
-        new(370, 1010, 160, 190),
-        new(545, 1010, 160, 190),
-        new(720, 1010, 160, 190),
-        new(20, 1220, 160, 65),
-        new(195, 1220, 160, 65),
-        new(370, 1220, 160, 65),
-        new(545, 1220, 160, 65),
-        new(720, 1220, 160, 65),
-    ];
+    private readonly AsyncLocal<CareerVisualResourcePackage?> _activeResources = new();
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly IUmaDatabaseService _umaDatabase;
@@ -112,11 +38,16 @@ public sealed class UraTraineeSelector
         HachimiPipelineTask task,
         int traineeId,
         IGrassTaskLogSink? logSink,
+        CareerVisualResourcePackage? visualResources,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(task);
+        _activeResources.Value = visualResources
+            ?? throw new InvalidDataException("Career trainee selection requires its visual resource package.");
+        var matchingPolicy = GetMatchingPolicy();
+        var cells = GetRunnerCells();
 
         if (!_umaDatabase.TryGetTrainee(traineeId, out var trainee)
             || trainee is null
@@ -138,36 +69,32 @@ public sealed class UraTraineeSelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "templates/daily_race/runner_display_button.png",
-                [400, 1100, 500, 250],
-                0.80,
+                "career.entry.trainee.display_button",
+                "career.entry.trainee.display_button",
                 "careerRunnerFilterOpen",
                 cancellationToken).ConfigureAwait(false))
         {
             return Failure("Could not open the Career trainee display settings.");
         }
 
-        await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                CareerFilterTabTemplate,
-                [500, 120, 300, 120],
-                0.78,
+                "career.entry.trainee.filter_tab",
+                "career.entry.trainee.filter_tab",
                 "careerRunnerFilterTab",
                 cancellationToken).ConfigureAwait(false))
         {
             return Failure("The Career trainee Filter tab did not appear.");
         }
 
-        await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
-        await TapReferenceRectAsync(
+        await TapRegionCenterAsync(
                 connection,
-                [620, 1280, 260, 110],
+                definition,
+                "career.entry.trainee.filter_reset",
                 "careerRunnerFilterReset",
                 cancellationToken)
             .ConfigureAwait(false);
-        await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
 
         var filterResult = await ApplyAptitudeFiltersAsync(
                 connection,
@@ -182,23 +109,21 @@ public sealed class UraTraineeSelector
         if (!await TapTemplateAsync(
                 connection,
                 definition,
-                "templates/daily_race/runner_filter_confirm.png",
-                [300, 1300, 550, 250],
-                0.80,
+                "career.entry.trainee.filter_confirm",
+                "career.entry.trainee.filter_confirm",
                 "careerRunnerFilterConfirm",
                 cancellationToken).ConfigureAwait(false))
         {
             return Failure("Could not confirm the Career trainee filters.");
         }
 
-        await _visualRuntime.DelayAsync(700, cancellationToken).ConfigureAwait(false);
         var templates = await LoadTemplatesAsync(templatePaths, cancellationToken)
             .ConfigureAwait(false);
         if (templates.Count == 0)
             return Failure($"Could not decode any image template for {trainee.NameEn}.");
 
         var bestObservedScore = 0d;
-        for (var scroll = 0; scroll <= MaximumScrolls; scroll++)
+        for (var scroll = 0; scroll <= matchingPolicy.MaximumScrolls; scroll++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var screen = await _visualRuntime.CaptureGrayAsync(
@@ -207,16 +132,21 @@ public sealed class UraTraineeSelector
                 .ConfigureAwait(false);
             if (screen is not null)
             {
-                var best = FindBestCard(screen, templates);
+                var best = FindBestCard(
+                    screen, templates, cells, definition.ReferenceWidth, definition.ReferenceHeight,
+                    matchingPolicy.MinimumMatchScore,
+                    matchingPolicy.MinimumSystemReferenceMatchScore,
+                    matchingPolicy.SampleScaleCandidates,
+                    matchingPolicy.PreciseSampleScaleCandidates);
                 bestObservedScore = Math.Max(bestObservedScore, best.Score);
                 logSink?.Add(
                     "Career Training",
                     $"Career trainee page {scroll + 1}: match {best.Score:0.000} / "
-                    + $"required {MinimumMatchScore:0.000} at card "
+                    + $"required {matchingPolicy.MinimumMatchScore:0.000} at card "
                     + $"({best.Cell.X},{best.Cell.Y},{best.Cell.Width},{best.Cell.Height}).",
                     LogEntryKind.Info);
 
-                if (best.Match is not null && best.Score >= MinimumMatchScore)
+                if (best.Match is not null && best.Score >= matchingPolicy.MinimumMatchScore)
                 {
                     try
                     {
@@ -240,25 +170,26 @@ public sealed class UraTraineeSelector
                 }
             }
 
-            if (scroll == MaximumScrolls)
+            if (scroll == matchingPolicy.MaximumScrolls)
                 break;
 
             await _visualRuntime.SwipeAsync(
                     connection,
-                    RunnerSwipe,
+                    matchingPolicy.RunnerSwipe,
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
                     "careerTraineeListScroll",
                     cancellationToken)
                 .ConfigureAwait(false);
-            await _visualRuntime.DelayAsync(350, cancellationToken).ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(matchingPolicy.ScrollDelayMs, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return Failure(
             $"Filtered the Career trainee list, but could not find {trainee.NameEn} "
             + $"({trainee.TraineeId.ToString(CultureInfo.InvariantCulture)}) "
             + $"after scrolling (best observed score {bestObservedScore:0.000} / "
-            + $"required {MinimumMatchScore:0.000}).");
+            + $"required {matchingPolicy.MinimumMatchScore:0.000}).");
     }
 
     private async Task<UraTraineeSelectionResult> ApplyAptitudeFiltersAsync(
@@ -274,22 +205,31 @@ public sealed class UraTraineeSelector
 
         foreach (var label in desiredLabels)
         {
-            if (!FilterTemplatePaths.TryGetValue(label, out var templatePath)
-                || !FilterTemplateRois.TryGetValue(label, out var roi))
+            var normalizedLabel = NormalizeFilterLabel(label);
+            var regionId = $"career.entry.trainee.filter.aptitude.{normalizedLabel}";
+            var optionAssetId = regionId;
+            var checkboxAssetId = "career.entry.trainee.filter_checkbox";
+            int[] roi;
+            try
+            {
+                roi = GetRequiredRegionRoi(regionId);
+            }
+            catch (InvalidDataException)
             {
                 missingLabels.Add(label);
                 continue;
             }
 
+            var optionRegion = RequireRegion(regionId);
             var match = await _visualRuntime.WaitForMatchAsync(
                     connection,
-                    SharedTemplatePath(templatePath),
+                    ResolveAsset(optionAssetId),
                     roi,
-                    0.78,
+                    ResolveAssetThreshold(optionAssetId),
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
-                    8_000,
-                    250,
+                    GetRegionMetadataIntOr(optionRegion, "waitTimeoutMs", 8_000),
+                    GetRegionMetadataIntOr(optionRegion, "pollIntervalMs", 250),
                     "careerRunnerFilterOption",
                     definition.BaseDirectory,
                     cancellationToken)
@@ -300,18 +240,19 @@ public sealed class UraTraineeSelector
                 continue;
             }
 
+            var checkboxRegion = RequireRegion("career.entry.trainee.filter.checkbox");
             var checkboxMatch = await _visualRuntime.WaitForMatchScaledAsync(
                     connection,
-                    CareerCheckboxTemplate,
+                    ResolveAsset(checkboxAssetId),
                     roi,
-                    0.78,
+                    ResolveAssetThreshold(checkboxAssetId),
                     definition.ReferenceWidth,
                     definition.ReferenceHeight,
-                    8_000,
-                    250,
+                    GetRegionMetadataIntOr(checkboxRegion, "waitTimeoutMs", 8_000),
+                    GetRegionMetadataIntOr(checkboxRegion, "pollIntervalMs", 250),
                     "careerRunnerFilterCheckbox",
                     definition.BaseDirectory,
-                    FilterCheckboxScaleCandidates,
+                    GetRequiredScaleCandidates("career.entry.trainee.filter.checkbox", "scaleCandidates"),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (checkboxMatch is not { Found: true })
@@ -346,7 +287,9 @@ public sealed class UraTraineeSelector
                 missingLabels.Add(label);
             }
 
-            await _visualRuntime.DelayAsync(150, cancellationToken).ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(
+                    GetRegionMetadataIntOr(checkboxRegion, "tapDelayMs", 150), cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (clicked == 0 || missingLabels.Count > 0)
@@ -368,21 +311,21 @@ public sealed class UraTraineeSelector
     private async Task<bool> TapTemplateAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
-        string templatePath,
-        int[] roi,
-        double threshold,
+        string assetId,
+        string regionId,
         string actionName,
         CancellationToken cancellationToken)
     {
+        var region = RequireRegion(regionId);
         var match = await _visualRuntime.WaitForMatchAsync(
                 connection,
-                SharedTemplatePath(templatePath),
-                roi,
-                threshold,
+                ResolveAsset(assetId),
+                GetRequiredRegionRoi(regionId),
+                ResolveAssetThreshold(assetId),
                 definition.ReferenceWidth,
                 definition.ReferenceHeight,
-                8_000,
-                250,
+                GetRegionMetadataIntOr(region, "waitTimeoutMs", 8_000),
+                GetRegionMetadataIntOr(region, "pollIntervalMs", 250),
                 actionName,
                 definition.BaseDirectory,
                 cancellationToken)
@@ -398,6 +341,9 @@ public sealed class UraTraineeSelector
                     actionName,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await _visualRuntime.DelayAsync(
+                    GetRegionMetadataIntOr(region, "tapDelayMs", 0), cancellationToken)
+                .ConfigureAwait(false);
             return true;
         }
         catch (InvalidOperationException)
@@ -406,31 +352,42 @@ public sealed class UraTraineeSelector
         }
     }
 
-    private async Task TapReferenceRectAsync(
+    private async Task TapRegionCenterAsync(
         LastVerifiedConnection connection,
-        int[] referenceRect,
+        HachimiPipelineDefinition definition,
+        string regionId,
         string actionName,
         CancellationToken cancellationToken)
     {
-        var x = ScaleCoordinate(referenceRect[0], connection.Width, ReferenceWidth);
-        var y = ScaleCoordinate(referenceRect[1], connection.Height, ReferenceHeight);
-        var width = Math.Max(1, ScaleCoordinate(referenceRect[2], connection.Width, ReferenceWidth));
-        var height = Math.Max(1, ScaleCoordinate(referenceRect[3], connection.Height, ReferenceHeight));
+        var roi = GetRequiredRegionRoi(regionId);
+        var region = RequireRegion(regionId);
+        var x = ScaleCoordinate(roi[0] + roi[2] / 2, connection.Width, definition.ReferenceWidth);
+        var y = ScaleCoordinate(roi[1] + roi[3] / 2, connection.Height, definition.ReferenceHeight);
         await _visualRuntime.TapMatchAsync(
                 connection,
-                new TemplateMatchResult(true, 1d, x, y, width, height),
+                new TemplateMatchResult(true, 1d, x, y, 1, 1),
                 actionName,
                 cancellationToken)
+            .ConfigureAwait(false);
+        await _visualRuntime.DelayAsync(
+                GetRegionMetadataIntOr(region, "tapDelayMs", 0), cancellationToken)
             .ConfigureAwait(false);
     }
 
     private static CardMatch FindBestCard(
         GrayImage screen,
-        IReadOnlyList<RunnerTemplate> templates)
+        IReadOnlyList<RunnerTemplate> templates,
+        IReadOnlyList<RunnerCell> cells,
+        int referenceWidth,
+        int referenceHeight,
+        double minimumMatchScore,
+        double minimumSystemReferenceMatchScore,
+        IReadOnlyList<double> sampleScaleCandidates,
+        IReadOnlyList<double> preciseSampleScaleCandidates)
     {
         var bestScore = double.MinValue;
-        var bestCell = RunnerCells[0];
-        var requiredScore = MinimumMatchScore;
+        var bestCell = cells[0];
+        var requiredScore = minimumMatchScore;
         var screenshotTemplates = templates
             .Where(template => template.UsesScreenshotCrop
                 && template.SourceImage is not null)
@@ -439,14 +396,16 @@ public sealed class UraTraineeSelector
             ? screenshotTemplates
             : templates;
 
-        foreach (var cell in RunnerCells)
+        foreach (var cell in cells)
         {
             foreach (var template in templatesToCompare)
             {
                 var templateRequiredScore = template.UsesScreenshotCrop
-                    ? MinimumSystemReferenceMatchScore
-                    : MinimumMatchScore;
-                var score = CompareCell(screen, template, cell);
+                    ? minimumSystemReferenceMatchScore
+                    : minimumMatchScore;
+                var score = CompareCell(
+                    screen, template, cell, referenceWidth, referenceHeight,
+                    sampleScaleCandidates, preciseSampleScaleCandidates);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -461,7 +420,9 @@ public sealed class UraTraineeSelector
                     return new CardMatch(
                         cell,
                         score,
-                        CreateCardMatch(screen, cell, score, templateRequiredScore));
+                        CreateCardMatch(
+                            screen, cell, score, templateRequiredScore,
+                            referenceWidth, referenceHeight));
                 }
             }
         }
@@ -470,7 +431,9 @@ public sealed class UraTraineeSelector
             bestCell,
             Math.Max(0, bestScore),
             bestScore >= requiredScore
-                ? CreateCardMatch(screen, bestCell, bestScore, requiredScore)
+                ? CreateCardMatch(
+                    screen, bestCell, bestScore, requiredScore,
+                    referenceWidth, referenceHeight)
                 : null);
     }
 
@@ -478,12 +441,14 @@ public sealed class UraTraineeSelector
         GrayImage screen,
         RunnerCell cell,
         double score,
-        double requiredScore)
+        double requiredScore,
+        int referenceWidth,
+        int referenceHeight)
     {
-        var x = ScaleCoordinate(cell.X, screen.Width, ReferenceWidth);
-        var y = ScaleCoordinate(cell.Y, screen.Height, ReferenceHeight);
-        var width = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, ReferenceWidth));
-        var height = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, ReferenceHeight));
+        var x = ScaleCoordinate(cell.X, screen.Width, referenceWidth);
+        var y = ScaleCoordinate(cell.Y, screen.Height, referenceHeight);
+        var width = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, referenceWidth));
+        var height = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, referenceHeight));
         return new TemplateMatchResult(
             score >= requiredScore,
             score,
@@ -496,19 +461,25 @@ public sealed class UraTraineeSelector
     private static double CompareCell(
         GrayImage screen,
         RunnerTemplate template,
-        RunnerCell cell)
+        RunnerCell cell,
+        int referenceWidth,
+        int referenceHeight,
+        IReadOnlyList<double> sampleScaleCandidates,
+        IReadOnlyList<double> preciseSampleScaleCandidates)
     {
-        var x = ScaleCoordinate(cell.X, screen.Width, ReferenceWidth);
-        var y = ScaleCoordinate(cell.Y, screen.Height, ReferenceHeight);
-        var width = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, ReferenceWidth));
-        var height = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, ReferenceHeight));
+        var x = ScaleCoordinate(cell.X, screen.Width, referenceWidth);
+        var y = ScaleCoordinate(cell.Y, screen.Height, referenceHeight);
+        var width = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, referenceWidth));
+        var height = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, referenceHeight));
         if (x < 0 || y < 0 || x + width > screen.Width || y + height > screen.Height)
             return 0;
 
         if (template.UsesScreenshotCrop)
         {
             if (template.SourceImage is not { } sourceImage)
-                return CompareScreenshotCrop(screen, template, cell);
+                return CompareScreenshotCrop(
+                    screen, template, cell, referenceWidth, referenceHeight,
+                    sampleScaleCandidates);
 
             return TemplateMatcher.FindScaled(
                     screen,
@@ -517,7 +488,7 @@ public sealed class UraTraineeSelector
                     threshold: 0,
                     referenceWidth: screen.Width,
                     referenceHeight: screen.Height,
-                    PreciseScreenshotCropScaleCandidates)
+                    preciseSampleScaleCandidates)
                 .Score;
         }
 
@@ -566,18 +537,21 @@ public sealed class UraTraineeSelector
     private static double CompareScreenshotCrop(
         GrayImage screen,
         RunnerTemplate template,
-        RunnerCell cell)
+        RunnerCell cell,
+        int referenceWidth,
+        int referenceHeight,
+        IReadOnlyList<double> sampleScaleCandidates)
     {
-        var cellX = ScaleCoordinate(cell.X, screen.Width, ReferenceWidth);
-        var cellY = ScaleCoordinate(cell.Y, screen.Height, ReferenceHeight);
-        var cellWidth = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, ReferenceWidth));
-        var cellHeight = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, ReferenceHeight));
+        var cellX = ScaleCoordinate(cell.X, screen.Width, referenceWidth);
+        var cellY = ScaleCoordinate(cell.Y, screen.Height, referenceHeight);
+        var cellWidth = Math.Max(1, ScaleCoordinate(cell.Width, screen.Width, referenceWidth));
+        var cellHeight = Math.Max(1, ScaleCoordinate(cell.Height, screen.Height, referenceHeight));
         if (cellX < 0 || cellY < 0 || cellX + cellWidth > screen.Width || cellY + cellHeight > screen.Height)
             return 0;
 
         var referenceScale = Math.Min(
-            screen.Width / (double)ReferenceWidth,
-            screen.Height / (double)ReferenceHeight);
+            screen.Width / (double)referenceWidth,
+            screen.Height / (double)referenceHeight);
         var targetWidth = Math.Max(1, (int)Math.Round(template.Width * referenceScale));
         var targetHeight = Math.Max(1, (int)Math.Round(template.Height * referenceScale));
         var fitScale = Math.Min(
@@ -586,7 +560,7 @@ public sealed class UraTraineeSelector
                 cellWidth / (double)Math.Max(1, targetWidth),
                 cellHeight / (double)Math.Max(1, targetHeight)));
         var bestScore = double.MinValue;
-        foreach (var relativeScale in ScreenshotCropScaleCandidates)
+        foreach (var relativeScale in sampleScaleCandidates)
         {
             var candidateScale = fitScale * relativeScale;
             var candidateWidth = Math.Max(1, (int)Math.Round(template.Width * referenceScale * candidateScale));
@@ -913,10 +887,125 @@ public sealed class UraTraineeSelector
         }
     }
 
-    private static string SharedTemplatePath(string templatePath) =>
-        templatePath.Equals(CareerFilterTabTemplate, StringComparison.OrdinalIgnoreCase)
-            ? templatePath
-            : SharedTemplatePrefix + templatePath;
+    private CareerVisualResourcePackage Resources =>
+        _activeResources.Value
+            ?? throw new InvalidDataException("Career trainee visual resources are not active.");
+
+    private string ResolveAsset(string assetId) =>
+        Resources.ResolveVisualResource(assetId);
+
+    private double ResolveAssetThreshold(string assetId)
+    {
+        if (Resources.TryGetAsset(assetId, out var asset) && asset?.Threshold is { } threshold)
+            return threshold;
+
+        throw new InvalidDataException($"Career trainee asset '{assetId}' has no threshold.");
+    }
+
+    private int[] GetRequiredRegionRoi(string regionId) =>
+        RequireRegion(regionId).Roi is { Length: >= 4 } roi
+            ? (int[])roi.Clone()
+            : throw new InvalidDataException(
+                $"Career trainee visual region '{regionId}' has no ROI.");
+
+    private CareerVisualRegionDefinition RequireRegion(string regionId) =>
+        Resources.TryGetRegion(regionId, out var region) && region is not null
+            ? region
+            : throw new InvalidDataException(
+                $"Career trainee visual catalog is missing region '{regionId}'.");
+
+    private static int GetRegionMetadataIntOr(
+        CareerVisualRegionDefinition region,
+        string name,
+        int fallback) =>
+        region.Metadata?.TryGetValue(name, out var value) == true
+        && value.ValueKind == System.Text.Json.JsonValueKind.Number
+        && value.TryGetInt32(out var result)
+            ? result
+            : fallback;
+
+    private double[] GetRequiredScaleCandidates(string regionId, string metadataName)
+    {
+        var region = RequireRegion(regionId);
+        if (region.Metadata?.TryGetValue(metadataName, out var value) != true
+            || value.ValueKind != System.Text.Json.JsonValueKind.Array)
+        {
+            throw new InvalidDataException(
+                $"Career trainee visual region '{regionId}' is missing '{metadataName}' metadata.");
+        }
+
+        var candidates = value.EnumerateArray()
+            .Where(item => item.ValueKind == System.Text.Json.JsonValueKind.Number)
+            .Select(item => item.GetDouble())
+            .ToArray();
+        return candidates.Length > 0
+            ? candidates
+            : throw new InvalidDataException(
+                $"Career trainee visual region '{regionId}' has empty '{metadataName}' metadata.");
+    }
+
+    private RunnerCell[] GetRunnerCells()
+    {
+        const string prefix = "career.entry.trainee.card.cell.";
+        var cells = Resources.Regions.Values
+            .Where(region => region.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(region => (Region: region, Suffix: region.Id[prefix.Length..]))
+            .Where(item => int.TryParse(item.Suffix, NumberStyles.None,
+                CultureInfo.InvariantCulture, out _))
+            .OrderBy(item => int.Parse(item.Suffix, CultureInfo.InvariantCulture))
+            .Select(item =>
+            {
+                var roi = item.Region.Roi;
+                if (roi is not { Length: >= 4 })
+                    throw new InvalidDataException(
+                        $"Career trainee visual region '{item.Region.Id}' has no ROI.");
+                return new RunnerCell(roi[0], roi[1], roi[2], roi[3]);
+            })
+            .ToArray();
+        return cells.Length > 0
+            ? cells
+            : throw new InvalidDataException("Career trainee card cell regions are missing.");
+    }
+
+    private TraineeMatchingPolicy GetMatchingPolicy()
+    {
+        const string id = "career.entry.trainee.card.matching_policy";
+        if (!Resources.TryGetRegion(id, out var region) || region?.Metadata is null)
+        {
+            throw new InvalidDataException(
+                "Career trainee matching policy is missing from the visual resource catalog.");
+        }
+
+        int ReadInt(string name) => region.Metadata.TryGetValue(name, out var value)
+            && value.ValueKind == System.Text.Json.JsonValueKind.Number
+            ? value.GetInt32()
+                : throw new InvalidDataException($"Career trainee matching policy is missing '{name}'.");
+        double ReadDouble(string name) => region.Metadata.TryGetValue(name, out var value)
+            && value.ValueKind == System.Text.Json.JsonValueKind.Number
+            ? value.GetDouble()
+            : throw new InvalidDataException($"Career trainee matching policy is missing '{name}'.");
+        int[] ReadSwipe()
+        {
+            if (!region.Metadata.TryGetValue("swipe", out var value)
+                || value.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                throw new InvalidDataException("Career trainee matching policy is missing 'swipe'.");
+            }
+            var values = value.EnumerateArray().Select(item => item.GetInt32()).ToArray();
+            return values.Length == 5
+                ? values
+                : throw new InvalidDataException("Career trainee swipe must contain five coordinates.");
+        }
+
+        return new TraineeMatchingPolicy(
+            ReadInt("maxScrolls"),
+            ReadDouble("minimumMatchScore"),
+            ReadDouble("minimumSystemReferenceMatchScore"),
+            ReadSwipe(),
+            ReadInt("scrollDelayMs"),
+            GetRequiredScaleCandidates(id, "sampleScaleCandidates"),
+            GetRequiredScaleCandidates(id, "preciseSampleScaleCandidates"));
+    }
 
     private static int ScaleCoordinate(int value, int actual, int reference) =>
         (int)Math.Round(value * (double)Math.Max(1, actual) / Math.Max(1, reference));
@@ -980,10 +1069,22 @@ public sealed class UraTraineeSelector
         _ => 0,
     };
 
+    private static string NormalizeFilterLabel(string label) =>
+        label.Trim().ToLowerInvariant();
+
     private static UraTraineeSelectionResult Failure(string message) =>
         new(false, message);
 
     private readonly record struct RunnerCell(int X, int Y, int Width, int Height);
+
+    private sealed record TraineeMatchingPolicy(
+        int MaximumScrolls,
+        double MinimumMatchScore,
+        double MinimumSystemReferenceMatchScore,
+        int[] RunnerSwipe,
+        int ScrollDelayMs,
+        double[] SampleScaleCandidates,
+        double[] PreciseSampleScaleCandidates);
 
     private sealed record RunnerTemplate(
         int Width,

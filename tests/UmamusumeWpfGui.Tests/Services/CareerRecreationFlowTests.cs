@@ -54,9 +54,9 @@ public sealed class CareerRecreationFlowTests
 
         foreach (var (screen, action) in new[]
                  {
-                     ("career_main", "recreation"),
-                     ("recreation_selection", "trainee"),
-                     ("recreation_confirmation", "confirm"),
+                     ("career_main", "action.recreation"),
+                     ("recreation_selection", "recreation.trainee"),
+                     ("recreation_confirmation", "recreation.confirm"),
                  })
         {
             var context = new CareerFlowContext(null!, pack, true, scenario,
@@ -74,8 +74,8 @@ public sealed class CareerRecreationFlowTests
     [Fact]
     public async Task Windows_ocr_reads_the_captured_mood_badge()
     {
-        using var image = Image.Load<Rgba32>(Path.Combine(
-            ScreensDirectory(), "captures", "recreation_main.png"));
+        using var image = Image.Load<Rgba32>(CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "recreation_main.png"));
         image.Mutate(context => context.Crop(new Rectangle(654, 169, 170, 68)));
         var bytes = new byte[image.Width * image.Height * 4];
         image.CopyPixelDataTo(bytes);
@@ -102,10 +102,9 @@ public sealed class CareerRecreationFlowTests
         var pack = await LoadPackAsync();
         Assert.True(pack.ExecutionDefinition.TryGetTask(taskName, out var task));
         Assert.NotNull(task);
-        var screens = ScreensDirectory();
-        var template = Load(Path.Combine(screens,
-            task.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(screens, "captures", captureName));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var template = Load(CareerTestResourceResolver.ResolveUraVisualResource(pack, task.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, captureName));
 
         Assert.Contains(template.RgbaPixels!.Chunk(4), pixel => pixel[3] == 0);
         var match = TemplateMatcher.FindColor(
@@ -134,10 +133,10 @@ public sealed class CareerRecreationFlowTests
         var pack = await LoadPackAsync();
         var screen = pack.ScreenProfile.Find(screenId);
         Assert.NotNull(screen);
-        var screens = ScreensDirectory();
-        var template = Load(Path.Combine(screens,
-            screen.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(screens, "captures", captureName));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            screen, screen.Recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, captureName));
 
         var match = TemplateMatcher.FindColor(frame, template,
             screen.Recognition.Roi, screen.Recognition.TemplateThreshold,
@@ -158,10 +157,10 @@ public sealed class CareerRecreationFlowTests
         var pack = await LoadPackAsync();
         var screen = pack.ScreenProfile.Find("recreation_selection");
         Assert.NotNull(screen);
-        var template = Load(Path.Combine(ScreensDirectory(),
-            screen.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(FindWorkspaceRoot(),
-            "testdata", "hachimi", "ura", "captures", captureName));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            screen, screen.Recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(root, captureName));
 
         Assert.NotNull(template.RgbaPixels);
         Assert.All(template.RgbaPixels.Chunk(4),
@@ -183,11 +182,10 @@ public sealed class CareerRecreationFlowTests
         var pack = await LoadPackAsync();
         var screen = pack.ScreenProfile.Find("event_choice");
         Assert.NotNull(screen);
-        var screens = ScreensDirectory();
-        var template = Load(Path.Combine(screens,
-            screen.Recognition.Template!.Replace('/', Path.DirectorySeparatorChar)));
-        var frame = Load(Path.Combine(screens,
-            "captures", "recreation_event_choice.png"));
+        var template = Load(pack.VisualResources!.ResolveScreenTemplate(
+            screen, screen.Recognition.Template!));
+        var frame = Load(CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "recreation_event_choice.png"));
 
         var match = TemplateMatcher.Find(frame, template,
             screen.Recognition.Roi, screen.Recognition.TemplateThreshold,
@@ -199,28 +197,8 @@ public sealed class CareerRecreationFlowTests
         GrayImageCodec.FromFile(path)
         ?? throw new FileNotFoundException("Missing test image", path);
 
-    private static async Task<UraScenarioPack> LoadPackAsync() =>
-        await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            FindWorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
-
-    private static string ScreensDirectory() => Path.Combine(
-        FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName,
-                    "resource", "hachimi", "ura", "manifest.json"))
-                && Directory.Exists(Path.Combine(directory.FullName,
-                    "testdata", "hachimi", "ura", "captures")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
     private sealed class RecordingActions : ICareerFlowActionRunner
     {

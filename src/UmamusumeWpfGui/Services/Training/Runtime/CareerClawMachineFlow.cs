@@ -24,15 +24,17 @@ internal sealed class CareerClawMachineFlow
 
     public async Task<CareerTrainingResult?> HandleAsync(CareerFlowContext context)
     {
-        var template = await _visual.LoadTemplateAsync(
-                context.Pack.ScreenProfile.Find("claw_machine")?.Recognition.Template,
-                context.Pack.ExecutionDefinition.BaseDirectory,
+        var clawScreen = context.Pack.ScreenProfile.Find("claw_machine");
+        var resultScreen = context.Pack.ScreenProfile.Find("claw_machine_result");
+        var template = await LoadScreenTemplateAsync(
+                context,
+                clawScreen,
                 context.CancellationToken).ConfigureAwait(false);
         if (template is null)
             return Fail("How to Play recognition template is missing.");
-        var resultTemplate = await _visual.LoadTemplateAsync(
-                context.Pack.ScreenProfile.Find("claw_machine_result")?.Recognition.Template,
-                context.Pack.ExecutionDefinition.BaseDirectory,
+        var resultTemplate = await LoadScreenTemplateAsync(
+                context,
+                resultScreen,
                 context.CancellationToken).ConfigureAwait(false);
         if (resultTemplate is null)
             return Fail("Claw result recognition template is missing.");
@@ -83,9 +85,10 @@ internal sealed class CareerClawMachineFlow
     {
         var profile = context.Pack.ScreenProfile;
         var settings = profile.ClawMachine;
-        var recognition = profile.Find("claw_machine_result")!.Recognition;
-        var template = await _visual.LoadTemplateAsync(recognition.Template,
-            context.Pack.ExecutionDefinition.BaseDirectory, context.CancellationToken).ConfigureAwait(false);
+        var resultScreen = profile.Find("claw_machine_result");
+        var recognition = resultScreen!.Recognition;
+        var template = await LoadScreenTemplateAsync(
+            context, resultScreen, context.CancellationToken).ConfigureAwait(false);
         if (template is null)
             return CareerRuntimeResults.Failure("Claw result template is missing; automation paused safely.", "claw_machine_result");
         var started = Stopwatch.GetTimestamp();
@@ -254,8 +257,12 @@ internal sealed class CareerClawMachineFlow
     {
         var profile = context.Pack.ScreenProfile;
         var settings = profile.ClawMachine;
-        _creditLabelTemplate ??= await _visual.LoadTemplateAsync(settings.CreditLabelTemplate,
-            context.Pack.ExecutionDefinition.BaseDirectory, context.CancellationToken).ConfigureAwait(false);
+        var resources = context.Pack.VisualResources
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
+        _creditLabelTemplate ??= await _visual.LoadTemplateAsync(
+            resources.ResolveVisualResource("career.turn.claw.credit_label"),
+            string.Empty,
+            context.CancellationToken).ConfigureAwait(false);
         if (_creditLabelTemplate is null) return null;
         var label = CareerClawVision.MatchMarker(frame, _creditLabelTemplate, profile,
             new UraScreenRecognition { TemplateThreshold = settings.CreditLabelThreshold });
@@ -311,4 +318,17 @@ internal sealed class CareerClawMachineFlow
 
     internal readonly record struct ReadyFrame(int Credit, Rectangle Control, int Width, int Height);
     internal readonly record struct ClawObservation(ReadyFrame? Ready, bool IsResult);
+
+    private Task<GrayImage?> LoadScreenTemplateAsync(
+        CareerFlowContext context,
+        UraScreenDefinition? screen,
+        CancellationToken cancellationToken)
+    {
+        if (screen is null || string.IsNullOrWhiteSpace(screen.Recognition.Template))
+            return Task.FromResult<GrayImage?>(null);
+        var path = context.Pack.VisualResources?.ResolveScreenTemplate(
+            screen, screen.Recognition.Template)
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
+        return _visual.LoadTemplateAsync(path, string.Empty, cancellationToken);
+    }
 }

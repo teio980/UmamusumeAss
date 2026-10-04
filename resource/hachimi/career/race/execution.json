@@ -1,0 +1,1118 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "career_races_ready_action_races": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_races_ready_action_races.png",
+      "templThreshold": 0.78,
+      "roi": [
+        580,
+        1330,
+        250,
+        170
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_streak_warning_probe": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_streak_warning_text.png",
+      "templThreshold": 0.94,
+      "roi": [
+        175,
+        580,
+        590,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [
+        "race_streak_warning_confirm"
+      ]
+    },
+    "race_streak_warning_confirm": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_streak_warning_ok.png",
+      "templThreshold": 0.94,
+      "roi": [
+        575,
+        1000,
+        150,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 650
+    },
+    "race_streak_warning_cancel_probe": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_streak_warning_text.png",
+      "templThreshold": 0.94,
+      "roi": [
+        175,
+        580,
+        590,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [
+        "race_streak_warning_cancel"
+      ]
+    },
+    "race_streak_warning_cancel": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_streak_warning_cancel.png",
+      "templThreshold": 0.94,
+      "roi": [
+        170,
+        1000,
+        180,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 650
+    },
+    "race_recommendations_confirm": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_recommendations_confirm.png",
+      "templThreshold": 0.86,
+      "roi": [
+        245,
+        1400,
+        410,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "success": false
+    },
+    "race_list_race_recommended_entry": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_list_recommended.png",
+      "templThreshold": 0.78,
+      "roi": [
+        30,
+        820,
+        840,
+        480
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "timeoutMs": 1800,
+      "pollIntervalMs": 200,
+      "next": [
+        "race_list_race_start"
+      ],
+      "onErrorNext": [
+        "race_list_race_fans_entry"
+      ],
+      "required": true,
+      "success": false
+    },
+    "race_list_race_goal_entry": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_list_race_goal_entry.png",
+      "templThreshold": 0.78,
+      "roi": [
+        30,
+        870,
+        840,
+        210
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [
+        "race_list_race_start"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_list_race_fans_entry": {
+      "algorithm": "ClickRect",
+      "action": "ClickRect",
+      "specificRect": [
+        30,
+        840,
+        840,
+        220
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "next": [
+        "race_list_race_start"
+      ],
+      "success": false
+    },
+    "race_list_race_start": {
+      "algorithm": "ClickRect",
+      "action": "ClickRect",
+      "specificRect": [
+        270,
+        1300,
+        360,
+        120
+      ],
+      "postDelay": 650,
+      "success": true
+    },
+    "race_list_empty_back": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_list_empty_back.png",
+      "templThreshold": 0.84,
+      "roi": [
+        20,
+        1450,
+        220,
+        140
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 650,
+      "success": true
+    },
+    "race_day_race_open_list": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/runtime_frames/race_day_race_button_text.png",
+      "templThreshold": 0.78,
+      "roi": [
+        550,
+        1340,
+        190,
+        105
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_day_skills_open": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/race_day_skills_open.png",
+      "templThreshold": 0.78,
+      "roi": [
+        80,
+        1250,
+        350,
+        180
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_details_race_confirm": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_details_race_confirm.png",
+      "templThreshold": 0.78,
+      "roi": [
+        470,
+        1090,
+        360,
+        130
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_details_race_cancel": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_details_race_cancel.png",
+      "templThreshold": 0.78,
+      "roi": [
+        70,
+        1090,
+        360,
+        130
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_attributes_race_start_playback": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_attributes_race_start_playback.png",
+      "templThreshold": 0.78,
+      "roi": [
+        465,
+        1410,
+        245,
+        115
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_playback_race_play": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_playback_race_play.png",
+      "templThreshold": 0.78,
+      "roi": [
+        270,
+        1410,
+        360,
+        110
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_playback_settings_race_playback_settings_ok": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_playback_settings_race_playback_settings_ok.png",
+      "templThreshold": 0.78,
+      "roi": [
+        470,
+        995,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_live_race_live_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_live_race_live_next.png",
+      "templThreshold": 0.78,
+      "roi": [
+        650,
+        1450,
+        120,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_result_result_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/race_result_result_next.png",
+      "templThreshold": 0.78,
+      "roi": [
+        270,
+        1410,
+        360,
+        115
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "race_runner_strategy_apply_front": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_strategy_selected_marker.png",
+      "templThreshold": 0.9,
+      "roi": [
+        795,
+        805,
+        70,
+        45
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "onErrorNext": [
+        "race_runner_strategy_change_front"
+      ],
+      "success": true
+    },
+    "race_runner_strategy_change_front": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_strategy_change.png",
+      "templThreshold": 0.84,
+      "roi": [
+        590,
+        890,
+        250,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 600,
+      "next": [
+        "race_runner_strategy_option_front"
+      ]
+    },
+    "race_runner_strategy_option_front": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/independent/templates/independent/strategy_option_front.png",
+      "templThreshold": 0.9,
+      "roi": [
+        670,
+        930,
+        120,
+        85
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 350,
+      "next": [
+        "race_runner_strategy_option_front_post"
+      ]
+    },
+    "race_runner_strategy_option_front_post": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
+      "templThreshold": 0.9,
+      "roi": [
+        645,
+        895,
+        60,
+        60
+      ],
+      "timeoutMs": 3000,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_strategy_save"
+      ]
+    },
+    "race_runner_strategy_apply_pace": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_strategy_selected_marker.png",
+      "templThreshold": 0.9,
+      "roi": [
+        720,
+        805,
+        70,
+        45
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "onErrorNext": [
+        "race_runner_strategy_change_pace"
+      ],
+      "success": true
+    },
+    "race_runner_strategy_change_pace": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_strategy_change.png",
+      "templThreshold": 0.84,
+      "roi": [
+        590,
+        890,
+        250,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 600,
+      "next": [
+        "race_runner_strategy_option_pace"
+      ]
+    },
+    "race_runner_strategy_option_pace": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/independent/templates/independent/strategy_option_pace.png",
+      "templThreshold": 0.9,
+      "roi": [
+        480,
+        930,
+        110,
+        85
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 350,
+      "next": [
+        "race_runner_strategy_option_pace_post"
+      ]
+    },
+    "race_runner_strategy_option_pace_post": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
+      "templThreshold": 0.9,
+      "roi": [
+        450,
+        895,
+        60,
+        60
+      ],
+      "timeoutMs": 3000,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_strategy_save"
+      ]
+    },
+    "race_runner_strategy_apply_late": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_strategy_selected_marker.png",
+      "templThreshold": 0.9,
+      "roi": [
+        645,
+        805,
+        70,
+        45
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "onErrorNext": [
+        "race_runner_strategy_change_late"
+      ],
+      "success": true
+    },
+    "race_runner_strategy_change_late": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_strategy_change.png",
+      "templThreshold": 0.84,
+      "roi": [
+        590,
+        890,
+        250,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 600,
+      "next": [
+        "race_runner_strategy_option_late"
+      ]
+    },
+    "race_runner_strategy_option_late": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/independent/templates/independent/strategy_option_late.png",
+      "templThreshold": 0.9,
+      "roi": [
+        290,
+        930,
+        100,
+        85
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 350,
+      "next": [
+        "race_runner_strategy_option_late_post"
+      ]
+    },
+    "race_runner_strategy_option_late_post": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
+      "templThreshold": 0.9,
+      "roi": [
+        260,
+        895,
+        60,
+        60
+      ],
+      "timeoutMs": 3000,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_strategy_save"
+      ]
+    },
+    "race_runner_strategy_apply_end": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_strategy_selected_marker.png",
+      "templThreshold": 0.9,
+      "roi": [
+        570,
+        805,
+        70,
+        45
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "onErrorNext": [
+        "race_runner_strategy_change_end"
+      ],
+      "success": true
+    },
+    "race_runner_strategy_change_end": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_strategy_change.png",
+      "templThreshold": 0.84,
+      "roi": [
+        590,
+        890,
+        250,
+        90
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 600,
+      "next": [
+        "race_runner_strategy_option_end"
+      ]
+    },
+    "race_runner_strategy_option_end": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/independent/templates/independent/strategy_option_end.png",
+      "templThreshold": 0.9,
+      "roi": [
+        100,
+        930,
+        130,
+        85
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 350,
+      "next": [
+        "race_runner_strategy_option_end_post"
+      ]
+    },
+    "race_runner_strategy_option_end_post": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
+      "templThreshold": 0.9,
+      "roi": [
+        70,
+        895,
+        60,
+        60
+      ],
+      "timeoutMs": 3000,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_strategy_save"
+      ]
+    },
+    "race_runner_strategy_save": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/independent/templates/independent/strategy_confirm.png",
+      "templThreshold": 0.82,
+      "roi": [
+        430,
+        1070,
+        440,
+        220
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 700,
+      "success": true
+    },
+    "race_runner_trophy_close": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_trophy_close.png",
+      "templThreshold": 0.9,
+      "roi": [
+        300,
+        1080,
+        300,
+        180
+      ],
+      "timeoutMs": 5000,
+      "pollIntervalMs": 200,
+      "postDelay": 400,
+      "next": [
+        "race_runner_result_flow"
+      ]
+    },
+    "race_runner_entry_view_results": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_entry_view_results_lock.png",
+      "templThreshold": 0.9,
+      "roi": [
+        170,
+        1380,
+        100,
+        100
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_entry_start"
+      ],
+      "onErrorNext": [
+        "race_runner_entry_view_results_click"
+      ]
+    },
+    "race_runner_entry_view_results_click": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_entry_view_results.png",
+      "templThreshold": 0.82,
+      "roi": [
+        150,
+        1380,
+        360,
+        180
+      ],
+      "timeoutMs": 2500,
+      "pollIntervalMs": 200,
+      "postDelay": 500,
+      "next": [
+        "race_runner_view_results_tap"
+      ]
+    },
+    "race_runner_view_results_tap": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelfUntilTransition",
+      "template": "templates/career/race/race_view_results_tap.png",
+      "repeatTapUntilTransition": true,
+      "maxClickAttempts": 4,
+      "transitionTemplates": [
+        "templates/career/race/race_result_next.png",
+        "templates/career/race/race_retry_dialog_title.png"
+      ],
+      "pollTransitionTemplatesTogether": true,
+      "transitionRoi": [
+        240,
+        1380,
+        420,
+        180
+      ],
+      "transitionRois": [
+        [
+          240,
+          1380,
+          420,
+          180
+        ],
+        [
+          320,
+          350,
+          270,
+          120
+        ]
+      ],
+      "transitionThreshold": 0.82,
+      "transitionTimeoutMs": 2500,
+      "transitionPollIntervalMs": 200,
+      "templThreshold": 0.72,
+      "roi": [
+        300,
+        1200,
+        300,
+        250
+      ],
+      "timeoutMs": 600000,
+      "pollIntervalMs": 60,
+      "postDelay": 0
+    },
+    "race_retry_cancel": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_retry_cancel.png",
+      "templThreshold": 0.84,
+      "roi": [
+        50,
+        1080,
+        400,
+        140
+      ],
+      "timeoutMs": 5000,
+      "pollIntervalMs": 200,
+      "postDelay": 600,
+      "success": true,
+      "outcome": "race.retry.declined"
+    },
+    "race_retry_try_again_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_retry_try_again.png",
+      "templThreshold": 0.84,
+      "roi": [
+        450,
+        1080,
+        400,
+        140
+      ],
+      "timeoutMs": 2500,
+      "pollIntervalMs": 200,
+      "next": [
+        "race_retry_try_again"
+      ],
+      "onErrorNext": [
+        "race_retry_cancel"
+      ]
+    },
+    "race_retry_try_again": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelfUntilTransition",
+      "template": "templates/career/race/race_retry_try_again.png",
+      "templThreshold": 0.84,
+      "roi": [
+        450,
+        1080,
+        400,
+        140
+      ],
+      "timeoutMs": 5000,
+      "pollIntervalMs": 200,
+      "transitionTemplates": [
+        "templates/career/race/race_runner_label.png"
+      ],
+      "transitionRoi": [
+        700,
+        1060,
+        180,
+        140
+      ],
+      "transitionThreshold": 0.88,
+      "transitionTimeoutMs": 30000,
+      "transitionPollIntervalMs": 250,
+      "success": true,
+      "outcome": "race.retry.accepted"
+    },
+    "race_runner_entry_start": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_entry_race.png",
+      "templThreshold": 0.82,
+      "roi": [
+        450,
+        1400,
+        280,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 0,
+      "next": [
+        "race_runner_playback_ok"
+      ]
+    },
+    "race_runner_playback_ok": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_playback_ok.png",
+      "templThreshold": 0.82,
+      "roi": [
+        430,
+        950,
+        440,
+        180
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 0,
+      "next": [
+        "race_runner_playback_ready_monitor"
+      ]
+    },
+    "race_runner_playback_ready_monitor": {
+      "algorithm": "ParallelMonitor",
+      "action": "JustReturn",
+      "monitorTasks": [
+        "race_runner_playback_resume_race"
+      ],
+      "successTask": "race_runner_playback_ready_probe",
+      "timeoutMs": 30000,
+      "pollIntervalMs": 250,
+      "next": [
+        "race_runner_playback_start"
+      ]
+    },
+    "race_runner_playback_resume_race": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_entry_race.png",
+      "templThreshold": 0.82,
+      "roi": [
+        450,
+        1400,
+        280,
+        150
+      ],
+      "timeoutMs": 0,
+      "pollIntervalMs": 250,
+      "postDelay": 0,
+      "required": false
+    },
+    "race_runner_playback_ready_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_playback_start.png",
+      "templThreshold": 0.92,
+      "roi": [
+        320,
+        1380,
+        260,
+        180
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_playback_start"
+      ]
+    },
+    "race_runner_playback_start": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_playback_start.png",
+      "templThreshold": 0.92,
+      "roi": [
+        320,
+        1380,
+        260,
+        180
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 0,
+      "next": [
+        "race_runner_playback_result_monitor"
+      ]
+    },
+    "race_runner_playback_result_monitor": {
+      "algorithm": "ParallelMonitor",
+      "action": "JustReturn",
+      "monitorTasks": [
+        "race_runner_playback_skip",
+        "race_runner_playback_start"
+      ],
+      "successTask": "race_runner_trophy_probe",
+      "successTasks": [
+        "race_runner_result_flow"
+      ],
+      "timeoutMs": 30000,
+      "pollIntervalMs": 250,
+      "next": [
+        "race_runner_result_flow"
+      ]
+    },
+    "race_runner_trophy_probe": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_trophy_won.png",
+      "templThreshold": 0.9,
+      "roi": [
+        140,
+        330,
+        650,
+        150
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_trophy_close"
+      ]
+    },
+    "race_runner_result_flow": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_result_replay.png",
+      "templThreshold": 0.82,
+      "roi": [
+        680,
+        520,
+        210,
+        150
+      ],
+      "monitorStableMs": 2000,
+      "timeoutMs": 600000,
+      "pollIntervalMs": 150,
+      "next": [
+        "race_runner_result_next"
+      ],
+      "onErrorNext": [
+        "race_runner_result_flow"
+      ]
+    },
+    "race_runner_playback_skip": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_playback_skip.png",
+      "templThreshold": 0.82,
+      "roi": [
+        630,
+        1440,
+        170,
+        150
+      ],
+      "timeoutMs": 1800,
+      "pollIntervalMs": 150,
+      "postDelay": 0,
+      "next": [
+        "race_runner_playback_result_monitor"
+      ],
+      "onErrorNext": [
+        "race_runner_playback_result_monitor"
+      ],
+      "maxTimes": 120,
+      "exceededNext": [
+        "race_runner_result_next"
+      ]
+    },
+    "race_runner_result_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_result_next.png",
+      "templThreshold": 0.82,
+      "roi": [
+        240,
+        1380,
+        420,
+        180
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 700,
+      "next": [
+        "race_runner_last_next"
+      ]
+    },
+    "race_runner_last_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career/race/race_last_next.png",
+      "templThreshold": 0.82,
+      "roi": [
+        200,
+        1380,
+        650,
+        220
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 700,
+      "success": true,
+      "outcome": "race.replay.completed"
+    }
+  }
+}

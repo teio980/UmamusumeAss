@@ -10,7 +10,7 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class CareerGoalResumeTests
 {
     [Theory]
-    [InlineData("goal3_update.png", "goal_update_goal_update_next")]
+    [InlineData("current_after_goal_next.png", "goal_update_goal_update_next")]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next")]
     [InlineData("ura_finale_entry.png", "goal_complete_goal_next")]
     [InlineData("goal_incomplete.png", "goal_incomplete_next")]
@@ -34,9 +34,6 @@ public sealed class CareerGoalResumeTests
     public async Task Incomplete_goal_enters_existing_settlement_and_completes_only_at_home()
     {
         var root = FindWorkspaceRoot();
-        var captures = Path.Combine(root, "testdata", "hachimi", "ura", "captures");
-        var templates = Path.Combine(root, "resource", "hachimi", "ura", "screens",
-            "templates", "runtime_frames");
         GrayImage Load(string path) => GrayImageCodec.FromFile(path)
             ?? throw new InvalidDataException($"Could not load {path}.");
         var tasks = new[]
@@ -48,11 +45,14 @@ public sealed class CareerGoalResumeTests
         var runtime = (SettlementVisualRuntime)(object)visual;
         runtime.Frames =
         [
-            Load(Path.Combine(captures, "goal_incomplete.png")),
-            Load(Path.Combine(captures, "complete_career_entry.png")),
-            Load(Path.Combine(templates, "ura_complete_career_next.png")),
-            Load(Path.Combine(templates, "ura_rewards_support_next.png")),
-            Load(Path.Combine(templates, "ura_returned_home.png")),
+            Load(CareerTestResourceResolver.FindUraCapture(root, "goal_incomplete.png")),
+            Load(CareerTestResourceResolver.FindUraCapture(root, "complete_career_entry.png")),
+            Load(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/runtime_frames/ura_complete_career_next.png")),
+            Load(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/runtime_frames/ura_rewards_support_next.png")),
+            Load(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/runtime_frames/ura_returned_home.png")),
         ];
         runtime.ExpectedTasks = tasks;
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -97,7 +97,7 @@ public sealed class CareerGoalResumeTests
 
     [Theory]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next", false, 0)]
-    [InlineData("goal3_update.png", "goal_update_goal_update_next", false, 0)]
+    [InlineData("current_after_goal_next.png", "goal_update_goal_update_next", false, 0)]
     [InlineData("ura_finale_entry.png", "goal_complete_goal_next", false, 0)]
     [InlineData("goal_incomplete.png", "goal_incomplete_next", false, 0)]
     [InlineData("current_mid_year1.png", "goal_complete_goal_next", true, 0)]
@@ -113,15 +113,14 @@ public sealed class CareerGoalResumeTests
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(Path.Combine(root,
-            "testdata", "hachimi", "ura", "captures", "home.jpg"));
+        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
         runtime.MissingCapturesRemaining = missingCaptures;
         if (mainBeforeGoal)
         {
-            runtime.MainFrame = GrayImageCodec.FromFile(Path.Combine(root,
-                "testdata", "hachimi", "ura", "captures", "goal3_turn8_main.png"));
+            runtime.MainFrame = GrayImageCodec.FromFile(
+                CareerTestResourceResolver.FindUraCapture(root, "goal3_turn8_main.png"));
             Assert.NotNull(runtime.MainFrame);
             runtime.MainCapturesRemaining = 2;
         }
@@ -141,8 +140,7 @@ public sealed class CareerGoalResumeTests
         var visual = ResumeVisualRuntime.Create(
             LoadGoalFrame(root, "current_mid_year1.png"), cancellation, "goal_complete_goal_next");
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(Path.Combine(root,
-            "testdata", "hachimi", "ura", "captures", "home.jpg"));
+        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
         runtime.MissingCapturesRemaining = 100;
@@ -164,11 +162,12 @@ public sealed class CareerGoalResumeTests
         var expectedTask = raceDay ? "race_day_race_open_list" : "goal_update_goal_update_next";
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var frame = raceDay
-            ? GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi", "ura", "screens", "captures", "career_skill_race_day_662_sample.png"))!
-            : LoadGoalFrame(root, "goal3_update.png");
+            ? GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+                root, "career_skill_race_day_662_sample.png"))!
+            : LoadGoalFrame(root, "current_after_goal_next.png");
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(Path.Combine(root, "testdata", "hachimi", "ura", "captures", "home.jpg"));
+        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
         runtime.ContinueFrame = CreateContinueFrame(root);
         var fixture = new DateChangedDialogRecoveryTests.Fixture();
         var connection = new LastVerifiedConnection("adb", "date-changed-test", Guid.NewGuid().ToString("N"), "version",
@@ -202,18 +201,16 @@ public sealed class CareerGoalResumeTests
 
     private static GrayImage LoadGoalFrame(string root, string captureName)
     {
-        var path = captureName == "ura_finale_entry.png"
-            ? Path.Combine(root, "resource", "hachimi", "ura", "screens",
-                "templates", "runtime_frames", captureName)
-            : Path.Combine(root, "testdata", "hachimi", "ura", "captures", captureName);
+        var path = CareerTestResourceResolver.FindUraCapture(root, captureName);
         return GrayImageCodec.FromFile(path)
             ?? throw new InvalidDataException($"Could not load {path}.");
     }
 
     private static GrayImage CreateContinueFrame(string root)
     {
-        var header = GrayImageCodec.FromFile(Path.Combine(root, "resource", "hachimi",
-            "ura", "screens", "templates", "career_continue_header.png"));
+        var header = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/career_continue_header.png"));
         Assert.NotNull(header);
         var pixels = new byte[900 * 1600];
         for (var row = 0; row < header.Height; row++)
@@ -271,21 +268,7 @@ public sealed class CareerGoalResumeTests
             cancellationToken: cancellationToken);
     }
 
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName,
-                    "resource", "hachimi", "ura", "manifest.json"))
-                && File.Exists(Path.Combine(directory.FullName,
-                    "testdata", "hachimi", "ura", "captures", "goal3_update.png")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static string FindWorkspaceRoot() => CareerTestResourceResolver.FindWorkspaceRoot();
 
     public class ResumeVisualRuntime : DispatchProxy
     {

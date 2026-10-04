@@ -12,22 +12,18 @@ public static class IndependentTrainingContracts
     public static string ResolveCareerFinalConfirmationFirstSemanticAction(string careerMode) =>
         careerMode.Equals("independent", StringComparison.OrdinalIgnoreCase)
             ? "independent.select_mode"
-            : "start";
+            : "normal.start";
 
-    public static bool IsAgendaOcrRecognitionMiss(string message, string targetText) =>
-        message.EndsWith(
-            $"OCR target '{targetText}' was not found before timeout.",
-            StringComparison.Ordinal)
-        || (message.Contains($"OCR target '{targetText}' matched ", StringComparison.Ordinal)
-            && message.EndsWith(" candidates.", StringComparison.Ordinal));
+    public static bool IsAgendaOcrRecognitionMiss(HachimiFailureKind failureKind) =>
+        failureKind is HachimiFailureKind.RecognitionTimeout
+            or HachimiFailureKind.AmbiguousRecognition;
 
     public static bool TryValidateIndependentTemplateAction(
         UraScenarioPack pack,
         string actionId,
         out string error)
     {
-        var screen = pack.ScreenProfile.Find("career_final_confirmation")
-            ?? pack.ScreenProfile.Find("career_entry");
+        var screen = pack.ScreenProfile.Find("career_final_confirmation");
         if (screen is null)
         {
             error = "screen 'career_final_confirmation' is missing";

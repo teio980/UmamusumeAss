@@ -3,6 +3,7 @@ using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
 
@@ -86,6 +87,7 @@ public sealed class RacePlaybackExecutionTests
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal("race_retry_cancel", result.LastTask);
+        Assert.Equal("race.retry.declined", result.Outcome);
         Assert.Equal(["race_retry_cancel"], visual.ClickedTaskNames);
     }
 
@@ -111,6 +113,7 @@ public sealed class RacePlaybackExecutionTests
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal("race_retry_try_again", result.LastTask);
+        Assert.Equal("race.retry.accepted", result.Outcome);
         Assert.Equal(["race_retry_try_again"], visual.ClickedTaskNames);
     }
 
@@ -393,8 +396,8 @@ public sealed class RacePlaybackExecutionTests
                 root,
                 "resource",
                 "hachimi",
-                "ura",
-                "screens",
+                "career",
+                "race",
                 overlay.TemplatePath.Replace('/', Path.DirectorySeparatorChar));
             var template = GrayImageCodec.FromFile(templatePath)
                 ?? throw new InvalidOperationException($"Could not load test template '{templatePath}'.");
@@ -429,14 +432,16 @@ public sealed class RacePlaybackExecutionTests
         return new GrayImage(width, height, pixels, rgba);
     }
 
-    private static async Task<HachimiPipelineDefinition?> LoadDefinitionAsync(string root) =>
-        await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
+    private static async Task<HachimiPipelineDefinition?> LoadDefinitionAsync(string root)
+    {
+        var package = await CareerVisualPackageLoader.LoadAsync(Path.Combine(
             root,
             "resource",
             "hachimi",
             "ura",
-            "screens",
-            "execution.json"));
+            "manifest.json"));
+        return package.ExecutionDefinition;
+    }
 
     private static HachimiJsonPipelineRunner CreateRunner(
         RacePlaybackVisualRuntime visual) =>
@@ -513,9 +518,7 @@ public sealed class RacePlaybackExecutionTests
             _templateBaseDirectory = Path.Combine(
                 root,
                 "resource",
-                "hachimi",
-                "ura",
-                "screens");
+                "hachimi");
             _currentFrame = initialFrame;
             _confirmationFrame = confirmationFrame;
             _emptyFrame = emptyFrame;

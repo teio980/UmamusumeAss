@@ -331,7 +331,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Theory]
-    [InlineData("normal", "start")]
+    [InlineData("normal", "normal.start")]
     [InlineData("independent", "independent.select_mode")]
     public void Career_mode_selects_the_expected_final_confirmation_flow(
         string careerMode,

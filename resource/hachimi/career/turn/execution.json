@@ -1,0 +1,316 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "career_main_goal_details": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_main_goal_details.png",
+      "templThreshold": 0.78,
+      "roi": [
+        760,
+        95,
+        125,
+        75
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_main_action_training": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_main_action_training.png",
+      "templThreshold": 0.78,
+      "roi": [
+        200,
+        1050,
+        500,
+        400
+      ],
+      "preDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [
+        "career_main_action_training_transition"
+      ],
+      "onErrorNext": [
+        "career_main_action_recover"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_main_action_training_transition": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../training/templates/training_selection_header.png",
+      "templThreshold": 0.92,
+      "roi": [
+        0,
+        0,
+        120,
+        50
+      ],
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "onErrorNext": [
+        "career_main_action_recover"
+      ],
+      "required": true
+    },
+    "career_main_action_rest": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_main_action_rest.png",
+      "templThreshold": 0.78,
+      "roi": [
+        25,
+        1160,
+        220,
+        160
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [
+        "career_main_action_recover"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_main_action_recreation": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/recreation_action.png",
+      "templThreshold": 0.94,
+      "roi": [
+        330,
+        1390,
+        240,
+        100
+      ],
+      "postDelay": 650,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "recreation_selection_trainee": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/recreation_trainee.png",
+      "templThreshold": 0.98,
+      "roi": [
+        560,
+        470,
+        300,
+        380
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "recreation_confirmation_ok": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/recreation_ok.png",
+      "templThreshold": 0.94,
+      "roi": [
+        465,
+        985,
+        365,
+        120
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "career_main_action_summer_rest": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/summer_rest_action.png",
+      "templThreshold": 0.9,
+      "roi": [
+        55,
+        1225,
+        190,
+        85
+      ],
+      "postDelay": 650,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "career_main_action_infirmary": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/infirmary_available.png",
+      "templThreshold": 0.9,
+      "roi": [
+        130,
+        1410,
+        300,
+        62
+      ],
+      "postDelay": 650,
+      "timeoutMs": 15000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "retryTimes": 2
+    },
+    "infirmary_confirmation_ok": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career/turn/infirmary_confirmation_ok.png",
+      "templThreshold": 0.9,
+      "roi": [
+        465,
+        985,
+        370,
+        120
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "career_main_action_races": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_main_action_finale_races.png",
+      "templThreshold": 0.78,
+      "roi": [
+        490,
+        1418,
+        300,
+        55
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [
+        "career_main_action_races_done"
+      ],
+      "onErrorNext": [
+        "career_main_action_recover"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_main_action_races_done": {
+      "algorithm": "JustReturn",
+      "action": "JustReturn",
+      "success": true,
+      "timeoutMs": 15000,
+      "retryTimes": 2
+    },
+    "career_main_action_finale_races": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_main_action_finale_races.png",
+      "templThreshold": 0.78,
+      "roi": [
+        490,
+        1418,
+        300,
+        55
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [
+        "career_main_action_recover"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_main_action_recover": {
+      "algorithm": "JustReturn",
+      "action": "JustReturn",
+      "success": true,
+      "timeoutMs": 15000,
+      "retryTimes": 2
+    },
+    "rest_confirmation_rest_confirm": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/rest_confirmation_rest_confirm.png",
+      "templThreshold": 0.78,
+      "roi": [
+        470,
+        995,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    }
+  }
+}

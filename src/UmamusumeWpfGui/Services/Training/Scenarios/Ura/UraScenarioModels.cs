@@ -8,6 +8,12 @@ namespace UmamusumeWpfGui.Services.Training;
 
 public sealed class UraScenarioManifest
 {
+    [JsonPropertyName("$schema")]
+    public string Schema { get; set; } = string.Empty;
+
+    [JsonPropertyName("schemaVersion")]
+    public int SchemaVersion { get; set; }
+
     [JsonPropertyName("scenarioId")]
     public string ScenarioId { get; set; } = string.Empty;
 
@@ -17,8 +23,14 @@ public sealed class UraScenarioManifest
     [JsonPropertyName("region")]
     public string Region { get; set; } = string.Empty;
 
+    [JsonPropertyName("supportedRegions")]
+    public List<string> SupportedRegions { get; set; } = [];
+
     [JsonPropertyName("gameVersionRange")]
     public string GameVersionRange { get; set; } = string.Empty;
+
+    [JsonPropertyName("dataVersion")]
+    public string DataVersion { get; set; } = string.Empty;
 
     [JsonPropertyName("moduleType")]
     public string ModuleType { get; set; } = string.Empty;
@@ -39,10 +51,13 @@ public sealed class UraScenarioManifest
     public string Events { get; set; } = string.Empty;
 
     [JsonPropertyName("screens")]
-    public string Screens { get; set; } = string.Empty;
+    public List<string> Screens { get; set; } = [];
 
     [JsonPropertyName("execution")]
-    public string Execution { get; set; } = string.Empty;
+    public List<string> Execution { get; set; } = [];
+
+    [JsonPropertyName("resourceCatalog")]
+    public string ResourceCatalog { get; set; } = string.Empty;
 
     [JsonPropertyName("localization")]
     public string Localization { get; set; } = string.Empty;
@@ -373,6 +388,9 @@ public sealed class UraEventTrigger
 
 public sealed class UraScreenProfile
 {
+    [JsonPropertyName("$schema")]
+    public string Schema { get; set; } = string.Empty;
+
     [JsonPropertyName("profileId")]
     public string ProfileId { get; set; } = string.Empty;
 
@@ -393,6 +411,15 @@ public sealed class UraScreenProfile
 
     [JsonPropertyName("screens")]
     public List<UraScreenDefinition> Screens { get; set; } = [];
+
+    [JsonIgnore]
+    public CareerVisualResourcePackage? VisualResources { get; set; }
+
+    [JsonIgnore]
+    public string? ScenarioSelectionSourceDirectory { get; set; }
+
+    [JsonIgnore]
+    public string? ClawMachineSourceDirectory { get; set; }
 
     public UraScreenDefinition? Find(string screenId) =>
         Screens.FirstOrDefault(item =>
@@ -416,6 +443,12 @@ public sealed class UraScreenDefinition
     [JsonPropertyName("screenId")]
     public string ScreenId { get; set; } = string.Empty;
 
+    [JsonPropertyName("flow")]
+    public string Flow { get; set; } = string.Empty;
+
+    [JsonPropertyName("order")]
+    public int Order { get; set; }
+
     [JsonPropertyName("entryTask")]
     public string? EntryTask { get; set; }
 
@@ -424,6 +457,12 @@ public sealed class UraScreenDefinition
 
     [JsonPropertyName("actions")]
     public List<UraScreenAction> Actions { get; set; } = [];
+
+    [JsonIgnore]
+    public string? SourceFile { get; set; }
+
+    [JsonIgnore]
+    public string? SourceDirectory { get; set; }
 
     [JsonPropertyName("observations")]
     public UraScreenObservations Observations { get; set; } = new();
@@ -440,16 +479,7 @@ public sealed class UraScreenDefinition
             return null;
 
         return Actions.FirstOrDefault(item =>
-                   string.Equals(item.SemanticId, normalizedActionId, StringComparison.OrdinalIgnoreCase))
-            ?? Actions.FirstOrDefault(item =>
-                item.SemanticId.EndsWith(
-                    "." + normalizedActionId,
-                    StringComparison.OrdinalIgnoreCase))
-            ?? Actions.FirstOrDefault(item =>
-                string.Equals(
-                    item.SemanticId.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(),
-                    normalizedActionId,
-                    StringComparison.OrdinalIgnoreCase));
+            string.Equals(item.SemanticId, normalizedActionId, StringComparison.OrdinalIgnoreCase));
     }
 
     public UraScreenTextRegion? FindOcrRegion(string semanticId) =>
@@ -515,6 +545,22 @@ public sealed class UraEnergyBarObservation
 
 public sealed class UraScreenRecognition
 {
+    private int _priority = 20;
+
+    [JsonPropertyName("priority")]
+    public int Priority
+    {
+        get => _priority;
+        set
+        {
+            _priority = value;
+            PrioritySpecified = true;
+        }
+    }
+
+    [JsonIgnore]
+    internal bool PrioritySpecified { get; private set; }
+
     [JsonPropertyName("matchColorText")]
     public bool MatchColorText { get; set; }
 
@@ -544,6 +590,9 @@ public sealed class UraScreenRecognition
 
     [JsonPropertyName("requiredTemplateThreshold")]
     public double RequiredTemplateThreshold { get; set; } = 0.78;
+
+    [JsonPropertyName("requiredText")]
+    public List<string> RequiredText { get; set; } = [];
 
     public IReadOnlyList<string> GetTemplates()
     {
@@ -583,7 +632,11 @@ public sealed record UraScenarioPack(
     UraRaceDocument Races,
     UraEventDocument Events,
     UraScreenProfile ScreenProfile,
-    HachimiPipelineDefinition ExecutionDefinition);
+    HachimiPipelineDefinition ExecutionDefinition)
+{
+    [JsonIgnore]
+    public CareerVisualResourcePackage? VisualResources { get; init; }
+}
 
 /// <summary>
 /// Generic package view used by Developer Tools. It loads only the common
@@ -596,82 +649,62 @@ public sealed record ScenarioExecutionPackage(
     string ScenarioId,
     string DisplayName,
     string ExecutionPath,
-    HachimiPipelineDefinition ExecutionDefinition);
+    HachimiPipelineDefinition ExecutionDefinition)
+{
+    public IReadOnlyList<string> ExecutionFragmentPaths { get; init; } = [];
+    public IReadOnlyList<string> ScreenFragmentPaths { get; init; } = [];
+    public string ResourceCatalogPath { get; init; } = string.Empty;
+    public CareerVisualResourcePackage? VisualResources { get; init; }
+}
 
 public static class ScenarioPackageLoader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
-
     public static async Task<ScenarioExecutionPackage> LoadExecutionAsync(
         string manifestPath,
         CancellationToken cancellationToken = default)
     {
-        var resolvedManifestPath = Path.GetFullPath(
-            Path.IsPathRooted(manifestPath)
-                ? manifestPath
-                : Path.Combine(Environment.CurrentDirectory, manifestPath));
-        var rootDirectory = Path.GetDirectoryName(resolvedManifestPath)
-            ?? throw new InvalidDataException("Scenario manifest has no parent directory.");
-        await using var stream = File.OpenRead(resolvedManifestPath);
-        var manifest = await JsonSerializer.DeserializeAsync<ScenarioPackageManifestDocument>(
-                stream,
-                JsonOptions,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new InvalidDataException("Scenario manifest is empty.");
-        if (string.IsNullOrWhiteSpace(manifest.ScenarioId))
-            throw new InvalidDataException("Scenario manifest has no scenarioId.");
-        if (string.IsNullOrWhiteSpace(manifest.Execution))
-            throw new InvalidDataException("Scenario manifest has no execution definition.");
-
-        var executionPath = ResolveChildFile(rootDirectory, manifest.Execution);
-        var execution = await HachimiPipelineDefinitionLoader.LoadAsync(
-                executionPath,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new InvalidDataException("Scenario execution pipeline is empty or invalid.");
-
+        var contents = await CareerVisualPackageLoader.LoadAsync(manifestPath, cancellationToken)
+            .ConfigureAwait(false);
+        var rootDirectory = contents.ScenarioRoot;
+        var manifest = await ReadManifestHeaderAsync(contents.ManifestPath, cancellationToken)
+            .ConfigureAwait(false);
+        var executionPath = contents.ExecutionFragmentPaths[0];
         return new ScenarioExecutionPackage(
-            resolvedManifestPath,
+            contents.ManifestPath,
             rootDirectory,
             manifest.ScenarioId,
             string.IsNullOrWhiteSpace(manifest.DisplayName)
                 ? manifest.ScenarioId
                 : manifest.DisplayName,
             executionPath,
-            execution);
+            contents.ExecutionDefinition)
+        {
+            ExecutionFragmentPaths = contents.ExecutionFragmentPaths,
+            ScreenFragmentPaths = contents.ProfileFragmentPaths,
+            ResourceCatalogPath = contents.ResourceCatalogPath,
+            VisualResources = contents.Resources,
+        };
     }
 
-    private static string ResolveChildFile(string rootDirectory, string relativePath)
+    private static async Task<ScenarioPackageManifestHeader> ReadManifestHeaderAsync(
+        string manifestPath,
+        CancellationToken cancellationToken)
     {
-        if (Path.IsPathRooted(relativePath))
-            throw new InvalidDataException($"Scenario resource '{relativePath}' must be relative.");
-        var root = Path.GetFullPath(rootDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        var path = Path.GetFullPath(Path.Combine(rootDirectory, relativePath));
-        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException($"Scenario resource '{relativePath}' escapes its package.");
-        if (!File.Exists(path))
-            throw new FileNotFoundException("Scenario resource was not found.", path);
-        return path;
+        await using var stream = File.OpenRead(manifestPath);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var root = document.RootElement;
+        return new ScenarioPackageManifestHeader
+        {
+            ScenarioId = root.TryGetProperty("scenarioId", out var scenario) ? scenario.GetString() ?? string.Empty : string.Empty,
+            DisplayName = root.TryGetProperty("displayName", out var name) ? name.GetString() ?? string.Empty : string.Empty,
+        };
     }
 
-    private sealed class ScenarioPackageManifestDocument
+    private sealed class ScenarioPackageManifestHeader
     {
-        [JsonPropertyName("scenarioId")]
         public string ScenarioId { get; set; } = string.Empty;
-
-        [JsonPropertyName("displayName")]
         public string DisplayName { get; set; } = string.Empty;
-
-        [JsonPropertyName("execution")]
-        public string Execution { get; set; } = string.Empty;
     }
 }
 
@@ -680,6 +713,30 @@ public static class UraScenarioResourceResolver
     public static string Resolve(UraScenarioPack pack, string relativePath)
     {
         ArgumentNullException.ThrowIfNull(pack);
+        if (pack.VisualResources is not null)
+        {
+            try
+            {
+                return pack.VisualResources.ResolveVisualResource(relativePath);
+            }
+            catch (FileNotFoundException)
+            {
+                // Domain files that still belong to the URA pack use the
+                // original scenario-root resolver below.
+            }
+        }
+        return Resolve(pack.RootDirectory, relativePath);
+    }
+
+    public static string Resolve(
+        UraScenarioPack pack,
+        UraScreenDefinition screen,
+        string relativePath)
+    {
+        ArgumentNullException.ThrowIfNull(pack);
+        ArgumentNullException.ThrowIfNull(screen);
+        if (pack.VisualResources is not null)
+            return pack.VisualResources.ResolveScreenTemplate(screen, relativePath);
         return Resolve(pack.RootDirectory, relativePath);
     }
 
@@ -692,6 +749,10 @@ public static class UraScenarioResourceResolver
 
         var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar);
         var path = normalized.StartsWith(
+                "testdata" + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(scenarioRoot, normalized)
+            : normalized.StartsWith(
                 "screens" + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase)
             ? Path.Combine(scenarioRoot, normalized)
@@ -737,6 +798,10 @@ public sealed class UraScenarioPackLoader
         var resolvedManifestPath = ResolvePath(manifestPath);
         var rootDirectory = Path.GetDirectoryName(resolvedManifestPath)
             ?? throw new InvalidDataException("URA manifest has no parent directory.");
+        var visualPackage = await CareerVisualPackageLoader.LoadAsync(
+                resolvedManifestPath,
+                cancellationToken)
+            .ConfigureAwait(false);
         var manifest = await ReadAsync<UraScenarioManifest>(
                 resolvedManifestPath,
                 cancellationToken)
@@ -770,16 +835,8 @@ public sealed class UraScenarioPackLoader
                 cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidDataException("URA events are empty.");
-        var profilePath = RequireFile(rootDirectory, manifest.Screens);
-        var profile = await ReadAsync<UraScreenProfile>(profilePath, cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new InvalidDataException("URA screen profile is empty.");
-        var executionPath = RequireFile(rootDirectory, manifest.Execution);
-        var execution = await HachimiPipelineDefinitionLoader.LoadAsync(
-                executionPath,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new InvalidDataException("URA execution pipeline is empty or invalid.");
+        var profile = visualPackage.ScreenProfile;
+        var execution = visualPackage.ExecutionDefinition;
 
         RequireMatchingScenario(definition.ScenarioId, manifest.ScenarioId, "definition");
         RequireMatchingScenario(objectives.ScenarioId, manifest.ScenarioId, "objectives");
@@ -793,22 +850,9 @@ public sealed class UraScenarioPackLoader
                 manifest.ScenarioId,
                 "scenario selection");
         }
-        if (execution.ReferenceWidth != profile.ReferenceWidth
-            || execution.ReferenceHeight != profile.ReferenceHeight)
-        {
-            throw new InvalidDataException(
-                "URA screen profile and execution pipeline use different reference resolutions.");
-        }
-
         ValidateObjectives(objectives, definition, races);
-        ValidateRaces(races, objectives, definition, rootDirectory);
+        ValidateRaces(races, objectives, definition, visualPackage.Resources);
         ValidateEvents(events, definition, objectives, races, profile, execution);
-        ValidateScreens(
-            profile,
-            execution,
-            rootDirectory,
-            Path.GetDirectoryName(profilePath)!,
-            Path.GetDirectoryName(executionPath)!);
 
         return new UraScenarioPack(
             resolvedManifestPath,
@@ -821,89 +865,16 @@ public sealed class UraScenarioPackLoader
             races,
             events,
             profile,
-            execution);
+            execution)
+        {
+            VisualResources = visualPackage.Resources,
+        };
     }
 
-    private static void ValidateScreens(
-        UraScreenProfile profile,
-        HachimiPipelineDefinition execution,
-        string scenarioRoot,
-        string profileDirectory,
-        string executionDirectory)
-    {
-        if (profile.ScenarioSelection is not null)
-        {
-            if (profile.ScenarioSelection.Recognition.GetTemplates().Count == 0)
-            {
-                throw new InvalidDataException(
-                    "Scenario selection has no recognition template.");
-            }
-
-            if (profile.ScenarioSelection.MaxAdvanceAttempts <= 0)
-            {
-                throw new InvalidDataException(
-                    "Scenario selection maxAdvanceAttempts must be positive.");
-            }
-
-            foreach (var template in profile.ScenarioSelection.Recognition.GetTemplates())
-                RequireFile(profileDirectory, template);
-        }
-
-        var screenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var screen in profile.Screens)
-        {
-            if (string.IsNullOrWhiteSpace(screen.ScreenId)
-                || !screenIds.Add(screen.ScreenId))
-            {
-                throw new InvalidDataException(
-                    $"URA screen profile contains a missing or duplicate screen ID '{screen.ScreenId}'.");
-            }
-
-            if (screen.Templates.Count == 0)
-                throw new InvalidDataException($"Screen '{screen.ScreenId}' has no recognition template.");
-            foreach (var template in screen.Templates)
-                RequireFile(profileDirectory, template);
-            if (!string.IsNullOrWhiteSpace(screen.Recognition.RequiredTemplate))
-                RequireFile(profileDirectory, screen.Recognition.RequiredTemplate);
-
-            if (!string.IsNullOrWhiteSpace(screen.EntryTask)
-                && !execution.Tasks.ContainsKey(screen.EntryTask))
-            {
-                throw new InvalidDataException(
-                    $"Screen '{screen.ScreenId}' entry task '{screen.EntryTask}' is not defined.");
-            }
-
-            var actionIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var action in screen.Actions)
-            {
-                if (string.IsNullOrWhiteSpace(action.SemanticId)
-                    || !actionIds.Add(action.SemanticId)
-                    || string.IsNullOrWhiteSpace(action.Task)
-                    || !execution.Tasks.ContainsKey(action.Task))
-                {
-                    throw new InvalidDataException(
-                        $"Screen '{screen.ScreenId}' contains an invalid action mapping '{action.SemanticId}'.");
-                }
-            }
-        }
-
-        foreach (var task in execution.Tasks.Values)
-        {
-            if (!string.IsNullOrWhiteSpace(task.Template))
-            {
-                var templatePath = ResolveExecutionResource(
-                    scenarioRoot,
-                    executionDirectory,
-                    task.Template);
-                if (!File.Exists(templatePath))
-                {
-                    throw new FileNotFoundException(
-                        "URA execution template was not found.",
-                        templatePath);
-                }
-            }
-        }
-    }
+    public static Task<UraScreenProfile> LoadScreenProfileAsync(
+        string manifestPath,
+        CancellationToken cancellationToken = default) =>
+        CareerVisualPackageLoader.LoadScreenProfileAsync(manifestPath, cancellationToken);
 
     private static void ValidateObjectives(
         UraObjectiveDocument objectives,
@@ -931,7 +902,7 @@ public sealed class UraScenarioPackLoader
         UraRaceDocument races,
         UraObjectiveDocument objectives,
         UraScenarioDefinition definition,
-        string scenarioRoot)
+        CareerVisualResourcePackage visualResources)
     {
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var race in races.Races)
@@ -953,18 +924,17 @@ public sealed class UraScenarioPackLoader
                         $"Race '{race.RaceId}' has an invalid observed placement.");
                 }
 
-                if (string.IsNullOrWhiteSpace(race.ObservedOutcome.Capture))
+                var captureReference = race.ObservedOutcome.Capture;
+                if (string.IsNullOrWhiteSpace(captureReference))
                     throw new InvalidDataException(
                         $"Race '{race.RaceId}' has an observed placement without a capture.");
 
-                var capturePath = UraScenarioResourceResolver.Resolve(
-                    scenarioRoot,
-                    race.ObservedOutcome.Capture);
+                var capturePath = visualResources.ResolveVisualResource(captureReference);
                 if (!File.Exists(capturePath))
                 {
                     throw new InvalidDataException(
                         $"Race '{race.RaceId}' references missing result capture "
-                        + $"'{race.ObservedOutcome.Capture}' (resolved to '{capturePath}').");
+                        + $"'{captureReference}' (resolved to '{capturePath}').");
                 }
 
                 if (race.ObservedOutcome.Confidence is < 0 or > 1)
@@ -1027,7 +997,7 @@ public sealed class UraScenarioPackLoader
             if (normalizedTitle.Length == 0
                 || !ocrTitles.Add((recognition.ScreenId.ToUpperInvariant(), normalizedTitle))
                 || screen is null
-                || CareerScreenClassification.Classify(screen.ScreenId) != CareerScreenKind.Event
+                || CareerScreenClassification.Classify(screen.ScreenId, profile) != CareerScreenKind.Event
                 || action is null
                 || !execution.Tasks.TryGetValue(action.Task, out var task)
                 || !task.Algorithm.Equals("MatchTemplate", StringComparison.OrdinalIgnoreCase)
@@ -1096,45 +1066,6 @@ public sealed class UraScenarioPackLoader
         if (!Directory.Exists(path))
             throw new DirectoryNotFoundException($"URA directory was not found: {path}");
         return path;
-    }
-
-    private static string ResolveExecutionResource(
-        string scenarioRoot,
-        string executionDirectory,
-        string relativePath)
-    {
-        if (string.IsNullOrWhiteSpace(relativePath))
-            throw new InvalidDataException("URA execution resource reference is empty.");
-        if (Path.IsPathRooted(relativePath))
-            throw new InvalidDataException(
-                $"URA execution resource '{relativePath}' must be relative.");
-
-        var fullPath = Path.GetFullPath(Path.Combine(
-            executionDirectory,
-            relativePath.Replace('/', Path.DirectorySeparatorChar)));
-        var sharedRoot = Directory.GetParent(
-                Path.GetFullPath(scenarioRoot))?.FullName;
-        if (!IsWithin(fullPath, executionDirectory)
-            && !IsWithin(fullPath, scenarioRoot)
-            && (sharedRoot is null || !IsWithin(fullPath, sharedRoot)))
-        {
-            throw new InvalidDataException(
-                $"URA execution resource '{relativePath}' escapes the scenario/shared resource roots.");
-        }
-
-        return fullPath;
-    }
-
-    private static bool IsWithin(string path, string root)
-    {
-        var normalizedPath = Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var normalizedRoot = Path.GetFullPath(root)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase)
-            || normalizedPath.StartsWith(
-                normalizedRoot + Path.DirectorySeparatorChar,
-                StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveSharedReference(

@@ -14,15 +14,12 @@ public sealed class CareerRaceFinalNextPositionTests
         int minimumCenterX,
         int maximumCenterX)
     {
-        var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var task = pack.ExecutionDefinition.GetTask("race_runner_last_next");
-        var frame = GrayImageCodec.FromFile(Path.Combine(
-            root, "testdata", "hachimi", "ura", "captures", frameName));
-        var template = GrayImageCodec.FromFile(Path.Combine(screens,
-            task.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, frameName));
+        var template = GrayImageCodec.FromFile(
+            pack.VisualResources!.ResolveTaskTemplate("race_runner_last_next"));
         Assert.NotNull(frame);
         Assert.NotNull(template);
 
@@ -34,16 +31,4 @@ public sealed class CareerRaceFinalNextPositionTests
         Assert.InRange(match.CenterY, 1470, 1540);
     }
 
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
 }

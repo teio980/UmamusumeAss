@@ -10,7 +10,7 @@ public sealed record UraActionIntent(
     bool HighRisk,
     IReadOnlyList<UraPlannedAction> FallbackActions);
 
-public sealed class UraScenarioModule
+public sealed class UraScenarioModule : ICareerScenarioModule<UraCareerSessionState>
 {
     private readonly UraScenarioPack _pack;
     private readonly UmaTraineeRecord? _trainee;
@@ -40,6 +40,8 @@ public sealed class UraScenarioModule
             : new Dictionary<string, UraObjectiveDefinition>(StringComparer.OrdinalIgnoreCase);
     }
 
+    public string ScenarioId => _pack.Manifest.ScenarioId;
+
     public UraCareerSessionState CreateInitialState()
     {
         var firstObjective = _traineeObjectives.Values
@@ -57,6 +59,25 @@ public sealed class UraScenarioModule
             CurrentObjectiveId = firstObjective.ObjectiveId,
             CurrentRaceId = firstObjective.RaceId,
         };
+    }
+
+    public void Observe(
+        CareerSessionState<UraCareerSessionState> session,
+        CareerObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(observation);
+        ObserveScreen(
+            session.Scenario,
+            observation.ScreenId,
+            observation.Score,
+            observation.EnergyPercent,
+            observation.EnergyConfidence,
+            observation.TurnPositionText,
+            observation.TurnsToGoal,
+            observation.GoalText,
+            observation.FansToGoal,
+            observation.MoodText);
     }
 
     public UraObjectiveDefinition? CurrentObjective(UraCareerSessionState state) =>

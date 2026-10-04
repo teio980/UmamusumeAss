@@ -1,0 +1,8 @@
+{
+  "$schema": "uma.screen.profile.fragment.v1",
+  "profileId": "ura.global.900x1600.v1",
+  "scenarioId": "ura",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "screens": []
+}

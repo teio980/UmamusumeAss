@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using UmamusumeWpfGui.Services.Tasks;
@@ -8,10 +9,14 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class IndependentTrainingCatalogTests
 {
     [Fact]
-    public void Every_game_available_race_uses_a_race_id_card_path()
+    public async Task Every_game_available_race_resolves_from_the_declared_card_collection()
     {
         var root = FindSolutionRoot();
         var catalog = IndependentTrainingCatalog.Load(root);
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var resources = pack.VisualResources
+            ?? throw new InvalidOperationException("The loaded URA pack has no visual resources.");
+        Assert.Contains("independent.race_card", resources.DynamicCollections.Keys);
         var races = catalog.Races
             .Where(item => item.IsGameAvailable)
             .GroupBy(item => item.RaceId)
@@ -22,16 +27,17 @@ public sealed class IndependentTrainingCatalogTests
         Assert.All(races, race =>
         {
             Assert.True(race.RaceId > 0);
-            Assert.Equal(
-                $"templates{Path.DirectorySeparatorChar}independent"
-                + $"{Path.DirectorySeparatorChar}race_cards"
-                + $"{Path.DirectorySeparatorChar}{race.RaceId}.png",
-                race.RaceCardTemplatePath);
+            var cardPath = resources.ResolveVisualResource(
+                $"independent.race_card:{race.RaceId}");
             Assert.True(
-                File.Exists(IndependentTrainingCatalog.TryResolveRaceCardImagePath(
-                    race,
-                    root)),
+                File.Exists(cardPath),
                 $"Missing card image for Race ID {race.RaceId}.");
+            var editorCardPath = IndependentTrainingCatalog.TryResolveRaceCardImagePath(race, root);
+            Assert.NotNull(editorCardPath);
+            Assert.Equal(Path.GetFullPath(cardPath), Path.GetFullPath(editorCardPath!));
+            Assert.Equal(
+                race.RaceId.ToString(CultureInfo.InvariantCulture) + ".png",
+                Path.GetFileName(cardPath));
         });
     }
 
@@ -153,36 +159,15 @@ public sealed class IndependentTrainingCatalogTests
     [Fact]
     public async Task Independent_setup_wires_scroll_collapse_and_strategy_in_order()
     {
-        var root = FindSolutionRoot();
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-        var executionPath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json");
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
-
-        using var profile = JsonDocument.Parse(await File.ReadAllTextAsync(profilePath));
-        var actions = profile.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString()
-                == "career_final_confirmation")
-            .GetProperty("actions")
-            .EnumerateArray()
-            .ToDictionary(
-                item => item.GetProperty("semanticId").GetString()!,
-                item => item.GetProperty("task").GetString()!,
-                StringComparer.OrdinalIgnoreCase);
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
+        var finalConfirmation = pack.ScreenProfile.Find("career_final_confirmation");
+        Assert.NotNull(finalConfirmation);
+        var actions = finalConfirmation!.Actions.ToDictionary(
+            item => item.SemanticId,
+            item => item.Task,
+            StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(
             "independent_lineup_expand_prepare",
@@ -209,8 +194,9 @@ public sealed class IndependentTrainingCatalogTests
             "independent_post_start_ok",
             actions[IndependentTrainingCatalog.PostStartOkSemanticAction()]);
         Assert.Equal(
-            "templates/support_autofill_confirmation_support_autofill_ok.png",
-            definition!.GetTask("independent_post_start_ok").Template);
+            pack.VisualResources!.ResolveVisualResource(
+                "templates/support_autofill_confirmation_support_autofill_ok.png"),
+            pack.VisualResources.ResolveTaskTemplate("independent_post_start_ok"));
         foreach (var strategyValue in new[] { "front", "pace", "late", "end" })
         {
             Assert.True(
@@ -227,41 +213,18 @@ public sealed class IndependentTrainingCatalogTests
             "Swipe",
             definition!.GetTask("independent_lineup_scroll_to_top").Action,
             ignoreCase: true);
-        Assert.Equal(
-            "templates/independent/lineup_open_down.png",
-            definition.GetTask("independent_lineup_collapse").Template);
-        Assert.Equal(
-            "templates/independent/lineup_closed_right.png",
-            definition.GetTask("independent_strategy_return_probe").Template);
+        AssertTaskTemplateResolvesTo(
+            pack, "independent_lineup_collapse", "templates/independent/lineup_open_down.png");
+        AssertTaskTemplateResolvesTo(
+            pack, "independent_strategy_return_probe", "templates/independent/lineup_closed_right.png");
         Assert.Equal(
             "MatchTemplate",
             definition.GetTask("independent_strategy_change").Algorithm,
             ignoreCase: true);
-        Assert.Equal(
-            "templates/independent/strategy_change.png",
-            definition.GetTask("independent_strategy_change").Template);
-        Assert.Equal(
-            "templates/independent/strategy_confirm.png",
-            definition.GetTask("independent_strategy_save").Template);
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "strategy_change.png")));
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "strategy_confirm.png")));
-
+        AssertTaskTemplateResolvesTo(
+            pack, "independent_strategy_change", "templates/independent/strategy_change.png");
+        AssertTaskTemplateResolvesTo(
+            pack, "independent_strategy_save", "templates/independent/strategy_confirm.png");
         var pipelineSource = await File.ReadAllTextAsync(Path.Combine(
             root,
             "src",
@@ -340,50 +303,25 @@ public sealed class IndependentTrainingCatalogTests
     [Fact]
     public async Task Independent_completion_probe_uses_training_independently_marker()
     {
-        var root = FindSolutionRoot();
-        var executionPath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json");
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
         var task = definition!.GetTask("independent_post_start_home_probe");
 
-        Assert.Equal(
-            "templates/independent/training_independently_available.png",
-            task.Template);
+        AssertTaskTemplateResolvesTo(
+            pack,
+            "independent_post_start_home_probe",
+            "templates/independent/training_independently_available.png");
         Assert.Equal(0.82, task.TemplateThreshold, precision: 2);
         Assert.NotNull(task.Roi);
         Assert.Equal([480, 1180, 400, 180], task.Roi!);
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "training_independently_available.png")));
+        var resolvedTaskTemplate = pack.VisualResources!.ResolveTaskTemplate(
+            "independent_post_start_home_probe");
+        Assert.True(File.Exists(resolvedTaskTemplate));
 
-        var capture = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "testdata",
-            "hachimi",
-            "ura",
-            "captures",
-            "career_home_training_independently.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "training_independently_available.png"));
+        var capture = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "career_home_training_independently.png"));
+        var template = GrayImageCodec.FromFile(resolvedTaskTemplate);
         Assert.NotNull(capture);
         Assert.NotNull(template);
 
@@ -457,5 +395,17 @@ public sealed class IndependentTrainingCatalogTests
         }
 
         throw new InvalidOperationException("Could not locate the repository root.");
+    }
+
+    private static void AssertTaskTemplateResolvesTo(
+        UraScenarioPack pack,
+        string taskId,
+        string expectedTemplatePath)
+    {
+        var resources = pack.VisualResources
+            ?? throw new InvalidOperationException("The loaded URA pack has no visual resources.");
+        var resolvedPath = resources.ResolveTaskTemplate(taskId);
+        Assert.True(File.Exists(resolvedPath), $"Missing resolved template for task '{taskId}'.");
+        Assert.Equal(Path.GetFileName(expectedTemplatePath), Path.GetFileName(resolvedPath));
     }
 }

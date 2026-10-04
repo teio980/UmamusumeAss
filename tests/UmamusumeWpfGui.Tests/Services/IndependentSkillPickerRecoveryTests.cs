@@ -12,14 +12,8 @@ public sealed class IndependentSkillPickerRecoveryTests
     [Fact]
     public async Task Two_skills_each_reopen_search_select_confirm_and_recover_main_add_button()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var pack = await LoadBuiltInPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         Assert.NotNull(definition);
         var open = definition!.GetTask("independent_skills_open");
@@ -43,12 +37,9 @@ public sealed class IndependentSkillPickerRecoveryTests
         Assert.Equal(1, postConfirmScroll.MaxTimes);
         Assert.Equal(["independent_skills_post_confirm"], postConfirmScroll.Next);
 
-        var pack = await UraScenarioPackLoader.LoadAsync(
-            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
-        Assert.NotNull(pack);
         Assert.True(
             IndependentTrainingContracts.TryValidateIndependentTemplateAction(
-                pack!,
+                pack,
                 "independent.skills.post.confirm",
                 out var mappingError),
             mappingError);
@@ -141,14 +132,8 @@ public sealed class IndependentSkillPickerRecoveryTests
     [Fact]
     public async Task Main_skill_reset_repeats_past_the_old_limit_until_every_row_is_gone()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var pack = await LoadBuiltInPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         Assert.NotNull(definition);
         var resetProbe = definition!.GetTask("independent_skills_reset_probe");
@@ -199,14 +184,8 @@ public sealed class IndependentSkillPickerRecoveryTests
     [Fact]
     public async Task Main_skill_reset_stops_when_reset_click_limit_is_exceeded()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var pack = await LoadBuiltInPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         Assert.NotNull(definition);
         definition!.GetTask("independent_skills_main_reset").MaxTimes = 2;
@@ -244,14 +223,8 @@ public sealed class IndependentSkillPickerRecoveryTests
     [Fact]
     public async Task Main_skill_reset_uses_button_disappearance_as_the_only_completion_condition()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var pack = await LoadBuiltInPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         Assert.NotNull(definition);
 
@@ -579,16 +552,6 @@ public sealed class IndependentSkillPickerRecoveryTests
             (string.Empty, string.Empty, 0, false, null);
     }
 
-    private static string FindSolutionRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root.");
-    }
+    private static Task<UraScenarioPack> LoadBuiltInPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 }

@@ -17,16 +17,14 @@ public sealed class CareerMainRaceButtonPositionTests
         int minimumX,
         int maximumX)
     {
-        var root = FindWorkspaceRoot();
-        var screens = Path.Combine(root, "resource", "hachimi", "ura", "screens");
-        var pack = await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            root, "resource", "hachimi", "ura", "manifest.json"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         Assert.True(pack.ExecutionDefinition.TryGetTask(taskName, out var task));
         Assert.NotNull(task);
 
-        var frame = GrayImageCodec.FromFile(Path.Combine(screens, "captures", frameName));
-        var template = GrayImageCodec.FromFile(Path.Combine(screens,
-            task.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, frameName));
+        var template = GrayImageCodec.FromFile(
+            pack.VisualResources!.ResolveTaskTemplate(taskName));
         Assert.NotNull(frame);
         Assert.NotNull(template);
 
@@ -38,17 +36,4 @@ public sealed class CareerMainRaceButtonPositionTests
         Assert.InRange(match.Y, 1410, 1440);
     }
 
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName,
-                    "resource", "hachimi", "ura", "manifest.json")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
 }

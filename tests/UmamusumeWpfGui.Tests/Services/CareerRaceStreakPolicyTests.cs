@@ -146,7 +146,7 @@ public sealed class CareerRaceStreakPolicyTests
             new CareerObservation("race_list", 1), null, CancellationToken.None);
         Assert.Null(await new CareerRaceFlow(ThrowingRuntime.Create(), actions)
             .HandleAsync(context));
-        Assert.Equal(["race_list.recommended_entry"], actions.Calls);
+        Assert.Equal(["race_list.race.recommended_entry"], actions.Calls);
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class CareerRaceStreakPolicyTests
             new CareerObservation("race_list", 1), null, CancellationToken.None);
         Assert.Null(await new CareerRaceFlow(ThrowingRuntime.Create(), actions)
             .HandleAsync(context));
-        Assert.Equal(["race_list.recommended_entry"], actions.Calls);
+        Assert.Equal(["race_list.race.recommended_entry"], actions.Calls);
 
         state.RaceReplayFlowCompleted = true;
         Assert.True(CareerRaceStreakPolicy.ShouldDeferRace(scenario, state));

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
@@ -83,6 +84,57 @@ public sealed class UraScenarioModuleTests
 
         module.ObserveScreen(state, "career_main", 0.99);
         Assert.True(state.CareerStarted);
+    }
+
+    [SuppressMessage("Performance", "CA1859", Justification = "This test verifies the scenario module through its public interface contract.")]
+    [Fact]
+    public async Task ScenarioModuleInterfaceForwardsStableObservationsToUraRules()
+    {
+        var module = new UraScenarioModule(await LoadPackAsync());
+        ICareerScenarioModule<UraCareerSessionState> scenario = module;
+        var state = scenario.CreateInitialState();
+        var session = new CareerSessionState<UraCareerSessionState>
+        {
+            Runtime = state.Runtime,
+            Scenario = state,
+        };
+
+        scenario.Observe(session, new CareerObservation(
+            "career_main",
+            0.99,
+            EnergyPercent: 73,
+            EnergyConfidence: 0.9,
+            TurnPositionText: "Junior Year - Pre-Debut",
+            TurnsToGoal: 1));
+
+        Assert.Same(session.Runtime, session.Scenario.Runtime);
+        Assert.True(session.Runtime.CareerStarted);
+        Assert.Equal(73, session.Runtime.Energy.Value);
+        Assert.Equal("career_main", session.Runtime.LastScreenId);
+        Assert.Equal(state.TurnIndex, session.Runtime.TurnIndex);
+    }
+
+    [SuppressMessage("Performance", "CA1859", Justification = "This test verifies strategy behavior through its public interface contract.")]
+    [Fact]
+    public async Task StrategyInterfacePreservesUraActionIntentFields()
+    {
+        var module = new UraScenarioModule(await LoadPackAsync());
+        var state = module.CreateInitialState();
+        var session = new CareerSessionState<UraCareerSessionState>
+        {
+            Runtime = state.Runtime,
+            Scenario = state,
+        };
+        ICareerTrainingStrategy<UraCareerSessionState> strategy = new UraDefaultStrategy();
+
+        var expected = new UraDefaultStrategy().ChooseTurnAction(module, state);
+        var actual = strategy.Choose(session, module);
+
+        Assert.Equal(expected.Action, actual.Action);
+        Assert.Equal(expected.TargetId, actual.TargetId);
+        Assert.Equal(expected.Reason, actual.Reason);
+        Assert.Equal(expected.HighRisk, actual.HighRisk);
+        Assert.Equal(expected.FallbackActions, actual.FallbackActions);
     }
 
     [Theory]

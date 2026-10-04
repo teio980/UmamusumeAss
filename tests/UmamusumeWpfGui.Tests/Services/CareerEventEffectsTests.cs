@@ -15,11 +15,15 @@ public sealed class CareerEventEffectsTests
         string imageName,
         bool expected)
     {
-        var templates = FindTemplateDirectory();
-        var frame = GrayImageCodec.FromFile(Path.Combine(
-            templates, "runtime_frames", imageName))!;
-        var effects = GrayImageCodec.FromFile(Path.Combine(
-            templates, "event_effects_button.png"))!;
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var framePath = imageName == "training_event_ura.png"
+            ? CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/runtime_frames/training_event_ura.png")
+            : CareerTestResourceResolver.FindUraCapture(root, imageName);
+        var frame = GrayImageCodec.FromFile(framePath)!;
+        var effects = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+                "templates/event_effects_button.png"))!;
 
         Assert.Equal(expected,
             TemplateMatcher.Find(
@@ -29,20 +33,5 @@ public sealed class CareerEventEffectsTests
                 threshold: 0.82,
                 referenceWidth: 900,
                 referenceHeight: 1600).Found);
-    }
-
-    private static string FindTemplateDirectory()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            var templates = Path.Combine(directory.FullName,
-                "resource", "hachimi", "ura", "screens", "templates");
-            if (Directory.Exists(templates))
-                return templates;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA templates.");
     }
 }

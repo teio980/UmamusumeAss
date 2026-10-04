@@ -1,10 +1,12 @@
 {
-  "$schema": "uma.scenario.manifest.v1",
-  "schemaVersion": 1,
+  "$schema": "uma.scenario.manifest.v2",
+  "schemaVersion": 2,
   "scenarioId": "ura",
   "displayName": "URA Finale",
   "region": "global",
-  "supportedRegions": ["global"],
+  "supportedRegions": [
+    "global"
+  ],
   "gameVersionRange": ">=2025.01",
   "dataVersion": "adb-capture-2026-08-13",
   "moduleType": "builtin:ura",
@@ -19,8 +21,29 @@
   "objectives": "objectives.json",
   "races": "races.json",
   "events": "events/events.json",
-  "screens": "screens/screen_profile.json",
-  "execution": "screens/execution.json",
+  "screens": [
+    "../career/entry/profile.json",
+    "../career/modes/normal/profile.json",
+    "../career/modes/independent/profile.json",
+    "../career/turn/profile.json",
+    "../career/training/profile.json",
+    "../career/event/profile.json",
+    "../career/skill/profile.json",
+    "../career/race/profile.json",
+    "../career/settlement/profile.json"
+  ],
+  "execution": [
+    "../career/entry/execution.json",
+    "../career/modes/normal/execution.json",
+    "../career/modes/independent/execution.json",
+    "../career/turn/execution.json",
+    "../career/training/execution.json",
+    "../career/event/execution.json",
+    "../career/skill/execution.json",
+    "../career/race/execution.json",
+    "../career/settlement/execution.json"
+  ],
   "localization": "localization/",
-  "globalDatabase": "../../uma/database/global/"
+  "globalDatabase": "../../uma/database/global/",
+  "resourceCatalog": "../career/catalog.json"
 }

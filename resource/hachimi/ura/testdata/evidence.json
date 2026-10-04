@@ -1,0 +1,293 @@
+{
+  "$schema": "uma.testdata.visual-metadata.v1",
+  "sourceManifest": "ura/manifest.json",
+  "screenProfileMetadata": {
+    "stableFramePolicy": {
+      "minimumStableSamples": 2,
+      "ignoreStates": [
+        "loading",
+        "connecting",
+        "race_playback",
+        "transition"
+      ],
+      "requireNoOverlayAnimation": true
+    },
+    "transitions": [
+      {
+        "from": "career_main",
+        "to": "training_selection",
+        "on": "training.open"
+      },
+      {
+        "from": "career_main",
+        "to": "race_day",
+        "on": "race.goal_ready"
+      },
+      {
+        "from": "race_day",
+        "to": "race_list",
+        "on": "race.open"
+      },
+      {
+        "from": "race_list",
+        "to": "race_details",
+        "on": "race.select"
+      },
+      {
+        "from": "race_details",
+        "to": "race_attributes",
+        "on": "race.confirm"
+      },
+      {
+        "from": "race_attributes",
+        "to": "race_playback",
+        "on": "race.start"
+      },
+      {
+        "from": "race_playback",
+        "to": "race_result",
+        "on": "race.finished"
+      },
+      {
+        "from": "race_result",
+        "to": "reward",
+        "on": "result.next"
+      },
+      {
+        "from": "reward",
+        "to": "goal_objective_complete",
+        "on": "reward.next"
+      },
+      {
+        "from": "goal_objective_complete",
+        "to": "goal_update",
+        "on": "goal.next"
+      },
+      {
+        "from": "goal_complete",
+        "to": "scenario_event",
+        "on": "goal.next"
+      },
+      {
+        "from": "scenario_event",
+        "to": "career_main",
+        "on": "event.complete"
+      },
+      {
+        "from": "complete_career_entry",
+        "to": "complete_career",
+        "on": "career.open"
+      },
+      {
+        "from": "complete_career",
+        "to": "career_rank",
+        "on": "career.finish"
+      },
+      {
+        "from": "career_rank",
+        "to": "sparks",
+        "on": "career.next"
+      },
+      {
+        "from": "sparks",
+        "to": "sparks_confirmation",
+        "on": "sparks.confirm"
+      },
+      {
+        "from": "sparks_confirmation",
+        "to": "career_result_close",
+        "on": "sparks.keep"
+      },
+      {
+        "from": "career_result_close",
+        "to": "career_epithet",
+        "on": "career.close"
+      },
+      {
+        "from": "career_result_close",
+        "to": "career_rating_record_updated",
+        "on": "career.close"
+      },
+      {
+        "from": "career_rating_record_updated",
+        "to": "career_epithet",
+        "on": "career.rating_record.next"
+      },
+      {
+        "from": "career_rating_record_updated",
+        "to": "career_result",
+        "on": "career.rating_record.next"
+      },
+      {
+        "from": "career_epithet",
+        "to": "career_result",
+        "on": "career.epithet_confirm"
+      },
+      {
+        "from": "career_result",
+        "to": "rewards",
+        "on": "career.next"
+      },
+      {
+        "from": "rewards",
+        "to": "event_reward",
+        "on": "rewards.next"
+      },
+      {
+        "from": "rewards",
+        "to": "rewards_collected",
+        "on": "rewards.next"
+      },
+      {
+        "from": "rewards_collected",
+        "to": "rewards",
+        "on": "rewards_collected.close"
+      },
+      {
+        "from": "event_reward",
+        "to": "rewards",
+        "on": "event_reward.next"
+      },
+      {
+        "from": "rewards",
+        "to": "career_complete",
+        "on": "rewards.next"
+      },
+      {
+        "from": "career_complete",
+        "to": "home",
+        "on": "career.to_home"
+      },
+      {
+        "from": "rewards",
+        "to": "career_complete_close",
+        "on": "rewards.next"
+      },
+      {
+        "from": "follow_trainer_limit",
+        "to": "career_complete",
+        "on": "career.follow_limit.cancel"
+      },
+      {
+        "from": "follow_trainer_limit",
+        "to": "career_complete_close",
+        "on": "career.follow_limit.cancel"
+      },
+      {
+        "from": "career_complete_close",
+        "to": "home",
+        "on": "career.close"
+      },
+      {
+        "from": "career_complete",
+        "to": "career_story_unlocked",
+        "on": "career.to_home"
+      },
+      {
+        "from": "career_complete_close",
+        "to": "career_story_unlocked",
+        "on": "career.close"
+      },
+      {
+        "from": "career_story_unlocked",
+        "to": "home",
+        "on": "career.story.close"
+      },
+      {
+        "from": "career_complete",
+        "to": "career_story_unlocked_compact",
+        "on": "career.to_home"
+      },
+      {
+        "from": "career_complete_close",
+        "to": "career_story_unlocked_compact",
+        "on": "career.close"
+      },
+      {
+        "from": "career_story_unlocked",
+        "to": "career_story_unlocked_compact",
+        "on": "career.story.close"
+      },
+      {
+        "from": "career_story_unlocked_compact",
+        "to": "career_story_unlocked",
+        "on": "career.story.compact.close"
+      },
+      {
+        "from": "career_story_unlocked_compact",
+        "to": "home",
+        "on": "career.story.compact.close"
+      },
+      {
+        "from": "career_complete",
+        "to": "career_story_unlocked_to_home",
+        "on": "career.to_home"
+      },
+      {
+        "from": "career_complete_close",
+        "to": "career_story_unlocked_to_home",
+        "on": "career.close"
+      },
+      {
+        "from": "career_story_unlocked",
+        "to": "career_story_unlocked_to_home",
+        "on": "career.story.close"
+      },
+      {
+        "from": "career_story_unlocked_compact",
+        "to": "career_story_unlocked_to_home",
+        "on": "career.story.compact.close"
+      },
+      {
+        "from": "career_story_unlocked_to_home",
+        "to": "home",
+        "on": "career.story.to_home"
+      }
+    ],
+    "captureEvidence": {
+      "method": "adb",
+      "device": "emulator-5554",
+      "resolution": {
+        "width": 900,
+        "height": 1600
+      },
+      "directory": "templates/runtime_frames/",
+      "rawPngs": 94,
+      "stableRepresentativeCount": 11
+    }
+  },
+  "scenarioValidationRun": {
+    "method": "adb",
+    "device": "emulator-5554",
+    "resolution": {
+      "width": 900,
+      "height": 1600
+    },
+    "traineeId": "oguri_cap",
+    "result": "completed",
+    "finaleResult": "won",
+    "captureDirectory": "screens/templates/runtime_frames/"
+  },
+  "eventCaptures": [
+    {
+      "eventId": "ura_entry",
+      "capture": "captures/runtime_frames/ura_finale_after_goal_next.png"
+    },
+    {
+      "eventId": "ura_qualifier_before",
+      "capture": "captures/runtime_frames/ura_prelim_attributes2.png"
+    },
+    {
+      "eventId": "ura_semifinal_before",
+      "capture": "captures/runtime_frames/ura_semifinal_attributes.png"
+    },
+    {
+      "eventId": "ura_semifinal_after",
+      "capture": "captures/runtime_frames/ura_final_current.png"
+    },
+    {
+      "eventId": "ura_finals_after",
+      "capture": "captures/runtime_frames/ura_final_after_reward.png"
+    }
+  ]
+}

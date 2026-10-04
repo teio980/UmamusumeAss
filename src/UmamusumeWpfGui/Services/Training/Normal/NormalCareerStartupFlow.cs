@@ -63,7 +63,7 @@ public sealed class NormalCareerStartupFlow
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureMode)
+        if (state.Setup.Stage == NormalCareerSetupStage.ConfigureMode)
         {
             var mode = await RunNormalSetupActionAsync(
                     connection,
@@ -75,10 +75,10 @@ public sealed class NormalCareerStartupFlow
             if (mode is not null)
                 return mode;
 
-            state.NormalSetupStage = NormalCareerSetupStage.ConfigureStrategy;
+            state.Setup.Stage = NormalCareerSetupStage.ConfigureStrategy;
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureStrategy)
+        if (state.Setup.Stage == NormalCareerSetupStage.ConfigureStrategy)
         {
             if (!CareerStrategyCatalog.TryGetLineupStrategySemanticAction(
                     settings.LineupStrategy,
@@ -110,13 +110,13 @@ public sealed class NormalCareerStartupFlow
                     return result;
             }
 
-            state.NormalSetupStage = NormalCareerSetupStage.StartCareer;
+            state.Setup.Stage = NormalCareerSetupStage.StartCareer;
         }
 
         var startIssuedThisRun = false;
-        if (state.NormalSetupStage == NormalCareerSetupStage.StartCareer)
+        if (state.Setup.Stage == NormalCareerSetupStage.StartCareer)
         {
-            state.NormalSetupStage = NormalCareerSetupStage.ConfirmStart;
+            state.Setup.Stage = NormalCareerSetupStage.ConfirmStart;
             state.LastScreenId = "career_start_transition";
 
             var start = await RunNormalSetupActionAsync(
@@ -131,7 +131,7 @@ public sealed class NormalCareerStartupFlow
             startIssuedThisRun = true;
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmStart)
+        if (state.Setup.Stage == NormalCareerSetupStage.ConfirmStart)
         {
             if (!startIssuedThisRun)
             {
@@ -167,7 +167,7 @@ public sealed class NormalCareerStartupFlow
                 .ConfigureAwait(false);
             if (postStart?.ScreenId is "career_main" or "career_races_ready")
             {
-                state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
+                state.Setup.Stage = NormalCareerSetupStage.AwaitCareerMain;
                 state.LastScreenId = "career_start_transition";
                 logSink?.Add(
                     "Career Training",
@@ -175,12 +175,12 @@ public sealed class NormalCareerStartupFlow
             }
             else
             {
-                state.NormalSetupStage = NormalCareerSetupStage.SkipIntro;
+                state.Setup.Stage = NormalCareerSetupStage.SkipIntro;
                 state.LastScreenId = "career_intro_event";
             }
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.SkipIntro)
+        if (state.Setup.Stage == NormalCareerSetupStage.SkipIntro)
         {
             var skipIntro = await RunNormalSetupActionAsync(
                     connection,
@@ -192,11 +192,11 @@ public sealed class NormalCareerStartupFlow
             if (skipIntro is not null)
                 return skipIntro;
 
-            state.NormalSetupStage = NormalCareerSetupStage.ConfigureQuickMode;
+            state.Setup.Stage = NormalCareerSetupStage.ConfigureQuickMode;
             state.LastScreenId = "normal_quick_mode_settings";
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.ConfigureQuickMode)
+        if (state.Setup.Stage == NormalCareerSetupStage.ConfigureQuickMode)
         {
             var shortenEvents = await RunNormalQuickModeActionAsync(
                     connection,
@@ -208,10 +208,10 @@ public sealed class NormalCareerStartupFlow
             if (shortenEvents is not null)
                 return shortenEvents;
 
-            state.NormalSetupStage = NormalCareerSetupStage.SetQuickMode;
+            state.Setup.Stage = NormalCareerSetupStage.SetQuickMode;
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.SetQuickMode)
+        if (state.Setup.Stage == NormalCareerSetupStage.SetQuickMode)
         {
             var skipMode = await RunNormalQuickModeActionAsync(
                     connection,
@@ -223,10 +223,10 @@ public sealed class NormalCareerStartupFlow
             if (skipMode is not null)
                 return skipMode;
 
-            state.NormalSetupStage = NormalCareerSetupStage.ConfirmQuickMode;
+            state.Setup.Stage = NormalCareerSetupStage.ConfirmQuickMode;
         }
 
-        if (state.NormalSetupStage == NormalCareerSetupStage.ConfirmQuickMode)
+        if (state.Setup.Stage == NormalCareerSetupStage.ConfirmQuickMode)
         {
             var confirmQuickMode = await RunNormalQuickModeActionAsync(
                     connection,
@@ -238,7 +238,7 @@ public sealed class NormalCareerStartupFlow
             if (confirmQuickMode is not null)
                 return confirmQuickMode;
 
-            state.NormalSetupStage = NormalCareerSetupStage.AwaitCareerMain;
+            state.Setup.Stage = NormalCareerSetupStage.AwaitCareerMain;
             state.LastScreenId = "career_start_transition";
         }
 

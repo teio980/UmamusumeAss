@@ -55,10 +55,14 @@ not the animated button background.
 
 ## URA resource layout
 
-The URA package remains under `ura/`. Its 94 runtime screen frames are stored
-under `ura/screens/templates/runtime_frames/`; the screen profile, event
-evidence, and observed race outcomes all resolve those paths. Other raw ADB
-captures are kept in `testdata/hachimi/ura/captures/` and are not shipped.
+The URA domain data remains under `ura/`. Its v2 manifest composes the profiles,
+execution fragments, and visual catalog in `career/`, grouped by entry, mode,
+turn, training, event, skill, race, and settlement. Runtime screenshot templates
+belong under `career/race/templates/runtime_frames/`; screen and task resources
+resolve relative to their originating fragment. Evidence captures in
+`ura/testdata/`, `ura/screens/captures/`, and `testdata/hachimi/ura/captures/`
+are not shipped. See [the Career resource guide](../../docs/career-training-resources.md)
+for the code/resource boundary and custom package migration.
 The shared ordinary-flow templates are under `pipelines/templates/`.
 
 ## Pipeline schema

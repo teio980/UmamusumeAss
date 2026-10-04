@@ -50,12 +50,12 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.Equal(
             [
                 "task:home",
-                "career_continue.delete",
+                "career_continue.career.continue.delete",
                 "task:home",
-                "scenario_select.next",
-                "trainee_select.pick",
-                "legacy_select.choose",
-                "support_select.auto_fill",
+                "scenario_select.scenario.next",
+                "trainee_select.trainee.pick",
+                "legacy_select.legacy.choose",
+                "support_select.support.auto_fill",
             ],
             harness.Actions.Calls);
     }
@@ -80,12 +80,12 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.Equal(
             [
                 "task:home",
-                "career_continue.delete",
+                "career_continue.career.continue.delete",
                 "task:home",
-                "scenario_select.next",
-                "trainee_select.pick",
-                "legacy_select.choose",
-                "support_select.auto_fill",
+                "scenario_select.scenario.next",
+                "trainee_select.trainee.pick",
+                "legacy_select.legacy.choose",
+                "support_select.support.auto_fill",
             ],
             harness.Actions.Calls);
     }
@@ -112,7 +112,7 @@ public sealed class IndependentTrainingBehaviorTests
             null);
 
         Assert.True(result.Succeeded, result.Message);
-        Assert.Equal(["support_select.auto_fill"], harness.Actions.Calls);
+        Assert.Equal(["support_select.support.auto_fill"], harness.Actions.Calls);
         Assert.Equal(CareerEntryNavigationStep.FinalConfirmation, state.Step);
     }
 
@@ -138,7 +138,7 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
         Assert.Equal("career_main", result.LastScreenId);
         Assert.Equal(CareerEntryNavigationStep.Career, state.Step);
-        Assert.Equal(["task:home", "career_continue.resume"], harness.Actions.Calls);
+        Assert.Equal(["task:home", "career_continue.career.continue.resume"], harness.Actions.Calls);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public sealed class IndependentTrainingBehaviorTests
 
         Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
         Assert.Equal("career_main", result.LastScreenId);
-        Assert.Equal(["career_continue.resume"], harness.Actions.Calls);
+        Assert.Equal(["career_continue.career.continue.resume"], harness.Actions.Calls);
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public sealed class IndependentTrainingBehaviorTests
             null);
 
         Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
-        Assert.Equal(["support_ready.start"], harness.Actions.Calls);
+        Assert.Equal(["support_ready.support.start"], harness.Actions.Calls);
         Assert.Equal(CareerEntryNavigationStep.FinalConfirmation, state.Step);
     }
 
@@ -226,7 +226,7 @@ public sealed class IndependentTrainingBehaviorTests
         var root = FindSolutionRoot();
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
-        harness.Actions.FailWhen = call => call == "career_continue.delete";
+        harness.Actions.FailWhen = call => call == "career_continue.career.continue.delete";
 
         var state = new CareerEntryNavigationState();
         var result = await harness.Navigator.NavigateAsync(
@@ -239,14 +239,14 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.False(result.Succeeded);
         Assert.Equal(CareerEntryNavigationStep.Continue, state.Step);
         Assert.Equal("career_continue", result.LastScreenId);
-        Assert.Equal(["task:home", "career_continue.delete"], harness.Actions.Calls);
+        Assert.Equal(["task:home", "career_continue.career.continue.delete"], harness.Actions.Calls);
         Assert.DoesNotContain(harness.Actions.Calls, call => call.Contains("scenario_select", StringComparison.Ordinal));
     }
 
     [Theory]
-    [InlineData("auto", "custom", "support_select.auto_fill")]
-    [InlineData("selected", "custom", "support_select.start")]
-    [InlineData("highest-star", "speed3-stamina3", "support_select.start")]
+    [InlineData("auto", "custom", "support_select.support.auto_fill")]
+    [InlineData("selected", "custom", "support_select.support.start")]
+    [InlineData("highest-star", "speed3-stamina3", "support_select.support.start")]
     public async Task Entry_navigation_support_deck_modes_reach_final_confirmation(
         string supportDeckMode,
         string supportDeckPreset,
@@ -285,16 +285,16 @@ public sealed class IndependentTrainingBehaviorTests
         {
             Assert.DoesNotContain(
                 harness.Actions.Calls,
-                call => call.StartsWith("support_select.ranked.filter_", StringComparison.Ordinal));
+                call => call.StartsWith("support_select.support.ranked.filter_", StringComparison.Ordinal));
         }
         else if (supportDeckMode == "highest-star")
         {
-            Assert.Equal("support_select.reset_if_needed",
+            Assert.Equal("support_select.support.reset_if_needed",
                 harness.Actions.Calls.First(call => call.StartsWith("support_select.", StringComparison.Ordinal)));
-            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_sr"));
-            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_ssr"));
-            Assert.DoesNotContain("support_select.ranked.filter_r", harness.Actions.Calls);
-            Assert.Equal("support_select.ranked.friend_sort_level",
+            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.support.ranked.filter_sr"));
+            Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.support.ranked.filter_ssr"));
+            Assert.DoesNotContain("support_select.support.ranked.filter_r", harness.Actions.Calls);
+            Assert.Equal("support_select.support.ranked.friend_sort_level",
                 harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
             AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
             Assert.Equal(
@@ -338,18 +338,18 @@ public sealed class IndependentTrainingBehaviorTests
             null);
 
         Assert.True(result.Succeeded, result.Message + " calls=" + string.Join(",", harness.Actions.Calls));
-        var expected = new List<string> { "support_select.reset_if_needed" };
+        var expected = new List<string> { "support_select.support.reset_if_needed" };
         foreach (var id in ownCardIds)
         {
             expected.AddRange(SelectedCardFilterActions(harness.Database, id));
         }
         expected.AddRange(SelectedCardFilterActions(harness.Database, friendCardId));
-        expected.Add("support_select.start");
+        expected.Add("support_select.support.start");
         Assert.Equal(expected, harness.Actions.Calls);
         AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
         Assert.DoesNotContain(harness.Actions.Calls,
             call => call.Contains("sort_level", StringComparison.Ordinal)
-                || call == "support_select.ranked.sort_apply");
+                || call == "support_select.support.ranked.sort_apply");
         Assert.All(harness.Actions.ExactCardSearches.Take(5),
             search => Assert.Null(search.Scales));
         var friendSearch = harness.Actions.ExactCardSearches[5];
@@ -381,7 +381,7 @@ public sealed class IndependentTrainingBehaviorTests
 
         Assert.True(result.Succeeded, result.Message);
         AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
-        Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.ranked.select_exact_card"));
+        Assert.Equal(6, harness.Actions.Calls.Count(call => call == "support_select.support.ranked.select_exact_card"));
     }
 
     [Fact]
@@ -407,10 +407,10 @@ public sealed class IndependentTrainingBehaviorTests
 
         Assert.True(result.Succeeded, result.Message);
         AssertSupportSlotOrder(harness.Actions.OpenSlotRois);
-        Assert.Equal(1, harness.Actions.Calls.Count(call => call == "support_select.ranked.filter_r"));
-        Assert.Equal("support_select.ranked.friend_sort_level",
+        Assert.Equal(1, harness.Actions.Calls.Count(call => call == "support_select.support.ranked.filter_r"));
+        Assert.Equal("support_select.support.ranked.friend_sort_level",
             harness.Actions.Calls.Last(call => call.Contains("sort_level", StringComparison.Ordinal)));
-        Assert.Equal("support_select.ranked.select_exact_card",
+        Assert.Equal("support_select.support.ranked.select_exact_card",
             harness.Actions.Calls.Last(call => call.Contains("select_", StringComparison.Ordinal)));
     }
 
@@ -421,7 +421,7 @@ public sealed class IndependentTrainingBehaviorTests
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
         harness.Actions.SetScreen("support_select");
-        harness.Actions.FailWhen = call => call == "support_select.reset_if_needed";
+        harness.Actions.FailWhen = call => call == "support_select.support.reset_if_needed";
         var state = new CareerEntryNavigationState
         {
             Step = CareerEntryNavigationStep.Support,
@@ -436,7 +436,7 @@ public sealed class IndependentTrainingBehaviorTests
             state, null);
 
         Assert.False(result.Succeeded);
-        Assert.Equal(["support_select.reset_if_needed"], harness.Actions.Calls);
+        Assert.Equal(["support_select.support.reset_if_needed"], harness.Actions.Calls);
         Assert.Empty(harness.Actions.OpenSlotRois);
     }
 
@@ -449,7 +449,7 @@ public sealed class IndependentTrainingBehaviorTests
         var missedFriendPlusOnce = false;
         harness.Actions.FailWhen = call =>
         {
-            if (call != "support_select.open"
+            if (call != "support_select.support.open"
                 || harness.Actions.OpenSlotRois.Count != 6
                 || missedFriendPlusOnce)
                 return false;
@@ -488,7 +488,7 @@ public sealed class IndependentTrainingBehaviorTests
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
         harness.Actions.FailWhen = call =>
-            call == "support_select.open" && harness.Actions.OpenSlotRois.Count == 4;
+            call == "support_select.support.open" && harness.Actions.OpenSlotRois.Count == 4;
         harness.Actions.SetScreen("support_select");
         var state = new CareerEntryNavigationState
         {
@@ -507,7 +507,7 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.False(result.Succeeded);
         Assert.Equal(4, harness.Actions.OpenSlotRois.Count);
         Assert.Equal([90, 770, 160, 160], harness.Actions.OpenSlotRois[3]);
-        Assert.DoesNotContain("support_select.start", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.support.start", harness.Actions.Calls);
     }
 
     [Fact]
@@ -516,7 +516,7 @@ public sealed class IndependentTrainingBehaviorTests
         var root = FindSolutionRoot();
         await using var scope = new TestScope();
         var harness = await CreateHarnessAsync(root, scope.CheckpointRoot);
-        harness.Actions.FailWhen = call => call == "support_select.ranked.filter_speed";
+        harness.Actions.FailWhen = call => call == "support_select.support.ranked.filter_speed";
         harness.Actions.SetScreen("support_select");
         var state = new CareerEntryNavigationState
         {
@@ -537,9 +537,9 @@ public sealed class IndependentTrainingBehaviorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("30028", result.Message, StringComparison.Ordinal);
-        Assert.Contains("support_select.ranked.filter_speed", harness.Actions.Calls);
-        Assert.DoesNotContain("support_select.ranked.select_exact_card", harness.Actions.Calls);
-        Assert.DoesNotContain("support_select.start", harness.Actions.Calls);
+        Assert.Contains("support_select.support.ranked.filter_speed", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.support.ranked.select_exact_card", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.support.start", harness.Actions.Calls);
     }
 
     [Fact]
@@ -571,8 +571,8 @@ public sealed class IndependentTrainingBehaviorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("30028", result.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("support_select.open", harness.Actions.Calls);
-        Assert.DoesNotContain("support_select.ranked.select_exact_card", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.support.open", harness.Actions.Calls);
+        Assert.DoesNotContain("support_select.support.ranked.select_exact_card", harness.Actions.Calls);
     }
 
     [Fact]
@@ -605,12 +605,12 @@ public sealed class IndependentTrainingBehaviorTests
             var expected = new List<string>
             {
                 "task:home",
-                "career_continue.delete",
+                "career_continue.career.continue.delete",
                 "task:home",
-                "scenario_select.next",
-                "trainee_select.pick",
-                "legacy_select.choose",
-                "support_select.auto_fill",
+                "scenario_select.scenario.next",
+                "trainee_select.trainee.pick",
+                "legacy_select.legacy.choose",
+                "support_select.support.auto_fill",
                 "independent.select_mode",
                 "independent.lineup.expand",
                 "independent.focus.balanced",
@@ -680,8 +680,8 @@ public sealed class IndependentTrainingBehaviorTests
             null);
 
         Assert.True(result.Succeeded, result.Message);
-        Assert.Contains("career_continue.resume", harness.Actions.Calls);
-        Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
+        Assert.Contains("career_continue.career.continue.resume", harness.Actions.Calls);
+        Assert.DoesNotContain("career_continue.career.continue.delete", harness.Actions.Calls);
         Assert.Contains("independent.start", harness.Actions.Calls);
         Assert.True((await harness.Store.LoadAsync())!.CompletionVerified);
     }
@@ -818,10 +818,10 @@ public sealed class IndependentTrainingBehaviorTests
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal(["ok", "launch", "startup"], fixture.Events);
         Assert.Contains("task:home", harness.Actions.Calls);
-        Assert.Contains("career_continue.resume", harness.Actions.Calls);
+        Assert.Contains("career_continue.career.continue.resume", harness.Actions.Calls);
         Assert.Contains("independent.select_mode", harness.Actions.Calls);
         Assert.Contains("independent.lineup.expand", harness.Actions.Calls);
-        Assert.DoesNotContain("career_continue.delete", harness.Actions.Calls);
+        Assert.DoesNotContain("career_continue.career.continue.delete", harness.Actions.Calls);
         Assert.Equal([catalog.Skills.First(skill => skill.SkillId == skills[1]).EffectiveSearchText], harness.Actions.SearchInputs);
         var checkpoint = await harness.Store.LoadAsync();
         Assert.Equal(2, checkpoint!.AgendaIndex);
@@ -977,7 +977,7 @@ public sealed class IndependentTrainingBehaviorTests
     }
 
     [Theory]
-    [InlineData(IndependentTrainingStage.SelectSupportDeck, "support_select", "support_select.auto_fill")]
+    [InlineData(IndependentTrainingStage.SelectSupportDeck, "support_select", "support_select.support.auto_fill")]
     [InlineData(IndependentTrainingStage.OpenFinalConfirmation, "career_final_confirmation", "independent.select_mode")]
     public async Task Final_confirmation_checkpoint_resumes_without_replaying_entry(
         IndependentTrainingStage stage,
@@ -1006,8 +1006,8 @@ public sealed class IndependentTrainingBehaviorTests
             Assert.True(result.Succeeded, result.Message);
             Assert.Equal(expectedFirstAction, harness.Actions.Calls[0]);
             Assert.DoesNotContain("task:home", harness.Actions.Calls);
-            Assert.DoesNotContain("career_continue.resume", harness.Actions.Calls);
-            Assert.DoesNotContain("scenario_select.next", harness.Actions.Calls);
+            Assert.DoesNotContain("career_continue.career.continue.resume", harness.Actions.Calls);
+            Assert.DoesNotContain("scenario_select.scenario.next", harness.Actions.Calls);
         }
         finally
         {
@@ -1117,14 +1117,14 @@ public sealed class IndependentTrainingBehaviorTests
             ?? throw new InvalidOperationException($"Unexpected test type for {cardId}: {card.Type}");
         return
         [
-            "support_select.open",
-            "support_select.ranked.display_settings",
-            "support_select.ranked.filter_tab",
-            "support_select.ranked.filter_reset",
-            $"support_select.ranked.filter_{rarityFilter}",
-            $"support_select.ranked.filter_{typeFilter}",
-            "support_select.ranked.filter_apply",
-            "support_select.ranked.select_exact_card",
+            "support_select.support.open",
+            "support_select.support.ranked.display_settings",
+            "support_select.support.ranked.filter_tab",
+            "support_select.support.ranked.filter_reset",
+            $"support_select.support.ranked.filter_{rarityFilter}",
+            $"support_select.support.ranked.filter_{typeFilter}",
+            "support_select.support.ranked.filter_apply",
+            "support_select.support.ranked.select_exact_card",
         ];
     }
 
@@ -1222,7 +1222,7 @@ public sealed class IndependentTrainingBehaviorTests
             HachimiPipelineRunOptions? options = null,
             bool allowVisualMiss = false)
         {
-            var call = screenId.Equals("career_entry", StringComparison.OrdinalIgnoreCase)
+            var call = actionId.StartsWith("independent.", StringComparison.Ordinal)
                 ? actionId
                 : $"{screenId}.{actionId}";
             Calls.Add(call);
@@ -1231,21 +1231,21 @@ public sealed class IndependentTrainingBehaviorTests
                 InterruptOnceAt = null;
                 throw new DateChangedInterruptionException();
             }
-            if (call == "support_select.open")
+            if (call == "support_select.support.open")
             {
                 Assert.NotNull(options?.SearchRoiOverrides);
                 Assert.True(options.SearchRoiOverrides.TryGetValue(
                     "support_select_support_open", out var rois));
                 OpenSlotRois.Add(Assert.Single(rois).ToArray());
             }
-            if (call == "support_select.ranked.select_highest_card")
+            if (call == "support_select.support.ranked.select_highest_card")
             {
                 Assert.NotNull(options?.RoiOverrides);
                 Assert.True(options.RoiOverrides.TryGetValue(
                     "support_select_support_top_card_ssr", out var roi));
                 HighestCardSearchRois.Add(roi);
             }
-            if (call == "support_select.ranked.select_exact_card")
+            if (call == "support_select.support.ranked.select_exact_card")
             {
                 int[]? roi = null;
                 IReadOnlyList<double>? scales = null;
@@ -1268,7 +1268,13 @@ public sealed class IndependentTrainingBehaviorTests
             }
 
             if (FailWhen?.Invoke(call) == true)
-                return new(false, $"fake failure: {call}", screenId);
+                return new(false, $"fake failure: {call}", screenId)
+                {
+                    FailureKind = actionId == IndependentTrainingCatalog.SkillSearchCheckboxSemanticAction()
+                        || actionId == IndependentTrainingCatalog.AgendaRaceSemanticAction()
+                        || actionId == IndependentTrainingCatalog.AgendaRaceCardSemanticAction()
+                        ? HachimiFailureKind.RecognitionTimeout : HachimiFailureKind.ActionFailed,
+                };
 
             AdvanceEntryScreen(screenId, actionId);
             return CareerActionExecutionResult.Success(screenId);
@@ -1297,13 +1303,13 @@ public sealed class IndependentTrainingBehaviorTests
         {
             var next = (screenId, actionId) switch
             {
-                ("career_continue", "delete") or ("career_continue", "resume") =>
+                ("career_continue", "career.continue.delete") or ("career_continue", "career.continue.resume") =>
                     AdvanceAfterCareerContinue(actionId),
-                ("scenario_select", "next") or ("scenario_select", "next_card") => "trainee_select",
-                ("trainee_select", "pick") => "legacy_select",
-                ("legacy_select", "choose") => "support_select",
-                ("support_select", "auto_fill") or ("support_select", "start") => "career_final_confirmation",
-                ("support_ready", "start") => AdvanceAfterSupportStart(),
+                ("scenario_select", "scenario.next") or ("scenario_select", "scenario.next_card") => "trainee_select",
+                ("trainee_select", "trainee.pick") => "legacy_select",
+                ("legacy_select", "legacy.choose") => "support_select",
+                ("support_select", "support.auto_fill") or ("support_select", "support.start") => "career_final_confirmation",
+                ("support_ready", "support.start") => AdvanceAfterSupportStart(),
                 _ => null,
             };
             if (next is not null)
@@ -1323,9 +1329,9 @@ public sealed class IndependentTrainingBehaviorTests
 
         private string AdvanceAfterCareerContinue(string actionId)
         {
-            if (actionId.Equals("delete", StringComparison.OrdinalIgnoreCase))
+            if (actionId.Equals("career.continue.delete", StringComparison.OrdinalIgnoreCase))
                 _careerDataDeleted = true;
-            if (actionId.Equals("resume", StringComparison.OrdinalIgnoreCase)
+            if (actionId.Equals("career.continue.resume", StringComparison.OrdinalIgnoreCase)
                 && ReturnsCareerAfterResume)
                 return "career_main";
             return ReturnsHomeAfterDelete && _careerDataDeleted

@@ -57,6 +57,10 @@ public sealed class HachimiPipelineDefinition
 /// </summary>
 public sealed class HachimiPipelineTask
 {
+    /// <summary>Semantic result emitted after this task succeeds.</summary>
+    [JsonPropertyName("outcome")]
+    public string? Outcome { get; set; }
+
     [JsonPropertyName("algorithm")]
     public string Algorithm { get; set; } = "MatchTemplate";
 
@@ -86,6 +90,13 @@ public sealed class HachimiPipelineTask
 
     [JsonPropertyName("template")]
     public string? Template { get; set; }
+
+    /// <summary>
+    /// Declares a catalog collection used to provide a template at runtime
+    /// when a static template path is intentionally omitted.
+    /// </summary>
+    [JsonPropertyName("templateCollection")]
+    public string? TemplateCollection { get; set; }
 
     [JsonPropertyName("templThreshold")]
     public double TemplateThreshold { get; set; } = 0.86;

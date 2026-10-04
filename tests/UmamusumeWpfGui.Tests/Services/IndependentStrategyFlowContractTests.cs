@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.Json;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
@@ -42,9 +41,8 @@ public sealed class IndependentStrategyFlowContractTests
     [Fact]
     public async Task Independent_agenda_race_picker_uses_ocr_before_card_fallback()
     {
-        var root = FindSolutionRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(
-            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var finalConfirmation = pack.ScreenProfile.Find("career_final_confirmation");
 
         Assert.NotNull(finalConfirmation);
@@ -124,16 +122,17 @@ public sealed class IndependentStrategyFlowContractTests
     }
 
     [Theory]
-    [InlineData("OCR target 'race' was not found before timeout.", true)]
-    [InlineData("Could not execute JSON task 'find': OCR target 'race' matched 2 candidates.", true)]
-    [InlineData("OCR screenshot could not be captured for 'find'.", false)]
-    [InlineData("OCR task 'find' failed: ADB swipe failed.", false)]
-    [InlineData("OCR task 'find' requires targetText or a runtime target override.", false)]
-    [InlineData("Screen action is missing from screen_profile.json.", false)]
-    [InlineData("OCR target 'another race' was not found before timeout.", false)]
-    public void Agenda_fallback_only_accepts_recognition_misses(string message, bool expected)
+    [InlineData(HachimiFailureKind.RecognitionTimeout, true)]
+    [InlineData(HachimiFailureKind.AmbiguousRecognition, true)]
+    [InlineData(HachimiFailureKind.RecognitionUnavailable, false)]
+    [InlineData(HachimiFailureKind.ActionFailed, false)]
+    [InlineData(HachimiFailureKind.InvalidDefinition, false)]
+    [InlineData(HachimiFailureKind.RuntimeError, false)]
+    public void Agenda_fallback_only_accepts_typed_recognition_misses(
+        HachimiFailureKind failureKind,
+        bool expected)
     {
-        Assert.Equal(expected, IndependentTrainingContracts.IsAgendaOcrRecognitionMiss(message, "race"));
+        Assert.Equal(expected, IndependentTrainingContracts.IsAgendaOcrRecognitionMiss(failureKind));
     }
 
     [Fact]
@@ -160,24 +159,9 @@ public sealed class IndependentStrategyFlowContractTests
     [Fact]
     public async Task Profile_and_pipeline_contract_keeps_skills_collapse_strategy_save_start_order()
     {
-        var root = FindSolutionRoot();
-        var executionPath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json");
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(executionPath);
-        Assert.NotNull(definition);
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
 
         var collapseScroll = definition!.GetTask("independent_lineup_scroll_to_top");
         Assert.Equal("Swipe", collapseScroll.Action, ignoreCase: true);
@@ -309,15 +293,9 @@ public sealed class IndependentStrategyFlowContractTests
             ["late"] = ("strategy_option_late.png", [290,930,100,85]),
             ["end"] = ("strategy_option_end.png", [100,930,130,85]),
         };
-        var selectedCorner = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "strategy_selected_corner.png"));
+        var selectedCorner = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveUraVisualResource(
+                pack, "templates/independent/strategy_selected_corner.png"));
         Assert.NotNull(selectedCorner);
         var selectedCornerRois = new Dictionary<string, int[]>(
             StringComparer.OrdinalIgnoreCase)
@@ -329,15 +307,8 @@ public sealed class IndependentStrategyFlowContractTests
         };
         foreach (var (strategy, definitionInfo) in strategyTemplateDefinitions)
         {
-            var templatePath = Path.Combine(
-                root,
-                "resource",
-                "hachimi",
-                "ura",
-                "screens",
-                "templates",
-                "independent",
-                definitionInfo.Template);
+            var templatePath = CareerTestResourceResolver.ResolveUraVisualResource(
+                pack, $"templates/independent/{definitionInfo.Template}");
             var template = GrayImageCodec.FromFile(templatePath);
             Assert.NotNull(template);
             Assert.True(
@@ -411,17 +382,12 @@ public sealed class IndependentStrategyFlowContractTests
         Assert.Empty(returnProbe.OnErrorNext);
         Assert.True(returnProbe.Success);
 
-        using var profile = JsonDocument.Parse(await File.ReadAllTextAsync(profilePath));
-        var actions = profile.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "career_final_confirmation")
-            .GetProperty("actions")
-            .EnumerateArray()
-            .ToDictionary(
-                item => item.GetProperty("semanticId").GetString()!,
-                item => item.GetProperty("task").GetString()!,
-                StringComparer.OrdinalIgnoreCase);
+        var finalConfirmation = pack.ScreenProfile.Find("career_final_confirmation");
+        Assert.NotNull(finalConfirmation);
+        var actions = finalConfirmation!.Actions.ToDictionary(
+            item => item.SemanticId,
+            item => item.Task,
+            StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(
             "independent_lineup_expand_prepare",
@@ -505,9 +471,7 @@ public sealed class IndependentStrategyFlowContractTests
     [Fact]
     public async Task Lineup_collapse_action_transitions_open_down_to_closed_right()
     {
-        var root = FindSolutionRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(
-            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var connection = new LastVerifiedConnection(
             "adb", "emulator-5554", "android", "test",
             900, 1600, 900, 1600, DateTimeOffset.UtcNow);
@@ -543,9 +507,7 @@ public sealed class IndependentStrategyFlowContractTests
     [Fact]
     public async Task Lineup_expand_action_transitions_closed_right_to_open_down()
     {
-        var root = FindSolutionRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(
-            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var connection = new LastVerifiedConnection(
             "adb", "emulator-5554", "android", "test",
             900, 1600, 900, 1600, DateTimeOffset.UtcNow);
@@ -581,9 +543,7 @@ public sealed class IndependentStrategyFlowContractTests
     [Fact]
     public async Task Strategy_gate_validation_accepts_terminal_stop_and_runner_blocks_open_state()
     {
-        var root = FindSolutionRoot();
-        var pack = await UraScenarioPackLoader.LoadAsync(
-            Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"));
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
         var strategyPreflightActions = new[]
         {
@@ -995,16 +955,4 @@ public sealed class IndependentStrategyFlowContractTests
             Task.CompletedTask;
     }
 
-    private static string FindSolutionRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root.");
-    }
 }

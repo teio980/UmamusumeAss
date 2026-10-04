@@ -1,5 +1,6 @@
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
+using System.IO;
 
 namespace UmamusumeWpfGui.Services.Training;
 
@@ -38,17 +39,34 @@ public sealed class UraRaceResultRecognizer
         if (observed is null || string.IsNullOrWhiteSpace(observed.Capture))
             return null;
 
+        var runtimeFrameName = Path.GetFileNameWithoutExtension(observed.Capture);
+        var runtimeFrameId = $"career.runtime_frame:{runtimeFrameName}";
+        var resources = pack.VisualResources
+            ?? throw new InvalidDataException("Career visual resources are not loaded.");
+        var capturePath = resources.ResolveVisualResource(runtimeFrameId);
+        resources.TryGetRegion("career.race.result.runtime_frame_match", out var matchRegion);
+        if (matchRegion is null)
+        {
+            throw new InvalidDataException(
+                "Career runtime race-result matching policy is missing from the visual catalog.");
+        }
+        var threshold = Math.Clamp(
+            observed.Confidence,
+            matchRegion.Threshold
+                ?? throw new InvalidDataException("Career runtime frame threshold is missing."),
+            GetMetadataDouble(matchRegion, "maximumConfidence"));
+
         var match = await _visualRuntime.WaitForMatchAsync(
                 connection,
-                UraScenarioResourceResolver.Resolve(pack, observed.Capture),
-                roi: null,
-                threshold: Math.Clamp(observed.Confidence, 0.80, 0.99),
+                capturePath,
+                roi: matchRegion.Roi,
+                threshold,
                 pack.ScreenProfile.ReferenceWidth,
                 pack.ScreenProfile.ReferenceHeight,
-                timeoutMilliseconds: 2_500,
-                pollIntervalMilliseconds: 250,
+                timeoutMilliseconds: GetMetadataInt(matchRegion, "waitTimeoutMs"),
+                pollIntervalMilliseconds: GetMetadataInt(matchRegion, "pollIntervalMs"),
                 taskName: $"race_result.{race.RaceId}.placement",
-                baseDirectory: pack.RootDirectory,
+                baseDirectory: string.Empty,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -61,4 +79,19 @@ public sealed class UraRaceResultRecognizer
             Math.Min(match.Score, observed.Confidence),
             observed.Capture);
     }
+
+    private static int GetMetadataInt(CareerVisualRegionDefinition region, string key) =>
+        region.Metadata?.TryGetValue(key, out var value) == true
+        && value.ValueKind == System.Text.Json.JsonValueKind.Number
+        && value.TryGetInt32(out var number)
+            ? number
+            : throw new InvalidDataException(
+                $"Career runtime race-result policy is missing integer '{key}'.");
+
+    private static double GetMetadataDouble(CareerVisualRegionDefinition region, string key) =>
+        region.Metadata?.TryGetValue(key, out var value) == true
+        && value.ValueKind == System.Text.Json.JsonValueKind.Number
+            ? value.GetDouble()
+            : throw new InvalidDataException(
+                $"Career runtime race-result policy is missing number '{key}'.");
 }

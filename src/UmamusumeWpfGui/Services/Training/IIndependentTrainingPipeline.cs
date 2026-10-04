@@ -56,4 +56,7 @@ public sealed record IndependentTrainingResult(
     bool Succeeded,
     string Message,
     int ActionsCompleted,
-    string LastScreenId);
+    string LastScreenId)
+{
+    public HachimiFailureKind FailureKind { get; init; }
+}

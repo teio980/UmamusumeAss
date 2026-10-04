@@ -1,0 +1,92 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "event_choice_event_choice_first": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/event_choice_green_hoof.png",
+      "templThreshold": 0.78,
+      "roi": [
+        30,
+        890,
+        840,
+        125
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "scenario_event_event_advance": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../entry/templates/scenario_event_event_advance.png",
+      "templThreshold": 0.78,
+      "roi": [
+        225,
+        1510,
+        200,
+        70
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "event_reward_next": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/event_reward_next_text.png",
+      "templThreshold": 0.88,
+      "roi": [
+        395,
+        1435,
+        110,
+        75
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true
+    },
+    "inheritance_event_go": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/inheritance_event_go.png",
+      "templThreshold": 0.76,
+      "roi": [
+        300,
+        1150,
+        300,
+        320
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "required": true
+    }
+  }
+}

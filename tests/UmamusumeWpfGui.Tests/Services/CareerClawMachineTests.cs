@@ -264,8 +264,10 @@ public sealed class CareerClawMachineTests
             await new WindowsOcrTextRecognizer().RecognizeAsync(new(frame.Width, frame.Height, frame.RgbaPixels!), "en-US");
     }
 
-    private static GrayImage Capture(string name) => GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(), "captures", name))!;
-    private static GrayImage LoadMarker(string name) => GrayImageCodec.FromFile(Path.Combine(ScreensDirectory(), "templates", "career", "turn", name))!;
+    private static GrayImage Capture(string name) => GrayImageCodec.FromFile(
+        CareerTestResourceResolver.FindUraCapture(WorkspaceRoot(), name))!;
+    private static GrayImage LoadMarker(string name) => GrayImageCodec.FromFile(
+        CareerTestResourceResolver.ResolveBuiltInUraVisualResource($"templates/career/turn/{name}"))!;
     private static TemplateMatchResult Match(GrayImage frame, string name) => CareerClawVision.MatchMarker(frame,
         LoadMarker(name), new UraScreenProfile(), new UraScreenRecognition { TemplateThreshold = 0.92, MatchColorText = true });
     private static Task<UraScenarioPack> LoadPackAsync() => UraScenarioPackLoader.LoadAsync(Path.Combine(WorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));

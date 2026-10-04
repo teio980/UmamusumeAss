@@ -20,10 +20,10 @@ public sealed class CareerRestFlowTests
             "rest_confirmation_rest_confirm", out var confirmTask));
         Assert.NotNull(confirmTask);
 
-        var screens = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-        var frame = GrayImageCodec.FromFile(Path.Combine(screens, "captures", frameName));
-        var okTemplate = GrayImageCodec.FromFile(Path.Combine(
-            screens, confirmTask.Template!.Replace('/', Path.DirectorySeparatorChar)));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, frameName));
+        var okTemplate = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveUraVisualResource(pack, confirmTask.Template!));
         Assert.NotNull(frame);
         Assert.NotNull(okTemplate);
 
@@ -40,7 +40,7 @@ public sealed class CareerRestFlowTests
 
         Assert.Equal(
             "rest_confirmation_rest_confirm",
-            pack.ScreenProfile.Find("rest_confirmation")?.FindAction("confirm")?.Task);
+            pack.ScreenProfile.Find("rest_confirmation")?.FindAction("rest.confirm")?.Task);
         Assert.Null(pack.ScreenProfile.Find("rest_result"));
         Assert.False(pack.ExecutionDefinition.TryGetTask("rest_result_event_advance", out _));
         Assert.Equal(CareerScreenKind.Unknown, CareerScreenClassification.Classify("rest_result"));
@@ -78,10 +78,10 @@ public sealed class CareerRestFlowTests
         string frameName,
         bool expected)
     {
-        var screens = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-        var frame = GrayImageCodec.FromFile(Path.Combine(screens, "captures", frameName));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            screens, "templates", "career_main_action_training.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, frameName));
+        var template = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/career_main_action_training.png"));
 
         Assert.NotNull(frame);
         Assert.NotNull(template);
@@ -93,13 +93,12 @@ public sealed class CareerRestFlowTests
     [Fact]
     public void Rest_event_does_not_look_like_the_training_action()
     {
-        var screens = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-        var frame = GrayImageCodec.FromFile(Path.Combine(
-            screens, "templates", "runtime_frames", "rest_event_ura.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            screens, "templates", "career_main_action_training.png"));
-        var header = GrayImageCodec.FromFile(Path.Combine(
-            screens, "templates", "career_main_header.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "rest_event_ura.png"));
+        var template = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/career_main_action_training.png"));
+        var header = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/career_main_header.png"));
 
         Assert.NotNull(frame);
         Assert.NotNull(template);
@@ -113,8 +112,8 @@ public sealed class CareerRestFlowTests
     public async Task Transient_rest_result_is_not_an_actionable_event_or_confirmation()
     {
         var pack = await LoadPackAsync();
-        var screens = Path.Combine(FindWorkspaceRoot(), "resource", "hachimi", "ura", "screens");
-        var frame = GrayImageCodec.FromFile(Path.Combine(screens, "captures", "rest_result.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "rest_result.png"));
         Assert.NotNull(frame);
 
         foreach (var screenId in new[]
@@ -127,8 +126,9 @@ public sealed class CareerRestFlowTests
             Assert.NotNull(screen);
             foreach (var path in screen.Templates)
             {
-                var template = GrayImageCodec.FromFile(Path.Combine(
-                    screens, path.Replace('/', Path.DirectorySeparatorChar)));
+                var templatePath = pack.ScreenProfile.VisualResources!
+                    .ResolveScreenTemplate(screen, path);
+                var template = GrayImageCodec.FromFile(templatePath);
                 Assert.NotNull(template);
                 var match = TemplateMatcher.Find(
                     frame!, template!, screen.Recognition.Roi,
@@ -139,23 +139,8 @@ public sealed class CareerRestFlowTests
         }
     }
 
-    private static async Task<UraScenarioPack> LoadPackAsync() =>
-        await UraScenarioPackLoader.LoadAsync(Path.Combine(
-            FindWorkspaceRoot(), "resource", "hachimi", "ura", "manifest.json"));
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        CareerTestResourceResolver.LoadBuiltInUraPackAsync();
 
-    private static string FindWorkspaceRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName,
-                    "resource", "hachimi", "ura", "manifest.json")))
-            {
-                return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Could not locate URA resources.");
-    }
+    private static string FindWorkspaceRoot() => CareerTestResourceResolver.FindWorkspaceRoot();
 }

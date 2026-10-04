@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
 
@@ -12,22 +13,11 @@ public sealed class DeveloperToolsImageMatchTests
     [Fact]
     public void Support_autofill_confirmation_fixture_matches_the_fixed_ok_button_in_its_roi()
     {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "testdata",
-            "hachimi",
-            "ura",
-            "captures",
-            "support_autofill_prompt_ura.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "support_autofill_confirmation_support_autofill_ok.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var screen = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "support_autofill_prompt_ura.png"));
+        var template = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/support_autofill_confirmation_support_autofill_ok.png"));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -48,24 +38,11 @@ public sealed class DeveloperToolsImageMatchTests
     [Fact]
     public void Rest_confirmation_fixture_matches_the_rest_dialog_template()
     {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "captures",
-            "rest_confirmation.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "runtime_frames",
-            "rest_confirmation_dialog.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var screen = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "rest_confirmation.png"));
+        var template = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/runtime_frames/rest_confirmation_dialog.png"));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -84,24 +61,11 @@ public sealed class DeveloperToolsImageMatchTests
     [Fact]
     public void Event_choice_green_hoof_template_matches_only_the_first_option_roi()
     {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "runtime_frames",
-            "support_event_choice_ura.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "event_choice_green_hoof.png"));
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var screen = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "support_event_choice_ura.png"));
+        var template = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/event_choice_green_hoof.png"));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -213,15 +177,8 @@ public sealed class DeveloperToolsImageMatchTests
             "Fixtures",
             "Independent",
             "skills-final-confirmation-reset.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "skills_main_reset.png"));
+        var template = GrayImageCodec.FromFile(LoadIndependentTemplatePath(
+            root, "skills_main_reset.png"));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -312,15 +269,8 @@ public sealed class DeveloperToolsImageMatchTests
             "Fixtures",
             "Independent",
             "skills-final-confirmation-no-reset.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            "skills_main_reset.png"));
+        var template = GrayImageCodec.FromFile(LoadIndependentTemplatePath(
+            root, "skills_main_reset.png"));
 
         Assert.NotNull(screen);
         Assert.NotNull(template);
@@ -769,18 +719,10 @@ public sealed class DeveloperToolsImageMatchTests
     public void Independent_lineup_arrow_templates_are_mutually_exclusive()
     {
         var root = FindSolutionRoot();
-        var templateDirectory = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent");
         var openDown = GrayImageCodec.FromFile(
-            Path.Combine(templateDirectory, "lineup_open_down.png"));
+            LoadIndependentTemplatePath(root, "lineup_open_down.png"));
         var closedRight = GrayImageCodec.FromFile(
-            Path.Combine(templateDirectory, "lineup_closed_right.png"));
+            LoadIndependentTemplatePath(root, "lineup_closed_right.png"));
 
         Assert.NotNull(openDown);
         Assert.NotNull(closedRight);
@@ -835,20 +777,12 @@ public sealed class DeveloperToolsImageMatchTests
         if (!File.Exists(openCapturePath) || !File.Exists(closedCapturePath))
             return;
 
-        var templateDirectory = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent");
         var openCapture = GrayImageCodec.FromFile(openCapturePath);
         var closedCapture = GrayImageCodec.FromFile(closedCapturePath);
         var openDown = GrayImageCodec.FromFile(
-            Path.Combine(templateDirectory, "lineup_open_down.png"));
+            LoadIndependentTemplatePath(root, "lineup_open_down.png"));
         var closedRight = GrayImageCodec.FromFile(
-            Path.Combine(templateDirectory, "lineup_closed_right.png"));
+            LoadIndependentTemplatePath(root, "lineup_closed_right.png"));
 
         Assert.NotNull(openCapture);
         Assert.NotNull(closedCapture);
@@ -1077,17 +1011,13 @@ public sealed class DeveloperToolsImageMatchTests
 
     private static GrayImage LoadIndependentTemplate(string root, string name)
     {
-        var image = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "independent",
-            name));
+        var image = GrayImageCodec.FromFile(LoadIndependentTemplatePath(root, name));
         return image ?? throw new InvalidOperationException($"Template '{name}' could not be loaded.");
     }
+
+    private static string LoadIndependentTemplatePath(string root, string name) =>
+        CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            $"templates/independent/{name}");
 
     private static string FindSolutionRoot()
     {

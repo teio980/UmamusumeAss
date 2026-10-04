@@ -52,8 +52,9 @@ public sealed class CareerSkillLearningFlowTests
         var expensive = catalog.Skills.Single(skill => skill.SkillName == "Right-Handed Demon").SkillId;
         var cheap = catalog.Skills.Single(skill => skill.SkillName == "Right-Handed ×").SkillId;
         var actions = new RecordingActions();
+        var pack = await LoadPackAsync();
         var context = new CareerFlowContext(
-            null!, null!, true, null!, null!, "pace", new UraCareerSessionState(),
+            null!, pack, true, null!, null!, "pace", new UraCareerSessionState(),
             new CareerObservation("race_day", 1), null, CancellationToken.None,
             NormalSkillIds: [expensive, cheap]);
 
@@ -61,7 +62,7 @@ public sealed class CareerSkillLearningFlowTests
             .HandleAsync(context);
 
         Assert.Null(result);
-        Assert.Equal(["open_list"], actions.ActionIds);
+        Assert.Equal(["race.open_list"], actions.ActionIds);
     }
 
     [Fact]
@@ -70,8 +71,9 @@ public sealed class CareerSkillLearningFlowTests
         var skillId = IndependentTrainingCatalog.Load(FindRoot()).Skills
             .Single(skill => skill.SkillName == "Professor of Curvature").SkillId;
         var actions = new RecordingActions();
+        var pack = await LoadPackAsync();
         var context = new CareerFlowContext(
-            null!, null!, true, null!, null!, "pace", new UraCareerSessionState(),
+            null!, pack, true, null!, null!, "pace", new UraCareerSessionState(),
             new CareerObservation("race_day", 1), null, CancellationToken.None,
             NormalSkillIds: [skillId]);
 
@@ -102,7 +104,7 @@ public sealed class CareerSkillLearningFlowTests
             .HandleAsync(context);
 
         Assert.Null(result);
-        Assert.Equal(["open_list"], actions.ActionIds);
+        Assert.Equal(["race.open_list"], actions.ActionIds);
     }
 
     [Theory]
@@ -133,8 +135,7 @@ public sealed class CareerSkillLearningFlowTests
         var directory = ScreensDirectory();
         var frame = GrayImageCodec.FromFile(Path.Combine(directory,
             "captures", "career_skill_race_day_662_sample.png"));
-        var back = GrayImageCodec.FromFile(Path.Combine(directory,
-            "templates", "career_skill_back.png"));
+        var back = GrayImageCodec.FromFile(TemplatePath("career_skill_back.png"));
         Assert.NotNull(frame);
         Assert.NotNull(back);
 
@@ -198,7 +199,7 @@ public sealed class CareerSkillLearningFlowTests
     {
         var directory = ScreensDirectory();
         var frame = GrayImageCodec.FromFile(Path.Combine(directory, "captures", capture));
-        var button = GrayImageCodec.FromFile(Path.Combine(directory, "templates", template));
+        var button = GrayImageCodec.FromFile(TemplatePath(template));
         Assert.NotNull(frame);
         Assert.NotNull(button);
 
@@ -231,8 +232,7 @@ public sealed class CareerSkillLearningFlowTests
     {
         var directory = ScreensDirectory();
         var frame = GrayImageCodec.FromFile(Path.Combine(directory, "captures", capture));
-        var textTemplate = GrayImageCodec.FromFile(Path.Combine(directory,
-            "templates", "race_day_skills_open.png"));
+        var textTemplate = GrayImageCodec.FromFile(TemplatePath("race_day_skills_open.png"));
         Assert.NotNull(frame);
         Assert.NotNull(textTemplate);
         var match = TemplateMatcher.FindColor(frame!, textTemplate!,
@@ -250,7 +250,7 @@ public sealed class CareerSkillLearningFlowTests
     {
         var directory = ScreensDirectory();
         var frame = GrayImageCodec.FromFile(Path.Combine(directory, "captures", capture));
-        var textTemplate = GrayImageCodec.FromFile(Path.Combine(directory, "templates", template));
+        var textTemplate = GrayImageCodec.FromFile(TemplatePath(template));
         Assert.NotNull(frame);
         Assert.NotNull(textTemplate);
         var match = TemplateMatcher.FindColor(frame!, textTemplate!,
@@ -265,8 +265,7 @@ public sealed class CareerSkillLearningFlowTests
         var directory = ScreensDirectory();
         var frame = GrayImageCodec.FromFile(Path.Combine(directory,
             "captures", "career_skill_race_day_sample.png"));
-        var marker = GrayImageCodec.FromFile(Path.Combine(directory,
-            "templates", "runtime_frames", "race_day_race_button_text.png"));
+        var marker = GrayImageCodec.FromFile(TemplatePath("race_day_race_button_text.png"));
         Assert.NotNull(frame);
         Assert.NotNull(marker);
         var match = TemplateMatcher.FindColor(frame!, marker!,
@@ -290,6 +289,18 @@ public sealed class CareerSkillLearningFlowTests
 
     private static string ScreensDirectory() => Path.Combine(FindRoot(),
         "resource", "hachimi", "ura", "screens");
+
+    private static string TemplatePath(string fileName) =>
+        fileName.StartsWith("career_skill_", StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(FindRoot(), "resource", "hachimi", "career", "skill", "templates", fileName)
+            : fileName.Equals("race_day_race_button_text.png", StringComparison.OrdinalIgnoreCase)
+                ? Path.Combine(FindRoot(), "resource", "hachimi", "career", "race", "templates",
+                    "runtime_frames", fileName)
+                : Path.Combine(FindRoot(), "resource", "hachimi", "career", "race", "templates", fileName);
+
+    private static Task<UraScenarioPack> LoadPackAsync() =>
+        UraScenarioPackLoader.LoadAsync(Path.Combine(
+            FindRoot(), "resource", "hachimi", "ura", "manifest.json"));
 
     private static string FindRoot()
     {

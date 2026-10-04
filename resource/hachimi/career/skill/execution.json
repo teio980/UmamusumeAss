@@ -1,0 +1,9 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {}
+}

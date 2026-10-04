@@ -1,0 +1,362 @@
+{
+  "$schema": "uma.screen.profile.fragment.v1",
+  "profileId": "ura.global.900x1600.v1",
+  "scenarioId": "ura",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "screens": [
+    {
+      "screenId": "training_selection",
+      "recognition": {
+        "template": "../training/templates/training_selection_header.png",
+        "roi": [
+          0,
+          0,
+          120,
+          50
+        ],
+        "templThreshold": 0.92,
+        "requiredText": [
+          "Training"
+        ],
+        "stable": true,
+        "priority": 6
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "training.failure_rate",
+          "bounds": {
+            "x": 15,
+            "y": 1135,
+            "width": 230,
+            "height": 90
+          }
+        }
+      ],
+      "actions": [
+        {
+          "semanticId": "training.speed",
+          "task": "training_selection_training_speed"
+        },
+        {
+          "semanticId": "training.stamina",
+          "task": "training_selection_training_stamina"
+        },
+        {
+          "semanticId": "training.power",
+          "task": "training_selection_training_power"
+        },
+        {
+          "semanticId": "training.guts",
+          "task": "training_selection_training_guts"
+        },
+        {
+          "semanticId": "training.wit",
+          "task": "training_selection_training_wit"
+        }
+      ],
+      "flow": "turn",
+      "order": 19
+    },
+    {
+      "screenId": "training_result",
+      "recognition": {
+        "template": "../race/templates/runtime_frames/training_result_ura.png",
+        "templates": [
+          "../race/templates/runtime_frames/training_turn2_result_ura.png",
+          "../race/templates/runtime_frames/training_partner_result_ura.png",
+          "../race/templates/runtime_frames/training_duel_result_ura.png"
+        ],
+        "requiredText": [
+          "Training"
+        ],
+        "stable": true,
+        "priority": 4
+      },
+      "actions": [
+        {
+          "semanticId": "event.advance",
+          "task": "training_result_event_advance"
+        }
+      ],
+      "flow": "turn",
+      "order": 20
+    },
+    {
+      "screenId": "career_main",
+      "recognition": {
+        "template": "templates/career_main_header.png",
+        "roi": [
+          0,
+          0,
+          120,
+          50
+        ],
+        "templThreshold": 0.92,
+        "requiredTemplate": "templates/career_main_action_training.png",
+        "requiredTemplateRoi": [
+          200,
+          1050,
+          500,
+          400
+        ],
+        "requiredTemplateThreshold": 0.78,
+        "requiredText": [
+          "Career"
+        ],
+        "stable": true,
+        "priority": 9
+      },
+      "ocrRegions": [
+        {
+          "semanticId": "scenario.phase",
+          "bounds": {
+            "x": 15,
+            "y": 45,
+            "width": 300,
+            "height": 45
+          }
+        },
+        {
+          "semanticId": "objective.turns_left",
+          "bounds": {
+            "x": 10,
+            "y": 90,
+            "width": 175,
+            "height": 140
+          }
+        },
+        {
+          "semanticId": "objective.title",
+          "bounds": {
+            "x": 315,
+            "y": 90,
+            "width": 520,
+            "height": 80
+          }
+        },
+        {
+          "semanticId": "mood.current",
+          "bounds": {
+            "x": 654,
+            "y": 169,
+            "width": 170,
+            "height": 68
+          }
+        },
+        {
+          "semanticId": "stats.summary",
+          "bounds": {
+            "x": 25,
+            "y": 1030,
+            "width": 850,
+            "height": 120
+          }
+        }
+      ],
+      "observations": {
+        "energyBar": {
+          "roi": [
+            280,
+            176,
+            365,
+            50
+          ],
+          "innerInset": [
+            7,
+            10,
+            349,
+            28
+          ],
+          "fillSaturationMin": 0.18,
+          "fillValueMin": 0.18,
+          "columnMatchRatio": 0.55,
+          "minimumConfidence": 0.7
+        }
+      },
+      "actions": [
+        {
+          "semanticId": "goal.details",
+          "task": "career_main_goal_details"
+        },
+        {
+          "semanticId": "action.training",
+          "task": "career_main_action_training"
+        },
+        {
+          "semanticId": "action.rest",
+          "task": "career_main_action_rest"
+        },
+        {
+          "semanticId": "action.recreation",
+          "task": "career_main_action_recreation"
+        },
+        {
+          "semanticId": "action.summer_rest",
+          "task": "career_main_action_summer_rest"
+        },
+        {
+          "semanticId": "action.infirmary",
+          "task": "career_main_action_infirmary"
+        },
+        {
+          "semanticId": "action.races",
+          "task": "career_main_action_races"
+        },
+        {
+          "semanticId": "action.finale_races",
+          "task": "career_main_action_finale_races"
+        }
+      ],
+      "flow": "main",
+      "order": 18
+    },
+    {
+      "screenId": "infirmary_confirmation",
+      "recognition": {
+        "template": "templates/career/turn/infirmary_confirmation_title.png",
+        "roi": [
+          350,
+          475,
+          200,
+          85
+        ],
+        "templThreshold": 0.85,
+        "stable": true,
+        "priority": 5
+      },
+      "actions": [
+        {
+          "semanticId": "infirmary.confirm",
+          "task": "infirmary_confirmation_ok"
+        }
+      ],
+      "flow": "turn",
+      "order": 24
+    },
+    {
+      "screenId": "claw_machine",
+      "recognition": {
+        "template": "templates/career/turn/claw_how_to_play.png",
+        "templThreshold": 0.94,
+        "matchColorText": true,
+        "stable": true,
+        "priority": -1
+      },
+      "actions": [],
+      "flow": "turn",
+      "order": 25
+    },
+    {
+      "screenId": "claw_machine_result",
+      "recognition": {
+        "template": "templates/career/turn/claw_result_cuties.png",
+        "templThreshold": 0.92,
+        "matchColorText": true,
+        "stable": true,
+        "priority": -2
+      },
+      "actions": [],
+      "flow": "turn",
+      "order": 26
+    },
+    {
+      "screenId": "recreation_selection",
+      "recognition": {
+        "template": "templates/career/turn/recreation_selection_title.png",
+        "roi": [
+          330,
+          365,
+          245,
+          90
+        ],
+        "templThreshold": 0.94,
+        "matchColorText": true,
+        "stable": true,
+        "priority": 5
+      },
+      "actions": [
+        {
+          "semanticId": "recreation.trainee",
+          "task": "recreation_selection_trainee"
+        }
+      ],
+      "flow": "turn",
+      "order": 27
+    },
+    {
+      "screenId": "recreation_confirmation",
+      "recognition": {
+        "template": "templates/career/turn/recreation_prompt.png",
+        "roi": [
+          280,
+          710,
+          350,
+          95
+        ],
+        "templThreshold": 0.94,
+        "matchColorText": true,
+        "stable": true,
+        "priority": 5
+      },
+      "actions": [
+        {
+          "semanticId": "recreation.confirm",
+          "task": "recreation_confirmation_ok"
+        }
+      ],
+      "flow": "turn",
+      "order": 28
+    },
+    {
+      "screenId": "summer_rest_confirmation",
+      "recognition": {
+        "template": "templates/career/turn/summer_rest_confirmation_title.png",
+        "roi": [
+          282,
+          475,
+          335,
+          75
+        ],
+        "templThreshold": 0.85,
+        "stable": true,
+        "priority": 5
+      },
+      "actions": [
+        {
+          "semanticId": "rest.confirm",
+          "task": "rest_confirmation_rest_confirm"
+        }
+      ],
+      "flow": "turn",
+      "order": 29
+    },
+    {
+      "screenId": "rest_confirmation",
+      "recognition": {
+        "template": "../race/templates/runtime_frames/rest_confirmation_dialog.png",
+        "roi": [
+          0,
+          460,
+          900,
+          700
+        ],
+        "templThreshold": 0.82,
+        "requiredText": [
+          "Rest",
+          "OK"
+        ],
+        "stable": true,
+        "priority": 5
+      },
+      "actions": [
+        {
+          "semanticId": "rest.confirm",
+          "task": "rest_confirmation_rest_confirm"
+        }
+      ],
+      "flow": "turn",
+      "order": 30
+    }
+  ]
+}

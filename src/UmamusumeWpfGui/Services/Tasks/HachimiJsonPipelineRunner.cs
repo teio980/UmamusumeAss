@@ -58,7 +58,8 @@ public sealed class HachimiJsonPipelineRunner
                 false,
                 "The Hachimi pipeline definition could not be loaded.",
                 0,
-                null);
+                null,
+                HachimiFailureKind.InvalidDefinition);
         }
 
         return await RunAsync(
@@ -235,7 +236,8 @@ public sealed class HachimiJsonPipelineRunner
                         $"Task '{current}' threw {exception.GetType().Name}: {detail}",
                         LogEntryKind.Failure);
                     execution = TaskExecutionResult.Failed(
-                        $"JSON task '{current}' failed unexpectedly: {detail}");
+                        $"JSON task '{current}' failed unexpectedly: {detail}",
+                        failureKind: HachimiFailureKind.RuntimeError);
                 }
 
                 if (execution.Succeeded
@@ -306,8 +308,12 @@ public sealed class HachimiJsonPipelineRunner
                     logSink,
                     execution.Message,
                     state.CompletedUnits,
-                    current);
+                    current,
+                    execution.FailureKind);
             }
+
+            if (!string.IsNullOrWhiteSpace(task.Outcome))
+                state.Outcome = task.Outcome;
 
             if (!string.IsNullOrWhiteSpace(task.CountAs))
                 state.CompletedUnits++;
@@ -376,7 +382,7 @@ public sealed class HachimiJsonPipelineRunner
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!subResult.Succeeded)
-                return TaskExecutionResult.Failed(subResult.Message);
+                return TaskExecutionResult.Failed(subResult.Message, failureKind: subResult.FailureKind);
         }
 
         TemplateMatchResult? match = null;
@@ -463,7 +469,7 @@ public sealed class HachimiJsonPipelineRunner
                     if (detected is null)
                     {
                         return TaskExecutionResult.RetryableFailure(
-                            $"OCR screenshot could not be captured for '{taskName}'.");
+                            $"OCR screenshot could not be captured for '{taskName}'.", HachimiFailureKind.RecognitionUnavailable);
                     }
 
                     AddTaskLog(
@@ -500,7 +506,7 @@ public sealed class HachimiJsonPipelineRunner
                     if (textMatch is null)
                     {
                         return TaskExecutionResult.RetryableFailure(
-                            $"OCR screenshot could not be captured for '{taskName}'.");
+                            $"OCR screenshot could not be captured for '{taskName}'.", HachimiFailureKind.RecognitionUnavailable);
                     }
 
                     AddTaskLog(
@@ -529,7 +535,8 @@ public sealed class HachimiJsonPipelineRunner
                             textMatch.Ambiguous
                                 ? textMatch.Error
                                     ?? $"OCR target '{targetText}' was ambiguous."
-                                : $"OCR target '{targetText}' was not found before timeout.");
+                                : $"OCR target '{targetText}' was not found before timeout.",
+                            textMatch.Ambiguous ? HachimiFailureKind.AmbiguousRecognition : HachimiFailureKind.RecognitionTimeout);
                     }
                 }
             }
@@ -540,7 +547,7 @@ public sealed class HachimiJsonPipelineRunner
             catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 return TaskExecutionResult.RetryableFailure(
-                    $"OCR task '{taskName}' failed: {exception.Message}");
+                    $"OCR task '{taskName}' failed: {exception.Message}", HachimiFailureKind.RuntimeError);
             }
         }
 
@@ -550,6 +557,13 @@ public sealed class HachimiJsonPipelineRunner
             && !string.IsNullOrWhiteSpace(templateOverride))
         {
             templatePath = templateOverride;
+        }
+
+        if (!string.IsNullOrWhiteSpace(task.TemplateCollection) && string.IsNullOrWhiteSpace(templatePath))
+        {
+            return TaskExecutionResult.Failed(
+                $"Task '{taskName}' requires a template from collection '{task.TemplateCollection}'.",
+                failureKind: HachimiFailureKind.InvalidDefinition);
         }
 
         if (!reusedLastMatch && !string.IsNullOrWhiteSpace(templatePath))
@@ -610,7 +624,7 @@ public sealed class HachimiJsonPipelineRunner
             catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
             {
                 return TaskExecutionResult.RetryableFailure(
-                    $"Visual task '{taskName}' failed: {exception.Message}");
+                    $"Visual task '{taskName}' failed: {exception.Message}", HachimiFailureKind.RuntimeError);
             }
 
             if (match is null || !match.Found)
@@ -1872,17 +1886,6 @@ public sealed class HachimiJsonPipelineRunner
             configured = options.DefaultTaskRetryTimes;
         }
 
-        // Career recognition is especially sensitive to one slow emulator
-        // frame. Give visual misses a small, bounded retry budget even for
-        // older JSON packs that predate retryTimes. This applies only to the
-        // retry-safe failure returned by the recognition phase.
-        if (configured == 0
-            && options.SemanticProfile == HachimiTaskLogProfile.Career
-            && IsCareerTask(taskName))
-        {
-            configured = 2;
-        }
-
         return Math.Clamp(configured, 0, 5);
     }
 
@@ -1899,38 +1902,15 @@ public sealed class HachimiJsonPipelineRunner
     private static int ResolveTaskTimeoutMilliseconds(
         string taskName,
         HachimiPipelineTask task,
-        HachimiPipelineRunOptions options)
-    {
-        if (task.TimeoutMilliseconds == Timeout.Infinite)
-            return Timeout.Infinite;
-
-        var timeout = Math.Max(0, task.TimeoutMilliseconds);
-        if (options.SemanticProfile != HachimiTaskLogProfile.Career
-            || !IsCareerTask(taskName))
-        {
-            return timeout;
-        }
-
-        // Home and Career Main are state gates. A short timeout here turns a
-        // single slow screenshot into a full-area failure, so keep a bounded
-        // floor for legacy definitions while preserving longer task values.
-        var floor = taskName.Equals("home", StringComparison.OrdinalIgnoreCase)
-            || taskName.Equals("homeAlt", StringComparison.OrdinalIgnoreCase)
-            ? 10_000
-            : 15_000;
-        return Math.Max(timeout, floor);
-    }
+        HachimiPipelineRunOptions options) =>
+        task.TimeoutMilliseconds == Timeout.Infinite
+            ? Timeout.Infinite
+            : Math.Max(0, task.TimeoutMilliseconds);
 
     private static string FormatTaskTimeout(int timeoutMilliseconds) =>
         timeoutMilliseconds == Timeout.Infinite
             ? "until found"
             : $"{timeoutMilliseconds}ms";
-
-    private static bool IsCareerTask(string taskName) =>
-        taskName.Equals("home", StringComparison.OrdinalIgnoreCase)
-        || taskName.Equals("homeAlt", StringComparison.OrdinalIgnoreCase)
-        || taskName.StartsWith("home_home_career", StringComparison.OrdinalIgnoreCase)
-        || taskName.StartsWith("career_main", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyDictionary<string, int> CreateShopOverrides(
         HachimiShopSettings settings)
@@ -2592,16 +2572,18 @@ public sealed class HachimiJsonPipelineRunner
             true,
             $"JSON pipeline completed ({state.CompletedUnits} counted unit(s)).",
             state.CompletedUnits,
-            lastTask);
+            lastTask,
+            Outcome: state.Outcome);
 
     private static HachimiPipelineRunResult Fail(
         IGrassTaskLogSink? logSink,
         string message,
         int completedUnits,
-        string? lastTask)
+        string? lastTask,
+        HachimiFailureKind failureKind = HachimiFailureKind.InvalidDefinition)
     {
         AddLog(logSink, message, LogEntryKind.Failure);
-        return new HachimiPipelineRunResult(false, message, completedUnits, lastTask);
+        return new HachimiPipelineRunResult(false, message, completedUnits, lastTask, failureKind);
     }
 
     private static void AddLog(
@@ -2648,12 +2630,14 @@ public sealed class HachimiJsonPipelineRunner
         public HachimiPipelineRunOptions Options { get; }
 
         public int CompletedUnits { get; set; }
+        public string? Outcome { get; set; }
         public int RecoveredRaceUnits { get; private set; }
 
         public void ResetNavigation(int confirmedRaceUnits)
         {
             _taskCounts.Clear();
             _lastMatches.Clear();
+            Outcome = null;
             RecoveredRaceUnits = confirmedRaceUnits;
         }
 
@@ -2703,7 +2687,8 @@ public sealed class HachimiJsonPipelineRunner
         string Message,
         string? LastTask,
         string? TransitionTask,
-        bool Retryable)
+        bool Retryable,
+        HachimiFailureKind FailureKind = HachimiFailureKind.None)
     {
         public static TaskExecutionResult Completed(
             string taskName,
@@ -2712,11 +2697,14 @@ public sealed class HachimiJsonPipelineRunner
 
         public static TaskExecutionResult Failed(
             string message,
-            bool retryable = false) =>
-            new(false, message, null, null, retryable);
+            bool retryable = false,
+            HachimiFailureKind failureKind = HachimiFailureKind.ActionFailed) =>
+            new(false, message, null, null, retryable, failureKind);
 
-        public static TaskExecutionResult RetryableFailure(string message) =>
-            new(false, message, null, null, true);
+        public static TaskExecutionResult RetryableFailure(
+            string message,
+            HachimiFailureKind failureKind = HachimiFailureKind.RecognitionTimeout) =>
+            new(false, message, null, null, true, failureKind);
     }
 }
 
@@ -2820,8 +2808,21 @@ public sealed record HachimiCustomActionResult(
     public static HachimiCustomActionResult Failure(string message) => new(false, message);
 }
 
+public enum HachimiFailureKind
+{
+    None,
+    InvalidDefinition,
+    RecognitionTimeout,
+    RecognitionUnavailable,
+    AmbiguousRecognition,
+    ActionFailed,
+    RuntimeError,
+}
+
 public sealed record HachimiPipelineRunResult(
     bool Succeeded,
     string Message,
     int CompletedUnits,
-    string? LastTask);
+    string? LastTask,
+    HachimiFailureKind FailureKind = HachimiFailureKind.None,
+    string? Outcome = null);

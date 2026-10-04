@@ -86,7 +86,9 @@ public sealed class CareerStartupRecoveryDetector
                 continue;
 
             var template = await LoadTemplateCachedAsync(
-                    UraScenarioResourceResolver.Resolve(pack, screen.Templates[0]),
+                    screen.SourceDirectory is not null
+                        ? UraScenarioResourceResolver.Resolve(pack, screen, screen.Templates[0])
+                        : UraScenarioResourceResolver.Resolve(pack, screen.Templates[0]),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (template is null)

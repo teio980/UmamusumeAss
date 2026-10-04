@@ -1,0 +1,435 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "training_selection_training_speed": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/speed.png",
+      "templThreshold": 0.7,
+      "roi": [
+        20,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 1400,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_speed_first_click"
+      ],
+      "onErrorNext": [
+        "training_selection_speed_raised_probe"
+      ]
+    },
+    "training_selection_speed_raised_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/speed.png",
+      "templThreshold": 0.7,
+      "roi": [
+        20,
+        1160,
+        180,
+        125
+      ],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_speed_raised_click"
+      ]
+    },
+    "training_selection_speed_first_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/speed.png",
+      "templThreshold": 0.7,
+      "roi": [
+        20,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_speed_raised_probe"
+      ],
+      "required": true
+    },
+    "training_selection_speed_raised_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/speed.png",
+      "templThreshold": 0.7,
+      "roi": [
+        20,
+        1160,
+        180,
+        125
+      ],
+      "clickOffset": [
+        0,
+        54
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_training_stamina": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/stamina.png",
+      "templThreshold": 0.7,
+      "roi": [
+        180,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 1400,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_stamina_first_click"
+      ],
+      "onErrorNext": [
+        "training_selection_stamina_raised_probe"
+      ]
+    },
+    "training_selection_stamina_raised_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/stamina.png",
+      "templThreshold": 0.7,
+      "roi": [
+        180,
+        1160,
+        180,
+        125
+      ],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_stamina_raised_click"
+      ]
+    },
+    "training_selection_stamina_first_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/stamina.png",
+      "templThreshold": 0.7,
+      "roi": [
+        180,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_stamina_raised_probe"
+      ],
+      "required": true
+    },
+    "training_selection_stamina_raised_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/stamina.png",
+      "templThreshold": 0.7,
+      "roi": [
+        180,
+        1160,
+        180,
+        125
+      ],
+      "clickOffset": [
+        0,
+        54
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_training_power": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/power.png",
+      "templThreshold": 0.7,
+      "roi": [
+        345,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 1400,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_power_first_click"
+      ],
+      "onErrorNext": [
+        "training_selection_power_raised_probe"
+      ]
+    },
+    "training_selection_power_raised_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/power.png",
+      "templThreshold": 0.7,
+      "roi": [
+        345,
+        1160,
+        180,
+        125
+      ],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_power_raised_click"
+      ]
+    },
+    "training_selection_power_first_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/power.png",
+      "templThreshold": 0.7,
+      "roi": [
+        345,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_power_raised_probe"
+      ],
+      "required": true
+    },
+    "training_selection_power_raised_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/power.png",
+      "templThreshold": 0.7,
+      "roi": [
+        345,
+        1160,
+        180,
+        125
+      ],
+      "clickOffset": [
+        0,
+        54
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_training_guts": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/guts.png",
+      "templThreshold": 0.7,
+      "roi": [
+        510,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 1400,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_guts_first_click"
+      ],
+      "onErrorNext": [
+        "training_selection_guts_raised_probe"
+      ]
+    },
+    "training_selection_guts_raised_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/guts.png",
+      "templThreshold": 0.7,
+      "roi": [
+        510,
+        1160,
+        180,
+        125
+      ],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_guts_raised_click"
+      ]
+    },
+    "training_selection_guts_first_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/guts.png",
+      "templThreshold": 0.7,
+      "roi": [
+        510,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_guts_raised_probe"
+      ],
+      "required": true
+    },
+    "training_selection_guts_raised_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/guts.png",
+      "templThreshold": 0.7,
+      "roi": [
+        510,
+        1160,
+        180,
+        125
+      ],
+      "clickOffset": [
+        0,
+        54
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_training_wit": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/wit.png",
+      "templThreshold": 0.7,
+      "roi": [
+        675,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 1400,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_wit_first_click"
+      ],
+      "onErrorNext": [
+        "training_selection_wit_raised_probe"
+      ]
+    },
+    "training_selection_wit_raised_probe": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_logos/wit.png",
+      "templThreshold": 0.7,
+      "roi": [
+        675,
+        1160,
+        180,
+        125
+      ],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_wit_raised_click"
+      ]
+    },
+    "training_selection_wit_first_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/wit.png",
+      "templThreshold": 0.7,
+      "roi": [
+        675,
+        1300,
+        180,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [
+        "training_selection_wit_raised_probe"
+      ],
+      "required": true
+    },
+    "training_selection_wit_raised_click": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/wit.png",
+      "templThreshold": 0.7,
+      "roi": [
+        675,
+        1160,
+        180,
+        125
+      ],
+      "clickOffset": [
+        0,
+        54
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_result_event_advance": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/training_result_event_advance.png",
+      "templThreshold": 0.78,
+      "roi": [
+        225,
+        1510,
+        200,
+        70
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "training_event_event_advance": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/training_event_event_advance.png",
+      "templThreshold": 0.78,
+      "roi": [
+        225,
+        1510,
+        200,
+        70
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    }
+  }
+}

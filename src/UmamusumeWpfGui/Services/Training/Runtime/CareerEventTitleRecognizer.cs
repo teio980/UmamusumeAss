@@ -53,7 +53,10 @@ internal sealed class CareerEventTitleRecognizer
                 continue;
             }
 
-            var path = UraScenarioResourceResolver.Resolve(pack, task.Template);
+            var path = pack.VisualResources is { } resources
+                && resources.TryGetResolvedTaskTemplate(action.Task, out var resolved)
+                ? resolved!
+                : UraScenarioResourceResolver.Resolve(pack, task.Template);
             var template = await _templates.GetOrAdd(path,
                     key => new Lazy<Task<GrayImage?>>(() => _visualRuntime.LoadTemplateAsync(
                         key, string.Empty, CancellationToken.None)))

@@ -8,46 +8,21 @@ public sealed class RacePlaybackFlowContractTests
     [Fact]
     public async Task Playback_race_button_is_centered_and_does_not_match_runner_race_button()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(
-            Path.Combine(
-                root,
-                "resource",
-                "hachimi",
-                "ura",
-                "screens",
-                "execution.json"));
-
-        Assert.NotNull(definition);
-        var task = definition!.GetTask("race_runner_playback_start");
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
+        var taskName = "race_runner_playback_start";
+        var task = definition.GetTask(taskName);
         Assert.Equal("MatchTemplateColor", task.Algorithm);
         Assert.NotNull(task.Roi);
         Assert.Equal([320, 1380, 260, 180], task.Roi!);
 
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "career",
-            "race",
-            "race_playback_start.png"));
-        var playbackReady = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "testdata",
-            "hachimi",
-            "ura",
-            "captures",
-            "senior_february_playback_ready2.png"));
-        var runnerPage = GrayImageCodec.FromFile(Path.Combine(
-            root,
-            "testdata",
-            "hachimi",
-            "ura",
-            "captures",
-            "senior_arima_race_stage.png"));
+        var template = GrayImageCodec.FromFile(
+            pack.VisualResources!.ResolveTaskTemplate(taskName));
+        var playbackReady = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "senior_february_playback_ready2.png"));
+        var runnerPage = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            root, "senior_arima_race_stage.png"));
 
         Assert.NotNull(template);
         Assert.NotNull(playbackReady);
@@ -76,18 +51,10 @@ public sealed class RacePlaybackFlowContractTests
     [Fact]
     public async Task Playback_race_waits_for_skip_as_a_state_transition()
     {
-        var root = FindSolutionRoot();
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(
-            Path.Combine(
-                root,
-                "resource",
-                "hachimi",
-                "ura",
-                "screens",
-                "execution.json"));
-
-        Assert.NotNull(definition);
-        var task = definition!.GetTask("race_runner_playback_start");
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var definition = pack.ExecutionDefinition;
+        var task = definition.GetTask("race_runner_playback_start");
         Assert.Equal("ClickSelf", task.Action);
         Assert.Equal("race_runner_playback_result_monitor", task.Next.Single());
         Assert.Equal("ParallelMonitor", definition!.GetTask(
@@ -99,7 +66,10 @@ public sealed class RacePlaybackFlowContractTests
         Assert.Contains("race_runner_playback_start", resultMonitor.MonitorTasks);
         Assert.Contains("race_runner_result_flow", resultMonitor.SuccessTasks);
         var trophyProbe = definition.GetTask("race_runner_trophy_probe");
-        Assert.Equal("templates/career/race/race_trophy_won.png", trophyProbe.Template);
+        var trophyTemplatePath = pack.VisualResources!.ResolveTaskTemplate("race_runner_trophy_probe");
+        Assert.True(File.Exists(trophyTemplatePath), trophyTemplatePath);
+        Assert.EndsWith(Path.Combine("career", "race", "race_trophy_won.png"),
+            trophyTemplatePath, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("race_runner_trophy_close", trophyProbe.Next.Single());
         var trophyClose = definition.GetTask("race_runner_trophy_close");
         Assert.Equal("ClickSelf", trophyClose.Action);
@@ -118,16 +88,4 @@ public sealed class RacePlaybackFlowContractTests
             definition.GetTask("race_runner_playback_ready_probe").Next.Single());
     }
 
-    private static string FindSolutionRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null
-            && !File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new DirectoryNotFoundException("Could not locate the solution root.");
-    }
 }

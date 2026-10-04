@@ -40,8 +40,8 @@ public sealed class AgendaRaceCardRecognitionTests
         Assert.NotNull(root);
         var crop = GrayImageCodec.FromFile(Path.Combine(root!.FullName, "tests", "UmamusumeWpfGui.Tests",
             "Fixtures", "Agenda", "junior-early-oct-race-cards.png"));
-        var template = GrayImageCodec.FromFile(Path.Combine(root.FullName,
-            "resource", "hachimi", "ura", "screens", "templates", "independent", "race_cards", "3057.png"));
+        var template = GrayImageCodec.FromFile(
+            CareerTestResourceResolver.ResolveBuiltInUraVisualResource("independent.race_card:3057"));
         Assert.NotNull(crop);
         Assert.NotNull(template);
         var pixels = new byte[900 * 1600];

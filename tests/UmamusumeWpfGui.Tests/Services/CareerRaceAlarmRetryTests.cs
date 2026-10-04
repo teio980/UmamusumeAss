@@ -64,9 +64,8 @@ public sealed class CareerRaceAlarmRetryTests
             root, "resource", "hachimi", "ura", "manifest.json"));
         var screen = pack.ScreenProfile.Find("race_retry_dialog");
         Assert.NotNull(screen);
-        var template = GrayImageCodec.FromFile(Path.Combine(
-            root, "resource", "hachimi", "ura", "screens", "templates",
-            "career", "race", "race_retry_dialog_title.png"));
+        var template = GrayImageCodec.FromFile(pack.VisualResources!
+            .ResolveScreenTemplate(screen, screen.Recognition.Template!));
         Assert.NotNull(template);
 
         foreach (var name in new[]
@@ -175,7 +174,7 @@ public sealed class CareerRaceAlarmRetryTests
             {
                 Observation = new CareerObservation("complete_career", 1),
             }));
-        Assert.Equal(["cancel", "result.next", "open", "finish"], actions.Calls);
+        Assert.Equal(["cancel", "result.next", "career.open", "career.finish"], actions.Calls);
     }
 
     [Fact]

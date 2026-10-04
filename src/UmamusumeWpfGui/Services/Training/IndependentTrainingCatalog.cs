@@ -26,6 +26,9 @@ public sealed class IndependentTrainingCatalog
     public const string RaceCardTemplateDirectory =
         "templates/independent/race_cards";
 
+    private const string PackagedRaceCardTemplateDirectory =
+        "resource/hachimi/career/modes/independent/templates/independent/race_cards";
+
     private IndependentTrainingCatalog(
         IReadOnlyList<IndependentTrainingRace> races,
         IReadOnlyList<IndependentTrainingSkill> skills,
@@ -117,7 +120,11 @@ public sealed class IndependentTrainingCatalog
             return null;
 
         var relativePath = GetRaceCardTemplatePath(race.RaceId);
+        var fileName = race.RaceId.ToString(CultureInfo.InvariantCulture) + ".png";
         var packagedRelativePath = Path.Combine(
+            PackagedRaceCardTemplateDirectory.Replace('/', Path.DirectorySeparatorChar),
+            fileName);
+        var legacyPackagedRelativePath = Path.Combine(
             "resource",
             "hachimi",
             "ura",
@@ -126,17 +133,21 @@ public sealed class IndependentTrainingCatalog
         var candidates = new List<string>();
         if (!string.IsNullOrWhiteSpace(baseDirectory))
         {
-            candidates.Add(Path.Combine(baseDirectory, relativePath));
             candidates.Add(Path.Combine(baseDirectory, packagedRelativePath));
+            candidates.Add(Path.Combine(baseDirectory, relativePath));
+            candidates.Add(Path.Combine(baseDirectory, legacyPackagedRelativePath));
         }
 
         candidates.Add(ResourcePathRuntime.Resolve(packagedRelativePath));
         candidates.Add(Path.GetFullPath(packagedRelativePath));
+        candidates.Add(ResourcePathRuntime.Resolve(legacyPackagedRelativePath));
+        candidates.Add(Path.GetFullPath(legacyPackagedRelativePath));
 
         var directory = new DirectoryInfo(Environment.CurrentDirectory);
         while (directory is not null)
         {
             candidates.Add(Path.Combine(directory.FullName, packagedRelativePath));
+            candidates.Add(Path.Combine(directory.FullName, legacyPackagedRelativePath));
             directory = directory.Parent;
         }
 

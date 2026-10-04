@@ -1,0 +1,1367 @@
+{
+  "name": "career-training-execution",
+  "schemaVersion": 1,
+  "description": "URA visual execution tasks. Every tap is MatchTemplate + ClickSelf; coordinates only restrict the search ROI.",
+  "referenceWidth": 900,
+  "referenceHeight": 1600,
+  "templates": {},
+  "tasks": {
+    "home": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/start_game/game_home_selected.png",
+      "templThreshold": 0.8,
+      "roi": [
+        250,
+        1400,
+        400,
+        200
+      ],
+      "preDelay": 0,
+      "postDelay": 1200,
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [
+        "home_home_career"
+      ],
+      "onErrorNext": [
+        "homeAlt"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "homeAlt": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/start_game/game_home_unselected.png",
+      "templThreshold": 0.8,
+      "roi": [
+        250,
+        1400,
+        400,
+        200
+      ],
+      "preDelay": 0,
+      "postDelay": 1200,
+      "waitMs": 0,
+      "timeoutMs": 10000,
+      "retryTimes": 2,
+      "retryDelayMs": 750,
+      "pollIntervalMs": 250,
+      "next": [
+        "home_home_career"
+      ],
+      "onErrorNext": [
+        "home_home_career"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_final_confirmation_probe": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "../modes/independent/templates/independent/career_final_confirmation_header.png",
+      "templThreshold": 0.8,
+      "roi": [
+        10,
+        40,
+        880,
+        76
+      ],
+      "timeoutMs": 4000,
+      "pollIntervalMs": 150
+    },
+    "home_home_career": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/home_home_career.png",
+      "templThreshold": 0.78,
+      "roi": [
+        505,
+        1240,
+        330,
+        180
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [
+        "home_home_career_active"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false,
+      "retryTimes": 2
+    },
+    "home_home_career_active": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/home_home_career_active_label.png",
+      "templThreshold": 0.82,
+      "roi": [
+        500,
+        1230,
+        390,
+        220
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 15000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false,
+      "retryTimes": 2
+    },
+    "scenario_select_scenario_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/scenario_select_scenario_next.png",
+      "templThreshold": 0.78,
+      "roi": [
+        270,
+        1300,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "scenario_select_scenario_next_card": {
+      "algorithm": "ClickRect",
+      "action": "ClickRect",
+      "specificRect": [
+        815,
+        650,
+        75,
+        180
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "trainee_select_pick": {
+      "algorithm": "MatchTemplate",
+      "action": "SelectUraTrainee",
+      "searchRois": [
+        [
+          35,
+          815,
+          145,
+          170
+        ],
+        [
+          205,
+          815,
+          145,
+          170
+        ],
+        [
+          375,
+          815,
+          145,
+          170
+        ],
+        [
+          545,
+          815,
+          145,
+          170
+        ],
+        [
+          715,
+          815,
+          145,
+          170
+        ],
+        [
+          35,
+          1010,
+          145,
+          170
+        ],
+        [
+          205,
+          1010,
+          145,
+          170
+        ],
+        [
+          375,
+          1010,
+          145,
+          170
+        ],
+        [
+          545,
+          1010,
+          145,
+          170
+        ],
+        [
+          715,
+          1010,
+          145,
+          170
+        ],
+        [
+          35,
+          1205,
+          145,
+          90
+        ],
+        [
+          205,
+          1205,
+          145,
+          90
+        ],
+        [
+          375,
+          1205,
+          145,
+          90
+        ],
+        [
+          545,
+          1205,
+          145,
+          90
+        ],
+        [
+          715,
+          1205,
+          145,
+          90
+        ]
+      ],
+      "templThreshold": 0.78,
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [
+        "trainee_select_trainee_next"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "trainee_select_trainee_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/trainee_select_trainee_next.png",
+      "templThreshold": 0.78,
+      "roi": [
+        270,
+        1300,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_auto_fill": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/normal/templates/support_select_support_auto_fill.png",
+      "templThreshold": 0.78,
+      "preDelay": 0,
+      "postDelay": 100,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_display_settings": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/display_settings_icon.png",
+      "templThreshold": 0.82,
+      "roi": [
+        650,
+        1270,
+        120,
+        120
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 250,
+      "required": true
+    },
+    "support_select_support_sort_level": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/sort_level_live.png",
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "templThreshold": 0.82,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 100,
+      "onErrorNext": [
+        "support_select_support_sort_level_selected"
+      ],
+      "required": true
+    },
+    "support_select_support_sort_level_selected": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support/sort_level_selected.png",
+      "roi": [
+        350,
+        280,
+        260,
+        130
+      ],
+      "templThreshold": 0.82,
+      "timeoutMs": 1000,
+      "pollIntervalMs": 100,
+      "required": true
+    },
+    "support_select_support_friend_sort_level": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/sort_level_friend_live.png",
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "templThreshold": 0.82,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 100,
+      "onErrorNext": [
+        "support_select_support_friend_sort_level_selected"
+      ],
+      "required": true
+    },
+    "support_select_support_friend_sort_level_selected": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support/sort_level_friend_selected.png",
+      "roi": [
+        20,
+        400,
+        230,
+        130
+      ],
+      "templThreshold": 0.82,
+      "timeoutMs": 1000,
+      "pollIntervalMs": 100,
+      "required": true
+    },
+    "support_select_support_sort_apply": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/sort_apply.png",
+      "templThreshold": 0.82,
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 450,
+      "next": [
+        "support_select_support_card_list_probe"
+      ],
+      "required": true
+    },
+    "support_select_support_filter_tab": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_tab.png",
+      "templThreshold": 0.65,
+      "roi": [
+        430,
+        120,
+        450,
+        110
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 100,
+      "next": [
+        "support_select_support_filter_page_probe"
+      ],
+      "required": true
+    },
+    "support_select_support_filter_reset": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_reset.png",
+      "templThreshold": 0.82,
+      "roi": [
+        600,
+        1260,
+        280,
+        130
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 100,
+      "required": true
+    },
+    "support_select_support_filter_r": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_r.png",
+      "templThreshold": 0.78,
+      "roi": [
+        30,
+        280,
+        260,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_sr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_sr.png",
+      "templThreshold": 0.78,
+      "roi": [
+        300,
+        280,
+        260,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_ssr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_ssr.png",
+      "templThreshold": 0.78,
+      "roi": [
+        590,
+        280,
+        260,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_speed": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_speed.png",
+      "templThreshold": 0.78,
+      "roi": [
+        20,
+        450,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_stamina": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_stamina.png",
+      "templThreshold": 0.78,
+      "roi": [
+        300,
+        450,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_power": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_power.png",
+      "templThreshold": 0.78,
+      "roi": [
+        590,
+        450,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_guts": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_guts.png",
+      "templThreshold": 0.78,
+      "roi": [
+        20,
+        550,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_wit": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_wit.png",
+      "templThreshold": 0.78,
+      "roi": [
+        300,
+        550,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_friend": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_friend.png",
+      "templThreshold": 0.78,
+      "roi": [
+        590,
+        550,
+        300,
+        150
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 50,
+      "required": true
+    },
+    "support_select_support_filter_apply": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/filter_apply.png",
+      "templThreshold": 0.82,
+      "roi": [
+        400,
+        1400,
+        470,
+        180
+      ],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "postDelay": 450,
+      "next": [
+        "support_select_support_card_list_probe"
+      ],
+      "required": true
+    },
+    "support_select_support_filter_page_probe": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support/filter_reset.png",
+      "templThreshold": 0.82,
+      "roi": [
+        600,
+        1260,
+        280,
+        130
+      ],
+      "timeoutMs": 2000,
+      "pollIntervalMs": 100,
+      "required": true
+    },
+    "support_select_support_card_list_probe": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support/display_settings_icon.png",
+      "templThreshold": 0.82,
+      "roi": [
+        650,
+        1270,
+        120,
+        120
+      ],
+      "timeoutMs": 2000,
+      "pollIntervalMs": 100,
+      "required": true
+    },
+    "support_select_support_sort_asc_click": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/sort_asc_live.png",
+      "roi": [
+        700,
+        1300,
+        200,
+        100
+      ],
+      "templThreshold": 0.82,
+      "timeoutMs": 800,
+      "pollIntervalMs": 100,
+      "postDelay": 250,
+      "required": false
+    },
+    "support_select_support_selected_card": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support/selected.png",
+      "templThreshold": 0.88,
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "timeoutMs": 250,
+      "pollIntervalMs": 50,
+      "required": true
+    },
+    "support_select_support_top_card_ssr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/ssr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "onErrorNext": [
+        "support_select_support_top_card_sr"
+      ],
+      "required": true
+    },
+    "support_select_support_top_card_sr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/sr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "required": true
+    },
+    "support_select_support_guest_top_card_ssr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/ssr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "onErrorNext": [
+        "support_select_support_guest_top_card_sr"
+      ],
+      "required": true
+    },
+    "support_select_support_guest_top_card_sr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/sr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        130,
+        165,
+        220
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "required": true
+    },
+    "support_select_support_friend_top_card_ssr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/ssr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        250,
+        165,
+        230
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "onErrorNext": [
+        "support_select_support_friend_top_card_sr"
+      ],
+      "required": true
+    },
+    "support_select_support_friend_top_card_sr": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/sr_badge.png",
+      "templThreshold": 0.72,
+      "roi": [
+        35,
+        250,
+        165,
+        230
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 60,
+      "postDelay": 450,
+      "required": true
+    },
+    "support_select_support_reset_if_needed": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/support_select_support_reset_disabled.png",
+      "templThreshold": 0.9,
+      "roi": [
+        20,
+        1080,
+        460,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 500,
+      "pollIntervalMs": 50,
+      "next": [
+        "support_select_support_reset_skip"
+      ],
+      "onErrorNext": [
+        "support_select_support_reset"
+      ],
+      "required": false
+    },
+    "support_select_support_reset_skip": {
+      "algorithm": "JustReturn",
+      "action": "JustReturn",
+      "preDelay": 0,
+      "postDelay": 0,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 50,
+      "next": [],
+      "required": true
+    },
+    "support_select_support_reset": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_select_support_reset.png",
+      "templThreshold": 0.82,
+      "roi": [
+        20,
+        1080,
+        460,
+        140
+      ],
+      "preDelay": 0,
+      "postDelay": 300,
+      "waitMs": 0,
+      "timeoutMs": 4000,
+      "pollIntervalMs": 100,
+      "next": [
+        "support_select_support_reset_ok"
+      ],
+      "required": true
+    },
+    "support_select_support_reset_ok": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_select_support_reset_ok.png",
+      "templThreshold": 0.82,
+      "roi": [
+        450,
+        950,
+        420,
+        220
+      ],
+      "preDelay": 0,
+      "postDelay": 400,
+      "waitMs": 0,
+      "timeoutMs": 4000,
+      "pollIntervalMs": 100,
+      "required": true
+    },
+    "support_select_support_open": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/support_open.png",
+      "templThreshold": 0.82,
+      "searchRois": [
+        [
+          90,
+          420,
+          160,
+          160
+        ],
+        [
+          360,
+          420,
+          160,
+          160
+        ],
+        [
+          630,
+          420,
+          160,
+          160
+        ],
+        [
+          90,
+          770,
+          160,
+          160
+        ],
+        [
+          360,
+          770,
+          160,
+          160
+        ],
+        [
+          630,
+          770,
+          160,
+          160
+        ]
+      ],
+      "preDelay": 0,
+      "postDelay": 300,
+      "waitMs": 0,
+      "timeoutMs": 3000,
+      "pollIntervalMs": 100,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_card": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/30028.png",
+      "templThreshold": 0.84,
+      "searchRois": [],
+      "minScoreGap": 0.08,
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [
+        "support_select_support_card_scroll"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 8,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_card_exact": {
+      "algorithm": "MatchTemplateScaled",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/30028.png",
+      "templThreshold": 0.78,
+      "roi": [
+        35,
+        180,
+        830,
+        1120
+      ],
+      "searchRois": [],
+      "minScoreGap": 0.0,
+      "scaleCandidates": [
+        1.1
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 100,
+      "next": [],
+      "onErrorNext": [
+        "support_select_support_card_exact_fallback"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 8,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_card_exact_fallback": {
+      "algorithm": "MatchTemplateScaled",
+      "action": "ClickSelf",
+      "template": "templates/support_cards/30028.png",
+      "templThreshold": 0.78,
+      "roi": [
+        35,
+        180,
+        830,
+        1120
+      ],
+      "searchRois": [],
+      "minScoreGap": 0.0,
+      "scaleCandidates": [
+        0.8,
+        0.85,
+        0.9,
+        0.95,
+        1.0,
+        1.05,
+        1.1
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 2500,
+      "pollIntervalMs": 100,
+      "next": [],
+      "onErrorNext": [
+        "support_select_support_card_exact_scroll"
+      ],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_card_exact_scroll": {
+      "algorithm": "JustReturn",
+      "action": "Swipe",
+      "swipe": [
+        450,
+        1300,
+        450,
+        450,
+        600
+      ],
+      "preDelay": 0,
+      "postDelay": 350,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [
+        "support_select_support_card_exact"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_card_scroll": {
+      "algorithm": "JustReturn",
+      "action": "Swipe",
+      "swipe": [
+        450,
+        1300,
+        450,
+        450,
+        600
+      ],
+      "preDelay": 0,
+      "postDelay": 350,
+      "waitMs": 0,
+      "timeoutMs": 0,
+      "pollIntervalMs": 0,
+      "next": [
+        "support_select_support_card"
+      ],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_close": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support/support_close.png",
+      "templThreshold": 0.82,
+      "preDelay": 0,
+      "postDelay": 500,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_autofill_confirmation_support_autofill_ok": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/normal/templates/support_autofill_confirmation_support_autofill_ok.png",
+      "templThreshold": 0.78,
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_select_support_start": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/support_select_support_start.png",
+      "templThreshold": 0.56,
+      "roi": [
+        250,
+        1260,
+        500,
+        180
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "support_ready_support_start": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../modes/normal/templates/support_ready_support_start.png",
+      "templThreshold": 0.85,
+      "roi": [
+        250,
+        1260,
+        500,
+        180
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy1_clear_cached": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/legacy/legacy1_cached_record.png",
+      "templThreshold": 0.86,
+      "roi": [
+        145,
+        1050,
+        190,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy1_open": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/legacy/legacy1_slot.png",
+      "templThreshold": 0.78,
+      "roi": [
+        0,
+        760,
+        450,
+        450
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy2_clear_cached": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/legacy/legacy2_cached_record.png",
+      "templThreshold": 0.86,
+      "roi": [
+        545,
+        1050,
+        205,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 1500,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy2_open": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/legacy/legacy2_slot.png",
+      "templThreshold": 0.78,
+      "roi": [
+        430,
+        760,
+        450,
+        450
+      ],
+      "preDelay": 0,
+      "postDelay": 450,
+      "waitMs": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy_next": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/legacy/legacy_next_enabled.png",
+      "templThreshold": 0.78,
+      "roi": [
+        270,
+        1300,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "legacy_select_legacy_choose": {
+      "algorithm": "JustReturn",
+      "action": "SelectUraLegacy",
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_intro_event_event_advance": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_intro_event_event_advance.png",
+      "templThreshold": 0.78,
+      "roi": [
+        740,
+        1400,
+        150,
+        170
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    },
+    "career_entry_career_start": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_career_start.png",
+      "templThreshold": 0.78,
+      "roi": [
+        470,
+        1430,
+        360,
+        120
+      ],
+      "preDelay": 0,
+      "postDelay": 650,
+      "waitMs": 0,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "next": [],
+      "onErrorNext": [],
+      "exceededNext": [],
+      "sub": [],
+      "monitorTasks": [],
+      "maxTimes": 0,
+      "required": true,
+      "success": false
+    }
+  }
+}

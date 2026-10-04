@@ -36,9 +36,9 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Career_delete_closes_the_deleted_data_dialog_with_a_template()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
+        var visualResources = package.VisualResources!;
 
         Assert.NotNull(definition);
         var deleteConfirm = definition!.GetTask("career_continue_delete_confirm");
@@ -46,71 +46,51 @@ public sealed class HachimiPipelineDefinitionTests
 
         Assert.Equal("career_continue_delete_close", deleteConfirm.Next.Single(), ignoreCase: true);
         Assert.Equal("ClickSelf", close.Action, ignoreCase: true);
-        Assert.Equal("templates/career_continue_delete_close.png", close.Template);
+        Assert.Equal(
+            "templates/career_continue_delete_close.png",
+            visualResources.GetOriginalTaskTemplate("career_continue_delete_close"));
         Assert.Equal([200, 900, 520, 260], close.Roi!);
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            close.Template!)));
+        Assert.True(File.Exists(visualResources.ResolveTaskTemplate("career_continue_delete_close")));
     }
 
     [Fact]
     public async Task Normal_career_uses_its_own_mode_and_strategy_materials()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
+        var visualResources = package.VisualResources!;
 
         Assert.NotNull(definition);
 
         var normalModeProbe = definition!.GetTask("normal_mode_selected_probe");
         Assert.Equal(
             "templates/normal/mode_normal_selected.png",
-            normalModeProbe.Template);
+            visualResources.GetOriginalTaskTemplate("normal_mode_selected_probe"));
         Assert.Equal([20, 240, 430, 75], normalModeProbe.Roi!);
         Assert.Empty(normalModeProbe.Next);
         Assert.Equal("normal_mode_select", normalModeProbe.OnErrorNext.Single());
 
         var normalStrategy = definition.GetTask("normal_strategy_change");
-        Assert.Equal("templates/normal/strategy_change.png", normalStrategy.Template);
+        Assert.Equal("templates/normal/strategy_change.png", visualResources.GetOriginalTaskTemplate("normal_strategy_change"));
         Assert.Equal([680, 420, 230, 150], normalStrategy.Roi!);
 
         var normalReturn = definition.GetTask("normal_strategy_return_probe");
-        Assert.Equal("templates/normal/strategy_change.png", normalReturn.Template);
+        Assert.Equal("templates/normal/strategy_change.png", visualResources.GetOriginalTaskTemplate("normal_strategy_return_probe"));
         Assert.Equal([680, 420, 230, 150], normalReturn.Roi!);
 
         var independentModeProbe = definition.GetTask("independent_mode_selected_probe");
         Assert.Equal(
             "templates/independent/mode_independent_selected.png",
-            independentModeProbe.Template);
+            visualResources.GetOriginalTaskTemplate("independent_mode_selected_probe"));
         Assert.Equal([450, 240, 430, 75], independentModeProbe.Roi!);
 
         var independentStrategy = definition.GetTask("independent_strategy_change");
-        Assert.Equal("templates/independent/strategy_change.png", independentStrategy.Template);
+        Assert.Equal("templates/independent/strategy_change.png", visualResources.GetOriginalTaskTemplate("independent_strategy_change"));
         Assert.Equal([620, 600, 250, 180], independentStrategy.Roi!);
 
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "normal",
-            "mode_normal_selected.png")));
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "normal",
-            "strategy_change.png")));
+        Assert.True(File.Exists(visualResources.ResolveTaskTemplate("normal_mode_selected_probe")));
+        Assert.True(File.Exists(visualResources.ResolveTaskTemplate("normal_strategy_change")));
     }
 
     [Fact]
@@ -537,9 +517,8 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Ura_support_start_buttons_use_template_detection()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
-
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
 
         Assert.NotNull(definition);
         foreach (var taskName in new[]
@@ -559,98 +538,59 @@ public sealed class HachimiPipelineDefinitionTests
     }
 
     [Fact]
-    public void Ura_support_select_recognition_uses_the_stable_auto_fill_button()
+    public async Task Ura_support_select_recognition_uses_the_stable_auto_fill_button()
     {
-        var root = FindSolutionRoot();
-        var json = File.ReadAllText(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json"));
-        using var document = System.Text.Json.JsonDocument.Parse(json);
-        var supportSelect = document.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
-        var recognition = supportSelect.GetProperty("recognition");
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var supportSelect = pack.ScreenProfile.Find("support_select")!;
+        var recognition = supportSelect.Recognition;
+        var templatePath = ResolveProfileTemplate(pack, "support_select");
 
-        Assert.Equal(
-            "templates/support_select_support_auto_fill.png",
-            recognition.GetProperty("template").GetString());
+        Assert.Equal("support_select_support_auto_fill.png", Path.GetFileName(templatePath));
+        Assert.True(File.Exists(templatePath));
         Assert.Equal(
             [350, 1030, 520, 240],
-            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
-        Assert.Equal(0.92, recognition.GetProperty("templThreshold").GetDouble());
+            recognition.Roi!);
+        Assert.Equal(0.92, recognition.TemplateThreshold);
     }
 
     [Fact]
-    public void Ura_support_autofill_confirmation_recognition_uses_the_fixed_ok_button()
+    public async Task Ura_support_autofill_confirmation_recognition_uses_the_fixed_ok_button()
     {
-        var root = FindSolutionRoot();
-        var json = File.ReadAllText(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json"));
-        using var document = System.Text.Json.JsonDocument.Parse(json);
-        var confirmation = document.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "support_autofill_confirmation");
-        var recognition = confirmation.GetProperty("recognition");
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var confirmation = pack.ScreenProfile.Find("support_autofill_confirmation")!;
+        var recognition = confirmation.Recognition;
+        var templatePath = ResolveProfileTemplate(pack, "support_autofill_confirmation");
 
-        Assert.Equal(
-            "templates/support_autofill_confirmation_support_autofill_ok.png",
-            recognition.GetProperty("template").GetString());
+        Assert.Equal("support_autofill_confirmation_support_autofill_ok.png", Path.GetFileName(templatePath));
+        Assert.True(File.Exists(templatePath));
         Assert.Equal(
             [430, 940, 440, 220],
-            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
-        Assert.Equal(0.78, recognition.GetProperty("templThreshold").GetDouble());
+            recognition.Roi!);
+        Assert.Equal(0.78, recognition.TemplateThreshold);
     }
 
     [Fact]
-    public void Ura_support_ready_recognition_uses_the_start_template()
+    public async Task Ura_support_ready_recognition_uses_the_start_template()
     {
-        var root = FindSolutionRoot();
-        var json = File.ReadAllText(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json"));
-        using var document = System.Text.Json.JsonDocument.Parse(json);
-        var supportReady = document.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "support_ready");
-        var recognition = supportReady.GetProperty("recognition");
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var supportReady = pack.ScreenProfile.Find("support_ready")!;
+        var recognition = supportReady.Recognition;
+        var templatePath = ResolveProfileTemplate(pack, "support_ready");
 
-        Assert.Equal(
-            "templates/support_ready_support_start.png",
-            recognition.GetProperty("template").GetString());
-        Assert.Equal(0.85, recognition.GetProperty("templThreshold").GetDouble());
+        Assert.Equal("support_ready_support_start.png", Path.GetFileName(templatePath));
+        Assert.True(File.Exists(templatePath));
+        Assert.Equal(0.85, recognition.TemplateThreshold);
         Assert.Equal(
             [250, 1260, 500, 180],
-            recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
+            recognition.Roi!);
     }
 
     [Fact]
     public async Task Normal_career_post_start_skips_the_opening_intro_with_the_bottom_right_button()
     {
         var root = FindSolutionRoot();
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var json = LoadScreenProfileJson(root);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
         var confirmation = document.RootElement
             .GetProperty("screens")
             .EnumerateArray()
@@ -662,18 +602,16 @@ public sealed class HachimiPipelineDefinitionTests
 
         Assert.Equal("normal_post_start_skip", skipAction.GetProperty("task").GetString());
 
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
+        var resources = package.VisualResources!;
         var task = definition!.GetTask("normal_post_start_skip");
 
         Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
         Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
-        Assert.Equal("templates/career_intro_event_event_advance.png", task.Template);
+        var skipTemplate = resources.ResolveTaskTemplate("normal_post_start_skip");
+        Assert.Equal("career_intro_event_event_advance.png", Path.GetFileName(skipTemplate));
+        Assert.True(File.Exists(skipTemplate));
         Assert.Equal([740, 1400, 150, 170], task.Roi!);
         Assert.Equal(0.78, task.TemplateThreshold);
         Assert.Equal("normal_post_start_skip_confirm", task.Next.Single());
@@ -681,7 +619,9 @@ public sealed class HachimiPipelineDefinitionTests
         var skipConfirmation = definition.GetTask("normal_post_start_skip_confirm");
         Assert.Equal("MatchTemplate", skipConfirmation.Algorithm, ignoreCase: true);
         Assert.Equal("ClickSelf", skipConfirmation.Action, ignoreCase: true);
-        Assert.Equal("templates/career_intro_event_skip_confirm.png", skipConfirmation.Template);
+        var skipConfirmationTemplate = resources.ResolveTaskTemplate("normal_post_start_skip_confirm");
+        Assert.Equal("career_intro_event_skip_confirm.png", Path.GetFileName(skipConfirmationTemplate));
+        Assert.True(File.Exists(skipConfirmationTemplate));
         Assert.Equal([450, 970, 420, 170], skipConfirmation.Roi!);
         Assert.Equal(0.82, skipConfirmation.TemplateThreshold);
         Assert.False(skipConfirmation.Required);
@@ -691,14 +631,8 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Normal_career_does_not_bind_post_start_to_support_autofill_confirmation()
     {
         var root = FindSolutionRoot();
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var json = LoadScreenProfileJson(root);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
         var confirmation = document.RootElement
             .GetProperty("screens")
             .EnumerateArray()
@@ -708,13 +642,8 @@ public sealed class HachimiPipelineDefinitionTests
             confirmation.GetProperty("actions").EnumerateArray(),
             item => item.GetProperty("semanticId").GetString() == "normal.post_start.ok");
 
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
 
         Assert.False(definition!.TryGetTask("normal_post_start_ok", out _));
     }
@@ -723,14 +652,8 @@ public sealed class HachimiPipelineDefinitionTests
     public async Task Normal_quick_mode_flow_selects_shortened_events_and_reaches_two_arrow_skip()
     {
         var root = FindSolutionRoot();
-        var profilePath = Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json");
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(profilePath));
+        var json = LoadScreenProfileJson(root);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
         var quickMode = document.RootElement
             .GetProperty("screens")
             .EnumerateArray()
@@ -742,13 +665,9 @@ public sealed class HachimiPipelineDefinitionTests
             [280, 390, 340, 50],
             recognition.GetProperty("roi").EnumerateArray().Select(item => item.GetInt32()).ToArray());
 
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "execution.json"));
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
+        var resources = package.VisualResources!;
         var skipTwo = definition!.GetTask("normal_quick_mode_skip_two_probe");
         var skipOne = definition.GetTask("normal_quick_mode_skip_one_probe");
         var skipOff = definition.GetTask("normal_quick_mode_skip_off_click");
@@ -758,21 +677,22 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("MatchTemplateColor", skipOne.Algorithm);
         Assert.Equal("MatchTemplateColor", skipOff.Algorithm);
         Assert.Equal("MatchTemplateColor", skipOneClick.Algorithm);
-        Assert.Equal("templates/normal/quick_mode_skip_two.png", skipTwo.Template);
+        Assert.Equal("templates/normal/quick_mode_skip_two.png", resources.GetOriginalTaskTemplate("normal_quick_mode_skip_two_probe"));
         Assert.Equal("normal_quick_mode_skip_one_probe", skipTwo.OnErrorNext.Single());
         Assert.Equal("normal_quick_mode_skip_one_click", skipOne.Next.Single());
         Assert.Equal("normal_quick_mode_skip_off_click", skipOne.OnErrorNext.Single());
         Assert.Equal("normal_quick_mode_skip_two_probe", skipOneClick.Next.Single());
         Assert.Equal("normal_quick_mode_skip_one_probe", skipOff.Next.Single());
-        Assert.Equal("templates/normal/quick_mode_confirm.png", definition.GetTask("normal_quick_mode_confirm").Template);
+        Assert.Equal("templates/normal/quick_mode_confirm.png", resources.GetOriginalTaskTemplate("normal_quick_mode_confirm"));
     }
 
     [Fact]
     public async Task Ura_support_picker_controls_are_template_driven()
     {
         var root = FindSolutionRoot();
-        var path = Path.Combine(root, "resource", "hachimi", "ura", "screens", "execution.json");
-        var definition = await HachimiPipelineDefinitionLoader.LoadAsync(path);
+        var package = await LoadCareerPackageAsync(root);
+        var definition = package.ExecutionDefinition;
+        var resources = package.VisualResources!;
 
         Assert.NotNull(definition);
         foreach (var taskName in new[]
@@ -847,7 +767,7 @@ public sealed class HachimiPipelineDefinitionTests
             GetSupportActionTask(root, "support.ranked.select_highest_card"));
         Assert.Equal(
             "templates/support_select_support_reset.png",
-            definition.GetTask("support_select_support_reset").Template);
+            resources.GetOriginalTaskTemplate("support_select_support_reset"));
         Assert.Equal(
             [20, 1080, 460, 140],
             definition.GetTask("support_select_support_reset").Roi!);
@@ -856,7 +776,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("JustReturn", resetIfNeeded.Action, ignoreCase: true);
         Assert.Equal(
             "templates/support_select_support_reset_disabled.png",
-            resetIfNeeded.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_reset_if_needed"));
         Assert.False(resetIfNeeded.Required);
         Assert.Equal(
             "support_select_support_reset_skip",
@@ -872,7 +792,7 @@ public sealed class HachimiPipelineDefinitionTests
             definition.GetTask("support_select_support_reset").Next.Single());
         Assert.Equal(
             "templates/support_select_support_reset_ok.png",
-            definition.GetTask("support_select_support_reset_ok").Template);
+            resources.GetOriginalTaskTemplate("support_select_support_reset_ok"));
         Assert.Equal(
             [450, 950, 420, 220],
             definition.GetTask("support_select_support_reset_ok").Roi!);
@@ -888,7 +808,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("JustReturn", filterPageProbe.Action, ignoreCase: true);
         Assert.Equal(
             "templates/support/filter_reset.png",
-            filterPageProbe.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_filter_page_probe"));
         Assert.Equal(
             "support_select_support_card_list_probe",
             definition.GetTask("support_select_support_filter_apply").Next.Single());
@@ -896,7 +816,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("JustReturn", cardListProbe.Action, ignoreCase: true);
         Assert.Equal(
             "templates/support/display_settings_icon.png",
-            cardListProbe.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_card_list_probe"));
         Assert.Equal([650, 1270, 120, 120], cardListProbe.Roi!);
         Assert.Equal(
             [650, 1270, 120, 120],
@@ -923,14 +843,14 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("JustReturn", selectedProbe.Action, ignoreCase: true);
         Assert.Equal(
             "templates/support/selected.png",
-            selectedProbe.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_selected_card"));
         Assert.Equal(0.88, selectedProbe.TemplateThreshold);
         Assert.Equal(
             "support_select_support_selected_card",
             GetSupportActionTask(root, "support.ranked.detect_selected_card"));
         Assert.Equal(
             "templates/support/sort_level_live.png",
-            definition.GetTask("support_select_support_sort_level").Template);
+            resources.GetOriginalTaskTemplate("support_select_support_sort_level"));
         Assert.Equal(
             "support_select_support_sort_level_selected",
             definition.GetTask("support_select_support_sort_level").OnErrorNext.Single());
@@ -938,7 +858,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("JustReturn", selectedSort.Action, ignoreCase: true);
         Assert.Equal(
             "templates/support/sort_level_selected.png",
-            selectedSort.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_sort_level_selected"));
         Assert.Equal([350, 280, 260, 130], definition.GetTask("support_select_support_sort_level").Roi!);
         Assert.Equal([350, 280, 260, 130], selectedSort.Roi!);
         var friendSort = definition.GetTask("support_select_support_friend_sort_level");
@@ -948,17 +868,17 @@ public sealed class HachimiPipelineDefinitionTests
             friendSort.OnErrorNext.Single());
         Assert.Equal(
             "templates/support/sort_level_friend_live.png",
-            friendSort.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_friend_sort_level"));
         var friendSelectedSort = definition.GetTask(
             "support_select_support_friend_sort_level_selected");
         Assert.Equal([20, 400, 230, 130], friendSelectedSort.Roi!);
         Assert.Equal(
             "templates/support/sort_level_friend_selected.png",
-            friendSelectedSort.Template);
+            resources.GetOriginalTaskTemplate("support_select_support_friend_sort_level_selected"));
         var sortDirection = definition.GetTask("support_select_support_sort_asc_click");
         Assert.Equal([700, 1300, 200, 100], sortDirection.Roi!);
         var supportOpen = definition.GetTask("support_select_support_open");
-        Assert.Equal("templates/support/support_open.png", supportOpen.Template);
+        Assert.Equal("templates/support/support_open.png", resources.GetOriginalTaskTemplate("support_select_support_open"));
         Assert.Equal(6, supportOpen.SearchRois.Count);
         Assert.Equal([90, 420, 160, 160], supportOpen.SearchRois[0]);
         Assert.Equal([630, 770, 160, 160], supportOpen.SearchRois[^1]);
@@ -976,15 +896,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal(
             "support_select_support_friend_top_card_ssr",
             GetSupportActionTask(root, "support.ranked.select_friend_highest_card"));
-        Assert.True(File.Exists(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "templates",
-            "support_cards",
-            "r_badge.png")));
+        Assert.True(File.Exists(resources.ResolveVisualResource("career.entry.support.card_rank.r")));
         foreach (var filterKey in new[]
         {
             "speed",
@@ -996,38 +908,43 @@ public sealed class HachimiPipelineDefinitionTests
         })
         {
             Assert.True(
-                File.Exists(Path.Combine(
-                    root,
-                    "resource",
-                    "hachimi",
-                    "ura",
-                    "screens",
-                    "templates",
-                    "support_cards",
-                    $"friend_type_{filterKey}.png")),
+                resources.TryGetAsset($"career.entry.support.type.friend.{filterKey}", out _),
                 $"Missing friend-page template for {filterKey}.");
         }
     }
 
     private static string GetSupportActionTask(string root, string semanticId)
     {
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(
-            root,
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            "screen_profile.json")));
-        var supportSelect = document.RootElement
-            .GetProperty("screens")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("screenId").GetString() == "support_select");
-        return supportSelect
-            .GetProperty("actions")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("semanticId").GetString() == semanticId)
-            .GetProperty("task")
-            .GetString()!;
+        var profile = UraScenarioPackLoader.LoadScreenProfileAsync(GetCareerManifestPath(root))
+            .GetAwaiter()
+            .GetResult();
+        return profile.Find("support_select")?.FindAction(semanticId)?.Task
+            ?? throw new InvalidOperationException($"Career support action '{semanticId}' was not found.");
+    }
+
+    private static async Task<ScenarioExecutionPackage> LoadCareerPackageAsync(string root) =>
+        await ScenarioPackageLoader.LoadExecutionAsync(GetCareerManifestPath(root));
+
+    private static string LoadScreenProfileJson(string root)
+    {
+        var profile = UraScenarioPackLoader.LoadScreenProfileAsync(GetCareerManifestPath(root))
+            .GetAwaiter()
+            .GetResult();
+        return System.Text.Json.JsonSerializer.Serialize(profile);
+    }
+
+    private static string GetCareerManifestPath(string root) =>
+        Path.Combine(root, "resource", "hachimi", "ura", "manifest.json");
+
+    private static string ResolveProfileTemplate(UraScenarioPack pack, string screenId)
+    {
+        var resources = pack.VisualResources
+            ?? throw new InvalidOperationException("The loaded Career pack has no visual resources.");
+        var screen = pack.ScreenProfile.Find(screenId)
+            ?? throw new InvalidOperationException($"Career screen '{screenId}' was not found.");
+        var template = screen.Recognition.Template
+            ?? throw new InvalidOperationException($"Career screen '{screenId}' has no recognition template.");
+        return resources.ResolveScreenTemplate(screen, template);
     }
 
     private static string FindSolutionRoot()
