@@ -67,7 +67,7 @@
   <sys:String x:Key="GrassTaskLogCanceledMessage">任务已取消</sys:String>
   <sys:String x:Key="GrassTaskLogSkippedAfterCancel">队列已取消，因此跳过</sys:String>
   <sys:String x:Key="GrassTaskLogStopRequested">已请求停止</sys:String>
-  <sys:String x:Key="GrassTaskReorderHint">长按任务后上下拖动，可调整队列顺序。</sys:String>
+  <sys:String x:Key="GrassTaskReorderHint">按住任务并上下拖动，可调整队列顺序。</sys:String>
   <sys:String x:Key="GrassSettings">设置</sys:String>
   <sys:String x:Key="GrassTaskSettings">任务设置</sys:String>
   <sys:String x:Key="GrassTaskSettingsPageTitle">任务设置</sys:String>

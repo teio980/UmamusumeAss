@@ -235,6 +235,8 @@ public sealed partial class GrassView : UserControl
         }
 
         var sourcePoint = e.GetPosition(_taskDragSourceContainer);
+        // Crossing the movement threshold starts a drag immediately;
+        // smaller movements still count as a click.
         if (!_taskDragInProgress
             && !HasPassedTaskDragThreshold(sourcePoint))
         {

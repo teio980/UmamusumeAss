@@ -36,7 +36,7 @@
   <sys:String x:Key="GrassTaskLogCanceledMessage">Task canceled</sys:String>
   <sys:String x:Key="GrassTaskLogSkippedAfterCancel">Skipped because the queue was canceled</sys:String>
   <sys:String x:Key="GrassTaskLogStopRequested">Stop requested</sys:String>
-  <sys:String x:Key="GrassTaskReorderHint">Long-press a task, then drag it up or down to reorder.</sys:String>
+  <sys:String x:Key="GrassTaskReorderHint">Drag a task up or down to reorder.</sys:String>
   <sys:String x:Key="GrassSettings">Settings</sys:String>
   <sys:String x:Key="GrassTaskSettings">Task settings</sys:String>
   <sys:String x:Key="GrassTaskSettingsPageTitle">Task settings</sys:String>
