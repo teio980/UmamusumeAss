@@ -236,7 +236,7 @@
       "threshold": 0.8
     },
     "career.entry.trainee.filter_tab": {
-      "path": "entry/templates/trainee/runner_filter_tab.png",
+      "path": "entry/templates/trainee/career_filter_tab.png",
       "threshold": 0.78
     },
     "career.entry.trainee.filter_confirm": {
