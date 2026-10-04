@@ -52,7 +52,7 @@
           300,
           320
         ],
-        "templThreshold": 0.76,
+        "templThreshold": 0.9,
         "matchAlphaTemplate": true,
         "stable": true,
         "priority": -3

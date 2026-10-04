@@ -76,7 +76,7 @@
       "algorithm": "MatchTemplateColor",
       "action": "ClickSelf",
       "template": "templates/inheritance_event_go.png",
-      "templThreshold": 0.76,
+      "templThreshold": 0.9,
       "roi": [
         300,
         1150,

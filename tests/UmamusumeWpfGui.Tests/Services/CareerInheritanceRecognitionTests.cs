@@ -119,6 +119,45 @@ public sealed class CareerInheritanceRecognitionTests
             pack.ScreenProfile, state, false, false, false, false, false));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Asahi_Hai_goal_completion_does_not_recognize_or_click_inheritance_GO(bool initialResume)
+    {
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var screen = pack.ScreenProfile.Find("inheritance_event")!;
+        var frame = GrayImageCodec.FromFile(Path.Combine(root, "tests", "UmamusumeWpfGui.Tests",
+            "Fixtures", "Career", "goal-complete-asahi-hai.png"));
+        var template = GrayImageCodec.FromFile(pack.VisualResources!
+            .ResolveScreenTemplate(screen, screen.Recognition.Template!));
+        Assert.NotNull(frame);
+        Assert.NotNull(template);
+
+        // The captured background + Next button reproduced the reported false hit.
+        var oldMatch = TemplateMatcher.FindColor(frame, template, screen.Recognition.Roi,
+            0.76, 900, 1600);
+        Assert.True(oldMatch.Found);
+        Assert.InRange(oldMatch.Score, 0.764, 0.765);
+        Assert.Equal((328, 1194), (oldMatch.X, oldMatch.Y));
+
+        var recognitionMatch = TemplateMatcher.FindColor(frame, template, screen.Recognition.Roi,
+            screen.Recognition.TemplateThreshold, 900, 1600);
+        Assert.False(recognitionMatch.Found);
+        var action = pack.ExecutionDefinition.Tasks["inheritance_event_go"];
+        var clickMatch = TemplateMatcher.FindColor(frame, template, action.Roi,
+            action.TemplateThreshold, 900, 1600);
+        Assert.False(clickMatch.Found);
+
+        var observer = new CareerScreenObserver(InheritanceReplay.Create(frame));
+        var state = initialResume ? new UraCareerSessionState() : State("race_runner_result", false);
+        state.GoalCompletionProbeArmed = true;
+        var observation = await observer.ObserveAsync(Connection(), pack, state,
+            false, CancellationToken.None, careerOnly: initialResume);
+        Assert.Equal("goal_objective_complete", observation?.ScreenId);
+        Assert.Equal(["goal_objective_complete", "goal_objective_complete"], observer.LastFrameScreenIds);
+    }
+
     private static UraCareerSessionState State(string previousScreen, bool pending) => new()
     {
         CareerStarted = true,
