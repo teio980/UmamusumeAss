@@ -6,6 +6,7 @@ MaaAssistantArknights/
 
 # Build output
 build/
+/build.bat
 artifacts/
 bin/
 obj/
