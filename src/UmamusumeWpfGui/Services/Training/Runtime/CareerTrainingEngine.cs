@@ -470,8 +470,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 return new CareerRuntimeStep();
             },
             ObserveAsync: (startExpected, recoveryPending, loopCancellation) =>
-                _screenObserver.ObserveAsync(connection, pack, state, startExpected,
-                    loopCancellation, resumeRecovery: recoveryPending),
+                TakeConfirmedTrainingSelection(pack, state) is { } confirmedTraining
+                    ? Task.FromResult<CareerObservation?>(confirmedTraining)
+                    : _screenObserver.ObserveAsync(connection, pack, state, startExpected,
+                        loopCancellation, resumeRecovery: recoveryPending),
             HandleObservationAsync: async (observation, loopCancellation) =>
             {
                 var performedActions = 0;
@@ -561,7 +563,9 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 }
                 logSink?.Add(
                     "Career Training",
-                    $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
+                    observation.ConfirmedByAction
+                        ? "Training entry confirmed; selecting training without repeating screen recognition."
+                        : $"Recognized {observation.ScreenId} with score {observation.Score:0.000}.");
                 if (IsImportantCareerScreen(observation.ScreenId))
                 {
                     _taskLogSink?.Add(
@@ -605,6 +609,31 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 pendingResumeObservation, resumeRecoveryPending, cancellationToken,
                 recognitionRetryLimit: StableScreenRecognitionRetryLimit)
             .ConfigureAwait(false);
+    }
+
+    internal static CareerObservation? TakeConfirmedTrainingSelection(
+        UraScenarioPack pack,
+        UraCareerSessionState state)
+    {
+        var confirmed = state.TrainingSelectionEntryConfirmed;
+        state.TrainingSelectionEntryConfirmed = false;
+        if (!confirmed
+            || !state.LastScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
+            || state.LastAction != UraPlannedAction.Training
+            || state.TrainingClickIssuedType is not null
+            || !UraTrainingTypeCatalog.TryNormalize(state.PendingTrainingType, out _)
+            || pack.ScreenProfile.Find("training_selection") is null)
+        {
+            return null;
+        }
+
+        // The entry chain recognized the header. The training-selection
+        // detector still checks a fresh frame before finding or clicking logos.
+        return new CareerObservation("training_selection", 1)
+        {
+            ClassifiedKind = CareerScreenClassification.Classify("training_selection", pack.ScreenProfile),
+            ConfirmedByAction = true,
+        };
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859",

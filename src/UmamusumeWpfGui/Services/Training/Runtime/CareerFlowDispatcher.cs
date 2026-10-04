@@ -213,6 +213,11 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         options.TaskLogSink ??= _taskLogSink;
         options.SemanticProfile = HachimiTaskLogProfile.Career;
         var entryTask = action.Task;
+        var isTrainingEntry = string.Equals(screenId, "career_main", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(actionId, "action.training", StringComparison.OrdinalIgnoreCase);
+        if (state is not null && isTrainingEntry)
+            state.TrainingSelectionEntryConfirmed = false;
+
         if (string.Equals(screenId, "training_selection", StringComparison.OrdinalIgnoreCase)
             && actionId.StartsWith("training.", StringComparison.OrdinalIgnoreCase)
             && UraTrainingTypeCatalog.TryNormalize(actionId["training.".Length..],
@@ -289,6 +294,9 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
                 $"Could not execute JSON task '{entryTask}' for '{screenId}.{actionId}': {result.Message}",
                 screenId);
         }
+
+        if (state is not null && isTrainingEntry)
+            state.TrainingSelectionEntryConfirmed = result.Outcome == "training.selection.confirmed";
 
         if (state is not null
             && screenId == CareerRaceRunnerCheckpointHandler.ScreenId

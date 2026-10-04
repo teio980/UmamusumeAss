@@ -66,6 +66,7 @@
     "career_main_action_training_transition": {
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
+      "outcome": "training.selection.confirmed",
       "template": "../training/templates/training_selection_header.png",
       "templThreshold": 0.92,
       "roi": [

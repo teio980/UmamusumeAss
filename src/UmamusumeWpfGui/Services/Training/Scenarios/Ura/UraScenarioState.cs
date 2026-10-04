@@ -96,6 +96,7 @@ public sealed class UraCareerFlowState
     public bool GoalCompletionProbePending { get; set; }
     public bool GoalCompletionProbeArmed { get; set; }
     public string? PendingTrainingType { get; set; }
+    public bool TrainingSelectionEntryConfirmed { get; set; }
     public string? TrainingClickIssuedType { get; set; }
     public bool TrainingClickTargetGone { get; set; }
 }
@@ -336,6 +337,15 @@ public sealed class UraCareerSessionState
     {
         get => _flows.PendingTrainingType;
         set => _flows.PendingTrainingType = value;
+    }
+
+    // The Training entry task has already recognized the picker header.
+    // Consume this only in the current run; resumed sessions must observe again.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool TrainingSelectionEntryConfirmed
+    {
+        get => _flows.TrainingSelectionEntryConfirmed;
+        set => _flows.TrainingSelectionEntryConfirmed = value;
     }
 
     // Run-scoped guard: a training tap may leave the picker visible while the

@@ -27,6 +27,8 @@ public sealed record CareerObservation(
     /// </summary>
     public CareerScreenKind? ClassifiedKind { get; init; }
 
+    internal bool ConfirmedByAction { get; init; }
+
     public CareerScreenKind Kind => ClassifiedKind
         ?? CareerScreenClassification.Classify(ScreenId);
 }
