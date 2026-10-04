@@ -1492,7 +1492,7 @@
       ],
       "threshold": 0.9,
       "metadata": {
-        "waitTimeoutMs": 500,
+        "waitTimeoutMs": 5000,
         "markerWaitTimeoutMs": 500,
         "pollIntervalMs": 250,
         "tapDelayMs": 350,
@@ -1508,7 +1508,7 @@
       ],
       "threshold": 0.9,
       "metadata": {
-        "waitTimeoutMs": 500,
+        "waitTimeoutMs": 5000,
         "markerWaitTimeoutMs": 500,
         "pollIntervalMs": 250,
         "tapDelayMs": 350,
@@ -1524,7 +1524,7 @@
       ],
       "threshold": 0.9,
       "metadata": {
-        "waitTimeoutMs": 500,
+        "waitTimeoutMs": 5000,
         "markerWaitTimeoutMs": 500,
         "pollIntervalMs": 250,
         "tapDelayMs": 350,

@@ -210,15 +210,18 @@ internal sealed class CareerSkillVisualAdapter
 
         var selected = await ScanForSkillAsync(context, skillName).ConfigureAwait(false);
         if (selected.Kind != CareerSkillScanKind.Obtained)
-            return false;
+            return PurchaseNotConfirmed(context, skillName, "the selected skill row was not recognized");
 
         if (!await TapAssetAsync(context, "career.skill.confirm", "career.skill.confirm")
-                .ConfigureAwait(false)
-            || !await WaitForAssetAsync(
+                .ConfigureAwait(false))
+        {
+            return PurchaseNotConfirmed(context, skillName, "the Confirm button was not recognized");
+        }
+        if (!await WaitForAssetAsync(
                     context, "career.skill.confirmation.title", "career.skill.confirmation.title")
                 .ConfigureAwait(false))
         {
-            return false;
+            return PurchaseNotConfirmed(context, skillName, "the purchase confirmation page did not appear");
         }
 
         var nameRoi = GetRegionRoi(context, "career.skill.confirmation.name");
@@ -232,23 +235,38 @@ internal sealed class CareerSkillVisualAdapter
                 CareerSkillLearningFlow.NameSimilarity(skillName, detection.Text)
                     >= minimumNameSimilarity))
         {
-            return false;
+            return PurchaseNotConfirmed(context, skillName, "the confirmation did not identify the requested skill");
         }
 
         if (!await TapAssetAsync(
                     context, "career.skill.confirmation.learn", "career.skill.confirmation.learn")
-                .ConfigureAwait(false)
-            || !await WaitForAssetAsync(
+                .ConfigureAwait(false))
+        {
+            return PurchaseNotConfirmed(context, skillName, "the Learn button was not recognized");
+        }
+        if (!await WaitForAssetAsync(
                     context, "career.skill.learned.title", "career.skill.learned.title")
-                .ConfigureAwait(false)
-            || !await TapAssetAsync(
+                .ConfigureAwait(false))
+        {
+            return PurchaseNotConfirmed(context, skillName, "the learning completion dialog did not appear");
+        }
+
+        // The completion dialog confirms the purchase. Returning to the
+        // race is a separate operation and cannot undo this evidence.
+        Log(context, $"Confirmed learning completion for {skillName}.");
+        if (!await TapAssetAsync(
                     context, "career.skill.learned.close", "career.skill.learned.close")
                 .ConfigureAwait(false))
         {
-            return false;
+            Log(context, $"{skillName} was learned; closing its completion dialog will be retried while returning to Race Day.");
         }
+        return true;
+    }
 
-        return await WaitForSkillPageAsync(context).ConfigureAwait(false);
+    private static bool PurchaseNotConfirmed(CareerFlowContext context, string skillName, string reason)
+    {
+        Log(context, $"Purchase of {skillName} was not confirmed: {reason}.");
+        return false;
     }
 
     public async Task<bool> ReturnToRaceDayAsync(CareerFlowContext context)
