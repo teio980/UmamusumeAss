@@ -113,7 +113,7 @@ public sealed class CareerGoalResumeTests
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.EntryFrame = LoadHomeTabFrame(root);
         runtime.HomeCareerFrame = CreateHomeEntryFrame();
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
@@ -141,7 +141,7 @@ public sealed class CareerGoalResumeTests
         var visual = ResumeVisualRuntime.Create(
             LoadGoalFrame(root, "current_mid_year1.png"), cancellation, "goal_complete_goal_next");
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.EntryFrame = LoadHomeTabFrame(root);
         runtime.HomeCareerFrame = CreateHomeEntryFrame();
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
@@ -169,7 +169,7 @@ public sealed class CareerGoalResumeTests
             : LoadGoalFrame(root, "current_after_goal_next.png");
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
-        runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.EntryFrame = LoadHomeTabFrame(root);
         runtime.HomeCareerFrame = CreateHomeEntryFrame();
         runtime.ContinueFrame = CreateContinueFrame(root);
         var fixture = new DateChangedDialogRecoveryTests.Fixture();
@@ -208,6 +208,9 @@ public sealed class CareerGoalResumeTests
         return GrayImageCodec.FromFile(path)
             ?? throw new InvalidDataException($"Could not load {path}.");
     }
+
+    private static GrayImage LoadHomeTabFrame(string root) => GrayImageCodec.FromFile(Path.Combine(
+        root, "tests", "UmamusumeWpfGui.Tests", "Fixtures", "Career", "story-home-unselected.png"))!;
 
     private static GrayImage CreateHomeEntryFrame()
     {

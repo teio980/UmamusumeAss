@@ -410,13 +410,16 @@ public sealed class UraScenarioPackLoaderTests
             OriginalTaskTemplate(pack, "homeAlt"));
         Assert.Equal(10_000, pack.ExecutionDefinition.Tasks["home"].TimeoutMilliseconds);
         Assert.Equal(2, pack.ExecutionDefinition.Tasks["home"].RetryTimes);
+        Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].AlternativeTemplateTasks);
         Assert.Equal(15_000, pack.ExecutionDefinition.Tasks["career_main_action_training"].TimeoutMilliseconds);
         Assert.Contains(
             "career_main_action_recover",
             pack.ExecutionDefinition.Tasks["career_main_action_training"].OnErrorNext);
         Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["home"].Next);
-        Assert.Contains("homeAlt", pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
-        Assert.Contains("home_home_career", pack.ExecutionDefinition.Tasks["homeAlt"].Next);
+        Assert.Equal(["home_home_career"], pack.ExecutionDefinition.Tasks["home"].OnErrorNext);
+        Assert.Equal("JustReturn", pack.ExecutionDefinition.Tasks["homeAlt"].Action);
+        Assert.Empty(pack.ExecutionDefinition.Tasks["homeAlt"].Next);
+        Assert.Empty(pack.ExecutionDefinition.Tasks["homeAlt"].OnErrorNext);
         Assert.Equal(
             "templates/home_home_career.png",
             OriginalTaskTemplate(pack, "home_home_career"));

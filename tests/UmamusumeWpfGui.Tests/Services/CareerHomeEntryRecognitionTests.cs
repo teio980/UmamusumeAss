@@ -9,17 +9,23 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class CareerHomeEntryRecognitionTests
 {
-    private static readonly int[] ImmediateDelays = [650];
-    private static readonly int[] PolledDelays = [250, 650];
-
     [Theory]
     [InlineData("home_home_career", false)]
     [InlineData("home_home_career_active", false)]
     [InlineData("home_home_career_active", true)]
+    [InlineData("home", false)]
+    [InlineData("home", true)]
+    [InlineData("homeAlt", false)]
+    [InlineData("homeAlt", true)]
     public async Task Either_home_entry_is_clicked_from_the_first_frame_where_it_appears(
         string visibleTask, bool blankFirstFrame)
     {
         var pack = await LoadPackAsync();
+        var entryTask = visibleTask is "home" or "homeAlt" ? "home" : "home_home_career";
+        // Stop after the Home tab so this test checks its first-frame click,
+        // independently of the subsequent Career button navigation.
+        if (entryTask == "home")
+            pack.ExecutionDefinition.GetTask(entryTask).Next = [];
         var task = pack.ExecutionDefinition.GetTask(visibleTask);
         var template = GrayImageCodec.FromFile(Path.Combine(
             pack.ExecutionDefinition.BaseDirectory, task.Template!));
@@ -37,7 +43,7 @@ public sealed class CareerHomeEntryRecognitionTests
             : [new GrayImage(900, 1600, pixels)];
 
         var result = await Runner(visual).RunAsync(
-            Connection, pack.ExecutionDefinition, "home_home_career");
+            Connection, pack.ExecutionDefinition, entryTask);
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal(blankFirstFrame ? 2 : 1, runtime.Captures);
@@ -45,14 +51,49 @@ public sealed class CareerHomeEntryRecognitionTests
         var tap = Assert.Single(runtime.Taps);
         Assert.Equal(x + template.Width / 2, tap.CenterX);
         Assert.Equal(y + template.Height / 2, tap.CenterY);
-        Assert.Equal(blankFirstFrame ? PolledDelays : ImmediateDelays, runtime.Delays);
+        var postDelay = pack.ExecutionDefinition.GetTask(entryTask).PostDelay;
+        Assert.Equal(blankFirstFrame ? new[] { 250, postDelay } : [postDelay], runtime.Delays);
     }
 
     [Fact]
-    public async Task Neither_entry_matching_uses_one_timeout_and_does_not_click()
+    public async Task Story_page_unselected_home_is_clicked_on_the_first_capture()
     {
         var pack = await LoadPackAsync();
-        var entry = pack.ExecutionDefinition.GetTask("home_home_career");
+        var entry = pack.ExecutionDefinition.GetTask("home");
+        entry.Next = [];
+        var frame = GrayImageCodec.FromFile(Path.Combine(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "tests", "UmamusumeWpfGui.Tests",
+            "Fixtures", "Career", "story-home-unselected.png"));
+        Assert.NotNull(frame);
+        var selectedTemplate = GrayImageCodec.FromFile(Path.Combine(
+            pack.ExecutionDefinition.BaseDirectory, entry.Template!));
+        Assert.NotNull(selectedTemplate);
+        var selectedMatch = TemplateMatcher.Find(frame, selectedTemplate, entry.Roi,
+            entry.TemplateThreshold, 900, 1600);
+        Assert.False(selectedMatch.Found, $"Selected template score: {selectedMatch.Score:0.000}.");
+        var visual = DispatchProxy.Create<IVisualPipelineRuntime, HomeVisualRuntime>();
+        var runtime = (HomeVisualRuntime)(object)visual;
+        runtime.Frames = [frame];
+
+        var result = await Runner(visual).RunAsync(Connection, pack.ExecutionDefinition, "home");
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(1, runtime.Captures);
+        Assert.Equal(2, runtime.LoadedTemplates.Count);
+        var tap = Assert.Single(runtime.Taps);
+        Assert.InRange(tap.CenterX, 350, 550);
+        Assert.InRange(tap.CenterY, 1450, 1580);
+        Assert.Equal([1200], runtime.Delays);
+    }
+
+    [Theory]
+    [InlineData("home")]
+    [InlineData("home_home_career")]
+    public async Task Neither_entry_matching_uses_one_timeout_and_does_not_click(string entryTask)
+    {
+        var pack = await LoadPackAsync();
+        var entry = pack.ExecutionDefinition.GetTask(entryTask);
+        entry.OnErrorNext = [];
         entry.TimeoutMilliseconds = 20;
         entry.RetryTimes = 0;
         var visual = DispatchProxy.Create<IVisualPipelineRuntime, HomeVisualRuntime>();
@@ -61,7 +102,7 @@ public sealed class CareerHomeEntryRecognitionTests
         runtime.WaitForDelays = true;
 
         var result = await Runner(visual).RunAsync(
-            Connection, pack.ExecutionDefinition, "home_home_career");
+            Connection, pack.ExecutionDefinition, entryTask);
 
         Assert.False(result.Succeeded);
         Assert.Equal(HachimiFailureKind.RecognitionTimeout, result.FailureKind);

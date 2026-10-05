@@ -10,6 +10,9 @@
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/start_game/game_home_selected.png",
+      "alternativeTemplateTasks": [
+        "homeAlt"
+      ],
       "templThreshold": 0.8,
       "roi": [
         250,
@@ -28,7 +31,7 @@
         "home_home_career"
       ],
       "onErrorNext": [
-        "homeAlt"
+        "home_home_career"
       ],
       "exceededNext": [],
       "sub": [],
@@ -39,7 +42,7 @@
     },
     "homeAlt": {
       "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
+      "action": "JustReturn",
       "template": "templates/start_game/game_home_unselected.png",
       "templThreshold": 0.8,
       "roi": [
@@ -47,26 +50,7 @@
         1400,
         400,
         200
-      ],
-      "preDelay": 0,
-      "postDelay": 1200,
-      "waitMs": 0,
-      "timeoutMs": 10000,
-      "retryTimes": 2,
-      "retryDelayMs": 750,
-      "pollIntervalMs": 250,
-      "next": [
-        "home_home_career"
-      ],
-      "onErrorNext": [
-        "home_home_career"
-      ],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
+      ]
     },
     "career_final_confirmation_probe": {
       "algorithm": "MatchTemplate",
