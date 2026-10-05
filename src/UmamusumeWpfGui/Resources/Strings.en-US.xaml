@@ -21,6 +21,7 @@
   <sys:String x:Key="GrassTitle">Hachimi~</sys:String>
   <sys:String x:Key="GrassTaskQueue">Task queue</sys:String>
   <sys:String x:Key="GrassTaskLogTitle">Task execution log</sys:String>
+  <sys:String x:Key="GrassTaskLogTotalRunDuration">Total runtime</sys:String>
   <sys:String x:Key="GrassTaskLogEmpty">Start the queue to see important task steps.</sys:String>
   <sys:String x:Key="GrassTaskLogWaiting">Waiting to run</sys:String>
   <sys:String x:Key="GrassTaskLogQueue">Queue</sys:String>

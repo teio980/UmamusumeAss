@@ -272,6 +272,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         if (_disposed)
             return;
         _disposed = true;
+        HachimiTaskLog.EndRun();
         _localizationService.LanguageChanged -= OnLanguageChanged;
         if (_connectionState is not null)
             _connectionState.StateChanged -= OnConnectionStateChanged;
@@ -711,6 +712,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         }
         finally
         {
+            HachimiTaskLog.EndRun();
             if (queueSucceeded)
             {
                 HachimiTaskLog.SetRunStatus(Localize("GrassTaskLogQueueCompleted", "Queue completed"));

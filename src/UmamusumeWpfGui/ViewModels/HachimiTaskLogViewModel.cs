@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Threading;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
@@ -16,6 +18,11 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
 {
     private readonly Dictionary<string, HachimiTaskLogGroupViewModel> _groups =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly TimeProvider _timeProvider;
+    private DispatcherTimer? _durationTimer;
+    private long _runStartedAt;
+    private TimeSpan _finalRunDuration;
+    private bool _isTiming;
     private string _runStatus = string.Empty;
     private string _pendingStatus = "Pending";
     private string _runningStatus = "Running";
@@ -23,6 +30,15 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
     private string _failedStatus = "Failed";
     private string _canceledStatus = "Canceled";
     private string _skippedStatus = "Skipped";
+
+    public HachimiTaskLogViewModel() : this(TimeProvider.System)
+    {
+    }
+
+    internal HachimiTaskLogViewModel(TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider;
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -33,6 +49,21 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
     public bool HasContent => Tasks.Count > 0 || QueueEntries.Count > 0;
 
     public bool IsEmpty => !HasContent;
+
+    public TimeSpan TotalRunDuration => _isTiming
+        ? _timeProvider.GetElapsedTime(_runStartedAt)
+        : _finalRunDuration;
+
+    public string TotalRunDurationText
+    {
+        get
+        {
+            var duration = TotalRunDuration;
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{(long)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}");
+        }
+    }
 
     public string RunStatus
     {
@@ -57,6 +88,21 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
         string runStatus)
     {
         ArgumentNullException.ThrowIfNull(tasks);
+
+        _durationTimer?.Stop();
+        _runStartedAt = _timeProvider.GetTimestamp();
+        _finalRunDuration = TimeSpan.Zero;
+        _isTiming = true;
+        if (_durationTimer is null && Application.Current?.Dispatcher is { } dispatcher)
+        {
+            _durationTimer = new DispatcherTimer(
+                TimeSpan.FromSeconds(1),
+                DispatcherPriority.Background,
+                (_, _) => NotifyRunDurationChanged(),
+                dispatcher);
+        }
+        _durationTimer?.Start();
+        NotifyRunDurationChanged();
 
         _pendingStatus = pendingStatus;
         _runningStatus = runningStatus;
@@ -89,6 +135,23 @@ public sealed class HachimiTaskLogViewModel : INotifyPropertyChanged
     }
 
     public void SetRunStatus(string status) => RunStatus = status;
+
+    public void EndRun()
+    {
+        if (!_isTiming)
+            return;
+
+        _finalRunDuration = TotalRunDuration;
+        _isTiming = false;
+        _durationTimer?.Stop();
+        NotifyRunDurationChanged();
+    }
+
+    private void NotifyRunDurationChanged()
+    {
+        OnPropertyChanged(nameof(TotalRunDuration));
+        OnPropertyChanged(nameof(TotalRunDurationText));
+    }
 
     public void AddQueueStep(
         string step,

@@ -266,6 +266,10 @@
               Style="{StaticResource PanelBorderStyle}">
         <DockPanel>
           <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="Auto" />
@@ -276,6 +280,19 @@
                        Text="{Binding HachimiTaskLog.RunStatus}"
                        FontSize="11"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
+            <StackPanel Grid.Row="1"
+                        Grid.ColumnSpan="2"
+                        Margin="0,6,0,0"
+                        Orientation="Horizontal"
+                        Visibility="{Binding HachimiTaskLog.HasContent, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Text="{DynamicResource GrassTaskLogTotalRunDuration}"
+                         FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Margin="6,0,0,0"
+                         Text="{Binding HachimiTaskLog.TotalRunDurationText}"
+                         FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
           </Grid>
 
           <ScrollViewer x:Name="HachimiTaskLogScrollViewer"

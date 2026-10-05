@@ -52,6 +52,7 @@
   <sys:String x:Key="GrassScriptCompleted">Task queue completed</sys:String>
   <sys:String x:Key="GrassTaskQueue">任务队列</sys:String>
   <sys:String x:Key="GrassTaskLogTitle">任务执行日志</sys:String>
+  <sys:String x:Key="GrassTaskLogTotalRunDuration">总运行时长</sys:String>
   <sys:String x:Key="GrassTaskLogEmpty">启动队列后，这里会显示重要的任务步骤。</sys:String>
   <sys:String x:Key="GrassTaskLogWaiting">等待执行</sys:String>
   <sys:String x:Key="GrassTaskLogQueue">队列</sys:String>
