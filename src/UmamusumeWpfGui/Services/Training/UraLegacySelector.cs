@@ -333,7 +333,7 @@ public sealed class UraLegacySelector
         {
             logSink?.Add(
                 "Career Training",
-                $"Cached Legacy {slot} record detected, but cache use is disabled; reselecting it.");
+                $"Cached Legacy {slot} record detected, but cache use is disabled; opening Change to replace it.");
 
             if (!await RunJsonActionAsync(
                     connection,
@@ -348,9 +348,10 @@ public sealed class UraLegacySelector
                 return false;
             }
 
+            // Change opens the parent picker directly; it does not clear the
+            // slot. Only an empty slot needs the separate '+' open action.
         }
-
-        if (!await RunJsonActionAsync(
+        else if (!await RunJsonActionAsync(
                 connection,
                 definition,
                 slot == 1
@@ -368,13 +369,7 @@ public sealed class UraLegacySelector
         }
 
         if (useGuest
-            && !await TapTemplateAsync(
-                    connection,
-                    definition,
-                    "career.entry.legacy.legacy_guests_tab",
-                    "career.entry.legacy.guests.tab",
-                    "uraLegacyGuests",
-                    cancellationToken)
+            && !await EnsureGuestTabAsync(connection, definition, cancellationToken)
                 .ConfigureAwait(false))
         {
             return false;
@@ -430,8 +425,74 @@ public sealed class UraLegacySelector
                 $"career.entry.legacy.cached{slot}",
                 $"uraLegacy{slot}SelectionCompleted",
                 useGuest,
-                cancellationToken)
+                cancellationToken,
+                requireBorrowConfirmation: useGuest)
             .ConfigureAwait(false);
+    }
+
+    private async Task<bool> EnsureGuestTabAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        const string selectedAssetId = "career.entry.legacy.legacy_guests_tab_selected";
+        const string unselectedAssetId = "career.entry.legacy.legacy_guests_tab";
+        const string regionId = "career.entry.legacy.guests.tab";
+        var selectedTemplate = await _visualRuntime.LoadTemplateAsync(
+            ResolveAsset(selectedAssetId), definition.BaseDirectory, cancellationToken)
+            .ConfigureAwait(false);
+        var unselectedTemplate = await _visualRuntime.LoadTemplateAsync(
+            ResolveAsset(unselectedAssetId), definition.BaseDirectory, cancellationToken)
+            .ConfigureAwait(false);
+        if (selectedTemplate is null || unselectedTemplate is null)
+        {
+            _activeLogSink.Value?.Add("Career Training",
+                "Could not load the Legacy Guests tab templates.", LogEntryKind.Failure);
+            return false;
+        }
+
+        // Change can still be transitioning when the first screenshot arrives.
+        // Keep checking both states on each frame throughout the same wait.
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        TemplateMatchResult? selected = null;
+        TemplateMatchResult? unselected = null;
+        var roi = GetRequiredRegionRoi(regionId);
+        while (timer.ElapsedMilliseconds < 8_000)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+                .ConfigureAwait(false);
+            if (frame is not null)
+            {
+                selected = TemplateMatcher.Find(frame, selectedTemplate, roi,
+                    ResolveAssetThreshold(selectedAssetId),
+                    definition.ReferenceWidth, definition.ReferenceHeight);
+                if (selected.Found)
+                {
+                    _activeLogSink.Value?.Add("Career Training",
+                        $"Legacy Guests tab is already selected (score {selected.Score:0.000}).");
+                    return true;
+                }
+
+                unselected = TemplateMatcher.Find(frame, unselectedTemplate, roi,
+                    ResolveAssetThreshold(unselectedAssetId),
+                    definition.ReferenceWidth, definition.ReferenceHeight);
+                if (unselected.Found)
+                {
+                    await _visualRuntime.TapMatchAsync(connection, unselected,
+                        "uraLegacyGuests", cancellationToken).ConfigureAwait(false);
+                    _activeLogSink.Value?.Add("Career Training",
+                        $"Switched to the Legacy Guests tab (score {unselected.Score:0.000}).");
+                    return true;
+                }
+            }
+
+            await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
+        }
+
+        LogRecognitionFailure(selectedAssetId, regionId, "uraLegacyGuestsSelected", selected);
+        LogRecognitionFailure(unselectedAssetId, regionId, "uraLegacyGuests", unselected);
+        return false;
     }
 
     private async Task<bool> WaitForSelectionCompletedAsync(
@@ -441,7 +502,8 @@ public sealed class UraLegacySelector
         string completedRegionId,
         string actionName,
         bool allowBorrow,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool requireBorrowConfirmation = false)
     {
         const string borrowAssetId = "career.entry.legacy.legacy_borrow_confirmation_title";
         const string borrowRegionId = "career.entry.legacy.borrow_confirmation.title";
@@ -497,7 +559,7 @@ public sealed class UraLegacySelector
                     completedMatch = TemplateMatcher.Find(frame, completedTemplate,
                         GetRequiredRegionRoi(completedRegionId), ResolveAssetThreshold(completedAssetId),
                         definition.ReferenceWidth, definition.ReferenceHeight);
-                    if (completedMatch.Found)
+                    if (completedMatch.Found && (!requireBorrowConfirmation || borrowConfirmed))
                     {
                         _activeLogSink.Value?.Add("Career Training",
                             $"Legacy step '{actionName}' returned to Legacy Select.");
@@ -508,7 +570,12 @@ public sealed class UraLegacySelector
             await _visualRuntime.DelayAsync(250, cancellationToken).ConfigureAwait(false);
         }
 
-        LogRecognitionFailure(completedAssetId, completedRegionId, actionName, completedMatch);
+        if (requireBorrowConfirmation && !borrowConfirmed)
+            _activeLogSink.Value?.Add("Career Training",
+                $"Legacy step '{actionName}' timed out waiting for the guest borrow confirmation.",
+                LogEntryKind.Failure);
+        else
+            LogRecognitionFailure(completedAssetId, completedRegionId, actionName, completedMatch);
         return false;
     }
 

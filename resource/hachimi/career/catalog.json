@@ -167,6 +167,10 @@
       "path": "entry/templates/legacy/legacy_guests_tab.png",
       "threshold": 0.78
     },
+    "career.entry.legacy.legacy_guests_tab_selected": {
+      "path": "entry/templates/legacy/legacy_guests_tab_selected.png",
+      "threshold": 0.86
+    },
     "career.entry.legacy.legacy_next_enabled": {
       "path": "entry/templates/legacy/legacy_next_enabled.png",
       "threshold": 0.78

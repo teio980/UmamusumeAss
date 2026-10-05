@@ -1,0 +1,17 @@
+{
+  "source": "legacy_change_regression_20261005.png",
+  "capture": "ADB exec-out screencap -p; emulator-5554",
+  "size": [
+    900,
+    1600
+  ],
+  "crops": {
+    "legacy_guests_tab_selected.png": [
+      623,
+      810,
+      78,
+      25
+    ]
+  },
+  "processing": "Rectangular crop only; all original pixels and background retained."
+}

@@ -1,0 +1,17 @@
+{
+  "source": "legacy_owned_display_filter_regression_20261005.png",
+  "capture": "ADB exec-out screencap -p; emulator-5554",
+  "size": [
+    900,
+    1600
+  ],
+  "crops": {
+    "legacy_display_filter_tab.png": [
+      631,
+      154,
+      64,
+      28
+    ]
+  },
+  "processing": "Rectangular crop only; original background retained; notification icon lies outside the crop."
+}
