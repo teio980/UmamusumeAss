@@ -1,0 +1,37 @@
+{
+  "source": "legacy_confirmation_stuck_20261005.png",
+  "capture": "ADB exec-out screencap -p; emulator-5554",
+  "size": [
+    900,
+    1600
+  ],
+  "crops": {
+    "legacy_borrow_confirmation_title.png": [
+      313,
+      607,
+      275,
+      32
+    ],
+    "legacy_borrow_confirmation_ok.png": [
+      620,
+      1026,
+      53,
+      31
+    ]
+  },
+  "processing": "Rectangular crops only; original pixels retained; no masking or background removal.",
+  "cachedRecordCrops": {
+    "source": "legacy_borrow_confirmed_20261005.png",
+    "rect": [
+      194,
+      1099,
+      87,
+      30
+    ],
+    "outputs": [
+      "legacy1_cached_record.png",
+      "legacy2_cached_record.png"
+    ],
+    "note": "Same Change text identifies either occupied slot; each slot has its own ROI."
+  }
+}

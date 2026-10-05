@@ -135,6 +135,14 @@
       "path": "entry/templates/legacy/legacy_confirm_selection.png",
       "threshold": 0.78
     },
+    "career.entry.legacy.legacy_borrow_confirmation_title": {
+      "path": "entry/templates/legacy/legacy_borrow_confirmation_title.png",
+      "threshold": 0.86
+    },
+    "career.entry.legacy.legacy_borrow_confirmation_ok": {
+      "path": "entry/templates/legacy/legacy_borrow_confirmation_ok.png",
+      "threshold": 0.86
+    },
     "career.entry.legacy.legacy_display_button": {
       "path": "entry/templates/legacy/legacy_display_button.png",
       "threshold": 0.78
@@ -173,11 +181,11 @@
     },
     "career.entry.legacy.legacy_sort_asc": {
       "path": "entry/templates/legacy/legacy_sort_asc.png",
-      "threshold": 0.78
+      "threshold": 0.9
     },
     "career.entry.legacy.legacy_sort_desc": {
       "path": "entry/templates/legacy/legacy_sort_desc.png",
-      "threshold": 0.78
+      "threshold": 0.9
     },
     "career.entry.legacy.legacy_trainee_badge": {
       "path": "entry/templates/legacy/legacy_trainee_badge.png",
@@ -937,12 +945,12 @@
     },
     "career.entry.legacy.sort": {
       "roi": [
-        730,
-        1130,
-        170,
-        150
+        740,
+        1200,
+        140,
+        80
       ],
-      "threshold": 0.78
+      "threshold": 0.9
     },
     "career.entry.legacy.filter.ok": {
       "roi": [
@@ -1404,6 +1412,14 @@
         200
       ],
       "threshold": 0.78
+    },
+    "career.entry.legacy.borrow_confirmation.title": {
+      "roi": [280, 580, 350, 90],
+      "threshold": 0.86
+    },
+    "career.entry.legacy.borrow_confirmation.ok": {
+      "roi": [570, 985, 165, 115],
+      "threshold": 0.86
     },
     "career.entry.legacy.view_sparks": {
       "roi": [
