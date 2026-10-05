@@ -101,6 +101,14 @@ public sealed class HachimiPipelineTask
     [JsonPropertyName("templThreshold")]
     public double TemplateThreshold { get; set; } = 0.86;
 
+    /// <summary>
+    /// Other MatchTemplate tasks whose templates, ROIs and thresholds are
+    /// checked on the same frame as this task. Only recognition is borrowed;
+    /// this task still owns the action and graph transitions.
+    /// </summary>
+    [JsonPropertyName("alternativeTemplateTasks")]
+    public List<string> AlternativeTemplateTasks { get; set; } = [];
+
     [JsonPropertyName("roi")]
     public int[]? Roi { get; set; }
 

@@ -537,6 +537,7 @@ public static class CareerVisualPackageLoader
                          .Concat(task.ExceededNext)
                          .Concat(task.Sub)
                          .Concat(task.MonitorTasks)
+                         .Concat(task.AlternativeTemplateTasks)
                          .Concat(task.SuccessTasks)
                          .Append(task.SuccessTask ?? string.Empty)
                          .Where(value => !string.IsNullOrWhiteSpace(value)))

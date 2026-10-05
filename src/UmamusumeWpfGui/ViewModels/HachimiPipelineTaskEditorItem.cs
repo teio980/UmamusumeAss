@@ -19,6 +19,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     private string _swipeText = string.Empty;
     private string _template = string.Empty;
     private string _templateCollection = string.Empty;
+    private string _alternativeTemplateTasksText = string.Empty;
     private string _templateThresholdText = "0.86";
     private string _roiText = string.Empty;
     private string _fallbackRoiText = string.Empty;
@@ -79,6 +80,13 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
     {
         get => _templateThresholdText;
         set => Set(ref _templateThresholdText, value);
+    }
+
+    // Preserve shared-frame alternatives when editing or cloning an entry task.
+    public string AlternativeTemplateTasksText
+    {
+        get => _alternativeTemplateTasksText;
+        set => Set(ref _alternativeTemplateTasksText, value);
     }
 
     public string RoiText { get => _roiText; set => Set(ref _roiText, value); }
@@ -211,6 +219,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
             SwipeText = FormatArray(task.Swipe),
             Template = task.Template ?? string.Empty,
             TemplateCollection = task.TemplateCollection ?? string.Empty,
+            AlternativeTemplateTasksText = FormatList(task.AlternativeTemplateTasks),
             TemplateThresholdText = task.TemplateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
             RoiText = FormatArray(task.Roi),
             FallbackRoiText = FormatArray(task.FallbackRoi),
@@ -252,6 +261,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         SwipeText = SwipeText,
         Template = Template,
         TemplateCollection = TemplateCollection,
+        AlternativeTemplateTasksText = AlternativeTemplateTasksText,
         TemplateThresholdText = TemplateThresholdText,
         RoiText = RoiText,
         FallbackRoiText = FallbackRoiText,
@@ -298,6 +308,7 @@ public sealed class HachimiPipelineTaskEditorItem : INotifyPropertyChanged
         task.Swipe = ParseArray(SwipeText, nameof(SwipeText), expectedLength: 5);
         task.Template = OptionalText(Template);
         task.TemplateCollection = OptionalText(TemplateCollection);
+        task.AlternativeTemplateTasks = ParseList(AlternativeTemplateTasksText);
         task.TemplateThreshold = ParseDouble(
             TemplateThresholdText,
             nameof(TemplateThresholdText),

@@ -303,7 +303,7 @@ internal static class HachimiTaskLogSemantics
             "normal_quick_mode_confirm" => Step(
                 "Confirming Quick Mode settings",
                 "Quick Mode settings confirmed"),
-            "home_home_career" or "home_home_career_active" => Step(
+            "home_home_career" => Step(
                 "Opening Career from Home",
                 "Career entry opened"),
             "career_continue_resume" => Step(

@@ -86,40 +86,15 @@
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
       "template": "templates/home_home_career.png",
+      "alternativeTemplateTasks": [
+        "home_home_career_active"
+      ],
       "templThreshold": 0.78,
       "roi": [
         505,
         1240,
         330,
         180
-      ],
-      "preDelay": 0,
-      "postDelay": 650,
-      "waitMs": 0,
-      "timeoutMs": 15000,
-      "pollIntervalMs": 250,
-      "next": [],
-      "onErrorNext": [
-        "home_home_career_active"
-      ],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false,
-      "retryTimes": 2
-    },
-    "home_home_career_active": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/home_home_career_active_label.png",
-      "templThreshold": 0.82,
-      "roi": [
-        500,
-        1230,
-        390,
-        220
       ],
       "preDelay": 0,
       "postDelay": 650,
@@ -135,6 +110,18 @@
       "required": true,
       "success": false,
       "retryTimes": 2
+    },
+    "home_home_career_active": {
+      "algorithm": "MatchTemplate",
+      "action": "JustReturn",
+      "template": "templates/home_home_career_active_label.png",
+      "templThreshold": 0.82,
+      "roi": [
+        690,
+        1260,
+        180,
+        120
+      ]
     },
     "scenario_select_scenario_next": {
       "algorithm": "MatchTemplate",

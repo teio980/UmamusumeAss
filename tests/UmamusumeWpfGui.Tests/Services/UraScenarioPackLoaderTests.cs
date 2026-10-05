@@ -422,12 +422,13 @@ public sealed class UraScenarioPackLoaderTests
             OriginalTaskTemplate(pack, "home_home_career"));
         Assert.Contains(
             "home_home_career_active",
-            pack.ExecutionDefinition.Tasks["home_home_career"].OnErrorNext);
+            pack.ExecutionDefinition.Tasks["home_home_career"].AlternativeTemplateTasks);
+        Assert.Empty(pack.ExecutionDefinition.Tasks["home_home_career"].OnErrorNext);
         Assert.Equal(
             "templates/home_home_career_active_label.png",
             OriginalTaskTemplate(pack, "home_home_career_active"));
         Assert.Equal(
-            "ClickSelf",
+            "JustReturn",
             pack.ExecutionDefinition.Tasks["home_home_career_active"].Action);
 
         var recommendedEntry = pack.ExecutionDefinition.Tasks["race_list_race_fans_entry"];

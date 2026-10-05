@@ -114,6 +114,7 @@ public sealed class CareerGoalResumeTests
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
         runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.HomeCareerFrame = CreateHomeEntryFrame();
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
         runtime.MissingCapturesRemaining = missingCaptures;
@@ -141,6 +142,7 @@ public sealed class CareerGoalResumeTests
             LoadGoalFrame(root, "current_mid_year1.png"), cancellation, "goal_complete_goal_next");
         var runtime = (ResumeVisualRuntime)(object)visual;
         runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.HomeCareerFrame = CreateHomeEntryFrame();
         Assert.NotNull(runtime.EntryFrame);
         runtime.ContinueFrame = CreateContinueFrame(root);
         runtime.MissingCapturesRemaining = 100;
@@ -168,6 +170,7 @@ public sealed class CareerGoalResumeTests
         var visual = ResumeVisualRuntime.Create(frame, cancellation, expectedTask);
         var runtime = (ResumeVisualRuntime)(object)visual;
         runtime.EntryFrame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, "home.jpg"));
+        runtime.HomeCareerFrame = CreateHomeEntryFrame();
         runtime.ContinueFrame = CreateContinueFrame(root);
         var fixture = new DateChangedDialogRecoveryTests.Fixture();
         var connection = new LastVerifiedConnection("adb", "date-changed-test", Guid.NewGuid().ToString("N"), "version",
@@ -204,6 +207,21 @@ public sealed class CareerGoalResumeTests
         var path = CareerTestResourceResolver.FindUraCapture(root, captureName);
         return GrayImageCodec.FromFile(path)
             ?? throw new InvalidDataException($"Could not load {path}.");
+    }
+
+    private static GrayImage CreateHomeEntryFrame()
+    {
+        var entry = GrayImageCodec.FromFile(CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
+            "templates/home_home_career.png"));
+        Assert.NotNull(entry);
+        // The startup fixture uses an older resolution and Career button.
+        // After tapping Home, expose the current button in a reference-size
+        // frame so entry recognition is real rather than a fake successful wait.
+        var pixels = new byte[900 * 1600];
+        for (var row = 0; row < entry.Height; row++)
+            Buffer.BlockCopy(entry.Pixels, row * entry.Width,
+                pixels, (1248 + row) * 900 + 513, entry.Width);
+        return new GrayImage(900, 1600, pixels);
     }
 
     private static GrayImage CreateContinueFrame(string root)
@@ -278,6 +296,7 @@ public sealed class CareerGoalResumeTests
         public List<string> TappedTasks { get; } = [];
         public string ExpectedTask { get; set; } = null!;
         public GrayImage? EntryFrame { get; set; }
+        public GrayImage? HomeCareerFrame { get; set; }
         public GrayImage? ContinueFrame { get; set; }
         public GrayImage? MainFrame { get; set; }
         public int MainCapturesRemaining { get; set; }
@@ -338,7 +357,10 @@ public sealed class CareerGoalResumeTests
                     var task = (string)args![2]!;
                     TappedTasks.Add(task);
                     if (task == "home")
+                    {
+                        EntryFrame = HomeCareerFrame ?? EntryFrame;
                         return Task.CompletedTask;
+                    }
                     if (task == "home_home_career")
                     {
                         EntryFrame = ContinueFrame;

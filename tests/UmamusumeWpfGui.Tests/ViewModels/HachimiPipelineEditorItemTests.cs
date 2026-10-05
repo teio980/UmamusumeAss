@@ -15,6 +15,7 @@ public sealed class HachimiPipelineEditorItemTests
         item.NextText = "wait\ncomplete";
         item.OnErrorNextText = "retry";
         item.TemplateThresholdText = "0.91";
+        item.AlternativeTemplateTasksText = "active";
         item.Required = false;
         item.Success = true;
 
@@ -24,6 +25,8 @@ public sealed class HachimiPipelineEditorItemTests
         Assert.Equal(["wait", "complete"], task.Next);
         Assert.Equal(["retry"], task.OnErrorNext);
         Assert.Equal(0.91, task.TemplateThreshold, 3);
+        Assert.Equal(["active"], task.AlternativeTemplateTasks);
+        Assert.Equal(["active"], HachimiPipelineTaskEditorItem.FromTask("tap", task).Clone().ToTask().AlternativeTemplateTasks);
         Assert.False(task.Required);
         Assert.True(task.Success);
     }

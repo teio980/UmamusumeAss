@@ -389,7 +389,16 @@ public sealed class HachimiJsonPipelineRunner
         ScreenTextQueryResult? textMatch = null;
         var action = Normalize(task.Action);
         var algorithm = Normalize(task.Algorithm);
+        var matchedThreshold = task.TemplateThreshold;
         var reusedLastMatch = false;
+
+        if (task.AlternativeTemplateTasks.Count > 0
+            && (algorithm != "matchtemplate" || action is not ("clickself" or "justreturn")))
+        {
+            return TaskExecutionResult.Failed(
+                $"Task '{taskName}' alternativeTemplateTasks requires MatchTemplate with ClickSelf or JustReturn.",
+                failureKind: HachimiFailureKind.InvalidDefinition);
+        }
 
         // Some controls are only rendered for a single frame.  Once a
         // ClickSelf task has matched such a control, keep the coordinates in
@@ -601,21 +610,34 @@ public sealed class HachimiJsonPipelineRunner
 
             try
             {
-                match = await WaitForTemplateWithScrollAsync(
-                        connection,
-                        definition,
-                        taskName,
-                        task,
-                        templatePath,
-                        roi,
-                        effectiveTimeoutMilliseconds,
-                        useScaledTemplate,
-                        scaleCandidates,
-                        pollInterval,
-                        runOptions,
-                        logSink,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                if (task.AlternativeTemplateTasks.Count > 0)
+                {
+                    var combinedMatch = await WaitForAlternativeTemplatesAsync(
+                            connection, definition, taskName, task, templatePath, roi,
+                            effectiveTimeoutMilliseconds, pollInterval, runOptions,
+                            logSink, cancellationToken)
+                        .ConfigureAwait(false);
+                    match = combinedMatch?.Match;
+                    matchedThreshold = combinedMatch?.Threshold ?? task.TemplateThreshold;
+                }
+                else
+                {
+                    match = await WaitForTemplateWithScrollAsync(
+                            connection,
+                            definition,
+                            taskName,
+                            task,
+                            templatePath,
+                            roi,
+                            effectiveTimeoutMilliseconds,
+                            useScaledTemplate,
+                            scaleCandidates,
+                            pollInterval,
+                            runOptions,
+                            logSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -915,7 +937,7 @@ public sealed class HachimiJsonPipelineRunner
                     logSink,
                     taskName,
                     $"Clicked '{taskName}' at ({click.X},{click.Y}), "
-                    + $"score {match.Score:0.000} / threshold {task.TemplateThreshold:0.000}.",
+                    + $"score {match.Score:0.000} / threshold {matchedThreshold:0.000}.",
                     LogEntryKind.Success);
                 break;
 
@@ -2024,6 +2046,101 @@ public sealed class HachimiJsonPipelineRunner
         return null;
     }
 
+    private async Task<(TemplateMatchResult Match, double Threshold)?> WaitForAlternativeTemplatesAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        string taskName,
+        HachimiPipelineTask task,
+        string templatePath,
+        int[]? roi,
+        int timeoutMilliseconds,
+        int pollInterval,
+        HachimiPipelineRunOptions runOptions,
+        IGrassTaskLogSink? logSink,
+        CancellationToken cancellationToken)
+    {
+        var templates = new List<(string Name, GrayImage Image, int[]? Roi, double Threshold)>();
+        foreach (var candidateName in task.AlternativeTemplateTasks.Prepend(taskName))
+        {
+            var candidate = candidateName == taskName ? task : definition.GetTask(candidateName);
+            var path = candidateName == taskName ? templatePath : candidate.Template;
+            var candidateRoi = candidateName == taskName ? roi : candidate.Roi;
+            if (candidateName != taskName)
+            {
+                if (runOptions.TemplateOverrides?.TryGetValue(candidateName, out var pathOverride) == true
+                    && !string.IsNullOrWhiteSpace(pathOverride))
+                    path = pathOverride;
+                if (runOptions.RoiOverrides?.TryGetValue(candidateName, out var roiOverride) == true)
+                    candidateRoi = roiOverride;
+            }
+            if (Normalize(candidate.Algorithm) != "matchtemplate"
+                || string.IsNullOrWhiteSpace(path))
+            {
+                throw new InvalidOperationException(
+                    $"Task '{taskName}' references invalid alternative template task '{candidateName}'.");
+            }
+
+            var image = await _visualRuntime.LoadTemplateAsync(
+                    path, definition.BaseDirectory, cancellationToken)
+                .ConfigureAwait(false);
+            if (image is null)
+                throw new InvalidOperationException($"Template '{path}' could not be loaded.");
+            templates.Add((candidateName, image, candidateRoi, candidate.TemplateThreshold));
+            AddTaskLog(logSink, taskName,
+                $"Checking template task '{candidateName}' on each shared frame: "
+                + $"template='{path}', roi={FormatArray(candidateRoi)}, "
+                + $"threshold={candidate.TemplateThreshold:0.000}.");
+        }
+
+        var result = await WaitForSharedFrameTemplatesAsync(
+                connection, definition, templates, timeoutMilliseconds, pollInterval, cancellationToken)
+            .ConfigureAwait(false);
+        if (result is not { } found)
+            return null;
+        AddTaskLog(logSink, taskName,
+            $"Matched template task '{found.Name}' on the shared frame "
+            + $"(score {found.Match.Score:0.000} / threshold {found.Threshold:0.000}).",
+            LogEntryKind.Success);
+        return (found.Match, found.Threshold);
+    }
+
+    private async Task<(string Name, TemplateMatchResult Match, double Threshold)?> WaitForSharedFrameTemplatesAsync(
+        LastVerifiedConnection connection,
+        HachimiPipelineDefinition definition,
+        IReadOnlyList<(string Name, GrayImage Image, int[]? Roi, double Threshold)> templates,
+        int timeoutMilliseconds,
+        int pollInterval,
+        CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var frame = await _visualRuntime.CaptureGrayAsync(connection, cancellationToken)
+                .ConfigureAwait(false);
+            if (frame is not null)
+            {
+                foreach (var candidate in templates)
+                {
+                    var match = TemplateMatcher.Find(
+                        frame, candidate.Image, candidate.Roi, candidate.Threshold,
+                        definition.ReferenceWidth, definition.ReferenceHeight);
+                    if (match.Found)
+                        return (candidate.Name, match, candidate.Threshold);
+                }
+            }
+
+            var remaining = timeoutMilliseconds == Timeout.Infinite
+                ? int.MaxValue
+                : timeoutMilliseconds - Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            if (remaining <= 0)
+                return null;
+            await _visualRuntime.DelayAsync(
+                    (int)Math.Min(Math.Max(50, pollInterval), Math.Ceiling(remaining)), cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     private async Task<TemplateMatchResult?> WaitForTemplateWithScrollAsync(
         LastVerifiedConnection connection,
         HachimiPipelineDefinition definition,
@@ -2157,7 +2274,7 @@ public sealed class HachimiJsonPipelineRunner
             return null;
         }
 
-        var templates = new List<(string Path, GrayImage Image, int[]? Roi)>();
+        var templates = new List<(string Name, GrayImage Image, int[]? Roi, double Threshold)>();
         for (var templateIndex = 0;
              templateIndex < task.TransitionTemplates.Count;
              templateIndex++)
@@ -2174,36 +2291,13 @@ public sealed class HachimiJsonPipelineRunner
             var roi = templateIndex < task.TransitionRois.Count
                 ? task.TransitionRois[templateIndex] ?? task.TransitionRoi
                 : task.TransitionRoi;
-            templates.Add((path, image, roi));
+            templates.Add((path, image, roi, task.TransitionThreshold));
         }
 
-        var started = Stopwatch.GetTimestamp();
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var screen = await _visualRuntime.CaptureGrayAsync(
-                    connection, cancellationToken)
-                .ConfigureAwait(false);
-            if (screen is not null)
-            {
-                foreach (var (path, image, roi) in templates)
-                {
-                    var match = TemplateMatcher.Find(
-                        screen, image, roi,
-                        task.TransitionThreshold,
-                        definition.ReferenceWidth,
-                        definition.ReferenceHeight);
-                    if (match.Found)
-                        return (path, match);
-                }
-            }
-
-            if (Stopwatch.GetElapsedTime(started).TotalMilliseconds >= timeoutMilliseconds)
-                return null;
-
-            await _visualRuntime.DelayAsync(pollInterval, cancellationToken)
-                .ConfigureAwait(false);
-        }
+        var result = await WaitForSharedFrameTemplatesAsync(
+                connection, definition, templates, timeoutMilliseconds, pollInterval, cancellationToken)
+            .ConfigureAwait(false);
+        return result is { } found ? (found.Name, found.Match) : null;
     }
 
     private async Task<(int X, int Y)> TapMatchWithOffsetAsync(
