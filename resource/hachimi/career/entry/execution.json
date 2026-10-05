@@ -1109,10 +1109,10 @@
       "success": false
     },
     "support_select_support_start": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "ClickSelf",
       "template": "templates/support_select_support_start.png",
-      "templThreshold": 0.56,
+      "templThreshold": 0.85,
       "roi": [
         250,
         1260,
@@ -1134,7 +1134,7 @@
       "success": false
     },
     "support_ready_support_start": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "ClickSelf",
       "template": "../modes/normal/templates/support_ready_support_start.png",
       "templThreshold": 0.85,

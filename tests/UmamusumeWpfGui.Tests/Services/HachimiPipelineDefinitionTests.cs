@@ -528,12 +528,11 @@ public sealed class HachimiPipelineDefinitionTests
         })
         {
             var task = definition!.GetTask(taskName);
-            Assert.Equal("MatchTemplate", task.Algorithm, ignoreCase: true);
+            Assert.Equal("MatchTemplateColor", task.Algorithm, ignoreCase: true);
             Assert.Equal("ClickSelf", task.Action, ignoreCase: true);
             Assert.NotNull(task.Template);
             Assert.Equal([250, 1260, 500, 180], task.Roi!);
-            Assert.Equal(taskName == "support_ready_support_start" ? 0.85 : 0.56,
-                task.TemplateThreshold);
+            Assert.Equal(0.85, task.TemplateThreshold);
         }
     }
 
