@@ -7,7 +7,7 @@ using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
 
-public sealed class CareerDirectRestFlowTests
+public sealed class CareerDirectBreakFlowTests
 {
     [Theory]
     [InlineData("action.rest", "rest_before_low_energy.png", "rest_confirmation.png")]
@@ -42,7 +42,7 @@ public sealed class CareerDirectRestFlowTests
         var (_, visual, runtime, context) = await CreateAsync(
             "rest_before_low_energy.png", "rest_before_low_energy.png", "rest_confirmation.png");
 
-        Assert.Null(await new CareerRestFlow(visual).RunAsync(context, "career_main", "action.rest"));
+        Assert.Null(await new CareerBreakFlow(visual).RunAsync(context, "career_main", "action.rest"));
 
         Assert.Equal(3, runtime.Captures);
         Assert.Equal([100], runtime.Delays);
@@ -58,7 +58,7 @@ public sealed class CareerDirectRestFlowTests
         var (pack, visual, runtime, context) = await CreateAsync("rest_before_low_energy.png", frameName);
         pack.ExecutionDefinition.GetTask("rest_confirmation_rest_confirm").TimeoutMilliseconds = 1;
 
-        var result = await new CareerRestFlow(visual).RunAsync(context, "career_main", "action.rest");
+        var result = await new CareerBreakFlow(visual).RunAsync(context, "career_main", "action.rest");
 
         Assert.NotNull(result);
         Assert.False(result.Succeeded);
@@ -78,14 +78,76 @@ public sealed class CareerDirectRestFlowTests
         Assert.Empty(runtime.Delays);
     }
 
-    [Fact]
-    public async Task Missing_screenshot_is_inconclusive_and_never_clicks_ok()
+    [Theory]
+    [InlineData("career_main", "action.recreation", "recreation_main.png|recreation_confirmation.png",
+        "career_main_action_recreation|recreation_confirmation_ok")]
+    [InlineData("career_main", "action.recreation", "recreation_main.png|recreation_selection.png|recreation_confirmation.png",
+        "career_main_action_recreation|recreation_selection_trainee|recreation_confirmation_ok")]
+    [InlineData("recreation_selection", "recreation.trainee", "recreation_selection.png|recreation_confirmation.png",
+        "recreation_selection_trainee|recreation_confirmation_ok")]
+    [InlineData("recreation_confirmation", "recreation.confirm", "recreation_confirmation.png", "recreation_confirmation_ok")]
+    public async Task Recreation_goes_directly_to_ok_and_selects_trainee_only_when_present(
+        string screen, string action, string frames, string tasks)
     {
-        var (pack, visual, runtime, context) = await CreateAsync("rest_before_low_energy.png");
-        runtime.Frames.Enqueue(null);
-        pack.ExecutionDefinition.GetTask("rest_confirmation_rest_confirm").TimeoutMilliseconds = 1;
+        var captures = frames.Split('|');
+        var (_, visual, runtime, context) = await CreateAsync(captures);
 
-        var result = await new CareerRestFlow(visual).RunAsync(context, "career_main", "action.rest");
+        Assert.Null(await Dispatcher(visual).RunAsync(context, screen, action));
+
+        Assert.Equal(tasks.Split('|'), runtime.Taps);
+        Assert.Equal(captures.Length, runtime.Captures);
+        Assert.Empty(runtime.Delays);
+        Assert.Equal(UraPlannedAction.Recreation, context.State.LastAction);
+        Assert.True(context.State.GoalCompletionProbeArmed);
+        Assert.True(context.State.AwaitingRecreationConfirmationGone);
+        Assert.Equal("recreation_confirmation", context.State.LastScreenId);
+        Assert.Null(await Dispatcher(visual).RunAsync(context, "recreation_confirmation", "recreation.confirm"));
+        Assert.Equal(captures.Length, runtime.Captures);
+        Assert.Equal(tasks.Split('|'), runtime.Taps);
+    }
+
+    [Fact]
+    public async Task Recreation_animation_does_not_repeat_the_trainee_tap()
+    {
+        var (_, visual, runtime, context) = await CreateAsync("recreation_main.png",
+            "recreation_selection.png", "recreation_selection.png", "recreation_confirmation.png");
+
+        Assert.Null(await Dispatcher(visual).RunAsync(context, "career_main", "action.recreation"));
+
+        Assert.Equal(4, runtime.Captures);
+        Assert.Equal([100], runtime.Delays);
+        Assert.Equal(["career_main_action_recreation", "recreation_selection_trainee", "recreation_confirmation_ok"],
+            runtime.Taps);
+    }
+
+    [Theory]
+    [InlineData("rest_confirmation.png")]
+    [InlineData("infirmary_confirm.png")]
+    [InlineData("recreation_event_choice.png")]
+    public async Task Recreation_does_not_confirm_an_unrelated_dialog(string frame)
+    {
+        var (pack, visual, runtime, context) = await CreateAsync(frame);
+        pack.ExecutionDefinition.GetTask("recreation_confirmation_ok").TimeoutMilliseconds = 1;
+
+        var result = await Dispatcher(visual).RunAsync(context, "recreation_confirmation", "recreation.confirm");
+
+        Assert.NotNull(result);
+        Assert.False(result.Succeeded);
+        Assert.Empty(runtime.Taps);
+        Assert.False(context.State.AwaitingRecreationConfirmationGone);
+    }
+
+    [Theory]
+    [InlineData("rest_before_low_energy.png", "action.rest", "rest_confirmation_rest_confirm")]
+    [InlineData("recreation_main.png", "action.recreation", "recreation_selection_trainee")]
+    public async Task Missing_screenshot_is_inconclusive_and_never_clicks_ok(
+        string main, string action, string confirmationTask)
+    {
+        var (pack, visual, runtime, context) = await CreateAsync(main);
+        runtime.Frames.Enqueue(null);
+        pack.ExecutionDefinition.GetTask(confirmationTask).TimeoutMilliseconds = 1;
+
+        var result = await Dispatcher(visual).RunAsync(context, "career_main", action);
 
         Assert.NotNull(result);
         Assert.False(result.Succeeded);

@@ -10,7 +10,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     private readonly UraTrainingSelectionHeightDetector _trainingSelectionDetector;
     private readonly UraSmartTrainingSelectionFlow _smartTrainingSelectionFlow;
     private readonly CareerTurnFlow _turnFlow;
-    private readonly CareerRestFlow _restFlow;
+    private readonly CareerBreakFlow _breakFlow;
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
     private readonly CareerSettlementFlow _settlementFlow;
@@ -38,7 +38,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _smartTrainingSelectionFlow = new UraSmartTrainingSelectionFlow(
             visualRuntime, this, () => _taskLogSink);
         _turnFlow = new CareerTurnFlow(this);
-        _restFlow = new CareerRestFlow(visualRuntime);
+        _breakFlow = new CareerBreakFlow(visualRuntime);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
         _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
         _settlementFlow = new CareerSettlementFlow(this);
@@ -345,9 +345,11 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         string screenId,
         string actionId,
         HachimiPipelineRunOptions? options = null) =>
-        (screenId == "career_main" && actionId is "action.rest" or "action.summer_rest")
+        (screenId == "career_main" && actionId is "action.rest" or "action.summer_rest" or "action.recreation")
             || (screenId is "rest_confirmation" or "summer_rest_confirmation" && actionId == "rest.confirm")
-            ? _restFlow.RunAsync(context, screenId, actionId)
+            || (screenId == "recreation_selection" && actionId == "recreation.trainee")
+            || (screenId == "recreation_confirmation" && actionId == "recreation.confirm")
+            ? _breakFlow.RunAsync(context, screenId, actionId)
             : RunScreenActionCoreAsync(
             context.Connection,
             context.Pack,
