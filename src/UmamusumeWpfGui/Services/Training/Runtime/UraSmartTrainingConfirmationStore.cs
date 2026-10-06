@@ -15,14 +15,30 @@ internal sealed record UraSmartTrainingPendingConfirmation(
 /// <summary>
 /// Keeps the one dangerous confirmation guard across Stop/Restart. Candidate
 /// observations are intentionally excluded; a later run must observe the
-/// result or pause on the training picker.
+/// result, recover at stable Career Main, or pause on the training picker.
 /// </summary>
 internal static class UraSmartTrainingConfirmationStore
 {
+    private static readonly AsyncLocal<string?> TestDirectory = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
     };
+
+    // Tests use isolated stores instead of the running application's guard.
+    // AsyncLocal keeps concurrently executing tests in their own directories.
+    internal static IDisposable UseDirectoryForTesting(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        var scope = new TestDirectoryScope(TestDirectory.Value);
+        TestDirectory.Value = directory;
+        return scope;
+    }
+
+    private sealed class TestDirectoryScope(string? previous) : IDisposable
+    {
+        public void Dispose() => TestDirectory.Value = previous;
+    }
 
     public static async Task<UraSmartTrainingPendingConfirmation?> LoadAsync(
         LastVerifiedConnection connection,
@@ -115,7 +131,7 @@ internal static class UraSmartTrainingConfirmationStore
         var digest = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..20].ToLowerInvariant();
         return Path.Combine(
-            HachimiResourcePaths.GetDebugDirectory("career"),
+            TestDirectory.Value ?? HachimiResourcePaths.GetDebugDirectory("career"),
             $"smart-training-pending-{digest}.json");
     }
 }

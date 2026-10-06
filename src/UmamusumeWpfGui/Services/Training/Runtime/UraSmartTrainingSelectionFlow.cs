@@ -511,7 +511,7 @@ internal sealed class UraSmartTrainingSelectionFlow
             || context.State.TrainingTurnCommitType is not null)
         {
             return CareerRuntimeResults.Failure(
-                "A previous smart training confirmation has an unknown result; picker scanning is paused safely.",
+                "A previous smart training confirmation has an unknown result; picker scanning is paused. Return to Career Main with Back, then Resume to scan again.",
                 "training_selection");
         }
 

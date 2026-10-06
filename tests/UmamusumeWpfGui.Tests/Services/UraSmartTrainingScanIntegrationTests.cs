@@ -16,6 +16,8 @@ public sealed class UraSmartTrainingScanIntegrationTests
     public async Task Full_smart_scan_uses_two_frames_per_card_and_one_fresh_winner_frame(
         string initial, bool cancelDuringScan = false)
     {
+        using var store = UraSmartTrainingConfirmationStore.UseDirectoryForTesting(
+            System.IO.Path.Combine(AppContext.BaseDirectory, "smart-scan-" + Guid.NewGuid().ToString("N")));
         var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var module = new UraScenarioModule(pack);
         var strategy = new UraSmartTrainingStrategy();

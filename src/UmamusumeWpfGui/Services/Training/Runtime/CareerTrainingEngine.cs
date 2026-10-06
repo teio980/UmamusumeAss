@@ -246,6 +246,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             Scenario = state,
         };
         state.TraineeId = settings.TraineeId;
+        var restoredSmartTrainingConfirmation = false;
         if (useSmartObjectives)
         {
             var pendingConfirmation = settings.ContinueExistingCareer
@@ -254,13 +255,13 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 : null;
             if (pendingConfirmation is not null)
             {
+                restoredSmartTrainingConfirmation = true;
                 state.TrainingTurnCommitPending = true;
                 state.TrainingTurnCommitType = pendingConfirmation.TrainingType;
                 state.TrainingTurnCommitTurnIndex = pendingConfirmation.TurnIndex;
                 logSink?.Add(
                     "URA Strategy",
-                    "A previous smart training confirmation has no proven result; a resumed training picker will pause safely.",
-                    LogEntryKind.Failure);
+                    "A previous smart training confirmation needs recovery. Career Main can reset it; a resumed training picker will pause until you return to Career Main.");
             }
             else if (!settings.ContinueExistingCareer)
             {
@@ -558,7 +559,18 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
                 state.LastScreenId = observation.ScreenId;
                 ObserveScenario(scenario, session, observation);
+                if (TryReconcileResumedTrainingConfirmation(
+                        state, observation, restoredSmartTrainingConfirmation))
+                {
+                    restoredSmartTrainingConfirmation = false;
+                    await UraSmartTrainingConfirmationStore.ClearAsync(
+                        connection, settings.TraineeId).ConfigureAwait(false);
+                    logSink?.Add("URA Strategy",
+                        "Career Main is visible after resuming; the old confirmation guard was reset without counting a training result. The next action will use fresh observations.");
+                }
                 ConfirmTrainingIfConsumed(strategy, session, state, observation);
+                if (!state.TrainingTurnCommitPending)
+                    restoredSmartTrainingConfirmation = false;
                 if (observation.ScreenId == "career_main"
                     && !string.IsNullOrWhiteSpace(observation.GoalText)
                     && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
@@ -678,6 +690,28 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             ClassifiedKind = CareerScreenClassification.Classify("training_selection", pack.ScreenProfile),
             ConfirmedByAction = true,
         };
+    }
+
+    internal static bool TryReconcileResumedTrainingConfirmation(
+        UraCareerSessionState state,
+        CareerObservation observation,
+        bool restoredConfirmation)
+    {
+        // Only the guard loaded at startup can be abandoned here. Stable Main
+        // recognition proves the game is ready for a new action even when its
+        // date is unavailable (Finale Underway), but does not prove the old tap
+        // consumed a turn. Never credit it or reset a confirmation in this run.
+        if (!restoredConfirmation || !state.TrainingTurnCommitPending
+            || state.TrainingClickIssuedType is not null
+            || state.PendingTurnAction is not null
+            || observation.ConfirmedByAction
+            || !observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        state.TrainingTurnCommitPending = false;
+        state.TrainingTurnCommitType = null;
+        state.TrainingTurnCommitTurnIndex = null;
+        return true;
     }
 
     internal static void ConfirmTrainingIfConsumed(

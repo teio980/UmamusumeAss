@@ -17,6 +17,8 @@ public sealed class UraSmartTrainingConfirmationTests
     [InlineData("speed", true)]
     public async Task Uses_original_offset_after_persisting_guard_and_never_confirms_twice(string type, bool interruptTap = false)
     {
+        using var store = UraSmartTrainingConfirmationStore.UseDirectoryForTesting(
+            System.IO.Path.Combine(AppContext.BaseDirectory, "smart-confirm-" + Guid.NewGuid().ToString("N")));
         var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
         var connection = new LastVerifiedConnection("offline", Guid.NewGuid().ToString("N"), "offline-test", "test",
             900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
