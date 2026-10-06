@@ -88,6 +88,30 @@ public sealed class DateChangedDialogRecoveryTests
     }
 
     [Fact]
+    public async Task Verified_rest_frame_taps_without_another_adb_screenshot()
+    {
+        var fixture = new Fixture();
+        var visual = new AdbVisualPipelineRuntime(fixture.Adb, fixture.Delay, new WindowsOcrTextRecognizer(), fixture.Guard);
+        using var scope = new GameAutomationScope(null, null);
+        var frame = Load("ura/screens/captures/rest_confirmation.png");
+        await visual.TapMatchAsync(Connection(), frame, new(true, 1, 470, 995, 360, 120), "rest.confirm");
+        Assert.Equal(0, fixture.CaptureCount);
+        Assert.Single(fixture.Events);
+    }
+
+    [Fact]
+    public async Task Verified_frame_with_daily_reset_interrupts_before_the_tap()
+    {
+        var fixture = new Fixture();
+        var visual = new AdbVisualPipelineRuntime(fixture.Adb, fixture.Delay, new WindowsOcrTextRecognizer(), fixture.Guard);
+        using var scope = new GameAutomationScope(null, null);
+        await Assert.ThrowsAsync<DateChangedInterruptionException>(() =>
+            visual.TapMatchAsync(Connection(), fixture.Frame, new(true, 1, 470, 995, 360, 120), "rest.confirm"));
+        Assert.Equal(1, fixture.CaptureCount);
+        Assert.Empty(fixture.Events);
+    }
+
+    [Fact]
     public async Task Screenshots_outside_an_automation_scope_never_dismiss_the_modal()
     {
         var fixture = new Fixture();
@@ -413,8 +437,14 @@ public sealed class DateChangedDialogRecoveryTests
     private static LastVerifiedConnection Connection() => new("adb", "serial", "android", "version",
         900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
     private static GrayImage Blank() => new(900, 1600, new byte[900 * 1600], new byte[900 * 1600 * 4]);
-    private static GrayImage Load(string path) => GrayImageCodec.FromFile(
-        ResourcePathRuntime.Resolve("resource/hachimi/" + path)) ?? throw new FileNotFoundException(path);
+    private static GrayImage Load(string path)
+    {
+        var resolved = ResourcePathRuntime.Resolve("resource/hachimi/" + path);
+        if (!File.Exists(resolved) && path.StartsWith("ura/screens/captures/", StringComparison.Ordinal))
+            resolved = CareerTestResourceResolver.FindUraCapture(
+                CareerTestResourceResolver.FindWorkspaceRoot(), Path.GetFileName(path));
+        return GrayImageCodec.FromFile(resolved) ?? throw new FileNotFoundException(path);
+    }
 
     internal sealed class Fixture : IStartGamePipeline, IGameLauncher, ISettingsService, IAsyncDelay
     {

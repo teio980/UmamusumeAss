@@ -11,6 +11,33 @@ public sealed class UraSmartTrainingPerformanceTests
         900, 1600, 900, 1600, DateTimeOffset.UnixEpoch);
     private static readonly int[] PreviewCenters = [200, 350, 500, 650];
 
+    [Theory]
+    [InlineData("speed")]
+    [InlineData("stamina")]
+    [InlineData("power")]
+    [InlineData("guts")]
+    [InlineData("wit")]
+    public async Task Starting_on_any_selected_card_still_scans_all_five_with_four_preview_taps(string selected)
+    {
+        var runtime = DispatchProxy.Create<IVisualPipelineRuntime, PreviewRuntime>();
+        var fake = (PreviewRuntime)(object)runtime;
+        fake.Selected = selected;
+        var sampler = CreateSampler(runtime, fake);
+        var current = await sampler.CaptureAsync(Connection, null!, CancellationToken.None);
+        var order = UraSmartTrainingPreviewSampler.GetScanOrder(current.Selection.RaisedType);
+        Assert.Equal(selected, order[0]);
+        Assert.Equal(UraTrainingTypeCatalog.SupportedTypes.Order(), order.Order());
+        foreach (var type in order)
+        {
+            current = await sampler.SelectAsync(Connection, null!, type, current, CancellationToken.None);
+            Assert.Equal(type, current.Selection.RaisedType);
+            current = await sampler.CaptureNextSampleAsync(Connection, null!, CancellationToken.None);
+        }
+        Assert.Equal(10, sampler.CaptureCount);
+        Assert.Equal(4, sampler.PreviewTapCount);
+        Assert.Equal(4, fake.Taps.Count);
+    }
+
     [Fact]
     public async Task Five_previews_need_ten_frames_and_four_reversible_taps()
     {

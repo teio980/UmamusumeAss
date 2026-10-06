@@ -671,7 +671,11 @@ public sealed class HachimiJsonPipelineRunner
         }
 
         ObserveRecoveryEvidence(definition, taskName, runOptions);
-        if (_dateChangedRecovery is not null && action is not ("wait" or "donothing" or "justreturn" or ""))
+        // A guarded TapMatchAsync already checks ClickSelf input; retain the runner guard for other adapters.
+        var guardedTemplateTap = action == "clickself"
+            && _visualRuntime is AdbVisualPipelineRuntime { GuardsInput: true };
+        if (_dateChangedRecovery is not null && !guardedTemplateTap
+            && action is not ("wait" or "donothing" or "justreturn" or ""))
             await _dateChangedRecovery.Guard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
         if (taskName.Equals("shopProbe", StringComparison.OrdinalIgnoreCase)
             && GameAutomationScope.Current?.ConfirmedShopExchanges.Contains(ShopRecoveryKey(definition)) == true)

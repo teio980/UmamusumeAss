@@ -182,6 +182,15 @@ public interface IVisualPipelineRuntime
         string taskName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Uses the frame that proved the target for the input guard, without recapturing it.</summary>
+    Task TapMatchAsync(
+        LastVerifiedConnection connection,
+        GrayImage frame,
+        TemplateMatchResult match,
+        string taskName,
+        CancellationToken cancellationToken = default) =>
+        TapMatchAsync(connection, match, taskName, cancellationToken);
+
     Task TapAsync(
         LastVerifiedConnection connection,
         int x,

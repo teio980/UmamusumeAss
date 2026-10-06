@@ -20,6 +20,8 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
     private readonly DateChangedDialogGuard? _dateChangedGuard;
     private readonly ConcurrentDictionary<string, HeldTouchDevice> _touchDevices = new();
 
+    internal bool GuardsInput => _dateChangedGuard is not null;
+
     public AdbVisualPipelineRuntime(
         IAdbRuntime adbRuntime,
         IAsyncDelay asyncDelay,
@@ -427,6 +429,29 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
         if (_dateChangedGuard is not null)
             await _dateChangedGuard.CheckBeforeInputAsync(connection, cancellationToken).ConfigureAwait(false);
 
+        await SendMatchTapAsync(connection, match, taskName, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task TapMatchAsync(
+        LastVerifiedConnection connection,
+        GrayImage frame,
+        TemplateMatchResult match,
+        string taskName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(frame);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_dateChangedGuard is not null
+            && await _dateChangedGuard.InspectAsync(connection, frame, cancellationToken).ConfigureAwait(false))
+            throw new DateChangedInterruptionException();
+
+        await SendMatchTapAsync(connection, match, taskName, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SendMatchTapAsync(LastVerifiedConnection connection,
+        TemplateMatchResult match, string taskName, CancellationToken cancellationToken)
+    {
         var result = await _adbRuntime.TapAsync(
                 connection.AdbPath,
                 connection.Serial,

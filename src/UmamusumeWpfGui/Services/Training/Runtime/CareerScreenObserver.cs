@@ -67,7 +67,8 @@ public sealed class CareerScreenObserver
         bool careerStartTransitionExpected,
         CancellationToken cancellationToken,
         bool careerOnly = false,
-        bool resumeRecovery = false)
+        bool resumeRecovery = false,
+        bool includeMainDetails = true)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(pack);
@@ -370,7 +371,7 @@ public sealed class CareerScreenObserver
             return null;
         }
 
-        if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
+        if (includeMainDetails && best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
             var infirmaryAvailable = false;
             if (frames.Count == 2

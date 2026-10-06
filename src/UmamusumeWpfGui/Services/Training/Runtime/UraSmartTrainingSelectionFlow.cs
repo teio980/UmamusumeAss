@@ -63,7 +63,7 @@ internal sealed class UraSmartTrainingCandidateReader
     private static readonly string[] CoreFields =
         ["speed", "stamina", "power", "guts", "wit", "skill_points"];
     private readonly IVisualPipelineRuntime _visualRuntime;
-    private readonly CareerNumericOcrFallback _fallback;
+    private readonly CareerNumericOcrFallback? _fallbackOverride;
     private sealed record CachedField(GrayImage Image, bool Blank, UraTrainingOcrFieldEvidence Evidence,
         double Confidence);
     private Dictionary<string, CachedField> _previousFields = new();
@@ -72,6 +72,7 @@ internal sealed class UraSmartTrainingCandidateReader
     public int LastWindowsOcrCalls { get; private set; }
     public int LastFallbackCalls { get; private set; }
     public int LastReusedFields { get; private set; }
+    public bool LastHadGlyphMismatch { get; private set; }
 
     public IReadOnlyDictionary<string, UraTrainingOcrFieldEvidence> LastReadings { get; private set; } =
         new Dictionary<string, UraTrainingOcrFieldEvidence>();
@@ -80,7 +81,7 @@ internal sealed class UraSmartTrainingCandidateReader
         IVisualPipelineRuntime visualRuntime, CareerNumericOcrFallback? fallback = null)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
-        _fallback = fallback ?? CareerNumericOcrReader.TryReadAsync;
+        _fallbackOverride = fallback;
     }
 
     public async Task<UraTrainingCandidate> ReadAsync(
@@ -93,11 +94,12 @@ internal sealed class UraSmartTrainingCandidateReader
         var evidence = new Dictionary<string, UraTrainingOcrFieldEvidence>(StringComparer.OrdinalIgnoreCase);
         LastReadings = evidence;
         LastWindowsOcrCalls = LastFallbackCalls = LastReusedFields = 0;
+        LastHadGlyphMismatch = false;
         var screen = pack.ScreenProfile.Find("training_selection");
         if (screen is null)
             return Unknown(trainingType);
 
-        var budget = sharedFallbackBudget ?? new CareerNumericOcrBudget();
+        var budget = sharedFallbackBudget;
         var fallbackToken = fallbackBudgetToken ?? CancellationToken.None;
         var values = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
         var confidences = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -110,6 +112,7 @@ internal sealed class UraSmartTrainingCandidateReader
         var reused = new Dictionary<string, CachedField>();
         var nextCache = new Dictionary<string, CachedField>();
         IReadOnlyDictionary<string, ScreenTextRecognitionResult?>? batch = null;
+        IReadOnlyDictionary<string, UraSmartTrainingTesseractBatch.Reading>? numericBatch = null;
         if (optimize)
         {
             foreach (var field in CandidateFields)
@@ -142,9 +145,27 @@ internal sealed class UraSmartTrainingCandidateReader
                 && !reused.ContainsKey(item.Key)).ToArray();
             if (pending.Length > 0)
             {
-                LastWindowsOcrCalls++;
-                batch = await UraSmartTrainingOcrBatch.ReadAsync(_visualRuntime, pending,
-                    cancellationToken).ConfigureAwait(false);
+                if (_fallbackOverride is not null)
+                {
+                    LastWindowsOcrCalls++;
+                    batch = await UraSmartTrainingOcrBatch.ReadAsync(_visualRuntime, pending,
+                        cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    // On actual prepared game digits Tesseract supplies nearly all values;
+                    // do not pay for an empty Windows pass on every verified frame.
+                    numericBatch = await UraSmartTrainingTesseractBatch.ReadAsync(pending,
+                        fallbackToken, cancellationToken, () => LastFallbackCalls++)
+                        .ConfigureAwait(false);
+                    var unresolved = pending.Where(field => numericBatch[field.Key].Value is null).ToArray();
+                    if (unresolved.Length > 0)
+                    {
+                        LastWindowsOcrCalls++;
+                        batch = await UraSmartTrainingOcrBatch.ReadAsync(_visualRuntime, unresolved,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                }
             }
         }
         foreach (var field in CandidateFields)
@@ -208,9 +229,21 @@ internal sealed class UraSmartTrainingCandidateReader
             var detections = recognized?.Detections.Where(item => !string.IsNullOrWhiteSpace(item.Text))
                 .ToArray() ?? [];
             var rawText = string.Join(" | ", detections.Select(item => item.Text));
+            if (numericBatch?.GetValueOrDefault(field) is { } numericEvidence)
+            {
+                LastHadGlyphMismatch |= numericEvidence.GlyphMismatch;
+                rawText = string.Join(" | ", new[] { rawText, "tesseract: " + numericEvidence.RawText }
+                    .Where(text => text.Length > 0));
+            }
             var maximum = field == "failure_rate" ? 100 : 999;
             values[field] = CareerOcrNumberParser.ParseTrainingNumber(
                 detections.Select(item => item.Text), maximum);
+            if (optimize && field != "failure_rate" && fieldImage is not null && values[field] is { } number
+                && !UraSmartTrainingGainGlyphValidator.Matches(fieldImage, number))
+            {
+                values[field] = null;
+                LastHadGlyphMismatch = true;
+            }
             var source = "unknown";
             if (values[field] is not null)
             {
@@ -226,24 +259,42 @@ internal sealed class UraSmartTrainingCandidateReader
                 confidences[field] = 0.82;
                 source = "visual-blank";
             }
+            else if (numericBatch is not null)
+            {
+                if (numericBatch.TryGetValue(field, out var numeric))
+                {
+                    if (numeric.Value is not null)
+                    {
+                        values[field] = numeric.Value;
+                        confidences[field] = 0.82;
+                        source = "tesseract-batch";
+                    }
+                }
+            }
             else if (fieldImage is not null && !fallbackToken.IsCancellationRequested)
             {
                 try
                 {
+                    budget ??= new CareerNumericOcrBudget();
+                    var fallbackReader = _fallbackOverride ?? CareerNumericOcrReader.TryReadAsync;
                     var fallbackValue = await budget.RunAsync(token =>
                     {
                         LastFallbackCalls++;
-                        return _fallback(fieldImage, [0, 0, fieldImage.Width, fieldImage.Height],
+                        return fallbackReader(fieldImage, [0, 0, fieldImage.Width, fieldImage.Height],
                             fieldImage.Width, fieldImage.Height, maximum, token, cancellationToken);
                     },
                         cancellationToken, fallbackToken)
                         .ConfigureAwait(false);
-                    if (fallbackValue is >= 0 && fallbackValue <= maximum)
+                    if (fallbackValue is >= 0 && fallbackValue <= maximum
+                        && (!optimize || field == "failure_rate"
+                            || UraSmartTrainingGainGlyphValidator.Matches(fieldImage, fallbackValue.Value)))
                     {
                         values[field] = fallbackValue;
                         confidences[field] = 0.82;
                         source = "tesseract-fallback";
                     }
+                    else if (optimize && field != "failure_rate" && fallbackValue is not null)
+                        LastHadGlyphMismatch = true;
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
@@ -423,14 +474,13 @@ internal sealed class UraSmartTrainingCandidateReader
 
 /// <summary>
 /// Scans the five picker cards by clicking only the first, reversible logo
-/// tap. The existing two-stage training task remains the sole confirmation
-/// path, so preview never consumes a turn.
+/// tap. A fresh all-five check and persisted guard precede the single configured
+/// confirmation tap, so preview never consumes a turn.
 /// </summary>
 internal sealed class UraSmartTrainingSelectionFlow
 {
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly CareerFlowDispatcher _dispatcher;
-    private readonly UraTrainingSelectionHeightDetector _heightDetector;
     private readonly UraSmartTrainingCandidateReader _candidateReader;
     private readonly UraSmartTrainingDiagnostics _diagnostics = new();
     private readonly Func<IHachimiTaskLogSink?>? _taskLogSink;
@@ -438,12 +488,10 @@ internal sealed class UraSmartTrainingSelectionFlow
     public UraSmartTrainingSelectionFlow(
         IVisualPipelineRuntime visualRuntime,
         CareerFlowDispatcher dispatcher,
-        UraTrainingSelectionHeightDetector heightDetector,
         Func<IHachimiTaskLogSink?>? taskLogSink = null)
     {
         _visualRuntime = visualRuntime ?? throw new ArgumentNullException(nameof(visualRuntime));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        _heightDetector = heightDetector ?? throw new ArgumentNullException(nameof(heightDetector));
         _candidateReader = new UraSmartTrainingCandidateReader(visualRuntime);
         _taskLogSink = taskLogSink;
     }
@@ -468,7 +516,8 @@ internal sealed class UraSmartTrainingSelectionFlow
         }
 
         var started = Stopwatch.GetTimestamp();
-        var sampler = new UraSmartTrainingPreviewSampler(_visualRuntime, _heightDetector.DetectFrameAsync);
+        var smartDetector = new UraSmartTrainingHeightDetector(_visualRuntime);
+        var sampler = new UraSmartTrainingPreviewSampler(_visualRuntime, smartDetector.DetectFrameAsync);
         var current = await sampler.CaptureAsync(
                 context.Connection, context.Pack, context.CancellationToken)
             .ConfigureAwait(false);
@@ -481,7 +530,7 @@ internal sealed class UraSmartTrainingSelectionFlow
                 "training_selection");
 
         var candidates = new List<UraTrainingCandidate>(UraTrainingTypeCatalog.SupportedTypes.Count);
-        foreach (var trainingType in UraTrainingTypeCatalog.SupportedTypes)
+        foreach (var trainingType in UraSmartTrainingPreviewSampler.GetScanOrder(initial.RaisedType))
         {
             var candidateStarted = Stopwatch.GetTimestamp();
             var capturesBefore = sampler.CaptureCount;
@@ -511,25 +560,26 @@ internal sealed class UraSmartTrainingSelectionFlow
                 continue;
             }
 
-            var fallbackBudget = new CareerNumericOcrBudget();
-            var first = await ReadCandidateFrameAsync(
-                    context, current, trainingType, fallbackBudget, false)
-                .ConfigureAwait(false);
+            // OCR reads the immutable first screenshot while the second real frame is
+            // captured and checked. No taps occur, and the reader's second read starts
+            // only after both tasks complete, preserving its per-field evidence/cache.
+            var firstRead = ReadCandidateFrameAsync(context, current, trainingType, false);
+            var secondCapture = sampler.CaptureNextSampleAsync(
+                context.Connection, context.Pack, context.CancellationToken);
+            await Task.WhenAll(firstRead, secondCapture).ConfigureAwait(false);
+            var first = await firstRead.ConfigureAwait(false);
             var firstEvidence = _candidateReader.LastReadings;
+            var firstHadGlyphMismatch = _candidateReader.LastHadGlyphMismatch;
             var windowsCalls = _candidateReader.LastWindowsOcrCalls;
             var fallbackCalls = _candidateReader.LastFallbackCalls;
-            await _visualRuntime.DelayAsync(120, context.CancellationToken)
-                .ConfigureAwait(false);
-            current = await sampler.CaptureAsync(
-                    context.Connection, context.Pack, context.CancellationToken)
-                .ConfigureAwait(false);
+            current = await secondCapture.ConfigureAwait(false);
             var secondFrame = current.Frame;
             if (current.Selection.ScreenChanged)
                 return null;
             var second = secondFrame is null
                 ? new UraTrainingCandidate(trainingType, null, null, null, null, null, null, null)
                 : await ReadCandidateFrameAsync(
-                    context, current, trainingType, fallbackBudget, true)
+                    context, current, trainingType, true)
                     .ConfigureAwait(false);
             var secondVerified = secondFrame is not null && current.Selection.Succeeded
                 && string.Equals(current.Selection.RaisedType, trainingType, StringComparison.OrdinalIgnoreCase);
@@ -541,7 +591,8 @@ internal sealed class UraSmartTrainingSelectionFlow
             }
             var merged = UraSmartTrainingCandidateReader.MergeStable(first, second);
             candidates.Add(merged);
-            if (!merged.HasReliableCoreValues || !merged.HasReliableFailureRate)
+            if (!merged.HasReliableCoreValues || !merged.HasReliableFailureRate || firstHadGlyphMismatch
+                || (secondVerified && _candidateReader.LastHadGlyphMismatch))
                 await _diagnostics.SaveAsync(context, strategy, trainingType, firstFrame, secondFrame,
                     first, second, merged, firstEvidence,
                     secondEvidence).ConfigureAwait(false);
@@ -553,7 +604,9 @@ internal sealed class UraSmartTrainingSelectionFlow
 
         context.LogSink?.Add("URA Strategy",
             $"Smart scan timing: elapsedMs={Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}, "
-            + $"captures={sampler.CaptureCount}, previewTaps={sampler.PreviewTapCount}.");
+            + $"captures={sampler.CaptureCount}, previewTaps={sampler.PreviewTapCount}, "
+            + $"captureMs={sampler.CaptureTime.TotalMilliseconds:0}, matchMs={sampler.DetectionTime.TotalMilliseconds:0}, "
+            + $"tapMs={sampler.TapTime.TotalMilliseconds:0}.");
 
         var decision = strategy.SelectCandidate(
             context.Scenario, context.State, candidates);
@@ -591,8 +644,13 @@ internal sealed class UraSmartTrainingSelectionFlow
         }
 
         var chosen = decision.Candidate.TrainingType.Trim().ToLowerInvariant();
-        current = await sampler.CaptureAsync(context.Connection, context.Pack, context.CancellationToken)
-            .ConfigureAwait(false);
+        // A different winner is checked on the fresh post-switch frame below. Avoid
+        // taking an extra screenshot immediately before that same reversible switch.
+        // If the winner is already selected, still obtain a fresh confirmation frame.
+        if (!current.Selection.Succeeded || string.Equals(current.Selection.RaisedType, chosen,
+                StringComparison.OrdinalIgnoreCase))
+            current = await sampler.CaptureAsync(context.Connection, context.Pack, context.CancellationToken)
+                .ConfigureAwait(false);
         var finalSelection = current.Selection;
         if (finalSelection.ScreenChanged)
             return null;
@@ -625,7 +683,7 @@ internal sealed class UraSmartTrainingSelectionFlow
         CareerTurnFlow.ArmPendingGoalProbe(context.State);
         context.State.SmartTrainingPreviewReady = false;
         var result = await _dispatcher.RunConfirmedSmartTrainingSelectionAsync(
-                context, chosen)
+                context, chosen, finalSelection)
             .ConfigureAwait(false);
         context.LogSink?.Add("URA Strategy",
             $"Smart decision timing: elapsedMs={Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}, "
@@ -635,7 +693,7 @@ internal sealed class UraSmartTrainingSelectionFlow
 
     private async Task<UraTrainingCandidate> ReadCandidateFrameAsync(
         CareerFlowContext context, UraSmartTrainingPreviewFrame preview, string trainingType,
-        CareerNumericOcrBudget budget, bool reusePreviousRead)
+        bool reusePreviousRead)
     {
         var selection = preview.Selection;
         if (preview.Frame is not { } frame || !selection.Succeeded
@@ -644,7 +702,7 @@ internal sealed class UraSmartTrainingSelectionFlow
             return new(trainingType, null, null, null, null, null, null, null);
         var selected = selection.Matches.Single(item => item.TrainingType == selection.RaisedType).Match;
         return await _candidateReader.ReadAsync(context.Pack, frame, trainingType,
-            context.CancellationToken, sharedFallbackBudget: budget, selectedLogo: selected,
+            context.CancellationToken, selectedLogo: selected,
             optimize: true, reusePreviousRead: reusePreviousRead)
             .ConfigureAwait(false);
     }

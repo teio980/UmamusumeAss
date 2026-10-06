@@ -55,6 +55,21 @@ public sealed class CareerMainSharedOcrFrameTests
         Assert.Empty(recorder.OcrCalls);
     }
 
+    [Fact]
+    public async Task Startup_detection_keeps_stability_checks_without_repeating_main_ocr()
+    {
+        var frame = CreateFrame();
+        var runtime = RecordingVisualRuntime.Create(frame, frame, out var recorder);
+        var observer = new CareerScreenObserver(runtime);
+        var observation = await observer.ObserveAsync(CreateConnection(), CreatePack(),
+            new UraCareerSessionState { CareerStarted = true }, false, CancellationToken.None,
+            careerOnly: true, includeMainDetails: false);
+
+        Assert.Equal("career_main", observation?.ScreenId);
+        Assert.Equal(2, recorder.CaptureCount);
+        Assert.Empty(recorder.OcrCalls);
+    }
+
     [Theory]
     [InlineData("race_day", "race.objective")]
     [InlineData("race_list", "objective.title")]

@@ -340,7 +340,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                         state,
                         careerStartTransitionExpected: false,
                         cancellationToken: cancellationToken,
-                        careerOnly: true)
+                        careerOnly: true,
+                        includeMainDetails: false)
                     .ConfigureAwait(false);
             }
 
@@ -487,18 +488,6 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 {
                     return new CareerRuntimeStep(AwaitingTransition: true);
                 }
-                if (completion?.LastScreenId == "rest_confirmation")
-                {
-                    var eventResult = await _flowDispatcher.TryHandleEventAsync(
-                            new CareerFlowContext(connection, pack, settings.PauseOnUnknownOutcome,
-                                scenario, strategy, settings.LineupStrategy, state,
-                                new CareerObservation("rest_confirmation", 1), logSink,
-                                loopCancellation, settings.EventHandling))
-                        .ConfigureAwait(false);
-                    if (eventResult is not null)
-                        return eventResult;
-                }
-
                 return new CareerRuntimeStep();
             },
             ObserveAsync: (startExpected, recoveryPending, loopCancellation) =>

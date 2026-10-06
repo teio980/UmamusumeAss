@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Windows;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 
@@ -8,74 +9,114 @@ namespace UmamusumeWpfGui.Services.Training;
 /// <summary>One Hachimi log card for a completed smart training scan; no additional OCR.</summary>
 internal static class UraSmartTrainingScanLog
 {
+    private static readonly IReadOnlyDictionary<string, string> EnglishFallback = new Dictionary<string, string>
+    {
+        ["GrassSmartTrainingScanTitle"] = "Smart training scan",
+        ["GrassSmartTrainingScanUnknown"] = "Unknown",
+        ["GrassSmartTrainingScanHeader"] = "Date: {0} | Energy: {1}",
+        ["GrassSmartTrainingScanRow"] = "{0} training: Speed {1}, Stamina {2}, Power {3}, Guts {4}, Wit {5}, Skill points {6}",
+        ["GrassSmartTrainingScanOutcome"] = "Failure rate: {0} | Score: {1} | {2}",
+        ["GrassSmartTrainingScanNotScored"] = "Not scored",
+        ["GrassSmartTrainingScanExcluded"] = "Excluded: {0}",
+        ["GrassSmartTrainingScanNoData"] = "No reliable scan data",
+        ["GrassSmartTrainingScanWinner"] = "Selected candidate",
+        ["GrassSmartTrainingScanSafe"] = "Safe candidate",
+        ["GrassSmartTrainingScanChoice"] = "Choice: {0} training (pending confirmation)",
+        ["GrassSmartTrainingScanRest"] = "Choice: no reliable safe candidate; return to the Career main screen and rest",
+        ["GrassSmartTrainingScanUnknownGains"] = "Gains are unknown, unstable or below the confidence threshold",
+        ["GrassSmartTrainingScanUnknownFailure"] = "Failure rate is unknown, unstable or below the confidence threshold",
+        ["GrassSmartTrainingScanZeroGains"] = "Expected gains are zero",
+        ["GrassSmartTrainingScanHighFailure"] = "Failure rate exceeds {0}%",
+        ["GrassNormalTrainingSpeedLabel"] = "Speed",
+        ["GrassNormalTrainingStaminaLabel"] = "Stamina",
+        ["GrassNormalTrainingPowerLabel"] = "Power",
+        ["GrassNormalTrainingGutsLabel"] = "Guts",
+        ["GrassNormalTrainingWitLabel"] = "Wit",
+    };
+
     public static void Write(IHachimiTaskLogSink? sink, UraCareerSessionState state,
-        UraSmartTrainingDecision decision)
+        UraSmartTrainingDecision decision, Func<string, string?>? lookup = null)
     {
         if (sink is null)
             return;
+        var text = ReadCurrentUiText(lookup);
+        string Format(string key, params object[] values) =>
+            string.Format(CultureInfo.InvariantCulture, text[key], values);
         var message = new StringBuilder();
-        message.Append("日期：").Append(state.TurnPositionLabel ?? "未知")
-            .Append(" ｜ 体力：").Append(Percent(state.Energy.Value)).AppendLine();
+        message.AppendLine(Format("GrassSmartTrainingScanHeader",
+            state.TurnPositionLabel ?? text["GrassSmartTrainingScanUnknown"], Percent(state.Energy.Value, text)));
         foreach (var type in UraTrainingTypeCatalog.SupportedTypes)
         {
             var item = decision.ScoredCandidates.FirstOrDefault(item =>
                 string.Equals(item.Candidate.TrainingType, type, StringComparison.OrdinalIgnoreCase));
             var candidate = item.Candidate;
             message.AppendLine();
-            message.Append(Name(type)).Append("训练：")
-                .Append("速度 ").Append(Gain(candidate?.SpeedGain))
-                .Append("，耐力 ").Append(Gain(candidate?.StaminaGain))
-                .Append("，力量 ").Append(Gain(candidate?.PowerGain))
-                .Append("，根性 ").Append(Gain(candidate?.GutsGain))
-                .Append("，智力 ").Append(Gain(candidate?.WitGain))
-                .Append("，技能点 ").Append(Gain(candidate?.SkillPointGain)).AppendLine();
-            message.Append("失败率：").Append(Percent(candidate?.FailureRatePercent))
-                .Append(" ｜ 评分：")
-                .Append(item.Score is { ExclusionReason: null } score
-                    ? score.TotalScore.ToString("0.00", CultureInfo.InvariantCulture) : "未参与")
-                .Append(" ｜ ");
-            if (candidate is null)
-                message.Append("排除：未扫描到可靠数据");
-            else if (item.Score.ExclusionReason is { } reason)
-                message.Append("排除：").Append(Exclusion(reason, candidate));
-            else if (string.Equals(type, decision.Candidate?.TrainingType, StringComparison.OrdinalIgnoreCase))
-                message.Append("本轮胜出");
-            else
-                message.Append("安全候选");
-            message.AppendLine();
+            message.AppendLine(Format("GrassSmartTrainingScanRow", Name(type, text),
+                Gain(candidate?.SpeedGain, text), Gain(candidate?.StaminaGain, text),
+                Gain(candidate?.PowerGain, text), Gain(candidate?.GutsGain, text),
+                Gain(candidate?.WitGain, text), Gain(candidate?.SkillPointGain, text)));
+            var status = candidate is null
+                ? Format("GrassSmartTrainingScanExcluded", text["GrassSmartTrainingScanNoData"])
+                : item.Score.ExclusionReason is { } reason
+                    ? Format("GrassSmartTrainingScanExcluded", Exclusion(reason, candidate, text))
+                    : string.Equals(type, decision.Candidate?.TrainingType, StringComparison.OrdinalIgnoreCase)
+                        ? text["GrassSmartTrainingScanWinner"] : text["GrassSmartTrainingScanSafe"];
+            message.AppendLine(Format("GrassSmartTrainingScanOutcome", Percent(candidate?.FailureRatePercent, text),
+                item.Score is { ExclusionReason: null } score
+                    ? score.TotalScore.ToString("0.00", CultureInfo.InvariantCulture)
+                    : text["GrassSmartTrainingScanNotScored"], status));
         }
         message.AppendLine();
         message.Append(decision.Candidate is { } chosen
-            ? $"本轮选择：{Name(chosen.TrainingType)}训练（待确认）"
-            : "本轮选择：无可靠安全候选，返回主界面休息");
+            ? Format("GrassSmartTrainingScanChoice", Name(chosen.TrainingType, text))
+            : text["GrassSmartTrainingScanRest"]);
         // The existing Hachimi entry template supplies the border. One Add preserves
         // all five rows inside a single card, including unknown and excluded candidates.
-        sink.Add("智能训练扫描", message.ToString(), HachimiTaskLogEventKind.Detection);
+        sink.Add(text["GrassSmartTrainingScanTitle"], message.ToString(), HachimiTaskLogEventKind.Detection);
     }
 
-    private static string Gain(int? value) => value is { } number
-        ? "+" + number.ToString(CultureInfo.InvariantCulture) : "未知";
-
-    private static string Percent(int? value) => value is { } number
-        ? number.ToString(CultureInfo.InvariantCulture) + "%" : "未知";
-
-    private static string Name(string type) => type.Trim().ToLowerInvariant() switch
+    private static Dictionary<string, string> ReadCurrentUiText(Func<string, string?>? lookup)
     {
-        "speed" => "速度",
-        "stamina" => "耐力",
-        "power" => "力量",
-        "guts" => "根性",
-        "wit" => "智力",
+        // LocalizationService switches resource dictionaries without changing the OS/thread
+        // culture. Read the active application resources, once per card, on the UI thread.
+        Dictionary<string, string> Snapshot(Func<string, string?>? resolve) =>
+            EnglishFallback.ToDictionary(item => item.Key, item =>
+            {
+                var localized = resolve?.Invoke(item.Key);
+                return string.IsNullOrWhiteSpace(localized) || localized == item.Key ? item.Value : localized;
+            });
+        if (lookup is not null)
+            return Snapshot(lookup);
+        var application = Application.Current;
+        return application is null ? Snapshot(null)
+            : application.Dispatcher.Invoke(() => Snapshot(key => application.TryFindResource(key) as string));
+    }
+
+    private static string Gain(int? value, Dictionary<string, string> text) => value is { } number
+        ? "+" + number.ToString(CultureInfo.InvariantCulture) : text["GrassSmartTrainingScanUnknown"];
+
+    private static string Percent(int? value, Dictionary<string, string> text) => value is { } number
+        ? number.ToString(CultureInfo.InvariantCulture) + "%" : text["GrassSmartTrainingScanUnknown"];
+
+    private static string Name(string type, Dictionary<string, string> text) => type.Trim().ToLowerInvariant() switch
+    {
+        "speed" => text["GrassNormalTrainingSpeedLabel"],
+        "stamina" => text["GrassNormalTrainingStaminaLabel"],
+        "power" => text["GrassNormalTrainingPowerLabel"],
+        "guts" => text["GrassNormalTrainingGutsLabel"],
+        "wit" => text["GrassNormalTrainingWitLabel"],
         _ => type,
     };
 
-    private static string Exclusion(string reason, UraTrainingCandidate candidate) => reason switch
+    private static string Exclusion(string reason, UraTrainingCandidate candidate,
+        Dictionary<string, string> text) => reason switch
     {
-        "core gains are unknown or below confidence threshold" => "增益未知、不稳定或可信度不足",
-        "failure rate is unknown or below confidence threshold" => "失败率未知、不稳定或可信度不足",
-        "expected gains are zero" => "预计收益为零",
+        "core gains are unknown or below confidence threshold" => text["GrassSmartTrainingScanUnknownGains"],
+        "failure rate is unknown or below confidence threshold" => text["GrassSmartTrainingScanUnknownFailure"],
+        "expected gains are zero" => text["GrassSmartTrainingScanZeroGains"],
         _ when candidate.FailureRatePercent > UraSmartTrainingScorer.MaximumFailureRatePercent =>
-            $"失败率超过 {UraSmartTrainingScorer.MaximumFailureRatePercent}%",
+            string.Format(CultureInfo.InvariantCulture, text["GrassSmartTrainingScanHighFailure"],
+                UraSmartTrainingScorer.MaximumFailureRatePercent),
         _ => reason,
     };
 }

@@ -47,6 +47,9 @@ internal sealed class UraSmartTrainingDiagnostics
                 context.State.TurnIndex,
                 context.State.TurnPositionLabel,
                 TrainingType = trainingType,
+                Reason = merged.HasReliableCoreValues && merged.HasReliableFailureRate
+                    ? "A gain OCR digit-count mismatch was corrected by fallback."
+                    : "Numeric values or selected preview were unknown or unstable.",
                 First = first,
                 Second = second,
                 Merged = merged,
@@ -56,7 +59,9 @@ internal sealed class UraSmartTrainingDiagnostics
             await File.WriteAllTextAsync(Path.Combine(directory, "recognition.json"),
                 JsonSerializer.Serialize(diagnostics, JsonOptions), context.CancellationToken)
                 .ConfigureAwait(false);
-            context.LogSink?.Add("URA Strategy", $"Unreadable training evidence: '{directory}'.");
+            var description = merged.HasReliableCoreValues && merged.HasReliableFailureRate
+                ? "Corrected gain OCR mismatch evidence" : "Unreadable training evidence";
+            context.LogSink?.Add("URA Strategy", $"{description}: '{directory}'.");
         }
         catch (Exception exception) when (exception is not OperationCanceledException
             and not DateChangedInterruptionException and not DateChangedRecoveryException)

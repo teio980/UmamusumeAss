@@ -10,6 +10,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
     private readonly UraTrainingSelectionHeightDetector _trainingSelectionDetector;
     private readonly UraSmartTrainingSelectionFlow _smartTrainingSelectionFlow;
     private readonly CareerTurnFlow _turnFlow;
+    private readonly CareerRestFlow _restFlow;
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
     private readonly CareerSettlementFlow _settlementFlow;
@@ -35,8 +36,9 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _eventHandler = eventHandler ?? new CareerEventHandler(visualRuntime, this);
         _trainingSelectionDetector = new UraTrainingSelectionHeightDetector(visualRuntime);
         _smartTrainingSelectionFlow = new UraSmartTrainingSelectionFlow(
-            visualRuntime, this, _trainingSelectionDetector, () => _taskLogSink);
+            visualRuntime, this, () => _taskLogSink);
         _turnFlow = new CareerTurnFlow(this);
+        _restFlow = new CareerRestFlow(visualRuntime);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
         _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
         _settlementFlow = new CareerSettlementFlow(this);
@@ -72,8 +74,15 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 
     internal async Task<CareerTrainingResult?> RunConfirmedSmartTrainingSelectionAsync(
         CareerFlowContext context,
-        string trainingType)
+        string trainingType,
+        UraTrainingSelectionHeightResult? verifiedSelection = null)
     {
+        if (context.State.TrainingClickIssuedType is not null)
+            return null;
+        if (context.State.TrainingTurnCommitPending || context.State.TrainingTurnCommitType is not null)
+            return CareerRuntimeResults.Failure(
+                "A previous smart training confirmation has an unknown result; no second tap was sent.",
+                "training_selection");
         if (!UraTrainingTypeCatalog.TryGetSemanticAction(
                 trainingType, out var actionId, out var normalized))
         {
@@ -82,6 +91,12 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
                 "training_selection");
         }
 
+        var tap = verifiedSelection is null ? null
+            : UraSmartTrainingConfirmationTap.Create(context.Pack, context.Connection, verifiedSelection, normalized);
+        if (verifiedSelection is not null && !UraSmartTrainingConfirmationTap.IsWinnerVerified(verifiedSelection, normalized))
+            return CareerRuntimeResults.Failure(
+                "The fresh smart training confirmation frame has no verified winner.",
+                "training_selection");
         context.State.PendingTrainingType = normalized;
         context.State.LastAction = UraPlannedAction.Training;
         // Arm this persisted guard before the tap. If cancellation or a
@@ -124,6 +139,21 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 
         // The guard is durable before the first input is sent. If the tap or
         // its result is interrupted, the next run fails closed.
+        var clickTask = context.Pack.ExecutionDefinition.GetTask($"training_selection_{normalized}_raised_click");
+        if (tap is not null && clickTask.Algorithm == "MatchTemplateColor" && clickTask.Action == "ClickSelf"
+            && clickTask.PreDelay == 0 && clickTask.PostDelay == 0)
+        {
+            // The smart flow just checked all five logos on a fresh frame. Reuse
+            // that match and the original JSON offset instead of capturing and
+            // matching the same picker three more times. Runtime input guard stays active.
+            await _visualRuntime.TapMatchAsync(context.Connection, tap,
+                $"training_selection_{normalized}_raised_click", context.CancellationToken).ConfigureAwait(false);
+            context.State.TrainingClickIssuedType = normalized;
+            context.State.TrainingClickTargetGone = false;
+            CareerRaceStreakPolicy.BeginTurnAction(context.State, UraPlannedAction.Training);
+            context.LogSink?.Add("URA Strategy", $"Smart training confirmation sent once: {normalized}; reused fresh verified match.");
+            return null;
+        }
         return await RunAsync(context, "training_selection", actionId)
             .ConfigureAwait(false);
     }
@@ -315,7 +345,10 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         string screenId,
         string actionId,
         HachimiPipelineRunOptions? options = null) =>
-        RunScreenActionCoreAsync(
+        (screenId == "career_main" && actionId is "action.rest" or "action.summer_rest")
+            || (screenId is "rest_confirmation" or "summer_rest_confirmation" && actionId == "rest.confirm")
+            ? _restFlow.RunAsync(context, screenId, actionId)
+            : RunScreenActionCoreAsync(
             context.Connection,
             context.Pack,
             screenId,

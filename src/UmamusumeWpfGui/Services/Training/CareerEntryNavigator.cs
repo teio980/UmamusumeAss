@@ -169,7 +169,8 @@ public sealed class CareerEntryNavigator
                         connection, pack, new UraCareerSessionState(),
                         careerStartTransitionExpected: false,
                         cancellationToken: cancellationToken,
-                        careerOnly: true)
+                        careerOnly: true,
+                        includeMainDetails: false)
                     .ConfigureAwait(false)
                 : null;
             var observation = resumingCareer

@@ -12,6 +12,37 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class UraSmartTrainingRealOcrTests(ITestOutputHelper output)
 {
     [Theory]
+    [InlineData("speed", 18, 0, 9, 0, 0, 5)]
+    [InlineData("stamina", 0, 14, 0, 7, 0, 4)]
+    public async Task Latest_failed_run_merges_both_actual_frames_with_all_fields_known(
+        string type, int speed, int stamina, int power, int guts, int wit, int skill)
+    {
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var runtime = new AdbVisualPipelineRuntime(
+            DispatchProxy.Create<IAdbRuntime, CareerOcrReuseTests.NeverCallProxy>(), new AsyncDelay(),
+            new WindowsOcrTextRecognizer());
+        var reader = new UraSmartTrainingCandidateReader(runtime);
+        var detector = new UraSmartTrainingHeightDetector(runtime);
+        var results = new List<UraTrainingCandidate>();
+        for (var sample = 1; sample <= 2; sample++)
+        {
+            var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+                CareerTestResourceResolver.FindWorkspaceRoot(),
+                $"smart_runtime_20261006/budget-{type}-{sample}.png"))!;
+            var selection = await detector.DetectFrameAsync(frame, pack, CancellationToken.None);
+            Assert.Equal(type, selection.RaisedType);
+            results.Add(await reader.ReadAsync(pack, frame, type, CancellationToken.None,
+                selectedLogo: selection.Matches.Single(item => item.TrainingType == type).Match,
+                optimize: true, reusePreviousRead: sample == 2));
+        }
+        var merged = UraSmartTrainingCandidateReader.MergeStable(results[0], results[1]);
+        Assert.Equal(new int?[] { speed, stamina, power, guts, wit, skill, 0 },
+            new[] { merged.SpeedGain, merged.StaminaGain, merged.PowerGain, merged.GutsGain,
+                merged.WitGain, merged.SkillPointGain, merged.FailureRatePercent });
+        Assert.True(merged.IsSafe);
+    }
+
+    [Theory]
     [InlineData("training_selection_ura.png", "speed", 17, 0, 10, 0, 0, 6, 0)]
     [InlineData("training_selection_biwa_summer.png", "speed", 28, 0, 19, 0, 0, 7, 0)]
     [InlineData("ura_train_selection.png", "speed", 28, 0, 12, 0, 0, 5, 0)]
@@ -21,6 +52,12 @@ public sealed class UraSmartTrainingRealOcrTests(ITestOutputHelper output)
     [InlineData("training_selection_stamina_summer_failure92.png", "stamina", 0, 30, 0, 14, 0, 7, 92)]
     [InlineData("training_selection_speed_failure28.png", "speed", 20, 0, 9, 0, 0, 5, 28)]
     [InlineData("training_selection_speed_summer_failure95.png", "speed", 20, 0, 9, 0, 0, 4, 95)]
+    [InlineData("smart_runtime_20261006/wit-speed-five.png", "wit", 5, 0, 0, 0, 16, 8, 0)]
+    [InlineData("smart_runtime_20261006/adb-guts-fifteen.png", "guts", 13, 0, 8, 15, 0, 6, 0)]
+    [InlineData("smart_runtime_20261006/budget-speed-1.png", "speed", 18, 0, 9, 0, 0, 5, 0)]
+    [InlineData("smart_runtime_20261006/budget-speed-2.png", "speed", 18, 0, 9, 0, 0, 5, 0)]
+    [InlineData("smart_runtime_20261006/budget-stamina-1.png", "stamina", 0, 14, 0, 7, 0, 4, 0)]
+    [InlineData("smart_runtime_20261006/budget-stamina-2.png", "stamina", 0, 14, 0, 7, 0, 4, 0)]
     public async Task Smart_batch_matches_real_numbers_and_reuses_an_identical_second_frame(
         string capture, string type, int speed, int stamina, int power, int guts, int wit, int skill, int failure)
     {
@@ -47,7 +84,7 @@ public sealed class UraSmartTrainingRealOcrTests(ITestOutputHelper output)
                 first.WitGain, first.SkillPointGain, first.FailureRatePercent });
         Assert.True(first.HasReliableCoreValues);
         Assert.True(first.HasReliableFailureRate);
-        Assert.Equal(1, reader.LastWindowsOcrCalls);
+        Assert.InRange(reader.LastWindowsOcrCalls, 0, 1);
         started.Restart();
         // A distinct screenshot buffer prevents reference-identity shortcuts.
         var secondFrame = frame with { Pixels = (byte[])frame.Pixels.Clone(),

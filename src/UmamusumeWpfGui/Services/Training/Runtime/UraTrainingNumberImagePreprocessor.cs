@@ -11,6 +11,30 @@ internal static class UraTrainingNumberImagePreprocessor
     {
         if (crop.RgbaPixels is not { } rgba)
             return crop;
+        // Zero-failure cards have a blue body. Restrict its white glyphs to that
+        // body so hair, clothes and the Duel badge below cannot become the
+        // "last number line". Preserve the existing path for other card colors.
+        var blueRows = new Dictionary<int, (int Left, int Right)>();
+        if (!gain)
+            for (var y = 0; y < crop.Height; y++)
+            {
+                var left = crop.Width;
+                var right = -1;
+                var count = 0;
+                for (var x = 0; x < crop.Width; x++)
+                {
+                    var at = (y * crop.Width + x) * 4;
+                    if (rgba[at + 2] <= rgba[at] + 60 || rgba[at + 2] <= rgba[at + 1] + 15
+                        || rgba[at + 1] < 60)
+                        continue;
+                    left = Math.Min(left, x);
+                    right = x;
+                    count++;
+                }
+                if (count >= crop.Width * .35)
+                    blueRows[y] = (left, right);
+            }
+        var hasBlueBody = blueRows.Count >= crop.Height * .25;
         var foreground = new bool[crop.Width * crop.Height];
         for (var pixel = 0; pixel < foreground.Length; pixel++)
         {
@@ -18,10 +42,13 @@ internal static class UraTrainingNumberImagePreprocessor
             var r = rgba[offset];
             var g = rgba[offset + 1];
             var b = rgba[offset + 2];
+            var insideBody = !hasBlueBody
+                || (blueRows.TryGetValue(pixel / crop.Width, out var body)
+                    && pixel % crop.Width >= body.Left && pixel % crop.Width <= body.Right);
             foreground[pixel] = gain
                 ? r >= 150 && g is >= 30 and <= 245 && b <= 230 && r >= g + 15 && g >= b + 10
-                : (r >= 220 && g >= 220 && b >= 220)
-                    || (r >= 220 && g >= 180 && b <= 100);
+                : insideBody && ((r >= 220 && g >= 220 && b >= 220)
+                    || (r >= 220 && g >= 180 && b <= 100));
         }
         var components = new List<Component>();
         for (var pixel = 0; pixel < foreground.Length; pixel++)
@@ -90,8 +117,8 @@ internal static class UraTrainingNumberImagePreprocessor
             // using a fixed slice that clips the percentage on older captures.
             components.RemoveAll(component => component.Left <= 0 || component.Top <= 0
                 || component.Right >= crop.Width || component.Bottom >= crop.Height
-                || (component.Left + component.Right) / 2d < crop.Width * 0.25
-                || (component.Left + component.Right) / 2d > crop.Width * 0.75);
+                || (!hasBlueBody && ((component.Left + component.Right) / 2d < crop.Width * 0.25
+                    || (component.Left + component.Right) / 2d > crop.Width * 0.75)));
             var anchors = components.Where(component => component.Bottom - component.Top >= crop.Height * 0.15
                 && component.Right - component.Left >= crop.Width * 0.025).ToArray();
             if (anchors.Length == 0)
