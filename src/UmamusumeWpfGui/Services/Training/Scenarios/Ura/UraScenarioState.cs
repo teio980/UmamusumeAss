@@ -99,6 +99,24 @@ public sealed class UraCareerFlowState
     public bool TrainingSelectionEntryConfirmed { get; set; }
     public string? TrainingClickIssuedType { get; set; }
     public bool TrainingClickTargetGone { get; set; }
+    public bool TrainingTurnCommitPending { get; set; }
+    public string? TrainingTurnCommitType { get; set; }
+    public int? TrainingTurnCommitTurnIndex { get; set; }
+
+    // Smart training observations are intentionally run-scoped. They are
+    // never serialized into a checkpoint because a resumed picker must be
+    // scanned again instead of trusting stale OCR from a prior frame.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<UraTrainingCandidate> SmartTrainingCandidates { get; set; } = [];
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? SmartTrainingChosenType { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool SmartTrainingPreviewReady { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool SmartTrainingFallbackPending { get; set; }
 }
 
 public sealed class UraCareerSessionState
@@ -362,6 +380,58 @@ public sealed class UraCareerSessionState
     {
         get => _flows.TrainingClickTargetGone;
         set => _flows.TrainingClickTargetGone = value;
+    }
+
+    /// <summary>
+    /// A training button was submitted, but the game has not yet proved that
+    /// the turn was consumed. This survives the result transition so a ratio
+    /// strategy advances exactly once after training_result or the next real
+    /// Career date is observed.
+    /// </summary>
+    public bool TrainingTurnCommitPending
+    {
+        get => _flows.TrainingTurnCommitPending;
+        set => _flows.TrainingTurnCommitPending = value;
+    }
+
+    public string? TrainingTurnCommitType
+    {
+        get => _flows.TrainingTurnCommitType;
+        set => _flows.TrainingTurnCommitType = value;
+    }
+
+    public int? TrainingTurnCommitTurnIndex
+    {
+        get => _flows.TrainingTurnCommitTurnIndex;
+        set => _flows.TrainingTurnCommitTurnIndex = value;
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<UraTrainingCandidate> SmartTrainingCandidates
+    {
+        get => _flows.SmartTrainingCandidates;
+        set => _flows.SmartTrainingCandidates = value ?? [];
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? SmartTrainingChosenType
+    {
+        get => _flows.SmartTrainingChosenType;
+        set => _flows.SmartTrainingChosenType = value;
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool SmartTrainingPreviewReady
+    {
+        get => _flows.SmartTrainingPreviewReady;
+        set => _flows.SmartTrainingPreviewReady = value;
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool SmartTrainingFallbackPending
+    {
+        get => _flows.SmartTrainingFallbackPending;
+        set => _flows.SmartTrainingFallbackPending = value;
     }
 
     [System.Text.Json.Serialization.JsonIgnore]

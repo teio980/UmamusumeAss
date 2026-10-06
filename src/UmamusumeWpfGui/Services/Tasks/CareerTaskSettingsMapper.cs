@@ -30,7 +30,8 @@ public static class CareerTaskSettingsMapper
             settings.NormalLineupStrategy,
             settings.NormalEventHandling,
             settings.RetryFailedRaceWithAlarmClock,
-            settings.ParseNormalSkillIds());
+            settings.ParseNormalSkillIds(),
+            settings.NormalTrainingRatio.ToRatio());
     }
 
     public static IndependentTrainingSettings ToIndependentSettings(CareerTrainingTaskSettingsViewModel settings)

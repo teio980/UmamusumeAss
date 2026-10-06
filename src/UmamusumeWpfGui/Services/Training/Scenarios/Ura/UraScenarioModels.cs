@@ -495,6 +495,10 @@ public sealed class UraScreenTextRegion
     [JsonPropertyName("bounds")]
     public UraScreenTextBounds? Bounds { get; set; }
 
+    [JsonPropertyName("metadata")]
+    public Dictionary<string, JsonElement> Metadata { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public int[]? ToRoi()
     {
         return Bounds is null ? null : [Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height];

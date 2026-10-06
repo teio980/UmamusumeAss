@@ -429,7 +429,9 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
 
         Assert.Equal("default-wit-medium", settings.StrategyId);
         Assert.Equal("default-wit-medium", settings.NormalTrainingStrategy);
-        Assert.Equal("wit", UraStrategyRegistry.Create(settings.StrategyId).TrainingType);
+        Assert.Equal(
+            "wit",
+            Assert.IsType<UraDefaultStrategy>(UraStrategyRegistry.Create(settings.StrategyId)).TrainingType);
     }
 
     [Fact]

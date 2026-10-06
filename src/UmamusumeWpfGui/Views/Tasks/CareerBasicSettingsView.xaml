@@ -7,7 +7,21 @@
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     <DataTemplate x:Key="ComboOptionTemplate">
-      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+      <TextBlock TextWrapping="Wrap">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Text" Value="{Binding Label}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding Value}" Value="smart-balanced-safe">
+                <Setter Property="Text" Value="{DynamicResource GrassNormalSmartTrainingStrategyOptionLabel}" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Value}" Value="custom-ratio">
+                <Setter Property="Text" Value="{DynamicResource GrassNormalCustomTrainingRatioOptionLabel}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
     </DataTemplate>
   </UserControl.Resources>
   <StackPanel TextElement.FontSize="12"
@@ -91,6 +105,54 @@
                   ItemTemplate="{StaticResource ComboOptionTemplate}"
                   SelectedValuePath="Value"
                   SelectedValue="{Binding NormalTrainingStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </Border>
+    <Border Style="{DynamicResource SettingCardStyle}"
+            HorizontalAlignment="Stretch"
+            Visibility="{Binding IsCustomNormalTrainingStrategy, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel>
+        <TextBlock Text="{DynamicResource GrassNormalTrainingRatioLabel}"
+                   Style="{DynamicResource SettingCardTitleStyle}" />
+        <TextBlock Text="{DynamicResource GrassNormalTrainingRatioHint}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+        <Grid Margin="0,10,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="90" />
+            <ColumnDefinition Width="70" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Row="0" Text="{DynamicResource GrassNormalTrainingSpeedLabel}" VerticalAlignment="Center" />
+          <ui:TextBox Grid.Row="0" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.SpeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding NormalTrainingRatio.SpeedPercentage}" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="1" Text="{DynamicResource GrassNormalTrainingStaminaLabel}" VerticalAlignment="Center" />
+          <ui:TextBox Grid.Row="1" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.StaminaText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding NormalTrainingRatio.StaminaPercentage}" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="2" Text="{DynamicResource GrassNormalTrainingPowerLabel}" VerticalAlignment="Center" />
+          <ui:TextBox Grid.Row="2" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.PowerText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding NormalTrainingRatio.PowerPercentage}" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="3" Text="{DynamicResource GrassNormalTrainingGutsLabel}" VerticalAlignment="Center" />
+          <ui:TextBox Grid.Row="3" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.GutsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding NormalTrainingRatio.GutsPercentage}" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="4" Text="{DynamicResource GrassNormalTrainingWitLabel}" VerticalAlignment="Center" />
+          <ui:TextBox Grid.Row="4" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.WitText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding NormalTrainingRatio.WitPercentage}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Margin="0,8,0,0"
+                   Text="{DynamicResource GrassNormalTrainingCycleLabel}"
+                   Style="{DynamicResource SettingCardDescriptionStyle}" />
+        <TextBlock Text="{Binding NormalTrainingRatio.CyclePreview}"
+                   TextWrapping="Wrap" />
+        <TextBlock Margin="0,6,0,0"
+                   Text="{DynamicResource GrassNormalTrainingRatioInvalid}"
+                   Foreground="IndianRed"
+                   Visibility="{Binding NormalTrainingRatio.IsInvalid, Converter={StaticResource BoolToVisibility}}" />
       </StackPanel>
     </Border>
     <Border Style="{DynamicResource SettingCardStyle}"

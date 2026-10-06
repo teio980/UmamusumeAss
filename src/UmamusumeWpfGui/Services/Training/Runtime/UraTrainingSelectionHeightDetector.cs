@@ -42,6 +42,13 @@ internal sealed class UraTrainingSelectionHeightDetector
         if (screen is null)
             return new(null, [], "The training selection screenshot could not be captured.");
 
+        return await DetectFrameAsync(screen, pack, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Reuse all-five height comparison on the very frame whose gains are read.
+    public async Task<UraTrainingSelectionHeightResult> DetectFrameAsync(
+        GrayImage screen, UraScenarioPack pack, CancellationToken cancellationToken)
+    {
         var definition = pack.ExecutionDefinition;
         var screenDefinition = pack.ScreenProfile.Find("training_selection");
         var recognition = screenDefinition?.Recognition;
@@ -58,6 +65,18 @@ internal sealed class UraTrainingSelectionHeightDetector
             return new(null, [], "The training selection header could not be loaded.");
 
         if (!IsTrainingSelectionScreen(screen, header, recognition, pack.ScreenProfile))
+            return new(null, [], null, ScreenChanged: true);
+
+        // Success results keep the Training header. Require the existing Back
+        // button before interpreting bottom result panels as selectable logos.
+        var backTask = definition.GetTask("training_selection_back");
+        var back = await LoadTemplateCachedAsync(
+            resources.ResolveTaskTemplate("training_selection_back"), cancellationToken)
+            .ConfigureAwait(false);
+        if (back is null)
+            return new(null, [], "The training preview Back template could not be loaded.");
+        if (!TemplateMatcher.FindColor(screen, back, backTask.Roi, backTask.TemplateThreshold,
+                pack.ScreenProfile.ReferenceWidth, pack.ScreenProfile.ReferenceHeight).Found)
             return new(null, [], null, ScreenChanged: true);
 
         var templates = new Dictionary<string, GrayImage>(StringComparer.OrdinalIgnoreCase);

@@ -43,9 +43,12 @@ public sealed record CareerTrainingSettings(
     string LineupStrategy = "pace",
     string EventHandling = CareerEventHandlingModes.Default,
     bool RetryFailedRaceWithAlarmClock = false,
-    IReadOnlyList<int>? NormalSkillIds = null) : ICareerEntrySelectionSettings
+    IReadOnlyList<int>? NormalSkillIds = null,
+    UraTrainingRatio? NormalTrainingRatio = null) : ICareerEntrySelectionSettings
 {
     public IReadOnlyList<int> EffectiveNormalSkillIds => NormalSkillIds ?? Array.Empty<int>();
+    public UraTrainingRatio EffectiveNormalTrainingRatio =>
+        NormalTrainingRatio ?? UraTrainingRatio.Default;
 }
 
 /// <summary>

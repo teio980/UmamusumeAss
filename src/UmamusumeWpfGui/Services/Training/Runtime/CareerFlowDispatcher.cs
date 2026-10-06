@@ -5,8 +5,10 @@ namespace UmamusumeWpfGui.Services.Training;
 
 public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
 {
+    private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly CareerJsonActionExecutor _actionExecutor;
     private readonly UraTrainingSelectionHeightDetector _trainingSelectionDetector;
+    private readonly UraSmartTrainingSelectionFlow _smartTrainingSelectionFlow;
     private readonly CareerTurnFlow _turnFlow;
     private readonly CareerRaceFlow _raceFlow;
     private readonly CareerRaceRunnerCheckpointHandler _raceRunnerHandler;
@@ -28,9 +30,12 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         ICareerEventHandler? eventHandler)
     {
         ArgumentNullException.ThrowIfNull(visualRuntime);
+        _visualRuntime = visualRuntime;
         _actionExecutor = new CareerJsonActionExecutor(jsonRunner);
         _eventHandler = eventHandler ?? new CareerEventHandler(visualRuntime, this);
         _trainingSelectionDetector = new UraTrainingSelectionHeightDetector(visualRuntime);
+        _smartTrainingSelectionFlow = new UraSmartTrainingSelectionFlow(
+            visualRuntime, this, _trainingSelectionDetector, () => _taskLogSink);
         _turnFlow = new CareerTurnFlow(this);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
         _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
@@ -65,12 +70,154 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             options,
             cancellationToken);
 
+    internal async Task<CareerTrainingResult?> RunConfirmedSmartTrainingSelectionAsync(
+        CareerFlowContext context,
+        string trainingType)
+    {
+        if (!UraTrainingTypeCatalog.TryGetSemanticAction(
+                trainingType, out var actionId, out var normalized))
+        {
+            return CareerRuntimeResults.Failure(
+                $"Smart strategy selected unsupported training type '{trainingType}'.",
+                "training_selection");
+        }
+
+        context.State.PendingTrainingType = normalized;
+        context.State.LastAction = UraPlannedAction.Training;
+        // Arm this persisted guard before the tap. If cancellation or a
+        // dropped result happens after input was sent, a resumed picker must
+        // pause as an unknown outcome instead of sending a second tap.
+        context.State.TrainingTurnCommitPending = true;
+        context.State.TrainingTurnCommitType = normalized;
+        context.State.TrainingTurnCommitTurnIndex = context.State.TurnIndex;
+        if (context.State.TraineeId is not { } traineeId)
+        {
+            return CareerRuntimeResults.Failure(
+                "Smart training confirmation has no trainee identity for its safety guard.",
+                "training_selection");
+        }
+
+        try
+        {
+            await UraSmartTrainingConfirmationStore.SaveAsync(
+                    context.Connection,
+                    new UraSmartTrainingPendingConfirmation(
+                        traineeId,
+                        normalized,
+                        context.State.TrainingTurnCommitTurnIndex ?? context.State.TurnIndex,
+                        DateTimeOffset.UtcNow),
+                    context.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return CareerRuntimeResults.Failure(
+                "Smart training confirmation was cancelled before its safety guard was persisted.",
+                "training_selection");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return CareerRuntimeResults.Failure(
+                $"Smart training confirmation was blocked because its safety guard could not be persisted: {exception.Message}",
+                "training_selection");
+        }
+
+        // The guard is durable before the first input is sent. If the tap or
+        // its result is interrupted, the next run fails closed.
+        return await RunAsync(context, "training_selection", actionId)
+            .ConfigureAwait(false);
+    }
+
+    internal async Task<CareerTrainingResult?> RunSmartTrainingFallbackBackAsync(
+        CareerFlowContext context)
+    {
+        var result = await RunAsync(context, "training_selection", "training.back")
+            .ConfigureAwait(false);
+        if (result is not null)
+            return result;
+
+        var main = context.Pack.ScreenProfile.Find("career_main");
+        if (main is null || main.Templates.Count == 0)
+            return CareerRuntimeResults.Failure(
+                "Smart training fallback returned without a career-main verification template.",
+                "training_selection");
+        var templatePath = UraScenarioResourceResolver.Resolve(
+            context.Pack, main, main.Templates[0]);
+
+        var template = await _visualRuntime.LoadTemplateAsync(
+                templatePath,
+                string.Empty,
+                context.CancellationToken)
+            .ConfigureAwait(false);
+        if (template is null)
+            return CareerRuntimeResults.Failure(
+                "Smart training fallback could not load the career-main verification template.",
+                "training_selection");
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            await _visualRuntime.DelayAsync(180, context.CancellationToken)
+                .ConfigureAwait(false);
+            var frame = await _visualRuntime.CaptureGrayAsync(
+                    context.Connection, context.CancellationToken)
+                .ConfigureAwait(false);
+            if (frame is not null
+                && TemplateMatcher.Find(
+                    frame,
+                    template,
+                    main.Recognition.Roi,
+                    main.Recognition.TemplateThreshold,
+                    context.Pack.ScreenProfile.ReferenceWidth,
+                    context.Pack.ScreenProfile.ReferenceHeight).Found)
+            {
+                // The next career_main observation lets the strategy consume
+                // its SmartTrainingFallbackPending flag and choose Rest.
+                return null;
+            }
+        }
+
+        return CareerRuntimeResults.Failure(
+            "Smart training fallback tapped Back but could not verify the career main screen; scanning is paused.",
+            "training_selection");
+    }
+
+    internal async Task<CareerTrainingResult> RunTrainingPreviewSelectionAsync(
+        CareerFlowContext context,
+        string trainingType)
+    {
+        if (!UraTrainingTypeCatalog.TryNormalize(trainingType, out var normalized))
+        {
+            return CareerRuntimeResults.Failure(
+                $"Smart strategy selected unsupported preview type '{trainingType}'.",
+                "training_selection");
+        }
+
+        var taskName = $"training_selection_{normalized}_preview";
+        var result = await _actionExecutor.RunTaskAsync(
+                context.Connection,
+                context.Pack,
+                taskName,
+                context.LogSink,
+                context.CancellationToken,
+                new HachimiPipelineRunOptions
+                {
+                    TaskLogSink = _taskLogSink,
+                    SemanticProfile = HachimiTaskLogProfile.Career,
+                })
+            .ConfigureAwait(false);
+        return result.Succeeded
+            ? new CareerTrainingResult(true, $"Preview selected {normalized}.", 0, "training_selection")
+            : CareerRuntimeResults.Failure(
+                $"Could not execute preview task '{taskName}': {result.Message}",
+                "training_selection");
+    }
+
     internal async Task<CareerTrainingResult?> DispatchAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         bool pauseOnUnknownOutcome,
         UraScenarioModule scenario,
-        UraDefaultStrategy strategy,
+        ICareerTrainingStrategy<UraCareerSessionState> strategy,
         string lineupStrategy,
         UraCareerSessionState state,
         CareerObservation observation,
@@ -138,6 +285,8 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             "claw_machine" => await _clawMachineFlow.HandleAsync(context).ConfigureAwait(false),
             "claw_machine_result" => await _clawMachineFlow.HandleResultAsync(context).ConfigureAwait(false),
             "race_runner" => await _raceRunnerHandler.HandleAsync(context).ConfigureAwait(false),
+            "training_selection" when strategy is UraSmartTrainingStrategy smartStrategy =>
+                await _smartTrainingSelectionFlow.HandleAsync(context, smartStrategy).ConfigureAwait(false),
             _ => kind switch
             {
                 CareerScreenKind.Main or CareerScreenKind.Turn =>
@@ -319,6 +468,13 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         {
             state.TrainingClickIssuedType = clickedTrainingType;
             state.TrainingClickTargetGone = false;
+            // A resumed training-selection page may not have passed through
+            // CareerTurnFlow's main-page entry action. Establish the same
+            // turn baseline here before waiting for result/date confirmation.
+            CareerRaceStreakPolicy.BeginTurnAction(state, UraPlannedAction.Training);
+            state.TrainingTurnCommitPending = true;
+            state.TrainingTurnCommitType = clickedTrainingType;
+            state.TrainingTurnCommitTurnIndex = state.TurnIndex;
         }
 
         return null;

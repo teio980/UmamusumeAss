@@ -28,7 +28,7 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
         _normalPipeline = normalPipeline;
         _independentPipeline = independentPipeline;
         _umaDatabase = umaDatabase;
-        Settings = new CareerTrainingTaskSettingsViewModel(_umaDatabase);
+        Settings = new CareerTrainingTaskSettingsViewModel(_umaDatabase, _localizationService);
     }
 
     public GrassTaskDefinition Definition { get; } = new(
@@ -97,6 +97,15 @@ public sealed class CareerTrainingTaskModule : IGrassTaskModule, IGrassTaskPrefl
                 || !UraStrategyRegistry.IsRegistered(Settings.StrategyId)))
         {
             return $"Normal training strategy '{Settings.StrategyId}' is not registered for this build.";
+        }
+
+        if (Settings.IsNormalCareer
+            && Settings.IsCustomNormalTrainingStrategy
+            && !Settings.NormalTrainingRatio.IsValid)
+        {
+            return Localize(
+                "GrassNormalTrainingRatioInvalid",
+                "Custom training ratio must contain integers from 0 to 100 and at least one non-zero value.");
         }
 
         if (Settings.IsNormalCareer

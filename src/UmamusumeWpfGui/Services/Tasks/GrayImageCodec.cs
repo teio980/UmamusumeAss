@@ -9,6 +9,24 @@ namespace UmamusumeWpfGui.Services.Tasks;
 
 internal static class GrayImageCodec
 {
+    public static void SaveFrame(GrayImage frame, string path)
+    {
+        var rgba = frame.RgbaPixels;
+        if (rgba is null)
+        {
+            rgba = new byte[checked(frame.Width * frame.Height * 4)];
+            for (var pixel = 0; pixel < frame.Pixels.Length; pixel++)
+            {
+                rgba[pixel * 4] = frame.Pixels[pixel];
+                rgba[pixel * 4 + 1] = frame.Pixels[pixel];
+                rgba[pixel * 4 + 2] = frame.Pixels[pixel];
+                rgba[pixel * 4 + 3] = 255;
+            }
+        }
+        SaveScreenshot(new AdbScreenshotResult(AdbScreenshotMethod.Raw, [], TimeSpan.Zero,
+            new AdbRawScreenshot(frame.Width, frame.Height, rgba)), path);
+    }
+
     public static GrayImage? FromScreenshot(AdbScreenshotResult screenshot)
     {
         ArgumentNullException.ThrowIfNull(screenshot);

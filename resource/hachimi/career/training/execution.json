@@ -381,6 +381,72 @@
       "next": [],
       "required": true
     },
+    "training_selection_speed_preview": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/speed.png",
+      "templThreshold": 0.7,
+      "roi": [20, 1300, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_stamina_preview": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/stamina.png",
+      "templThreshold": 0.7,
+      "roi": [180, 1300, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_power_preview": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/power.png",
+      "templThreshold": 0.7,
+      "roi": [345, 1300, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_guts_preview": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/guts.png",
+      "templThreshold": 0.7,
+      "roi": [510, 1300, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_wit_preview": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/training_selection_logos/wit.png",
+      "templThreshold": 0.7,
+      "roi": [675, 1300, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
+    "training_selection_back": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "../skill/templates/career_skill_back.png",
+      "templThreshold": 0.86,
+      "roi": [20, 1450, 180, 130],
+      "timeoutMs": 12000,
+      "pollIntervalMs": 200,
+      "next": [],
+      "required": true
+    },
     "training_result_event_advance": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",

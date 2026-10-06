@@ -53,20 +53,25 @@ public sealed class UraTrainingSelectionHeightDetectorTests
             item => Assert.True(item.Match.CenterY > speedY));
     }
 
-    [Fact]
-    public void Highest_logo_is_selected_even_when_only_one_pixel_above_the_others()
+    [Theory]
+    [InlineData("speed")]
+    [InlineData("stamina")]
+    [InlineData("power")]
+    [InlineData("guts")]
+    [InlineData("wit")]
+    public void Highest_logo_is_selected_even_when_only_one_pixel_above_the_others(string selectedType)
     {
         var matches = UraTrainingTypeCatalog.SupportedTypes
             .Select((type, index) => new UraTrainingLogoMatch(
                 type,
                 new TemplateMatchResult(true, 0.98, index * 100,
-                    type == "speed" ? 1259 : 1260, 82, 52)))
+                    type == selectedType ? 1259 : 1260, 82, 52)))
             .ToArray();
 
         var result = UraTrainingSelectionHeightDetector.SelectHighest(matches);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal("speed", result.RaisedType);
+        Assert.Equal(selectedType, result.RaisedType);
     }
 
     [Theory]

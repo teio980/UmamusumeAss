@@ -31,6 +31,48 @@
             "width": 230,
             "height": 90
           }
+        },
+        {
+          "semanticId": "training.speed",
+          "bounds": { "x": 25, "y": 965, "width": 152, "height": 65 }
+        },
+        {
+          "semanticId": "training.stamina",
+          "bounds": { "x": 177, "y": 965, "width": 140, "height": 65 }
+        },
+        {
+          "semanticId": "training.power",
+          "bounds": { "x": 317, "y": 965, "width": 140, "height": 65 }
+        },
+        {
+          "semanticId": "training.guts",
+          "bounds": { "x": 457, "y": 965, "width": 140, "height": 65 }
+        },
+        {
+          "semanticId": "training.wit",
+          "bounds": { "x": 597, "y": 965, "width": 141, "height": 65 }
+        },
+        {
+          "semanticId": "training.skill_points",
+          "bounds": { "x": 746, "y": 965, "width": 127, "height": 65 }
+        },
+        {
+          "semanticId": "training.training_level",
+          "bounds": { "x": 100, "y": 240, "width": 470, "height": 75 }
+        },
+        {
+          "semanticId": "training.gain_strip",
+          "bounds": { "x": 0, "y": 965, "width": 900, "height": 65 },
+          "metadata": {
+            "warmRedMin": 240,
+            "warmGreenMin": 95,
+            "warmGreenMax": 225,
+            "warmBlueMax": 95,
+            "warmRedDelta": 25,
+            "stripRatio": 0.002,
+            "blankRatio": 0.0005,
+            "minimumWarmPixels": 30
+          }
         }
       ],
       "actions": [
@@ -53,6 +95,10 @@
         {
           "semanticId": "training.wit",
           "task": "training_selection_training_wit"
+        },
+        {
+          "semanticId": "training.back",
+          "task": "training_selection_back"
         }
       ],
       "flow": "turn",

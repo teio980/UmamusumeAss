@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Globalization;
+using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
@@ -20,6 +21,14 @@ public static class CareerTaskSettingsSerializer
             ["careerMode"] = settings.CareerMode,
             ["runCount"] = settings.RunCount,
             ["normalLineupStrategy"] = settings.NormalLineupStrategy,
+            ["normalTrainingRatio"] = new JsonObject
+            {
+                ["speed"] = settings.NormalTrainingRatio.Speed,
+                ["stamina"] = settings.NormalTrainingRatio.Stamina,
+                ["power"] = settings.NormalTrainingRatio.Power,
+                ["guts"] = settings.NormalTrainingRatio.Guts,
+                ["wit"] = settings.NormalTrainingRatio.Wit,
+            },
             ["retryFailedRaceWithAlarmClock"] = settings.RetryFailedRaceWithAlarmClock,
             ["normalEventHandling"] = settings.NormalEventHandling,
             ["normalSkillIds"] = new JsonArray(settings.ParseNormalSkillIds()
@@ -111,6 +120,14 @@ public static class CareerTaskSettingsSerializer
         settings.SupportDeckPreset = ReadString(values, "supportDeckPreset") ?? settings.SupportDeckPreset;
         settings.FriendSupportCardId = ReadNullableInt(values, "friendSupportCardId");
         settings.StrategyId = ReadString(values, "strategyId") ?? settings.StrategyId;
+        var defaultRatio = UraTrainingRatio.Default;
+        var ratio = values["normalTrainingRatio"] as JsonObject;
+        settings.NormalTrainingRatio.SetRatio(new UraTrainingRatio(
+            ReadRatioInt(ratio, "speed", defaultRatio.Speed),
+            ReadRatioInt(ratio, "stamina", defaultRatio.Stamina),
+            ReadRatioInt(ratio, "power", defaultRatio.Power),
+            ReadRatioInt(ratio, "guts", defaultRatio.Guts),
+            ReadRatioInt(ratio, "wit", defaultRatio.Wit)));
         settings.PauseOnUnknownOutcome = ReadBool(values, "pauseOnUnknownOutcome", settings.PauseOnUnknownOutcome);
         settings.AllowOptionalRaces = ReadBool(values, "allowOptionalRaces", settings.AllowOptionalRaces);
         settings.LegacySelectionMode = ReadString(values, "legacySelectionMode") ?? settings.LegacySelectionMode;
@@ -142,6 +159,19 @@ public static class CareerTaskSettingsSerializer
     private static bool ReadBool(JsonObject values, string key, bool fallback)
     {
         try { return values[key]?.GetValue<bool>() ?? fallback; }
+        catch (InvalidOperationException) { return fallback; }
+        catch (FormatException) { return fallback; }
+    }
+
+    private static int ReadRatioInt(JsonObject? values, string key, int fallback)
+    {
+        if (values is null)
+            return fallback;
+
+        try
+        {
+            return values[key]?.GetValue<int>() ?? fallback;
+        }
         catch (InvalidOperationException) { return fallback; }
         catch (FormatException) { return fallback; }
     }

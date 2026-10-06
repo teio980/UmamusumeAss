@@ -159,6 +159,37 @@ public sealed class UraScenarioModuleTests
     }
 
     [Fact]
+    public void Custom_ratio_is_reduced_in_fixed_training_order()
+    {
+        var ratio = new UraTrainingRatio(2, 1, 2, 0, 1);
+
+        Assert.Equal(
+            ["speed", "speed", "stamina", "power", "power", "wit"],
+            ratio.BuildCycle());
+    }
+
+    [Fact]
+    public async Task Custom_ratio_advances_only_when_confirmed_through_strategy_interface()
+    {
+        var pack = await LoadPackAsync();
+        var module = new UraScenarioModule(pack);
+        var state = module.CreateInitialState();
+        var session = new CareerSessionState<UraCareerSessionState>
+        {
+            Runtime = state.Runtime,
+            Scenario = state,
+        };
+        ICareerTrainingStrategy<UraCareerSessionState> strategy =
+            UraStrategyRegistry.Create("custom-ratio", new UraTrainingRatio(2, 1, 0, 0, 0));
+
+        Assert.Equal("speed", strategy.Choose(session, module).TargetId);
+        strategy.ConfirmTraining(session, "speed");
+        Assert.Equal("speed", strategy.Choose(session, module).TargetId);
+        strategy.ConfirmTraining(session, "speed");
+        Assert.Equal("stamina", strategy.Choose(session, module).TargetId);
+    }
+
+    [Fact]
     public async Task G1_count_goal_only_requests_a_race_on_a_catalog_g1_turn()
     {
         var pack = await LoadPackAsync();

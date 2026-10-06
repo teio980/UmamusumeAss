@@ -73,6 +73,17 @@ public interface ICareerTrainingStrategy<TScenarioState>
     UraActionIntent Choose(
         CareerSessionState<TScenarioState> session,
         ICareerScenarioModule<TScenarioState> scenario);
+
+    /// <summary>
+    /// Notifies a strategy after a training selection has been confirmed by a
+    /// consumed turn. Implementations that do not keep a training cursor can
+    /// ignore this callback.
+    /// </summary>
+    void ConfirmTraining(
+        CareerSessionState<TScenarioState> session,
+        string trainingType)
+    {
+    }
 }
 
 internal sealed record CareerFlowContext(

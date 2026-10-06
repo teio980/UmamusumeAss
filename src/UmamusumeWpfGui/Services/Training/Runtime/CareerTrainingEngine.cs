@@ -210,15 +210,25 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             + $"manifest='{pack.ManifestPath}'; "
             + $"Goal Incomplete recognition={(pack.ScreenProfile.Find("goal_incomplete") is null ? "missing" : "loaded")}.");
 
-        // The running objective is reconstructed from the visible Career UI.
-        // Only graded race dates come from the local race calendar.
+        // Smart URA receives a data-only race-distance resolver below. The
+        // scenario module keeps the existing OCR-owned objective
+        // reconstruction for every strategy, including smart training.
+        var useSmartObjectives = settings.StrategyId.Equals(
+            UraSmartTrainingStrategy.StrategyId, StringComparison.OrdinalIgnoreCase);
         var scenario = new UraScenarioModule(
             pack,
             trainee: null,
             careerRaces: null,
             useTraineeObjectives: false,
             raceGradeSchedule: new CareerRaceGradeSchedule(IndependentTrainingCatalog.Load().Races));
-        var strategy = UraStrategyRegistry.Create(settings.StrategyId);
+        var strategy = UraStrategyRegistry.Create(
+            settings.StrategyId,
+            settings.EffectiveNormalTrainingRatio);
+        if (strategy is UraSmartTrainingStrategy smartStrategy)
+        {
+            smartStrategy.DistanceRaceResolver =
+                new UraSmartTrainingDistanceResolver(trainee, _umaDatabase.Races).Resolve;
+        }
         if (!CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
                 settings.LineupStrategy,
                 out _))
@@ -236,6 +246,28 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             Scenario = state,
         };
         state.TraineeId = settings.TraineeId;
+        if (useSmartObjectives)
+        {
+            var pendingConfirmation = settings.ContinueExistingCareer
+                ? await UraSmartTrainingConfirmationStore.LoadAsync(
+                    connection, settings.TraineeId, cancellationToken).ConfigureAwait(false)
+                : null;
+            if (pendingConfirmation is not null)
+            {
+                state.TrainingTurnCommitPending = true;
+                state.TrainingTurnCommitType = pendingConfirmation.TrainingType;
+                state.TrainingTurnCommitTurnIndex = pendingConfirmation.TurnIndex;
+                logSink?.Add(
+                    "URA Strategy",
+                    "A previous smart training confirmation has no proven result; a resumed training picker will pause safely.",
+                    LogEntryKind.Failure);
+            }
+            else if (!settings.ContinueExistingCareer)
+            {
+                await UraSmartTrainingConfirmationStore.ClearAsync(
+                    connection, settings.TraineeId).ConfigureAwait(false);
+            }
+        }
         // Normal Career does not persist its turn history. A resumed career
         // must not assume it has a clean race streak before a non-race turn.
         CareerRaceStreakPolicy.InitializeForRun(
@@ -537,6 +569,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
                 state.LastScreenId = observation.ScreenId;
                 ObserveScenario(scenario, session, observation);
+                ConfirmTrainingIfConsumed(strategy, session, state, observation);
                 if (observation.ScreenId == "career_main"
                     && !string.IsNullOrWhiteSpace(observation.GoalText)
                     && state.ObservedGoalKind == CareerGoalTextParser.GradeRaceCount)
@@ -590,6 +623,28 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                         settings.EffectiveNormalSkillIds,
                         RememberNormalSkillAsync)
                     .ConfigureAwait(false);
+                if (useSmartObjectives)
+                {
+                    if (state.TrainingTurnCommitPending
+                        && state.TrainingTurnCommitType is { } pendingType)
+                    {
+                        await UraSmartTrainingConfirmationStore.SaveAsync(
+                                connection,
+                                new UraSmartTrainingPendingConfirmation(
+                                    settings.TraineeId,
+                                    pendingType,
+                                    state.TrainingTurnCommitTurnIndex ?? state.TurnIndex,
+                                    DateTimeOffset.UtcNow),
+                                loopCancellation)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await UraSmartTrainingConfirmationStore.ClearAsync(
+                                connection, settings.TraineeId)
+                            .ConfigureAwait(false);
+                    }
+                }
                 if (terminal is not null)
                 {
                     return terminal;
@@ -634,6 +689,35 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             ClassifiedKind = CareerScreenClassification.Classify("training_selection", pack.ScreenProfile),
             ConfirmedByAction = true,
         };
+    }
+
+    internal static void ConfirmTrainingIfConsumed(
+        ICareerTrainingStrategy<UraCareerSessionState> strategy,
+        CareerSessionState<UraCareerSessionState> session,
+        UraCareerSessionState state,
+        CareerObservation observation)
+    {
+        if (!state.TrainingTurnCommitPending)
+            return;
+
+        var resultShown = observation.ScreenId.Equals(
+            "training_result", StringComparison.OrdinalIgnoreCase);
+        var mainPageProvedTurnAdvance = observation.ScreenId.Equals(
+                "career_main", StringComparison.OrdinalIgnoreCase)
+            && state.TrainingTurnCommitTurnIndex is int pendingTurnIndex
+            && state.PendingTurnAction != UraPlannedAction.Training
+            && (state.TurnIndex > pendingTurnIndex
+                || (state.TurnIndex == pendingTurnIndex
+                    && state.TurnIndexSource == UraStateSource.Observed));
+        if (!resultShown && !mainPageProvedTurnAdvance)
+            return;
+
+        var trainingType = state.TrainingTurnCommitType;
+        state.TrainingTurnCommitPending = false;
+        state.TrainingTurnCommitType = null;
+        state.TrainingTurnCommitTurnIndex = null;
+        if (UraTrainingTypeCatalog.TryNormalize(trainingType, out var normalized))
+            strategy.ConfirmTraining(session, normalized);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859",
@@ -849,22 +933,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             for (var index = 0; index < _screenObserver.LastFrames.Count; index++)
             {
                 var frame = _screenObserver.LastFrames[index];
-                var rgba = frame.RgbaPixels;
-                if (rgba is null)
-                {
-                    rgba = new byte[checked(frame.Width * frame.Height * 4)];
-                    for (var pixel = 0; pixel < frame.Pixels.Length; pixel++)
-                    {
-                        rgba[pixel * 4] = frame.Pixels[pixel];
-                        rgba[pixel * 4 + 1] = frame.Pixels[pixel];
-                        rgba[pixel * 4 + 2] = frame.Pixels[pixel];
-                        rgba[pixel * 4 + 3] = 255;
-                    }
-                }
-                GrayImageCodec.SaveScreenshot(
-                    new AdbScreenshotResult(AdbScreenshotMethod.Raw, [], TimeSpan.Zero,
-                        new AdbRawScreenshot(frame.Width, frame.Height, rgba)),
-                    Path.Combine(directory, $"sample-{index + 1}.png"));
+                GrayImageCodec.SaveFrame(frame, Path.Combine(directory, $"sample-{index + 1}.png"));
             }
             if (_screenObserver.LastFrames.Count == 0)
             {

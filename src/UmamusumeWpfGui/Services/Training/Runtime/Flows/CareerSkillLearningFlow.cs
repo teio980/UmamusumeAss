@@ -171,22 +171,8 @@ internal sealed class CareerSkillLearningFlow
         return mergedValues.Length == 1 ? mergedValues[0] : null;
     }
 
-    internal static int? ParseSingleNumber(ScreenTextRecognitionResult? result)
-    {
-        if (result is null)
-            return null;
-        var numbers = result.Detections
-            .Select(detection => detection.Text
-                .Replace('O', '0').Replace('o', '0').Replace('l', '1').Replace('I', '1'))
-            .SelectMany(text => Regex.Matches(text, @"\b\d{1,4}\b")
-                .Select(match => match.Value))
-            .Select(text => int.TryParse(text, NumberStyles.None,
-                CultureInfo.InvariantCulture, out var parsed) ? parsed : -1)
-            .Where(value => value >= 0)
-            .Distinct()
-            .ToArray();
-        return numbers.Length == 1 ? numbers[0] : null;
-    }
+    internal static int? ParseSingleNumber(ScreenTextRecognitionResult? result) =>
+        CareerOcrNumberParser.ParseSingleNumber(result);
 
     internal static double NameSimilarity(string expected, string observed)
     {

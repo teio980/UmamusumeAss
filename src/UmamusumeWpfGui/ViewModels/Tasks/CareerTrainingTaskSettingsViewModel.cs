@@ -40,12 +40,15 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private string _status = string.Empty;
     private bool _disposed;
 
-    public CareerTrainingTaskSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
+    public CareerTrainingTaskSettingsViewModel(
+        IUmaDatabaseService? umaDatabase = null,
+        ILocalizationService? localizationService = null)
     {
         Entry = new CareerEntrySettingsViewModel(umaDatabase);
         SupportDeck = new SupportDeckSettingsViewModel(umaDatabase);
         Independent = new IndependentTrainingSettingsViewModel();
         NormalSkills = new NormalCareerSkillSettingsViewModel();
+        NormalTrainingRatio = new NormalTrainingRatioSettingsViewModel(localizationService);
         Independent.IsCareerModeActive = IsIndependentCareer;
         NormalSkills.IsCareerModeActive = IsNormalCareer;
 
@@ -53,6 +56,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         SupportDeck.PropertyChanged += OnChildPropertyChanged;
         Independent.PropertyChanged += OnChildPropertyChanged;
         NormalSkills.PropertyChanged += OnChildPropertyChanged;
+        NormalTrainingRatio.PropertyChanged += OnChildPropertyChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -61,6 +65,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     public SupportDeckSettingsViewModel SupportDeck { get; }
     public IndependentTrainingSettingsViewModel Independent { get; }
     public NormalCareerSkillSettingsViewModel NormalSkills { get; }
+    public NormalTrainingRatioSettingsViewModel NormalTrainingRatio { get; }
 
     public IReadOnlyList<CareerModeOption> CareerModes { get; } =
     [
@@ -82,6 +87,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
             NormalSkills.IsCareerModeActive = IsNormalCareer;
             OnPropertyChanged(nameof(IsIndependentCareer));
             OnPropertyChanged(nameof(IsNormalCareer));
+            OnPropertyChanged(nameof(IsCustomNormalTrainingStrategy));
             OnPropertyChanged(nameof(IsKnownCareerMode));
             OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
             OnPropertyChanged(nameof(IsValid));
@@ -123,6 +129,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
                 return;
 
             OnPropertyChanged(nameof(NormalTrainingStrategy));
+            OnPropertyChanged(nameof(IsCustomNormalTrainingStrategy));
             OnPropertyChanged(nameof(IsValid));
         }
     }
@@ -135,6 +142,9 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         get => StrategyId;
         set => StrategyId = value;
     }
+
+    public bool IsCustomNormalTrainingStrategy =>
+        IsNormalCareer && StrategyId.Equals("custom-ratio", StringComparison.OrdinalIgnoreCase);
 
     public IReadOnlyList<CareerEventHandlingOption> NormalEventHandlingOptions { get; } =
     [
@@ -317,6 +327,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         && (IsIndependentCareer
             || (!string.IsNullOrWhiteSpace(StrategyId)
                 && UraStrategyRegistry.IsRegistered(StrategyId)
+                && (!IsCustomNormalTrainingStrategy || NormalTrainingRatio.IsValid)
                 && CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
                     NormalLineupStrategy,
                     out _)))
@@ -342,8 +353,10 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         SupportDeck.PropertyChanged -= OnChildPropertyChanged;
         Independent.PropertyChanged -= OnChildPropertyChanged;
         NormalSkills.PropertyChanged -= OnChildPropertyChanged;
+        NormalTrainingRatio.PropertyChanged -= OnChildPropertyChanged;
         Entry.Dispose();
         SupportDeck.Dispose();
+        NormalTrainingRatio.Dispose();
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
