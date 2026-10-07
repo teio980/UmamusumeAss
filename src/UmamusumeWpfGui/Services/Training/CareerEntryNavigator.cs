@@ -1368,11 +1368,25 @@ public sealed class CareerEntryNavigator
             return null;
 
         EntryObservation? best = null;
+        var mainFrameCount = 0;
         foreach (var frame in frames)
         {
             EntryObservation? frameBest = null;
             foreach (var screen in candidates)
             {
+                if (screen.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+                {
+                    var mainMatch = await CareerMainScreenDetector.MatchAsync(
+                            frame, pack, LoadTemplateCachedAsync, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (mainMatch is not null)
+                    {
+                        frameBest = new(screen.ScreenId, mainMatch.Score);
+                        break;
+                    }
+                    continue;
+                }
+
                 foreach (var templatePath in screen.Templates)
                 {
                     var template = await LoadTemplateCachedAsync(
@@ -1399,8 +1413,15 @@ public sealed class CareerEntryNavigator
                 if (frameBest is { } earlyFrame && earlyFrame.Score >= earlyExitThreshold)
                     break;
             }
+            if (frameBest?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
+                mainFrameCount++;
             if (frameBest is not null && (best is null || frameBest.Score > best.Score))
                 best = frameBest;
+        }
+        if (best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true
+            && mainFrameCount != 2)
+        {
+            return null;
         }
         return best;
     }

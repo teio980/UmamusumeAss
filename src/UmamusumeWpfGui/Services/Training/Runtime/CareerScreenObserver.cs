@@ -165,6 +165,20 @@ public sealed class CareerScreenObserver
             CareerObservation? frameBest = null;
             foreach (var screen in candidates)
             {
+                if (screen.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+                {
+                    var mainMatch = await CareerMainScreenDetector.MatchAsync(
+                            frame, pack, LoadTemplateCachedAsync, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (mainMatch is null)
+                        continue;
+                    frameBest = CreateTemplateObservation(frame, screen, mainMatch, pack) with
+                    {
+                        ClassifiedKind = CareerScreenClassification.Classify(screen.ScreenId, pack.ScreenProfile),
+                    };
+                    break;
+                }
+
                 CareerObservation? screenBest = null;
                 foreach (var template in screen.Templates)
                 {
@@ -229,29 +243,7 @@ public sealed class CareerScreenObserver
                     if (match.Found
                         && (screenBest is null || match.Score > screenBest.Score))
                     {
-                        var energyDefinition = screen.Observations.EnergyBar;
-                        var energy = energyDefinition is not null
-                            ? CareerEnergyBarReader.TryMeasure(
-                                frame,
-                                energyDefinition,
-                                pack.ScreenProfile.ReferenceWidth,
-                                pack.ScreenProfile.ReferenceHeight)
-                            : null;
-                        if (energy is not null
-                            && energyDefinition is not null
-                            && energy.Confidence < Math.Clamp(
-                                energyDefinition.MinimumConfidence,
-                                0,
-                                1))
-                        {
-                            energy = null;
-                        }
-
-                        screenBest = new CareerObservation(
-                            screen.ScreenId,
-                            match.Score,
-                            energy?.Percent,
-                            energy?.Confidence ?? 0);
+                        screenBest = CreateTemplateObservation(frame, screen, match, pack);
                     }
 
                     if (screenBest is { Score: >= EarlyRecognitionThreshold })
@@ -476,6 +468,22 @@ public sealed class CareerScreenObserver
         }
 
         return best;
+    }
+
+    private static CareerObservation CreateTemplateObservation(
+        GrayImage frame, UraScreenDefinition screen, TemplateMatchResult match, UraScenarioPack pack)
+    {
+        var energyDefinition = screen.Observations.EnergyBar;
+        var energy = energyDefinition is not null
+            ? CareerEnergyBarReader.TryMeasure(frame, energyDefinition,
+                pack.ScreenProfile.ReferenceWidth, pack.ScreenProfile.ReferenceHeight)
+            : null;
+        if (energy is not null && energyDefinition is not null
+            && energy.Confidence < Math.Clamp(energyDefinition.MinimumConfidence, 0, 1))
+        {
+            energy = null;
+        }
+        return new CareerObservation(screen.ScreenId, match.Score, energy?.Percent, energy?.Confidence ?? 0);
     }
 
     private async Task<bool> MatchesRequiredTemplateAsync(

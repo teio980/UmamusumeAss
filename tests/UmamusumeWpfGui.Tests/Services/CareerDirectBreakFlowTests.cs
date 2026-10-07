@@ -79,6 +79,21 @@ public sealed class CareerDirectBreakFlowTests
     }
 
     [Theory]
+    [InlineData("classic_milech_race_day_final.png")]
+    [InlineData("rest_event_ura.png")]
+    public async Task Main_changing_before_rest_reobserves_without_clicking_or_waiting_for_timeout(string frameName)
+    {
+        var (_, visual, runtime, context) = await CreateAsync(frameName);
+
+        Assert.Null(await Dispatcher(visual).RunAsync(context, "career_main", "action.rest"));
+
+        Assert.Equal(1, runtime.Captures);
+        Assert.Empty(runtime.Taps);
+        Assert.Empty(runtime.Delays);
+        Assert.False(context.State.AwaitingRestConfirmationGone);
+    }
+
+    [Theory]
     [InlineData("career_main", "action.recreation", "recreation_main.png|recreation_confirmation.png",
         "career_main_action_recreation|recreation_confirmation_ok")]
     [InlineData("career_main", "action.recreation", "recreation_main.png|recreation_selection.png|recreation_confirmation.png",

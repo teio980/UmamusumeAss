@@ -167,23 +167,11 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
             return result;
 
         var main = context.Pack.ScreenProfile.Find("career_main");
-        if (main is null || main.Templates.Count == 0)
+        if (main is null || main.Templates.Count == 0
+            || string.IsNullOrWhiteSpace(main.Recognition.RequiredTemplate))
             return CareerRuntimeResults.Failure(
                 "Smart training fallback returned without a career-main verification template.",
                 "training_selection");
-        var templatePath = UraScenarioResourceResolver.Resolve(
-            context.Pack, main, main.Templates[0]);
-
-        var template = await _visualRuntime.LoadTemplateAsync(
-                templatePath,
-                string.Empty,
-                context.CancellationToken)
-            .ConfigureAwait(false);
-        if (template is null)
-            return CareerRuntimeResults.Failure(
-                "Smart training fallback could not load the career-main verification template.",
-                "training_selection");
-
         for (var attempt = 0; attempt < 5; attempt++)
         {
             await _visualRuntime.DelayAsync(180, context.CancellationToken)
@@ -192,13 +180,10 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
                     context.Connection, context.CancellationToken)
                 .ConfigureAwait(false);
             if (frame is not null
-                && TemplateMatcher.Find(
-                    frame,
-                    template,
-                    main.Recognition.Roi,
-                    main.Recognition.TemplateThreshold,
-                    context.Pack.ScreenProfile.ReferenceWidth,
-                    context.Pack.ScreenProfile.ReferenceHeight).Found)
+                && await CareerMainScreenDetector.MatchAsync(frame, context.Pack,
+                        (path, token) => _visualRuntime.LoadTemplateAsync(path, string.Empty, token),
+                        context.CancellationToken)
+                    .ConfigureAwait(false) is not null)
             {
                 // The next career_main observation lets the strategy consume
                 // its SmartTrainingFallbackPending flag and choose Rest.

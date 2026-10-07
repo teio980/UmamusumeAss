@@ -63,6 +63,15 @@ internal sealed class CareerBreakFlow(IVisualPipelineRuntime visual)
                 {
                     frame = null;
                 }
+                if (frame is not null && id == "career_main"
+                    && await CareerMainScreenDetector.MatchAsync(frame, pack,
+                            (path, _) => LoadAsync(context, path), context.CancellationToken)
+                        .ConfigureAwait(false) is null)
+                {
+                    context.LogSink?.Add("Career Training",
+                        $"{label}: Career header and Training button are not both visible; reobserving the screen.");
+                    return null;
+                }
                 // Some Recreation entries go straight to OK. Reuse that frame rather than opening a picker.
                 if (frame is not null && id == "recreation_selection"
                     && await MatchesScreenAsync(context, confirmationId, frame).ConfigureAwait(false))

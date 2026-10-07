@@ -155,6 +155,7 @@ public sealed class CareerMainSharedOcrFrameTests
                     Recognition = new UraScreenRecognition
                     {
                         Template = screenId == "career_main" ? "main.png" : "race.png",
+                        RequiredTemplate = screenId == "career_main" ? "main.png" : null,
                         Stable = true,
                     },
                     OcrRegions = screenId == "career_main"

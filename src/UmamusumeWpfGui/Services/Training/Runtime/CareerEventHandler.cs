@@ -147,6 +147,11 @@ internal sealed class CareerEventHandler : ICareerEventHandler
         string screenId,
         CancellationToken cancellationToken)
     {
+        if (screenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
+            return await CareerMainScreenDetector.MatchAsync(
+                    frame, pack, LoadTemplateCachedAsync, cancellationToken)
+                .ConfigureAwait(false) is not null;
+
         var screen = pack.ScreenProfile.Find(screenId);
         if (screen is null)
             return false;
@@ -199,12 +204,15 @@ internal sealed class CareerEventHandler : ICareerEventHandler
         var path = screen.SourceDirectory is not null
             ? UraScenarioResourceResolver.Resolve(pack, screen, relativePath)
             : UraScenarioResourceResolver.Resolve(pack, relativePath);
-        return _templates.GetOrAdd(path,
+        return LoadTemplateCachedAsync(path, cancellationToken);
+    }
+
+    private Task<GrayImage?> LoadTemplateCachedAsync(string path, CancellationToken cancellationToken) =>
+        _templates.GetOrAdd(path,
                 key => new Lazy<Task<GrayImage?>>(() =>
                     _visualRuntime.LoadTemplateAsync(
                         key,
                         string.Empty,
                         CancellationToken.None)))
             .Value.WaitAsync(cancellationToken);
-    }
 }
