@@ -3,7 +3,7 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-/// <summary>Smart-only accelerated original all-five height comparison.</summary>
+/// <summary>Smart-only all-five height comparison, verified against the selected card marker.</summary>
 internal sealed class UraSmartTrainingHeightDetector(IVisualPipelineRuntime runtime)
 {
     private readonly Dictionary<string, GrayImage> _templates = new(StringComparer.OrdinalIgnoreCase);
@@ -78,6 +78,86 @@ internal sealed class UraSmartTrainingHeightDetector(IVisualPipelineRuntime runt
                 return new(null, matches, $"The {type} training logo was not found (score {match.Score:0.000}).");
             matches.Add(new(type, match));
         }
-        return UraTrainingSelectionHeightDetector.SelectHighest(matches);
+        return await VerifySelectedCardAsync(screen, pack, matches, jobs, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<UraTrainingSelectionHeightResult> VerifySelectedCardAsync(
+        GrayImage screen, UraScenarioPack pack, List<UraTrainingLogoMatch> matches,
+        List<(string Type, GrayImage Template, int[] Roi, double Threshold)> jobs,
+        CancellationToken cancellationToken)
+    {
+        const string markerTaskName = "training_selection_selected_chevron";
+        var definition = pack.ExecutionDefinition;
+        if (!definition.TryGetTask(markerTaskName, out var markerTask)
+            || markerTask?.Roi is not { Length: >= 4 } markerRoi)
+            return UraTrainingSelectionHeightDetector.SelectHighest(matches);
+        var markerTemplate = await LoadAsync(pack.VisualResources!.ResolveTaskTemplate(markerTaskName),
+            cancellationToken).ConfigureAwait(false);
+        if (markerTemplate is null)
+            return new(null, matches, "The selected training card marker could not be loaded.");
+
+        var markedTypes = new List<string>();
+        foreach (var job in jobs)
+        {
+            var flat = definition.GetTask($"training_selection_training_{job.Type}").Roi!;
+            var marker = UraSmartTrainingColorMatcher.Find(screen, markerTemplate,
+                [flat[0], markerRoi[1], flat[2], markerRoi[3]], markerTask.TemplateThreshold,
+                definition.ReferenceWidth, definition.ReferenceHeight, cancellationToken);
+            if (marker.Found)
+                markedTypes.Add(job.Type);
+        }
+        if (markedTypes.Count != 1)
+            return new(null, matches, "The selected training card marker is missing or ambiguous.");
+        var selectedType = markedTypes[0];
+
+        // Duel badges and support sparkles can obscure a logo, allowing an
+        // unrelated part of the character art to win a broad ROI search.
+        // The gold chevrons identify the selected column independently. Use
+        // the other well-matched cards to verify the actual raised/flat row.
+        var flatRows = matches.Where(item => item.TrainingType != selectedType
+                && item.Match.Score >= 0.9)
+            .Select(item => item.Match.CenterY).Order().ToArray();
+        if (flatRows.Length < 2)
+            return new(null, matches, "The training card row could not be verified.");
+        var flatY = flatRows[flatRows.Length / 2];
+        int ScaleX(int value) => (int)Math.Round(value * screen.Width / (double)definition.ReferenceWidth);
+        int ScaleY(int value) => (int)Math.Round(value * screen.Height / (double)definition.ReferenceHeight);
+        var toleranceX = ScaleX(22);
+        var toleranceY = ScaleY(22);
+        for (var index = 0; index < jobs.Count; index++)
+        {
+            var job = jobs[index];
+            var flat = definition.GetTask($"training_selection_training_{job.Type}").Roi!;
+            var click = definition.GetTask($"training_selection_{job.Type}_raised_click");
+            if (click.ClickOffset is not { Length: >= 2 } offset || offset[1] <= 0)
+                return new(null, matches, "The raised training card offset is not configured.");
+            var centerX = ScaleX(flat[0] + flat[2] / 2);
+            var centerY = flatY - (job.Type == selectedType ? ScaleY(offset[1]) : 0);
+            var match = matches[index].Match;
+            if (Math.Abs(match.CenterX - centerX) <= toleranceX
+                && Math.Abs(match.CenterY - centerY) <= toleranceY)
+                continue;
+
+            // Search only around the verified card geometry; no guessed match
+            // or tap coordinates are substituted when its icon is obscured.
+            int ReferenceX(int value) => (int)Math.Round(value * definition.ReferenceWidth / (double)screen.Width);
+            int ReferenceY(int value) => (int)Math.Round(value * definition.ReferenceHeight / (double)screen.Height);
+            var roi = new[]
+            {
+                ReferenceX(centerX - job.Template.Width / 2 - toleranceX),
+                ReferenceY(centerY - job.Template.Height / 2 - toleranceY),
+                ReferenceX(job.Template.Width + toleranceX * 2),
+                ReferenceY(job.Template.Height + toleranceY * 2),
+            };
+            match = UraSmartTrainingColorMatcher.Find(screen, job.Template, roi, job.Threshold,
+                definition.ReferenceWidth, definition.ReferenceHeight, cancellationToken);
+            if (!match.Found)
+                return new(null, matches, $"The {job.Type} training logo could not be verified on its card.");
+            matches[index] = new(job.Type, match);
+        }
+        var result = UraTrainingSelectionHeightDetector.SelectHighest(matches);
+        return result.RaisedType == selectedType ? result
+            : new(null, matches, "The training card marker and logo heights disagree.");
     }
 }

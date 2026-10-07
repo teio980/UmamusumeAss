@@ -12,6 +12,7 @@ public sealed class UraSmartTrainingScanIntegrationTests
     [Theory]
     [InlineData("speed")]
     [InlineData("guts")]
+    [InlineData("wit")]
     [InlineData("speed", true)]
     public async Task Full_smart_scan_uses_two_frames_per_card_and_one_fresh_winner_frame(
         string initial, bool cancelDuringScan = false)
@@ -37,7 +38,9 @@ public sealed class UraSmartTrainingScanIntegrationTests
         foreach (var type in UraTrainingTypeCatalog.SupportedTypes)
             fake.Frames[type] = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
                 CareerTestResourceResolver.FindWorkspaceRoot(),
-                $"smart_runtime_20261006/{type}-{(type == "wit" ? 2 : 1)}.png"))!;
+                type == "wit" && initial == "wit"
+                    ? "smart_runtime_20261006/wit-duel-1.png"
+                    : $"smart_runtime_20261006/{type}-{(type == "wit" ? 2 : 1)}.png"))!;
         var runner = new HachimiJsonPipelineRunner(
             DispatchProxy.Create<IAdbRuntime, CareerOcrReuseTests.NeverCallProxy>(), visual,
             new JsonSettingsService(System.IO.Path.Combine(System.IO.Path.GetTempPath(),

@@ -31,14 +31,9 @@ public sealed class UraSmartTrainingRuntimeEvidenceTests(ITestOutputHelper outpu
             var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
                 CareerTestResourceResolver.FindWorkspaceRoot(), $"smart_runtime_20261006/{type}-{sample}.png"))!;
             var selection = await detector.DetectFrameAsync(frame, pack, CancellationToken.None);
-            output.WriteLine($"{type}-{sample}: raised={selection.RaisedType}");
-            // Sparkles can obscure a selected logo in a real animation frame.
-            // That frame must stay unverified, rather than borrowing another type.
-            if (sample == 2 && (type == "stamina" || type == "guts"))
-            {
-                Assert.NotEqual(type, selection.RaisedType);
-                continue;
-            }
+            output.WriteLine($"{type}-{sample}: raised={selection.RaisedType}; error={selection.Error}");
+            // Sparkles obscure stamina/guts sample 2. Independent marker/row
+            // evidence must recover the actual card on these captured frames.
             Assert.Equal(type, selection.RaisedType);
             var logo = selection.Matches.Single(item => item.TrainingType == type).Match;
             output.WriteLine($"Selected logo: {logo}");

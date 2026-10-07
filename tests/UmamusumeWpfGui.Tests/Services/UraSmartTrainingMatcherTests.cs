@@ -33,6 +33,9 @@ public sealed class UraSmartTrainingMatcherTests(ITestOutputHelper output)
 
     internal async Task CompareAsync(UraScenarioPack pack, GrayImage frame)
     {
+        // Isolate exhaustive color-matcher equivalence from the independent
+        // selected-card marker validation in the smart detector.
+        pack.ExecutionDefinition.Tasks.Remove("training_selection_selected_chevron");
         var runtime = new AdbVisualPipelineRuntime(
             DispatchProxy.Create<IAdbRuntime, CareerOcrReuseTests.NeverCallProxy>(), new AsyncDelay(),
             new WindowsOcrTextRecognizer());

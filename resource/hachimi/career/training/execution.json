@@ -6,6 +6,14 @@
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
+    "training_selection_selected_chevron": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/training_selection_selected_chevron.png",
+      "templThreshold": 0.94,
+      "roi": [20, 1340, 840, 145],
+      "next": []
+    },
     "training_selection_training_speed": {
       "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
