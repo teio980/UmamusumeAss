@@ -61,7 +61,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
             scope.Recovering = true;
         try
         {
-            // A reset between a match and its tap invalidates the startup chain.
+            // A recovery dialog between a match and its tap invalidates the startup chain.
             // Re-enter the same monitor rather than invoking another StartGame.
             for (var attempt = 0; attempt < 3; attempt++)
             {
@@ -72,7 +72,7 @@ public sealed class AdbStartGamePipeline : IStartGamePipeline
                 }
                 catch (DateChangedInterruptionException) when (_dateChangedGuard is not null) { }
             }
-            return Fail(logSink, "Repeated Date Changed interruptions prevented startup recovery.");
+            return Fail(logSink, "Repeated recovery dialogs prevented startup from reaching Home.");
         }
         catch (DateChangedRecoveryException exception)
         {
