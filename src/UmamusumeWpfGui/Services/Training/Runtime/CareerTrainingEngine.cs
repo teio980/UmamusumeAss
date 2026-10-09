@@ -725,6 +725,22 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
         var resultShown = observation.ScreenId.Equals(
             "training_result", StringComparison.OrdinalIgnoreCase);
+        // Finale has no calendar date. Its observed one-turn countdown, or
+        // arrival at the mandatory race page after our training tap, proves
+        // consumption even when Quick mode skipped the result screen.
+        var issuedTraining = state.TrainingClickIssuedType is not null
+            && state.PendingTurnAction == UraPlannedAction.Training;
+        var finaleCountdownAdvanced = issuedTraining
+            && observation.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(observation.TurnPositionText?.Trim(), "Finale Underway",
+                StringComparison.OrdinalIgnoreCase)
+            && state.PendingActionTurnsToGoal is > 0
+            && observation.TurnsToGoal == state.PendingActionTurnsToGoal - 1;
+        if (finaleCountdownAdvanced)
+            CareerRaceStreakPolicy.ConfirmTurnAdvance(state, state.TurnIndex,
+                observation.TurnsToGoal, isFinale: true);
+        var mandatoryRaceReached = issuedTraining
+            && observation.ScreenId.Equals("race_day", StringComparison.OrdinalIgnoreCase);
         var mainPageProvedTurnAdvance = observation.ScreenId.Equals(
                 "career_main", StringComparison.OrdinalIgnoreCase)
             && state.TrainingTurnCommitTurnIndex is int pendingTurnIndex
@@ -732,7 +748,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             && (state.TurnIndex > pendingTurnIndex
                 || (state.TurnIndex == pendingTurnIndex
                     && state.TurnIndexSource == UraStateSource.Observed));
-        if (!resultShown && !mainPageProvedTurnAdvance)
+        if (!resultShown && !mainPageProvedTurnAdvance && !finaleCountdownAdvanced && !mandatoryRaceReached)
             return;
 
         var trainingType = state.TrainingTurnCommitType;

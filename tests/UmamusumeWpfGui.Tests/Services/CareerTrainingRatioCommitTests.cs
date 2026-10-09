@@ -107,6 +107,42 @@ public sealed class CareerTrainingRatioCommitTests
         Assert.Equal(1, ((UraRatioStrategy)strategy).NextTrainingIndex);
     }
 
+    [Theory]
+    [InlineData("career_main", "Finale Underway", 1, true, true)]
+    [InlineData("career_main", "Finale Underway", 2, true, false)]
+    [InlineData("career_main", "Finale Underway", null, true, false)]
+    [InlineData("career_main", null, 1, true, false)]
+    [InlineData("career_main", "Finale Underway", 1, false, false)]
+    [InlineData("training_selection", "Finale Underway", 1, true, false)]
+    [InlineData("race_day", "Finale Underway", 0, true, true)]
+    [InlineData("race_day", "Finale Underway", 0, false, false)]
+    public void Finale_quick_training_requires_observed_countdown_or_mandatory_race(
+        string screen, string? label, int? countdown, bool tapIssued, bool expected)
+    {
+        var state = PendingTrainingState();
+        state.TurnIndex = 71;
+        state.TrainingTurnCommitTurnIndex = 71;
+        state.TurnIndexSource = UraStateSource.Unknown;
+        state.PendingActionTurnIndex = 71;
+        state.PendingActionTurnsToGoal = 2;
+        state.TrainingClickIssuedType = tapIssued ? "speed" : null;
+        var session = Session(state);
+        var strategy = new UraRatioStrategy(new UraTrainingRatio(1, 1, 0, 0, 0));
+        var observation = new CareerObservation(screen, 1)
+        {
+            TurnPositionText = label,
+            TurnsToGoal = countdown,
+        };
+
+        CareerTrainingEngine.ConfirmTrainingIfConsumed(strategy, session, state, observation);
+        CareerTrainingEngine.ConfirmTrainingIfConsumed(strategy, session, state, observation);
+
+        Assert.Equal(!expected, state.TrainingTurnCommitPending);
+        Assert.Equal(expected ? 1 : 0, strategy.NextTrainingIndex);
+        if (expected && screen == "career_main")
+            Assert.Null(state.PendingTurnAction);
+    }
+
     private static UraCareerSessionState PendingTrainingState() => new()
     {
         TurnIndex = 0,
