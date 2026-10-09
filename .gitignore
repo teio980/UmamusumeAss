@@ -26,6 +26,13 @@ packages/
 *.nuget.props
 *.nuget.targets
 TestResults/
+coverage.xml
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
 
 # Visual Studio
 .vs/
@@ -56,5 +63,25 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+htmlcov/
+.coverage
+.coverage.*
+pip-wheel-metadata/
+
+# CMake generated files
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Testing/
+
 update-private.pem
 version.txt
