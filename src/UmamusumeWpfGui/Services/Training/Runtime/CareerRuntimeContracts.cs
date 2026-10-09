@@ -38,6 +38,8 @@ public sealed record CareerObservation(
 /// </summary>
 public sealed class CareerRuntimeState
 {
+    internal CareerRaceListEntryTransition? RaceListEntryTransition { get; set; }
+
     public string ScenarioId { get; set; } = string.Empty;
     public string PhaseId { get; set; } = string.Empty;
     public int TurnIndex { get; set; }

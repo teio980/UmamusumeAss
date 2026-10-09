@@ -50,6 +50,13 @@ internal static class CareerRuntimeLoop
                 .ConfigureAwait(false);
             if (observation is null)
             {
+                // Race entry uses elapsed time, not a number of screenshot polls:
+                // a faster observer must not shorten the allowed loading window.
+                if (runtime.RaceListEntryTransition is { Expired: false })
+                {
+                    await bindings.DelayAsync(250, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
                 var limit = startExpected ? startRetryLimit : recognitionRetryLimit;
                 if (recognitionRetries++ < limit)
                 {

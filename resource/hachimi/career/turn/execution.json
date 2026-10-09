@@ -226,7 +226,7 @@
         55
       ],
       "preDelay": 0,
-      "postDelay": 650,
+      "postDelay": 200,
       "waitMs": 0,
       "timeoutMs": 15000,
       "retryTimes": 2,

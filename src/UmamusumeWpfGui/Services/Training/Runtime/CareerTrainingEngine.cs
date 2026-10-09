@@ -480,6 +480,15 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain,
             BeforeObservationAsync: async loopCancellation =>
             {
+                if (state.Runtime.RaceListEntryTransition is { Expired: true } entry)
+                {
+                    await SaveRecognitionFailureAsync(connection, pack, state, false, logSink, loopCancellation)
+                        .ConfigureAwait(false);
+                    return Failure(
+                        $"Race list entry did not complete within {CareerRaceListEntryTransition.Timeout.TotalSeconds:0} seconds "
+                        + $"(captures={entry.CaptureCount}, fullRecognition={entry.FullRecognitionCount}).",
+                        state.LastScreenId, actionCount);
+                }
                 var completion = await completionObserver.ObserveAsync(
                         connection, pack, state, logSink, loopCancellation)
                     .ConfigureAwait(false);
@@ -494,8 +503,10 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
             ObserveAsync: (startExpected, recoveryPending, loopCancellation) =>
                 TakeConfirmedTrainingSelection(pack, state) is { } confirmedTraining
                     ? Task.FromResult<CareerObservation?>(confirmedTraining)
-                    : _screenObserver.ObserveAsync(connection, pack, state, startExpected,
-                        loopCancellation, resumeRecovery: recoveryPending),
+                    : state.Runtime.RaceListEntryTransition is { } entry
+                        ? entry.ObserveAsync(_screenObserver, connection, pack, state, logSink, loopCancellation)
+                        : _screenObserver.ObserveAsync(connection, pack, state, startExpected,
+                            loopCancellation, resumeRecovery: recoveryPending),
             HandleObservationAsync: async (observation, loopCancellation) =>
             {
                 var performedActions = 0;
@@ -661,10 +672,17 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 logSink, loopCancellation),
             DelayAsync: (milliseconds, loopCancellation) =>
                 _visualRuntime.DelayAsync(milliseconds, loopCancellation));
-        return await CareerRuntimeLoop.RunAsync(state.Runtime, bindings, actionCount,
-                pendingResumeObservation, resumeRecoveryPending, cancellationToken,
-                recognitionRetryLimit: StableScreenRecognitionRetryLimit)
-            .ConfigureAwait(false);
+        try
+        {
+            return await CareerRuntimeLoop.RunAsync(state.Runtime, bindings, actionCount,
+                    pendingResumeObservation, resumeRecoveryPending, cancellationToken,
+                    recognitionRetryLimit: StableScreenRecognitionRetryLimit)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            state.Runtime.RaceListEntryTransition = null;
+        }
     }
 
     internal static CareerObservation? TakeConfirmedTrainingSelection(

@@ -36,6 +36,8 @@ internal sealed class CareerRaceFlow
                         "action.races")
                     .ConfigureAwait(false);
             case "race_day":
+                if (context.State.Runtime.RaceListEntryTransition is { RetryRequested: false })
+                    return null;
                 context.State.RaceReplayFlowCompleted = false;
                 context.State.HasPendingRace = true;
                 context.State.LastAction = UraPlannedAction.Race;
@@ -48,20 +50,28 @@ internal sealed class CareerRaceFlow
                     context.State.ObservedGoalKind = CareerGoalTextParser.Race;
                 }
                 LogRequiredThirdRaceOnResume(context);
-                var skillFailure = await _skillLearning.RunAsync(context).ConfigureAwait(false);
-                if (skillFailure is not null)
-                    return skillFailure;
-                return await _actions.RunAsync(
+                if (context.State.Runtime.RaceListEntryTransition is null)
+                {
+                    var skillFailure = await _skillLearning.RunAsync(context).ConfigureAwait(false);
+                    if (skillFailure is not null)
+                        return skillFailure;
+                }
+                return await CareerRaceListEntryTransition.RunActionAsync(
+                        _actions,
                         context,
                         "race_day",
                         "race.open_list")
                     .ConfigureAwait(false);
             case "race_recommendations":
+                if (context.State.Runtime.RaceListEntryTransition is
+                    { SourceScreenId: "race_recommendations", RetryRequested: false })
+                    return null;
                 context.LogSink?.Add(
                     "Career Training",
                     "Optional Race Recommendations dialog recognized; confirming it to continue to the race list.",
                     LogEntryKind.Info);
-                return await _actions.RunAsync(
+                return await CareerRaceListEntryTransition.RunActionAsync(
+                        _actions,
                         context,
                         "race_recommendations",
                         "race.recommendations.confirm")

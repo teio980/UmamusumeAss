@@ -107,7 +107,7 @@
         140
       ],
       "preDelay": 0,
-      "postDelay": 650,
+      "postDelay": 200,
       "timeoutMs": 12000,
       "pollIntervalMs": 250,
       "required": true,
@@ -220,7 +220,7 @@
         105
       ],
       "preDelay": 0,
-      "postDelay": 650,
+      "postDelay": 200,
       "waitMs": 0,
       "timeoutMs": 12000,
       "pollIntervalMs": 250,

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 using UmamusumeWpfGui.Models;
@@ -21,6 +22,14 @@ public sealed class CareerScreenObserver
     internal IReadOnlyList<string> LastCandidateScreenIds { get; private set; } = [];
     internal IReadOnlyList<string?> LastFrameScreenIds { get; private set; } = [];
     internal IReadOnlyList<string> LastCaptureErrors { get; private set; } = [];
+    internal int LastCaptureCount { get; private set; }
+    internal TimeSpan LastCaptureDuration { get; private set; }
+    internal TimeSpan LastMatchDuration { get; private set; }
+
+    private static readonly HashSet<string> RaceListEntryScreens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "race_streak_warning", "race_recommendations", "race_list_empty", "race_list",
+    };
 
     public CareerScreenObserver(IVisualPipelineRuntime visualRuntime)
     {
@@ -60,7 +69,7 @@ public sealed class CareerScreenObserver
     internal static bool IsReturningHome(UraCareerSessionState state) =>
         CareerObservationPolicy.IsReturningHome(state);
 
-    public async Task<CareerObservation?> ObserveAsync(
+    public Task<CareerObservation?> ObserveAsync(
         LastVerifiedConnection connection,
         UraScenarioPack pack,
         UraCareerSessionState state,
@@ -68,11 +77,27 @@ public sealed class CareerScreenObserver
         CancellationToken cancellationToken,
         bool careerOnly = false,
         bool resumeRecovery = false,
-        bool includeMainDetails = true)
+        bool includeMainDetails = true) =>
+        ObserveCoreAsync(connection, pack, state, careerStartTransitionExpected,
+            careerOnly, resumeRecovery, includeMainDetails, candidateScreenIds: null, cancellationToken);
+
+    internal Task<CareerObservation?> ObserveRaceListEntryAsync(
+        LastVerifiedConnection connection, UraScenarioPack pack, UraCareerSessionState state,
+        CancellationToken cancellationToken) =>
+        ObserveCoreAsync(connection, pack, state, false,
+            careerOnly: false, resumeRecovery: false, includeMainDetails: false,
+            candidateScreenIds: RaceListEntryScreens, cancellationToken);
+
+    private async Task<CareerObservation?> ObserveCoreAsync(
+        LastVerifiedConnection connection, UraScenarioPack pack, UraCareerSessionState state,
+        bool careerStartTransitionExpected, bool careerOnly, bool resumeRecovery, bool includeMainDetails,
+        HashSet<string>? candidateScreenIds, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentNullException.ThrowIfNull(state);
+        LastCaptureCount = 0;
+        LastCaptureDuration = LastMatchDuration = TimeSpan.Zero;
 
         // Rest and infirmary actions from Career Main have narrow expected
         // transitions. Give their confirmation dialogs early recognition
@@ -101,6 +126,7 @@ public sealed class CareerScreenObserver
         var returningHome = IsReturningHome(state);
 
         var candidates = pack.ScreenProfile.Screens
+            .Where(screen => candidateScreenIds is null || candidateScreenIds.Contains(screen.ScreenId))
             .Where(screen => CareerObservationPolicy.IsCandidate(
                 screen,
                 pack.ScreenProfile,
@@ -124,6 +150,8 @@ public sealed class CareerScreenObserver
         for (var sample = 0; sample < 2; sample++)
         {
             GrayImage? frame;
+            var captureStarted = Stopwatch.GetTimestamp();
+            LastCaptureCount++;
             try
             {
                 frame = await _visualRuntime.CaptureGrayAsync(
@@ -144,6 +172,7 @@ public sealed class CareerScreenObserver
                 captureErrors.Add($"{exception.GetType().Name}: {exception.Message}");
                 frame = null;
             }
+            LastCaptureDuration += Stopwatch.GetElapsedTime(captureStarted);
             if (frame is not null)
                 frames.Add(frame);
             if (sample == 0)
@@ -160,11 +189,20 @@ public sealed class CareerScreenObserver
         var bestPriority = int.MaxValue;
         var mainFrameCount = 0;
         var frameObservations = new List<CareerObservation?>(capacity: frames.Count);
+        var matchStarted = Stopwatch.GetTimestamp();
         foreach (var frame in frames)
         {
             CareerObservation? frameBest = null;
             foreach (var screen in candidates)
             {
+                // In the bounded entry path, the second frame only needs to verify
+                // the first winner and overlays that can take precedence over it.
+                if (candidateScreenIds is not null
+                    && frameObservations is [ { } first ]
+                    && pack.ScreenProfile.Find(first.ScreenId) is { } firstScreen
+                    && GetScreenRecognitionPriority(screen, false)
+                        > GetScreenRecognitionPriority(firstScreen, false))
+                    continue;
                 if (screen.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase))
                 {
                     var mainMatch = await CareerMainScreenDetector.MatchAsync(
@@ -331,6 +369,7 @@ public sealed class CareerScreenObserver
         }
 
         LastFrameScreenIds = frameObservations.Select(observation => observation?.ScreenId).ToArray();
+        LastMatchDuration = Stopwatch.GetElapsedTime(matchStarted);
 
         // A screen marked stable must be the winning recognition in every
         // captured sample. In particular, transient race-result frames during
@@ -484,6 +523,45 @@ public sealed class CareerScreenObserver
             energy = null;
         }
         return new CareerObservation(screen.ScreenId, match.Score, energy?.Percent, energy?.Confidence ?? 0);
+    }
+
+    internal async Task<bool> CanRetryRaceListEntryAsync(
+        UraScenarioPack pack, string screenId, CancellationToken cancellationToken)
+    {
+        // A header alone can remain visible during loading. Require two identical
+        // complete frames and the original action button before permitting a retry.
+        if (LastFrames is not [var first, var second]
+            || first.Width != second.Width || first.Height != second.Height
+            || !first.Pixels.AsSpan().SequenceEqual(second.Pixels)
+            || (first.RgbaPixels is { } colors
+                && (second.RgbaPixels is not { } secondColors
+                    || !colors.AsSpan().SequenceEqual(secondColors))))
+            return false;
+
+        var actionId = screenId switch
+        {
+            "career_main" => "action.races",
+            "race_day" => "race.open_list",
+            "race_recommendations" => "race.recommendations.confirm",
+            _ => null,
+        };
+        var screen = pack.ScreenProfile.Find(screenId);
+        var action = actionId is null ? null : screen?.FindAction(actionId);
+        if (action is null || !pack.ExecutionDefinition.TryGetTask(action.Task, out var task)
+            || task is null || string.IsNullOrWhiteSpace(task.Template))
+            return false;
+        var path = pack.VisualResources is { } resources
+            ? resources.ResolveTaskTemplate(action.Task)
+            : UraScenarioResourceResolver.Resolve(pack, task.Template);
+        var template = await LoadTemplateCachedAsync(path, cancellationToken).ConfigureAwait(false);
+        if (template is null)
+            return false;
+
+        return LastFrames.All(frame => (task.Algorithm.Equals("MatchTemplateColor", StringComparison.OrdinalIgnoreCase)
+            ? TemplateMatcher.FindColor(frame, template, task.Roi, task.TemplateThreshold,
+                pack.ExecutionDefinition.ReferenceWidth, pack.ExecutionDefinition.ReferenceHeight)
+            : TemplateMatcher.Find(frame, template, task.Roi, task.TemplateThreshold,
+                pack.ExecutionDefinition.ReferenceWidth, pack.ExecutionDefinition.ReferenceHeight)).Found);
     }
 
     private async Task<bool> MatchesRequiredTemplateAsync(

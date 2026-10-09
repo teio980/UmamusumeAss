@@ -133,6 +133,15 @@ internal sealed class CareerTurnFlow
     private async Task<CareerTrainingResult?> HandleCareerMainAsync(
         CareerFlowContext context)
     {
+        // Keep a slow race entry from starting a new turn decision. A verified
+        // retry repeats the same race button without changing its turn baseline.
+        if (context.State.Runtime.RaceListEntryTransition is { SourceScreenId: "career_main" } entry)
+        {
+            return entry.RetryRequested
+                ? await CareerRaceListEntryTransition.RunActionAsync(
+                    _actions, context, "career_main", "action.races").ConfigureAwait(false)
+                : null;
+        }
         if (context.State.InheritanceEventPending)
             return null;
 
@@ -342,11 +351,10 @@ internal sealed class CareerTurnFlow
         context.State.GoalCompletionProbePending = ShouldProbeGoalAfterAction(
             context.State);
         context.State.GoalCompletionProbeArmed = false;
-        var actionResult = await _actions.RunAsync(
-                context,
-                "career_main",
-                actionId)
-            .ConfigureAwait(false);
+        var actionResult = actionId == "action.races"
+            ? await CareerRaceListEntryTransition.RunActionAsync(
+                _actions, context, "career_main", actionId).ConfigureAwait(false)
+            : await _actions.RunAsync(context, "career_main", actionId).ConfigureAwait(false);
         if (actionResult is null)
             CareerRaceStreakPolicy.BeginTurnAction(context.State, decision.Action);
         return actionResult;
