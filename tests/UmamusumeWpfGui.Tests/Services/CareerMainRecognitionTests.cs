@@ -135,9 +135,16 @@ public sealed class CareerMainRecognitionTests
         return pack;
     }
 
-    private static GrayImage LoadFrame(string name) =>
-        GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
-            CareerTestResourceResolver.FindWorkspaceRoot(), name)) ?? throw new InvalidDataException(name);
+    private static GrayImage LoadFrame(string name)
+    {
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        // Race recognition templates share these names but are cropped markers.
+        // Replays must use the complete game screenshot from the capture corpus.
+        var capture = Path.Combine(root, "testdata", "hachimi", "ura", "captures", name);
+        return GrayImageCodec.FromFile(File.Exists(capture)
+            ? capture : CareerTestResourceResolver.FindUraCapture(root, name))
+            ?? throw new InvalidDataException(name);
+    }
 
     private static GrayImage WithoutRegion(GrayImage frame, int[] roi)
     {

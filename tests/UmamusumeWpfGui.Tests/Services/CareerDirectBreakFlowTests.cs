@@ -177,8 +177,12 @@ public sealed class CareerDirectBreakFlowTests
         var runtime = (RestRuntime)(object)visual;
         var root = CareerTestResourceResolver.FindWorkspaceRoot();
         foreach (var name in frames)
-            runtime.Frames.Enqueue(GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(root, name))
+        {
+            var capture = Path.Combine(root, "testdata", "hachimi", "ura", "captures", name);
+            runtime.Frames.Enqueue(GrayImageCodec.FromFile(File.Exists(capture)
+                ? capture : CareerTestResourceResolver.FindUraCapture(root, name))
                 ?? throw new InvalidDataException(name));
+        }
         var context = new CareerFlowContext(new LastVerifiedConnection("adb", "rest-test", "android", "version",
                 900, 1600, 900, 1600, DateTimeOffset.UnixEpoch),
             pack, true, null!, null!, string.Empty,

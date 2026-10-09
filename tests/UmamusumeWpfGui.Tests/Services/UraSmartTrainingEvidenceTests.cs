@@ -1,4 +1,3 @@
-using System.IO;
 using System.Reflection;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
@@ -52,14 +51,8 @@ public sealed class UraSmartTrainingEvidenceTests
     private static async Task<UraTrainingCandidate> ReadReferenceAsync(string? missingField = null)
     {
         var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName,
-                   "resource", "hachimi", "ura", "manifest.json")))
-            directory = directory.Parent;
-        Assert.NotNull(directory);
-        var frame = GrayImageCodec.FromFile(Path.Combine(directory.FullName,
-            "resource", "hachimi", "ura", "testdata", "captures", "runtime_frames",
-            "training_selection_ura.png"));
+        var frame = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
+            CareerTestResourceResolver.FindWorkspaceRoot(), "training_selection_ura.png"));
         Assert.NotNull(frame);
         var runtime = DispatchProxy.Create<IVisualPipelineRuntime, AnnotatedOcrRuntime>();
         ((AnnotatedOcrRuntime)(object)runtime).MissingField = missingField;
