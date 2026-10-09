@@ -104,7 +104,8 @@ internal static class UraTrainingNumberImagePreprocessor
             // on its left rather than allowing it to introduce a second number.
             var plus = components.Where(component =>
                 (component.Right - component.Left) / (double)(component.Bottom - component.Top) is >= 0.9 and <= 1.2
-                && component.Bottom - component.Top < crop.Height * 0.6)
+                && component.Bottom - component.Top < crop.Height * 0.6
+                && HasCrossStrokes(component, crop.Width))
                 .OrderBy(component => component.Left).FirstOrDefault();
             if (plus is null)
                 return null;
@@ -149,6 +150,21 @@ internal static class UraTrainingNumberImagePreprocessor
             prepared[pixel * 4 + 3] = 255;
         }
         return new(width, height, gray, prepared);
+    }
+
+    private static bool HasCrossStrokes(Component component, int cropWidth)
+    {
+        // A capped-stat chevron is also nearly square. A plus has both a
+        // horizontal and a vertical stroke spanning almost its full bounds;
+        // the chevron's vertical projection is much shorter.
+        var rows = new int[component.Bottom - component.Top];
+        var columns = new int[component.Right - component.Left];
+        foreach (var pixel in component.Pixels)
+        {
+            rows[pixel / cropWidth - component.Top]++;
+            columns[pixel % cropWidth - component.Left]++;
+        }
+        return rows.Max() >= columns.Length * 0.8 && columns.Max() >= rows.Length * 0.8;
     }
 
     private static void RestoreBrightGlyphInteriors(byte[] gray, int width, int height,

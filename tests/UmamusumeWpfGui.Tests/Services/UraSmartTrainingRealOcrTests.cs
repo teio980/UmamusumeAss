@@ -43,6 +43,13 @@ public sealed class UraSmartTrainingRealOcrTests(ITestOutputHelper output)
     }
 
     [Theory]
+    [InlineData("smart_runtime_20261007/speed-1.png", "speed", 32, 0, 21, 0, 0, 9, 0)]
+    [InlineData("smart_runtime_20261007/speed-2.png", "speed", 32, 0, 21, 0, 0, 9, 0)]
+    [InlineData("smart_runtime_20261007/stamina-1.png", "stamina", 0, 18, 0, 11, 0, 6, 0)]
+    [InlineData("smart_runtime_20261007/stamina-2.png", "stamina", 0, 18, 0, 11, 0, 6, 0)]
+    [InlineData("smart_runtime_20261007/guts-1.png", "guts", 6, 0, 6, 11, 0, 5, 0)]
+    [InlineData("smart_runtime_20261007/guts-2.png", "guts", 6, 0, 6, 11, 0, 5, 0)]
+    [InlineData("smart_runtime_20261007/finale-stamina.png", "stamina", 0, 23, 0, 13, 0, 7, 0)]
     [InlineData("training_selection_ura.png", "speed", 17, 0, 10, 0, 0, 6, 0)]
     [InlineData("training_selection_biwa_summer.png", "speed", 28, 0, 19, 0, 0, 7, 0)]
     [InlineData("ura_train_selection.png", "speed", 28, 0, 12, 0, 0, 5, 0)]

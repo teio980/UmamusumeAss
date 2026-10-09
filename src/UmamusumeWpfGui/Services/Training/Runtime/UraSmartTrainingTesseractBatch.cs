@@ -28,32 +28,44 @@ internal static class UraSmartTrainingTesseractBatch
         try
         {
             var images = new Dictionary<string, string>();
+            var paddedImages = new Dictionary<string, string>();
             foreach (var field in fields)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var image = CareerNumericOcrReader.Upscale(field.Value, 2);
+                images[field.Key] = SaveImage(field.Value, field.Key);
+            }
+
+            string SaveImage(GrayImage source, string name)
+            {
+                var image = CareerNumericOcrReader.Upscale(source, 2);
                 var rgba = new byte[checked(image.Pixels.Length * 4)];
                 for (var pixel = 0; pixel < image.Pixels.Length; pixel++)
                 {
                     rgba[pixel * 4] = rgba[pixel * 4 + 1] = rgba[pixel * 4 + 2] = image.Pixels[pixel];
                     rgba[pixel * 4 + 3] = 255;
                 }
-                var path = prefix + "-" + field.Key + ".png";
+                var path = prefix + "-" + name + ".png";
                 paths.Add(path);
                 GrayImageCodec.SaveScreenshot(new AdbScreenshotResult(AdbScreenshotMethod.Raw, [],
                     TimeSpan.Zero, new AdbRawScreenshot(image.Width, image.Height, rgba)), path);
-                images[field.Key] = path;
+                return path;
             }
             var listPath = prefix + ".txt";
             paths.Add(listPath);
-            foreach (var mode in new[] { "7", "8", "13" })
+            foreach (var mode in new[] { "7", "8", "13", "7-padded" })
             {
-                var pending = fields.Where(field => readings[field.Key].Value is null).ToArray();
+                var padded = mode == "7-padded";
+                var pending = fields.Where(field => readings[field.Key].Value is null
+                    && (!padded || field.Key != "failure_rate")).ToArray();
                 if (pending.Length == 0 || timeout.IsCancellationRequested)
                     break;
-                await File.WriteAllLinesAsync(listPath, pending.Select(field => images[field.Key]),
+                if (padded)
+                    foreach (var field in pending)
+                        paddedImages[field.Key] = SaveImage(AddQuietBorder(field.Value), field.Key + "-padded");
+                await File.WriteAllLinesAsync(listPath, pending.Select(field =>
+                        (padded ? paddedImages : images)[field.Key]),
                     new UTF8Encoding(false), timeout.Token).ConfigureAwait(false);
-                var tsv = await RunAsync(listPath, mode, processStarted, timeout.Token, cancellationToken)
+                var tsv = await RunAsync(listPath, padded ? "7" : mode, processStarted, timeout.Token, cancellationToken)
                     .ConfigureAwait(false);
                 if (tsv is null)
                     continue;
@@ -90,6 +102,21 @@ internal static class UraSmartTrainingTesseractBatch
         }
         cancellationToken.ThrowIfCancellationRequested();
         return readings;
+    }
+
+    private static GrayImage AddQuietBorder(GrayImage source)
+    {
+        // Tight +11 can be segmented as +141. Retry only unresolved gains
+        // with more surrounding whitespace, preserving the proven default
+        // geometry and the original glyph-count validation.
+        var border = Math.Max(6, source.Height / 10);
+        var width = source.Width + border * 2;
+        var height = source.Height + border * 2;
+        var pixels = Enumerable.Repeat((byte)255, checked(width * height)).ToArray();
+        for (var y = 0; y < source.Height; y++)
+            source.Pixels.AsSpan(y * source.Width, source.Width).CopyTo(
+                pixels.AsSpan((y + border) * width + border, source.Width));
+        return new(width, height, pixels);
     }
 
     internal static Dictionary<int, string> ParsePages(string tsv, int pageCount)
