@@ -96,6 +96,10 @@ public sealed class CareerMainSharedOcrFrameTests
     [Theory]
     [InlineData("career_main.objective.title")]
     [InlineData("career_event.event_choice.title")]
+    [InlineData("career_skill.points.focused")]
+    [InlineData("career.skill.points.focused")]
+    [InlineData("career.skill.price.focused")]
+    [InlineData("career.skill.list")]
     public async Task Frame_ocr_keeps_cropping_and_restores_screen_coordinates_without_adb(string taskName)
     {
         var pixels = Enumerable.Repeat((byte)100, 100 * 100).ToArray();

@@ -538,6 +538,7 @@ public sealed class AdbVisualPipelineRuntime : IVisualPipelineRuntime
             && (taskName.StartsWith("career_main.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("career_event.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("career_skill.", StringComparison.OrdinalIgnoreCase)
+                || taskName.StartsWith("career.skill.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("training_selection.", StringComparison.OrdinalIgnoreCase)
                 || taskName.StartsWith("shop.items", StringComparison.OrdinalIgnoreCase));
         var ocrScreenshot = cropToRoi
