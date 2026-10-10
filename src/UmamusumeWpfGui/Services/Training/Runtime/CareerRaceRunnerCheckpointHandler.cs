@@ -1,4 +1,5 @@
 using UmamusumeWpfGui.Models;
+using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
@@ -14,10 +15,12 @@ internal sealed class CareerRaceRunnerCheckpointHandler
     public const string ScreenId = "race_runner";
 
     private readonly ICareerFlowActionRunner _actions;
+    private readonly CareerRaceStrategyFlow? _strategyFlow;
 
-    public CareerRaceRunnerCheckpointHandler(ICareerFlowActionRunner actions)
+    public CareerRaceRunnerCheckpointHandler(ICareerFlowActionRunner actions, IVisualPipelineRuntime? visualRuntime = null)
     {
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _strategyFlow = visualRuntime is null ? null : new CareerRaceStrategyFlow(visualRuntime, actions);
     }
 
     public async Task<CareerTrainingResult?> HandleAsync(CareerFlowContext context)
@@ -49,7 +52,9 @@ internal sealed class CareerRaceRunnerCheckpointHandler
             }
 
             var strategyKey = context.LineupStrategy.Trim().ToLowerInvariant();
-            var strategyResult = await _actions.RunAsync(
+            var strategyResult = _strategyFlow is not null
+                ? await _strategyFlow.RunAsync(context, strategyKey).ConfigureAwait(false)
+                : await _actions.RunAsync(
                     context,
                     ScreenId,
                     $"strategy.apply.{strategyKey}")

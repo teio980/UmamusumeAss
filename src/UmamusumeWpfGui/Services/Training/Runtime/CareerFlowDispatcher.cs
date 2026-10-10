@@ -40,7 +40,7 @@ public sealed class CareerFlowDispatcher : ICareerFlowActionRunner
         _turnFlow = new CareerTurnFlow(this);
         _breakFlow = new CareerBreakFlow(visualRuntime);
         _raceFlow = new CareerRaceFlow(visualRuntime, this);
-        _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this);
+        _raceRunnerHandler = new CareerRaceRunnerCheckpointHandler(this, visualRuntime);
         _settlementFlow = new CareerSettlementFlow(this);
         _clawMachineFlow = new CareerClawMachineFlow(visualRuntime);
     }
