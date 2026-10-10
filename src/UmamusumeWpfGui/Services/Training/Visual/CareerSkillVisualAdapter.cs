@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -27,14 +28,12 @@ internal sealed record CareerSkillScanResult(
 internal sealed class CareerSkillVisualAdapter
 {
     private readonly IVisualPipelineRuntime _visual;
-    private readonly CareerScreenObserver _screenObserver;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templates = new(
         StringComparer.OrdinalIgnoreCase);
 
     public CareerSkillVisualAdapter(IVisualPipelineRuntime visual)
     {
         _visual = visual ?? throw new ArgumentNullException(nameof(visual));
-        _screenObserver = new CareerScreenObserver(visual);
     }
 
     public async Task<int?> ReadPointsAsync(CareerFlowContext context)
@@ -269,54 +268,112 @@ internal sealed class CareerSkillVisualAdapter
         return false;
     }
 
+    private async Task<GrayImage?> CaptureReturnFrameAsync(CareerFlowContext context)
+    {
+        try
+        {
+            return await _visual.CaptureGrayAsync(context.Connection, context.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
+        {
+            return null;
+        }
+    }
+
     public async Task<bool> ReturnToRaceDayAsync(CareerFlowContext context)
     {
-        for (var attempt = 0; attempt < 5; attempt++)
+        var started = Stopwatch.StartNew();
+        var raceDayFrames = 0;
+        var backSubmitted = false;
+        for (var attempt = 0; attempt < 20 && started.Elapsed < TimeSpan.FromSeconds(10); attempt++)
         {
-            if (await IsRaceDayAsync(context).ConfigureAwait(false))
+            context.CancellationToken.ThrowIfCancellationRequested();
+            var frame = await CaptureReturnFrameAsync(context).ConfigureAwait(false);
+            if (frame is null)
             {
-                Log(context, "Returned from Skills to Race Day.");
-                return true;
-            }
-            if (await TryTapAssetAsync(
-                    context, "career.skill.learned.title", "career.skill.learned.close")
-                .ConfigureAwait(false))
-            {
-                continue;
-            }
-            if (await TryTapAssetAsync(
-                    context, "career.skill.confirmation.title", "career.skill.confirmation.cancel")
-                .ConfigureAwait(false))
-            {
-                continue;
-            }
-            if (await TryTapAssetAsync(
-                    context, "career.skill.exit.title", "career.skill.exit.ok")
-                .ConfigureAwait(false))
-            {
-                continue;
-            }
-            if (await TapAssetAsync(
-                    context, "career.skill.back", "career.skill.back", timeoutMilliseconds: 600)
-                .ConfigureAwait(false))
-            {
-                Log(context, "Clicked Skills Back; waiting for Race Day.");
+                raceDayFrames = 0;
+                await _visual.DelayAsync(200, context.CancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            var fallback = GetRequiredRegionCenter(context, "career.skill.back", "fallbackCenter");
-            await _visual.TapAsync(
-                    context.Connection, fallback.X, fallback.Y,
-                    Width(context), Height(context),
-                    "career.skill.back.fallback", context.CancellationToken)
-                .ConfigureAwait(false);
-            Log(context, "Skills Back template was not found; tapped its declared fallback position.");
-            await _visual.DelayAsync(
-                    MetadataIntOr(RequireRegion(context, "career.skill.back"), "tapDelayMs", 300),
-                    context.CancellationToken)
-                .ConfigureAwait(false);
+            // Check overlays and Back on one fresh frame. Waiting for each absent
+            // dialog, or recognizing every Career screen first, delays Back.
+            if (await TryTapAssetAsync(
+                    context, frame, "career.skill.learned.title", "career.skill.learned.close")
+                .ConfigureAwait(false))
+            {
+                raceDayFrames = 0;
+                continue;
+            }
+            if (await TryTapAssetAsync(
+                    context, frame, "career.skill.confirmation.title", "career.skill.confirmation.cancel")
+                .ConfigureAwait(false))
+            {
+                raceDayFrames = 0;
+                continue;
+            }
+            if (await TryTapAssetAsync(
+                    context, frame, "career.skill.exit.title", "career.skill.exit.ok")
+                .ConfigureAwait(false))
+            {
+                raceDayFrames = 0;
+                continue;
+            }
+            var back = await MatchAssetAsync(context, frame, "career.skill.back").ConfigureAwait(false);
+            if (back?.Found == true)
+            {
+                raceDayFrames = 0;
+                if (!backSubmitted)
+                {
+                    await TapMatchedAssetAsync(context, back, "career.skill.back").ConfigureAwait(false);
+                    backSubmitted = true;
+                    Log(context, "Clicked Skills Back; waiting for Race Day.");
+                }
+                else
+                {
+                    await _visual.DelayAsync(200, context.CancellationToken).ConfigureAwait(false);
+                }
+                continue;
+            }
+
+            if (await IsRaceDayAsync(context, frame).ConfigureAwait(false))
+            {
+                if (++raceDayFrames >= 2)
+                {
+                    Log(context, $"Returned from Skills to Race Day (elapsedMs={started.ElapsedMilliseconds}, captures={attempt + 1}).");
+                    return true;
+                }
+                await _visual.DelayAsync(120, context.CancellationToken).ConfigureAwait(false);
+                continue;
+            }
+            raceDayFrames = 0;
+
+            if (!backSubmitted)
+            {
+                var fallback = GetRequiredRegionCenter(context, "career.skill.back", "fallbackCenter");
+                await _visual.TapAsync(
+                        context.Connection, fallback.X, fallback.Y,
+                        Width(context), Height(context),
+                        "career.skill.back.fallback", context.CancellationToken)
+                    .ConfigureAwait(false);
+                backSubmitted = true;
+                Log(context, "Skills Back template was not found; tapped its declared fallback position.");
+                await _visual.DelayAsync(
+                        MetadataIntOr(RequireRegion(context, "career.skill.back"), "tapDelayMs", 300),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await _visual.DelayAsync(200, context.CancellationToken).ConfigureAwait(false);
+            }
         }
-        return await IsRaceDayAsync(context).ConfigureAwait(false);
+        return false;
     }
 
     private async Task<int?> ReadNumberAsync(
@@ -343,20 +400,44 @@ internal sealed class CareerSkillVisualAdapter
 
     private async Task<bool> TryTapAssetAsync(
         CareerFlowContext context,
+        GrayImage frame,
         string markerId,
         string buttonId)
     {
-        if (!await WaitForAssetAsync(
-                    context,
-                    markerId,
-                    markerId,
-                    timeoutMetadataKey: "markerWaitTimeoutMs",
-                    pollMetadataKey: "markerPollIntervalMs")
-                .ConfigureAwait(false))
-        {
+        var marker = await MatchAssetAsync(context, frame, markerId).ConfigureAwait(false);
+        if (marker?.Found != true)
             return false;
-        }
-        return await TapAssetAsync(context, buttonId, buttonId).ConfigureAwait(false);
+
+        var button = await MatchAssetAsync(context, frame, buttonId).ConfigureAwait(false);
+        if (button?.Found == true)
+            await TapMatchedAssetAsync(context, button, buttonId).ConfigureAwait(false);
+        else
+            await _visual.DelayAsync(200, context.CancellationToken).ConfigureAwait(false);
+        // A visible overlay blocks Back even if its button is still animating.
+        return true;
+    }
+
+    private async Task<TemplateMatchResult?> MatchAssetAsync(
+        CareerFlowContext context, GrayImage frame, string assetId)
+    {
+        var template = await LoadAssetAsync(context, assetId).ConfigureAwait(false);
+        if (template is null)
+            return null;
+        var region = RequireRegion(context, assetId);
+        return TemplateMatcher.FindColor(frame, template, RequireRoi(region),
+            region.Threshold ?? AssetThreshold(context, assetId), Width(context), Height(context));
+    }
+
+    private async Task TapMatchedAssetAsync(
+        CareerFlowContext context, TemplateMatchResult match, string assetId)
+    {
+        await _visual.TapMatchAsync(
+                context.Connection, match, assetId, context.CancellationToken)
+            .ConfigureAwait(false);
+        await _visual.DelayAsync(
+                MetadataIntOr(RequireRegion(context, assetId), "tapDelayMs", 350),
+                context.CancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<bool> WaitForAssetAsync(
@@ -416,8 +497,12 @@ internal sealed class CareerSkillVisualAdapter
     private async Task<GrayImage?> LoadAssetAsync(CareerFlowContext context, string assetId)
     {
         var path = AssetPath(context, assetId);
-        var lazy = _templates.GetOrAdd(
-            path,
+        return await LoadTemplateAsync(context, path).ConfigureAwait(false);
+    }
+
+    private async Task<GrayImage?> LoadTemplateAsync(CareerFlowContext context, string path)
+    {
+        var lazy = _templates.GetOrAdd(path,
             key => new Lazy<Task<GrayImage?>>(
                 () => _visual.LoadTemplateAsync(key, string.Empty, CancellationToken.None),
                 LazyThreadSafetyMode.ExecutionAndPublication));
@@ -432,13 +517,37 @@ internal sealed class CareerSkillVisualAdapter
             ? threshold
             : throw new InvalidDataException($"Career skill asset '{id}' has no threshold.");
 
-    private async Task<bool> IsRaceDayAsync(CareerFlowContext context)
+    private async Task<bool> IsRaceDayAsync(CareerFlowContext context, GrayImage frame)
     {
-        var observation = await _screenObserver.ObserveAsync(
-                context.Connection, context.Pack, context.State,
-                careerStartTransitionExpected: false, context.CancellationToken)
-            .ConfigureAwait(false);
-        return observation?.ScreenId == "race_day";
+        var screen = context.Pack.ScreenProfile.Find("race_day");
+        if (screen is null)
+            return false;
+        var resources = RequireResources(context);
+        var recognition = screen.Recognition;
+        foreach (var path in screen.Templates)
+        {
+            var template = await LoadTemplateAsync(context, resources.ResolveScreenTemplate(screen, path))
+                .ConfigureAwait(false);
+            if (template is null)
+                continue;
+            var match = recognition.MatchAlphaTemplate || recognition.MatchColorText
+                ? TemplateMatcher.FindColor(frame, template, recognition.Roi,
+                    recognition.TemplateThreshold, Width(context), Height(context),
+                    requireTextContrast: recognition.MatchColorText)
+                : TemplateMatcher.Find(frame, template, recognition.Roi,
+                    recognition.TemplateThreshold, Width(context), Height(context));
+            if (!match.Found)
+                continue;
+            if (string.IsNullOrWhiteSpace(recognition.RequiredTemplate))
+                return true;
+            var required = await LoadTemplateAsync(context,
+                    resources.ResolveScreenTemplate(screen, recognition.RequiredTemplate))
+                .ConfigureAwait(false);
+            return required is not null && TemplateMatcher.Find(frame, required,
+                recognition.RequiredTemplateRoi, recognition.RequiredTemplateThreshold,
+                Width(context), Height(context)).Found;
+        }
+        return false;
     }
 
     private static CareerVisualRegionDefinition RequireRegion(
