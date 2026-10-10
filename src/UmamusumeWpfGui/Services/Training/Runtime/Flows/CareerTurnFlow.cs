@@ -85,6 +85,8 @@ internal sealed class CareerTurnFlow
             }
             case "rest_confirmation":
             case "summer_rest_confirmation":
+                if (context.State.Runtime.TurnActionTransition is not null)
+                    return null;
                 context.State.LastAction = UraPlannedAction.Rest;
                 ArmPendingGoalProbe(context.State);
                 var restConfirmationResult = await _actions.RunAsync(
@@ -104,6 +106,8 @@ internal sealed class CareerTurnFlow
                         "recreation.trainee")
                     .ConfigureAwait(false);
             case "recreation_confirmation":
+                if (context.State.Runtime.TurnActionTransition is not null)
+                    return null;
                 context.State.LastAction = UraPlannedAction.Recreation;
                 ArmPendingGoalProbe(context.State);
                 var recreationConfirmationResult = await _actions.RunAsync(
@@ -115,8 +119,11 @@ internal sealed class CareerTurnFlow
                     context.State.AwaitingRecreationConfirmationGone = true;
                 return recreationConfirmationResult;
             case "infirmary_confirmation":
+                if (context.State.Runtime.TurnActionTransition is not null)
+                    return null;
                 context.State.LastAction = UraPlannedAction.Infirmary;
                 ArmPendingGoalProbe(context.State);
+                context.State.Runtime.TurnActionTransition = new("infirmary_confirmation", "Infirmary");
                 var infirmaryResult = await _actions.RunAsync(
                         context,
                         "infirmary_confirmation",
@@ -124,6 +131,8 @@ internal sealed class CareerTurnFlow
                     .ConfigureAwait(false);
                 if (infirmaryResult is null)
                     context.LogSink?.Add("Career Training", "Infirmary treatment confirmed.");
+                else
+                    context.State.Runtime.TurnActionTransition = null;
                 return infirmaryResult;
             default:
                 return null;

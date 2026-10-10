@@ -136,6 +136,23 @@ public sealed class CareerInfirmaryFlowTests
             okTask.Roi, okTask.TemplateThreshold, 900, 1600).Found);
     }
 
+    [Fact]
+    public async Task Submitted_infirmary_confirmation_is_not_sent_twice()
+    {
+        var actions = new RecordingActions();
+        var flow = new CareerTurnFlow(actions);
+        var state = new UraCareerSessionState();
+        var context = Context(state, new CareerObservation("infirmary_confirmation", 1));
+
+        Assert.Null(await flow.HandleAsync(context));
+        var transition = state.Runtime.TurnActionTransition;
+        Assert.NotNull(transition);
+        Assert.True(transition.AwaitingConfirmation);
+        Assert.Null(await flow.HandleAsync(context));
+        Assert.Equal(1, actions.CallCount);
+        Assert.Same(transition, state.Runtime.TurnActionTransition);
+    }
+
     private static CareerFlowContext Context(
         UraCareerSessionState state,
         CareerObservation observation) =>
@@ -149,6 +166,7 @@ public sealed class CareerInfirmaryFlowTests
     private sealed class RecordingActions : ICareerFlowActionRunner
     {
         public (string ScreenId, string ActionId)? LastAction { get; private set; }
+        public int CallCount { get; private set; }
 
         public Task<CareerTrainingResult?> RunAsync(
             CareerFlowContext context,
@@ -157,6 +175,7 @@ public sealed class CareerInfirmaryFlowTests
             HachimiPipelineRunOptions? options = null)
         {
             LastAction = (screenId, actionId);
+            CallCount++;
             return Task.FromResult<CareerTrainingResult?>(null);
         }
     }

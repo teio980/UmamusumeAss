@@ -56,6 +56,72 @@ public sealed class CareerMainSharedOcrFrameTests
     }
 
     [Fact]
+    public async Task Unchanged_main_regions_reuse_text_until_an_action_is_submitted()
+    {
+        var frame = CreateFrame();
+        var runtime = RecordingVisualRuntime.Create(frame, frame, out var recorder);
+        var observer = new CareerScreenObserver(runtime);
+        var pack = CreatePack();
+        var state = new UraCareerSessionState { CareerStarted = true, LastScreenId = "career_main" };
+
+        await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+        await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+        Assert.Equal(4, recorder.CaptureCount);
+        Assert.Equal(4, recorder.OcrCalls.Count);
+
+        state.Runtime.TurnActionTransition = new("rest_confirmation", "Rest");
+        await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+        Assert.Equal(8, recorder.OcrCalls.Count);
+    }
+
+    [Fact]
+    public async Task Changed_main_region_is_read_again_without_repeating_other_fields()
+    {
+        var template = CreateFrame();
+        var frame = CreateFrame();
+        var runtime = RecordingVisualRuntime.Create(template, frame, out var recorder);
+        var observer = new CareerScreenObserver(runtime);
+        var pack = CreatePack();
+        var state = new UraCareerSessionState { CareerStarted = true, LastScreenId = "career_main" };
+        await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+
+        frame.Pixels[4] = 10;
+        await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+
+        Assert.Equal(5, recorder.OcrCalls.Count);
+        Assert.Equal("career_main.objective.title", recorder.OcrCalls[^1].TaskName);
+    }
+
+    [Fact]
+    public async Task New_session_cannot_reuse_the_previous_sessions_main_text()
+    {
+        var frame = CreateFrame();
+        var observer = new CareerScreenObserver(RecordingVisualRuntime.Create(frame, frame, out var recorder));
+        var pack = CreatePack();
+        await observer.ObserveAsync(CreateConnection(), pack,
+            new UraCareerSessionState { CareerStarted = true, LastScreenId = "career_main" }, false, CancellationToken.None);
+        await observer.ObserveAsync(CreateConnection(), pack,
+            new UraCareerSessionState { CareerStarted = true, LastScreenId = "career_main" }, false, CancellationToken.None);
+        Assert.Equal(8, recorder.OcrCalls.Count);
+    }
+
+    [Fact]
+    public async Task Empty_ocr_result_is_retried_on_an_unchanged_region()
+    {
+        var frame = CreateFrame();
+        var observer = new CareerScreenObserver(RecordingVisualRuntime.Create(frame, frame, out var recorder));
+        var pack = CreatePack();
+        var state = new UraCareerSessionState { CareerStarted = true, LastScreenId = "career_main" };
+        recorder.EmptyGoal = true;
+        var first = await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+        Assert.Null(first?.GoalText);
+        recorder.EmptyGoal = false;
+        var second = await observer.ObserveAsync(CreateConnection(), pack, state, false, CancellationToken.None);
+        Assert.Equal("Earn 3000 fans Progress 1200 fans to go", second?.GoalText);
+        Assert.Equal(5, recorder.OcrCalls.Count);
+    }
+
+    [Fact]
     public async Task Startup_detection_keeps_stability_checks_without_repeating_main_ocr()
     {
         var frame = CreateFrame();
@@ -193,6 +259,7 @@ public sealed class CareerMainSharedOcrFrameTests
         private GrayImage? _ocrFrame;
 
         public int CaptureCount { get; private set; }
+        public bool EmptyGoal { get; set; }
         public List<(GrayImage Frame, string TaskName, int[]? Roi)> OcrCalls { get; } = [];
 
         public static IVisualPipelineRuntime Create(
@@ -229,7 +296,7 @@ public sealed class CareerMainSharedOcrFrameTests
                         "career_main.turn_position" => "Junior Year Early Jan",
                         "career_main.objective.turns_left" => "12 turns left",
                         "career_main.objective.title" =>
-                            "Earn 3000 fans Progress 1200 fans to go",
+                            EmptyGoal ? "" : "Earn 3000 fans Progress 1200 fans to go",
                         "career_main.mood.current" => "Good",
                         "race_day.objective.title" or "race_list.objective.title" =>
                             "Place within top 3",

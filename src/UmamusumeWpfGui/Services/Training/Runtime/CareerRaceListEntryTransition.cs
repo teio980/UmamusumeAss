@@ -3,7 +3,7 @@ using UmamusumeWpfGui.Services.Tasks;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-/// <summary>Run-scoped timing and input guard for one visit to the race list.</summary>
+/// <summary>Run-scoped timing and input guard for race-list and race-details entry.</summary>
 internal sealed class CareerRaceListEntryTransition
 {
     internal static readonly TimeSpan FastRecognitionWindow = TimeSpan.FromSeconds(3);
@@ -15,14 +15,18 @@ internal sealed class CareerRaceListEntryTransition
     private long? _lastFullRecognition;
     private bool _retried;
 
-    public CareerRaceListEntryTransition(string sourceScreenId, TimeProvider? clock = null)
+    public CareerRaceListEntryTransition(string sourceScreenId, TimeProvider? clock = null,
+        bool raceDetailsExpected = false)
     {
         _clock = clock ?? TimeProvider.System;
         _started = _phaseStarted = _clock.GetTimestamp();
         SourceScreenId = sourceScreenId;
+        RaceDetailsExpected = raceDetailsExpected;
     }
 
     public string SourceScreenId { get; private set; }
+    public bool RaceDetailsExpected { get; }
+    public string Description => RaceDetailsExpected ? "Race details entry" : "Race list entry";
     public bool RetryRequested { get; private set; }
     public int FullRecognitionCount { get; private set; }
     public int ObservationCount { get; private set; }
@@ -50,6 +54,21 @@ internal sealed class CareerRaceListEntryTransition
         FullRecognitionCount++;
     }
 
+    private async Task<CareerObservation?> ObserveAndRecordAsync(
+        CareerScreenObserver observer, Func<Task<CareerObservation?>> observe, bool fullRecognition = false)
+    {
+        try
+        {
+            return await observe().ConfigureAwait(false);
+        }
+        finally
+        {
+            if (fullRecognition)
+                RecordFullRecognition();
+            RecordObservation(observer);
+        }
+    }
+
     public bool RequestRetry()
     {
         if (_retried || Expired)
@@ -67,16 +86,19 @@ internal sealed class CareerRaceListEntryTransition
     }
 
     internal static async Task<CareerTrainingResult?> RunActionAsync(
-        ICareerFlowActionRunner actions, CareerFlowContext context, string screenId, string actionId)
+        ICareerFlowActionRunner actions, CareerFlowContext context, string screenId, string actionId,
+        bool raceDetailsExpected = false)
     {
         var result = await actions.RunAsync(context, screenId, actionId).ConfigureAwait(false);
         if (result is null)
         {
-            var transition = context.State.Runtime.RaceListEntryTransition ??=
-                new CareerRaceListEntryTransition(screenId);
+            var transition = context.State.Runtime.RaceListEntryTransition;
+            if (transition is null || (raceDetailsExpected && !transition.RaceDetailsExpected))
+                context.State.Runtime.RaceListEntryTransition = transition =
+                    new CareerRaceListEntryTransition(screenId, raceDetailsExpected: raceDetailsExpected);
             transition.ActionCompleted(screenId);
             context.LogSink?.Add("Career Training",
-                $"Race list entry fast recognition armed from {screenId}.{actionId}.");
+                $"{transition.Description} fast recognition armed from {screenId}.{actionId}.");
         }
         return result;
     }
@@ -93,21 +115,33 @@ internal sealed class CareerRaceListEntryTransition
         deadline.CancelAfter(remaining);
         try
         {
-            var observation = await observer.ObserveRaceListEntryAsync(connection, pack, state, deadline.Token)
+            var observation = await ObserveAndRecordAsync(observer,
+                    () => observer.ObserveRaceListEntryAsync(connection, pack, state, deadline.Token,
+                        RaceDetailsExpected))
                 .ConfigureAwait(false);
-            RecordObservation(observer);
             if (observation is null || observation.ScreenId == SourceScreenId)
             {
                 if (Expired || !ShouldUseFullRecognition)
                     return null;
-                logSink?.Add("Career Training", "Race list entry is still pending; checking other Career screens.");
-                // An unchanged source main page only needs a button retry check;
-                // its OCR cannot drive a new strategy decision during this entry.
-                observation = await observer.ObserveAsync(connection, pack, state, false, deadline.Token,
-                        includeMainDetails: SourceScreenId != "career_main")
+                // The first pair can still show the entry animation. Check fresh
+                // destination frames before a broad scan spends the remaining
+                // deadline on unrelated screens while the list is already ready.
+                observation = await ObserveAndRecordAsync(observer,
+                        () => observer.ObserveRaceListEntryAsync(connection, pack, state, deadline.Token,
+                            RaceDetailsExpected))
                     .ConfigureAwait(false);
-                RecordFullRecognition();
-                RecordObservation(observer);
+                if (observation is null || observation.ScreenId == SourceScreenId)
+                {
+                    if (Expired)
+                        return null;
+                    logSink?.Add("Career Training", $"{Description} is still pending; checking other Career screens.");
+                    // An unchanged source main page only needs a button retry check;
+                    // its OCR cannot drive a new strategy decision during this entry.
+                    observation = await ObserveAndRecordAsync(observer,
+                            () => observer.ObserveAsync(connection, pack, state, false, deadline.Token,
+                                includeMainDetails: SourceScreenId != "career_main"), fullRecognition: true)
+                        .ConfigureAwait(false);
+                }
                 if (observation?.ScreenId == SourceScreenId)
                 {
                     if (!Expired && !_retried
@@ -126,7 +160,7 @@ internal sealed class CareerRaceListEntryTransition
                 return null;
 
             logSink?.Add("Career Training",
-                $"Race list entry timing: elapsedMs={Elapsed.TotalMilliseconds:0}, screen={observation.ScreenId}, "
+                $"{Description} timing: elapsedMs={Elapsed.TotalMilliseconds:0}, screen={observation.ScreenId}, "
                 + $"observations={ObservationCount}, captures={CaptureCount}, fullRecognition={FullRecognitionCount}, "
                 + $"captureMs={CaptureDuration.TotalMilliseconds:0}, matchMs={MatchDuration.TotalMilliseconds:0}.");
             // The recommendations action keeps the same overall deadline, but starts

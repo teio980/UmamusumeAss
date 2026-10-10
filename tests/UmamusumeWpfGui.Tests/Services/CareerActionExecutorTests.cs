@@ -82,8 +82,12 @@ public sealed class CareerActionExecutorTests
         Assert.Equal(HachimiFailureKind.InvalidDefinition, result.FailureKind);
     }
 
-    [Fact]
-    public async Task Pending_confirmation_requires_a_captured_frame_and_never_reclicks()
+    [Theory]
+    [InlineData("rest_confirmation", "rest.confirm")]
+    [InlineData("summer_rest_confirmation", "rest.confirm")]
+    [InlineData("recreation_confirmation", "recreation.confirm")]
+    [InlineData("infirmary_confirmation", "infirmary.confirm")]
+    public async Task Pending_confirmation_requires_a_captured_frame_and_never_reclicks(string screenId, string actionId)
     {
         var visual = DispatchProxy.Create<IVisualPipelineRuntime, VisualStub>();
         var stub = (VisualStub)(object)visual;
@@ -95,15 +99,17 @@ public sealed class CareerActionExecutorTests
         pack.ExecutionDefinition.ReferenceHeight = 2;
         pack.ScreenProfile.Screens = [new UraScreenDefinition
         {
-            ScreenId = "rest_confirmation", Flow = "turn",
-            Actions = [new UraScreenAction { SemanticId = "rest.confirm", Task = "opaque" }],
+            ScreenId = screenId, Flow = "turn",
+            Actions = [new UraScreenAction { SemanticId = actionId, Task = "opaque" }],
         }];
-        var state = new UraCareerSessionState { AwaitingRestConfirmationGone = true };
+        var state = new UraCareerSessionState();
+        var transition = new CareerTurnActionTransition(screenId, "Test action");
+        state.Runtime.TurnActionTransition = transition;
         var completion = new CareerActionCompletionObserver(visual, 4);
 
         Assert.Equal(CareerActionStatus.AwaitingConfirmation,
             (await completion.ObserveAsync(Connection, pack, state, null, CancellationToken.None))!.Status);
-        Assert.True(state.AwaitingRestConfirmationGone);
+        Assert.True(transition.AwaitingConfirmation);
         stub.Frame = template;
         Assert.Equal(CareerActionStatus.AwaitingConfirmation,
             (await completion.ObserveAsync(Connection, pack, state, null, CancellationToken.None))!.Status);
@@ -111,6 +117,7 @@ public sealed class CareerActionExecutorTests
         Assert.Equal(CareerActionStatus.AlreadySatisfied,
             (await completion.ObserveAsync(Connection, pack, state, null, CancellationToken.None))!.Status);
         Assert.False(state.AwaitingRestConfirmationGone);
+        Assert.False(transition.AwaitingConfirmation);
         Assert.Equal(0, stub.Taps);
     }
 

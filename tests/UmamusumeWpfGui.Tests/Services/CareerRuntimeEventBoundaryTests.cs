@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Reflection;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
@@ -190,6 +191,47 @@ public sealed class CareerRuntimeEventBoundaryTests
         Assert.Equal(2, actions.CallCount);
     }
 
+    [Theory]
+    [InlineData("event_choice")]
+    [InlineData("training_event")]
+    [InlineData("scenario_event")]
+    public async Task Fresh_stable_event_evidence_is_handed_to_actions_without_another_scan(string screenId)
+    {
+        var actions = new RecordingCareerActions();
+        var handler = new CareerEventHandler(UnexpectedCallProxy.Create<IVisualPipelineRuntime>(), actions);
+        var state = new UraCareerSessionState { HasScenarioEvent = true };
+        var observation = new CareerObservation(screenId, 1)
+        {
+            StableEventCapturedAt = Stopwatch.GetTimestamp(),
+        };
+        var context = new CareerFlowContext(null!, CreateRecognitionPack(), true, null!, null!, "",
+            state, observation, null, CancellationToken.None);
+
+        Assert.Null(await handler.TryRecognizeAndHandleAsync(context));
+        Assert.Equal(1, actions.CallCount);
+        Assert.False(state.HasScenarioEvent);
+    }
+
+    [Fact]
+    public async Task Stale_event_evidence_requires_one_fresh_verification_before_actions()
+    {
+        var frame = new GrayImage(2, 2, [10, 70, 140, 220]);
+        var visual = ObserverRuntimeProxy.Create(frame);
+        var runtime = (ObserverRuntimeProxy)(object)visual;
+        var actions = new RecordingCareerActions();
+        var handler = new CareerEventHandler(visual, actions);
+        var observation = new CareerObservation("event_choice", 1)
+        {
+            StableEventCapturedAt = Stopwatch.GetTimestamp() - 3 * Stopwatch.Frequency,
+        };
+        var context = new CareerFlowContext(null!, CreateRecognitionPack(), true, null!, null!, "",
+            new UraCareerSessionState(), observation, null, CancellationToken.None);
+
+        Assert.Null(await handler.TryRecognizeAndHandleAsync(context));
+        Assert.Equal(1, actions.CallCount);
+        Assert.Equal(1, runtime.CaptureCount);
+    }
+
     private static UraScenarioPack CreatePack(string action)
     {
         var execution = new HachimiPipelineDefinition
@@ -335,6 +377,7 @@ public sealed class CareerRuntimeEventBoundaryTests
     public class ObserverRuntimeProxy : DispatchProxy
     {
         private GrayImage _frame = null!;
+        public int CaptureCount { get; private set; }
 
         public ObserverRuntimeProxy()
         {
@@ -347,13 +390,16 @@ public sealed class CareerRuntimeEventBoundaryTests
             return runtime;
         }
 
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
-            targetMethod?.Name switch
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == "CaptureGrayAsync") CaptureCount++;
+            return targetMethod?.Name switch
             {
                 "CaptureGrayAsync" or "LoadTemplateAsync" => Task.FromResult<GrayImage?>(_frame),
                 "DelayAsync" => Task.CompletedTask,
                 _ => throw new InvalidOperationException(
                     $"Unexpected visual runtime call: {targetMethod?.Name ?? "unknown"}."),
             };
+        }
     }
 }

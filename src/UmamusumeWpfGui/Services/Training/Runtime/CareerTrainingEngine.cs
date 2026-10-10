@@ -480,12 +480,19 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                 && state.NormalSetupStage == NormalCareerSetupStage.AwaitCareerMain,
             BeforeObservationAsync: async loopCancellation =>
             {
+                if (state.Runtime.TurnActionTransition is { Expired: true } turnReturn)
+                {
+                    await SaveRecognitionFailureAsync(connection, pack, state, false, logSink, loopCancellation)
+                        .ConfigureAwait(false);
+                    return Failure($"{turnReturn.Label} did not reach a stable turn destination within "
+                        + $"{CareerTurnActionTransition.Timeout.TotalSeconds:0} seconds.", state.LastScreenId, actionCount);
+                }
                 if (state.Runtime.RaceListEntryTransition is { Expired: true } entry)
                 {
                     await SaveRecognitionFailureAsync(connection, pack, state, false, logSink, loopCancellation)
                         .ConfigureAwait(false);
                     return Failure(
-                        $"Race list entry did not complete within {CareerRaceListEntryTransition.Timeout.TotalSeconds:0} seconds "
+                        $"{entry.Description} did not complete within {CareerRaceListEntryTransition.Timeout.TotalSeconds:0} seconds "
                         + $"(captures={entry.CaptureCount}, fullRecognition={entry.FullRecognitionCount}).",
                         state.LastScreenId, actionCount);
                 }
@@ -505,6 +512,8 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
                     ? Task.FromResult<CareerObservation?>(confirmedTraining)
                     : state.Runtime.RaceListEntryTransition is { } entry
                         ? entry.ObserveAsync(_screenObserver, connection, pack, state, logSink, loopCancellation)
+                        : state.Runtime.TurnActionTransition is { } turnReturn
+                            ? turnReturn.ObserveAsync(_screenObserver, connection, pack, state, logSink, loopCancellation)
                         : _screenObserver.ObserveAsync(connection, pack, state, startExpected,
                             loopCancellation, resumeRecovery: recoveryPending),
             HandleObservationAsync: async (observation, loopCancellation) =>
@@ -664,6 +673,7 @@ public sealed class CareerTrainingEngine : ICareerTrainingPipeline
 
                 // The first resumed action now supplies normal flow history.
                 // Keep recovery bounded to this handoff, not the whole Career.
+                state.Runtime.TurnActionTransition?.ActionCompleted(observation.ScreenId);
                 return new CareerRuntimeStep(ActionsCompleted: 1);
             },
             SaveRecognitionFailureAsync: loopCancellation => SaveRecognitionFailureAsync(

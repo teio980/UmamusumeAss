@@ -12,7 +12,8 @@ internal sealed class CareerBreakFlow(IVisualPipelineRuntime visual)
         string screenId, string actionId)
     {
         var recreation = actionId.StartsWith("recreation.", StringComparison.Ordinal) || actionId == "action.recreation";
-        if (recreation ? context.State.AwaitingRecreationConfirmationGone : context.State.AwaitingRestConfirmationGone)
+        if (context.State.Runtime.TurnActionTransition is not null
+            || (recreation ? context.State.AwaitingRecreationConfirmationGone : context.State.AwaitingRestConfirmationGone))
             return null;
         var started = Stopwatch.GetTimestamp();
         var pack = context.Pack;
@@ -98,6 +99,7 @@ internal sealed class CareerBreakFlow(IVisualPipelineRuntime visual)
                             // Arm before input so an interrupted tap cannot send OK twice.
                             if (recreation) context.State.AwaitingRecreationConfirmationGone = true;
                             else context.State.AwaitingRestConfirmationGone = true;
+                            context.State.Runtime.TurnActionTransition = new(confirmationId, label);
                         }
                         await visual.TapMatchAsync(context.Connection, frame, match, taskName, context.CancellationToken)
                             .ConfigureAwait(false);

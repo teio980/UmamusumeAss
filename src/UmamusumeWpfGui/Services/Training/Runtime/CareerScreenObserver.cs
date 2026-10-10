@@ -15,6 +15,9 @@ public sealed class CareerScreenObserver
 
     private readonly IVisualPipelineRuntime _visualRuntime;
     private readonly CareerEventTitleRecognizer _eventTitleRecognizer;
+    private readonly CareerMainTextCache _mainTextCache = new();
+    private UraCareerSessionState? _ocrState;
+    private UraScenarioPack? _ocrPack;
     private readonly ConcurrentDictionary<string, Lazy<Task<GrayImage?>>> _templateCache = new(
         StringComparer.OrdinalIgnoreCase);
 
@@ -29,6 +32,19 @@ public sealed class CareerScreenObserver
     private static readonly HashSet<string> RaceListEntryScreens = new(StringComparer.OrdinalIgnoreCase)
     {
         "race_streak_warning", "race_recommendations", "race_list_empty", "race_list",
+    };
+
+    private static readonly HashSet<string> RaceDetailsEntryScreens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "race_streak_warning", "race_recommendations", "race_list_empty", "race_details",
+    };
+
+    private static readonly HashSet<string> TurnActionReturnScreens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "event_choice", "training_event", "scenario_event", "inheritance_event",
+        "training_result", "goal_objective_complete", "goal_update", "goal_complete",
+        "race_day", "career_races_ready", "career_main", "claw_machine", "claw_machine_result",
+        "goal_incomplete", "complete_career_entry",
     };
 
     public CareerScreenObserver(IVisualPipelineRuntime visualRuntime)
@@ -83,21 +99,34 @@ public sealed class CareerScreenObserver
 
     internal Task<CareerObservation?> ObserveRaceListEntryAsync(
         LastVerifiedConnection connection, UraScenarioPack pack, UraCareerSessionState state,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken, bool raceDetailsExpected = false) =>
         ObserveCoreAsync(connection, pack, state, false,
             careerOnly: false, resumeRecovery: false, includeMainDetails: false,
-            candidateScreenIds: RaceListEntryScreens, cancellationToken);
+            candidateScreenIds: raceDetailsExpected ? RaceDetailsEntryScreens : RaceListEntryScreens,
+            cancellationToken);
+
+    internal Task<CareerObservation?> ObserveTurnActionReturnAsync(
+        LastVerifiedConnection connection, UraScenarioPack pack, UraCareerSessionState state,
+        CancellationToken cancellationToken, GrayImage? firstFrame = null) =>
+        ObserveCoreAsync(connection, pack, state, false,
+            careerOnly: false, resumeRecovery: false, includeMainDetails: true,
+            candidateScreenIds: TurnActionReturnScreens, cancellationToken, firstFrame);
 
     private async Task<CareerObservation?> ObserveCoreAsync(
         LastVerifiedConnection connection, UraScenarioPack pack, UraCareerSessionState state,
         bool careerStartTransitionExpected, bool careerOnly, bool resumeRecovery, bool includeMainDetails,
-        HashSet<string>? candidateScreenIds, CancellationToken cancellationToken)
+        HashSet<string>? candidateScreenIds, CancellationToken cancellationToken, GrayImage? firstFrame = null)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentNullException.ThrowIfNull(state);
         LastCaptureCount = 0;
         LastCaptureDuration = LastMatchDuration = TimeSpan.Zero;
+        if (!ReferenceEquals(_ocrState, state) || !ReferenceEquals(_ocrPack, pack)
+            || state.LastScreenId != "career_main" || state.Runtime.TurnActionTransition is not null)
+            _mainTextCache.Clear();
+        _ocrState = state;
+        _ocrPack = pack;
 
         // Rest and infirmary actions from Career Main have narrow expected
         // transitions. Give their confirmation dialogs early recognition
@@ -147,14 +176,17 @@ public sealed class CareerScreenObserver
         LastFrameScreenIds = [];
         var captureErrors = new List<string>();
         var frames = new List<GrayImage>(capacity: 2);
+        long lastFrameCapturedAt = 0;
         for (var sample = 0; sample < 2; sample++)
         {
             GrayImage? frame;
             var captureStarted = Stopwatch.GetTimestamp();
-            LastCaptureCount++;
+            var reuseFrame = sample == 0 && firstFrame is not null;
+            if (!reuseFrame)
+                LastCaptureCount++;
             try
             {
-                frame = await _visualRuntime.CaptureGrayAsync(
+                frame = reuseFrame ? firstFrame : await _visualRuntime.CaptureGrayAsync(
                         connection,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -172,9 +204,13 @@ public sealed class CareerScreenObserver
                 captureErrors.Add($"{exception.GetType().Name}: {exception.Message}");
                 frame = null;
             }
-            LastCaptureDuration += Stopwatch.GetElapsedTime(captureStarted);
+            if (!reuseFrame)
+                LastCaptureDuration += Stopwatch.GetElapsedTime(captureStarted);
             if (frame is not null)
+            {
                 frames.Add(frame);
+                lastFrameCapturedAt = Stopwatch.GetTimestamp();
+            }
             if (sample == 0)
                 await _visualRuntime.DelayAsync(120, cancellationToken)
                     .ConfigureAwait(false);
@@ -293,7 +329,10 @@ public sealed class CareerScreenObserver
                     var titleMatch = await _eventTitleRecognizer.RecognizeAsync(
                             frame, pack, screen.ScreenId, cancellationToken)
                         .ConfigureAwait(false);
-                    screenBest = titleMatch?.Observation;
+                    screenBest = titleMatch is null ? null : titleMatch.Observation with
+                    {
+                        VerifiedEventTitle = titleMatch,
+                    };
                 }
 
                 // View Results can open the placings page directly, without
@@ -401,6 +440,16 @@ public sealed class CareerScreenObserver
         {
             return null;
         }
+
+        if (best?.Kind == CareerScreenKind.Event && frames.Count == 2
+            && frameObservations.All(item => item is not null && item.ScreenId == best.ScreenId
+                && item.EventId == best.EventId))
+            best = best with
+            {
+                StableEventCapturedAt = lastFrameCapturedAt,
+            };
+        if (best?.ScreenId != "career_main")
+            _mainTextCache.Clear();
 
         if (includeMainDetails && best?.ScreenId.Equals("career_main", StringComparison.OrdinalIgnoreCase) == true)
         {
@@ -625,6 +674,13 @@ public sealed class CareerScreenObserver
         if (frame is null || bounds is not { Length: >= 4 })
             return null;
 
+        cancellationToken.ThrowIfCancellationRequested();
+        var cacheMainText = taskName is "career_main.turn_position" or "career_main.objective.turns_left"
+            or "career_main.objective.title" or "career_main.mood.current";
+        var crop = cacheMainText ? CareerMainTextCache.Crop(frame, bounds, referenceWidth, referenceHeight) : null;
+        if (crop is not null && _mainTextCache.TryGet(taskName, crop, out var cachedText))
+            return cachedText;
+
         ScreenTextRecognitionResult? recognized;
         try
         {
@@ -656,9 +712,10 @@ public sealed class CareerScreenObserver
             .Select(item => item.Text)
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .ToArray();
-        return candidates.Length == 0
-            ? null
-            : string.Join(" ", candidates);
+        var text = candidates.Length == 0 ? null : string.Join(" ", candidates);
+        if (crop is not null && text is not null)
+            _mainTextCache.Remember(taskName, crop, text);
+        return text;
     }
 
     private static int GetScreenRecognitionPriority(

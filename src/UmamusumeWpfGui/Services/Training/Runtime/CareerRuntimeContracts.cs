@@ -28,6 +28,8 @@ public sealed record CareerObservation(
     public CareerScreenKind? ClassifiedKind { get; init; }
 
     internal bool ConfirmedByAction { get; init; }
+    internal CareerEventTitleMatch? VerifiedEventTitle { get; init; }
+    internal long? StableEventCapturedAt { get; init; }
 
     public CareerScreenKind Kind => ClassifiedKind
         ?? CareerScreenClassification.Classify(ScreenId);
@@ -39,6 +41,7 @@ public sealed record CareerObservation(
 public sealed class CareerRuntimeState
 {
     internal CareerRaceListEntryTransition? RaceListEntryTransition { get; set; }
+    internal CareerTurnActionTransition? TurnActionTransition { get; set; }
 
     public string ScenarioId { get; set; } = string.Empty;
     public string PhaseId { get; set; } = string.Empty;

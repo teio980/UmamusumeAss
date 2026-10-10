@@ -25,6 +25,8 @@ public sealed class CareerDirectBreakFlowTests
         Assert.Equal(2, runtime.Captures);
         Assert.Empty(runtime.Delays);
         Assert.True(context.State.AwaitingRestConfirmationGone);
+        Assert.Equal(actionId == "action.rest" ? "rest_confirmation" : "summer_rest_confirmation",
+            context.State.Runtime.TurnActionTransition?.ConfirmationScreenId);
         Assert.True(context.State.GoalCompletionProbeArmed);
         Assert.False(context.State.GoalCompletionProbePending);
         Assert.Equal(actionId == "action.rest" ? "rest_confirmation" : "summer_rest_confirmation",

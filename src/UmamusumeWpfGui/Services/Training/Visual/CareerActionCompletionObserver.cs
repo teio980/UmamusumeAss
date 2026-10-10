@@ -27,13 +27,17 @@ internal sealed class CareerActionCompletionObserver
         IGrassTaskLogSink? logSink,
         CancellationToken cancellationToken)
     {
-        var screenId = state.AwaitingRecreationConfirmationGone
+        var pending = state.Runtime.TurnActionTransition;
+        var screenId = pending is { AwaitingConfirmation: true }
+            ? pending.ConfirmationScreenId
+            : state.AwaitingRecreationConfirmationGone
             ? "recreation_confirmation"
             : state.AwaitingRestConfirmationGone ? "rest_confirmation" : null;
         if (screenId is null)
             return null;
 
-        var semanticId = screenId == "recreation_confirmation" ? "recreation.confirm" : "rest.confirm";
+        var semanticId = pending?.ConfirmationActionId
+            ?? (screenId == "recreation_confirmation" ? "recreation.confirm" : "rest.confirm");
         var binding = pack.ScreenProfile.Find(screenId)?.FindAction(semanticId);
         if (binding is null
             || !pack.ExecutionDefinition.TryGetTask(binding.Task, out var task)
@@ -68,18 +72,20 @@ internal sealed class CareerActionCompletionObserver
             frame = null;
         }
 
-        var disappeared = frame is not null && (screenId == "recreation_confirmation"
+        var disappeared = frame is not null && (screenId is "recreation_confirmation" or "infirmary_confirmation"
             ? !TemplateMatcher.FindColor(frame, template, task.Roi, task.TemplateThreshold,
                 pack.ExecutionDefinition.ReferenceWidth, pack.ExecutionDefinition.ReferenceHeight,
-                requireTextContrast: true).Found
+                requireTextContrast: task.Algorithm.Equals("MatchTemplateColorText", StringComparison.OrdinalIgnoreCase)
+                    || screenId == "recreation_confirmation").Found
             : CareerRestConfirmationGate.HasOkDisappeared(frame, template, task,
                 pack.ExecutionDefinition.ReferenceWidth, pack.ExecutionDefinition.ReferenceHeight));
         if (disappeared)
         {
             if (screenId == "recreation_confirmation")
                 state.AwaitingRecreationConfirmationGone = false;
-            else
+            else if (screenId is "rest_confirmation" or "summer_rest_confirmation")
                 state.AwaitingRestConfirmationGone = false;
+            pending?.ConfirmationDisappeared(frame!);
             _attempts.Remove(screenId);
             logSink?.Add("Career Training", $"{screenId}: confirmation disappeared; observing the next screen.");
             return CareerActionExecutionResult.Success(screenId) with { Status = CareerActionStatus.AlreadySatisfied };

@@ -41,6 +41,27 @@ public sealed class CareerEventTitleRecognitionTests
     }
 
     [Fact]
+    public async Task Handler_reuses_the_observers_stable_title_without_repeating_screenshots_or_ocr()
+    {
+        var pack = await CreateEventPackAsync();
+        var frame = LoadChoiceFrame();
+        var runtime = RecordingRuntime.Create(frame, _ => TextResult(Title, frame), out var recorder);
+        var observation = await ObserveAsync(runtime, pack);
+        Assert.NotNull(observation);
+        Assert.True(observation.StableEventCapturedAt.HasValue);
+        var actions = new RecordingActions();
+        var context = CreateContext(pack, new RecordingLog()) with { Observation = observation };
+
+        Assert.Null(await new CareerEventHandler(runtime, actions).TryRecognizeAndHandleAsync(context));
+
+        Assert.Equal(1, actions.CallCount);
+        Assert.Equal(EventId, actions.Context?.Observation.EventId);
+        Assert.Equal(("event_choice", "event.choice_first"), actions.LastAction);
+        Assert.Equal(2, recorder.CaptureCount);
+        Assert.Equal(2, recorder.OcrFrames.Count);
+    }
+
+    [Fact]
     public async Task Full_profile_identifies_the_event_before_the_underlying_race_day()
     {
         var pack = await Pack.Value;

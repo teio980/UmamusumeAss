@@ -77,6 +77,8 @@ internal sealed class CareerRaceFlow
                         "race.recommendations.confirm")
                     .ConfigureAwait(false);
             case "race_list":
+                if (context.State.Runtime.RaceListEntryTransition is { RaceDetailsExpected: true })
+                    return null;
                 if (string.IsNullOrWhiteSpace(context.State.ObservedGoalKind))
                 {
                     // A new run reconstructs its state from the current
@@ -95,10 +97,11 @@ internal sealed class CareerRaceFlow
                         ? "The race calendar marks this turn's first Race List card as qualifying; selecting it."
                         : "Selecting the Recommended race, or the first available race if none is marked.",
                     LogEntryKind.Info);
-                return await _actions.RunAsync(
+                return await CareerRaceListEntryTransition.RunActionAsync(
+                        _actions,
                         context,
                         "race_list",
-                        GetRaceListActionId(context.State))
+                        GetRaceListActionId(context.State), raceDetailsExpected: true)
                     .ConfigureAwait(false);
             case "race_list_empty":
                 context.State.RaceUnavailableTurnIndex = context.State.TurnIndex;

@@ -40,6 +40,104 @@ public sealed class CareerRaceListEntryTests
     }
 
     [Fact]
+    public async Task Recorded_details_use_bounded_recognition_after_list_selection()
+    {
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(Path.Combine(root, "testdata", "hachimi", "ura", "captures",
+            "year2_nhk_race_confirm.png"));
+        Assert.NotNull(frame);
+        var visual = DispatchProxy.Create<IVisualPipelineRuntime, FramesRuntime>();
+        var runtime = (FramesRuntime)(object)visual;
+        runtime.ReadFiles = true;
+        runtime.Frames = [frame, frame];
+        var state = new UraCareerSessionState { CareerStarted = true, LastScreenId = "race_list" };
+        var transition = new CareerRaceListEntryTransition("race_list", new ManualClock(),
+            raceDetailsExpected: true);
+        state.Runtime.RaceListEntryTransition = transition;
+        var observer = new CareerScreenObserver(visual);
+
+        Assert.Equal("race_details", (await transition.ObserveAsync(observer, Connection, pack,
+            state, null, CancellationToken.None))?.ScreenId);
+        Assert.Null(state.Runtime.RaceListEntryTransition);
+        Assert.Equal(2, transition.CaptureCount);
+        Assert.Equal(0, transition.FullRecognitionCount);
+        Assert.DoesNotContain("career_main", observer.LastCandidateScreenIds);
+        Assert.DoesNotContain("race_list", observer.LastCandidateScreenIds);
+    }
+
+    [Theory]
+    [InlineData("race_streak_warning")]
+    [InlineData("race_recommendations")]
+    [InlineData("race_list_empty")]
+    public async Task Details_entry_recognizes_race_overlays_before_the_dialog(string overlay)
+    {
+        var fixture = new Fixture("race_list", raceDetailsExpected: true);
+        var frame = fixture.Frame("race_details", overlay);
+        fixture.Runtime.Frames = [frame, frame];
+
+        Assert.Equal(overlay, (await fixture.ObserveAsync())?.ScreenId);
+        Assert.Equal(0, fixture.Transition.FullRecognitionCount);
+    }
+
+    [Fact]
+    public async Task Details_entry_rechecks_an_animating_dialog_without_full_recognition()
+    {
+        var fixture = new Fixture("race_list", raceDetailsExpected: true);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        fixture.Runtime.Frames = [fixture.Frame("race_list"), fixture.Frame("race_details"),
+            fixture.Frame("race_details"), fixture.Frame("race_details")];
+
+        Assert.Equal("race_details", (await fixture.ObserveAsync())?.ScreenId);
+        Assert.Equal(4, fixture.Transition.CaptureCount);
+        Assert.Equal(0, fixture.Transition.FullRecognitionCount);
+    }
+
+    [Fact]
+    public async Task List_action_arms_details_recognition_and_is_not_repeated_while_loading()
+    {
+        var fixture = new Fixture();
+        fixture.State.Runtime.RaceListEntryTransition = null;
+        fixture.State.ObservedGoalKind = CareerGoalTextParser.Race;
+        var actions = new RecordingActions();
+        var flow = new CareerRaceFlow(fixture.Visual, actions);
+
+        Assert.Null(await flow.HandleAsync(fixture.Context("race_list")));
+        Assert.True(fixture.State.Runtime.RaceListEntryTransition?.RaceDetailsExpected);
+        Assert.Equal("race_list", fixture.State.Runtime.RaceListEntryTransition?.SourceScreenId);
+        Assert.Null(await flow.HandleAsync(fixture.Context("race_list")));
+        Assert.Single(actions.ActionIds);
+    }
+
+    [Fact]
+    public async Task Failed_list_action_does_not_arm_details_recognition()
+    {
+        var fixture = new Fixture();
+        fixture.State.Runtime.RaceListEntryTransition = null;
+        var failure = new CareerTrainingResult(false, "entry failed", 0, "race_list");
+        var flow = new CareerRaceFlow(fixture.Visual, new RecordingActions { Result = failure });
+
+        Assert.Same(failure, await flow.HandleAsync(fixture.Context("race_list")));
+        Assert.Null(fixture.State.Runtime.RaceListEntryTransition);
+    }
+
+    [Fact]
+    public async Task Unchanged_list_does_not_allow_reselecting_the_race_or_resetting_the_deadline()
+    {
+        var fixture = new Fixture("race_list", raceDetailsExpected: true);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        fixture.Runtime.Frames = [fixture.Frame("race_list")];
+
+        Assert.Null(await fixture.ObserveAsync());
+        Assert.False(fixture.Transition.RetryRequested);
+        fixture.Clock.Advance(CareerRaceListEntryTransition.Timeout);
+        var captures = fixture.Runtime.CaptureCount;
+        Assert.Null(await fixture.ObserveAsync());
+        Assert.True(fixture.Transition.Expired);
+        Assert.Equal(captures, fixture.Runtime.CaptureCount);
+    }
+
+    [Fact]
     public async Task Stable_list_uses_two_frames_and_skips_unrelated_screens()
     {
         var fixture = new Fixture();
@@ -91,6 +189,55 @@ public sealed class CareerRaceListEntryTests
         Assert.Null(await fixture.ObserveAsync());
         Assert.Single(fixture.Observer.LastCaptureErrors);
         Assert.Equal(2, fixture.Transition.CaptureCount);
+    }
+
+    [Fact]
+    public async Task List_loaded_after_the_first_scan_is_rechecked_before_full_recognition()
+    {
+        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
+        var root = CareerTestResourceResolver.FindWorkspaceRoot();
+        var frame = GrayImageCodec.FromFile(Path.Combine(root, "tests", "UmamusumeWpfGui.Tests",
+            "Fixtures", "Career", "junior-debut-race-list.png"));
+        Assert.NotNull(frame);
+        var loading = new GrayImage(frame.Width, frame.Height,
+            Enumerable.Repeat((byte)255, frame.Width * frame.Height).ToArray());
+        var visual = DispatchProxy.Create<IVisualPipelineRuntime, FramesRuntime>();
+        var runtime = (FramesRuntime)(object)visual;
+        runtime.ReadFiles = true;
+        runtime.Frames = [loading, loading, frame, frame];
+        var clock = new ManualClock();
+        var transition = new CareerRaceListEntryTransition("race_day", clock);
+        var state = new UraCareerSessionState { CareerStarted = true, LastScreenId = "race_day" };
+        state.Runtime.RaceListEntryTransition = transition;
+        clock.Advance(TimeSpan.FromSeconds(3));
+
+        var observation = await transition.ObserveAsync(new CareerScreenObserver(visual), Connection,
+            pack, state, null, CancellationToken.None);
+
+        Assert.Equal("race_list", observation?.ScreenId);
+        Assert.Null(state.Runtime.RaceListEntryTransition);
+        Assert.Equal(0, transition.FullRecognitionCount);
+        Assert.Equal(4, transition.CaptureCount);
+        Assert.DoesNotContain("career_main_title.png", runtime.LoadedTemplates);
+    }
+
+    [Fact]
+    public async Task Slow_unrelated_recognition_cannot_discard_a_newly_loaded_list()
+    {
+        var fixture = new Fixture();
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        fixture.Runtime.Frames = [fixture.Frame(), fixture.Frame(),
+            fixture.Frame("race_list"), fixture.Frame("race_list")];
+        fixture.Runtime.TemplateLoading = name =>
+        {
+            if (name == "custom_overlay.png")
+                fixture.Clock.Advance(CareerRaceListEntryTransition.Timeout);
+        };
+
+        Assert.Equal("race_list", (await fixture.ObserveAsync())?.ScreenId);
+        Assert.False(fixture.Transition.Expired);
+        Assert.Equal(0, fixture.Transition.FullRecognitionCount);
+        Assert.DoesNotContain("custom_overlay.png", fixture.Runtime.LoadedTemplates);
     }
 
     [Fact]
@@ -155,7 +302,8 @@ public sealed class CareerRaceListEntryTests
         var second = fixture.Frame(changing ? [source, "entry_button"] : [source]);
         if (changing)
             second.Pixels[^1] ^= 255;
-        fixture.Runtime.Frames = [first, second, first, second];
+        // Keep both narrow checks and the broad fallback in a changing transition.
+        fixture.Runtime.Frames = [first, second, first, second, first, second];
 
         Assert.Null(await fixture.ObserveAsync());
         Assert.False(fixture.Transition.RetryRequested);
@@ -192,6 +340,30 @@ public sealed class CareerRaceListEntryTests
 
         fixture.Runtime.FirstCaptureException = new DateChangedInterruptionException();
         await Assert.ThrowsAsync<DateChangedInterruptionException>(() => fixture.ObserveAsync());
+    }
+
+    [Fact]
+    public async Task Interrupted_full_recognition_records_its_capture_attempts()
+    {
+        var fixture = new Fixture();
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        fixture.Runtime.Frames = [fixture.Frame()];
+        using var cancellation = new CancellationTokenSource();
+        fixture.Runtime.TemplateLoading = name =>
+        {
+            if (name != "custom_overlay.png")
+                return;
+            cancellation.Cancel();
+            throw new OperationCanceledException(cancellation.Token);
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.Transition.ObserveAsync(fixture.Observer, Connection, fixture.Pack,
+                fixture.State, null, cancellation.Token));
+
+        Assert.Equal(1, fixture.Transition.FullRecognitionCount);
+        Assert.Equal(3, fixture.Transition.ObservationCount);
+        Assert.Equal(6, fixture.Transition.CaptureCount);
     }
 
     [Fact]
@@ -385,6 +557,7 @@ public sealed class CareerRaceListEntryTests
             ["race_recommendations"] = (0, 16), ["race_streak_warning"] = (0, 24),
             ["race_day"] = (16, 0), ["custom_overlay"] = (16, 8), ["entry_button"] = (16, 16),
             ["career_main"] = (16, 24), ["main_training"] = (24, 24),
+            ["race_details"] = (24, 0),
         };
         public ManualClock Clock { get; } = new();
         public UraCareerSessionState State { get; } = new() { CareerStarted = true, LastScreenId = "race_day" };
@@ -394,7 +567,7 @@ public sealed class CareerRaceListEntryTests
         public CareerScreenObserver Observer { get; }
         public UraScenarioPack Pack { get; }
 
-        public Fixture(string source = "race_day")
+        public Fixture(string source = "race_day", bool raceDetailsExpected = false)
         {
             Visual = DispatchProxy.Create<IVisualPipelineRuntime, FramesRuntime>();
             Runtime = (FramesRuntime)(object)Visual;
@@ -420,6 +593,7 @@ public sealed class CareerRaceListEntryTests
                         {
                             "custom_overlay" => -4, "race_streak_warning" => -2,
                             "race_recommendations" => -1, "race_list_empty" => 10,
+                            "race_details" => 10,
                             "race_list" => 11, _ => 8,
                         },
                         TemplateThreshold = 0.99,
@@ -455,7 +629,7 @@ public sealed class CareerRaceListEntryTests
                     },
                 });
             Observer = new CareerScreenObserver(Visual);
-            Transition = new CareerRaceListEntryTransition(source, Clock);
+            Transition = new CareerRaceListEntryTransition(source, Clock, raceDetailsExpected);
             State.Runtime.RaceListEntryTransition = Transition;
         }
 
@@ -485,6 +659,7 @@ public sealed class CareerRaceListEntryTests
         public int CaptureCount { get; private set; }
         public Exception? FirstCaptureException { get; set; }
         public bool ReadFiles { get; set; }
+        public Action<string>? TemplateLoading { get; set; }
         public Dictionary<string, GrayImage> Templates { get; } = new();
         public List<string> LoadedTemplates { get; } = [];
 
@@ -499,6 +674,7 @@ public sealed class CareerRaceListEntryTests
                 case "LoadTemplateAsync":
                     var name = Path.GetFileName((string)args![0]!);
                     LoadedTemplates.Add(name);
+                    TemplateLoading?.Invoke(name);
                     return Task.FromResult(ReadFiles ? GrayImageCodec.FromFile((string)args[0]!)
                         : Templates.GetValueOrDefault(name));
                 case "DelayAsync":

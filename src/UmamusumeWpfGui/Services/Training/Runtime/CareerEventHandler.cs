@@ -37,6 +37,41 @@ internal sealed class CareerEventHandler : ICareerEventHandler
     public async Task<CareerTrainingResult?> TryRecognizeAndHandleAsync(
         CareerFlowContext context)
     {
+        context.CancellationToken.ThrowIfCancellationRequested();
+        if (context.Observation.StableEventCapturedAt is { } capturedAt
+            && Events.FirstOrDefault(item => item.ScreenId == context.Observation.ScreenId).ActionId is { } observedAction)
+        {
+            var title = context.Observation.VerifiedEventTitle;
+            var current = Stopwatch.GetElapsedTime(capturedAt) <= TimeSpan.FromSeconds(2);
+            if (!current)
+            {
+                var frame = await CaptureAsync(context).ConfigureAwait(false);
+                if (frame is not null)
+                {
+                    if (title is not null)
+                    {
+                        var verified = await _eventTitleRecognizer.RecognizeAsync(frame, context.Pack,
+                            context.Observation.ScreenId, context.CancellationToken).ConfigureAwait(false);
+                        current = verified?.Event.EventId == title.Event.EventId;
+                        if (current) title = verified;
+                    }
+                    else
+                        current = await MatchesAsync(frame, context.Pack, context.Observation.ScreenId,
+                            context.CancellationToken).ConfigureAwait(false);
+                }
+            }
+            if (current)
+            {
+                var action = title?.Event.OcrTitle!.ActionId
+                    ?? observedAction;
+                context.LogSink?.Add("Career Training",
+                    $"Reusing the stable '{context.Observation.ScreenId}' event observation; verifying its action button.");
+                var result = await _actions.RunAsync(context, context.Observation.ScreenId, action, title?.RunOptions)
+                    .ConfigureAwait(false);
+                if (result is null) context.State.HasScenarioEvent = false;
+                return result;
+            }
+        }
         var started = Stopwatch.GetTimestamp();
         string? observedEvent = null;
         string? observedEventId = null;
@@ -46,22 +81,7 @@ internal sealed class CareerEventHandler : ICareerEventHandler
         while (Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(45))
         {
             context.CancellationToken.ThrowIfCancellationRequested();
-            GrayImage? frame;
-            try
-            {
-                frame = await _visualRuntime.CaptureGrayAsync(
-                        context.Connection,
-                        context.CancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
-            {
-                frame = null;
-            }
+            var frame = await CaptureAsync(context).ConfigureAwait(false);
 
             if (frame is not null)
             {
@@ -139,6 +159,23 @@ internal sealed class CareerEventHandler : ICareerEventHandler
         }
 
         return null;
+    }
+
+    private async Task<GrayImage?> CaptureAsync(CareerFlowContext context)
+    {
+        try
+        {
+            return await _visualRuntime.CaptureGrayAsync(context.Connection, context.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not DateChangedInterruptionException and not DateChangedRecoveryException)
+        {
+            return null;
+        }
     }
 
     private async Task<bool> MatchesAsync(
