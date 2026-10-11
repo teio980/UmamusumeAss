@@ -1,9 +1,11 @@
-# UmamusumeAss Connection and Control MVP — Implementation Specification
+# UmamusumeAss Connection and Control MVP — Historical Implementation Specification
 
-> **Status:** Implementation-ready S1 connection specification plus mandatory S2 control gate. Single source of truth.
+> **Historical specification:** This document records the earlier connection/control MVP. Its S1/S2-only release boundary and “OCR and training automation are S3” exclusions are superseded by the active migration plan in [`architecture-migration.md`](architecture-migration.md). Treat the connection details below as compatibility history only where they match the current migration plan; the historical phase labels do not limit the final native core.
+
+> **Status:** Historical S1 connection specification plus S2 control gate.
 > **Platform:** Windows 10/11, x64.
 > **S1 Goal:** Ship a reliable ADB connection verifier for a real emulator: identify the exact device, wait for Android boot completion, and display identity and screen dimensions.
-> **S2 Release Goal:** Ship a usable interactive assistant foundation: verified game package, live screenshot, correctly scaled tap/swipe input, and explicit device-loss handling. OCR and training automation are S3.
+> **Historical S2 wording:** The former S2 gate covered package verification, screenshot capture, tap/swipe, and device-loss handling; the former S3 boundary placed OCR and training automation later. Both labels are archival and are superseded by the full migration phases in [`architecture-migration.md`](architecture-migration.md).
 
 ---
 
