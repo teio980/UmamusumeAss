@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "frames": [
+    { "matches": { "entry.png": { "score": 0.99, "x": 100, "y": 200, "width": 40, "height": 60 } } },
+    { "matches": { "next.png": { "score": 0.99, "x": 10, "y": 20, "width": 30, "height": 40 } } }
+  ]
+}
