@@ -18,4 +18,11 @@
     <ProjectReference Include="..\..\tools\Umamusume.CoreBridge.IntegrationHost\Umamusume.CoreBridge.IntegrationHost.csproj"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Target Name="CopyNativeRuntimeForBridgeTests" AfterTargets="Build">
+    <PropertyGroup>
+      <NativeCoreDll>$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
+    </PropertyGroup>
+    <Copy SourceFiles="$(NativeCoreDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeCoreDll)')" />
+    <Delete Files="$(TargetDir)testhost.exe" Condition="Exists('$(TargetDir)testhost.exe')" />
+  </Target>
 </Project>

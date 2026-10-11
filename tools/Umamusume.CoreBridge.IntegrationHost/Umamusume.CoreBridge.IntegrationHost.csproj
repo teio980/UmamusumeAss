@@ -10,9 +10,9 @@
   </ItemGroup>
   <Target Name="StageNativeInputs" BeforeTargets="Build" Condition="'$(NativeDllPath)' != ''">
     <Error Condition="!Exists('$(NativeDllPath)')" Text="Native DLL not found: $(NativeDllPath)" />
-    <Error Condition="!Exists('$(FakeAdbPath)')" Text="Fake ADB not found: $(FakeAdbPath)" />
+    <Error Condition="'$(FakeAdbPath)' != '' and !Exists('$(FakeAdbPath)')" Text="Fake ADB not found: $(FakeAdbPath)" />
     <MakeDir Directories="$(OutputPath);$(OutputPath)resource" />
     <Copy SourceFiles="$(NativeDllPath)" DestinationFolder="$(OutputPath)" />
-    <Copy SourceFiles="$(FakeAdbPath)" DestinationFolder="$(OutputPath)" />
+    <Copy SourceFiles="$(FakeAdbPath)" DestinationFolder="$(OutputPath)" Condition="'$(FakeAdbPath)' != ''" />
   </Target>
 </Project>

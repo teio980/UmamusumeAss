@@ -21,13 +21,16 @@ public sealed class ManagedBridgeException : Exception
         DiagnosticCategory category,
         ulong? operationId,
         string message,
-        Exception? innerException = null)
+        Exception? innerException = null,
+        int? nativeErrorCode = null)
         : base(message, innerException)
     {
         Category = category;
         OperationId = operationId;
+        NativeErrorCode = nativeErrorCode;
     }
 
     public DiagnosticCategory Category { get; } = DiagnosticCategory.NativeContractViolation;
     public ulong? OperationId { get; }
+    internal int? NativeErrorCode { get; }
 }

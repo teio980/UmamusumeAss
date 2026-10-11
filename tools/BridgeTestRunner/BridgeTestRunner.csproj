@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)..\..\build\bridge-test-runner\</BaseOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="xunit.abstractions">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\tests\Umamusume.CoreBridge.Tests\bin\$(Configuration)\net10.0\xunit.abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="xunit.execution.dotnet">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\tests\Umamusume.CoreBridge.Tests\bin\$(Configuration)\net10.0\xunit.execution.dotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="xunit.core">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\tests\Umamusume.CoreBridge.Tests\bin\$(Configuration)\net10.0\xunit.core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

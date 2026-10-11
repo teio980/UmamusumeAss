@@ -15,13 +15,50 @@ public sealed class InteropTests
         "UmaCreate",
         "UmaDestroy",
         "UmaGetFramePngSize",
+        "UmaGetApiVersion",
         "UmaGetVersion",
         "UmaLoadResource",
+        "UmaMatchTemplate",
+        "UmaPrepareTouchAsync",
+        "UmaKeyEventAsync",
+        "UmaInputTextAsync",
+        "UmaPackageOperationAsync",
+        "UmaCompareImageChange",
+        "UmaComparePersistentImageChange",
+        "UmaRecognizeText",
+        "UmaDecodeImageFile",
+        "UmaDecodeImageBytes",
+        "UmaCreateImageFromRgba",
+        "UmaGetDecodedImageInfo",
+        "UmaCopyDecodedImage",
+        "UmaReleaseDecodedImage",
+        "UmaLoadTemplateImage",
+        "UmaRefreshResourceSnapshot",
+        "UmaTransformImage",
+        "UmaBinarizeColor",
+        "UmaFindColorBlobs",
+        "UmaCountColor",
+        "UmaPrepareNumericGlyphs",
+        "UmaComposeGrayImages",
+        "UmaCountInkGroups",
+        "UmaSampleImageDifference",
+        "UmaSetInstanceOptions",
         "UmaReleaseFrame",
         "UmaSetUserDir",
         "UmaSwipeAsync",
+        "UmaSwipeWithOptionsAsync",
+        "UmaTouchAsync",
         "UmaTapAsync",
         "UmaVerifyGameAsync",
+        "UmaValidatePipelineJson",
+        "UmaRunPipelineAsync",
+        "UmaRunGameTaskAsync",
+        "UmaAppendTask",
+        "UmaSetTaskParams",
+        "UmaClearTasks",
+        "UmaStartAsync",
+        "UmaGetRunSnapshotJson",
+        "UmaGetCatalogJson",
     ];
 
     [Fact]
@@ -30,6 +67,23 @@ public sealed class InteropTests
         Assert.Equal(16, Marshal.SizeOf<UmaStartResult>());
         Assert.Equal(0, Marshal.OffsetOf<UmaStartResult>(nameof(UmaStartResult.OperationId)).ToInt32());
         Assert.Equal(8, Marshal.OffsetOf<UmaStartResult>(nameof(UmaStartResult.ErrorCode)).ToInt32());
+    }
+
+    [Fact]
+    public void UmaAppendTaskResultMatchesWindowsX64Layout()
+    {
+        Assert.Equal(16, Marshal.SizeOf<UmaAppendTaskResult>());
+        Assert.Equal(0, Marshal.OffsetOf<UmaAppendTaskResult>(nameof(UmaAppendTaskResult.TaskId)).ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf<UmaAppendTaskResult>(nameof(UmaAppendTaskResult.ErrorCode)).ToInt32());
+    }
+
+    [Fact]
+    public void RecognitionAbiStructuresMatchWindowsX64Layout()
+    {
+        Assert.Equal(40, Marshal.SizeOf<UmaCoreBridgeNative.UmaImageViewNative>());
+        Assert.Equal(80, Marshal.SizeOf<UmaCoreBridgeNative.UmaTemplateMatchOptionsNative>());
+        Assert.Equal(32, Marshal.SizeOf<UmaCoreBridgeNative.UmaTemplateMatchResultNative>());
+        Assert.Equal(32, Marshal.SizeOf<UmaCoreBridgeNative.UmaDecodedImageInfoNative>());
     }
 
     [Theory]
@@ -63,7 +117,7 @@ public sealed class InteropTests
     public void ErrorCodesAreCompleteAndDistinct()
     {
         int[] values = Enum.GetValues<ConnectionErrorCode>().Select(static value => (int)value).ToArray();
-        Assert.Equal(Enumerable.Range(0, 16), values.Order());
+        Assert.Equal(Enumerable.Range(0, 18), values.Order());
     }
 
     [Fact]

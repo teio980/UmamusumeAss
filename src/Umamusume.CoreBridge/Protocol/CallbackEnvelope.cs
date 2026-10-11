@@ -5,6 +5,7 @@ namespace Umamusume.CoreBridge;
 internal readonly record struct CallbackEnvelope(
     int Version,
     ulong OperationId,
+    ulong Sequence,
     string Type,
     JsonElement Payload,
     int NativeMessageId);

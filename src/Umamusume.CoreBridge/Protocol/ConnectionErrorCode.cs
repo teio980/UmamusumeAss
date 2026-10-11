@@ -18,4 +18,6 @@ public enum ConnectionErrorCode : int
     BootNotCompleted = 13,
     TargetGameNotInstalled = 14,
     DeviceDisconnected = 15,
+    BufferTooSmall = 16,
+    RecognitionFailed = 17,
 }
