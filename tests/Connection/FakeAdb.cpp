@@ -568,6 +568,14 @@ int wmain(int argc, wchar_t** argv)
     if (contains(args, "pidof"))
     {
         auto const mode = environment_value("UMA_FAKE_ADB_PACKAGE_PROCESS_MODE");
+        auto const probe_file = environment_value("UMA_FAKE_ADB_PROCESS_PROBE_FILE");
+        if (!probe_file.empty())
+        {
+            int probes = 0;
+            { std::ifstream input(probe_file); input >> probes; }
+            { std::ofstream output(probe_file); output << probes + 1; }
+            if (mode == "delayed-running" && probes < 2) return 0;
+        }
         if (mode == "pidof-fail-ps-running" || mode == "pidof-fail-ps-lookalike"
             || mode == "pidof-fail-ps-empty")
         {

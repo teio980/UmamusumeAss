@@ -2,6 +2,9 @@
 
 #include "UmaAssistant/Connection.hpp"
 
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <stdexcept>
 
 namespace UmaAssistant::GameTasks
@@ -36,12 +39,61 @@ GameTaskPackageResult NativeGameTaskPackageOperations::Start(
     const std::string& packageId,
     const std::string& activityName)
 {
-    return Execute(
-        activityName.empty()
-            ? PackageOperationKind::start_package
-            : PackageOperationKind::start_activity,
-        packageId,
-        activityName);
+    using namespace std::chrono_literals;
+    constexpr int maxAttempts = 30;
+    auto const operation = activityName.empty()
+        ? PackageOperationKind::start_package
+        : PackageOperationKind::start_activity;
+    auto const terminal = [](const GameTaskPackageResult& result) {
+        return result.cancelled
+            || result.errorCode == static_cast<int>(ConnectionErrorCode::DeviceDisconnected)
+            || result.errorCode == static_cast<int>(ConnectionErrorCode::InvalidArgument);
+    };
+    auto const cancelled = [] {
+        return Failure(static_cast<int>(ConnectionErrorCode::Canceled),
+            "Game launch was canceled.", true);
+    };
+    auto const wait = [&](std::chrono::milliseconds duration) {
+        std::mutex mutex;
+        std::condition_variable_any changed;
+        std::unique_lock lock(mutex);
+        changed.wait_for(lock, m_cancellation, duration, [] { return false; });
+        return !m_cancellation.stop_requested();
+    };
+
+    GameTaskPackageResult last;
+    for (int attempt = 0; attempt < maxAttempts; ++attempt)
+    {
+        if (m_cancellation.stop_requested()) return cancelled();
+        last = Execute(operation, packageId, activityName);
+        if (terminal(last)) return last;
+        if (last.succeeded)
+        {
+            // am start only acknowledges the launch. process_running is populated
+            // by query_running, so never interpret the launch's default false as
+            // evidence that startup failed. Match the managed launch probe window.
+            auto const deadline = std::chrono::steady_clock::now() + 250ms;
+            while (true)
+            {
+                auto running = Query(packageId);
+                if (terminal(running)) return running;
+                if (running.succeeded && running.processDetected)
+                {
+                    running.message = "The game process is running.";
+                    return running;
+                }
+                last = running.succeeded
+                    ? Failure(static_cast<int>(ConnectionErrorCode::CommandFailed),
+                        "The launch command completed, but the game process was not detected.")
+                    : std::move(running);
+                if (std::chrono::steady_clock::now() >= deadline) break;
+                if (!wait(250ms)) return cancelled();
+            }
+        }
+        if (attempt + 1 < maxAttempts && !wait(1500ms)) return cancelled();
+    }
+    if (last.message.empty()) last.message = "The game launch failed after the retry window.";
+    return last;
 }
 
 GameTaskPackageResult NativeGameTaskPackageOperations::Stop(const std::string& packageId)
