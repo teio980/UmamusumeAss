@@ -1,4 +1,12 @@
 add_subdirectory(Connection)
+add_subdirectory(Vision)
+add_subdirectory(Recognition)
+add_subdirectory(Resources)
+add_subdirectory(TaskEngine)
+add_subdirectory(GameTasks)
+add_subdirectory(Career)
+add_subdirectory(Runtime)
+add_subdirectory(GameData)
 
 find_program(DOTNET_EXECUTABLE dotnet REQUIRED)
 add_test(

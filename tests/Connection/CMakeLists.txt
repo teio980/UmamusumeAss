@@ -21,13 +21,17 @@ target_include_directories(ConnectionProfileTests
 target_link_libraries(ConnectionProfileTests
   PRIVATE
     Catch2::Catch2WithMain
-    UmaAssistantCoreObjects
+    UmaAssistantConnection
+    ws2_32
 )
 
 target_compile_definitions(ConnectionProfileTests
   PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    UMA_FAKE_ADB_PATH="$<TARGET_FILE:UmaFakeAdb>"
 )
+
+add_dependencies(ConnectionProfileTests UmaFakeAdb)
 
 uma_add_strict_warnings(ConnectionProfileTests)
 
@@ -37,11 +41,62 @@ uma_add_strict_warnings(ConnectionProfileTests)
 
 add_executable(UmaCallerTests
   UmaCallerTests.cpp
+  ImageProcessingApiTests.cpp
+  Phase3ApiTests.cpp
 )
+
+add_executable(CoreRuntimeResourceTests
+  CoreRuntimeResourceTests.cpp
+)
+
+add_executable(ApiCallbackTests
+  ApiCallbackTests.cpp
+)
+
+target_include_directories(ApiCallbackTests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore
+)
+
+target_link_libraries(ApiCallbackTests
+  PRIVATE
+    Catch2::Catch2WithMain
+    UmaAssistantApi
+)
+
+uma_add_strict_warnings(ApiCallbackTests)
+
+target_include_directories(CoreRuntimeResourceTests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore
+)
+
+target_link_libraries(CoreRuntimeResourceTests
+  PRIVATE
+    Catch2::Catch2WithMain
+    UmaAssistantCoreRuntime
+    windowsapp
+)
+
+target_compile_definitions(CoreRuntimeResourceTests
+  PRIVATE
+    CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+uma_add_strict_warnings(CoreRuntimeResourceTests)
 
 add_executable(UmaFakeAdb
   FakeAdb.cpp
 )
+
+target_compile_definitions(UmaFakeAdb
+  PRIVATE
+    UMA_FAKE_PNG_PATH="${CMAKE_SOURCE_DIR}/testdata/hachimi/ura/captures/career_skill_race_day_490_sample.png"
+)
+
+target_link_libraries(UmaFakeAdb PRIVATE ZLIB::ZLIBSTATIC)
 
 uma_add_strict_warnings(UmaFakeAdb)
 
@@ -56,6 +111,8 @@ target_link_libraries(UmaCallerTests
     Catch2::Catch2WithMain
     UmaAssistantCore
     nlohmann_json::nlohmann_json
+    windowscodecs
+    windowsapp
 )
 
 target_compile_definitions(UmaCallerTests
@@ -67,6 +124,16 @@ target_compile_definitions(UmaCallerTests
 add_dependencies(UmaCallerTests UmaFakeAdb)
 
 uma_add_strict_warnings(UmaCallerTests)
+
+add_executable(NativeTaskContextTests NativeTaskContextTests.cpp)
+target_link_libraries(NativeTaskContextTests PRIVATE Catch2::Catch2WithMain UmaAssistantTaskEngine)
+target_compile_definitions(NativeTaskContextTests PRIVATE
+  CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+  UMA_FAKE_ADB_PATH="$<TARGET_FILE:UmaFakeAdb>"
+)
+add_dependencies(NativeTaskContextTests UmaFakeAdb)
+uma_add_strict_warnings(NativeTaskContextTests)
+catch_discover_tests(NativeTaskContextTests DISCOVERY_MODE PRE_TEST)
 
 
 
@@ -139,6 +206,8 @@ endfunction()
 
 uma_discover_catch2_tests(ConnectionProfileTests)
 uma_discover_catch2_tests(UmaCallerTests)
+uma_discover_catch2_tests(CoreRuntimeResourceTests)
+uma_discover_catch2_tests(ApiCallbackTests)
 add_test(NAME UmaCallerCConsumer COMMAND UmaCallerCConsumer)
 add_test(
   NAME UmaExportVerification

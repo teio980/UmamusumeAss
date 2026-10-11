@@ -56,6 +56,9 @@ std::optional<ConnectionFailure> EmulatorConnector::step_resolve_target(
             "failed to expand list_devices command"
         };
     }
+    devices_inv->leave_children_running_on_success = std::find(
+        devices_inv->arguments.begin(), devices_inv->arguments.end(), "devices")
+        != devices_inv->arguments.end();
 
     auto const devices_result = runner_.run(
         *devices_inv, timings_.devices, cancellation);

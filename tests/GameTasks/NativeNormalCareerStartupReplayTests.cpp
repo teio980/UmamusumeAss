@@ -1,0 +1,153 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include "UmaAssistantCore/Career/CareerVisualResources.hpp"
+#include "UmaAssistantCore/Common/PathEncoding.hpp"
+#include "UmaAssistantCore/GameTasks/NativeNormalCareerStartup.hpp"
+#include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace
+{
+
+using namespace UmaAssistant::Career;
+using namespace UmaAssistant::CareerDomain;
+using namespace UmaAssistant::GameTasks;
+using namespace UmaAssistant::TaskEngine;
+
+std::string FoldPath(std::string value)
+{
+    value = std::filesystem::path(value).filename().string();
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+class StartupReplayContext final : public ITaskExecutionContext
+{
+public:
+    bool CaptureScreen() override { return true; }
+    TaskMatchResult MatchTemplate(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string& algorithm) override
+    { return MatchTemplateAdvanced(path, threshold, roi, algorithm, 900, 1600, {}); }
+    TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+        const std::optional<TaskRoi>&, const std::string&, int referenceWidth,
+        int referenceHeight, const std::vector<double>&) override
+    {
+        templates.push_back(path);
+        TaskMatchResult match;
+        match.found = true;
+        match.score = (std::max)(threshold, 0.99);
+        match.x = 400;
+        match.y = 1100;
+        match.width = 80;
+        match.height = 50;
+        match.referenceWidth = referenceWidth;
+        match.referenceHeight = referenceHeight;
+        return match;
+    }
+    bool CheckImageChange(const TaskMatchResult&) override { return false; }
+    std::vector<TaskOcrDetection> RecognizeText(const std::string&,
+        const std::optional<TaskRoi>& = std::nullopt) override { return {}; }
+    bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override
+    { return false; }
+    bool Tap(int x, int y) override { taps.emplace_back(x, y); return true; }
+    bool TapMatch(int x, int y, const TaskMatchResult&) override { return Tap(x, y); }
+    bool Swipe(int, int, int, int, int) override { return true; }
+    bool InputText(const std::string&) override { return true; }
+    bool SendKey(const std::string&) override { return true; }
+    void Sleep(int) override {}
+    bool IsCancelled() const override { return false; }
+    void Log(const std::string&, const std::string&) override {}
+    void EmitEvent(const TaskExecutionEvent&) override {}
+
+    std::vector<std::string> templates;
+    std::vector<std::pair<int, int>> taps;
+};
+
+class SequenceCareerObserver final : public ICareerObserver
+{
+public:
+    explicit SequenceCareerObserver(std::vector<CareerObservation> observations)
+        : m_observations(std::move(observations))
+    {
+    }
+    CareerObservation Observe(ITaskExecutionContext&) override
+    {
+        if (m_next < m_observations.size()) return m_observations[m_next++];
+        CareerObservation done;
+        done.screenId = "career_main";
+        done.screenKind = CareerScreenKind::MainTurn;
+        return done;
+    }
+private:
+    std::vector<CareerObservation> m_observations;
+    std::size_t m_next{0};
+};
+
+CareerRuntimeConfig PackagedConfig()
+{
+    CareerRuntimeConfig config;
+    config.resourceDirectory = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(
+        config.resourceDirectory / "hachimi" / "ura" / "manifest.json");
+    config.normalLineupStrategy = "pace";
+    return config;
+}
+
+CareerObservation Screen(std::string id, CareerScreenKind kind)
+{
+    CareerObservation observation;
+    observation.screenId = std::move(id);
+    observation.screenKind = kind;
+    return observation;
+}
+
+} // namespace
+
+TEST_CASE("Normal Career startup replays the configured mode, intro skip, and quick-mode actions",
+    "[GameTasks][CareerStartupReplay]")
+{
+    auto const config = PackagedConfig();
+    CareerVisualResources resources(config);
+    CAPTURE(config.manifestPath);
+    std::string loadDiagnostics;
+    for (const auto& diagnostic : resources.GetLoadDiagnostics())
+        loadDiagnostics += (loadDiagnostics.empty() ? "" : "\n") + diagnostic;
+    CAPTURE(loadDiagnostics);
+    REQUIRE(resources.IsReady());
+    REQUIRE(resources.FindAction("career_final_confirmation", "normal.start") != nullptr);
+    REQUIRE(resources.FindAction("normal_quick_mode_settings", "normal.quick_mode.confirm") != nullptr);
+
+    SequenceCareerObserver observer({
+        Screen("career_final_confirmation", CareerScreenKind::Unknown),
+        Screen("career_intro_event", CareerScreenKind::EventChoice),
+        Screen("career_main", CareerScreenKind::MainTurn)});
+    StartupReplayContext context;
+    const auto result = NativeNormalCareerStartup::Run(config, resources, observer, context);
+    std::string templateTrace;
+    for (const auto& path : context.templates)
+        templateTrace += (templateTrace.empty() ? "" : "\n") + path;
+    CAPTURE(templateTrace);
+
+    REQUIRE(result.succeeded);
+    CHECK_FALSE(result.cancelled);
+    CHECK(result.lastScreenId == "career_main");
+    CHECK(result.actionsCompleted == 10);
+    CHECK(std::any_of(context.templates.begin(), context.templates.end(), [](const auto& path) {
+        return FoldPath(path) == "mode_normal_selected.png";
+    }));
+    CHECK(std::any_of(context.templates.begin(), context.templates.end(), [](const auto& path) {
+        return FoldPath(path) == "quick_mode_shorten_selected.png";
+    }));
+    CHECK(std::any_of(context.templates.begin(), context.templates.end(), [](const auto& path) {
+        return FoldPath(path) == "quick_mode_skip_two.png";
+    }));
+}
+

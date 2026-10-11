@@ -6,13 +6,28 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <exception>
 #include <filesystem>
+#include <fstream>
+#include <future>
+#include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <windows.h>
+#include <tlhelp32.h>
 
 #include "Connection/AdbCommandRunner.hpp"
 
@@ -137,7 +152,9 @@ public:
         std::filesystem::path const&  ,
         std::wstring const&  ,
         std::stop_token  ,
-        std::chrono::milliseconds  ) override
+        std::chrono::milliseconds  ,
+        std::size_t  ,
+        bool leave_children_running_on_success) override
     {
         UmaAssistant::IWin32Process::Result r;
         r.exit_code       = result_.exit_code;
@@ -146,12 +163,196 @@ public:
         r.started         = result_.started;
         r.timed_out       = result_.timed_out;
         r.canceled        = result_.canceled;
+        observed_leave_children_running_on_success_ = leave_children_running_on_success;
         return r;
+    }
+
+    [[nodiscard]] bool observed_leave_children_running_on_success() const noexcept
+    {
+        return observed_leave_children_running_on_success_;
     }
 
 private:
     ScriptedResult result_;
+    bool observed_leave_children_running_on_success_{};
 };
+
+class ScopedEnvironment final
+{
+public:
+    ScopedEnvironment(char const* name, std::string value)
+        : name_{name}
+    {
+        char* previous = nullptr;
+        std::size_t size = 0;
+        if (_dupenv_s(&previous, &size, name) == 0 && previous != nullptr)
+        {
+            previous_ = previous;
+            std::free(previous);
+            existed_ = true;
+        }
+        _putenv_s(name, value.c_str());
+    }
+
+    ~ScopedEnvironment()
+    {
+        _putenv_s(name_.c_str(), existed_ ? previous_.c_str() : "");
+    }
+
+    ScopedEnvironment(ScopedEnvironment const&) = delete;
+    ScopedEnvironment& operator=(ScopedEnvironment const&) = delete;
+
+private:
+    std::string name_;
+    std::string previous_;
+    bool existed_{};
+};
+
+struct ScopedWinsock
+{
+    WSADATA data{};
+    int const result{::WSAStartup(MAKEWORD(2, 2), &data)};
+    ~ScopedWinsock() { if (result == 0) ::WSACleanup(); }
+};
+
+[[nodiscard]] std::optional<std::uint16_t> find_free_tcp_port()
+{
+    SOCKET const listener = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listener == INVALID_SOCKET) return std::nullopt;
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
+    address.sin_port = 0;
+    if (::bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR)
+    {
+        ::closesocket(listener);
+        return std::nullopt;
+    }
+    int address_size = sizeof(address);
+    auto const result = ::getsockname(listener,
+        reinterpret_cast<sockaddr*>(&address), &address_size);
+    ::closesocket(listener);
+    return result == 0 ? std::optional{::ntohs(address.sin_port)} : std::nullopt;
+}
+
+[[nodiscard]] bool tcp_port_is_listening(std::uint16_t port)
+{
+    SOCKET const probe = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (probe == INVALID_SOCKET) return false;
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
+    address.sin_port = ::htons(port);
+    bool const listening = ::connect(probe,
+        reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0;
+    ::closesocket(probe);
+    return listening;
+}
+
+struct IsolatedAdbServerCleanup
+{
+    std::filesystem::path executable;
+    std::string port;
+    bool armed{};
+    ~IsolatedAdbServerCleanup()
+    {
+        if (!armed) return;
+        auto process = UmaAssistant::create_win32_process();
+        UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+        (void)runner.run(
+            AdbInvocation{executable, {"-P", port, "kill-server"}},
+            10s, std::stop_token{});
+    }
+};
+
+[[nodiscard]] std::filesystem::path child_pid_file()
+{
+    return std::filesystem::temp_directory_path()
+        / ("uma-adb-runner-child-" + std::to_string(::GetCurrentProcessId()) + ".pid");
+}
+
+[[nodiscard]] std::filesystem::path interactive_child_pid_file()
+{
+    return std::filesystem::path{CMAKE_SOURCE_DIR} / "build"
+        / ("uma-interactive-child-" + std::to_string(::GetCurrentProcessId()) + ".pid");
+}
+
+[[nodiscard]] std::optional<DWORD> read_child_pid(std::filesystem::path const& pid_path)
+{
+    std::ifstream input(pid_path);
+    DWORD pid = 0;
+    input >> pid;
+    if (!input || pid == 0) return std::nullopt;
+    return pid;
+}
+
+[[nodiscard]] std::optional<DWORD> wait_for_child_pid(
+    std::filesystem::path const& pid_path,
+    std::chrono::milliseconds timeout)
+{
+    auto const deadline = std::chrono::steady_clock::now() + timeout;
+    do
+    {
+        if (auto const pid = read_child_pid(pid_path)) return pid;
+        std::this_thread::sleep_for(10ms);
+    } while (std::chrono::steady_clock::now() < deadline);
+    return read_child_pid(pid_path);
+}
+
+void terminate_child_from_pid_file(std::filesystem::path const& pid_path) noexcept
+{
+    try
+    {
+        auto const pid = read_child_pid(pid_path);
+        if (!pid) return;
+        HANDLE process = ::OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, *pid);
+        if (process == nullptr) return;
+        if (::WaitForSingleObject(process, 0) == WAIT_TIMEOUT)
+        {
+            (void)::TerminateProcess(process, 1);
+            (void)::WaitForSingleObject(process, 5000);
+        }
+        ::CloseHandle(process);
+    }
+    catch (...) {}
+}
+
+struct ScopedChildProcessCleanup
+{
+    std::filesystem::path pid_path;
+    ~ScopedChildProcessCleanup()
+    {
+        terminate_child_from_pid_file(pid_path);
+        try
+        {
+            std::error_code error;
+            std::filesystem::remove(pid_path, error);
+        }
+        catch (...) {}
+    }
+};
+
+[[nodiscard]] DWORD wait_for_process_exit(std::filesystem::path const& pid_path)
+{
+    auto const pid = read_child_pid(pid_path);
+    if (!pid) return WAIT_FAILED;
+    HANDLE process = ::OpenProcess(SYNCHRONIZE, FALSE, *pid);
+    if (process == nullptr)
+    {
+        HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot == INVALID_HANDLE_VALUE) return WAIT_FAILED;
+        PROCESSENTRY32W entry{};
+        entry.dwSize = sizeof(entry);
+        bool found = ::Process32FirstW(snapshot, &entry) != FALSE;
+        while (found && entry.th32ProcessID != *pid)
+            found = ::Process32NextW(snapshot, &entry) != FALSE;
+        ::CloseHandle(snapshot);
+        return found ? WAIT_TIMEOUT : WAIT_OBJECT_0;
+    }
+    auto const result = ::WaitForSingleObject(process, 5000);
+    ::CloseHandle(process);
+    return result;
+}
 
 }
 
@@ -174,6 +375,18 @@ TEST_CASE("AdbCommandRunnerWin32 preserves separate stdout and stderr streams",
     REQUIRE(result.exit_code == 0);
     REQUIRE_FALSE(result.timed_out);
     REQUIRE_FALSE(result.canceled);
+}
+
+TEST_CASE("AdbCommandRunnerWin32 forwards the explicit persistent-server lifetime policy",
+    "[AdbCommandRunner][policy]")
+{
+    FakeWin32Process process{{.exit_code = 0, .standard_output = "", .standard_error = ""}};
+    UmaAssistant::AdbCommandRunnerWin32 runner{process};
+
+    (void)runner.run(
+        AdbInvocation{R"(C:\adb.exe)", {"devices"}, true}, 15s, std::stop_token{});
+
+    REQUIRE(process.observed_leave_children_running_on_success());
 }
 
 TEST_CASE("AdbCommandRunnerWin32 preserves exit code and empty streams",
@@ -264,4 +477,330 @@ TEST_CASE("AdbCommandRunnerWin32 maps started=false timed_out=false canceled=tru
     REQUIRE_FALSE(result.started);
     REQUIRE(result.canceled);
     REQUIRE_FALSE(result.timed_out);
+}
+
+TEST_CASE("Real Win32 ADB process preserves binary stdout beyond 64 KiB and reports truncation",
+    "[AdbCommandRunner][win32][binary]")
+{
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const invocation = AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-binary-output"}};
+
+    auto const complete = runner.run(invocation, 10s, std::stop_token{}, 256 * 1024);
+    REQUIRE(complete.started);
+    REQUIRE(complete.exit_code == 0);
+    REQUIRE_FALSE(complete.standard_output_truncated);
+    REQUIRE(complete.standard_output.size() == 128 * 1024);
+    REQUIRE(complete.standard_output.find('\0') != std::string::npos);
+    for (std::size_t index = 0; index < complete.standard_output.size(); ++index)
+        REQUIRE(static_cast<unsigned char>(complete.standard_output[index])
+                == static_cast<unsigned char>((index * 31) & 0xff));
+
+    auto const bounded = runner.run(invocation, 10s, std::stop_token{}, 64 * 1024);
+    REQUIRE(bounded.started);
+    REQUIRE(bounded.standard_output.size() == 64 * 1024);
+    REQUIRE(bounded.standard_output_truncated);
+}
+
+TEST_CASE("Real Win32 ADB process keeps stdout and stderr independent",
+    "[AdbCommandRunner][win32][streams]")
+{
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const result = runner.run(
+        AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-separate-streams"}},
+        10s,
+        std::stop_token{});
+
+    REQUIRE(result.started);
+    REQUIRE(result.exit_code == 0);
+    REQUIRE(result.standard_output == std::string("out\0stdout", 10));
+    REQUIRE(result.standard_error == "stderr-only");
+}
+
+TEST_CASE("Win32 interactive process flushes each command and stays open between writes",
+    "[AdbCommandRunner][win32][interactive]")
+{
+    auto const input_path = std::filesystem::path{CMAKE_SOURCE_DIR} / "build"
+        / ("uma-interactive-input-" + std::to_string(::GetCurrentProcessId()) + ".log");
+    std::error_code error;
+    std::filesystem::remove(input_path, error);
+
+    std::string start_error;
+    auto session = UmaAssistant::start_win32_interactive_session(
+        UMA_FAKE_ADB_PATH,
+        {"--test-interactive-touch", input_path.string()},
+        start_error);
+    REQUIRE(session);
+    REQUIRE(start_error.empty());
+    auto handshake = session->read(2s, std::stop_token{});
+    REQUIRE(handshake.standard_output.empty());
+    REQUIRE_FALSE(handshake.standard_error_truncated);
+    auto const handshake_deadline = std::chrono::steady_clock::now() + 2s;
+    while (handshake.standard_error.find("$ 0") == std::string::npos
+        && std::chrono::steady_clock::now() < handshake_deadline)
+    {
+        auto const next_chunk = session->read(100ms, std::stop_token{});
+        handshake.standard_output += next_chunk.standard_output;
+        handshake.standard_error += next_chunk.standard_error;
+    }
+    REQUIRE(handshake.standard_output.empty());
+    REQUIRE(handshake.standard_error.find("^ 10 4095 4095 255") != std::string::npos);
+    REQUIRE(handshake.standard_error.find("$ 0") != std::string::npos);
+
+    REQUIRE(session->write("d 0 100 200 255\nc\n", std::stop_token{}));
+    std::this_thread::sleep_for(100ms);
+    REQUIRE(session->write("u 0\nc\n", std::stop_token{}));
+    session->close();
+    REQUIRE(session->has_exited());
+
+    std::ifstream input(input_path, std::ios::binary);
+    std::string recorded{std::istreambuf_iterator<char>{input}, {}};
+    REQUIRE(recorded.find("d 0 100 200 255") != std::string::npos);
+    REQUIRE(recorded.find("u 0") != std::string::npos);
+    std::filesystem::remove(input_path, error);
+}
+
+TEST_CASE("Win32 interactive blocked stdin cancellation closes its child process tree",
+    "[AdbCommandRunner][win32][interactive][cancel]")
+{
+    auto const pid_path = interactive_child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    std::string start_error;
+    auto session = UmaAssistant::start_win32_interactive_session(
+        UMA_FAKE_ADB_PATH,
+        {"--test-interactive-blocked-stdin", pid_path.string()},
+        start_error);
+    REQUIRE(session);
+    auto const handshake = session->read(2s, std::stop_token{});
+    REQUIRE(handshake.standard_error.find("^ 10 4095 4095 255") != std::string::npos);
+    REQUIRE(handshake.standard_error.find("$ 0") != std::string::npos);
+
+    std::string const blocked(2 * 1024 * 1024, 'x');
+    auto const started = std::chrono::steady_clock::now();
+    std::stop_source cancellation;
+    std::jthread cancel_after([&cancellation] {
+        std::this_thread::sleep_for(150ms);
+        cancellation.request_stop();
+    });
+    REQUIRE_FALSE(session->write(blocked, cancellation.get_token()));
+    REQUIRE(std::chrono::steady_clock::now() - started < 5s);
+    REQUIRE(session->has_exited());
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Win32 interactive blocked stdin deadline closes its child process tree",
+    "[AdbCommandRunner][win32][interactive][timeout]")
+{
+    auto const pid_path = interactive_child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    std::string start_error;
+    auto session = UmaAssistant::start_win32_interactive_session(
+        UMA_FAKE_ADB_PATH,
+        {"--test-interactive-blocked-stdin", pid_path.string()},
+        start_error);
+    REQUIRE(session);
+    auto const handshake = session->read(2s, std::stop_token{});
+    REQUIRE(handshake.standard_error.find("^ 10 4095 4095 255") != std::string::npos);
+
+    std::string const blocked(2 * 1024 * 1024, 'x');
+    auto const started = std::chrono::steady_clock::now();
+    REQUIRE_FALSE(session->write(blocked, std::stop_token{}));
+    REQUIRE(std::chrono::steady_clock::now() - started < 5s);
+    REQUIRE(session->has_exited());
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Win32 interactive broken stdin cleans up its still-running child tree",
+    "[AdbCommandRunner][win32][interactive][broken-pipe]")
+{
+    auto const pid_path = interactive_child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    std::string start_error;
+    auto session = UmaAssistant::start_win32_interactive_session(
+        UMA_FAKE_ADB_PATH,
+        {"--test-interactive-broken-stdin", pid_path.string()},
+        start_error);
+    REQUIRE(session);
+    auto const handshake = session->read(2s, std::stop_token{});
+    REQUIRE(handshake.standard_error.find("^ 10 4095 4095 255") != std::string::npos);
+
+    REQUIRE_FALSE(session->write("d 0 100 200 255\nc\n", std::stop_token{}));
+    REQUIRE(session->has_exited());
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Real Win32 ADB runner returns when an exited parent leaves inherited pipes in a child",
+    "[AdbCommandRunner][win32][child]")
+{
+    auto const pid_path = child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    ScopedEnvironment child_pid{"UMA_FAKE_ADB_CHILD_PID_FILE", pid_path.string()};
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const started = std::chrono::steady_clock::now();
+    auto const result = runner.run(
+        AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-parent-exits-with-child"}},
+        10s,
+        std::stop_token{});
+    auto const elapsed = std::chrono::steady_clock::now() - started;
+
+    REQUIRE(result.started);
+    REQUIRE(result.exit_code == 0);
+    REQUIRE(elapsed < 5s);
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Real Win32 ADB runner stops a descendant that keeps writing after its parent exits",
+    "[AdbCommandRunner][win32][child][writer]")
+{
+    auto const pid_path = child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    ScopedEnvironment child_pid{"UMA_FAKE_ADB_CHILD_PID_FILE", pid_path.string()};
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const started = std::chrono::steady_clock::now();
+    auto const result = runner.run(
+        AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-parent-exits-with-writer"}},
+        10s,
+        std::stop_token{});
+    auto const elapsed = std::chrono::steady_clock::now() - started;
+
+    REQUIRE(result.started);
+    REQUIRE(result.exit_code == 0);
+    REQUIRE(elapsed < 5s);
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Real Win32 ADB timeout terminates the parent and its child process tree",
+    "[AdbCommandRunner][win32][timeout]")
+{
+    auto const pid_path = child_pid_file();
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    ScopedEnvironment child_pid{"UMA_FAKE_ADB_CHILD_PID_FILE", pid_path.string()};
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const result = runner.run(
+        AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-parent-hangs-with-child"}},
+        500ms,
+        std::stop_token{});
+
+    REQUIRE(result.started);
+    REQUIRE(result.timed_out);
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("Real Win32 ADB cancellation terminates the parent and its child process tree",
+    "[AdbCommandRunner][win32][cancel]")
+{
+    auto const pid_path = child_pid_file();
+    ScopedChildProcessCleanup child_cleanup{pid_path};
+    std::error_code error;
+    std::filesystem::remove(pid_path, error);
+    ScopedEnvironment child_pid{"UMA_FAKE_ADB_CHILD_PID_FILE", pid_path.string()};
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    std::stop_source cancellation;
+    std::promise<bool> child_started;
+    auto child_started_result = child_started.get_future();
+    std::jthread cancel_after([&cancellation, &child_started, &pid_path] {
+        try
+        {
+            auto const child_pid = wait_for_child_pid(pid_path, 4s);
+            child_started.set_value(child_pid.has_value());
+        }
+        catch (...)
+        {
+            try { child_started.set_exception(std::current_exception()); }
+            catch (...) {}
+        }
+        cancellation.request_stop();
+    });
+    auto const result = runner.run(
+        AdbInvocation{UMA_FAKE_ADB_PATH, {"--test-parent-hangs-with-child"}},
+        10s,
+        cancellation.get_token());
+    cancel_after.join();
+
+    REQUIRE(child_started_result.get());
+    REQUIRE(result.started);
+    REQUIRE(result.canceled);
+    REQUIRE(wait_for_process_exit(pid_path) == WAIT_OBJECT_0);
+    std::filesystem::remove(pid_path, error);
+}
+
+TEST_CASE("cold ADB server launched on an isolated port survives client cleanup",
+    "[.AdbCommandRunner][win32][adb-server]")
+{
+    char* configured_adb = nullptr;
+    std::size_t configured_adb_size = 0;
+    auto const environment_result = _dupenv_s(
+        &configured_adb, &configured_adb_size, "UMA_REAL_ADB_PATH");
+    if (environment_result != 0 || configured_adb == nullptr)
+        SKIP("Set UMA_REAL_ADB_PATH to an adb.exe to run the isolated cold-server check");
+    std::unique_ptr<char, decltype(&std::free)> adb_value{configured_adb, &std::free};
+    std::filesystem::path const adb_path{adb_value.get()};
+    REQUIRE(std::filesystem::is_regular_file(adb_path));
+
+    // Leave host selection at adb's local default: some bundled adb builds
+    // treat even `-H 127.0.0.1` as a remote host and refuse to start a server.
+    // Clearing overrides keeps this random port local without touching 5037.
+    ScopedEnvironment adb_socket{"ADB_SERVER_SOCKET", ""};
+    ScopedEnvironment adb_server_address{"ANDROID_ADB_SERVER_ADDRESS", ""};
+    ScopedEnvironment adb_server_port{"ANDROID_ADB_SERVER_PORT", ""};
+
+    ScopedWinsock winsock;
+    REQUIRE(winsock.result == 0);
+    auto const available_port = find_free_tcp_port();
+    REQUIRE(available_port.has_value());
+    std::string const port = std::to_string(*available_port);
+    REQUIRE_FALSE(tcp_port_is_listening(*available_port));
+    IsolatedAdbServerCleanup cleanup{adb_path, port, false};
+
+    auto process = UmaAssistant::create_win32_process();
+    UmaAssistant::AdbCommandRunnerWin32 runner{*process};
+    auto const cold_start = runner.run(
+        AdbInvocation{adb_path, {"-P", port, "devices"}, true},
+        30s, std::stop_token{});
+    cleanup.armed = cold_start.started;
+    INFO("adb cold-start stderr: " << cold_start.standard_error);
+    REQUIRE(cold_start.started);
+    REQUIRE(cold_start.exit_code == 0);
+
+    auto const startup_deadline = std::chrono::steady_clock::now() + 5s;
+    while (!tcp_port_is_listening(*available_port)
+        && std::chrono::steady_clock::now() < startup_deadline)
+        std::this_thread::sleep_for(25ms);
+    REQUIRE(tcp_port_is_listening(*available_port));
+
+    auto const warm_query = runner.run(
+        AdbInvocation{adb_path, {"-P", port, "devices"}},
+        15s, std::stop_token{});
+    REQUIRE(warm_query.started);
+    REQUIRE(warm_query.exit_code == 0);
+    REQUIRE(tcp_port_is_listening(*available_port));
+
+    auto const stop_server = runner.run(
+        AdbInvocation{adb_path, {"-P", port, "kill-server"}},
+        10s, std::stop_token{});
+    REQUIRE(stop_server.started);
+    REQUIRE(stop_server.exit_code == 0);
+    cleanup.armed = false;
+    auto const shutdown_deadline = std::chrono::steady_clock::now() + 5s;
+    while (tcp_port_is_listening(*available_port)
+        && std::chrono::steady_clock::now() < shutdown_deadline)
+        std::this_thread::sleep_for(25ms);
+    REQUIRE_FALSE(tcp_port_is_listening(*available_port));
 }

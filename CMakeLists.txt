@@ -5,6 +5,12 @@ if(NOT UMA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
   message(FATAL_ERROR "version.txt must contain a stable semantic version")
 endif()
 project(UmamusumeAss VERSION ${UMA_VERSION} LANGUAGES C CXX)
+find_package(Threads REQUIRED)
+
+if(MSVC)
+  string(REPLACE "ole32.lib" "" CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES}")
+  string(REPLACE "ole32.lib" "" CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES}")
+endif()
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/UmaVersion.hpp.in"
@@ -35,6 +41,17 @@ FetchContent_Declare(
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 set(JSON_Install    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
+  zlib
+  URL      https://www.zlib.net/zlib-1.3.2.tar.gz
+  URL_HASH SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+)
+set(ZLIB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(ZLIB_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(ZLIB_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(zlib)
 
 
 FetchContent_Declare(

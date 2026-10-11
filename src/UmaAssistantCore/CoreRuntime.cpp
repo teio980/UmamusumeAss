@@ -42,13 +42,11 @@ bool CoreRuntime::load_resource(std::string const& base_path)
     std::error_code path_error;
     if (!std::filesystem::is_directory(*decoded_base, path_error))
     {
-        std::lock_guard lock(mutex_);
-        profile_.reset();
-        resource_loaded_ = false;
         return false;
     }
 
     auto const json_path = *decoded_base / "resource" / "connection.json";
+    auto resources = std::make_shared<Resources::ResourceSnapshot const>(*decoded_base / "resource");
 
 
 
@@ -58,6 +56,7 @@ bool CoreRuntime::load_resource(std::string const& base_path)
         std::lock_guard lock(mutex_);
         profile_        = std::make_shared<ConnectionProfile const>(
             std::move(profile));
+        resources_ = std::move(resources);
         resource_loaded_ = true;
         return true;
     }
@@ -69,14 +68,12 @@ bool CoreRuntime::load_resource(std::string const& base_path)
         std::lock_guard lock(mutex_);
         profile_        = std::make_shared<ConnectionProfile const>(
             std::move(profile));
+        resources_ = std::move(resources);
         resource_loaded_ = true;
         return true;
     }
     catch (ProfileError const&)
     {
-        std::lock_guard lock(mutex_);
-        profile_.reset();
-        resource_loaded_ = false;
         return false;
     }
 }
@@ -87,10 +84,10 @@ bool CoreRuntime::is_resource_loaded() const noexcept
     return resource_loaded_;
 }
 
-std::shared_ptr<ConnectionProfile const> CoreRuntime::profile() const noexcept
+ResourceBundle CoreRuntime::resource_bundle() const noexcept
 {
     std::lock_guard lock(mutex_);
-    return profile_;
+    return {profile_, resources_};
 }
 
 std::uint64_t CoreRuntime::allocate_operation_id() noexcept

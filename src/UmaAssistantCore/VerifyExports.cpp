@@ -6,12 +6,14 @@
 #include <cstdio>
 #include <cstring>
 
-static constexpr std::array<char const*, 15> kExpectedExports = {
+static constexpr std::array<char const*, 52> kExpectedExports = {
     "UmaGetVersion",
+    "UmaGetApiVersion",
     "UmaCreate",
     "UmaDestroy",
     "UmaSetUserDir",
     "UmaLoadResource",
+    "UmaSetInstanceOptions",
     "UmaConnectAsync",
     "UmaCancelConnect",
     "UmaCancelOperation",
@@ -22,6 +24,41 @@ static constexpr std::array<char const*, 15> kExpectedExports = {
     "UmaReleaseFrame",
     "UmaTapAsync",
     "UmaSwipeAsync",
+    "UmaSwipeWithOptionsAsync",
+    "UmaTouchAsync",
+    "UmaPrepareTouchAsync",
+    "UmaKeyEventAsync",
+    "UmaInputTextAsync",
+    "UmaPackageOperationAsync",
+    "UmaMatchTemplate",
+    "UmaRecognizeText",
+    "UmaCompareImageChange",
+    "UmaComparePersistentImageChange",
+    "UmaDecodeImageFile",
+    "UmaDecodeImageBytes",
+    "UmaCreateImageFromRgba",
+    "UmaGetDecodedImageInfo",
+    "UmaCopyDecodedImage",
+    "UmaReleaseDecodedImage",
+    "UmaLoadTemplateImage",
+    "UmaRefreshResourceSnapshot",
+    "UmaTransformImage",
+    "UmaBinarizeColor",
+    "UmaFindColorBlobs",
+    "UmaCountColor",
+    "UmaPrepareNumericGlyphs",
+    "UmaComposeGrayImages",
+    "UmaCountInkGroups",
+    "UmaSampleImageDifference",
+    "UmaValidatePipelineJson",
+    "UmaRunPipelineAsync",
+    "UmaRunGameTaskAsync",
+    "UmaAppendTask",
+    "UmaSetTaskParams",
+    "UmaClearTasks",
+    "UmaStartAsync",
+    "UmaGetRunSnapshotJson",
+    "UmaGetCatalogJson",
 };
 
 
@@ -286,6 +323,6 @@ int wmain(int argc, wchar_t const* const* argv)
 
     if (!valid) return 1;
 
-    std::puts("PASS: exactly 15 undecorated C ABI exports");
+    std::printf("PASS: exactly %zu undecorated C ABI exports\n", kExpectedExports.size());
     return 0;
 }

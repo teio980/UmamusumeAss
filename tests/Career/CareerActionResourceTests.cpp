@@ -1,0 +1,469 @@
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+
+#include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
+#include "UmaAssistantCore/Career/CareerVisualResources.hpp"
+#include "UmaAssistantCore/Career/Flows/CareerSkillLearningFlow.hpp"
+#include "UmaAssistantCore/Common/PathEncoding.hpp"
+#include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace
+{
+
+using namespace UmaAssistant::Career;
+using namespace UmaAssistant::CareerDomain;
+using namespace UmaAssistant::TaskEngine;
+
+std::string FoldPath(const std::string& path)
+{
+    std::string result = std::filesystem::path(path).filename().string();
+    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return result;
+}
+
+class CareerActionReplayContext final : public ITaskExecutionContext
+{
+public:
+    explicit CareerActionReplayContext(std::vector<std::string> skillNames = {})
+        : m_skillNames(std::move(skillNames))
+    {
+    }
+
+    bool CaptureScreen() override
+    {
+        auto frame = std::make_shared<TaskFrameSnapshot>();
+        frame->width = 900;
+        frame->height = 1600;
+        frame->frameId = ++m_nextFrameId;
+        frame->grayPixels.assign(static_cast<std::size_t>(frame->width) * frame->height, 0);
+        m_frame = std::move(frame);
+        return true;
+    }
+
+    TaskMatchResult MatchTemplate(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string& algorithm) override
+    {
+        return MatchTemplateAdvanced(path, threshold, roi, algorithm, 900, 1600, {});
+    }
+
+    TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string&, int referenceWidth,
+        int referenceHeight, const std::vector<double>&) override
+    {
+        m_lastTemplate = path;
+        matchedTemplates.push_back(path);
+        const auto file = FoldPath(path);
+        lastRoi = roi;
+        lastThreshold = threshold;
+        bool found = m_raceFrameReplay
+            ? file == m_raceFrameName
+            : m_eventSignatureReplay
+            ? file == "event_effects_button.png" : m_matchEverything;
+        if (!m_eventSignatureReplay && !m_raceFrameReplay)
+        {
+            if (!found && file == "race_day_skills_open.png") found = true;
+            if (!found && file == "career_skill_back.png") found = true;
+            if (!found && file == "career_skill_plus.png") found = !m_plusTapped;
+            if (!found && file == "career_skill_confirm.png") found = m_plusTapped && !m_confirmationOpen;
+            if (!found && file == "career_skill_confirmation_title.png") found = m_confirmationOpen;
+            if (!found && file == "career_skill_confirmation_learn.png") found = m_confirmationOpen;
+            if (!found && file == "career_skill_learned_title.png") found = m_learnedDialogOpen;
+            if (!found && file == "career_skill_learned_close.png") found = m_learnedDialogOpen;
+            if (!found && file.find("race_day.png") != std::string::npos) found = true;
+            if (m_retryAlarm && file == "race_retry_try_again.png") found = true;
+            if (!m_retryAlarm && file == "race_retry_cancel.png") found = true;
+        }
+
+        TaskMatchResult result;
+        result.found = found;
+        result.score = found ? (std::max)(threshold, 0.99) : 0.0;
+        result.x = file == "career_skill_plus.png" ? 780
+            : file == "summer_rest_action.png" ? 100
+            : file == "career_main_action_rest.png" ? 50
+            : file == "race_retry_try_again.png" ? 500
+            : file == "race_retry_cancel.png" ? 100 : 400;
+        result.y = file == "career_skill_plus.png" ? 595
+            : file == "summer_rest_action.png" ? 1240
+            : file == "career_main_action_rest.png" ? 1160
+            : file == "race_retry_try_again.png" ? 1100
+            : file == "race_retry_cancel.png" ? 1080 : 1100;
+        result.width = 40;
+        result.height = 40;
+        result.referenceWidth = referenceWidth;
+        result.referenceHeight = referenceHeight;
+        result.frameId = m_frame ? m_frame->frameId : 0;
+        return result;
+    }
+
+    bool CheckImageChange(const TaskMatchResult&) override { return false; }
+
+    std::vector<TaskOcrDetection> RecognizeText(const std::string&,
+        const std::optional<TaskRoi>& roi = std::nullopt) override
+    {
+        if (m_eventSignatureReplay)
+        {
+            if (roi && roi->x == 140 && roi->y == 295)
+                return {{"Going to the URA Finale!", 160, 300, 260, 30, 0.99}};
+            if (roi)
+                return {};
+            const bool changed = m_frame && m_frame->frameId > 2;
+            return {
+                {"Turn Three", 100, 850, 140, 30, 0.99},
+                {changed ? "Choice B" : "Choice A", 200, 1000, 140, 30, 0.99},
+                {"Career", 700, 1200, 120, 30, 0.99}};
+        }
+        std::vector<TaskOcrDetection> result;
+        if (roi && roi->x >= 600 && roi->x < 700 && roi->y < 750)
+        {
+            if (m_plusTapped)
+                result.push_back({"Obtained", 630, 595, 130, 30, 0.99});
+            return result;
+        }
+        const auto skillName = CurrentSkillName();
+        if (!skillName.empty())
+            result.push_back({skillName, 160, 600, 280, 35, 0.99});
+        result.push_back({std::to_string(m_skillPoints), 770, 1155, 65, 30, 0.99});
+        result.push_back({std::to_string(m_displayedPrice), 700, 600, 65, 30, 0.99});
+        return result;
+    }
+
+    std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return m_frame; }
+    bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override
+    { return false; }
+
+    bool Tap(int x, int y) override
+    {
+        taps.emplace_back(x, y);
+        const auto file = FoldPath(m_lastTemplate);
+        if (file == "race_day_skills_open.png") ++skillsOpened;
+        return true;
+    }
+
+    bool TapMatch(int x, int y, const TaskMatchResult& match) override
+    {
+        if (!m_frame || (match.frameId != 0 && match.frameId != m_frame->frameId))
+            return false;
+        const auto file = FoldPath(m_lastTemplate);
+        if (file == "career_skill_plus.png")
+        {
+            m_plusTapped = true;
+            ++plusTaps;
+        }
+        else if (file == "career_skill_confirm.png")
+            m_confirmationOpen = true;
+        else if (file == "career_skill_confirmation_learn.png")
+        {
+            m_confirmationOpen = false;
+            m_learnedDialogOpen = true;
+            ++learnTaps;
+        }
+        else if (file == "career_skill_learned_close.png")
+        {
+            m_learnedDialogOpen = false;
+            m_plusTapped = false;
+        }
+        return Tap(x, y);
+    }
+
+    bool Swipe(int, int, int, int, int) override { return true; }
+    bool InputText(const std::string&) override { return true; }
+    bool SendKey(const std::string&) override { return true; }
+    void Sleep(int) override {}
+    bool IsCancelled() const override { return false; }
+    void Log(const std::string&, const std::string&) override {}
+    void EmitEvent(const TaskExecutionEvent&) override {}
+
+    void SetEverything(bool value) { m_matchEverything = value; }
+    void SetRetryAlarm(bool value) { m_retryAlarm = value; }
+    void SetSkillPoints(int value) { m_skillPoints = value; }
+    void SetDisplayedPrice(int value) { m_displayedPrice = value; }
+    void SetEventSignatureReplay(bool value) { m_eventSignatureReplay = value; }
+    void SetRaceFrameReplay(std::string filename)
+    {
+        m_raceFrameReplay = true;
+        m_raceFrameName = std::move(filename);
+    }
+    [[nodiscard]] std::uint64_t CaptureCount() const noexcept { return m_nextFrameId; }
+    int skillsOpened{0};
+    int plusTaps{0};
+    int learnTaps{0};
+    std::vector<std::pair<int, int>> taps;
+    std::vector<std::string> matchedTemplates;
+    std::optional<TaskRoi> lastRoi;
+    double lastThreshold{0.0};
+
+private:
+    std::string CurrentSkillName() const
+    {
+        if (m_skillNames.empty()) return {};
+        const auto index = (std::min)(skillsOpened > 0 ? skillsOpened - 1 : 0,
+            static_cast<int>(m_skillNames.size()) - 1);
+        return m_skillNames[static_cast<std::size_t>(index)];
+    }
+
+    std::vector<std::string> m_skillNames;
+    std::shared_ptr<TaskFrameSnapshot> m_frame;
+    std::uint64_t m_nextFrameId{0};
+    std::string m_lastTemplate;
+    bool m_matchEverything{false};
+    bool m_eventSignatureReplay{false};
+    bool m_raceFrameReplay{false};
+    std::string m_raceFrameName;
+    bool m_retryAlarm{false};
+    bool m_plusTapped{false};
+    bool m_confirmationOpen{false};
+    bool m_learnedDialogOpen{false};
+    int m_skillPoints{500};
+    int m_displayedPrice{90};
+};
+
+CareerRuntimeConfig PackagedConfig()
+{
+    CareerRuntimeConfig config;
+    config.resourceDirectory = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(
+        config.resourceDirectory / "hachimi" / "ura" / "manifest.json");
+    return config;
+}
+
+std::uint64_t EventSignature(std::vector<std::pair<int, std::string>> detections)
+{
+    std::sort(detections.begin(), detections.end(), [](const auto& left, const auto& right) {
+        return left.first < right.first;
+    });
+    std::uint64_t hash = 14695981039346656037ull;
+    for (const auto& [_, text] : detections)
+    {
+        for (const unsigned char character : text)
+            if (std::isalnum(character))
+            {
+                hash ^= static_cast<unsigned char>(std::tolower(character));
+                hash *= 1099511628211ull;
+            }
+        hash ^= 0xff;
+        hash *= 1099511628211ull;
+    }
+    return hash == 0 ? 1 : hash;
+}
+
+} // namespace
+
+TEST_CASE("Normal career actions execute the authored rest and alarm-clock graphs", "[CareerRuntime][ActionReplay]")
+{
+    auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    CAPTURE(config.manifestPath);
+    std::string loadDiagnostics;
+    for (const auto& diagnostic : resources->GetLoadDiagnostics())
+        loadDiagnostics += (loadDiagnostics.empty() ? "" : "\n") + diagnostic;
+    CAPTURE(loadDiagnostics);
+    REQUIRE(resources->IsReady());
+
+    SECTION("Classic July rest resolves to the summer-rest task")
+    {
+        CareerActionReplayContext context;
+        context.SetEverything(true);
+        CareerActionExecutor executor(config, resources);
+        CareerObservation observation;
+        observation.screenId = "career_main";
+        observation.screenKind = CareerScreenKind::MainTurn;
+        observation.turnPositionText = "Classic Year Early July";
+        auto intent = ActionIntent::MakeRest("summer break");
+        REQUIRE(executor.ExecuteForObservation(intent, observation, context) == ActionExecutionStatus::Success);
+        CHECK(std::any_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
+            return FoldPath(path) == "summer_rest_action.png";
+        }));
+        CHECK(std::none_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
+            return FoldPath(path) == "career_main_action_rest.png";
+        }));
+        CHECK(std::any_of(context.taps.begin(), context.taps.end(), [](const auto& tap) {
+            return tap.first >= 55 && tap.first <= 245 && tap.second >= 1225 && tap.second <= 1310;
+        }));
+    }
+
+    SECTION("Alarm-clock retry uses the enabled authored action")
+    {
+        config.retryFailedRaceWithAlarmClock = true;
+        CareerActionReplayContext context;
+        context.SetEverything(true);
+        context.SetRetryAlarm(true);
+        CareerActionExecutor executor(config, resources);
+        CareerObservation observation;
+        observation.screenId = "race_retry_dialog";
+        observation.screenKind = CareerScreenKind::ConfirmationDialog;
+        const auto status = executor.ExecuteForObservation(
+            ActionIntent::MakeRace("goal", "pace"), observation, context);
+        REQUIRE(status == ActionExecutionStatus::Success);
+        CHECK(executor.TakeRaceRetryDeclined() == std::optional<bool>(false));
+        CHECK(std::any_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
+            return FoldPath(path) == "race_retry_try_again.png";
+        }));
+        CHECK(std::any_of(context.taps.begin(), context.taps.end(), [](const auto& tap) {
+            return tap.first >= 450 && tap.second >= 1080;
+        }));
+    }
+
+    SECTION("Disabled alarm-clock retry selects the authored cancel action")
+    {
+        config.retryFailedRaceWithAlarmClock = false;
+        CareerActionReplayContext context;
+        context.SetEverything(true);
+        CareerActionExecutor executor(config, resources);
+        CareerObservation observation;
+        observation.screenId = "race_retry_dialog";
+        observation.screenKind = CareerScreenKind::ConfirmationDialog;
+        const auto status = executor.ExecuteForObservation(
+            ActionIntent::MakeRace("goal", "pace"), observation, context);
+        REQUIRE(status == ActionExecutionStatus::Success);
+        CHECK(executor.TakeRaceRetryDeclined() == std::optional<bool>(true));
+        CHECK(std::any_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
+            return FoldPath(path) == "race_retry_cancel.png";
+        }));
+        CHECK(std::none_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
+            return FoldPath(path) == "race_retry_try_again.png";
+        }));
+    }
+}
+
+TEST_CASE("Normal skills use same-frame OCR, price checks, and confirmed catalog actions", "[CareerRuntime][SkillReplay]")
+{
+    auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    CAPTURE(config.manifestPath);
+    std::string loadDiagnostics;
+    for (const auto& diagnostic : resources->GetLoadDiagnostics())
+        loadDiagnostics += (loadDiagnostics.empty() ? "" : "\n") + diagnostic;
+    CAPTURE(loadDiagnostics);
+    REQUIRE(resources->IsReady());
+
+    SECTION("Displayed price above the observed points returns without a purchase tap")
+    {
+        config.normalSkillIds = {200012}; // Right-Handed ○, fixed global catalog record.
+        CareerActionReplayContext context({"Right-Handed ○"});
+        context.SetSkillPoints(100);
+        context.SetDisplayedPrice(101);
+        CareerSkillLearningFlow flow(config, resources);
+        REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
+        CHECK(context.skillsOpened == 1);
+        CHECK(context.plusTaps == 0);
+        CHECK(context.learnTaps == 0);
+    }
+
+    SECTION("Confirmed configured skills are purchased in input order and skipped on a later pass")
+    {
+        // Descending IDs distinguish user order from an implementation that
+        // silently sorts the configured skills before scanning or purchasing.
+        config.normalSkillIds = {200022, 200012};
+        CareerActionReplayContext context({"Left-Handed ○", "Right-Handed ○"});
+        CareerSkillLearningFlow flow(config, resources);
+        REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
+        CHECK(context.skillsOpened == 2);
+        CHECK(context.plusTaps == 2);
+        CHECK(context.learnTaps == 2);
+
+        const auto openedAfterConfirmedPurchase = context.skillsOpened;
+        REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
+        CHECK(context.skillsOpened == openedAfterConfirmedPurchase);
+        CHECK(context.plusTaps == 2);
+    }
+}
+
+TEST_CASE("Same-title event choices require a changed same-frame OCR signature", "[CareerRuntime][ActionReplay]")
+{
+    auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    CAPTURE(config.manifestPath);
+    std::string loadDiagnostics;
+    for (const auto& diagnostic : resources->GetLoadDiagnostics())
+        loadDiagnostics += (loadDiagnostics.empty() ? "" : "\n") + diagnostic;
+    CAPTURE(loadDiagnostics);
+    REQUIRE(resources->IsReady());
+
+    CareerActionReplayContext context;
+    context.SetEventSignatureReplay(true);
+    CareerActionExecutor executor(config, resources);
+    CareerObservation source;
+    source.screenId = "event_choice";
+    source.screenKind = CareerScreenKind::EventChoice;
+    source.eventTitle = "Going to the URA Finale!";
+    source.eventId = "ura_entry";
+    source.eventStateSignature = EventSignature({
+        {850, "Turn Three"}, {1000, "Choice A"}, {1200, "Career"}});
+
+    REQUIRE(executor.ConfirmCompletionFromObservation(
+        ActionIntent::MakeEventChoice(1), source, context));
+    CHECK(context.CaptureCount() >= 4);
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed.has_value());
+    CHECK(confirmed->screenId == source.screenId);
+    CHECK(confirmed->eventTitle == source.eventTitle);
+    CHECK(confirmed->eventId == source.eventId);
+    CHECK(confirmed->eventStateSignature.has_value());
+    CHECK(*confirmed->eventStateSignature != *source.eventStateSignature);
+}
+
+TEST_CASE("Runtime race-result captures resolve through the packaged catalog collection", "[CareerRuntime][ActionReplay]")
+{
+    const auto config = PackagedConfig();
+    CareerVisualResources resources(config);
+    CAPTURE(config.manifestPath);
+    REQUIRE(resources.IsReady());
+
+    const auto capture = resources.ResolveCollectionAsset(
+        "career.runtime_frame:debut_race_result_wait");
+    REQUIRE(capture.has_value());
+    CHECK(FoldPath(capture->path) == "debut_race_result_wait.png");
+    CHECK(std::filesystem::is_regular_file(capture->path));
+    CHECK_FALSE(resources.ResolveCollectionAsset(
+        "career.runtime_frame:../debut_race_result_wait").has_value());
+
+    const auto* matchPolicy = resources.FindRegion("career.race.result.runtime_frame_match");
+    REQUIRE(matchPolicy != nullptr);
+    CHECK(matchPolicy->value("threshold", 0.0) == 0.8);
+    CHECK(matchPolicy->value("metadata", nlohmann::json::object())
+        .value("waitTimeoutMs", 0) == 2500);
+    CHECK(matchPolicy->value("metadata", nlohmann::json::object())
+        .value("pollIntervalMs", 0) == 250);
+}
+
+TEST_CASE("Race results require a same-frame packaged outcome match", "[CareerRuntime][RaceResultReplay]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const CareerRaceResultExpectation expectation{
+        "junior_debut", "career.runtime_frame:debut_race_result_wait", 1, 0.95};
+
+    SECTION("A matching capture supplies the expected placement and confidence")
+    {
+        CareerActionReplayContext context;
+        context.SetRaceFrameReplay("debut_race_result_wait.png");
+        CareerActionExecutor executor(config, resources);
+        const auto result = executor.MatchRaceResult(expectation, context);
+        REQUIRE(result.has_value());
+        CHECK(result->raceId == "junior_debut");
+        CHECK(result->placement == 1);
+        CHECK(result->confidence == Catch::Approx(0.95));
+        CHECK(context.lastRoi == std::nullopt); // The catalog policy intentionally matches the full frame.
+        CHECK(context.lastThreshold == Catch::Approx(0.95));
+    }
+
+    SECTION("A different race capture remains unknown and cannot be applied")
+    {
+        CareerActionReplayContext context;
+        context.SetRaceFrameReplay("year2_nhk_result_detail.png");
+        CareerActionExecutor executor(config, resources);
+        CHECK_FALSE(executor.MatchRaceResult(expectation, context).has_value());
+        CHECK(context.CaptureCount() > 1);
+    }
+}

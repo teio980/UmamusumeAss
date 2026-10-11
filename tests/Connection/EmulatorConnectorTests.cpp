@@ -70,7 +70,8 @@ public:
     Result run(
         AdbInvocation const&      invocation,
         std::chrono::milliseconds  ,
-        std::stop_token            ) override
+        std::stop_token            ,
+        std::size_t                ) override
     {
 
         recorded_commands_.push_back(invocation.executable.string());
@@ -85,6 +86,8 @@ public:
         {
             return results_[next_++];
         }
+
+        if (fallback_result_) return *fallback_result_;
 
         return Result{};
     }
@@ -148,12 +151,18 @@ public:
         invocation_hook_ = std::move(hook);
     }
 
+    void set_fallback_result(Result result)
+    {
+        fallback_result_ = std::move(result);
+    }
+
 private:
     std::vector<Result>                  results_;
     std::size_t                          next_ = 0;
     std::size_t                          invocation_count_ = 0;
     std::vector<std::string> recorded_commands_;
     std::function<void(AdbInvocation const&)> invocation_hook_;
+    std::optional<Result> fallback_result_;
 };
 
 
@@ -737,13 +746,8 @@ TEST_CASE("boot timeout returns BootNotCompleted and performs no identity query"
     ScriptedRunner runner{{
         success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
         success("device\n"),
-
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
     }};
+    runner.set_fallback_result(success("0\n"));
 
     ConnectionTimings fast_boot_timeout{
         .devices             = 5000ms,

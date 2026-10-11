@@ -2,9 +2,20 @@
   "version": 8,
   "configurePresets": [
     {
+      "name":          "msvc-debug",
+      "displayName":   "MSVC x64 Debug",
+      "description":   "Debug build using Visual Studio 17 2022 and MSVC.",
+      "generator":     "Visual Studio 17 2022",
+      "architecture":  "x64",
+      "binaryDir":     "${sourceDir}/build/msvc-debug",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
       "name":          "mingw-debug",
       "displayName":   "MinGW x64 Debug",
-      "description":   "Debug build using MinGW-w64 (UCRT64) — the only locally-verified preset",
+      "description":   "Optional Debug build using MinGW-w64 (UCRT64); the MSVC Debug preset is the verified acceptance path.",
       "generator":     "MinGW Makefiles",
       "binaryDir":     "${sourceDir}/build/mingw-debug",
       "environment": {
@@ -30,6 +41,11 @@
   ],
   "buildPresets": [
     {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug"
+    },
+    {
       "name": "mingw-debug",
       "configurePreset": "mingw-debug",
       "environment": {
@@ -43,6 +59,14 @@
     }
   ],
   "testPresets": [
+    {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
     {
       "name": "mingw-debug",
       "configurePreset": "mingw-debug",
