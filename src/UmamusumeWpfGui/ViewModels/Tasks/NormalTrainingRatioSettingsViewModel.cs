@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UmamusumeWpfGui.Services;
-using UmamusumeWpfGui.Services.Training;
+using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
@@ -13,11 +13,11 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 public sealed class NormalTrainingRatioSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly ILocalizationService? _localizationService;
-    private string _speedText = UraTrainingRatio.Default.Speed.ToString(CultureInfo.InvariantCulture);
-    private string _staminaText = UraTrainingRatio.Default.Stamina.ToString(CultureInfo.InvariantCulture);
-    private string _powerText = UraTrainingRatio.Default.Power.ToString(CultureInfo.InvariantCulture);
-    private string _gutsText = UraTrainingRatio.Default.Guts.ToString(CultureInfo.InvariantCulture);
-    private string _witText = UraTrainingRatio.Default.Wit.ToString(CultureInfo.InvariantCulture);
+    private string _speedText = NormalTrainingRatio.Default.Speed.ToString(CultureInfo.InvariantCulture);
+    private string _staminaText = NormalTrainingRatio.Default.Stamina.ToString(CultureInfo.InvariantCulture);
+    private string _powerText = NormalTrainingRatio.Default.Power.ToString(CultureInfo.InvariantCulture);
+    private string _gutsText = NormalTrainingRatio.Default.Guts.ToString(CultureInfo.InvariantCulture);
+    private string _witText = NormalTrainingRatio.Default.Wit.ToString(CultureInfo.InvariantCulture);
 
     public NormalTrainingRatioSettingsViewModel(ILocalizationService? localizationService = null)
     {
@@ -68,7 +68,7 @@ public sealed class NormalTrainingRatioSettingsViewModel : INotifyPropertyChange
             if (!IsValid)
                 return "—";
 
-            var cycle = ToRatio().BuildCycle();
+            var cycle = BuildPreview();
             const int previewLimit = 12;
             var preview = cycle
                 .Take(previewLimit)
@@ -80,9 +80,9 @@ public sealed class NormalTrainingRatioSettingsViewModel : INotifyPropertyChange
         }
     }
 
-    public UraTrainingRatio ToRatio() => new(Speed, Stamina, Power, Guts, Wit);
+    public NormalTrainingRatio ToRatio() => new(Speed, Stamina, Power, Guts, Wit);
 
-    public void SetRatio(UraTrainingRatio ratio)
+    public void SetRatio(NormalTrainingRatio ratio)
     {
         ArgumentNullException.ThrowIfNull(ratio);
         SpeedText = ratio.Speed.ToString(CultureInfo.InvariantCulture);
@@ -90,6 +90,30 @@ public sealed class NormalTrainingRatioSettingsViewModel : INotifyPropertyChange
         PowerText = ratio.Power.ToString(CultureInfo.InvariantCulture);
         GutsText = ratio.Guts.ToString(CultureInfo.InvariantCulture);
         WitText = ratio.Wit.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private List<string> BuildPreview()
+    {
+        // This is display-only: it neither chooses an action nor advances the
+        // native strategy cursor. Keep the existing settings preview readable.
+        var weights = new[] { Speed, Stamina, Power, Guts, Wit };
+        var divisor = weights.Aggregate(0, GreatestCommonDivisor);
+        string[] labels = ["speed", "stamina", "power", "guts", "wit"];
+        var preview = new List<string>();
+        for (var index = 0; index < weights.Length; index++)
+            preview.AddRange(Enumerable.Repeat(labels[index], weights[index] / divisor));
+        return preview;
+    }
+
+    private static int GreatestCommonDivisor(int left, int right)
+    {
+        while (right != 0)
+        {
+            var remainder = left % right;
+            left = right;
+            right = remainder;
+        }
+        return left;
     }
 
     private void SetText(ref string field, string? value, [CallerMemberName] string? propertyName = null)

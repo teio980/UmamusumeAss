@@ -23,4 +23,36 @@
     <ProjectReference Include="..\..\src\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\resource\hachimi\ura\screens\captures\**\*">
+      <Link>resource\hachimi\ura\screens\captures\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\resource\hachimi\ura\testdata\**\*">
+      <Link>resource\hachimi\ura\testdata\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="CopyNativeRuntimeForWpfTests" AfterTargets="Build">
+    <PropertyGroup>
+      <NativeCoreDll>$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
+      <PipelineReplayTool>$(MSBuildProjectDirectory)\..\..\build\native-staging\uma_pipeline_replay.exe</PipelineReplayTool>
+    </PropertyGroup>
+    <Error Text="Native recognition runtime was not staged at '$(NativeCoreDll)'."
+           Condition="!Exists('$(NativeCoreDll)')" />
+    <Copy SourceFiles="$(NativeCoreDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(PipelineReplayTool)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(PipelineReplayTool)')" />
+    <Delete Files="$(TargetDir)testhost.exe" Condition="Exists('$(TargetDir)testhost.exe')" />
+  </Target>
+
 </Project>

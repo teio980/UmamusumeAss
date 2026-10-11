@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace UmamusumeWpfGui.Models;
@@ -36,6 +37,9 @@ public sealed class HachimiPipelineDefinition
 
     [JsonPropertyName("timing")]
     public HachimiPipelineTiming Timing { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 
     [JsonIgnore]
     public string BaseDirectory { get; set; } = AppContext.BaseDirectory;
@@ -344,6 +348,9 @@ public sealed class HachimiPipelineTask
     /// </summary>
     [JsonPropertyName("ocrRequireAllTokens")]
     public bool OcrRequireAllTokens { get; set; } = true;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 }
 
 /// <summary>
@@ -408,6 +415,9 @@ public sealed class HachimiClickVerification
     /// <summary>Delay before a retry probe/tap cycle.</summary>
     [JsonPropertyName("retryDelayMs")]
     public int RetryDelayMilliseconds { get; set; } = 300;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 }
 
 public sealed class HachimiPipelineTemplates
@@ -417,6 +427,9 @@ public sealed class HachimiPipelineTemplates
 
     [JsonPropertyName("randomShop")]
     public string? RandomShop { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 }
 
 /// <summary>
@@ -472,4 +485,7 @@ public sealed class HachimiPipelineTiming
 
     [JsonPropertyName("betweenRacesMs")]
     public int BetweenRacesMilliseconds { get; set; } = 1_200;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 }

@@ -12,12 +12,13 @@ public sealed class NormalCareerSkillSettingsViewBindingTests
     [Fact]
     public void Skill_picker_bindings_survive_search_and_target_changes()
     {
+        var database = NativeTemplateMatcherTestBootstrap.CreateDatabaseFromCoreCatalog();
         Exception? error = null;
         var thread = new Thread(() =>
         {
             try
             {
-                var model = new NormalCareerSkillSettingsViewModel();
+                using var model = new NormalCareerSkillSettingsViewModel(database);
                 var view = new NormalCareerSkillSettingsView { DataContext = model };
                 view.Measure(new Size(900, 900));
                 FlushBindings();

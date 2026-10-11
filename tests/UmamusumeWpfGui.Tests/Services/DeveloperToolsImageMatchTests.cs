@@ -2,6 +2,9 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
@@ -105,6 +108,102 @@ public sealed class DeveloperToolsImageMatchTests
         Assert.False(
             result.CenterX is >= 415 and <= 455 && result.CenterY is >= 1190 and <= 1235,
             "The known blank click around (435,1214) must never be accepted.");
+    }
+
+    [Fact]
+    public void Scaled_masked_head_match_uses_real_alpha_resource_and_records_normalized_input()
+    {
+        var root = FindSolutionRoot();
+        var templatePath = Path.Combine(
+            root,
+            "resource",
+            "hachimi",
+            "career",
+            "event",
+            "templates",
+            "inheritance_event_go.png");
+        using var source = Image.Load<Rgba32>(templatePath);
+        var minX = source.Width;
+        var minY = source.Height;
+        var maxX = -1;
+        var maxY = -1;
+        for (var y = 0; y < source.Height; y++)
+        {
+            for (var x = 0; x < source.Width; x++)
+            {
+                if (source[x, y].A < 24)
+                    continue;
+                minX = Math.Min(minX, x);
+                minY = Math.Min(minY, y);
+                maxX = Math.Max(maxX, x);
+                maxY = Math.Max(maxY, y);
+            }
+        }
+
+        Assert.True(maxX >= minX && maxY >= minY);
+        var headBottom = Math.Min(
+            maxY,
+            minY + Math.Max(1, (int)Math.Round((maxY - minY + 1) * 0.44)));
+        var headMinX = source.Width;
+        var headMaxX = -1;
+        for (var y = minY; y <= headBottom; y++)
+        {
+            for (var x = minX; x <= maxX; x++)
+            {
+                if (source[x, y].A < 24)
+                    continue;
+                headMinX = Math.Min(headMinX, x);
+                headMaxX = Math.Max(headMaxX, x);
+            }
+        }
+
+        Assert.True(headMaxX >= headMinX);
+        using var normalized = source.Clone(context => context.Crop(new Rectangle(
+            headMinX,
+            minY,
+            headMaxX - headMinX + 1,
+            headBottom - minY + 1)));
+        normalized.Mutate(context => context.Resize(new ResizeOptions
+        {
+            Size = new SixLabors.ImageSharp.Size(128, 128),
+            Mode = SixLabors.ImageSharp.Processing.ResizeMode.Stretch,
+        }));
+
+        var templateRgba = new byte[128 * 128 * 4];
+        normalized.CopyPixelDataTo(templateRgba);
+        var templateGray = new byte[128 * 128];
+        var screenGray = new byte[320 * 320];
+        for (var y = 0; y < 320; y++)
+        {
+            for (var x = 0; x < 320; x++)
+                screenGray[y * 320 + x] = (byte)((x * 19 + y * 31) % 251);
+        }
+        for (var index = 0; index < templateGray.Length; index++)
+        {
+            var offset = index * 4;
+            var gray = (byte)((templateRgba[offset] * 299
+                + templateRgba[offset + 1] * 587
+                + templateRgba[offset + 2] * 114) / 1000);
+            templateGray[index] = gray;
+            var x = index % 128;
+            var y = index / 128;
+            screenGray[(124 + y) * 320 + 100 + x] = gray;
+        }
+
+        var screen = new GrayImage(320, 320, screenGray);
+        var result = TemplateMatcher.FindScaledMasked(
+            screen,
+            templatePath,
+            roi: [0, 0, 320, 320],
+            threshold: 0.99,
+            referenceWidth: 320,
+            referenceHeight: 320,
+            scaleCandidates: [1.0]);
+
+        Assert.True(result.Found, $"Masked head score was {result.Score:0.000000}.");
+        Assert.Equal(100, result.X);
+        Assert.Equal(124, result.Y);
+        Assert.InRange(result.Score, 0.99, 1.0);
     }
 
     [Fact]
@@ -369,494 +468,6 @@ public sealed class DeveloperToolsImageMatchTests
         Assert.Equal(matchY, result.Y);
         Assert.Equal(targetWidth, result.Width);
         Assert.Equal(targetHeight, result.Height);
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_finds_an_opaque_system_reference_inside_a_runner_card()
-    {
-        const int templateWidth = 20;
-        const int templateHeight = 20;
-        var templatePixels = new byte[templateWidth * templateHeight * 4];
-        for (var y = 0; y < templateHeight; y++)
-        {
-            for (var x = 0; x < templateWidth; x++)
-            {
-                var value = (byte)((x * 13 + y * 17) % 256);
-                var offset = (y * templateWidth + x) * 4;
-                templatePixels[offset] = value;
-                templatePixels[offset + 1] = value;
-                templatePixels[offset + 2] = value;
-                templatePixels[offset + 3] = 255;
-            }
-        }
-
-        var referencePath = Path.Combine(
-            Path.GetTempPath(),
-            $"umamusume-system-reference-{Guid.NewGuid():N}.png");
-        try
-        {
-            var bitmap = BitmapSource.Create(
-                templateWidth,
-                templateHeight,
-                96,
-                96,
-                PixelFormats.Bgra32,
-                null,
-                templatePixels,
-                templateWidth * 4);
-            bitmap.Freeze();
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(bitmap));
-            using (var output = File.Create(referencePath))
-            {
-                encoder.Save(output);
-            }
-
-            const int screenWidth = 900;
-            const int screenHeight = 1600;
-            const int matchX = 28;
-            const int matchY = 1228;
-            var screenPixels = Enumerable.Repeat(
-                    (byte)20,
-                    screenWidth * screenHeight)
-                .ToArray();
-            var template = GrayImageCodec.FromFile(referencePath);
-            Assert.NotNull(template);
-            for (var y = 0; y < template.Height; y++)
-            {
-                for (var x = 0; x < template.Width; x++)
-                {
-                    screenPixels[(matchY + y) * screenWidth + matchX + x] =
-                        template.Pixels[y * template.Width + x];
-                }
-            }
-
-            var connection = new LastVerifiedConnection(
-                "adb",
-                "emulator",
-                "android",
-                "test",
-                screenWidth,
-                screenHeight,
-                screenWidth,
-                screenHeight,
-                DateTimeOffset.UtcNow);
-            var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-                new GrayImage(screenWidth, screenHeight, screenPixels),
-                referencePath,
-                connection);
-
-            Assert.NotNull(result);
-            Assert.True(result!.Found, $"Reference score was {result.Score:0.000}.");
-            Assert.Equal(20, result.X);
-            Assert.Equal(1220, result.Y);
-        }
-        finally
-        {
-            if (File.Exists(referencePath))
-                File.Delete(referencePath);
-        }
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_finds_100601_in_the_recorded_runner_grid()
-    {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(
-            Path.Combine(root, "debug", "runner_watch_00.png"));
-        var referencePath = Path.Combine(
-            root,
-            "resource",
-            "uma",
-            "system_reference",
-            "100601.webp");
-
-        // These are local diagnostic captures and are intentionally ignored
-        // by Git. Keep the regression check active when a developer has the
-        // capture, while allowing CI to run the tracked synthetic fixtures.
-        if (screen is null)
-            return;
-        var connection = new LastVerifiedConnection(
-            "adb",
-            "emulator",
-            "android",
-            "test",
-            900,
-            1600,
-            900,
-            1600,
-            DateTimeOffset.UtcNow);
-
-        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-                screen!,
-                referencePath,
-                connection);
-
-        Assert.NotNull(result);
-        Assert.True(
-            result!.Found,
-            $"Recorded runner grid score was {result.Score:0.000}.");
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_does_not_use_the_large_detail_portrait_as_a_runner_card()
-    {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(
-            Path.Combine(root, "debug", "live-selector-timeout.png"));
-        var referencePath = Path.Combine(
-            root,
-            "resource",
-            "uma",
-            "system_reference",
-            "100601.webp");
-
-        // This detail-only capture is a local diagnostic artifact and is not
-        // checked into source control.
-        if (screen is null)
-            return;
-        var connection = new LastVerifiedConnection(
-            "adb",
-            "emulator",
-            "android",
-            "test",
-            900,
-            1600,
-            900,
-            1600,
-            DateTimeOffset.UtcNow);
-        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-            screen!,
-            referencePath,
-            connection);
-
-        Assert.NotNull(result);
-        Console.WriteLine(
-            $"Detail-only 100601 score {result!.Score:0.000} at "
-            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
-        Assert.False(
-            result.Found,
-            $"The detail portrait was incorrectly accepted as a card: {result.Score:0.000}.");
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_reports_the_current_filtered_runner_grid()
-    {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(
-            Path.Combine(root, "debug", "live-restored-top.png"));
-        if (screen is null)
-            return;
-
-        var imagePaths = new[]
-        {
-            Path.Combine(root, "resource", "uma", "system_reference", "100601.webp"),
-            Path.Combine(root, "resource", "uma", "system_reference", "1006_live.webp"),
-            Path.Combine(root, "resource", "uma", "assets", "images", "global", "trainees", "100601.webp"),
-            Path.Combine(root, "resource", "uma", "assets", "images", "global", "live_outfits", "1006.png"),
-        };
-        var connection = new LastVerifiedConnection(
-            "adb",
-            "emulator",
-            "android",
-            "test",
-            screen.Width,
-            screen.Height,
-            screen.Width,
-            screen.Height,
-            DateTimeOffset.UtcNow);
-
-        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-            screen,
-            imagePaths[0],
-            connection);
-
-        var selectedReference = GrayImageCodec.FromFile(imagePaths[0]);
-        Assert.NotNull(selectedReference);
-        var fullPageMatch = TemplateMatcher.FindScaled(
-            screen,
-            selectedReference!,
-            roi: null,
-            threshold: 0,
-            referenceWidth: screen.Width,
-            referenceHeight: screen.Height,
-            scaleCandidates: [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00]);
-
-        Assert.NotNull(result);
-        Console.WriteLine(
-            $"Current filtered grid score {result!.Score:0.000} at "
-            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}); "
-            + $"100601 full-page score {fullPageMatch.Score:0.000} at "
-            + $"({fullPageMatch.X}, {fullPageMatch.Y}, {fullPageMatch.Width}, {fullPageMatch.Height}).");
-        Assert.True(result.Found, $"Current filtered grid score was {result.Score:0.000}.");
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_reports_100602_on_the_current_filtered_runner_grid()
-    {
-        var root = FindSolutionRoot();
-        var screen = GrayImageCodec.FromFile(
-            Path.Combine(root, "debug", "live-restored-top.png"));
-        if (screen is null)
-            return;
-
-        var paths = new[]
-        {
-            Path.Combine(root, "resource", "uma", "system_reference", "100602.webp"),
-            Path.Combine(root, "resource", "uma", "system_reference", "1006_live.webp"),
-            Path.Combine(root, "resource", "uma", "assets", "images", "global", "trainees", "100602.webp"),
-            Path.Combine(root, "resource", "uma", "assets", "images", "global", "live_outfits", "1006.png"),
-        };
-        var connection = new LastVerifiedConnection(
-            "adb",
-            "emulator",
-            "android",
-            "test",
-            screen.Width,
-            screen.Height,
-            screen.Width,
-            screen.Height,
-            DateTimeOffset.UtcNow);
-
-        var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-            screen,
-            paths,
-            connection);
-
-        Assert.NotNull(result);
-        Console.WriteLine(
-            $"100602 filtered grid score {result!.Score:0.000} at "
-            + $"({result.X}, {result.Y}, {result.Width}, {result.Height}).");
-        Assert.True(
-            result.Score >= 0.80,
-            $"100602 grid score was only {result.Score:0.000}.");
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_uses_the_best_of_multiple_runner_templates()
-    {
-        const int templateWidth = 20;
-        const int templateHeight = 20;
-        var matchingPixels = new byte[templateWidth * templateHeight];
-        var unrelatedPixels = new byte[matchingPixels.Length];
-        for (var y = 0; y < templateHeight; y++)
-        {
-            for (var x = 0; x < templateWidth; x++)
-            {
-                var index = y * templateWidth + x;
-                var value = (byte)((x * 13 + y * 17) % 256);
-                matchingPixels[index] = value;
-                unrelatedPixels[index] = (byte)(255 - value);
-            }
-        }
-
-        var matchingPath = Path.Combine(
-            Path.GetTempPath(),
-            $"umamusume-matching-template-{Guid.NewGuid():N}.png");
-        var unrelatedPath = Path.Combine(
-            Path.GetTempPath(),
-            $"umamusume-unrelated-template-{Guid.NewGuid():N}.png");
-        try
-        {
-            SaveOpaqueGrayscalePng(
-                matchingPath,
-                templateWidth,
-                templateHeight,
-                matchingPixels);
-            SaveOpaqueGrayscalePng(
-                unrelatedPath,
-                templateWidth,
-                templateHeight,
-                unrelatedPixels);
-
-            const int screenWidth = 900;
-            const int screenHeight = 1600;
-            const int matchX = 28;
-            const int matchY = 808;
-            var screenPixels = Enumerable.Repeat(
-                    (byte)20,
-                    screenWidth * screenHeight)
-                .ToArray();
-            for (var y = 0; y < templateHeight; y++)
-            {
-                for (var x = 0; x < templateWidth; x++)
-                {
-                    screenPixels[(matchY + y) * screenWidth + matchX + x] =
-                        matchingPixels[y * templateWidth + x];
-                }
-            }
-
-            var connection = new LastVerifiedConnection(
-                "adb",
-                "emulator",
-                "android",
-                "test",
-                screenWidth,
-                screenHeight,
-                screenWidth,
-                screenHeight,
-                DateTimeOffset.UtcNow);
-            var result = await DailyRaceRunnerSelector.FindBestMatchAsync(
-                new GrayImage(screenWidth, screenHeight, screenPixels),
-                [unrelatedPath, matchingPath],
-                connection);
-
-            Assert.NotNull(result);
-            Assert.True(result!.Found, $"Best template score was {result.Score:0.000}.");
-            Assert.Equal(20, result.X);
-            Assert.Equal(800, result.Y);
-        }
-        finally
-        {
-            if (File.Exists(matchingPath))
-                File.Delete(matchingPath);
-            if (File.Exists(unrelatedPath))
-                File.Delete(unrelatedPath);
-        }
-    }
-
-    [Fact]
-    public void Independent_lineup_arrow_templates_are_mutually_exclusive()
-    {
-        var root = FindSolutionRoot();
-        var openDown = GrayImageCodec.FromFile(
-            LoadIndependentTemplatePath(root, "lineup_open_down.png"));
-        var closedRight = GrayImageCodec.FromFile(
-            LoadIndependentTemplatePath(root, "lineup_closed_right.png"));
-
-        Assert.NotNull(openDown);
-        Assert.NotNull(closedRight);
-        Assert.Equal(40, openDown!.Width);
-        Assert.Equal(40, openDown.Height);
-        Assert.Equal(40, closedRight!.Width);
-        Assert.Equal(40, closedRight.Height);
-
-        var downSelf = TemplateMatcher.Find(
-            openDown,
-            openDown,
-            roi: null,
-            threshold: 0.90,
-            referenceWidth: openDown.Width,
-            referenceHeight: openDown.Height);
-        var rightOnDown = TemplateMatcher.Find(
-            openDown,
-            closedRight,
-            roi: null,
-            threshold: 0.90,
-            referenceWidth: openDown.Width,
-            referenceHeight: openDown.Height);
-        var rightSelf = TemplateMatcher.Find(
-            closedRight,
-            closedRight,
-            roi: null,
-            threshold: 0.90,
-            referenceWidth: closedRight.Width,
-            referenceHeight: closedRight.Height);
-        var downOnRight = TemplateMatcher.Find(
-            closedRight,
-            openDown,
-            roi: null,
-            threshold: 0.90,
-            referenceWidth: closedRight.Width,
-            referenceHeight: closedRight.Height);
-
-        Assert.True(downSelf.Found, $"Open-down self score was {downSelf.Score:0.000}.");
-        Assert.True(rightSelf.Found, $"Closed-right self score was {rightSelf.Score:0.000}.");
-        Assert.False(rightOnDown.Found, $"Closed-right false-positive score was {rightOnDown.Score:0.000}.");
-        Assert.False(downOnRight.Found, $"Open-down false-positive score was {downOnRight.Score:0.000}.");
-        Assert.True(downSelf.Score - rightOnDown.Score >= 0.15);
-        Assert.True(rightSelf.Score - downOnRight.Score >= 0.15);
-    }
-
-    [Fact]
-    public void Independent_lineup_arrow_templates_distinguish_live_adb_captures_when_available()
-    {
-        var root = FindSolutionRoot();
-        var openCapturePath = Path.Combine(root, "debug", "lineup_open_live.png");
-        var closedCapturePath = Path.Combine(root, "debug", "lineup_closed_live.png");
-        if (!File.Exists(openCapturePath) || !File.Exists(closedCapturePath))
-            return;
-
-        var openCapture = GrayImageCodec.FromFile(openCapturePath);
-        var closedCapture = GrayImageCodec.FromFile(closedCapturePath);
-        var openDown = GrayImageCodec.FromFile(
-            LoadIndependentTemplatePath(root, "lineup_open_down.png"));
-        var closedRight = GrayImageCodec.FromFile(
-            LoadIndependentTemplatePath(root, "lineup_closed_right.png"));
-
-        Assert.NotNull(openCapture);
-        Assert.NotNull(closedCapture);
-        Assert.NotNull(openDown);
-        Assert.NotNull(closedRight);
-
-        int[] roi = [760, 390, 130, 150];
-        var openCorrect = TemplateMatcher.Find(openCapture!, openDown!, roi, 0.90, 900, 1600);
-        var openWrong = TemplateMatcher.Find(openCapture, closedRight!, roi, 0.90, 900, 1600);
-        var closedCorrect = TemplateMatcher.Find(closedCapture!, closedRight, roi, 0.90, 900, 1600);
-        var closedWrong = TemplateMatcher.Find(closedCapture, openDown, roi, 0.90, 900, 1600);
-
-        Assert.True(openCorrect.Found, $"Open-down live score was {openCorrect.Score:0.000}.");
-        Assert.False(openWrong.Found, $"Closed-right live false-positive score was {openWrong.Score:0.000}.");
-        Assert.True(closedCorrect.Found, $"Closed-right live score was {closedCorrect.Score:0.000}.");
-        Assert.False(closedWrong.Found, $"Open-down live false-positive score was {closedWrong.Score:0.000}.");
-    }
-
-    [Fact]
-    public async Task Daily_race_matcher_distinguishes_100601_runner_from_an_unrelated_page()
-    {
-        var root = FindSolutionRoot();
-        var runnerScreenPath = Path.Combine(root, "debug", "live-umamusume.png");
-        var unrelatedScreenPath = Path.Combine(root, "debug", "daily_race_current.png");
-        var referencePath = Path.Combine(
-            root,
-            "resource",
-            "uma",
-            "system_reference",
-            "100601.webp");
-
-        // These captures are local diagnostic artifacts and intentionally not
-        // checked into source control. The synthetic test above still runs in CI.
-        if (!File.Exists(runnerScreenPath) || !File.Exists(unrelatedScreenPath))
-            return;
-
-        var runnerScreen = GrayImageCodec.FromFile(runnerScreenPath);
-        var unrelatedScreen = GrayImageCodec.FromFile(unrelatedScreenPath);
-
-        Assert.NotNull(runnerScreen);
-        Assert.NotNull(unrelatedScreen);
-        Assert.True(File.Exists(referencePath), $"Missing reference image: {referencePath}");
-
-        var connection = new LastVerifiedConnection(
-            "adb",
-            "emulator",
-            "android",
-            "test",
-            runnerScreen!.Width,
-            runnerScreen.Height,
-            runnerScreen.Width,
-            runnerScreen.Height,
-            DateTimeOffset.UtcNow);
-        var runnerResult = await DailyRaceRunnerSelector.FindBestMatchAsync(
-            runnerScreen,
-            referencePath,
-            connection);
-        var unrelatedResult = await DailyRaceRunnerSelector.FindBestMatchAsync(
-            unrelatedScreen!,
-            referencePath,
-            connection);
-
-        Assert.NotNull(runnerResult);
-        Assert.NotNull(unrelatedResult);
-        Assert.True(
-            runnerResult!.Found,
-            $"Runner score was {runnerResult.Score:0.000} at ({runnerResult.X}, {runnerResult.Y}).");
-        Assert.False(
-            unrelatedResult!.Found,
-            $"Unrelated page produced a false positive at score {unrelatedResult.Score:0.000}.");
-        Assert.True(
-            runnerResult.Score >= unrelatedResult.Score + 0.15,
-            $"Runner score {runnerResult.Score:0.000} was not sufficiently separated from "
-            + $"unrelated score {unrelatedResult.Score:0.000}.");
     }
 
     [Fact]

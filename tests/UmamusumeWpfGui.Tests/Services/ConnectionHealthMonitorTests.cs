@@ -1,9 +1,6 @@
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Umamusume.CoreBridge;
-using UmamusumeWpfGui.Helper;
-using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using Xunit;
 
@@ -14,315 +11,139 @@ public sealed class ConnectionHealthMonitorTests
     private static readonly ConnectionHealthTarget Target = new(
         @"C:\MuMu\nx_main\adb.exe",
         "127.0.0.1:16384",
-        "MuMuEmulator12");
+        "MuMuEmulator12",
+        SessionGeneration: 42);
 
     [Fact]
-    public async Task Start_HealthyProbe_RemainsRunningUntilStopped()
+    public async Task Start_TracksNativeSessionWithoutRunningAnotherProbe()
     {
-        var runner = new FakeAdbRunner([
-            new AdbCommandResult("device", "", 0, false, null),
-        ]);
-        var delay = new ControlledDelay();
-        var monitor = CreateMonitor(runner, delay);
+        var service = new FakeUmaService();
+        var monitor = new ConnectionHealthMonitor(service);
 
         monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        delay.ReleaseCurrent();
-        await runner.WaitForCallAsync();
 
         Assert.True(monitor.IsRunning);
-        Assert.Equal(["-s", Target.Serial, "get-state"], runner.Commands[0]);
+        service.Publish(new ConnectionStartedEvent(42));
+        service.Publish(new ConnectionProgressEvent(42, ConnectionPhase.AdbDevices));
+        Assert.True(monitor.IsRunning);
 
         await monitor.StopAsync();
-
         Assert.False(monitor.IsRunning);
     }
 
     [Fact]
-    public async Task FailedProbe_WithVerifiedEndpoint_ReconnectsOnce()
+    public async Task DisconnectFromStaleSession_IsIgnored()
     {
-        var runner = new FakeAdbRunner([
-            new AdbCommandResult("", "offline", 1, false, null),
-        ]);
-        var delay = new ControlledDelay();
-        var uma = new FakeUmaService();
-        var monitor = CreateMonitor(runner, delay, uma);
+        var service = new FakeUmaService();
+        var monitor = new ConnectionHealthMonitor(service);
+        var failureCount = 0;
+        monitor.Failed += _ => failureCount++;
 
         monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        delay.ReleaseCurrent();
-        await uma.WaitForConnectAsync();
+        service.Publish(new DeviceDisconnectedEvent(
+            SessionGeneration: 41,
+            Sequence: 1,
+            ErrorCode: ConnectionErrorCode.DeviceDisconnected));
 
-        Assert.Equal(1, uma.ConnectCallCount);
-        Assert.Equal(Target.Serial, uma.LastConnectCall?.Serial);
+        Assert.True(monitor.IsRunning);
+        Assert.Equal(0, failureCount);
 
         await monitor.StopAsync();
     }
 
     [Fact]
-    public async Task MissingTargetFromAdbDevices_RaisesDeviceDisconnected()
+    public void DisconnectForCurrentSession_RaisesFailureOnceAndStopsMonitoring()
     {
-        var runner = new FakeAdbRunner([]);
-        var delay = new ControlledDelay();
-        var winAdapter = new FakeWinAdapter
+        var service = new FakeUmaService();
+        var monitor = new ConnectionHealthMonitor(service);
+        ConnectionHealthFailure? failure = null;
+        var failureCount = 0;
+        monitor.Failed += current =>
         {
-            NextDevices = new AdbDevicesResult([], []),
+            failure = current;
+            failureCount++;
+            Assert.False(monitor.IsRunning);
         };
-        var failureSource = new TaskCompletionSource<ConnectionHealthFailure>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var monitor = CreateMonitor(runner, delay, winAdapter: winAdapter);
-        monitor.Failed += failure => failureSource.TrySetResult(failure);
 
         monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        delay.ReleaseCurrent();
-        var failure = await failureSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        service.Publish(new DeviceDisconnectedEvent(
+            SessionGeneration: 42,
+            Sequence: 3,
+            ErrorCode: ConnectionErrorCode.DeviceDisconnected));
+        service.Publish(new DeviceDisconnectedEvent(
+            SessionGeneration: 42,
+            Sequence: 4,
+            ErrorCode: ConnectionErrorCode.DeviceDisconnected));
 
-        Assert.Equal(ConnectionErrorCode.DeviceDisconnected, failure.ErrorCode);
-        Assert.Contains("no longer present", failure.Diagnostic, StringComparison.Ordinal);
-        Assert.Empty(runner.Commands);
-
-        await monitor.StopAsync();
-    }
-
-    [Fact]
-    public async Task FailedProbe_WhenRecoveryFails_RaisesFailure()
-    {
-        var runner = new FakeAdbRunner([
-            new AdbCommandResult("", "offline", 1, false, null),
-        ]);
-        var delay = new ControlledDelay();
-        var winAdapter = new FakeWinAdapter
-        {
-            NextResolution = new EndpointResolutionResult([], []),
-        };
-        var failureSource = new TaskCompletionSource<ConnectionHealthFailure>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var monitor = CreateMonitor(runner, delay, winAdapter: winAdapter);
-        monitor.Failed += failure => failureSource.TrySetResult(failure);
-
-        monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        delay.ReleaseCurrent();
-        var failure = await failureSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
+        Assert.Equal(1, failureCount);
+        Assert.NotNull(failure);
         Assert.Equal(Target.Serial, failure.Serial);
         Assert.Equal(ConnectionErrorCode.DeviceDisconnected, failure.ErrorCode);
-        Assert.Contains("verified", failure.Diagnostic, StringComparison.OrdinalIgnoreCase);
-
-        await monitor.StopAsync();
-    }
-
-    [Fact]
-    public async Task StopAsync_CancelsPendingProbeWithoutRunningAdb()
-    {
-        var runner = new FakeAdbRunner([]);
-        var delay = new ControlledDelay();
-        var monitor = CreateMonitor(runner, delay);
-
-        monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        await monitor.StopAsync();
-
-        Assert.Empty(runner.Commands);
+        Assert.Contains("session 42", failure.Diagnostic, StringComparison.OrdinalIgnoreCase);
         Assert.False(monitor.IsRunning);
     }
 
     [Fact]
-    public async Task Start_ReplacesExistingMonitor()
+    public void Start_ReplacesSessionAndAcceptsOnlyReplacementGeneration()
     {
-        var runner = new FakeAdbRunner([]);
-        var delay = new ControlledDelay();
-        var monitor = CreateMonitor(runner, delay);
+        var service = new FakeUmaService();
+        var monitor = new ConnectionHealthMonitor(service);
+        ConnectionHealthFailure? failure = null;
+        monitor.Failed += current => failure = current;
+        var replacement = Target with
+        {
+            Serial = "127.0.0.1:16416",
+            SessionGeneration = 99,
+        };
 
         monitor.Start(Target);
-        await delay.WaitForCallAsync();
-
-        var replacement = Target with { Serial = "127.0.0.1:16416" };
         monitor.Start(replacement);
-        await delay.WaitForCallAsync();
+        service.Publish(new DeviceDisconnectedEvent(
+            SessionGeneration: 42,
+            Sequence: 1,
+            ErrorCode: ConnectionErrorCode.DeviceDisconnected));
 
         Assert.True(monitor.IsRunning);
-        await monitor.StopAsync();
-    }
+        Assert.Null(failure);
 
-    [Fact]
-    public async Task Reconnect_IsSerializedToOneActiveCall()
-    {
-        var runner = new FakeAdbRunner([
-            new AdbCommandResult("", "offline", 1, false, null),
-        ]);
-        var delay = new ControlledDelay();
-        var uma = new FakeUmaService
-        {
-            ConnectGate = new TaskCompletionSource<ConnectionTerminalEvent>(
-                TaskCreationOptions.RunContinuationsAsynchronously),
-        };
-        var monitor = CreateMonitor(runner, delay, uma);
+        service.Publish(new DeviceDisconnectedEvent(
+            SessionGeneration: 99,
+            Sequence: 2,
+            ErrorCode: ConnectionErrorCode.DeviceDisconnected));
 
-        monitor.Start(Target);
-        await delay.WaitForCallAsync();
-        delay.ReleaseCurrent();
-        await uma.WaitForConnectAsync();
-
-        Assert.Equal(1, uma.ConnectCallCount);
-        uma.ConnectGate.TrySetResult(new ConnectionSucceededEvent(
-            1, Target.Serial, "id", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical));
-        await monitor.StopAsync();
-    }
-
-    private static ConnectionHealthMonitor CreateMonitor(
-        FakeAdbRunner runner,
-        ControlledDelay delay,
-        FakeUmaService? uma = null,
-        FakeWinAdapter? winAdapter = null) =>
-        new(
-            runner,
-            winAdapter ?? new FakeWinAdapter(),
-            uma ?? new FakeUmaService(),
-            delay);
-
-    private sealed class FakeAdbRunner : IAdbRunner
-    {
-        private readonly Queue<AdbCommandResult> _results;
-        private readonly TaskCompletionSource<bool> _called = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public FakeAdbRunner(IEnumerable<AdbCommandResult> results) => _results = new(results);
-
-        public List<IReadOnlyList<string>> Commands { get; } = [];
-
-        public Task<bool> WaitForCallAsync() => _called.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
-        public AdbCommandResult Run(string adbPath, IReadOnlyList<string> arguments)
-        {
-            Commands.Add(arguments);
-            return _results.Dequeue();
-        }
-
-        public Task<AdbCommandResult> RunAsync(
-            string adbPath,
-            IReadOnlyList<string> arguments,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var result = Run(adbPath, arguments);
-            _called.TrySetResult(true);
-            return Task.FromResult(result);
-        }
-
-        public (string Stdout, string Stderr, int ExitCode, bool TimedOut, Exception? Error) RunDevices(string adbPath) =>
-            ("", "", 0, false, null);
-    }
-
-    private sealed class FakeWinAdapter : IWinAdapter
-    {
-        public EndpointResolutionResult NextResolution { get; set; } = new([Target.Serial], []);
-        public AdbDevicesResult NextDevices { get; set; } = new(
-            [new AdbDeviceRecord(Target.Serial, "device")], []);
-
-        public DiscoveryResult RefreshEmulatorsInfo() => new([], []);
-
-        public AdbDevicesResult GetAdbDevices(string adbPath) => NextDevices;
-
-        public EndpointResolutionResult ResolveEndpoints(
-            string adbPath,
-            string profileName,
-            CancellationToken cancellationToken) => NextResolution;
-
-        public Task<EndpointResolutionResult> ResolveEndpointsAsync(
-            string adbPath,
-            string profileName,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(NextResolution);
-        }
+        Assert.False(monitor.IsRunning);
+        Assert.NotNull(failure);
+        Assert.Equal(replacement.Serial, failure.Serial);
     }
 
     private sealed class FakeUmaService : IUmaService
     {
-        private readonly TaskCompletionSource<bool> _connectCalled = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource<ConnectionTerminalEvent>? ConnectGate { get; set; }
-        public int ConnectCallCount { get; private set; }
-        public (string AdbPath, string Serial, string Profile)? LastConnectCall { get; private set; }
         public string? CoreVersion => "test";
-        public string? ResourcePath => null;
-        #pragma warning disable CS0067
         public event Action<ConnectionEvent>? ConnectionEventReceived;
+        #pragma warning disable CS0067
         public event Action<BridgeDiagnostic>? DiagnosticReceived;
         #pragma warning restore CS0067
 
-        public Task<bool> WaitForConnectAsync() => _connectCalled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        public void Publish(ConnectionEvent connectionEvent) =>
+            ConnectionEventReceived?.Invoke(connectionEvent);
 
-        public Task InitializeAsync(string appBaseDir, string appDataDir, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        public Task InitializeAsync(
+            string appBaseDir,
+            string appDataDir,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public async Task<ConnectionTerminalEvent> ConnectAsync(
+        public Task<ConnectionTerminalEvent> ConnectAsync(
             string adbPath,
             string serial,
             string profile,
-            CancellationToken cancellationToken = default)
-        {
-            ConnectCallCount++;
-            LastConnectCall = (adbPath, serial, profile);
-            _connectCalled.TrySetResult(true);
-            if (ConnectGate is not null)
-                return await ConnectGate.Task.WaitAsync(cancellationToken);
-            return new ConnectionSucceededEvent(
-                1, serial, "id", "14", 1080, 1920, 1080, 1920, DisplaySizeSource.Physical);
-        }
+            CancellationToken cancellationToken = default) =>
+            Task.FromException<ConnectionTerminalEvent>(
+                new NotSupportedException("ConnectionHealthMonitor must not reconnect."));
 
-        public Task CancelOperationAsync(ulong operationId, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        public Task CancelOperationAsync(
+            ulong operationId,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class ControlledDelay : IAsyncDelay
-    {
-        private readonly object _gate = new();
-        private TaskCompletionSource<object?> _callStarted = CreateSource();
-        private TaskCompletionSource<bool>? _current;
-
-        public async Task<object?> WaitForCallAsync()
-        {
-            TaskCompletionSource<object?> observed;
-            lock (_gate)
-            {
-                observed = _callStarted;
-            }
-
-            var result = await observed.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            lock (_gate)
-            {
-                if (ReferenceEquals(_callStarted, observed))
-                    _callStarted = CreateSource();
-            }
-            return result;
-        }
-
-        public void ReleaseCurrent()
-        {
-            lock (_gate)
-            {
-                _current?.TrySetResult(true);
-            }
-        }
-
-        public Task DelayAsync(TimeSpan duration, CancellationToken cancellationToken = default)
-        {
-            lock (_gate)
-            {
-                _current = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _callStarted.TrySetResult(null);
-                return _current.Task.WaitAsync(cancellationToken);
-            }
-        }
-
-        private static TaskCompletionSource<object?> CreateSource() =>
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

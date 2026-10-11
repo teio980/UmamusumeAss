@@ -7,52 +7,34 @@ namespace UmamusumeWpfGui.Services;
 
 internal static class ScreenshotBitmapCodec
 {
-    public static BitmapSource? ToBitmapSource(AdbScreenshotResult screenshot)
+    public static BitmapSource? ToBitmapSource(GrayImage frame)
     {
-        ArgumentNullException.ThrowIfNull(screenshot);
+        ArgumentNullException.ThrowIfNull(frame);
+        if (frame.Width <= 0 || frame.Height <= 0
+            || frame.RgbaPixels is not { } rgba
+            || rgba.Length < checked(frame.Width * frame.Height * 4))
+            return null;
 
-        if (screenshot.DecodedRaw is { } raw)
+        var bgra = new byte[checked(frame.Width * frame.Height * 4)];
+        for (var offset = 0; offset < bgra.Length; offset += 4)
         {
-            return FromRawRgba(raw);
+            bgra[offset] = rgba[offset + 2];
+            bgra[offset + 1] = rgba[offset + 1];
+            bgra[offset + 2] = rgba[offset];
+            bgra[offset + 3] = rgba[offset + 3];
         }
 
-        if (screenshot.Data.Length == 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            using var stream = new MemoryStream(screenshot.Data, writable: false);
-            var decoder = BitmapDecoder.Create(
-                stream,
-                BitmapCreateOptions.PreservePixelFormat,
-                BitmapCacheOption.OnLoad);
-            var frame = decoder.Frames[0];
-            var bitmap = new FormatConvertedBitmap(
-                frame,
-                PixelFormats.Bgra32,
-                null,
-                0);
-            bitmap.Freeze();
-            return bitmap;
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
-        catch (NotSupportedException)
-        {
-            return null;
-        }
-        catch (FileFormatException)
-        {
-            return null;
-        }
+        var bitmap = BitmapSource.Create(
+            frame.Width,
+            frame.Height,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            bgra,
+            frame.Width * 4);
+        bitmap.Freeze();
+        return bitmap;
     }
 
     public static void SavePng(BitmapSource source, string path)
@@ -72,29 +54,4 @@ internal static class ScreenshotBitmapCodec
         encoder.Save(output);
     }
 
-    private static BitmapSource FromRawRgba(AdbRawScreenshot raw)
-    {
-        var bgra = new byte[checked(raw.Width * raw.Height * 4)];
-        var pixelCount = Math.Min(raw.Width * raw.Height, raw.RgbaBytes.Length / 4);
-        for (var index = 0; index < pixelCount; index++)
-        {
-            var offset = index * 4;
-            bgra[offset] = raw.RgbaBytes[offset + 2];
-            bgra[offset + 1] = raw.RgbaBytes[offset + 1];
-            bgra[offset + 2] = raw.RgbaBytes[offset];
-            bgra[offset + 3] = raw.RgbaBytes[offset + 3];
-        }
-
-        var bitmap = BitmapSource.Create(
-            raw.Width,
-            raw.Height,
-            96,
-            96,
-            PixelFormats.Bgra32,
-            null,
-            bgra,
-            raw.Width * 4);
-        bitmap.Freeze();
-        return bitmap;
-    }
 }

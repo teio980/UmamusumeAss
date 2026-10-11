@@ -12,11 +12,12 @@ public sealed class NormalCareerSkillSettingsViewModelTests
     [Fact]
     public void Picker_searches_only_global_selectable_skills_and_edits_ordered_targets()
     {
-        using var settings = new CareerTrainingTaskSettingsViewModel();
+        var database = NativeTemplateMatcherTestBootstrap.CreateDatabaseFromCoreCatalog();
+        using var settings = new CareerTrainingTaskSettingsViewModel(database);
         var picker = settings.NormalSkills;
 
         Assert.False(picker.IsCareerModeActive);
-        Assert.Equal(579, picker.FilteredSkills.Count);
+        Assert.NotEmpty(picker.FilteredSkills);
         Assert.All(picker.FilteredSkills, option => Assert.True(option.Skill.IsSelectable));
 
         var first = picker.FilteredSkills[0];
@@ -43,9 +44,10 @@ public sealed class NormalCareerSkillSettingsViewModelTests
     }
 
     [Fact]
-    public void Normal_skill_ids_round_trip_in_priority_order_and_map_to_pipeline_contract()
+    public void Normal_skill_ids_round_trip_in_priority_order_in_ui_settings()
     {
-        using var settings = new CareerTrainingTaskSettingsViewModel
+        var database = NativeTemplateMatcherTestBootstrap.CreateDatabaseFromCoreCatalog();
+        using var settings = new CareerTrainingTaskSettingsViewModel(database)
         {
             CareerMode = CareerTrainingTaskSettingsViewModel.NormalCareerMode,
             TraineeId = 1,
@@ -56,6 +58,7 @@ public sealed class NormalCareerSkillSettingsViewModelTests
             .Select(option => option.SkillId)
             .Reverse()
             .ToArray();
+        Assert.Equal(3, skillIds.Length);
         settings.NormalSkills.SkillIdsText = string.Join(",", skillIds);
 
         var exported = CareerTaskSettingsSerializer.Export(settings);
@@ -64,11 +67,10 @@ public sealed class NormalCareerSkillSettingsViewModelTests
             Assert.IsType<JsonArray>(exported["normalSkillIds"])
                 .Select(item => item!.GetValue<int>()));
 
-        using var imported = new CareerTrainingTaskSettingsViewModel();
+        using var imported = new CareerTrainingTaskSettingsViewModel(database);
         CareerTaskSettingsSerializer.Import(imported, exported);
 
         Assert.Equal(skillIds, imported.ParseNormalSkillIds());
-        Assert.Equal(skillIds, CareerTaskSettingsMapper.ToNormalSettings(imported).EffectiveNormalSkillIds);
         Assert.True(imported.NormalSkills.IsCareerModeActive);
         imported.CareerMode = CareerTrainingTaskSettingsViewModel.IndependentCareerMode;
         Assert.False(imported.NormalSkills.IsCareerModeActive);

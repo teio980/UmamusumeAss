@@ -19,8 +19,6 @@ public sealed record AdbDeviceInfo(
         Attributes.TryGetValue(name, out var value) ? value : null;
 }
 
-public sealed record AdbScreenSize(int Width, int Height);
-
 public enum AdbScreenshotMethod
 {
     EncodedPng,
@@ -38,21 +36,10 @@ public sealed record AdbScreenshotResult(
     AdbScreenshotMethod Method,
     byte[] Data,
     TimeSpan Duration,
-    AdbRawScreenshot? DecodedRaw = null);
-
-public sealed record AdbScreenshotCaptureResult(
-    AdbScreenshotResult? Screenshot,
-    IReadOnlyList<UmamusumeWpfGui.Helper.AdbBinaryCommandResult> Attempts)
+    AdbRawScreenshot? DecodedRaw = null)
 {
-    public bool Succeeded => Screenshot is not null;
+    public FrameProvenance? SourceFrame { get; init; }
 }
-
-public sealed record AdbDeviceProperties(
-    string AndroidId,
-    string AndroidVersion,
-    string AbiList,
-    bool BootCompleted,
-    AdbScreenSize? ScreenSize);
 
 public sealed record AdbRuntimeQueryResult<T>(
     T? Value,
@@ -76,20 +63,4 @@ public sealed record AdbDeviceListResult(
         CommandResult.Error is null
         && !CommandResult.TimedOut
         && CommandResult.ExitCode == 0;
-}
-
-
-
-
-
-
-public sealed record AdbRuntimeOptions(
-    double SwipeDurationMultiplier,
-    int ExtraSwipeDistance,
-    int ExtraSwipeDurationMilliseconds)
-{
-    public static AdbRuntimeOptions Default { get; } = new(
-        SwipeDurationMultiplier: 10.0,
-        ExtraSwipeDistance: 100,
-        ExtraSwipeDurationMilliseconds: 500);
 }

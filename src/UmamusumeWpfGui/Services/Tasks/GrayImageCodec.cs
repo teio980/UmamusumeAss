@@ -1,9 +1,9 @@
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using UmamusumeWpfGui.Models;
+using Umamusume.CoreBridge;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
@@ -32,39 +32,78 @@ internal static class GrayImageCodec
         ArgumentNullException.ThrowIfNull(screenshot);
 
         if (screenshot.DecodedRaw is { } raw)
-            return FromRawRgba(raw.Width, raw.Height, raw.RgbaBytes);
+        {
+            var image = FromRawRgba(raw.Width, raw.Height, raw.RgbaBytes);
+            return image is null || screenshot.SourceFrame is null
+                ? image
+                : image with { SourceFrame = screenshot.SourceFrame };
+        }
 
-        return FromEncodedImage(screenshot.Data);
+        var decoded = FromEncodedImage(screenshot.Data);
+        return decoded is null || screenshot.SourceFrame is null
+            ? decoded
+            : decoded with { SourceFrame = screenshot.SourceFrame };
     }
 
-    public static GrayImage? FromFile(string path)
+    public static GrayImage? FromDeviceFrame(Umamusume.CoreBridge.DeviceFrame frame)
     {
-        if (!File.Exists(path))
-            return null;
+        ArgumentNullException.ThrowIfNull(frame);
+        var image = FromEncodedImage(frame.PngBytes.ToArray());
+        return image is null
+            ? null
+            : image with { SourceFrame = new FrameProvenance(frame.Metadata) };
+    }
 
-        try
-        {
-            return FromEncodedImage(File.ReadAllBytes(path));
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (NotSupportedException)
-        {
-            return null;
-        }
-        catch (COMException)
-        {
+    public static GrayImage? FromFile(string path) =>
+        File.Exists(path) ? LoadTemplate(path) : null;
 
+    internal static GrayImage? LoadTemplate(string path,
+        TemplatePreparation preparation = TemplatePreparation.Original) =>
+        FromRecognitionImage(TemplateMatcher.LoadTemplateImage(path, preparation));
 
-
-            return null;
-        }
-        catch (FileFormatException)
+    internal static GrayImage Resize(GrayImage image, int width, int height, bool meanGray = false)
+    {
+        var resized = FromRecognitionImage(RecognitionImageDecoder.Transform(
+            new RecognitionImage(image.Width, image.Height, image.Pixels.Length == 0 ? null : image.Pixels,
+                image.RgbaPixels), new RecognitionImageTransform(TargetWidth: width, TargetHeight: height,
+                    MeanGray: meanGray)))
+            ?? throw new InvalidDataException("Native image resizing produced no pixels.");
+        return resized with
         {
-            return null;
-        }
+            SourceFrame = image.SourceFrame?.Resize(image.Width, image.Height, width, height),
+        };
+    }
+
+    internal static GrayImage ResizeNearest(GrayImage image, int width, int height)
+    {
+        var resized = FromRecognitionImage(RecognitionImageDecoder.Transform(
+            new RecognitionImage(image.Width, image.Height, image.Pixels.Length == 0 ? null : image.Pixels,
+                image.RgbaPixels), new RecognitionImageTransform(TargetWidth: width, TargetHeight: height, Nearest: true)))
+            ?? throw new InvalidDataException("Native nearest-neighbour resizing produced no pixels.");
+        return resized with { SourceFrame = image.SourceFrame?.Resize(image.Width, image.Height, width, height) };
+    }
+
+    internal static GrayImage CropAndResize(GrayImage image, Int32Rect bounds, int width, int height)
+    {
+        var resized = FromRecognitionImage(RecognitionImageDecoder.Transform(
+            new RecognitionImage(image.Width, image.Height, image.Pixels.Length == 0 ? null : image.Pixels,
+                image.RgbaPixels), new RecognitionImageTransform(bounds.X, bounds.Y, bounds.Width,
+                    bounds.Height, width, height)))
+            ?? throw new InvalidDataException("Native image crop/resize produced no pixels.");
+        return resized with
+        {
+            SourceFrame = image.SourceFrame?.Crop(bounds.X, bounds.Y)
+                .Resize(bounds.Width, bounds.Height, width, height),
+        };
+    }
+
+    internal static GrayImage Binarize(GrayImage image, RecognitionColorRule rule)
+    {
+        var binary = FromRecognitionImage(RecognitionColorAnalyzer.Binarize(
+            new RecognitionImage(image.Width, image.Height, image.Pixels.Length == 0 ? null : image.Pixels,
+                image.RgbaPixels), rule))
+            ?? throw new InvalidDataException("Native color binarization produced no pixels.");
+        return binary with { SourceFrame = image.SourceFrame };
     }
 
     public static GrayImage? Crop(GrayImage image, Int32Rect region)
@@ -95,36 +134,16 @@ internal static class GrayImageCodec
             return null;
         }
 
-        var pixels = new byte[checked(width * height)];
-        for (var row = 0; row < height; row++)
-        {
-            Buffer.BlockCopy(
-                image.Pixels,
-                checked((y + row) * image.Width + x),
-                pixels,
-                row * width,
-                width);
-        }
-
-        byte[]? rgba = null;
-        if (image.RgbaPixels is { } sourceRgba
-            && sourceRgba.Length >= checked(image.Width * image.Height * 4))
-        {
-            rgba = new byte[checked(width * height * 4)];
-            for (var row = 0; row < height; row++)
-            {
-                Buffer.BlockCopy(
-                    sourceRgba,
-                    checked(((y + row) * image.Width + x) * 4),
-                    rgba,
-                    row * width * 4,
-                    width * 4);
-            }
-        }
-
-        return new GrayImage(width, height, pixels, rgba);
+        var count = checked(image.Width * image.Height);
+        var gray = image.Pixels.Length == count ? image.Pixels : image.Pixels[..count];
+        var rgba = image.RgbaPixels is { } sourceRgba && sourceRgba.Length >= checked(count * 4)
+            ? sourceRgba.Length == count * 4 ? sourceRgba : sourceRgba[..(count * 4)] : null;
+        var cropped = FromRecognitionImage(RecognitionImageDecoder.Transform(
+            new RecognitionImage(image.Width, image.Height, gray, rgba),
+            new RecognitionImageTransform(x, y, width, height)))
+            ?? throw new InvalidDataException("Native image cropping produced no pixels.");
+        return cropped with { SourceFrame = image.SourceFrame?.Crop(x, y) };
     }
-
     public static void SaveScreenshot(AdbScreenshotResult screenshot, string path)
     {
         ArgumentNullException.ThrowIfNull(screenshot);
@@ -169,78 +188,17 @@ internal static class GrayImageCodec
         encoder.Save(output);
     }
 
-    private static GrayImage FromRawRgba(int width, int height, byte[] rgba)
-    {
-        var pixels = new byte[checked(width * height)];
-        var pixelCount = Math.Min(pixels.Length, rgba.Length / 4);
-        for (var index = 0; index < pixelCount; index++)
-        {
-            var offset = index * 4;
-            pixels[index] = ToGray(rgba[offset], rgba[offset + 1], rgba[offset + 2]);
-        }
+    private static GrayImage? FromRawRgba(int width, int height, byte[] rgba) =>
+        width > 0 && height > 0 && (long)width * height * 4 == rgba.Length
+            ? FromRecognitionImage(RecognitionImageDecoder.FromRgba(width, height, rgba))
+            : null;
 
-        return new GrayImage(width, height, pixels, rgba);
-    }
+    private static GrayImage? FromEncodedImage(byte[] data) =>
+        FromRecognitionImage(RecognitionImageDecoder.DecodeBytes(data));
 
-    private static GrayImage? FromEncodedImage(byte[] data)
-    {
-        if (data.Length == 0)
-            return null;
+    private static GrayImage? FromRecognitionImage(RecognitionImage? image) =>
+        image?.GrayPixels is { } gray
+            ? new GrayImage(image.Width, image.Height, gray, image.RgbaPixels) { Preparation = image.Preparation }
+            : null;
 
-        try
-        {
-            using var stream = new MemoryStream(data, writable: false);
-            var decoder = BitmapDecoder.Create(
-                stream,
-                BitmapCreateOptions.PreservePixelFormat,
-                BitmapCacheOption.OnLoad);
-            var frame = decoder.Frames[0];
-            var converted = new FormatConvertedBitmap(
-                frame,
-                PixelFormats.Bgra32,
-                null,
-                0);
-            converted.Freeze();
-
-            var width = converted.PixelWidth;
-            var height = converted.PixelHeight;
-            var bgra = new byte[checked(width * height * 4)];
-            converted.CopyPixels(bgra, width * 4, 0);
-            var pixels = new byte[checked(width * height)];
-            var rgba = new byte[bgra.Length];
-            for (var index = 0; index < pixels.Length; index++)
-            {
-                var offset = index * 4;
-                var blue = bgra[offset];
-                var green = bgra[offset + 1];
-                var red = bgra[offset + 2];
-                pixels[index] = ToGray(red, green, blue);
-                rgba[offset] = red;
-                rgba[offset + 1] = green;
-                rgba[offset + 2] = blue;
-                rgba[offset + 3] = bgra[offset + 3];
-            }
-
-            return new GrayImage(width, height, pixels, rgba);
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
-        catch (COMException)
-        {
-            return null;
-        }
-        catch (FileFormatException)
-        {
-            return null;
-        }
-    }
-
-    private static byte ToGray(byte red, byte green, byte blue) =>
-        (byte)((red * 299 + green * 587 + blue * 114) / 1000);
 }

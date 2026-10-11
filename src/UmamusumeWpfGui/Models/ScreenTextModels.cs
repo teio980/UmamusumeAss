@@ -44,13 +44,19 @@ public sealed record ScreenTextRecognitionResult(
     IReadOnlyList<ScreenTextDetection> Detections,
     string Language,
     int Width = 0,
-    int Height = 0);
+    int Height = 0)
+{
+    public FrameProvenance? SourceFrame { get; init; }
+}
 
 public sealed record ScreenTextCandidate(
     string Text,
     ScreenTextRect Bounds,
     double Confidence,
-    double Similarity);
+    double Similarity)
+{
+    public FrameProvenance? SourceFrame { get; init; }
+}
 
 public sealed record ScreenTextQueryResult(
     bool Found,

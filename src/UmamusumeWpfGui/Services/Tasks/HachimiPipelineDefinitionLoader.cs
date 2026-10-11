@@ -1,20 +1,18 @@
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
 /// <summary>
-/// Loads the shared ordinary-pipeline schema strictly. Unknown properties are
-/// rejected so configuration mistakes cannot silently change execution.
+/// Deserializes the shared pipeline DTO for UI projection. Core owns parsing
+/// and semantic validation before execution or save.
 /// </summary>
 public static class HachimiPipelineDefinitionLoader
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = false,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 
     public static async Task<HachimiPipelineDefinition?> LoadAsync(
@@ -34,12 +32,6 @@ public static class HachimiPipelineDefinitionLoader
                 .ConfigureAwait(false);
             if (definition is null)
                 return null;
-
-            if (definition.SchemaVersion != 1)
-            {
-                throw new JsonException(
-                    $"Unsupported Hachimi pipeline schema version {definition.SchemaVersion}.");
-            }
 
             // System.Text.Json creates a regular dictionary when deserializing
             // the JSON object. Rebuild it with MAA-like case-insensitive task

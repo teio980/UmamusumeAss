@@ -2,10 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace UmamusumeWpfGui.Models;
 
-
-
-
-
 public sealed class StartGamePipelineDefinition
 {
     [JsonPropertyName("start")]
@@ -107,6 +103,8 @@ public sealed record TemplateMatchResult(
     int Width,
     int Height)
 {
+    public FrameProvenance? SourceFrame { get; init; }
+
     public int CenterX => X + Width / 2;
 
     public int CenterY => Y + Height / 2;

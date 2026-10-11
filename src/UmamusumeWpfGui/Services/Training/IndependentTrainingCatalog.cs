@@ -1,14 +1,12 @@
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using Umamusume.CoreBridge;
+using UmamusumeWpfGui.Services;
 
 namespace UmamusumeWpfGui.Services.Training;
 
-/// <summary>
-/// Immutable, offline data used by the Independent Training setup editor.
-/// The race and skill catalogs are checked-in snapshots shipped with the
-/// application, so a run never depends on a live web page.
-/// </summary>
+/// <summary>UI projection of the native Independent Training catalog.</summary>
 public sealed class IndependentTrainingCatalog
 {
     public const int SkillPickerVisibleRows = 8;
@@ -17,17 +15,8 @@ public sealed class IndependentTrainingCatalog
     public const int SkillPickerCheckboxRoiLeft = 20;
     public const int SkillPickerCheckboxRoiWidth = 150;
     public const int SkillPickerCheckboxRoiHeight = 220;
-
-    public const string DefaultRacePath =
-        "resource/hachimi/ura/independent_training/races.global.json";
-    public const string DefaultSkillPath =
-        "resource/uma/database/global/skills.json";
-
-    public const string RaceCardTemplateDirectory =
-        "templates/independent/race_cards";
-
-    private const string PackagedRaceCardTemplateDirectory =
-        "resource/hachimi/career/modes/independent/templates/independent/race_cards";
+    public const string RaceCardTemplateDirectory = "templates/independent/race_cards";
+    private const string PackagedRaceCardTemplateDirectory = "resource/hachimi/career/modes/independent/templates/independent/race_cards";
 
     private IndependentTrainingCatalog(
         IReadOnlyList<IndependentTrainingRace> races,
@@ -44,515 +33,141 @@ public sealed class IndependentTrainingCatalog
     }
 
     public IReadOnlyList<IndependentTrainingRace> Races { get; }
-
     public IReadOnlyList<IndependentTrainingSkill> Skills { get; }
-
     public string RaceSourceUrl { get; }
-
     public string SkillSourceUrl { get; }
-
     public IndependentTrainingSkillSource SkillSource { get; }
-
     public bool IsAvailable => Races.Count > 0 && Skills.Count > 0;
 
-    /// <summary>
-    /// Resolves the configured year/turn/race name to the catalog row whose
-    /// Race ID supplies the visual card identity.  No row number or page
-    /// position is part of this lookup.
-    /// </summary>
-    public bool TryGetAgendaPickerEntry(
-        IndependentTrainingAgendaSelection selection,
-        out IndependentTrainingRace race)
+    public static IndependentTrainingCatalog FromCoreCatalog(CoreCatalog catalog)
     {
-        race = Races.FirstOrDefault(item =>
-            item.Year.Equals(selection.Year, StringComparison.OrdinalIgnoreCase)
+        ArgumentNullException.ThrowIfNull(catalog);
+        var races = catalog.IndependentRaces.Select(row => new IndependentTrainingRace(
+            String(row, "raceName"), String(row, "grade"), String(row, "year"),
+            String(row, "turn"), String(row, "type"), String(row, "location"),
+            String(row, "length"), String(row, "lengthM"), Integer(row, "raceId"),
+            Integer(row, "sourceOrder"), String(row, "gameTrack"), Integer(row, "gameDistance"),
+            String(row, "gameGround"), Boolean(row, "gameAvailable"), ScheduleInteger(row, "month"),
+            ScheduleInteger(row, "day"), ScheduleString(row, "timeName"), Integer(row, "gameOrder")))
+            .Where(item => !string.IsNullOrWhiteSpace(item.RaceName))
+            .ToArray();
+        var skills = catalog.Skills.Select(row => new IndependentTrainingSkill(
+            Integer(row, "skillId"), String(row, "skillName"), String(row, "originalName"),
+            Integer(row, "rarity"), Integer(row, "gradeValue"), String(row, "skillCategory"),
+            String(row, "effectSummary"), Integer(row, "needSkillPoint"), String(row, "activationCondition"),
+            Integer(row, "iconId"), String(row, "searchText"), Integer(row, "searchResultRow", 1),
+            Boolean(row, "gameSearchMapped"), StringArray(row, "aliases"),
+            Boolean(row, "availableInGlobal"), String(row, "availabilitySource"),
+            Boolean(row, "singleModeEnabled"), Integer(row, "skillCategoryId"), String(row, "otherTiers")))
+            .Where(item => item.SkillId > 0 && !string.IsNullOrWhiteSpace(item.SkillName))
+            .ToArray();
+
+        var raceSource = Metadata(catalog, "independent_race_metadata");
+        var skillSource = Metadata(catalog, "skill_metadata");
+        var skillSourceUrl = String(skillSource, "sourceUrl");
+        var source = skillSource.ValueKind == JsonValueKind.Object
+            && skillSource.TryGetProperty("source", out var sourceRow) ? sourceRow : skillSource;
+        var sourceInfo = new IndependentTrainingSkillSource(
+            String(source, "sourceName"), String(source, "masterSha256"),
+            String(source, "clientVersion"), String(source, "region"), String(source, "sourceType"));
+        return new IndependentTrainingCatalog(
+            races, skills,
+            FirstNonEmpty(String(raceSource, "sourceUrl"), "https://uma.guide/agenda-planner/"),
+            FirstNonEmpty(skillSourceUrl, "https://uma.guide/skills/"), sourceInfo);
+    }
+
+    public bool TryGetAgendaPickerEntry(IndependentTrainingAgendaSelection selection, out IndependentTrainingRace race)
+    {
+        race = Races.FirstOrDefault(item => item.Year.Equals(selection.Year, StringComparison.OrdinalIgnoreCase)
             && item.Turn.Equals(selection.Turn, StringComparison.OrdinalIgnoreCase)
             && item.RaceName.Equals(selection.RaceName, StringComparison.OrdinalIgnoreCase)
             && item.IsGameAvailable)!;
         return race is not null;
     }
 
-    /// <summary>
-    /// A visible course header is not a race identity when another available
-    /// race in the same agenda slot has the same header. Check the complete
-    /// catalog slot, not only the rows that OCR happens to see on one page.
-    /// </summary>
-    public bool TryGetAgendaPickerOcrTarget(
-        IndependentTrainingRace race,
-        out string targetText)
+    public bool TryGetAgendaPickerOcrTarget(IndependentTrainingRace race, out string targetText)
     {
         ArgumentNullException.ThrowIfNull(race);
         targetText = string.Empty;
         var header = race.PickerHeaderTarget;
-        if (!race.IsGameAvailable || race.RaceId <= 0 || string.IsNullOrWhiteSpace(header))
-            return false;
-
-        var slotRaces = Races.Where(item =>
-            item.IsGameAvailable
+        if (!race.IsGameAvailable || race.RaceId <= 0 || string.IsNullOrWhiteSpace(header)) return false;
+        var slotRaces = Races.Where(item => item.IsGameAvailable
             && item.Year.Equals(race.Year, StringComparison.OrdinalIgnoreCase)
             && item.Turn.Equals(race.Turn, StringComparison.OrdinalIgnoreCase));
-        if (!slotRaces.Any(item =>
-                item.RaceId == race.RaceId
+        if (!slotRaces.Any(item => item.RaceId == race.RaceId
                 && item.PickerHeaderTarget.Equals(header, StringComparison.OrdinalIgnoreCase))
-            || slotRaces.Any(item =>
-                item.RaceId != race.RaceId
-                && item.PickerHeaderTarget.Equals(header, StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
-
+            || slotRaces.Any(item => item.RaceId != race.RaceId
+                && item.PickerHeaderTarget.Equals(header, StringComparison.OrdinalIgnoreCase))) return false;
         targetText = header;
         return true;
     }
 
-    public static string GetRaceCardTemplatePath(int raceId) =>
-        Path.Combine(
-            "templates",
-            "independent",
-            "race_cards",
-            raceId.ToString(CultureInfo.InvariantCulture) + ".png");
+    public static string GetRaceCardTemplatePath(int raceId) => Path.Combine(
+        "templates", "independent", "race_cards", raceId.ToString(CultureInfo.InvariantCulture) + ".png");
 
-    public static string? TryResolveRaceCardImagePath(
-        IndependentTrainingRace race,
-        string? baseDirectory = null)
+    public static string? TryResolveRaceCardImagePath(IndependentTrainingRace race, string? baseDirectory = null)
     {
-        if (race.RaceId <= 0)
-            return null;
-
-        var relativePath = GetRaceCardTemplatePath(race.RaceId);
+        if (race.RaceId <= 0) return null;
         var fileName = race.RaceId.ToString(CultureInfo.InvariantCulture) + ".png";
-        var packagedRelativePath = Path.Combine(
-            PackagedRaceCardTemplateDirectory.Replace('/', Path.DirectorySeparatorChar),
-            fileName);
-        var legacyPackagedRelativePath = Path.Combine(
-            "resource",
-            "hachimi",
-            "ura",
-            "screens",
-            relativePath);
-        var candidates = new List<string>();
+        var paths = new List<string>();
         if (!string.IsNullOrWhiteSpace(baseDirectory))
         {
-            candidates.Add(Path.Combine(baseDirectory, packagedRelativePath));
-            candidates.Add(Path.Combine(baseDirectory, relativePath));
-            candidates.Add(Path.Combine(baseDirectory, legacyPackagedRelativePath));
+            paths.Add(Path.Combine(baseDirectory, PackagedRaceCardTemplateDirectory.Replace('/', Path.DirectorySeparatorChar), fileName));
+            paths.Add(Path.Combine(baseDirectory, GetRaceCardTemplatePath(race.RaceId)));
         }
-
-        candidates.Add(ResourcePathRuntime.Resolve(packagedRelativePath));
-        candidates.Add(Path.GetFullPath(packagedRelativePath));
-        candidates.Add(ResourcePathRuntime.Resolve(legacyPackagedRelativePath));
-        candidates.Add(Path.GetFullPath(legacyPackagedRelativePath));
-
-        var directory = new DirectoryInfo(Environment.CurrentDirectory);
-        while (directory is not null)
-        {
-            candidates.Add(Path.Combine(directory.FullName, packagedRelativePath));
-            candidates.Add(Path.Combine(directory.FullName, legacyPackagedRelativePath));
-            directory = directory.Parent;
-        }
-
-        return candidates
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(File.Exists);
+        paths.Add(ResourcePathRuntime.Resolve(Path.Combine(PackagedRaceCardTemplateDirectory, fileName)));
+        paths.Add(ResourcePathRuntime.Resolve(GetRaceCardTemplatePath(race.RaceId)));
+        return paths.Distinct(StringComparer.OrdinalIgnoreCase).FirstOrDefault(File.Exists);
     }
 
-    public static string AgendaRaceCardSemanticAction() =>
-        "independent.agenda.race.card";
+    private static JsonElement Metadata(CoreCatalog catalog, string key) =>
+        catalog.AdditionalCategories.TryGetValue(key, out var value) ? value : default;
 
-    public static string AgendaRaceCardVerifySemanticAction() =>
-        "independent.agenda.race.card.verify";
+    private static string FirstNonEmpty(string value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
 
-    public static string AgendaRaceSemanticAction() =>
-        "independent.agenda.race";
-
-    public static string AgendaRaceVerifySemanticAction() =>
-        "independent.agenda.race.verify";
-
-    public static string LineupScrollTopSemanticAction() =>
-        "independent.lineup.scroll.top";
-
-    public static string LineupCollapseSemanticAction() =>
-        "independent.lineup.collapse";
-
-    public static string LineupExpandSemanticAction() =>
-        "independent.lineup.expand";
-
-    public static string LineupClosedVerifySemanticAction() =>
-        "independent.lineup.closed.verify";
-
-    public static string StrategyChangeSemanticAction() =>
-        CareerStrategyCatalog.StrategyChangeSemanticAction("independent");
-
-    public static string StrategySaveSemanticAction() =>
-        CareerStrategyCatalog.StrategySaveSemanticAction("independent");
-
-    public static string StrategyReturnSemanticAction() =>
-        CareerStrategyCatalog.StrategyReturnSemanticAction("independent");
-
-    /// <summary>
-    /// Compatibility facade for the shared Career strategy catalog. The
-    /// setting is deliberately separate from StrategyId, which selects the
-    /// offline URA turn strategy and must never drive this dialog.
-    /// </summary>
-    public static bool TryGetLineupStrategyUiMapping(
-        string? strategy,
-        out string targetText)
-    {
-        return CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
-            strategy,
-            out targetText);
-    }
-
-    public static bool TryGetLineupStrategyUiMapping(
-        string? strategy,
-        out string semanticAction,
-        out string targetText)
-    {
-        return CareerStrategyCatalog.TryGetLineupStrategySemanticAction(
-            strategy,
-            "independent",
-            out semanticAction,
-            out targetText);
-    }
-
-    // Every agenda cell has its own JSON task/ROI.  The task still uses the
-    // real plus template and ClickSelf; this semantic id only selects the
-    // JSON-declared cell, so the caller never invents a coordinate.
-    public static string AgendaSlotSemanticAction(IndependentTrainingAgendaSelection selection) =>
-        $"independent.agenda.slot.{SemanticSlug(selection.Year)}.{SemanticSlug(selection.Turn)}";
-
-    public static string AgendaYearSemanticAction() =>
-        "independent.agenda.year";
-
-    public static string SkillSearchResetSemanticAction() =>
-        "independent.skills.search.reset";
-
-    public static string SkillSearchFocusSemanticAction() =>
-        "independent.skills.search.focus";
-
-    public static string SkillSearchInputSemanticAction() =>
-        "independent.skills.search.input";
-
-    public static string SkillSearchSubmitSemanticAction() =>
-        "independent.skills.search.submit";
-
-    public static string SkillSearchCheckboxSemanticAction() =>
-        "independent.skills.search.checkbox";
-
-    public static string SkillSearchCheckboxFallbackSemanticAction() =>
-        "independent.skills.search.checkbox.fallback";
-
-    /// <summary>
-    /// Returns the verified page/visible-row position that may be used only
-    /// after the OCR checkbox lookup has failed. The caller must still run
-    /// the OCR action first; this helper only exposes explicit catalog data.
-    /// </summary>
-    public static bool TryGetVerifiedSkillFallback(
-        IndependentTrainingSkill skill,
-        out int page,
-        out int pickerRow)
-    {
-        page = 0;
-        pickerRow = 0;
-        if (!skill.IsGameSearchMapped
-            || skill.SearchResultRow <= 0
-            || string.IsNullOrWhiteSpace(skill.EffectiveSearchText))
-        {
-            return false;
-        }
-
-        page = skill.SearchResultPage;
-        pickerRow = skill.SearchResultPickerRow;
-        return true;
-    }
-
-    /// <summary>
-    /// Builds the checkbox search ROI for one verified visible picker row.
-    /// The base task remains JSON-owned; this is only a row-specific ROI
-    /// override for the verified OCR fallback path.
-    /// </summary>
-    public static int[] GetSkillPickerCheckboxFallbackRoi(int pickerRow)
-    {
-        var row = Math.Clamp(pickerRow, 0, SkillPickerVisibleRows - 1);
-        return
-        [
-            SkillPickerCheckboxRoiLeft,
-            SkillPickerFirstRowTop + row * SkillPickerRowHeight,
-            SkillPickerCheckboxRoiWidth,
-            SkillPickerCheckboxRoiHeight,
-        ];
-    }
-
-    public static string SkillSearchScrollSemanticAction() =>
-        "independent.skills.search.scroll";
-
-    public static string PostStartMenuSemanticAction() =>
-        "independent.post_start.menu";
-
-    public static string PostStartOkSemanticAction() =>
-        "independent.post_start.ok";
-
-    public static string PostStartToHomeSemanticAction() =>
-        "independent.post_start.to_home";
-
-    public static string PostStartHomeProbeSemanticAction() =>
-        "independent.post_start.home_probe";
-
-    private static string SemanticSlug(string value)
-    {
-        var chars = value
-            .Trim()
-            .ToLowerInvariant()
-            .Select(character => char.IsLetterOrDigit(character) ? character : '_')
-            .ToArray();
-        var slug = new string(chars).Trim('_');
-        while (slug.Contains("__", StringComparison.Ordinal))
-            slug = slug.Replace("__", "_", StringComparison.Ordinal);
-        return slug.Length == 0 ? "unknown" : slug;
-    }
-
-    public static IndependentTrainingCatalog Load(string? baseDirectory = null)
-    {
-        var racePath = ResolvePath(DefaultRacePath, baseDirectory);
-        var skillPath = ResolvePath(DefaultSkillPath, baseDirectory);
-        var races = ReadRaces(racePath, out var raceSourceUrl);
-        var skills = ReadSkills(skillPath, out var skillSourceUrl, out var skillSource);
-        return new IndependentTrainingCatalog(
-            races,
-            skills,
-            raceSourceUrl,
-            skillSourceUrl,
-            skillSource);
-    }
-
-    private static string ResolvePath(string relativePath, string? baseDirectory)
-    {
-        var candidates = new List<string>();
-        if (!string.IsNullOrWhiteSpace(baseDirectory))
-            candidates.Add(Path.Combine(baseDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-
-        candidates.Add(Path.GetFullPath(relativePath));
-        candidates.Add(Path.Combine(AppContext.BaseDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-
-        var directory = new DirectoryInfo(Environment.CurrentDirectory);
-        while (directory is not null)
-        {
-            candidates.Add(Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-            directory = directory.Parent;
-        }
-
-        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
-    }
-
-    private static IndependentTrainingRace[] ReadRaces(
-        string path,
-        out string sourceUrl)
-    {
-        sourceUrl = "https://uma.guide/agenda-planner/";
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            var root = document.RootElement;
-            if (root.TryGetProperty("sourceUrl", out var source)
-                && source.ValueKind == JsonValueKind.String)
-            {
-                sourceUrl = source.GetString() ?? sourceUrl;
-            }
-
-            if (!root.TryGetProperty("races", out var races)
-                || races.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            return races.EnumerateArray()
-                .Select(item => new IndependentTrainingRace(
-                    ReadString(item, "raceName"),
-                    ReadString(item, "grade"),
-                    ReadString(item, "year"),
-                    ReadString(item, "turn"),
-                    ReadString(item, "type"),
-                    ReadString(item, "location"),
-                    ReadString(item, "length"),
-                    ReadString(item, "lengthM"),
-                    ReadInt(item, "raceId"),
-                    ReadInt(item, "sourceOrder"),
-                    ReadString(item, "gameTrack"),
-                    ReadInt(item, "gameDistance"),
-                    ReadString(item, "gameGround"),
-                    ReadBool(item, "gameAvailable"),
-                    ReadScheduleInt(item, "month"),
-                    ReadScheduleInt(item, "day"),
-                    ReadScheduleString(item, "timeName"),
-                    ReadInt(item, "gameOrder")))
-                .Where(item => !string.IsNullOrWhiteSpace(item.RaceName))
-                .ToArray();
-        }
-        catch (Exception) when (FileNotFoundOrInvalid(path))
-        {
-            return [];
-        }
-    }
-
-    private static IndependentTrainingSkill[] ReadSkills(
-        string path,
-        out string sourceUrl,
-        out IndependentTrainingSkillSource sourceMetadata)
-    {
-        sourceUrl = "https://uma.guide/skills/";
-        sourceMetadata = IndependentTrainingSkillSource.Unknown;
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            var root = document.RootElement;
-            if (root.TryGetProperty("sourceUrl", out var source)
-                && source.ValueKind == JsonValueKind.String)
-            {
-                sourceUrl = source.GetString() ?? sourceUrl;
-            }
-
-            if (root.TryGetProperty("source", out var sourceObject)
-                && sourceObject.ValueKind == JsonValueKind.Object)
-            {
-                sourceUrl = ReadString(sourceObject, "sourceUrl");
-                sourceMetadata = new IndependentTrainingSkillSource(
-                    ReadString(sourceObject, "sourceName"),
-                    ReadString(sourceObject, "masterSha256"),
-                    ReadString(sourceObject, "clientVersion"),
-                    ReadString(sourceObject, "region"),
-                    ReadString(sourceObject, "sourceType"));
-            }
-
-            if (string.IsNullOrWhiteSpace(sourceMetadata.Region)
-                && root.TryGetProperty("region", out var region)
-                && region.ValueKind == JsonValueKind.String)
-            {
-                sourceMetadata = sourceMetadata with { Region = region.GetString() ?? string.Empty };
-            }
-
-            if (!root.TryGetProperty("skills", out var skills)
-                || skills.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            return skills.EnumerateArray()
-                .Select(item => new IndependentTrainingSkill(
-                    ReadInt(item, "skillId"),
-                    ReadString(item, "skillName"),
-                    ReadString(item, "originalName"),
-                    ReadInt(item, "rarity"),
-                    ReadInt(item, "gradeValue"),
-                    ReadString(item, "skillCategory"),
-                    ReadString(item, "effectSummary"),
-                    ReadInt(item, "needSkillPoint"),
-                    ReadString(item, "activationCondition"),
-                    ReadInt(item, "iconId"),
-                    ReadString(item, "searchText"),
-                    ReadInt(item, "searchResultRow"),
-                    ReadBool(item, "gameSearchMapped"),
-                    ReadStringArray(item, "aliases"),
-                    ReadBool(item, "availableInGlobal"),
-                    ReadString(item, "availabilitySource"),
-                    ReadBool(item, "singleModeEnabled"),
-                    ReadInt(item, "skillCategoryId"),
-                    ReadString(item, "otherTiers")))
-                // Keep the complete catalog visible. The editor disables
-                // entries without a purchasable SP cost or search query.
-                .Where(item => item.SkillId > 0
-                    && !string.IsNullOrWhiteSpace(item.SkillName))
-                .ToArray();
-        }
-        catch (Exception) when (FileNotFoundOrInvalid(path))
-        {
-            return [];
-        }
-    }
-
-    private static bool FileNotFoundOrInvalid(string path) =>
-        !File.Exists(path);
-
-    private static string ReadString(JsonElement item, string property)
-    {
-        return item.TryGetProperty(property, out var value)
-               && value.ValueKind == JsonValueKind.String
-            ? value.GetString()?.Trim() ?? string.Empty
+    private static string String(JsonElement row, string property) =>
+        row.ValueKind == JsonValueKind.Object && row.TryGetProperty(property, out var value)
+            ? value.ValueKind == JsonValueKind.String ? value.GetString()?.Trim() ?? string.Empty
+                : value.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False ? value.ToString() : string.Empty
             : string.Empty;
+
+    private static int Integer(JsonElement row, string property, int fallback = 0)
+    {
+        var value = String(row, property);
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : fallback;
     }
 
-    private static int ReadInt(JsonElement item, string property)
-    {
-        return item.TryGetProperty(property, out var value)
-               && value.ValueKind == JsonValueKind.Number
-               && value.TryGetInt32(out var number)
-            ? number
-            : 0;
-    }
+    private static bool Boolean(JsonElement row, string property) =>
+        String(row, property).Equals("true", StringComparison.OrdinalIgnoreCase)
+        || String(row, property) == "1";
 
-    private static bool ReadBool(JsonElement item, string property)
+    private static int ScheduleInteger(JsonElement row, string property)
     {
-        return item.TryGetProperty(property, out var value)
-               && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
-            ? value.GetBoolean()
-            : false;
-    }
-
-    private static int ReadScheduleInt(JsonElement item, string property)
-    {
-        if (!item.TryGetProperty("gameSchedules", out var schedules)
-            || schedules.ValueKind != JsonValueKind.Array)
-        {
-            return 0;
-        }
-
+        if (!row.TryGetProperty("gameSchedules", out var schedules) || schedules.ValueKind != JsonValueKind.Array) return 0;
         foreach (var schedule in schedules.EnumerateArray())
         {
-            var value = ReadInt(schedule, property);
-            var isValid = property.Equals("month", StringComparison.OrdinalIgnoreCase)
-                ? value is >= 1 and <= 12
-                : value > 0;
-            if (isValid)
-                return value;
+            var value = Integer(schedule, property);
+            if (property == "month" ? value is >= 1 and <= 12 : value > 0) return value;
         }
-
         return 0;
     }
 
-    private static string ReadScheduleString(JsonElement item, string property)
+    private static string ScheduleString(JsonElement row, string property)
     {
-        if (!item.TryGetProperty("gameSchedules", out var schedules)
-            || schedules.ValueKind != JsonValueKind.Array)
-        {
-            return string.Empty;
-        }
-
+        if (!row.TryGetProperty("gameSchedules", out var schedules) || schedules.ValueKind != JsonValueKind.Array) return string.Empty;
         foreach (var schedule in schedules.EnumerateArray())
-        {
-            var value = ReadString(schedule, property);
-            if (value.Length > 0)
-                return value;
-        }
-
+            if (String(schedule, property) is { Length: > 0 } value) return value;
         return string.Empty;
     }
 
-    private static string[] ReadStringArray(JsonElement item, string property)
-    {
-        if (!item.TryGetProperty(property, out var value)
-            || value.ValueKind != JsonValueKind.Array)
-        {
-            return [];
-        }
-
-        return value.EnumerateArray()
-            .Where(entry => entry.ValueKind == JsonValueKind.String)
-            .Select(entry => entry.GetString()?.Trim() ?? string.Empty)
-            .Where(entry => entry.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
+    private static string[] StringArray(JsonElement row, string property) =>
+        row.ValueKind == JsonValueKind.Object && row.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString()?.Trim() ?? string.Empty)
+                .Where(item => item.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+            : [];
 }
-
 public sealed record IndependentTrainingRace(
     string RaceName,
     string Grade,

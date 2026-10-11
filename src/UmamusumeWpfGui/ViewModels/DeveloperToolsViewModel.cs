@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -10,6 +11,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using Umamusume.CoreBridge;
+using IUmaService = Umamusume.CoreBridge.IUmaService;
+using TemplateMatchResult = UmamusumeWpfGui.Models.TemplateMatchResult;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
@@ -20,8 +24,7 @@ namespace UmamusumeWpfGui.ViewModels;
 public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposable, IGrassTaskLogSink
 {
     private const double ImageMatchTestThreshold = 0.86;
-    private const double SystemReferenceMatchThreshold =
-        DailyRaceRunnerSelector.MinimumSystemReferenceMatchScore;
+    private const double SystemReferenceMatchThreshold = 0.70;
     private static readonly double[] SystemReferenceScaleCandidates =
         [0.32, 0.36, 0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.64, 0.68, 0.72, 0.76, 0.80, 0.84, 0.88, 0.92, 0.96, 1.00];
 
@@ -31,11 +34,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private readonly IAdbRuntime _adbRuntime;
+    private readonly IUmaVisualDeviceFacade _nativeDevice;
     private readonly IConnectionStateService _connectionState;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly IUmaDatabaseService _umaDatabase;
-    private readonly HachimiJsonPipelineRunner _pipelineRunner;
     private readonly ObservableCollection<DeveloperToolsImageItem> _existingImages = [];
     private readonly ObservableCollection<string> _pipelineFiles = [];
     private readonly ObservableCollection<ScenarioPackageFileEditorItem> _scenarioPackageFiles = [];
@@ -44,7 +46,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private readonly ObservableCollection<LogEntry> _pipelineRunLogs = [];
     private readonly Stack<PipelineEditorSnapshot> _pipelineUndo = [];
     private readonly Stack<PipelineEditorSnapshot> _pipelineRedo = [];
-    private AdbScreenshotResult? _screenshot;
+    private GrayImage? _screenshot;
     private BitmapSource? _screenshotImage;
     private Int32Rect? _cropRegion;
     private DeveloperToolsImageItem? _selectedUmaImage;
@@ -64,7 +66,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private HachimiPipelineDefinition? _pipelineDefinition;
     private string? _pipelineDefinitionPath;
     private string? _loadedScenarioManifestPath;
-    private ScenarioExecutionPackage? _loadedScenarioPackage;
+    private ScenarioPackageProjection? _loadedScenarioPackage;
     private ScenarioPackageFileEditorItem? _selectedScenarioPackageFile;
     private string _scenarioPackageStatusText = "Load a scenario manifest to edit its complete package.";
     private string? _selectedPipelineFile;
@@ -76,6 +78,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private string _pipelineStatusText = "Select a JSON flow to edit.";
     private string _pipelineGraphText = "Load or create a flow to preview its transitions.";
     private string _pipelineSimulationText = "No simulation has been run.";
+    private string _replayFixturePath = string.Empty;
     private string _pipelineEntryTaskName = string.Empty;
     private string _pipelineRunStatusText = "No test run has started.";
     private string? _pipelineTemplateEditPath;
@@ -87,28 +90,28 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private bool _pipelineHistoryInitialized;
     private bool _isRestoringPipelineHistory;
     private readonly IActivityRegistry? _activityRegistry;
+    private readonly IUmaService? _umaService;
     private IDisposable? _busyActivityLease;
 
     public DeveloperToolsViewModel(
-        IAdbRuntime adbRuntime,
+        IUmaVisualDeviceFacade nativeDevice,
         IConnectionStateService connectionState,
         SettingsViewModel settingsViewModel,
         IUmaDatabaseService umaDatabase,
-        HachimiJsonPipelineRunner pipelineRunner,
-        IActivityRegistry? activityRegistry = null)
+        IActivityRegistry? activityRegistry = null,
+        IUmaService? umaService = null)
     {
-        ArgumentNullException.ThrowIfNull(adbRuntime);
+        ArgumentNullException.ThrowIfNull(nativeDevice);
         ArgumentNullException.ThrowIfNull(connectionState);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(umaDatabase);
-        ArgumentNullException.ThrowIfNull(pipelineRunner);
 
-        _adbRuntime = adbRuntime;
+        _nativeDevice = nativeDevice;
         _connectionState = connectionState;
         _settingsViewModel = settingsViewModel;
         _umaDatabase = umaDatabase;
-        _pipelineRunner = pipelineRunner;
         _activityRegistry = activityRegistry;
+        _umaService = umaService;
         ExistingImages = new ReadOnlyObservableCollection<DeveloperToolsImageItem>(_existingImages);
         PipelineFiles = new ReadOnlyObservableCollection<string>(_pipelineFiles);
         ScenarioPackageFiles = new ReadOnlyObservableCollection<ScenarioPackageFileEditorItem>(
@@ -175,10 +178,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _ => CreateNewPipeline(),
             _ => !_disposed && !_isPipelineBusy);
         SavePipelineCommand = new RelayCommand(
-            _ => SavePipeline(),
+            _ => _ = SavePipelineAsync(),
             _ => !_disposed && !_isPipelineBusy && HasPipelineDefinition);
         ValidatePipelineCommand = new RelayCommand(
-            _ => ValidatePipeline(),
+            _ => _ = ValidatePipelineAsync(),
             _ => !_disposed && !_isPipelineBusy && HasPipelineDefinition);
         AddPipelineTaskCommand = new RelayCommand(
             _ => AddPipelineTask(),
@@ -221,8 +224,11 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _ => PreviewPipeline(),
             _ => !_disposed && !_isPipelineBusy && HasPipelineDefinition);
         SimulatePipelineCommand = new RelayCommand(
-            _ => SimulatePipeline(),
-            _ => !_disposed && !_isPipelineBusy && HasPipelineDefinition);
+            _ => _ = ReplayPipelineAsync(),
+            _ => !_disposed && !_isPipelineBusy && HasPipelineDefinition && !string.IsNullOrWhiteSpace(ReplayFixturePath));
+        SelectReplayFixtureCommand = new RelayCommand(
+            _ => SelectReplayFixture(),
+            _ => !_disposed && !_isPipelineBusy);
         RunPipelineCommand = new RelayCommand(
             _ => _ = RunPipelineAsync(),
             _ => !_disposed
@@ -235,12 +241,12 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _ => StopPipeline(),
             _ => !_disposed && _isPipelineRunning);
         SaveScenarioPackageFileCommand = new RelayCommand(
-            _ => SaveSelectedScenarioPackageFile(),
+            _ => _ = SaveSelectedScenarioPackageFileAsync(),
             _ => !_disposed
                 && !_isPipelineBusy
                 && SelectedScenarioPackageFile is not null);
         ValidateScenarioPackageCommand = new RelayCommand(
-            _ => ValidateScenarioPackage(),
+            _ => _ = ValidateScenarioPackageAsync(),
             _ => !_disposed
                 && !_isPipelineBusy
                 && _loadedScenarioManifestPath is not null
@@ -277,6 +283,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public ICommand RedoPipelineCommand { get; }
     public ICommand PreviewPipelineCommand { get; }
     public ICommand SimulatePipelineCommand { get; }
+    public ICommand SelectReplayFixtureCommand { get; }
     public ICommand RunPipelineCommand { get; }
     public ICommand StopPipelineCommand { get; }
     public ICommand SaveScenarioPackageFileCommand { get; }
@@ -360,8 +367,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     public string CaptureDetailsDisplay => _screenshotImage is not { } image
         ? string.Empty
-        : _screenshot is { } screenshot
-            ? $"{image.PixelWidth} x {image.PixelHeight} | {screenshot.Method} | {screenshot.Duration.TotalMilliseconds:0} ms"
+        : _screenshot is not null
+            ? $"{image.PixelWidth} x {image.PixelHeight} | Native Core"
             : $"{image.PixelWidth} x {image.PixelHeight} | existing image";
 
     public string StatusText => _statusText;
@@ -506,6 +513,21 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     public string PipelineGraphText => _pipelineGraphText;
 
     public string PipelineSimulationText => _pipelineSimulationText;
+
+    public string ReplayFixturePath
+    {
+        get => _replayFixturePath;
+        set
+        {
+            var normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+            if (string.Equals(_replayFixturePath, normalized, StringComparison.Ordinal))
+                return;
+            _replayFixturePath = normalized;
+            OnPropertyChanged();
+            if (SimulatePipelineCommand is RelayCommand command)
+                command.RaiseCanExecuteChanged();
+        }
+    }
 
     public string PipelineEntryTaskName
     {
@@ -660,18 +682,35 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             string definitionPath;
             string loadedDescription;
             string? scenarioManifestPath = null;
-            ScenarioExecutionPackage? scenarioPackage = null;
+            ScenarioPackageProjection? scenarioPackage = null;
             if (IsScenarioManifest(path))
             {
-                scenarioPackage = await ScenarioPackageLoader.LoadExecutionAsync(path)
+                var inspection = await InspectCareerPackageAsync(path, new Dictionary<string, string>())
                     .ConfigureAwait(true);
-                definition = scenarioPackage.ExecutionDefinition;
-                definitionPath = scenarioPackage.ExecutionPath;
+                using (inspection.Document)
+                {
+                    var inspectionRoot = inspection.Document.RootElement;
+                    if (!ReadInspectorBoolean(inspectionRoot, "valid"))
+                    {
+                        SetPipelineStatus("The selected scenario package is invalid: "
+                            + FormatInspectorDiagnostics(inspectionRoot, inspection.StandardError));
+                        return;
+                    }
+
+                    scenarioPackage = ProjectScenarioPackage(path, inspectionRoot);
+                definition = ReadScenarioExecutionDefinition(inspectionRoot);
+                if (definition is not null)
+                    definition.BaseDirectory = Path.Combine(
+                        ReadInspectorString(inspectionRoot, "resource_root"),
+                        "hachimi",
+                        "career");
+                    LoadScenarioPackageFiles(path, inspectionRoot, scenarioPackage);
+                }
+                definitionPath = scenarioPackage!.ExecutionPath;
                 loadedDescription =
                     $"Loaded {scenarioPackage.DisplayName} ({scenarioPackage.ScenarioId}) scenario package; "
-                    + $"editing its execution definition ({scenarioPackage.ExecutionDefinition.Tasks.Count} task(s)).";
+                    + $"editing its native execution projection ({definition?.Tasks.Count ?? 0} task(s)).";
                 scenarioManifestPath = path;
-                LoadScenarioPackageFiles(path, scenarioPackage);
             }
             else
             {
@@ -956,10 +995,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         try
         {
             var definition = BuildPipelineDefinition();
-            var errors = ValidateDefinition(definition);
-            SetPipelineStatus(errors.Count == 0
+            var error = ValidateWithCore(definition);
+            SetPipelineStatus(error is null
                 ? $"Validation passed: {definition.Tasks.Count} task(s), schema version {definition.SchemaVersion}."
-                : "Validation failed: " + string.Join(" | ", errors));
+                : "Validation failed: " + error);
         }
         catch (Exception exception)
         {
@@ -967,21 +1006,64 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         }
     }
 
-    public void SavePipeline()
+    private async Task ValidatePipelineAsync()
     {
         if (_pipelineDefinition is null)
             return;
+        if (_loadedScenarioManifestPath is null)
+        {
+            ValidatePipeline();
+            return;
+        }
 
+        if (_isPipelineBusy)
+            return;
+        SetPipelineBusy(true);
+        try
+        {
+            var staged = StageScenarioExecutionDefinition(BuildPipelineDefinition());
+            var overlays = GetScenarioPackageOverlays(staged);
+            using var inspection = await InspectCareerPackageAsync(
+                    _loadedScenarioManifestPath,
+                    overlays)
+                .ConfigureAwait(true);
+            var root = inspection.Document.RootElement;
+            _scenarioPackageStatusText = ReadInspectorBoolean(root, "valid")
+                ? $"Native package validation passed: {ReadInspectorArrayLength(root, "files")} source document(s)."
+                : "Native package validation failed: "
+                    + FormatInspectorDiagnostics(root, inspection.StandardError);
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+            SetPipelineStatus(_scenarioPackageStatusText);
+        }
+        catch (Exception exception)
+        {
+            _scenarioPackageStatusText = $"Native package validation failed: {exception.Message}";
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+            SetPipelineStatus(_scenarioPackageStatusText);
+        }
+        finally
+        {
+            SetPipelineBusy(false);
+        }
+    }
+
+    private string? ValidateWithCore(HachimiPipelineDefinition definition)
+    {
+        if (_umaService is null)
+            return "The native Core service is unavailable.";
+        var json = JsonSerializer.Serialize(definition, PipelineJsonOptions);
+        return _umaService.ValidatePipelineJson(json);
+    }
+
+    private async Task SavePipelineAsync()
+    {
+        if (_pipelineDefinition is null || _isPipelineBusy)
+            return;
+
+        SetPipelineBusy(true);
         try
         {
             var definition = BuildPipelineDefinition();
-            var errors = ValidateDefinition(definition);
-            if (errors.Count > 0)
-            {
-                SetPipelineStatus("Save blocked: " + string.Join(" | ", errors));
-                return;
-            }
-
             var path = _pipelineDefinitionPath ?? SelectedPipelineFile;
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -993,7 +1075,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             path = Path.GetFullPath(path);
             if (_loadedScenarioPackage is not null)
             {
-                SaveScenarioExecutionDefinition(definition);
+                await SaveScenarioExecutionDefinitionAsync(definition).ConfigureAwait(true);
+                return;
+            }
+
+            var error = ValidateWithCore(definition);
+            if (error is not null)
+            {
+                SetPipelineStatus("Save blocked: " + error);
                 return;
             }
 
@@ -1013,119 +1102,54 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         {
             SetPipelineStatus($"Could not save the JSON flow: {exception.Message}");
         }
+        finally
+        {
+            SetPipelineBusy(false);
+        }
     }
 
-    private void SaveScenarioExecutionDefinition(HachimiPipelineDefinition definition)
+    private async Task SaveScenarioExecutionDefinitionAsync(HachimiPipelineDefinition definition)
     {
         var package = _loadedScenarioPackage
-            ?? throw new InvalidOperationException("No source-aware scenario package is loaded.");
-        var resources = package.VisualResources
-            ?? throw new InvalidOperationException("The loaded scenario package has no visual source map.");
-        var executionFiles = package.ExecutionFragmentPaths
-            .Select(Path.GetFullPath)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (executionFiles.Count == 0)
-            throw new InvalidDataException("The scenario manifest does not declare execution fragments.");
-
-        var definitionsBySource = new Dictionary<string, List<KeyValuePair<string, HachimiPipelineTask>>>(
-            StringComparer.OrdinalIgnoreCase);
-        var defaultSource = Path.GetFullPath(package.ExecutionPath);
-        var selectedExecutionSource = SelectedScenarioPackageFile is { IsExecution: true } selectedFile
-            ? Path.GetFullPath(selectedFile.FullPath)
-            : defaultSource;
-        if (!executionFiles.Contains(selectedExecutionSource))
-            selectedExecutionSource = defaultSource;
-        foreach (var pair in definition.Tasks)
+            ?? throw new InvalidOperationException("No native scenario projection is loaded.");
+        var stagedFragments = StageScenarioExecutionDefinition(definition);
+        using (var inspection = await InspectCareerPackageAsync(
+                   package.ManifestPath,
+                   GetScenarioPackageOverlays(stagedFragments))
+               .ConfigureAwait(true))
         {
-            var sourcePath = resources.TaskSourceFiles.TryGetValue(pair.Key, out var originalSource)
-                ? Path.GetFullPath(originalSource)
-                : selectedExecutionSource;
-            if (!executionFiles.Contains(sourcePath))
-                throw new InvalidDataException(
-                    $"Task '{pair.Key}' has provenance outside the manifest's execution fragments.");
-            if (!definitionsBySource.TryGetValue(sourcePath, out var tasks))
+            if (!ReadInspectorBoolean(inspection.Document.RootElement, "valid"))
             {
-                tasks = [];
-                definitionsBySource[sourcePath] = tasks;
+                throw new InvalidDataException("Native package validation blocked the save: "
+                    + FormatInspectorDiagnostics(inspection.Document.RootElement, inspection.StandardError));
             }
-            tasks.Add(pair);
         }
 
-        var stagedFragments = new Dictionary<string, (ScenarioPackageFileEditorItem? EditorFile, string JsonText)>(
-            StringComparer.OrdinalIgnoreCase);
-        foreach (var sourcePath in executionFiles)
-        {
-            var sourceFile = FindScenarioPackageFile(sourcePath);
-            var sourceText = sourceFile?.JsonText ?? File.ReadAllText(sourcePath);
-            var root = JsonNode.Parse(sourceText) as JsonObject
-                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' must have an object root.");
-            if (sourcePath.Equals(defaultSource, StringComparison.OrdinalIgnoreCase))
-            {
-                root["name"] = definition.Name;
-                root["schemaVersion"] = definition.SchemaVersion;
-                root["description"] = definition.Description;
-                root["referenceWidth"] = definition.ReferenceWidth;
-                root["referenceHeight"] = definition.ReferenceHeight;
-                if (definition.Timing is not null)
-                    root["timing"] = JsonSerializer.SerializeToNode(definition.Timing, PipelineJsonOptions);
-            }
-
-            var taskMap = root["tasks"] as JsonObject
-                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' has no tasks object.");
-            foreach (var source in resources.TaskSourceFiles)
-            {
-                if (!Path.GetFullPath(source.Value).Equals(sourcePath, StringComparison.OrdinalIgnoreCase)
-                    || definition.Tasks.ContainsKey(source.Key))
-                {
-                    continue;
-                }
-                taskMap.Remove(source.Key);
-            }
-
-            if (definitionsBySource.TryGetValue(sourcePath, out var currentTasks))
-            {
-                foreach (var pair in currentTasks)
-                {
-                    var originalTask = taskMap[pair.Key] as JsonObject;
-                    if (originalTask is null)
-                    {
-                        originalTask = new JsonObject();
-                        taskMap[pair.Key] = originalTask;
-                    }
-                    var serialized = JsonSerializer.SerializeToNode(pair.Value, PipelineJsonOptions) as JsonObject
-                        ?? throw new InvalidDataException($"Task '{pair.Key}' could not be serialized.");
-                    PreserveSourceRelativeTemplatePaths(
-                        serialized,
-                        pair.Key,
-                        sourcePath,
-                        definition,
-                        resources);
-                    MergeTaskProperties(originalTask, serialized);
-                }
-            }
-
-            var formatted = JsonSerializer.Serialize(root, PipelineJsonOptions);
-            stagedFragments[sourcePath] = (sourceFile, formatted);
-        }
-
-        foreach (var (sourcePath, staged) in stagedFragments)
+        foreach (var (sourcePath, jsonText) in stagedFragments)
         {
             var writePath = ResourcePathRuntime.ResolveWritePath(sourcePath);
             Directory.CreateDirectory(Path.GetDirectoryName(writePath)!);
-            File.WriteAllText(writePath, staged.JsonText);
-            if (staged.EditorFile is not null)
-                staged.EditorFile.JsonText = staged.JsonText;
+            await File.WriteAllTextAsync(
+                    writePath,
+                    jsonText,
+                    new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
+                .ConfigureAwait(true);
+            if (FindScenarioPackageFile(sourcePath) is { } editorFile)
+                editorFile.JsonText = jsonText;
         }
 
-        var updatedPackage = ScenarioPackageLoader.LoadExecutionAsync(package.ManifestPath)
-            .GetAwaiter()
-            .GetResult();
-        _loadedScenarioPackage = updatedPackage;
-        _pipelineDefinition = updatedPackage.ExecutionDefinition;
-        _pipelineDefinitionPath = updatedPackage.ExecutionPath;
+        using var updatedInspection = await InspectCareerPackageAsync(
+                package.ManifestPath, GetScenarioPackageOverlays())
+            .ConfigureAwait(true);
+        var updated = ProjectScenarioPackage(package.ManifestPath, updatedInspection.Document.RootElement);
+        _loadedScenarioPackage = updated;
+        _pipelineDefinition = ReadScenarioExecutionDefinition(updatedInspection.Document.RootElement);
+        if (_pipelineDefinition is not null)
+            _pipelineDefinition.BaseDirectory = package.ResourceCareerDirectory;
+        _pipelineDefinitionPath = updated.ExecutionPath;
         SetPipelineStatus(
-            $"Saved scenario execution across {updatedPackage.ExecutionFragmentPaths.Count} source fragment(s). "
-            + "Task templates and outcomes remain attached to their originating tasks.");
+            $"Saved scenario execution across {updated.ExecutionFragmentPaths.Count} native source fragment(s). "
+            + "Core validated the complete package and retained task provenance.");
         RefreshPipelineFiles();
     }
 
@@ -1146,33 +1170,26 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     internal static void PreserveSourceRelativeTemplatePaths(
         JsonObject serializedTask,
-        string taskId,
+        JsonObject? originalTask,
         string sourcePath,
-        HachimiPipelineDefinition definition,
-        CareerVisualResourcePackage resources)
+        HachimiPipelineDefinition definition)
     {
         var sourceDirectory = Path.GetDirectoryName(sourcePath)!;
         if (serializedTask["template"] is JsonValue templateValue
             && templateValue.TryGetValue<string>(out var template)
             && !string.IsNullOrWhiteSpace(template))
         {
-            var original = resources.GetOriginalTaskTemplate(taskId);
-            resources.TryGetResolvedTaskTemplate(taskId, out var resolved);
-            var editedPath = resources.ResolveVisualResource(
-                ResolveEditorResourcePath(definition.BaseDirectory, template));
-            if (!File.Exists(editedPath))
-                throw new FileNotFoundException($"Career task '{taskId}' template does not exist.", editedPath);
+            var editedPath = ResolveEditorResourcePath(definition.BaseDirectory, template);
+            var original = ReadString(originalTask, "template");
             serializedTask["template"] = original is not null
-                    && resolved is not null
-                    && Path.GetFullPath(editedPath).Equals(Path.GetFullPath(resolved), StringComparison.OrdinalIgnoreCase)
+                    && IsSameEditorResource(original, editedPath, sourceDirectory, definition.BaseDirectory)
                 ? original
                 : Path.GetRelativePath(sourceDirectory, editedPath).Replace(Path.DirectorySeparatorChar, '/');
         }
 
         if (serializedTask["transitionTemplates"] is not JsonArray transitionArray)
             return;
-        var originalTransitions = resources.GetOriginalTaskTransitionTemplates(taskId);
-        var resolvedTransitions = resources.GetResolvedTaskTransitionTemplates(taskId);
+        var originalTransitions = originalTask?["transitionTemplates"] as JsonArray;
         for (var index = 0; index < transitionArray.Count; index++)
         {
             if (transitionArray[index] is not JsonValue transitionValue
@@ -1183,25 +1200,144 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             var editedPath = ResolveEditorResourcePath(definition.BaseDirectory, transition);
-            var resolvedEditedPath = resources.ResolveVisualResource(editedPath);
-            if (!File.Exists(resolvedEditedPath))
-                throw new FileNotFoundException(
-                    $"Career task '{taskId}' transition template does not exist.",
-                    resolvedEditedPath);
-            if (index < originalTransitions.Count
-                && index < resolvedTransitions.Count
-                && Path.GetFullPath(resolvedEditedPath).Equals(
-                    Path.GetFullPath(resolvedTransitions[index]),
-                    StringComparison.OrdinalIgnoreCase))
+            var original = index < (originalTransitions?.Count ?? 0)
+                ? ReadString(originalTransitions![index])
+                : null;
+            if (original is not null
+                && IsSameEditorResource(original, editedPath, sourceDirectory, definition.BaseDirectory))
             {
-                transitionArray[index] = originalTransitions[index];
+                transitionArray[index] = original;
             }
             else
             {
-                transitionArray[index] = Path.GetRelativePath(sourceDirectory, resolvedEditedPath)
+                transitionArray[index] = Path.GetRelativePath(sourceDirectory, editedPath)
                     .Replace(Path.DirectorySeparatorChar, '/');
             }
         }
+    }
+
+    private static bool IsSameEditorResource(
+        string original,
+        string editedPath,
+        string sourceDirectory,
+        string definitionBaseDirectory)
+    {
+        var originalCandidates = new[]
+        {
+            ResolveEditorResourcePath(sourceDirectory, original),
+            ResolveEditorResourcePath(definitionBaseDirectory, original),
+        };
+        return originalCandidates.Any(path => path.Equals(editedPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private Dictionary<string, string> StageScenarioExecutionDefinition(HachimiPipelineDefinition definition)
+    {
+        var package = _loadedScenarioPackage
+            ?? throw new InvalidOperationException("No native scenario projection is loaded.");
+        var executionFiles = package.ExecutionFragmentPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (executionFiles.Count == 0)
+            throw new InvalidDataException("The native manifest projection has no execution fragments.");
+
+        var definitionsBySource = new Dictionary<string, List<KeyValuePair<string, HachimiPipelineTask>>>(
+            StringComparer.OrdinalIgnoreCase);
+        var selectedExecutionSource = SelectedScenarioPackageFile is { IsExecution: true } selectedFile
+            ? Path.GetFullPath(selectedFile.FullPath)
+            : package.ExecutionPath;
+        if (!executionFiles.Contains(selectedExecutionSource))
+            selectedExecutionSource = package.ExecutionPath;
+        foreach (var pair in definition.Tasks)
+        {
+            var sourcePath = package.TaskSourceFiles.TryGetValue(pair.Key, out var originalSource)
+                ? originalSource
+                : selectedExecutionSource;
+            if (!executionFiles.Contains(sourcePath))
+                throw new InvalidDataException(
+                    $"Task '{pair.Key}' has provenance outside the native manifest's execution fragments.");
+            if (!definitionsBySource.TryGetValue(sourcePath, out var tasks))
+                definitionsBySource[sourcePath] = tasks = [];
+            tasks.Add(pair);
+        }
+
+        var staged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sourcePath in package.ExecutionFragmentPaths)
+        {
+            var sourceText = FindScenarioPackageFile(sourcePath)?.JsonText ?? File.ReadAllText(sourcePath);
+            var root = JsonNode.Parse(sourceText) as JsonObject
+                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' must have an object root.");
+            if (sourcePath.Equals(package.ExecutionPath, StringComparison.OrdinalIgnoreCase))
+            {
+                root["name"] = definition.Name;
+                root["schemaVersion"] = definition.SchemaVersion;
+                root["description"] = definition.Description;
+                root["referenceWidth"] = definition.ReferenceWidth;
+                root["referenceHeight"] = definition.ReferenceHeight;
+                if (definition.Timing is not null)
+                    root["timing"] = JsonSerializer.SerializeToNode(definition.Timing, PipelineJsonOptions);
+            }
+
+            var taskMap = root["tasks"] as JsonObject
+                ?? throw new InvalidDataException($"Execution fragment '{sourcePath}' has no tasks object.");
+            foreach (var source in package.TaskSourceFiles)
+            {
+                if (source.Value.Equals(sourcePath, StringComparison.OrdinalIgnoreCase)
+                    && !definition.Tasks.ContainsKey(source.Key))
+                {
+                    taskMap.Remove(source.Key);
+                }
+            }
+
+            if (definitionsBySource.TryGetValue(sourcePath, out var currentTasks))
+            {
+                foreach (var pair in currentTasks)
+                {
+                    var originalTask = taskMap[pair.Key] as JsonObject;
+                    if (originalTask is null)
+                        taskMap[pair.Key] = originalTask = new JsonObject();
+                    var serialized = JsonSerializer.SerializeToNode(pair.Value, PipelineJsonOptions) as JsonObject
+                        ?? throw new InvalidDataException($"Task '{pair.Key}' could not be serialized.");
+                    PreserveSourceRelativeTemplatePaths(serialized, originalTask, sourcePath, definition);
+                    MergeTaskProperties(originalTask, serialized);
+                }
+            }
+
+            staged[sourcePath] = JsonSerializer.Serialize(root, PipelineJsonOptions);
+        }
+        return staged;
+    }
+
+    private Dictionary<string, string> GetScenarioPackageOverlays(
+        IReadOnlyDictionary<string, string>? stagedExecutionFragments = null)
+        => BuildScenarioPackageOverlays(_scenarioPackageFiles, stagedExecutionFragments);
+
+    internal static Dictionary<string, string> BuildScenarioPackageOverlays(
+        IEnumerable<ScenarioPackageFileEditorItem> editorFiles,
+        IReadOnlyDictionary<string, string>? stagedExecutionFragments = null)
+    {
+        var overlays = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in editorFiles)
+            overlays[Path.GetFullPath(file.FullPath)] = file.JsonText;
+        if (stagedExecutionFragments is not null)
+        {
+            foreach (var (path, text) in stagedExecutionFragments)
+                overlays[Path.GetFullPath(path)] = text;
+        }
+        return overlays;
+    }
+
+    internal static string CreateCareerPackageInspectionRequestJson(
+        string resourceRoot,
+        IReadOnlyDictionary<string, string> overlays)
+    {
+        var request = new
+        {
+            resource_root = Path.GetFullPath(resourceRoot),
+            files = overlays.Select(pair => new
+            {
+                path = Path.GetFullPath(pair.Key),
+                raw_json = pair.Value,
+            }).ToArray(),
+        };
+        return JsonSerializer.Serialize(request);
     }
 
     private static string ResolveEditorResourcePath(string baseDirectory, string relativeOrAbsolutePath) =>
@@ -1213,32 +1349,37 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _scenarioPackageFiles.FirstOrDefault(file =>
             Path.GetFullPath(file.FullPath).Equals(Path.GetFullPath(fullPath), StringComparison.OrdinalIgnoreCase));
 
-    private void LoadScenarioPackageFiles(string manifestPath, ScenarioExecutionPackage package)
+    private void LoadScenarioPackageFiles(
+        string manifestPath,
+        JsonElement inspectionRoot,
+        ScenarioPackageProjection package)
     {
         _scenarioPackageFiles.Clear();
         var rootDirectory = package.RootDirectory;
-        var files = Directory.EnumerateFiles(
-                rootDirectory,
-                "*.json",
-                SearchOption.AllDirectories)
-            .Concat(package.ScreenFragmentPaths)
-            .Concat(package.ExecutionFragmentPaths)
-            .Append(package.ResourceCatalogPath)
-            .Where(File.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => string.Equals(
-                    Path.GetFullPath(path),
-                    Path.GetFullPath(manifestPath),
-                    StringComparison.OrdinalIgnoreCase)
-                ? 0
-                : 1)
-            .ThenBy(path => Path.GetRelativePath(rootDirectory, path), StringComparer.OrdinalIgnoreCase);
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (inspectionRoot.TryGetProperty("files", out var sourceFiles)
+            && sourceFiles.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var sourceFile in sourceFiles.EnumerateArray())
+            {
+                var path = ReadInspectorString(sourceFile, "path");
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+                path = Path.GetFullPath(path);
+                var rawJson = ReadInspectorString(sourceFile, "raw_json");
+                files[path] = rawJson;
+            }
+        }
+        if (!files.ContainsKey(Path.GetFullPath(manifestPath)) && File.Exists(manifestPath))
+            files[Path.GetFullPath(manifestPath)] = File.ReadAllText(manifestPath);
 
-        foreach (var path in files)
+        foreach (var (path, rawJson) in files.OrderBy(pair =>
+                     pair.Key.Equals(Path.GetFullPath(manifestPath), StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                 .ThenBy(pair => Path.GetRelativePath(rootDirectory, pair.Key), StringComparer.OrdinalIgnoreCase))
         {
             var relativePath = Path.GetRelativePath(rootDirectory, path)
                 .Replace(Path.DirectorySeparatorChar, '/');
-            var text = File.ReadAllText(path);
+            var text = rawJson;
             try
             {
                 using var document = JsonDocument.Parse(text);
@@ -1255,7 +1396,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _scenarioPackageFiles.Add(new ScenarioPackageFileEditorItem(
                 relativePath,
                 path,
-                text));
+                text,
+                package.ExecutionFragmentPaths.Contains(path, StringComparer.OrdinalIgnoreCase)));
         }
 
         SelectedScenarioPackageFile = _scenarioPackageFiles.FirstOrDefault();
@@ -1277,65 +1419,70 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         RaisePipelineCommandStates();
     }
 
-    private void ValidateScenarioPackage()
+    private async Task ValidateScenarioPackageAsync()
     {
-        if (_loadedScenarioManifestPath is null)
+        if (_loadedScenarioManifestPath is null || _isPipelineBusy)
             return;
-
-        var errors = new List<string>();
-        foreach (var file in _scenarioPackageFiles)
-        {
-            try
-            {
-                using var document = JsonDocument.Parse(file.JsonText);
-                if (document.RootElement.ValueKind != JsonValueKind.Object)
-                    errors.Add($"{file.RelativePath}: root must be an object");
-            }
-            catch (JsonException exception)
-            {
-                errors.Add($"{file.RelativePath}: {exception.Message}");
-            }
-        }
-
-        if (errors.Count == 0)
-        {
-            try
-            {
-                _ = CareerVisualPackageLoader.LoadAsync(_loadedScenarioManifestPath)
-                    .GetAwaiter()
-                    .GetResult();
-                var unsaved = _scenarioPackageFiles.Count(file =>
-                    !File.ReadAllText(file.FullPath).Equals(file.JsonText, StringComparison.Ordinal));
-                _scenarioPackageStatusText = unsaved == 0
-                    ? $"Strict package validation passed: {_scenarioPackageFiles.Count} JSON file(s), all fragments, bindings, and resources resolved."
-                    : $"On-disk package validation passed. {unsaved} edited fragment(s) have unsaved text; save them for full semantic validation of those edits.";
-            }
-            catch (Exception exception)
-            {
-                errors.Add(exception.Message);
-            }
-        }
-
-        if (errors.Count > 0)
-            _scenarioPackageStatusText = "Package validation failed: " + string.Join(" | ", errors);
-        OnPropertyChanged(nameof(ScenarioPackageStatusText));
-    }
-
-    private void SaveSelectedScenarioPackageFile()
-    {
-        var file = SelectedScenarioPackageFile;
-        if (file is null)
-            return;
-
+        SetPipelineBusy(true);
         try
         {
-            using var document = JsonDocument.Parse(file.JsonText);
-            var formatted = JsonSerializer.Serialize(document.RootElement, PipelineJsonOptions);
-            File.WriteAllText(ResourcePathRuntime.ResolveWritePath(file.FullPath), formatted);
+            // This command validates the source editor. The separate pipeline
+            // command stages task-card edits; staging here would overwrite raw edits.
+            using var inspection = await InspectCareerPackageAsync(
+                    _loadedScenarioManifestPath,
+                    GetScenarioPackageOverlays())
+                .ConfigureAwait(true);
+            var root = inspection.Document.RootElement;
+            _scenarioPackageStatusText = ReadInspectorBoolean(root, "valid")
+                ? $"Native package validation passed: {ReadInspectorArrayLength(root, "files")} source document(s)."
+                : "Native package validation failed: "
+                    + FormatInspectorDiagnostics(root, inspection.StandardError);
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+            SetPipelineStatus(_scenarioPackageStatusText);
+        }
+        catch (Exception exception)
+        {
+            _scenarioPackageStatusText = $"Native package validation failed: {exception.Message}";
+            OnPropertyChanged(nameof(ScenarioPackageStatusText));
+            SetPipelineStatus(_scenarioPackageStatusText);
+        }
+        finally
+        {
+            SetPipelineBusy(false);
+        }
+    }
+
+    private async Task SaveSelectedScenarioPackageFileAsync()
+    {
+        var file = SelectedScenarioPackageFile;
+        if (file is null || _isPipelineBusy || _loadedScenarioManifestPath is null)
+            return;
+
+        SetPipelineBusy(true);
+        try
+        {
+            using var parsed = JsonDocument.Parse(file.JsonText);
+            var formatted = JsonSerializer.Serialize(parsed.RootElement, PipelineJsonOptions);
+            var overlays = GetScenarioPackageOverlays();
+            overlays[Path.GetFullPath(file.FullPath)] = formatted;
+            using var inspection = await InspectCareerPackageAsync(_loadedScenarioManifestPath, overlays)
+                .ConfigureAwait(true);
+            if (!ReadInspectorBoolean(inspection.Document.RootElement, "valid"))
+            {
+                _scenarioPackageStatusText = "Save blocked by native package validation: "
+                    + FormatInspectorDiagnostics(inspection.Document.RootElement, inspection.StandardError);
+                OnPropertyChanged(nameof(ScenarioPackageStatusText));
+                return;
+            }
+
+            await File.WriteAllTextAsync(
+                    ResourcePathRuntime.ResolveWritePath(file.FullPath),
+                    formatted,
+                    new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
+                .ConfigureAwait(true);
             file.JsonText = formatted;
             _scenarioPackageStatusText = $"Saved source document {file.RelativePath}.";
-            if (_loadedScenarioPackage is not null)
-                TryRefreshLoadedScenarioPackage();
+            RefreshLoadedScenarioProjection(inspection.Document.RootElement);
             OnPropertyChanged(nameof(ScenarioPackageStatusText));
         }
         catch (JsonException exception)
@@ -1349,35 +1496,275 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             _scenarioPackageStatusText = $"Could not save {file.RelativePath}: {exception.Message}";
             OnPropertyChanged(nameof(ScenarioPackageStatusText));
         }
+        finally
+        {
+            SetPipelineBusy(false);
+        }
     }
 
-    private void TryRefreshLoadedScenarioPackage()
+    private void RefreshLoadedScenarioProjection(JsonElement inspectionRoot)
     {
-        if (_loadedScenarioManifestPath is null)
+        var package = ProjectScenarioPackage(_loadedScenarioManifestPath!, inspectionRoot);
+        var definition = ReadScenarioExecutionDefinition(inspectionRoot);
+        if (definition is null)
             return;
+        definition.BaseDirectory = package.ResourceCareerDirectory;
+        _loadedScenarioPackage = package;
+        _pipelineDefinition = definition;
+        _pipelineDefinitionPath = package.ExecutionPath;
+        ClearPipelineTaskItems();
+        foreach (var pair in definition.Tasks)
+        {
+            var item = HachimiPipelineTaskEditorItem.FromTask(pair.Key, pair.Value);
+            AttachPipelineTaskItem(item);
+            _pipelineTasks.Add(item);
+        }
+        SelectedPipelineTask = _pipelineTasks.FirstOrDefault();
+        OnPropertyChanged(nameof(HasPipelineDefinition));
+    }
+
+    private async Task<CareerPackageInspectionResult> InspectCareerPackageAsync(
+        string manifestPath,
+        IReadOnlyDictionary<string, string> overlays,
+        CancellationToken cancellationToken = default)
+    {
+        var toolPath = FindPipelineReplayTool();
+        if (toolPath is null)
+        {
+            throw new FileNotFoundException(
+                "The native career package inspector is unavailable. Stage uma_pipeline_replay.exe to inspect career packages.");
+        }
+
+        var resourceRoot = ResolveCareerResourceRoot(manifestPath);
+        var requestPath = Path.Combine(
+            Path.GetTempPath(),
+            $"career-package-inspect-{Guid.NewGuid():N}.json");
         try
         {
-            var updated = ScenarioPackageLoader.LoadExecutionAsync(_loadedScenarioManifestPath)
-                .GetAwaiter()
-                .GetResult();
-            _loadedScenarioPackage = updated;
-            _pipelineDefinition = updated.ExecutionDefinition;
-            _pipelineDefinitionPath = updated.ExecutionPath;
-            ClearPipelineTaskItems();
-            foreach (var pair in updated.ExecutionDefinition.Tasks)
+            await File.WriteAllTextAsync(
+                    requestPath,
+                    CreateCareerPackageInspectionRequestJson(resourceRoot, overlays),
+                    new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var toolResult = await RunNativeToolAsync(
+                    toolPath,
+                    ["--inspect-career-package", Path.GetFullPath(manifestPath), requestPath],
+                    TimeSpan.FromSeconds(30),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var output = toolResult.StandardOutput;
+            var error = toolResult.StandardError;
+            if (string.IsNullOrWhiteSpace(output))
             {
-                var item = HachimiPipelineTaskEditorItem.FromTask(pair.Key, pair.Value);
-                item.PropertyChanged += OnPipelineTaskEditorPropertyChanged;
-                _pipelineTasks.Add(item);
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(error)
+                    ? $"Native career package inspector exited with code {toolResult.ExitCode} without a result."
+                    : error.Trim());
             }
-            SelectedPipelineTask = _pipelineTasks.FirstOrDefault();
+
+            return new CareerPackageInspectionResult(JsonDocument.Parse(output), error, toolResult.ExitCode);
         }
-        catch (Exception exception)
+        finally
         {
-            _scenarioPackageStatusText =
-                $"Saved source document. Package reload reports: {exception.Message}";
+            TryDelete(requestPath);
         }
     }
+
+    private string ResolveCareerResourceRoot(string manifestPath)
+    {
+        if (!string.IsNullOrWhiteSpace(_umaService?.ResourcePath))
+            return Path.GetFullPath(_umaService.ResourcePath);
+
+        for (var directory = new DirectoryInfo(Path.GetFullPath(manifestPath)).Parent;
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (directory.Name.Equals("resource", StringComparison.OrdinalIgnoreCase))
+                return directory.FullName;
+        }
+
+        var runtimeResource = Path.Combine(AppContext.BaseDirectory, "resource");
+        if (Directory.Exists(runtimeResource))
+            return Path.GetFullPath(runtimeResource);
+        throw new DirectoryNotFoundException(
+            "The active top-level resource directory could not be determined for native package inspection.");
+    }
+
+    private static ScenarioPackageProjection ProjectScenarioPackage(
+        string manifestPath,
+        JsonElement inspectionRoot)
+    {
+        var fullManifestPath = Path.GetFullPath(manifestPath);
+        var rootDirectory = Path.GetDirectoryName(fullManifestPath)
+            ?? throw new InvalidDataException("The native career manifest has no parent directory.");
+        var resourceRoot = ReadInspectorString(inspectionRoot, "resource_root");
+        if (string.IsNullOrWhiteSpace(resourceRoot))
+            throw new InvalidDataException("The native inspector did not return resource_root.");
+        resourceRoot = Path.GetFullPath(resourceRoot);
+        if (!inspectionRoot.TryGetProperty("execution", out var execution)
+            || execution.ValueKind != JsonValueKind.Object
+            || !execution.TryGetProperty("fragment_paths", out var fragmentPaths)
+            || fragmentPaths.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidDataException("The native inspector did not return execution fragment paths.");
+        }
+
+        var fragments = fragmentPaths.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => NormalizeInspectorPath(value.GetString()!, Path.Combine(resourceRoot, "hachimi", "career")))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (fragments.Length == 0)
+            throw new InvalidDataException("The native manifest declares no execution fragments.");
+
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (inspectionRoot.TryGetProperty("files", out var nativeFiles)
+            && nativeFiles.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var sourceFile in nativeFiles.EnumerateArray())
+            {
+                var path = ReadInspectorString(sourceFile, "path");
+                if (!string.IsNullOrWhiteSpace(path))
+                    files[Path.GetFullPath(path)] = ReadInspectorString(sourceFile, "raw_json");
+            }
+        }
+
+        var taskSources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fragment in fragments)
+        {
+            if (!files.TryGetValue(fragment, out var rawJson))
+                continue;
+            try
+            {
+                using var document = JsonDocument.Parse(rawJson);
+                if (!document.RootElement.TryGetProperty("tasks", out var tasks)
+                    || tasks.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+                foreach (var task in tasks.EnumerateObject())
+                    taskSources.TryAdd(task.Name, fragment);
+            }
+            catch (JsonException)
+            {
+                // The native inspector reports syntax diagnostics; this projection
+                // only records which source fragment owns each task key.
+            }
+        }
+
+        var manifest = TryGetPropertyCaseInsensitive(inspectionRoot, "manifest", out var manifestElement)
+            ? manifestElement
+            : default;
+        return new ScenarioPackageProjection(
+            fullManifestPath,
+            rootDirectory,
+            resourceRoot,
+            ReadString(manifest, "scenarioId") ?? Path.GetFileName(rootDirectory),
+            ReadString(manifest, "displayName") ?? Path.GetFileName(rootDirectory),
+            fragments[0],
+            fragments,
+            taskSources);
+    }
+
+    private static HachimiPipelineDefinition? ReadScenarioExecutionDefinition(JsonElement inspectionRoot)
+    {
+        if (!inspectionRoot.TryGetProperty("execution", out var execution)
+            || !execution.TryGetProperty("definition", out var definitionElement)
+            || definitionElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var definition = JsonSerializer.Deserialize<HachimiPipelineDefinition>(definitionElement.GetRawText());
+        if (definition is null)
+            return null;
+        definition.Tasks = new Dictionary<string, HachimiPipelineTask>(
+            definition.Tasks,
+            StringComparer.OrdinalIgnoreCase);
+        if (execution.TryGetProperty("task_order", out var taskOrder)
+            && taskOrder.ValueKind == JsonValueKind.Array)
+        {
+            var ordered = new Dictionary<string, HachimiPipelineTask>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in taskOrder.EnumerateArray())
+            {
+                var taskName = entry.ValueKind == JsonValueKind.String ? entry.GetString() : null;
+                if (taskName is not null && definition.Tasks.TryGetValue(taskName, out var task))
+                    ordered.TryAdd(taskName, task);
+            }
+            foreach (var pair in definition.Tasks)
+                ordered.TryAdd(pair.Key, pair.Value);
+            definition.Tasks = ordered;
+        }
+        return definition;
+    }
+
+    private static string NormalizeInspectorPath(string path, string baseDirectory) =>
+        Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(baseDirectory, path));
+
+    private static bool ReadInspectorBoolean(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static int ReadInspectorArrayLength(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.GetArrayLength()
+            : 0;
+
+    private static string ReadInspectorString(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static string FormatInspectorDiagnostics(JsonElement root, string standardError)
+    {
+        var diagnostics = new List<string>();
+        if (root.TryGetProperty("diagnostics", out var value) && value.ValueKind == JsonValueKind.Array)
+        {
+            diagnostics.AddRange(value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString() ?? string.Empty)
+                .Where(item => !string.IsNullOrWhiteSpace(item)));
+        }
+        if (!string.IsNullOrWhiteSpace(standardError))
+            diagnostics.Add(standardError.Trim());
+        return diagnostics.Count == 0 ? "No native diagnostics were returned." : string.Join(" | ", diagnostics);
+    }
+
+    private static bool TryGetPropertyCaseInsensitive(JsonElement element, string name, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+        }
+        value = default;
+        return false;
+    }
+
+    private static string? ReadString(JsonElement element, string property) =>
+        TryGetPropertyCaseInsensitive(element, property, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+    private static string? ReadString(JsonNode? node, string property) =>
+        node is JsonObject obj
+        && obj.TryGetPropertyValue(property, out var value)
+        && value is JsonValue jsonValue
+        && jsonValue.TryGetValue<string>(out var text)
+            ? text
+            : null;
+
+    private static string? ReadString(JsonNode? node) =>
+        node is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text)
+            ? text
+            : null;
 
     private HachimiPipelineDefinition BuildPipelineDefinition()
     {
@@ -1420,95 +1807,9 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         return definition;
     }
 
-    private static List<string> ValidateDefinition(HachimiPipelineDefinition definition)
-    {
-        var errors = new List<string>();
-        var supportedActions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "",
-            "back",
-            "capturescreenshot",
-            "clickrect",
-            "clickself",
-            "clickselfuntiltransition",
-            "donothing",
-            "input",
-            "keyevent",
-            "runpipeline",
-            "screenshot",
-            "selectdailyracerunner",
-            "selecturatrainee",
-            "stop",
-            "swipe",
-            "wait",
-        };
-        if (definition.Tasks.Count == 0)
-            errors.Add("the flow needs at least one task");
-
-        foreach (var pair in definition.Tasks)
-        {
-            var name = pair.Key;
-            var task = pair.Value;
-            var action = Normalize(task.Action);
-            var algorithm = Normalize(task.Algorithm);
-            if (!supportedActions.Contains(action))
-                errors.Add($"{name}: unsupported action '{task.Action}'");
-            if (task.Template is not null && !File.Exists(Path.Combine(definition.BaseDirectory, task.Template)))
-            {
-                errors.Add($"{name}: template not found ({task.Template})");
-            }
-
-            if (action is "clickself" or "clickselfuntiltransition" or "wait"
-                && string.IsNullOrWhiteSpace(task.Template))
-                errors.Add($"{name}: action {task.Action} requires a template");
-            if (action == "clickselfuntiltransition"
-                && task.TransitionTemplates.Count == 0)
-            {
-                errors.Add($"{name}: ClickSelfUntilTransition requires transitionTemplates");
-            }
-            if (action == "clickrect" && !HasArray(task.SpecificRect, 4))
-                errors.Add($"{name}: ClickRect requires specificRect with 4 values");
-            if (action == "swipe" && !HasArray(task.Swipe, 5))
-                errors.Add($"{name}: Swipe requires 5 coordinates");
-            if (action == "keyevent" && string.IsNullOrWhiteSpace(task.KeyCode))
-                errors.Add($"{name}: KeyEvent requires keyCode");
-            if (action == "runpipeline" && string.IsNullOrWhiteSpace(task.Pipeline))
-                errors.Add($"{name}: RunPipeline requires pipeline");
-            if (algorithm is "parallelmonitor" or "raceresultmonitor"
-                && (task.MonitorTasks.Count == 0 || string.IsNullOrWhiteSpace(task.SuccessTask)))
-            {
-                errors.Add($"{name}: monitor requires monitorTasks and successTask");
-            }
-
-            foreach (var reference in task.Next
-                         .Concat(task.OnErrorNext)
-                         .Concat(task.ExceededNext)
-                         .Concat(task.Sub)
-                         .Concat(task.MonitorTasks)
-                         .Append(task.SuccessTask ?? string.Empty)
-                         .Where(value => !string.IsNullOrWhiteSpace(value)))
-            {
-                if (!definition.Tasks.ContainsKey(reference))
-                    errors.Add($"{name}: transition references missing task '{reference}'");
-            }
-        }
-
-        return errors;
-    }
-
-    private static bool HasArray(int[]? values, int length) =>
-        values is not null && values.Length == length;
-
     private static bool IsScenarioManifest(string? path) =>
         !string.IsNullOrWhiteSpace(path)
         && Path.GetFileName(path).Equals("manifest.json", StringComparison.OrdinalIgnoreCase);
-
-    private static string Normalize(string? value) =>
-        value?.Replace("_", string.Empty, StringComparison.Ordinal)
-            .Replace("-", string.Empty, StringComparison.Ordinal)
-            .Trim()
-            .ToLowerInvariant()
-        ?? string.Empty;
 
     private static string MakeSafeFileName(string value)
     {
@@ -1818,69 +2119,258 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         SetPipelineStatus("Flow preview refreshed.");
     }
 
-    private void SimulatePipeline()
+    private void SelectReplayFixture()
     {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Core replay fixture|*.json|JSON files|*.json|All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+            InitialDirectory = File.Exists(ReplayFixturePath)
+                ? Path.GetDirectoryName(ReplayFixturePath)
+                : GetPipelineDirectory(),
+        };
+        if (dialog.ShowDialog() == true)
+            ReplayFixturePath = Path.GetFullPath(dialog.FileName);
+    }
+
+    private async Task ReplayPipelineAsync()
+    {
+        if (_disposed || _isPipelineBusy || !HasPipelineDefinition)
+            return;
+        if (_umaService is null)
+        {
+            SetPipelineStatus("Core replay is unavailable because the native Core service is not initialized.");
+            return;
+        }
+        if (!File.Exists(ReplayFixturePath))
+        {
+            SetPipelineStatus("Choose an existing Core replay fixture JSON file first.");
+            return;
+        }
+
+        string? temporaryPipelinePath = null;
         try
         {
             var definition = BuildPipelineDefinition();
-            var current = definition.Tasks.Keys.FirstOrDefault();
-            if (current is null)
-            {
-                SetPipelineStatus("Simulation blocked: the flow has no tasks.");
-                return;
-            }
+            var validationError = _umaService.ValidatePipelineJson(
+                JsonSerializer.Serialize(definition, PipelineJsonOptions));
+            if (!string.IsNullOrWhiteSpace(validationError))
+                throw new InvalidDataException($"Core parser: {validationError}");
 
-            var lines = new List<string> { $"Entry: {current}" };
-            var visited = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var guard = Math.Max(100, definition.Tasks.Count * 10);
-            for (var index = 0; index < guard && !string.IsNullOrWhiteSpace(current); index++)
-            {
-                if (!definition.TryGetTask(current, out var task) || task is null)
-                {
-                    lines.Add($"STOP: missing task '{current}'");
-                    break;
-                }
+            var entryTask = string.IsNullOrWhiteSpace(PipelineEntryTaskName)
+                ? definition.Tasks.Keys.FirstOrDefault() ?? string.Empty
+                : PipelineEntryTaskName;
+            if (string.IsNullOrWhiteSpace(entryTask)
+                || !definition.Tasks.ContainsKey(entryTask))
+                throw new InvalidDataException("Choose a valid entry task before replay.");
 
-                visited[current] = visited.TryGetValue(current, out var count) ? count + 1 : 1;
-                lines.Add($"{index + 1:00}. {current} [{task.Action}] -> {string.Join(", ", task.Next)}");
-                if (task.Success)
-                {
-                    lines.Add("STOP: task marked success");
-                    break;
-                }
+            var toolPath = FindPipelineReplayTool();
+            if (toolPath is null)
+                throw new FileNotFoundException(
+                    "The native offline replay tool is unavailable. Build or stage uma_pipeline_replay.exe to use replay.");
 
-                if (Normalize(task.Action) == "stop")
-                {
-                    lines.Add("STOP: task requests stop");
-                    break;
-                }
+            var definitionDirectory = Path.GetFullPath(definition.BaseDirectory);
+            Directory.CreateDirectory(ResourcePathRuntime.ResolveWritePath(definitionDirectory));
+            var fileName = $".{MakeSafeFileName(definition.Name)}.{Guid.NewGuid():N}.replay.json";
+            temporaryPipelinePath = ResourcePathRuntime.ResolveWritePath(Path.Combine(definitionDirectory, fileName));
+            await File.WriteAllTextAsync(
+                    temporaryPipelinePath,
+                    JsonSerializer.Serialize(definition, PipelineJsonOptions),
+                    new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
+                .ConfigureAwait(true);
 
-                var next = task.Next.FirstOrDefault(name => definition.Tasks.ContainsKey(name));
-                if (next is null)
-                {
-                    lines.Add("STOP: no success transition");
-                    break;
-                }
+            SetPipelineBusy(true);
+            _isPipelineRunning = true;
+            OnPropertyChanged(nameof(IsPipelineRunning));
+            RaiseCommandStates();
+            SetPipelineRunStatus("Running the native Core replay...");
 
-                if (visited.TryGetValue(next, out var nextCount) && nextCount >= 1)
-                {
-                    lines.Add($"LOOP: '{next}' would repeat; runtime maxTimes/overrides decide when it exits.");
-                    break;
-                }
+            _pipelineRunCancellation = new CancellationTokenSource();
+            var token = _pipelineRunCancellation.Token;
+            var toolResult = await RunNativeToolAsync(
+                    toolPath,
+                    [temporaryPipelinePath, Path.GetFullPath(ReplayFixturePath), entryTask],
+                    TimeSpan.FromSeconds(30),
+                    token)
+                .ConfigureAwait(true);
+            if (toolResult.ExitCode != 0 && string.IsNullOrWhiteSpace(toolResult.StandardOutput))
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(toolResult.StandardError)
+                    ? $"Replay tool exited with code {toolResult.ExitCode}."
+                    : toolResult.StandardError.Trim());
 
-                current = next;
-            }
-
-            _pipelineSimulationText = string.Join(Environment.NewLine, lines);
+            using var replay = JsonDocument.Parse(toolResult.StandardOutput);
+            _pipelineSimulationText = FormatReplayResult(
+                replay.RootElement, toolResult.StandardError, toolResult.ExitCode);
             OnPropertyChanged(nameof(PipelineSimulationText));
-            SetPipelineStatus("Offline simulation completed. It follows the first success transition and does not touch the emulator.");
+            var succeeded = replay.RootElement.TryGetProperty("success", out var success)
+                && success.ValueKind == JsonValueKind.True;
+            SetPipelineRunStatus(succeeded
+                ? "Native offline replay completed successfully."
+                : $"Native offline replay failed (exit {toolResult.ExitCode}).");
+            SetPipelineStatus(_pipelineRunStatusText);
+        }
+        catch (OperationCanceledException)
+        {
+            SetPipelineRunStatus("Native offline replay canceled.");
+            SetPipelineStatus("Native offline replay canceled.");
         }
         catch (Exception exception)
         {
-            _pipelineSimulationText = $"Simulation failed: {exception.Message}";
+            _pipelineSimulationText = $"Replay failed: {exception.Message}";
             OnPropertyChanged(nameof(PipelineSimulationText));
-            SetPipelineStatus(_pipelineSimulationText);
+            SetPipelineRunStatus($"Replay failed: {exception.Message}");
+            SetPipelineStatus(_pipelineRunStatusText);
         }
+        finally
+        {
+            _pipelineRunCancellation?.Dispose();
+            _pipelineRunCancellation = null;
+            _isPipelineRunning = false;
+            OnPropertyChanged(nameof(IsPipelineRunning));
+            SetPipelineBusy(false);
+            RaiseCommandStates();
+            if (temporaryPipelinePath is not null)
+                TryDelete(temporaryPipelinePath);
+        }
+    }
+
+    private static string? FindPipelineReplayTool()
+    {
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "uma_pipeline_replay.exe"),
+            Path.Combine(AppContext.BaseDirectory, "tools", "uma_pipeline_replay.exe"),
+        };
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (!File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
+                continue;
+            foreach (var config in new[] { "Debug", "Release" })
+                candidates.Add(Path.Combine(directory.FullName, "build", "msvc-debug", "tools", config,
+                    "uma_pipeline_replay.exe"));
+            break;
+        }
+
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    private sealed record NativeToolResult(int ExitCode, string StandardOutput, string StandardError);
+
+    private static async Task<NativeToolResult> RunNativeToolAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(timeout);
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = executablePath,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            },
+        };
+        foreach (var argument in arguments)
+            process.StartInfo.ArgumentList.Add(argument);
+
+        var started = false;
+        try
+        {
+            started = process.Start();
+            if (!started)
+                throw new InvalidOperationException($"Could not start native tool '{executablePath}'.");
+
+            // Drain both pipes through process exit, including after cancellation kills it.
+            var outputTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var errorTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+            try
+            {
+                await process.WaitForExitAsync(timeoutCancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                TryKillProcessTree(process);
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+                throw new TimeoutException($"Native tool exceeded the {timeout.TotalSeconds:0}-second time limit.");
+            }
+
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+            return new NativeToolResult(process.ExitCode, output, error);
+        }
+        finally
+        {
+            if (started)
+            {
+                TryKillProcessTree(process);
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static void TryKillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // The process exited between the HasExited check and Kill.
+        }
+        catch (Win32Exception)
+        {
+            // The process can already be in the process of exiting.
+        }
+    }
+
+    private static string FormatReplayResult(JsonElement root, string standardError, int exitCode)
+    {
+        var lines = new List<string>
+        {
+            $"Success: {ReadBoolean(root, "success")}",
+            $"Status: {ReadString(root, "status")}",
+            $"Final task: {ReadString(root, "finalTask")}",
+            $"Steps: {ReadInt(root, "totalSteps")}",
+            $"Captures: {ReadInt(root, "captures")}; exhausted: {ReadBoolean(root, "exhausted")}; budget exceeded: {ReadBoolean(root, "budgetExceeded")}",
+        };
+        if (!string.IsNullOrWhiteSpace(ReadString(root, "error")))
+            lines.Add($"Error: {ReadString(root, "error")}");
+        if (root.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var action in actions.EnumerateArray())
+                lines.Add($"Action: {JsonSerializer.Serialize(action)}");
+        }
+        if (root.TryGetProperty("events", out var events) && events.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in events.EnumerateArray())
+                lines.Add($"Event: {ReadString(item, "task")} · {ReadString(item, "type")} · {ReadString(item, "message")}");
+        }
+        if (!string.IsNullOrWhiteSpace(standardError))
+            lines.Add($"Tool diagnostics: {standardError.Trim()}");
+        if (exitCode != 0)
+            lines.Add($"Exit code: {exitCode}");
+        return string.Join(Environment.NewLine, lines);
+
+        static string ReadString(JsonElement element, string property) =>
+            element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString() ?? string.Empty : string.Empty;
+        static bool ReadBoolean(JsonElement element, string property) =>
+            element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
+        static int ReadInt(JsonElement element, string property) =>
+            element.TryGetProperty(property, out var value) && value.TryGetInt32(out var number) ? number : 0;
     }
 
     public async Task RunPipelineAsync()
@@ -1898,10 +2388,10 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         try
         {
             definition = BuildPipelineDefinition();
-            var errors = ValidateDefinition(definition);
-            if (errors.Count > 0)
+            var validationError = ValidateWithCore(definition);
+            if (validationError is not null)
             {
-                SetPipelineRunStatus("Test blocked: " + string.Join(" | ", errors));
+                SetPipelineRunStatus("Test blocked: " + validationError);
                 SetPipelineStatus("Test blocked by validation errors. Fix the flow before running it.");
                 return;
             }
@@ -1955,18 +2445,43 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             SetPipelineRunStatus($"Running '{definition.Name}'...");
-            var result = await _pipelineRunner.RunAsync(
-                    connection,
-                    definition,
-                    PipelineEntryTaskName,
-                    logSink: this,
-                    cancellationToken: _pipelineRunCancellation.Token)
-                .ConfigureAwait(true);
+            if (_umaService is null)
+                throw new InvalidOperationException("The native Core service is unavailable.");
+            void OnPipelineEvent(ConnectionEvent connectionEvent)
+            {
+                switch (connectionEvent)
+                {
+                    case TaskProgressEvent progress:
+                        Add("Core task", $"{progress.TaskName}: {progress.Message}",
+                            progress.Succeeded ? LogEntryKind.Info : LogEntryKind.Failure);
+                        break;
+                    case RuntimeDiagnosticEvent diagnostic:
+                        Add(diagnostic.Level.ToString(), diagnostic.Message,
+                            diagnostic.Level == RuntimeDiagnosticLevel.Error
+                                ? LogEntryKind.Failure : LogEntryKind.Info);
+                        break;
+                }
+            }
+
+            _umaService.ConnectionEventReceived += OnPipelineEvent;
+            PipelineRunResult result;
+            try
+            {
+                result = await _umaService.RunPipelineAsync(
+                        JsonSerializer.Serialize(definition, PipelineJsonOptions),
+                        PipelineEntryTaskName,
+                        _pipelineRunCancellation.Token)
+                    .ConfigureAwait(true);
+            }
+            finally
+            {
+                _umaService.ConnectionEventReceived -= OnPipelineEvent;
+            }
 
             SetPipelineRunStatus(result.Succeeded
-                ? $"Test passed: {result.Message}"
-                : $"Test failed: {result.Message}");
-            SetPipelineStatus(SetPipelineRunSummary(result));
+                ? $"Test passed: Core completed {result.TotalSteps} step(s) at '{result.FinalTask}'."
+                : $"Test failed at '{result.FinalTask}': {result.Message}");
+            SetPipelineStatus(_pipelineRunStatusText);
         }
         catch (OperationCanceledException)
         {
@@ -2042,11 +2557,6 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         _pipelineRunStatusText = status;
         OnPropertyChanged(nameof(PipelineRunStatusText));
     }
-
-    private static string SetPipelineRunSummary(HachimiPipelineRunResult result) =>
-        result.Succeeded
-            ? $"JSON test passed: {result.Message} Completed tasks: {result.CompletedUnits}."
-            : $"JSON test failed: {result.Message} Last task: {result.LastTask ?? "none"}.";
 
     private void RefreshPipelinePreviewText()
     {
@@ -2179,23 +2689,21 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             SetStatus("Capturing screenshot...");
-            var capture = await _adbRuntime.CaptureBestScreenshotAsync(
-                connection.AdbPath,
-                connection.Serial).ConfigureAwait(true);
-            if (!capture.Succeeded || capture.Screenshot is null)
+            var capture = await _nativeDevice.CaptureGrayAsync(connection).ConfigureAwait(true);
+            if (capture is null)
             {
-                SetStatus(DescribeCaptureFailure(capture));
+                SetStatus("The native Core screenshot capture returned no image.");
                 return;
             }
 
-            var bitmap = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
+            var bitmap = ScreenshotBitmapCodec.ToBitmapSource(capture);
             if (bitmap is null)
             {
                 SetStatus("The emulator returned an unsupported screenshot format.");
                 return;
             }
 
-            _screenshot = capture.Screenshot;
+            _screenshot = capture;
             _screenshotImage = bitmap;
             _cropRegion = null;
             ClearImageMatchPreview();
@@ -2205,8 +2713,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 _activeImagePath = null;
             }
             _captureDetails =
-                $"{bitmap.PixelWidth} × {bitmap.PixelHeight} · {capture.Screenshot.Method} · "
-                + $"{capture.Screenshot.Duration.TotalMilliseconds:0} ms";
+                $"{bitmap.PixelWidth} × {bitmap.PixelHeight} · Native Core";
             SetStatus("Screenshot captured. Drag on the preview to select a crop region.");
             NotifyScreenshotPropertiesChanged();
         }
@@ -2262,22 +2769,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             }
 
             SetImageMatchTestStatus("Testing the selected crop on the current emulator page...");
-            var capture = await _adbRuntime.CaptureBestScreenshotAsync(
-                connection.AdbPath,
-                connection.Serial).ConfigureAwait(true);
-            if (!capture.Succeeded || capture.Screenshot is null)
+            var capture = await _nativeDevice.CaptureGrayAsync(connection).ConfigureAwait(true);
+            if (capture is null)
             {
-                SetImageMatchTestStatus(DescribeCaptureFailure(capture));
+                SetImageMatchTestStatus("The native Core screenshot capture returned no image.");
                 return;
             }
 
-            var screen = GrayImageCodec.FromScreenshot(capture.Screenshot);
-            if (screen is null)
-            {
-                SetImageMatchTestStatus(
-                    "The emulator returned an unsupported screenshot format.");
-                return;
-            }
+            var screen = capture;
 
             var match = await Task.Run(() => TemplateMatcher.Find(
                 screen,
@@ -2286,7 +2785,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                 threshold: ImageMatchTestThreshold,
                 referenceWidth: screen.Width,
                 referenceHeight: screen.Height)).ConfigureAwait(true);
-            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
+            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture);
             _imageMatchTestMatch = match;
             OnPropertyChanged(nameof(UmaImagePreviewImage));
             OnPropertyChanged(nameof(ImageMatchTestMatch));
@@ -2350,22 +2849,14 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
             SetImageMatchTestStatus(
                 $"Testing {Path.GetFileName(referencePath)} across the current emulator page...");
-            var capture = await _adbRuntime.CaptureBestScreenshotAsync(
-                connection.AdbPath,
-                connection.Serial).ConfigureAwait(true);
-            if (!capture.Succeeded || capture.Screenshot is null)
+            var capture = await _nativeDevice.CaptureGrayAsync(connection).ConfigureAwait(true);
+            if (capture is null)
             {
-                SetImageMatchTestStatus(DescribeCaptureFailure(capture));
+                SetImageMatchTestStatus("The native Core screenshot capture returned no image.");
                 return;
             }
 
-            var screen = GrayImageCodec.FromScreenshot(capture.Screenshot);
-            if (screen is null)
-            {
-                SetImageMatchTestStatus(
-                    "The emulator returned an unsupported screenshot format.");
-                return;
-            }
+            var screen = capture;
 
             var referenceTemplate = GrayImageCodec.FromFile(referencePath);
             if (referenceTemplate is null)
@@ -2386,7 +2877,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
                     SystemReferenceScaleCandidates))
                 .ConfigureAwait(true);
 
-            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture.Screenshot);
+            _imageMatchTestImage = ScreenshotBitmapCodec.ToBitmapSource(capture);
             _imageMatchTestMatch = match;
             OnPropertyChanged(nameof(UmaImagePreviewImage));
             OnPropertyChanged(nameof(ImageMatchTestMatch));
@@ -2759,9 +3250,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         }
 
         if (_screenshot is { } screenshot)
-        {
-            return GrayImageCodec.FromScreenshot(screenshot);
-        }
+            return screenshot;
 
         return string.IsNullOrWhiteSpace(_activeImagePath)
             ? null
@@ -2891,25 +3380,6 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
         return dialog.ShowDialog() == true ? dialog.FileName : null;
     }
 
-    private static string DescribeCaptureFailure(AdbScreenshotCaptureResult capture)
-    {
-        var failure = capture.Attempts.Count > 0
-            ? capture.Attempts[^1]
-            : null;
-        if (failure is null)
-        {
-            return "Screenshot capture failed without a command result.";
-        }
-
-        var details = string.Join(
-            " ",
-            new[] { failure.Error?.Message, failure.Stderr.Trim() }
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
-        return string.IsNullOrWhiteSpace(details)
-            ? $"Screenshot capture failed with exit code {failure.ExitCode}."
-            : $"Screenshot capture failed: {details}";
-    }
-
     private void OnConnectionStateChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(ConnectionState));
@@ -2926,8 +3396,8 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
             return;
         }
 
-        // UmaDatabaseService loads its JSON with ConfigureAwait(false), so
-        // DatabaseLoaded can be raised on a thread-pool thread. Refreshing the
+        // Native catalog initialization and resource refresh can raise
+        // DatabaseLoaded on a thread-pool thread. Refreshing the
         // WPF-bound image collection and command states must happen on the UI
         // dispatcher or the buttons can remain disabled after the list loads.
         var dispatcher = Application.Current?.Dispatcher;
@@ -2949,7 +3419,7 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
     private void SetBusy(bool busy)
     {
         if (busy && _busyActivityLease is null)
-            _busyActivityLease = _activityRegistry?.Acquire(ActivityKind.DeveloperPipeline);
+            _busyActivityLease = _activityRegistry?.Acquire(UmamusumeWpfGui.Models.ActivityKind.DeveloperPipeline);
         else if (!busy)
         {
             _busyActivityLease?.Dispose();
@@ -3046,6 +3516,35 @@ public sealed class DeveloperToolsViewModel : INotifyPropertyChanged, IDisposabl
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private sealed record ScenarioPackageProjection(
+        string ManifestPath,
+        string RootDirectory,
+        string ResourceRoot,
+        string ScenarioId,
+        string DisplayName,
+        string ExecutionPath,
+        IReadOnlyList<string> ExecutionFragmentPaths,
+        IReadOnlyDictionary<string, string> TaskSourceFiles)
+    {
+        public string ResourceCareerDirectory => Path.Combine(ResourceRoot, "hachimi", "career");
+    }
+
+    private sealed class CareerPackageInspectionResult : IDisposable
+    {
+        public CareerPackageInspectionResult(JsonDocument document, string standardError, int exitCode)
+        {
+            Document = document;
+            StandardError = standardError;
+            ExitCode = exitCode;
+        }
+
+        public JsonDocument Document { get; }
+        public string StandardError { get; }
+        public int ExitCode { get; }
+
+        public void Dispose() => Document.Dispose();
+    }
 
     private sealed class RelayCommand : ICommand
     {

@@ -8,7 +8,6 @@ using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
-using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.Services.Update;
 using UmamusumeWpfGui.ViewModels;
 using UmamusumeWpfGui.ViewModels.Tasks;
@@ -18,8 +17,12 @@ namespace UmamusumeWpfGui;
 
 public class Bootstrapper : Bootstrapper<RootViewModel>
 {
+    private static readonly TimeSpan ShutdownBudget = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan VisualShutdownBudget = TimeSpan.FromSeconds(2);
+
     private Task<bool>? _startupInitialization;
     private IUmaService? _umaService;
+    private IUmaVisualDeviceFacade? _visualDeviceFacade;
 
     protected override void ConfigureIoC(IStyletIoCBuilder builder)
     {
@@ -30,6 +33,9 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
 
         builder.Bind<IUmaService>()
             .To<UmaService>()
+            .InSingletonScope();
+        builder.Bind<IUmaVisualDeviceFacade>()
+            .To<UmaVisualDeviceFacade>()
             .InSingletonScope();
 
         builder.Bind<IResourceStore>()
@@ -67,31 +73,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             .To<AdbRunner>();
         builder.Bind<IAdbRuntime>()
             .To<AdbRuntime>();
-        builder.Bind<IScreenTextRecognizer>()
-            .To<WindowsOcrTextRecognizer>()
-            .InSingletonScope();
-        builder.Bind<IAdbTouchRuntime>()
-            .To<AdbTouchRuntime>();
-        builder.Bind<IVisualPipelineRuntime>()
-            .To<AdbVisualPipelineRuntime>()
-            .InSingletonScope();
-        builder.Bind<DateChangedDialogGuard>().ToSelf().InSingletonScope();
-        builder.Bind<DateChangedDialogRecovery>().ToSelf().InSingletonScope();
-        builder.Bind<HachimiJsonPipelineRunner>()
-            .ToSelf()
-            .InSingletonScope();
         builder.Bind<ShopTaskModule>()
             .ToSelf()
-            .InSingletonScope();
-        builder.Bind<DailyRaceRunnerSelector>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<IAdbConnectionSessionFactory>()
-            .To<AdbConnectionSessionFactory>();
-        builder.Bind<IGameLauncher>()
-            .To<AdbGameLauncher>();
-        builder.Bind<IStartGamePipeline>()
-            .To<AdbStartGamePipeline>()
             .InSingletonScope();
         builder.Bind<StartGameTaskModule>()
             .ToSelf()
@@ -102,44 +85,11 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<DailyRaceTaskModule>()
             .ToSelf()
             .InSingletonScope();
-        builder.Bind<ICareerTrainingPipeline>()
-            .To<AdbNormalCareerTrainingPipeline>()
-            .InSingletonScope();
-        builder.Bind<CareerTrainingEngine>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<CareerJsonActionExecutor>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<CareerEntryNavigator>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<IIndependentTrainingPipeline>()
-            .To<AdbIndependentTrainingPipeline>()
-            .InSingletonScope();
-        builder.Bind<UraTraineeSelector>()
-            .ToSelf()
-            .InSingletonScope();
-        builder.Bind<UraLegacySelector>()
-            .ToSelf()
-            .InSingletonScope();
         builder.Bind<CareerTrainingTaskModule>()
             .ToSelf()
             .InSingletonScope();
-        builder.Bind<ITeamRacePipeline>()
-            .To<AdbTeamRacePipeline>()
-            .InSingletonScope();
-        builder.Bind<IDailyRacePipeline>()
-            .To<AdbDailyRacePipeline>()
-            .InSingletonScope();
-        builder.Bind<IMailCollectionPipeline>()
-            .To<AdbMailCollectionPipeline>()
-            .InSingletonScope();
         builder.Bind<MailCollectionTaskModule>()
             .ToSelf()
-            .InSingletonScope();
-        builder.Bind<IMissionCollectionPipeline>()
-            .To<AdbMissionCollectionPipeline>()
             .InSingletonScope();
         builder.Bind<MissionCollectionTaskModule>()
             .ToSelf()
@@ -160,6 +110,12 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         builder.Bind<IGrassTaskCatalog>()
             .To<DefaultGrassTaskCatalog>()
             .InSingletonScope();
+        builder.Bind<IGrassTaskExecutor>()
+            .To<NativeGrassTaskExecutor>()
+            .InSingletonScope();
+        builder.Bind<IGrassTaskExecutionService>()
+            .To<GrassTaskExecutionService>()
+            .InSingletonScope();
         builder.Bind<GrassViewModel>().ToSelf().InSingletonScope();
         builder.Bind<OverviewViewModel>().ToSelf();
         builder.Bind<SettingsViewModel>().ToSelf().InSingletonScope();
@@ -172,9 +128,11 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         base.Configure();
 
         var umaService = Container.Get<IUmaService>();
+        var visualDeviceFacade = Container.Get<IUmaVisualDeviceFacade>();
         var umaDatabase = Container.Get<IUmaDatabaseService>();
         var resourceStore = Container.Get<IResourceStore>();
         _umaService = umaService;
+        _visualDeviceFacade = visualDeviceFacade;
 
         var appBaseDir = AppContext.BaseDirectory;
 
@@ -207,12 +165,15 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             return;
         }
 
+        // Diagnostics now connects and captures through the native Core
+        // device path, so initialize it through the same startup barrier.
+        _startupInitialization?.GetAwaiter().GetResult();
+
         var exitCode = CliDiagnostics.RunAsync(
                 Args,
-                Container.Get<HachimiJsonPipelineRunner>(),
-                Container.Get<IAdbConnectionSessionFactory>(),
                 Container.Get<IAdbRuntime>(),
-                Container.Get<ISettingsService>())
+                Container.Get<ISettingsService>(),
+                Container.Get<IUmaService>())
             .GetAwaiter()
             .GetResult();
         Application.Current.Shutdown(exitCode);
@@ -238,6 +199,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             await umaService.InitializeAsync(
                 resourceStore.ActiveCompositeBaseDirectory,
                 appDataDir).ConfigureAwait(false);
+            TemplateMatcher.ConfigureNativeRecognition(umaService);
         }
         catch (Exception ex)
         {
@@ -250,7 +212,8 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         {
             var resourceRoot = umaService.ResourcePath
                 ?? Path.Combine(appBaseDir, "resource");
-            await umaDatabase.LoadAsync(resourceRoot).ConfigureAwait(false);
+            var catalog = await umaService.GetCatalogAsync("all").ConfigureAwait(false);
+            umaDatabase.LoadFromCoreCatalog(catalog, resourceRoot);
         }
         catch (Exception ex)
         {
@@ -328,27 +291,122 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         }
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    protected override void OnExit(ExitEventArgs e)
     {
-        await ShutdownAsync(e).ConfigureAwait(true);
-    }
-
-    private async Task ShutdownAsync(ExitEventArgs e)
-    {
+        long shutdownStarted = Stopwatch.GetTimestamp();
+        IDisposable? shutdownLease = null;
         try
         {
-            using var lease = Container.Get<IActivityRegistry>().Acquire(ActivityKind.Shutdown);
-            if (_umaService is not null)
-                await _umaService.DisposeAsync().ConfigureAwait(true);
+            try
+            {
+                shutdownLease = Container.Get<IActivityRegistry>().Acquire(ActivityKind.Shutdown);
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"Failed to register shutdown activity: {exception.Message}");
+            }
+
+            // Stylet disposes the root view model as soon as OnExit returns.
+            // Start teardown away from the UI SynchronizationContext, then keep
+            // pumping dispatcher work until it finishes or the existing global
+            // shutdown budget expires.
+            IDisposable? shutdownTaskLease = shutdownLease;
+            Task shutdownTask = Task.Run(() => ShutdownAsync(shutdownStarted, shutdownTaskLease));
+            shutdownLease = null;
+            TimeSpan remaining = RemainingShutdownTime(shutdownStarted);
+            bool completed = DispatcherShutdownBarrier.Wait(
+                shutdownTask,
+                Application.Current?.Dispatcher ?? System.Windows.Threading.Dispatcher.CurrentDispatcher,
+                remaining,
+                exception => Debug.WriteLine($"Shutdown task failed after the exit barrier timed out: {exception.Message}"));
+            if (!completed)
+                Debug.WriteLine("Shutdown exceeded its 10-second budget; pending managed cleanup will continue in the background.");
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"Failed to dispose update/runtime services: {exception.Message}");
+            Debug.WriteLine($"Failed to complete application shutdown: {exception.Message}");
         }
         finally
         {
+            try
+            {
+                shutdownLease?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"Failed to release shutdown activity: {exception.Message}");
+            }
+
             base.OnExit(e);
         }
+    }
+
+    private async Task ShutdownAsync(long shutdownStarted, IDisposable? shutdownLease)
+    {
+        try
+        {
+            try
+            {
+                IUmaVisualDeviceFacade? visualFacade = _visualDeviceFacade;
+                if (visualFacade is not null)
+                {
+                    Task visualDisposal = Task.Run(async () =>
+                        await visualFacade.DisposeAsync().ConfigureAwait(false));
+                    TimeSpan remaining = RemainingShutdownTime(shutdownStarted);
+                    TimeSpan visualBudget = remaining < VisualShutdownBudget
+                        ? remaining
+                        : VisualShutdownBudget;
+                    try
+                    {
+                        await visualDisposal.WaitAsync(visualBudget).ConfigureAwait(false);
+                    }
+                    catch (TimeoutException)
+                    {
+                        DispatcherShutdownBarrier.ObserveLateFault(
+                            visualDisposal,
+                            exception => Debug.WriteLine($"Native device facade disposal failed after timing out: {exception.Message}"));
+                        Debug.WriteLine("Native device facade disposal exceeded its 2-second shutdown budget.");
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.WriteLine($"Failed to dispose native device facade: {exception.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                if (_umaService is not null)
+                {
+                    TimeSpan remaining = RemainingShutdownTime(shutdownStarted);
+                    try
+                    {
+                        await _umaService.DisposeAsync(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.WriteLine($"Failed to dispose update/runtime services: {exception.Message}");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            try
+            {
+                shutdownLease?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"Failed to release shutdown activity: {exception.Message}");
+            }
+        }
+    }
+
+    private static TimeSpan RemainingShutdownTime(long shutdownStarted)
+    {
+        TimeSpan remaining = ShutdownBudget - Stopwatch.GetElapsedTime(shutdownStarted);
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }
 
 }

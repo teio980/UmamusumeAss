@@ -76,9 +76,9 @@
              CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <Target Name="BuildAndCopyNativeRuntimeForDebug"
+  <Target Name="BuildAndCopyNativeRuntime"
           AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true'">
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(SkipNativeRuntimeBuild)' != 'true'">
     <PropertyGroup>
       <RepositoryRoot>$(MSBuildProjectDirectory)\..\..</RepositoryRoot>
       <NativeStagingDirectory>$(MSBuildProjectDirectory)\..\..\build\native-staging</NativeStagingDirectory>
@@ -86,7 +86,7 @@
     <Exec Command="cmake --preset release"
           WorkingDirectory="$(RepositoryRoot)"
           Condition="!Exists('$(RepositoryRoot)\build\release\CMakeCache.txt')" />
-    <Exec Command="cmake --build build\release --config Release --target UmaAssistantCore UmamusumeAss.Updater --parallel"
+    <Exec Command="cmake --build build\release --config Release --target UmaAssistantCore UmamusumeAss.Updater uma_pipeline_replay --parallel"
           WorkingDirectory="$(RepositoryRoot)" />
     <Exec Command="cmake --install build\release --prefix build\native-staging --config Release"
           WorkingDirectory="$(RepositoryRoot)" />
@@ -98,6 +98,10 @@
           DestinationFolder="$(TargetDir)"
           SkipUnchangedFiles="true"
           Condition="Exists('$(NativeStagingDirectory)\UmamusumeAss.Updater.exe')" />
+    <Copy SourceFiles="$(NativeStagingDirectory)\uma_pipeline_replay.exe"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeStagingDirectory)\uma_pipeline_replay.exe')" />
     <Copy SourceFiles="$(RepositoryRoot)\version.txt"
           DestinationFolder="$(TargetDir)"
           SkipUnchangedFiles="true" />

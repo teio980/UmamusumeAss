@@ -441,6 +441,41 @@ public sealed class UpdateProtocolTests
     }
 
     [Fact]
+    public async Task ResourceCommitKeepsPriorImmutableViewAvailableForLazyReaders()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));
+        var bundled = Path.Combine(root, "install", "resource");
+        var appData = Path.Combine(root, "appdata");
+        Directory.CreateDirectory(bundled);
+        await File.WriteAllTextAsync(Path.Combine(bundled, "lazy-template.txt"), "view-v1");
+
+        try
+        {
+            using var store = new ResourceStore(appData);
+            await store.InitializeAsync(bundled);
+            var firstView = store.ActiveCompositeBaseDirectory;
+
+            await using (var content = new MemoryStream(Encoding.UTF8.GetBytes("view-v2")))
+                await store.WriteOverrideAsync("resource/lazy-template.txt", content);
+
+            var secondView = store.ActiveCompositeBaseDirectory;
+            Assert.NotEqual(firstView, secondView);
+            Assert.True(Directory.Exists(firstView));
+            // Read the prior view only after the active pointer has moved. A native
+            // ResourceSnapshot retains this path and may decode an image lazily.
+            Assert.Equal("view-v1", await File.ReadAllTextAsync(
+                Path.Combine(firstView, "resource", "lazy-template.txt")));
+            Assert.Equal("view-v2", await File.ReadAllTextAsync(
+                Path.Combine(secondView, "resource", "lazy-template.txt")));
+        }
+        finally
+        {
+            ResourcePathRuntime.SetBaseDirectory(AppContext.BaseDirectory);
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task SameVersionBundledResourceChangesRefreshTheLocalCache()
     {
         var root = Path.Combine(Path.GetTempPath(), "UmaUpdateTests", Guid.NewGuid().ToString("N"));

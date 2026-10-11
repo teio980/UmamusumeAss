@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Globalization;
-using UmamusumeWpfGui.Services.Training;
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
@@ -120,9 +120,9 @@ public static class CareerTaskSettingsSerializer
         settings.SupportDeckPreset = ReadString(values, "supportDeckPreset") ?? settings.SupportDeckPreset;
         settings.FriendSupportCardId = ReadNullableInt(values, "friendSupportCardId");
         settings.StrategyId = ReadString(values, "strategyId") ?? settings.StrategyId;
-        var defaultRatio = UraTrainingRatio.Default;
+        var defaultRatio = NormalTrainingRatio.Default;
         var ratio = values["normalTrainingRatio"] as JsonObject;
-        settings.NormalTrainingRatio.SetRatio(new UraTrainingRatio(
+        settings.NormalTrainingRatio.SetRatio(new NormalTrainingRatio(
             ReadRatioInt(ratio, "speed", defaultRatio.Speed),
             ReadRatioInt(ratio, "stamina", defaultRatio.Stamina),
             ReadRatioInt(ratio, "power", defaultRatio.Power),

@@ -568,17 +568,11 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
 
     private void SubscribeToDatabaseLoadedIfNeeded()
     {
-        if (_umaDatabase is null || _umaDatabase.IsLoaded)
+        if (_umaDatabase is null || _databaseLoadedSubscribed)
             return;
 
         _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         _databaseLoadedSubscribed = true;
-
-        // Loading can complete between the IsLoaded check and the event
-        // subscription. The initial refresh observes the loaded data, while
-        // this stale one-shot subscription is removed.
-        if (_umaDatabase.IsLoaded)
-            UnsubscribeFromDatabaseLoaded();
     }
 
     private void UnsubscribeFromDatabaseLoaded()
@@ -592,9 +586,8 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
 
     private void OnDatabaseLoaded(object? sender, EventArgs e)
     {
-        // Unsubscribe before refreshing so the database cannot retain this
-        // task instance after the one required refresh.
-        UnsubscribeFromDatabaseLoaded();
+        // The catalog is replaced after resource updates as well as startup.
+        // Keep the cached picker options synchronized until this editor closes.
         if (!_disposed)
             RefreshSupportCards();
     }

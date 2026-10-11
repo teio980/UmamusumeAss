@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services;
@@ -9,8 +10,6 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = false,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
     };
 
     private readonly object _sync = new();
@@ -18,6 +17,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
     private Dictionary<int, UmaTraineeRecord> _trainees = [];
     private Dictionary<int, UmaCareerRaceRecord> _races = [];
     private Dictionary<int, UmaSupportCardRecord> _supportCards = [];
+    private CoreCatalog _catalog = CoreCatalog.Empty;
     private string? _resourceRoot;
     private string? _region;
 
@@ -29,6 +29,15 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
         {
             lock (_sync)
                 return _trainees.Count > 0 || _supportCards.Count > 0;
+        }
+    }
+
+    public CoreCatalog Catalog
+    {
+        get
+        {
+            lock (_sync)
+                return _catalog;
         }
     }
 
@@ -49,48 +58,18 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
 
     public IReadOnlyCollection<UmaSupportCardRecord> SupportCards => Snapshot(_supportCards);
 
-    public async Task LoadAsync(
-        string resourceRoot,
-        CancellationToken cancellationToken = default)
+    public void LoadFromCoreCatalog(CoreCatalog catalog, string resourceRoot)
     {
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceRoot);
-
-        var databaseDirectory = Path.Combine(resourceRoot, "uma", "database", "global");
-        var metaPath = Path.Combine(databaseDirectory, "meta.json");
-        var baseCharactersPath = Path.Combine(databaseDirectory, "base_characters.json");
-        var traineesPath = Path.Combine(databaseDirectory, "trainees.json");
-        var racesPath = Path.Combine(databaseDirectory, "races.json");
-        var supportCardsPath = Path.Combine(databaseDirectory, "support_cards.json");
-
-        // These files are independent. Starting all reads together avoids
-        // serializing disk latency during application startup.
-        var metaTask = ReadJsonAsync<UmaDatabaseMeta>(metaPath, cancellationToken);
-        var baseCharactersTask = ReadJsonAsync<List<UmaBaseCharacterRecord>>(
-            baseCharactersPath,
-            cancellationToken);
-        var traineesTask = ReadJsonAsync<List<UmaTraineeRecord>>(
-            traineesPath,
-            cancellationToken);
-        var racesTask = ReadJsonAsync<List<UmaCareerRaceRecord>>(
-            racesPath,
-            cancellationToken);
-        var supportCardsTask = ReadJsonAsync<List<UmaSupportCardRecord>>(
-            supportCardsPath,
-            cancellationToken);
-
-        await Task.WhenAll(
-                metaTask,
-                baseCharactersTask,
-                traineesTask,
-                racesTask,
-                supportCardsTask)
-            .ConfigureAwait(false);
-
-        var meta = await metaTask.ConfigureAwait(false) ?? new UmaDatabaseMeta();
-        var baseCharacters = await baseCharactersTask.ConfigureAwait(false) ?? [];
-        var trainees = await traineesTask.ConfigureAwait(false) ?? [];
-        var races = await racesTask.ConfigureAwait(false) ?? [];
-        var supportCards = await supportCardsTask.ConfigureAwait(false) ?? [];
+        var baseCharacters = DeserializeRows<UmaBaseCharacterRecord>(catalog.BaseCharacters);
+        var trainees = DeserializeRows<UmaTraineeRecord>(catalog.Characters);
+        var races = DeserializeRows<UmaCareerRaceRecord>(catalog.Races);
+        var supportCards = DeserializeRows<UmaSupportCardRecord>(catalog.SupportCards);
+        var meta = catalog.AdditionalCategories.TryGetValue("database_meta", out var metadata)
+            ? JsonSerializer.Deserialize<UmaDatabaseMeta>(metadata.GetRawText(), JsonOptions)
+            : null;
+        meta ??= new UmaDatabaseMeta();
 
         var baseCharacterIndex = CreateUniqueIndex<int, UmaBaseCharacterRecord>(
             baseCharacters,
@@ -117,6 +96,7 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
             _trainees = traineeIndex;
             _races = raceIndex;
             _supportCards = supportCardIndex;
+            _catalog = catalog;
         }
 
         DatabaseLoaded?.Invoke(this, EventArgs.Empty);
@@ -301,20 +281,10 @@ public sealed class UmaDatabaseService : IUmaDatabaseService
         return runtimeResourceRoot;
     }
 
-    private static async Task<T?> ReadJsonAsync<T>(
-        string path,
-        CancellationToken cancellationToken)
-    {
-        if (!File.Exists(path))
-            throw new FileNotFoundException("Uma database file was not found.", path);
-
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<T>(
-                stream,
-                JsonOptions,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
+    private static List<T> DeserializeRows<T>(IReadOnlyList<JsonElement> rows) => rows
+        .Select(row => JsonSerializer.Deserialize<T>(row.GetRawText(), JsonOptions)
+            ?? throw new InvalidDataException($"Core catalog contained a null {typeof(T).Name} row."))
+        .ToList();
 
     private static Dictionary<TKey, TValue> CreateUniqueIndex<TKey, TValue>(
         IEnumerable<TValue> items,

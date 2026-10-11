@@ -227,6 +227,7 @@ public sealed class PackageLayoutTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Packaging")]
     public void PackageScript_ProducesValidZipWithCorrectLayout()
     {
 

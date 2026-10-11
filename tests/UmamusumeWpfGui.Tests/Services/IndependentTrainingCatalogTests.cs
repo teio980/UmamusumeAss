@@ -1,7 +1,5 @@
-using System.Globalization;
-using System.IO;
 using System.Text.Json;
-using UmamusumeWpfGui.Services.Tasks;
+using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Tests.Services;
@@ -9,403 +7,92 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class IndependentTrainingCatalogTests
 {
     [Fact]
-    public async Task Every_game_available_race_resolves_from_the_declared_card_collection()
+    public void Empty_catalog_before_native_initialization_is_a_valid_unavailable_projection()
     {
-        var root = FindSolutionRoot();
-        var catalog = IndependentTrainingCatalog.Load(root);
-        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
-        var resources = pack.VisualResources
-            ?? throw new InvalidOperationException("The loaded URA pack has no visual resources.");
-        Assert.Contains("independent.race_card", resources.DynamicCollections.Keys);
-        var races = catalog.Races
-            .Where(item => item.IsGameAvailable)
-            .GroupBy(item => item.RaceId)
-            .Select(group => group.First())
-            .ToArray();
+        var catalog = IndependentTrainingCatalog.FromCoreCatalog(CoreCatalog.Empty);
 
-        Assert.NotEmpty(races);
-        Assert.All(races, race =>
+        Assert.Empty(catalog.Races);
+        Assert.Empty(catalog.Skills);
+        Assert.False(catalog.IsAvailable);
+        Assert.False(catalog.SkillSource.IsExplicitGlobalClient);
+    }
+
+    [Fact]
+    public void Native_catalog_projection_preserves_agenda_picker_and_skill_fields()
+    {
+        var catalog = IndependentTrainingCatalog.FromCoreCatalog(new CoreCatalog(
+            CoreCatalog.Empty.Characters,
+            CoreCatalog.Empty.BaseCharacters,
+            CoreCatalog.Empty.Races,
+            Rows("""
+                [
+                  {"raceName":"Unique Cup","grade":"G1","year":"First Year","turn":"10_01","type":"Turf","location":"Tokyo ⇒","length":"Mile","lengthM":"1600m","raceId":101,"sourceOrder":3,"gameTrack":"Tokyo","gameDistance":1600,"gameGround":"Turf","gameAvailable":true,"gameSchedules":[{"month":10,"day":1,"timeName":"Junior"}],"gameOrder":7},
+                  {"raceName":"Shared Cup A","grade":"G2","year":"Second Year","turn":"01_01","type":"Turf","location":"Tokyo ⇒","length":"Mile","lengthM":"1600m","raceId":201,"gameTrack":"Tokyo","gameDistance":1600,"gameGround":"Turf","gameAvailable":true},
+                  {"raceName":"Shared Cup B","grade":"G2","year":"Second Year","turn":"01_01","type":"Turf","location":"Tokyo ⇒","length":"Mile","lengthM":"1600m","raceId":202,"gameTrack":"Tokyo","gameDistance":1600,"gameGround":"Turf","gameAvailable":true}
+                ]
+                """),
+            CoreCatalog.Empty.Skills,
+            CoreCatalog.Empty.SupportCards,
+            CoreCatalog.Empty.Events,
+            CoreCatalog.Empty.Strategies,
+            Metadata(("independent_race_metadata", "{\"sourceUrl\":\"https://catalog.test/races\"}"),
+                ("skill_metadata", "{\"sourceUrl\":\"https://catalog.test/skills\",\"source\":{\"sourceName\":\"game master\",\"masterSha256\":\"abc\",\"clientVersion\":\"1.0\",\"region\":\"global\",\"sourceType\":\"game-client-master-db\"}}"))));
+
+        Assert.Equal("https://catalog.test/races", catalog.RaceSourceUrl);
+        Assert.Equal("https://catalog.test/skills", catalog.SkillSourceUrl);
+        Assert.True(catalog.SkillSource.IsExplicitGlobalClient);
+        Assert.Equal(3, catalog.Races.Count);
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new("First Year", "10_01", "Unique Cup"), out var unique));
+        Assert.Equal(101, unique.RaceId);
+        Assert.Equal(10, unique.Month);
+        Assert.Equal(1, unique.Day);
+        Assert.Equal("Junior", unique.TimeName);
+        Assert.Equal(7, unique.GameOrder);
+        Assert.True(catalog.TryGetAgendaPickerOcrTarget(unique, out var header));
+        Assert.Equal("Tokyo Turf 1600m (Mile) Right", header);
+
+        Assert.True(catalog.TryGetAgendaPickerEntry(
+            new("Second Year", "01_01", "Shared Cup A"), out var shared));
+        Assert.Equal(201, shared.RaceId);
+        Assert.False(catalog.TryGetAgendaPickerOcrTarget(
+            catalog.Races.Single(item => item.RaceId == 201), out _));
+    }
+
+    [Fact]
+    public void Skill_projection_keeps_native_search_and_availability_semantics()
+    {
+        CoreCatalog core = CoreCatalog.Empty with
         {
-            Assert.True(race.RaceId > 0);
-            var cardPath = resources.ResolveVisualResource(
-                $"independent.race_card:{race.RaceId}");
-            Assert.True(
-                File.Exists(cardPath),
-                $"Missing card image for Race ID {race.RaceId}.");
-            var editorCardPath = IndependentTrainingCatalog.TryResolveRaceCardImagePath(race, root);
-            Assert.NotNull(editorCardPath);
-            Assert.Equal(Path.GetFullPath(cardPath), Path.GetFullPath(editorCardPath!));
-            Assert.Equal(
-                race.RaceId.ToString(CultureInfo.InvariantCulture) + ".png",
-                Path.GetFileName(cardPath));
-        });
+            Skills = Rows("""
+                [
+                  {"skillId":201412,"skillName":"1,500,000 CC","originalName":"Special skill","rarity":2,"gradeValue":1,"skillCategory":"Unique","effectSummary":"Speed up","needSkillPoint":180,"activationCondition":"Late","iconId":12,"searchText":"500","searchResultRow":9,"gameSearchMapped":true,"aliases":["coins"],"availableInGlobal":true,"availabilitySource":"master","singleModeEnabled":true,"skillCategoryId":3,"otherTiers":""}
+                ]
+                """),
+        };
+
+        var skill = Assert.Single(IndependentTrainingCatalog.FromCoreCatalog(core).Skills);
+        Assert.Equal(201412, skill.SkillId);
+        Assert.Equal("1,500,000 CC", skill.OcrTargetText);
+        Assert.Equal("500", skill.EffectiveSearchText);
+        Assert.Equal(["coins"], skill.SearchAliases);
+        Assert.True(skill.IsSelectable);
+        Assert.Equal(1, skill.SearchResultPage);
+        Assert.Equal(0, skill.SearchResultPickerRow);
     }
 
-    [Fact]
-    public void Picker_mapping_uses_year_turn_and_race_name_not_game_order()
+    private static JsonElement[] Rows(string json)
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        var selection = new IndependentTrainingAgendaSelection(
-            "Second Year",
-            "01_01",
-            "Junior Cup");
-
-        Assert.True(catalog.TryGetAgendaPickerEntry(selection, out var race));
-        Assert.Equal(4002, race.RaceId);
-        Assert.Equal("Junior Cup", race.RaceName);
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.EnumerateArray().Select(item => item.Clone()).ToArray();
     }
 
-    [Theory]
-    [InlineData("Second Year", "01_01", "Fairy Stakes", "Junior Cup")]
-    [InlineData("Second Year", "03_02", "Flower Cup", "Spring Stakes")]
-    [InlineData("First Year", "12_01", "Asahi Hai Futurity Stakes", "Hanshin Juvenile Fillies")]
-    public void Picker_ocr_rejects_same_slot_course_headers_shared_by_different_races(
-        string year,
-        string turn,
-        string firstRaceName,
-        string secondRaceName)
+    private static Dictionary<string, JsonElement> Metadata(params (string Key, string Json)[] values) =>
+        values.ToDictionary(value => value.Key, value => ParseElement(value.Json));
+
+    private static JsonElement ParseElement(string json)
     {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        Assert.True(catalog.TryGetAgendaPickerEntry(
-            new IndependentTrainingAgendaSelection(year, turn, firstRaceName), out var first));
-        Assert.True(catalog.TryGetAgendaPickerEntry(
-            new IndependentTrainingAgendaSelection(year, turn, secondRaceName), out var second));
-        Assert.NotEqual(first.RaceId, second.RaceId);
-        Assert.Equal(first.PickerHeaderTarget, second.PickerHeaderTarget);
-
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(first, out var firstTarget));
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(second, out var secondTarget));
-        Assert.Empty(firstTarget);
-        Assert.Empty(secondTarget);
-    }
-
-    [Fact]
-    public void Picker_ocr_accepts_header_unique_in_its_slot_even_if_other_slots_share_it()
-    {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        Assert.True(catalog.TryGetAgendaPickerEntry(
-            new IndependentTrainingAgendaSelection(
-                "First Year", "10_01", "Saudi Arabia Royal Cup"), out var race));
-        Assert.Contains(catalog.Races, other =>
-            other.IsGameAvailable
-            && other.RaceId != race.RaceId
-            && other.PickerHeaderTarget == race.PickerHeaderTarget
-            && (other.Year != race.Year || other.Turn != race.Turn));
-
-        Assert.True(catalog.TryGetAgendaPickerOcrTarget(race, out var target));
-        Assert.Equal("Tokyo Turf 1600m (Mile) Left", target);
-    }
-
-    [Fact]
-    public void Picker_ocr_rejects_missing_header_unavailable_and_unknown_races()
-    {
-        var catalog = IndependentTrainingCatalog.Load(FindSolutionRoot());
-        Assert.True(catalog.TryGetAgendaPickerEntry(
-            new IndependentTrainingAgendaSelection(
-                "First Year", "10_01", "Saudi Arabia Royal Cup"), out var race));
-
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { GameTrack = "" }, out _));
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { IsGameAvailable = false }, out _));
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { RaceId = -1 }, out _));
-        Assert.False(catalog.TryGetAgendaPickerOcrTarget(race with { RaceId = int.MaxValue }, out _));
-    }
-
-    [Theory]
-    [InlineData("front", "Front")]
-    [InlineData("pace", "Pace")]
-    [InlineData("late", "Late")]
-    [InlineData("end", "End")]
-    public void Existing_lineup_strategy_setting_maps_to_the_strategy_dialog(
-        string settingValue,
-        string expectedTargetText)
-    {
-        Assert.True(
-            IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
-                settingValue,
-                out var targetText));
-        Assert.Equal(expectedTargetText, targetText);
-    }
-
-    [Fact]
-    public void Strategy_mapping_rejects_ura_strategy_ids_and_unknown_values()
-    {
-        Assert.False(
-            IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
-                "default-speed-medium",
-                out _));
-        Assert.False(
-            IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
-                "race-strategy",
-                out _));
-    }
-
-    [Theory]
-    [InlineData("front", "independent.strategy.option.front")]
-    [InlineData("pace", "independent.strategy.option.pace")]
-    [InlineData("late", "independent.strategy.option.late")]
-    [InlineData("end", "independent.strategy.option.end")]
-    public void Lineup_strategy_setting_selects_the_matching_semantic_option(
-        string settingValue,
-        string expectedSemanticAction)
-    {
-        Assert.True(
-            IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
-                settingValue,
-                out var semanticAction,
-                out _));
-        Assert.Equal(expectedSemanticAction, semanticAction);
-    }
-
-    [Fact]
-    public async Task Independent_setup_wires_scroll_collapse_and_strategy_in_order()
-    {
-        var root = CareerTestResourceResolver.FindWorkspaceRoot();
-        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
-        var definition = pack.ExecutionDefinition;
-        var finalConfirmation = pack.ScreenProfile.Find("career_final_confirmation");
-        Assert.NotNull(finalConfirmation);
-        var actions = finalConfirmation!.Actions.ToDictionary(
-            item => item.SemanticId,
-            item => item.Task,
-            StringComparer.OrdinalIgnoreCase);
-
-        Assert.Equal(
-            "independent_lineup_expand_prepare",
-            actions[IndependentTrainingCatalog.LineupExpandSemanticAction()]);
-        Assert.Equal(
-            "independent_lineup_scroll_to_top",
-            actions[IndependentTrainingCatalog.LineupScrollTopSemanticAction()]);
-        Assert.Equal(
-            "independent_lineup_collapse_prepare",
-            actions[IndependentTrainingCatalog.LineupCollapseSemanticAction()]);
-        Assert.Equal(
-            "independent_lineup_strategy_precondition",
-            actions[IndependentTrainingCatalog.LineupClosedVerifySemanticAction()]);
-        Assert.Equal(
-            "independent_strategy_change",
-            actions[IndependentTrainingCatalog.StrategyChangeSemanticAction()]);
-        Assert.Equal(
-            "independent_strategy_save",
-            actions[IndependentTrainingCatalog.StrategySaveSemanticAction()]);
-        Assert.Equal(
-            "independent_strategy_return_probe",
-            actions[IndependentTrainingCatalog.StrategyReturnSemanticAction()]);
-        Assert.Equal(
-            "independent_post_start_ok",
-            actions[IndependentTrainingCatalog.PostStartOkSemanticAction()]);
-        Assert.Equal(
-            pack.VisualResources!.ResolveVisualResource(
-                "templates/support_autofill_confirmation_support_autofill_ok.png"),
-            pack.VisualResources.ResolveTaskTemplate("independent_post_start_ok"));
-        foreach (var strategyValue in new[] { "front", "pace", "late", "end" })
-        {
-            Assert.True(
-                IndependentTrainingCatalog.TryGetLineupStrategyUiMapping(
-                    strategyValue,
-                    out var strategyAction,
-                    out _));
-            Assert.Equal(
-                $"independent_strategy_option_{strategyValue}_pre",
-                actions[strategyAction]);
-        }
-
-        Assert.Equal(
-            "Swipe",
-            definition!.GetTask("independent_lineup_scroll_to_top").Action,
-            ignoreCase: true);
-        AssertTaskTemplateResolvesTo(
-            pack, "independent_lineup_collapse", "templates/independent/lineup_open_down.png");
-        AssertTaskTemplateResolvesTo(
-            pack, "independent_strategy_return_probe", "templates/independent/lineup_closed_right.png");
-        Assert.Equal(
-            "MatchTemplate",
-            definition.GetTask("independent_strategy_change").Algorithm,
-            ignoreCase: true);
-        AssertTaskTemplateResolvesTo(
-            pack, "independent_strategy_change", "templates/independent/strategy_change.png");
-        AssertTaskTemplateResolvesTo(
-            pack, "independent_strategy_save", "templates/independent/strategy_confirm.png");
-        var pipelineSource = await File.ReadAllTextAsync(Path.Combine(
-            root,
-            "src",
-            "UmamusumeWpfGui",
-            "Services",
-            "Training",
-            "AdbIndependentTrainingPipeline.cs"));
-        var skillsIndex = pipelineSource.IndexOf(
-            "if (state.Stage == IndependentTrainingStage.ConfigureSkills)",
-            StringComparison.Ordinal);
-        var scrollIndex = pipelineSource.IndexOf(
-            "LineupScrollTopSemanticAction()",
-            skillsIndex,
-            StringComparison.Ordinal);
-        var collapseIndex = pipelineSource.IndexOf(
-            "LineupCollapseSemanticAction()",
-            scrollIndex,
-            StringComparison.Ordinal);
-        var strategyIndex = pipelineSource.IndexOf(
-            "StrategyChangeSemanticAction()",
-            collapseIndex,
-            StringComparison.Ordinal);
-        var startIndex = pipelineSource.IndexOf(
-            "var start = await RunIndependentActionAsync(",
-            strategyIndex,
-            StringComparison.Ordinal);
-
-        Assert.True(skillsIndex >= 0);
-        Assert.True(skillsIndex < scrollIndex);
-        Assert.True(scrollIndex < collapseIndex);
-        Assert.True(collapseIndex < strategyIndex);
-        Assert.True(strategyIndex < startIndex);
-        Assert.Contains("settings.LineupStrategy", pipelineSource);
-        Assert.Contains("TryGetLineupStrategyUiMapping", pipelineSource);
-        Assert.Contains("IndependentTrainingStage.ConfigureStrategy", pipelineSource);
-        Assert.Contains("IndependentTrainingStage.StartTraining", pipelineSource);
-    }
-
-    [Fact]
-    public async Task Independent_home_probe_is_only_used_after_starting_training()
-    {
-        var root = FindSolutionRoot();
-        var source = await File.ReadAllTextAsync(Path.Combine(
-            root,
-            "src",
-            "UmamusumeWpfGui",
-            "Services",
-            "Training",
-            "AdbIndependentTrainingPipeline.cs"));
-
-        var loadedCompletedIndex = source.IndexOf(
-            "if (loadedCompletedCheckpoint)",
-            StringComparison.Ordinal);
-        var entryIndex = source.IndexOf(
-            "if (IsEntryStage(state.Stage))",
-            loadedCompletedIndex,
-            StringComparison.Ordinal);
-        var returnHomeIndex = source.IndexOf(
-            "if (state.Stage == IndependentTrainingStage.ReturnHome)",
-            StringComparison.Ordinal);
-        var homeProbeIndex = source.IndexOf(
-            "PostStartHomeProbeSemanticAction()",
-            returnHomeIndex,
-            StringComparison.Ordinal);
-
-        Assert.True(loadedCompletedIndex >= 0);
-        Assert.True(entryIndex > loadedCompletedIndex);
-        Assert.DoesNotContain(
-            "PostStartHomeProbeSemanticAction()",
-            source[loadedCompletedIndex..entryIndex],
-            StringComparison.Ordinal);
-        Assert.True(returnHomeIndex >= 0);
-        Assert.True(homeProbeIndex > returnHomeIndex);
-    }
-
-    [Fact]
-    public async Task Independent_completion_probe_uses_training_independently_marker()
-    {
-        var root = CareerTestResourceResolver.FindWorkspaceRoot();
-        var pack = await CareerTestResourceResolver.LoadBuiltInUraPackAsync();
-        var definition = pack.ExecutionDefinition;
-        var task = definition!.GetTask("independent_post_start_home_probe");
-
-        AssertTaskTemplateResolvesTo(
-            pack,
-            "independent_post_start_home_probe",
-            "templates/independent/training_independently_available.png");
-        Assert.Equal(0.82, task.TemplateThreshold, precision: 2);
-        Assert.NotNull(task.Roi);
-        Assert.Equal([480, 1180, 400, 180], task.Roi!);
-        var resolvedTaskTemplate = pack.VisualResources!.ResolveTaskTemplate(
-            "independent_post_start_home_probe");
-        Assert.True(File.Exists(resolvedTaskTemplate));
-
-        var capture = GrayImageCodec.FromFile(CareerTestResourceResolver.FindUraCapture(
-            root, "career_home_training_independently.png"));
-        var template = GrayImageCodec.FromFile(resolvedTaskTemplate);
-        Assert.NotNull(capture);
-        Assert.NotNull(template);
-
-        var match = TemplateMatcher.Find(
-            capture!,
-            template!,
-            task.Roi,
-            task.TemplateThreshold,
-            definition.ReferenceWidth,
-            definition.ReferenceHeight);
-        Assert.True(match.Found, $"Captured marker did not match (score={match.Score:0.000}).");
-    }
-
-    [Fact]
-    public async Task Career_entry_runs_home_entry_task_before_observing_entry_screens()
-    {
-        var root = FindSolutionRoot();
-        var source = await File.ReadAllTextAsync(Path.Combine(
-            root,
-            "src",
-            "UmamusumeWpfGui",
-            "Services",
-            "Training",
-            "CareerEntryNavigator.cs"));
-
-        var navigateIndex = source.IndexOf(
-            "public async Task<CareerEntryNavigationResult> NavigateAsync",
-            StringComparison.Ordinal);
-        var homeEntryIndex = source.IndexOf(
-            "home.EntryTask",
-            navigateIndex,
-            StringComparison.Ordinal);
-        var observeIndex = source.IndexOf(
-            "ObserveAsync(connection, pack, state, cancellationToken)",
-            navigateIndex,
-            StringComparison.Ordinal);
-
-        Assert.True(navigateIndex >= 0);
-        Assert.True(homeEntryIndex >= 0);
-        Assert.True(observeIndex > homeEntryIndex);
-        Assert.Contains(
-            "RunTaskAsync(",
-            source[homeEntryIndex..observeIndex],
-            StringComparison.Ordinal);
-
-        var traineeCaseIndex = source.IndexOf(
-            "case \"trainee_select\":",
-            navigateIndex,
-            StringComparison.Ordinal);
-        var directLegacyIndex = source.IndexOf(
-            "continuing directly into Legacy Select",
-            traineeCaseIndex,
-            StringComparison.Ordinal);
-        var legacyCallIndex = source.IndexOf(
-            "HandleLegacySelectionAsync(",
-            traineeCaseIndex,
-            StringComparison.Ordinal);
-        Assert.True(traineeCaseIndex >= 0);
-        Assert.True(directLegacyIndex > traineeCaseIndex);
-        Assert.True(legacyCallIndex > directLegacyIndex);
-    }
-
-    private static string FindSolutionRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CMakePresets.json")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root.");
-    }
-
-    private static void AssertTaskTemplateResolvesTo(
-        UraScenarioPack pack,
-        string taskId,
-        string expectedTemplatePath)
-    {
-        var resources = pack.VisualResources
-            ?? throw new InvalidOperationException("The loaded URA pack has no visual resources.");
-        var resolvedPath = resources.ResolveTaskTemplate(taskId);
-        Assert.True(File.Exists(resolvedPath), $"Missing resolved template for task '{taskId}'.");
-        Assert.Equal(Path.GetFileName(expectedTemplatePath), Path.GetFileName(resolvedPath));
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 }

@@ -1,4 +1,5 @@
 using UmamusumeWpfGui.Models;
+using Umamusume.CoreBridge;
 
 namespace UmamusumeWpfGui.Services;
 
@@ -7,6 +8,8 @@ public interface IUmaDatabaseService
     event EventHandler? DatabaseLoaded;
 
     bool IsLoaded { get; }
+
+    CoreCatalog Catalog => CoreCatalog.Empty;
 
     string? Region { get; }
 
@@ -18,7 +21,8 @@ public interface IUmaDatabaseService
 
     IReadOnlyCollection<UmaSupportCardRecord> SupportCards { get; }
 
-    Task LoadAsync(string resourceRoot, CancellationToken cancellationToken = default);
+    void LoadFromCoreCatalog(CoreCatalog catalog, string resourceRoot) =>
+        throw new NotSupportedException("Core catalog projection is not supported by this database service.");
 
     bool TryGetTrainee(int traineeId, out UmaTraineeRecord? trainee);
 

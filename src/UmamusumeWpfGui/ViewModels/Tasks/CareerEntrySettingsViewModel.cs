@@ -246,17 +246,11 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
 
     private void SubscribeToDatabaseLoadedIfNeeded()
     {
-        if (_umaDatabase is null || _umaDatabase.IsLoaded)
+        if (_umaDatabase is null || _databaseLoadedSubscribed)
             return;
 
         _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         _databaseLoadedSubscribed = true;
-
-        // Loading can complete between the IsLoaded check and the event
-        // subscription. In that case the initial refresh below observes the
-        // loaded data, while the stale one-shot subscription is removed.
-        if (_umaDatabase.IsLoaded)
-            UnsubscribeFromDatabaseLoaded();
     }
 
     private void UnsubscribeFromDatabaseLoaded()
@@ -270,9 +264,8 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
 
     private void OnDatabaseLoaded(object? sender, EventArgs e)
     {
-        // Unsubscribe before doing any work so a long refresh cannot retain
-        // this task instance through the singleton database service.
-        UnsubscribeFromDatabaseLoaded();
+        // Catalog updates also arrive after initial startup. Keep the cached
+        // picker options aligned with each replacement until this editor closes.
         if (!_disposed)
             RefreshTrainees();
     }
