@@ -1,5 +1,6 @@
 #include "CareerFlowCoordinator.hpp"
 #include "CareerVisualResources.hpp"
+#include "CareerPersistenceStore.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -22,7 +23,9 @@ std::string Fold(std::string value)
 bool IsTerminalScreen(const std::string& screenId)
 {
     const auto id = Fold(screenId);
-    return id == "career_complete" || id == "career_complete_close";
+    return id == "career_complete" || id == "career_complete_close"
+        || id == "career_story_unlocked" || id == "career_story_unlocked_compact"
+        || id == "career_story_unlocked_to_home" || id == "home_unselected";
 }
 
 bool IsUnexpectedScreenAfterDeclinedRaceRetry(const std::string& screenId)
@@ -101,6 +104,82 @@ void EmitCareerEvent(
     context.EmitEvent(event);
 }
 
+std::string DisplayValue(const std::string& value)
+{
+    const auto begin = value.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos) return "Unknown";
+    const auto end = value.find_last_not_of(" \t\r\n");
+    return value.substr(begin, end - begin + 1);
+}
+
+bool IsSummerCampText(const std::string& turnPositionText)
+{
+    std::string text = turnPositionText;
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    const bool eligibleYear = text.find("classic") != std::string::npos ||
+                              text.find("senior") != std::string::npos;
+    const bool summerMonth = text.find("month 7") != std::string::npos ||
+                             text.find("month 8") != std::string::npos ||
+                             text.find("july") != std::string::npos ||
+                             text.find("august") != std::string::npos ||
+                             text.find("jul ") != std::string::npos ||
+                             text.find("aug ") != std::string::npos ||
+                             text.find("7月") != std::string::npos ||
+                             text.find("8月") != std::string::npos;
+    return eligibleYear && summerMonth;
+}
+
+std::string FormatCareerStatus(
+    const CareerDomain::CareerObservation& observation,
+    const CareerDomain::CareerState& state)
+{
+    std::string dateStr = "Unknown";
+    if (state.turnPositionText.has_value() && !state.turnPositionText->empty())
+    {
+        dateStr = DisplayValue(*state.turnPositionText);
+        if (dateStr != "Unknown" && IsSummerCampText(*state.turnPositionText))
+            dateStr += " [Summer Camp]";
+    }
+    else if (observation.turnPositionText.has_value() && !observation.turnPositionText->empty())
+    {
+        dateStr = DisplayValue(*observation.turnPositionText);
+        if (dateStr != "Unknown" && IsSummerCampText(*observation.turnPositionText))
+            dateStr += " [Summer Camp]";
+    }
+
+    std::string turnsLeftStr = "Unknown";
+    if (observation.turnsToGoal.has_value())
+        turnsLeftStr = std::to_string(*observation.turnsToGoal);
+    else if (state.turnsToGoal.HasValue())
+        turnsLeftStr = std::to_string(state.turnsToGoal.Value());
+
+    std::string goalStr = "Unknown";
+    if (observation.goalText.has_value() && !observation.goalText->empty())
+        goalStr = DisplayValue(*observation.goalText);
+    else if (!state.goalText.empty())
+        goalStr = DisplayValue(state.goalText);
+
+    std::string moodStr = "Unknown";
+    if (state.mood.HasValue())
+        moodStr = DisplayValue(state.mood.Value());
+    else if (observation.moodText.has_value())
+        moodStr = DisplayValue(*observation.moodText);
+
+    std::string energyStr = "Unknown";
+    if (state.energy.HasValue())
+        energyStr = std::to_string(state.energy.Value()) + "%";
+    else if (observation.energyPercent.HasValue())
+        energyStr = std::to_string(observation.energyPercent.Value()) + "%";
+
+    return "Date: " + dateStr + "\n"
+        + "Turns left: " + turnsLeftStr + "\n"
+        + "Goal: " + goalStr + "\n"
+        + "Mood: " + moodStr + "\n"
+        + "Energy: " + energyStr;
+}
+
 } // namespace
 
 CareerFlowCoordinator::CareerFlowCoordinator(
@@ -129,10 +208,14 @@ void CareerFlowCoordinator::ResetAfterRecovery() noexcept
     m_nextConfirmedObservation.reset();
     m_pendingTraining.reset();
     m_pendingTrainingBaseline.reset();
+    m_pendingTrainingTurnsToGoal.reset();
+    m_restoredSmartTrainingConfirmation = false;
+    m_persistenceLoaded = false;
     // A race target is durable across the date-change/home recovery path: the
     // game may resume inside the same race flow after returning to Home.
     m_terminalScreenSeen = false;
     m_unknownObservations = 0;
+    m_lastLoggedCareerStatus.clear();
     if (m_trainingFlow)
         m_trainingFlow->Reset();
     if (m_strategy)
@@ -141,6 +224,91 @@ void CareerFlowCoordinator::ResetAfterRecovery() noexcept
         m_observer->ResetForRecovery();
     if (m_actionExecutor)
         m_actionExecutor->ResetAfterRecovery();
+}
+
+void CareerFlowCoordinator::SynchronizeObservationPolicy() noexcept
+{
+    const bool armed = m_scenario && m_scenario->IsGoalCompletionProbeArmed(m_state);
+    const bool runnerResultExpected = m_pendingRaceIntent.has_value()
+        && m_state.raceStrategyConfigured && Fold(m_state.lastScreenId) == "race_runner";
+    if (m_observer)
+    {
+        m_observer->SetGoalCompletionProbeArmed(armed);
+        m_observer->SetRaceReplayFlowCompleted(m_state.raceReplayFlowCompleted);
+        m_observer->SetRaceRunnerResultExpected(runnerResultExpected);
+    }
+    if (m_actionExecutor)
+    {
+        m_actionExecutor->SetGoalObservationPolicy(armed, m_state.raceReplayFlowCompleted);
+        m_actionExecutor->SetRaceRunnerResultExpected(runnerResultExpected);
+    }
+}
+
+bool CareerFlowCoordinator::CheckAndConfirmTrainingConsumed(
+    const CareerDomain::CareerObservation& observation,
+    TaskEngine::ITaskExecutionContext& context)
+{
+    if (!m_pendingTraining)
+        return false;
+
+    const auto id = Fold(observation.screenId);
+    const bool resultShown = observation.screenKind == CareerDomain::CareerScreenKind::TrainingResult
+        || id == "training_result";
+    const bool mandatoryRaceReached = id == "race_day" || id == "career_races_ready";
+    const bool finaleCountdownAdvanced = id == "career_main"
+        && observation.turnPositionText && Fold(*observation.turnPositionText).find("finale") != std::string::npos
+        && m_pendingTrainingTurnsToGoal && *m_pendingTrainingTurnsToGoal > 0
+        && observation.turnsToGoalEvidence.IsReliable()
+        && observation.turnsToGoalEvidence.Value() == *m_pendingTrainingTurnsToGoal - 1;
+    const bool mainPageProvedTurnAdvance = id == "career_main"
+        && m_pendingTrainingBaseline && m_state.confirmedTurnActions > *m_pendingTrainingBaseline;
+
+    if (!resultShown && !mandatoryRaceReached && !finaleCountdownAdvanced && !mainPageProvedTurnAdvance)
+        return false;
+
+    const auto trainingType = m_pendingTraining->trainingType;
+    context.Log("INFO", "Training consumption verified (" + trainingType + ") via runtime evidence.");
+    if (m_strategy)
+        m_strategy->ConfirmTraining(m_state, trainingType);
+    if (m_trainingFlow)
+        m_trainingFlow->Reset();
+
+    m_pendingTraining.reset();
+    m_pendingTrainingBaseline.reset();
+    m_pendingTrainingTurnsToGoal.reset();
+    m_restoredSmartTrainingConfirmation = false;
+    if (m_config.traineeId)
+    {
+        SmartTrainingConfirmationStore::Clear(
+            m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial());
+    }
+    return true;
+}
+
+bool CareerFlowCoordinator::TryReconcileResumedTrainingConfirmation(
+    const CareerDomain::CareerObservation& observation,
+    TaskEngine::ITaskExecutionContext& context)
+{
+    if (!m_restoredSmartTrainingConfirmation)
+        return false;
+
+    const auto id = Fold(observation.screenId);
+    if (id == "career_main")
+    {
+        m_restoredSmartTrainingConfirmation = false;
+        m_pendingTraining.reset();
+        m_pendingTrainingBaseline.reset();
+        m_pendingTrainingTurnsToGoal.reset();
+        if (m_config.traineeId)
+        {
+            SmartTrainingConfirmationStore::Clear(
+                m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial());
+        }
+        context.Log("INFO",
+            "Career Main is visible after resuming; the old confirmation guard was reset without counting a training result. The next action will use fresh observations.");
+        return true;
+    }
+    return false;
 }
 
 void CareerFlowCoordinator::SetConfirmedObservation(const CareerDomain::CareerObservation& observation)
@@ -166,6 +334,32 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         return result;
     }
 
+    if (!m_persistenceLoaded)
+    {
+        m_persistenceLoaded = true;
+        if (m_config.continueExistingCareer && m_config.traineeId
+            && m_strategy->RequiresTrainingCandidateScan() && !m_config.checkpointDirectory.empty()
+            && !context.GetDeviceSerial().empty())
+        {
+            try
+            {
+                if (auto record = SmartTrainingConfirmationStore::Load(
+                        m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial()))
+                {
+                    m_restoredSmartTrainingConfirmation = true;
+                    m_pendingTraining = CareerDomain::ActionIntent::MakeTraining(
+                        record->trainingType, "Restored smart training confirmation guard.");
+                    m_pendingTrainingBaseline = m_state.confirmedTurnActions;
+                }
+            }
+            catch (const std::exception& error)
+            {
+                result.status = CareerRunStatus::Failed;
+                result.failureReason = std::string("Smart training confirmation guard could not be read: ") + error.what();
+                return result;
+            }
+        }
+    }
     auto confirmedObservation = std::move(m_nextConfirmedObservation);
     m_nextConfirmedObservation.reset();
     if (!confirmedObservation)
@@ -218,8 +412,20 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         m_state.goalText.clear();
     }
     m_scenario->OnObserve(m_state, observation);
+    SynchronizeObservationPolicy();
     if (observation.screenKind != CareerDomain::CareerScreenKind::Unknown)
         m_unknownObservations = 0;
+
+    if (Fold(observation.screenId) == "career_main")
+    {
+        const auto careerStatus = FormatCareerStatus(observation, m_state);
+        if (careerStatus != m_lastLoggedCareerStatus)
+        {
+            m_lastLoggedCareerStatus = careerStatus;
+            EmitCareerEvent(context, TaskEngine::TaskEventType::RecognitionEvaluated,
+                m_state.scenarioId, "career_status", true, observation.score, careerStatus);
+        }
+    }
 
     const auto finishRunning = [&]() {
         result.status = CareerRunStatus::Running;
@@ -236,6 +442,33 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         result.failureReason = operation;
     };
     const auto perform = [&](const CareerDomain::ActionIntent& intent) {
+        if ((observation.screenKind == CareerDomain::CareerScreenKind::MainTurn
+                && intent.kind != CareerDomain::ActionIntentKind::DoNothing)
+            || (intent.kind == CareerDomain::ActionIntentKind::Training
+                && observation.screenKind == CareerDomain::CareerScreenKind::TrainingSelect)
+            || Fold(observation.screenId) == "race_day")
+        {
+            m_state.raceReplayFlowCompleted = false;
+            m_state.raceStrategyConfigured = false;
+            SynchronizeObservationPolicy();
+        }
+        if (intent.kind == CareerDomain::ActionIntentKind::Training
+            && observation.screenKind == CareerDomain::CareerScreenKind::TrainingSelect)
+        {
+            m_pendingTraining = intent;
+            m_pendingTrainingBaseline = m_state.confirmedTurnActions;
+            m_pendingTrainingTurnsToGoal = m_state.turnsToGoal.value;
+            if (m_strategy->RequiresTrainingCandidateScan() && m_config.traineeId
+                && !m_config.checkpointDirectory.empty() && !context.GetDeviceSerial().empty()
+                && !SmartTrainingConfirmationStore::Save(m_config.checkpointDirectory,
+                    *m_config.traineeId, context.GetDeviceSerial(), intent.trainingType, m_state.turnIndex))
+            {
+                result.status = CareerRunStatus::Failed;
+                result.failureReason = "Smart training confirmation guard could not be saved before input.";
+                return false;
+            }
+        }
+        m_observer->ClearMainTextCache();
         m_state.lastIntent = intent;
         const auto actionTask = Fold(observation.screenId) + "." + IntentSemantic(intent);
         EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuting,
@@ -252,23 +485,53 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuted,
             m_state.scenarioId, actionTask, true, observation.score, intent.reason);
         if (intent.kind == CareerDomain::ActionIntentKind::Training
-            && m_trainingFlow && m_trainingFlow->HasPendingConfirmedTap()
-            && !m_trainingFlow->MarkTrainingTapSent())
+            && m_trainingFlow && m_trainingFlow->HasPendingConfirmedTap())
         {
-            result.status = CareerRunStatus::Failed;
-            result.failureReason = "The confirmed Ura training tap could not be committed to its scan session.";
-            return false;
-        }
-        if (!m_actionExecutor->ConfirmCompletionFromObservation(intent, observation, context))
-        {
-            if (context.IsCancelled())
-                result.status = CareerRunStatus::Cancelled;
-            else
+            if (!m_trainingFlow->MarkTrainingTapSent())
             {
                 result.status = CareerRunStatus::Failed;
-                result.failureReason = "Career action produced no resource-confirmed screen transition: "
-                    + observation.screenId;
+                result.failureReason = "The confirmed Ura training tap could not be committed to its scan session.";
+                return false;
             }
+        }
+        if (IsCommittedTurnAction(intent, observation))
+        {
+            m_scenario->OnTurnActionSubmitted(m_state, intent, observation);
+            if (intent.kind == CareerDomain::ActionIntentKind::Race
+                && observation.screenKind == CareerDomain::CareerScreenKind::MainTurn)
+                m_raceTurnSubmitted = true;
+        }
+        const auto outcome = m_actionExecutor->TakeLastActionOutcome();
+        if (outcome)
+        {
+            const auto foldedOutcome = Fold(*outcome);
+            if (foldedOutcome == "race.replay.completed")
+            {
+                m_scenario->OnRaceReplayCompleted(m_state);
+                m_state.raceReplayFlowCompleted = true;
+                if (m_observer)
+                    m_observer->SetRaceReplayFlowCompleted(true);
+            }
+            else if (foldedOutcome == "race.retry.declined")
+            {
+                m_state.raceRetryDeclined = true;
+            }
+            else if (foldedOutcome == "race.retry.accepted")
+            {
+                m_state.raceRetryDeclined = false;
+            }
+        }
+        if (Fold(observation.screenId) == "race_runner")
+        {
+            m_scenario->OnRaceStrategyConfigured(m_state);
+            m_state.raceStrategyConfigured = true;
+        }
+        SynchronizeObservationPolicy();
+        if (!m_actionExecutor->ConfirmCompletionFromObservation(intent, observation, context))
+        {
+            result.status = context.IsCancelled() ? CareerRunStatus::Cancelled : CareerRunStatus::Failed;
+            if (result.status == CareerRunStatus::Failed)
+                result.failureReason = "Career action produced no resource-confirmed screen transition: " + observation.screenId;
             return false;
         }
         m_nextConfirmedObservation = m_actionExecutor->TakeConfirmedObservation();
@@ -281,7 +544,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             observation.screenId + " -> " + destination);
         if (IsCommittedTurnAction(intent, observation))
         {
-            m_scenario->OnTurnActionSubmitted(m_state, intent, observation);
+            SynchronizeObservationPolicy();
             if (intent.kind == CareerDomain::ActionIntentKind::Rest
                 || intent.kind == CareerDomain::ActionIntentKind::Infirmary
                 || intent.kind == CareerDomain::ActionIntentKind::Recreation
@@ -309,6 +572,11 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
     {
         if (m_terminalScreenSeen)
         {
+            if (m_actionExecutor)
+                m_actionExecutor->ClearLearnedSkills(context.GetDeviceSerial());
+            if (m_config.traineeId)
+                SmartTrainingConfirmationStore::Clear(
+                    m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial());
             result.status = CareerRunStatus::Completed;
             result.totalTurnsExecuted = m_state.turnIndex;
             return result;
@@ -320,11 +588,29 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
     if (IsTerminalScreen(observation.screenId))
         m_terminalScreenSeen = true;
 
+    TryReconcileResumedTrainingConfirmation(observation, context);
+    if (m_restoredSmartTrainingConfirmation && Fold(observation.screenId) == "training_selection")
+    {
+        result.status = CareerRunStatus::Failed;
+        result.failureReason = "Smart training confirmation guard detected while on training selection; pause automation to avoid double-tapping.";
+        return result;
+    }
+    CheckAndConfirmTrainingConsumed(observation, context);
+
     switch (observation.screenKind)
     {
     case CareerDomain::CareerScreenKind::MainTurn:
     {
         m_pendingRaceIntent.reset();
+        m_raceTurnSubmitted = false;
+        if (m_scenario->IsGoalCompletionProbeArmed(m_state)
+            && (m_state.lastIntent.kind == CareerDomain::ActionIntentKind::Race || m_state.raceReplayFlowCompleted))
+        {
+            context.Log("INFO", "Waiting at Career Main for post-race event or goal completion banner to settle.");
+            context.Sleep(250);
+            return finishRunning();
+        }
+        SynchronizeObservationPolicy();
         const bool candidateScanStrategy = m_strategy
             && m_strategy->RequiresTrainingCandidateScan();
         if (candidateScanStrategy && !m_trainingFlow)
@@ -447,8 +733,6 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             return result;
         }
         if (!perform(intent)) return result;
-        m_pendingTraining = intent;
-        m_pendingTrainingBaseline = m_state.confirmedTurnActions;
         return finishRunning();
     }
     case CareerDomain::CareerScreenKind::TrainingResult:
@@ -519,12 +803,39 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                     : application.failureReason;
                 return result;
             }
+            SynchronizeObservationPolicy();
             context.Log("INFO", "Applied verified result for race " + verified->raceId
                 + (application.retryPending ? "; scenario requests a permitted retry." : "."));
         }
-        auto intent = m_pendingRaceIntent.value_or(
-            CareerDomain::ActionIntent::MakeRace({}, m_config.normalLineupStrategy,
-                "Resume the recognized resource-defined race flow."));
+        if (!m_pendingRaceIntent)
+        {
+            std::string target;
+            if (!m_state.observedGoalKind.empty())
+                target = m_state.observedGoalKind;
+            else if (Fold(observation.screenId) == "race_day")
+                target = "race";
+            else if (Fold(observation.screenId) == "race_list")
+                target = "fans";
+            m_pendingRaceIntent = CareerDomain::ActionIntent::MakeRace(
+                target, m_config.normalLineupStrategy,
+                "Resume the recognized resource-defined race flow.");
+        }
+        const auto raceScreenId = Fold(observation.screenId);
+        if ((raceScreenId == "race_list" || raceScreenId == "race_details" || raceScreenId == "race_attributes")
+            && !m_raceTurnSubmitted)
+        {
+            if (m_scenario->ShouldDeferRace(m_state))
+            {
+                result.status = CareerRunStatus::Failed;
+                result.failureReason = "Two consecutive races are confirmed or cannot be ruled out; this race can be delayed, but the current race page has no verified route back to a non-race action. Automation paused before entering a third race.";
+                return result;
+            }
+            if (m_scenario->WouldBeThirdRace() && m_scenario->MustRaceNow())
+            {
+                context.Log("INFO", "Third consecutive race is required by the current career objective; proceeding.");
+            }
+        }
+        auto intent = *m_pendingRaceIntent;
         if (Fold(observation.screenId) == "race_streak_warning")
         {
             const auto resolution = m_scenario->GetRaceStreakWarningResolution(m_state);

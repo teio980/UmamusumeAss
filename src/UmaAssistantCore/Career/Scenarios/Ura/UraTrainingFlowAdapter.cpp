@@ -1,8 +1,10 @@
 #include "UraTrainingFlowAdapter.hpp"
 
+#include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 
 namespace UmaAssistant::Career::Ura
 {
@@ -59,6 +61,90 @@ std::optional<int> CurrentTurnIndex(const CareerDomain::CareerState& state)
     if (state.turnIndexEvidence.IsReliable())
         return state.turnIndexEvidence.Value();
     return state.turnIndex;
+}
+
+void EmitSmartTrainingScan(
+    TaskEngine::ITaskExecutionContext& context,
+    const CareerDomain::CareerState& state,
+    const CareerDomain::Ura::UraTrainingScanner& scanner,
+    const std::optional<std::string>& chosenType)
+{
+    nlohmann::json root;
+    if (state.turnPositionText.has_value() && !state.turnPositionText->empty())
+        root["date"] = *state.turnPositionText;
+    else
+        root["date"] = state.phaseId.empty() ? "Unknown" : state.phaseId;
+
+    if (state.energy.IsReliable())
+        root["energy"] = state.energy.Value();
+    else
+        root["energy"] = nullptr;
+
+    if (chosenType.has_value() && !chosenType->empty())
+        root["chosen"] = *chosenType;
+    else
+        root["chosen"] = nullptr;
+
+    nlohmann::json candidatesJson = nlohmann::json::array();
+    const auto& decision = scanner.Decision();
+    if (!decision.allEvaluations.empty())
+    {
+        for (const auto& eval : decision.allEvaluations)
+        {
+            const auto& cand = eval.first;
+            const auto& score = eval.second;
+            nlohmann::json item;
+            item["type"] = cand.trainingType;
+            item["speed"] = cand.speedGain ? nlohmann::json(*cand.speedGain) : nlohmann::json(nullptr);
+            item["stamina"] = cand.staminaGain ? nlohmann::json(*cand.staminaGain) : nlohmann::json(nullptr);
+            item["power"] = cand.powerGain ? nlohmann::json(*cand.powerGain) : nlohmann::json(nullptr);
+            item["guts"] = cand.gutsGain ? nlohmann::json(*cand.gutsGain) : nlohmann::json(nullptr);
+            item["wit"] = cand.witGain ? nlohmann::json(*cand.witGain) : nlohmann::json(nullptr);
+            item["skill_points"] = cand.skillPointGain ? nlohmann::json(*cand.skillPointGain) : nlohmann::json(nullptr);
+            item["failure_rate"] = cand.failureRatePercent ? nlohmann::json(*cand.failureRatePercent) : nlohmann::json(nullptr);
+            if (score.IsExcluded())
+            {
+                item["score"] = nullptr;
+                item["exclusion_reason"] = score.exclusionReason;
+            }
+            else
+            {
+                item["score"] = score.totalScore;
+                item["exclusion_reason"] = nullptr;
+            }
+            candidatesJson.push_back(item);
+        }
+    }
+    else
+    {
+        for (const auto& cand : scanner.Candidates())
+        {
+            nlohmann::json item;
+            item["type"] = cand.trainingType;
+            item["speed"] = cand.speedGain ? nlohmann::json(*cand.speedGain) : nlohmann::json(nullptr);
+            item["stamina"] = cand.staminaGain ? nlohmann::json(*cand.staminaGain) : nlohmann::json(nullptr);
+            item["power"] = cand.powerGain ? nlohmann::json(*cand.powerGain) : nlohmann::json(nullptr);
+            item["guts"] = cand.gutsGain ? nlohmann::json(*cand.gutsGain) : nlohmann::json(nullptr);
+            item["wit"] = cand.witGain ? nlohmann::json(*cand.witGain) : nlohmann::json(nullptr);
+            item["skill_points"] = cand.skillPointGain ? nlohmann::json(*cand.skillPointGain) : nlohmann::json(nullptr);
+            item["failure_rate"] = cand.failureRatePercent ? nlohmann::json(*cand.failureRatePercent) : nlohmann::json(nullptr);
+            item["score"] = nullptr;
+            item["exclusion_reason"] = "no_data";
+            candidatesJson.push_back(item);
+        }
+    }
+    root["candidates"] = candidatesJson;
+
+    TaskEngine::TaskExecutionEvent event{};
+    event.type = TaskEngine::TaskEventType::RecognitionEvaluated;
+    event.pipelineName = "career-training";
+    event.taskName = "smart_training_scan";
+    event.succeeded = true;
+    event.score = 1.0;
+    event.message = root.dump();
+    event.timestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    context.EmitEvent(event);
 }
 
 } // namespace
@@ -132,6 +218,7 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
         m_scannedTurnActions = state.confirmedTurnActions;
         m_scannedTurnsToGoal = state.turnsToGoal.value;
         context.Log("WARNING", "Smart training scan found no safe candidate: " + scan.detail);
+        EmitSmartTrainingScan(context, state, m_scanner, std::nullopt);
         m_scanner.Reset();
         result.status = CareerTrainingSelectionStatus::BackOut;
         result.intent = CareerDomain::ActionIntent::MakeAdvance(
@@ -158,6 +245,7 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
     result.intent = strategy.Choose(state, &scenario);
     if (result.intent.kind != CareerDomain::ActionIntentKind::Training)
     {
+        EmitSmartTrainingScan(context, state, m_scanner, std::nullopt);
         m_scanner.Reset();
         result.status = CareerTrainingSelectionStatus::BackOut;
         result.intent = CareerDomain::ActionIntent::MakeAdvance(
@@ -177,6 +265,8 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
         result.error = "URA strategy choice did not match the scanned winner.";
         return result;
     }
+
+    EmitSmartTrainingScan(context, state, m_scanner, winner);
 
     const auto confirmed = m_visualScanner.ConfirmWinner(context, m_scanner);
     if (!confirmed.IsReadyToTap() || !m_scanner.CanTapTraining())

@@ -7,6 +7,7 @@
 #include "Career/CareerActionExecutor.hpp"
 #include "Career/CareerFlowCoordinator.hpp"
 #include "Career/CareerObservationReader.hpp"
+#include "Career/CareerPersistenceStore.hpp"
 #include "Career/CareerTrainingFlowRegistry.hpp"
 #include "Career/Scenarios/Ura/UraTrainingFlowAdapter.hpp"
 #include "CareerDomain/Scenarios/Ura/UraScenarioModule.hpp"
@@ -421,6 +422,15 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                 auto strategy = CareerDomain::UraStrategyRegistry::Create(snapshot.strategyId,
                     {ratio.speed, ratio.stamina, ratio.power, ratio.guts, ratio.wit});
                 auto executor = std::make_shared<Career::CareerActionExecutor>(snapshot, resources);
+                if (!snapshot.continueExistingCareer)
+                {
+                    executor->ClearLearnedSkills(context.GetDeviceSerial());
+                    if (snapshot.traineeId)
+                    {
+                        Career::SmartTrainingConfirmationStore::Clear(
+                            snapshot.checkpointDirectory, *snapshot.traineeId, context.GetDeviceSerial());
+                    }
+                }
                 auto trainingFlow = trainingFlows.Create(resources->GetScenarioId(), resources);
                 if (strategy->RequiresTrainingCandidateScan() && !trainingFlow)
                     return fail("The selected strategy requires an unregistered scenario training flow.");

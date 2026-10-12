@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
@@ -8,6 +9,7 @@
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
+#include "tests/TaskEngine/MockTaskExecutionContext.hpp"
 
 #include <algorithm>
 #include <array>
@@ -293,6 +295,54 @@ CareerRuntimeConfig PackagedConfig()
     return config;
 }
 
+class ActualRaceResultContext : public UmaAssistant::TaskEngine::Tests::MockTaskExecutionContext
+{
+public:
+    explicit ActualRaceResultContext(const std::string& filename)
+        : image(UmaAssistant::Resources::WicImageDecoder::decode_file(
+            UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename)) {}
+
+    bool CaptureScreen() override
+    {
+        auto snapshot = std::make_shared<TaskFrameSnapshot>();
+        snapshot->frameId = ++captures;
+        snapshot->width = image.width;
+        snapshot->height = image.height;
+        snapshot->grayPixels = image.gray;
+        snapshot->rgbaPixels = image.rgba;
+        frame = std::move(snapshot);
+        return true;
+    }
+    std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return frame; }
+    std::shared_ptr<const UmaAssistant::Vision::GrayImage> LoadTemplateImage(const std::string& path) override
+    {
+        return std::make_shared<const UmaAssistant::Vision::GrayImage>(
+            UmaAssistant::Resources::WicImageDecoder::decode_file_utf8(path));
+    }
+    TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string& algorithm, int referenceWidth,
+        int referenceHeight, const std::vector<double>&) override
+    {
+        const auto marker = LoadTemplateImage(path);
+        UmaAssistant::Vision::Roi bounds;
+        if (roi) bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+        const auto match = algorithm == "MatchTemplateColor"
+            ? UmaAssistant::Vision::find_color(image, *marker, bounds, threshold, referenceWidth, referenceHeight)
+            : UmaAssistant::Vision::find(image, *marker, bounds, threshold, referenceWidth, referenceHeight);
+        TaskMatchResult result;
+        result.found = match.found;
+        result.score = match.score;
+        result.x = match.x; result.y = match.y;
+        result.width = match.width; result.height = match.height;
+        result.frameId = frame ? frame->frameId : 0;
+        return result;
+    }
+    std::vector<TaskOcrDetection> RecognizeText(const std::string&, const std::optional<TaskRoi>&) override { return {}; }
+    UmaAssistant::Vision::GrayImage image;
+    std::shared_ptr<const TaskFrameSnapshot> frame;
+    std::uint64_t captures{0};
+};
+
 std::uint64_t EventSignature(std::vector<std::pair<int, std::string>> detections)
 {
     std::sort(detections.begin(), detections.end(), [](const auto& left, const auto& right) {
@@ -548,5 +598,85 @@ TEST_CASE("Race results require a same-frame packaged outcome match", "[CareerRu
         CareerActionExecutor executor(config, resources);
         CHECK_FALSE(executor.MatchRaceResult(expectation, context).has_value());
         CHECK(context.CaptureCount() > 1);
+    }
+}
+
+TEST_CASE("MuMu Cosmos Sho result satisfies the View Results destination marker", "[CareerRuntime][CareerRaceTransition]")
+{
+    const auto config = PackagedConfig();
+    CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    const auto* task = resources.FindExecutionTask("race_runner_view_results_tap");
+    REQUIRE(task != nullptr);
+    REQUIRE(task->transitionTemplates.size() == 2);
+    const auto frame = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/race_view_results_cosmos_sho_3rd_mumu_20261012.png");
+    const auto marker = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        UmaAssistant::Paths::FromUtf8(task->transitionTemplates[0]));
+    REQUIRE(task->transitionRois[0].has_value());
+    const auto& bounds = *task->transitionRois[0];
+    REQUIRE(bounds.size() == 4);
+    const auto match = UmaAssistant::Vision::find(frame, marker,
+        std::array<std::int32_t, 4>{bounds[0], bounds[1], bounds[2], bounds[3]},
+        task->transitionThreshold, task->referenceWidth, task->referenceHeight);
+    CHECK(match.found);
+    CHECK(match.score >= task->transitionThreshold);
+}
+
+TEST_CASE("Direct View Results placings are recognized after the runner checkpoint", "[CareerRuntime][CareerRaceTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto filename = GENERATE(
+        "race_view_results_cosmos_sho_3rd_mumu_20261012.png",
+        "race_view_results_fuyo_stakes_1st_mumu_20261012.png");
+    CAPTURE(filename);
+    ActualRaceResultContext context(filename);
+    CareerScreenObserver observer(resources);
+    CareerObservation source;
+    source.screenId = "race_runner";
+    source.screenKind = CareerScreenKind::RaceExecution;
+    observer.RememberObservation(source);
+    observer.SetRaceRunnerResultExpected(true);
+    const auto observed = observer.ObserveScreens(context, {"race_runner_result"});
+    CHECK(observed.screenId == "race_runner_result");
+    CHECK(observed.screenKind == CareerScreenKind::RaceResult);
+    CHECK(context.captures == 2);
+
+    SECTION("Outer transition confirmation hands the actual result to the coordinator")
+    {
+        CareerActionExecutor executor(config, resources);
+        executor.SetRaceRunnerResultExpected(true);
+        REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeRace("fans"), source, context));
+        const auto confirmed = executor.TakeConfirmedObservation();
+        REQUIRE(confirmed);
+        CHECK(confirmed->screenId == "race_runner_result");
+        CHECK(context.taps.empty());
+    }
+    SECTION("A Next button cannot establish a result without the race checkpoint policy")
+    {
+        observer.RememberObservation(source);
+        observer.SetRaceRunnerResultExpected(false);
+        CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
+    }
+    SECTION("The fallback is released after leaving the runner checkpoint")
+    {
+        observer.RememberObservation(observed);
+        CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
+    }
+    SECTION("Recovery clears the pending runner fallback")
+    {
+        observer.ResetForRecovery();
+        observer.RememberObservation(source);
+        CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
+    }
+    SECTION("Expected results still require a visible Next marker")
+    {
+        observer.RememberObservation(source);
+        std::fill(context.image.gray.begin(), context.image.gray.end(), std::uint8_t{0});
+        std::fill(context.image.rgba.begin(), context.image.rgba.end(), std::uint8_t{0});
+        CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
     }
 }

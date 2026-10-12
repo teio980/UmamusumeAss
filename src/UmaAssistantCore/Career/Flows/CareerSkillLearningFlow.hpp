@@ -23,6 +23,7 @@ public:
 
     ActionExecutionStatus RunBeforeRace(TaskEngine::ITaskExecutionContext& context);
     bool ReturnToRaceDay(TaskEngine::ITaskExecutionContext& context);
+    void ClearLearnedSkills(const std::string& deviceKey);
 
 private:
     bool EnsureCatalogLoaded(TaskEngine::ITaskExecutionContext& context);
@@ -35,6 +36,7 @@ private:
     // Learned/obtained state is durable for this career run and intentionally
     // survives date-recovery resets of the surrounding executor.
     std::unordered_set<int> m_confirmedLearnedSkillIds;
+    bool m_skillsLoadedFromDisk{false};
 };
 
 } // namespace UmaAssistant::Career

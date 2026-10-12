@@ -481,6 +481,10 @@ void CareerScreenObserver::ResetForEntry() noexcept
     m_careerStarted = false;
     m_settlementInProgress = false;
     m_returningHome = false;
+    m_goalCompletionProbeArmed = false;
+    m_raceReplayFlowCompleted = false;
+    m_raceRunnerResultExpected = false;
+    m_mainTextCache.Clear();
     m_lastScreenId.clear();
 }
 
@@ -493,6 +497,8 @@ void CareerScreenObserver::RememberObservation(const CareerDomain::CareerObserva
         || flow == "settlement" || flow == "skill") m_careerStarted = true;
     if (flow == "settlement") m_settlementInProgress = true;
     if (m_careerStarted && IsReturningHomeScreen(screen->screenId)) m_returningHome = true;
+    if (Fold(screen->screenId) != "career_main" || Fold(m_lastScreenId) != "career_main")
+        m_mainTextCache.Clear();
     m_lastScreenId = screen->screenId;
 }
 
@@ -619,6 +625,27 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
             && Fold(m_lastScreenId) != "career_result_close"
             && Fold(m_lastScreenId) != "career_rating_record_updated")
             return false;
+        if (m_careerStarted && !allowResume)
+        {
+            const bool resumedRaceCompleted = m_raceReplayFlowCompleted && Fold(m_lastScreenId) == "race_runner";
+            if (id == "goal_objective_complete")
+            {
+                if (!m_goalCompletionProbeArmed && !resumedRaceCompleted)
+                    return false;
+            }
+            else if (id == "goal_update")
+            {
+                if (Fold(m_lastScreenId) != "goal_objective_complete")
+                    return false;
+            }
+            else if (id == "goal_complete")
+            {
+                if (!m_goalCompletionProbeArmed && !resumedRaceCompleted
+                    && Fold(m_lastScreenId) != "goal_objective_complete"
+                    && Fold(m_lastScreenId) != "goal_update")
+                    return false;
+            }
+        }
         return true;
     };
 
@@ -803,6 +830,26 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
                     break;
                 }
             }
+            // View Results can bypass the Replay label. Match main's fallback
+            // only for a pending race whose configured runner was just seen;
+            // the shared Next button alone cannot identify arbitrary screens.
+            if (!matched && Fold(screen.screenId) == "race_runner_result"
+                && m_raceRunnerResultExpected && Fold(m_lastScreenId) == "race_runner"
+                && !screen.requiredTemplates.empty())
+            {
+                const auto& marker = screen.requiredTemplates.front();
+                const auto next = context.MatchTemplateAdvanced(marker.path, marker.threshold,
+                    marker.roi, marker.requiresAlphaMatching ? "MatchTemplateColor" : marker.algorithm,
+                    900, 1600, {});
+                if (!SameFrame(context, sample.frame)
+                    || (next.frameId != 0 && sample.frame->frameId != 0 && next.frameId != sample.frame->frameId))
+                {
+                    sample.frameChanged = true;
+                    return sample;
+                }
+                matched = next.found;
+                screenScore = next.score;
+            }
             if (!matched)
                 continue;
 
@@ -944,15 +991,27 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
     {
         const auto& roi = region.roi;
         if (roi.width <= 0 || roi.height <= 0) continue;
-        auto detections = context.RecognizeText("en-US", roi);
-        if (!SameFrame(context, frame))
-        {
-            context.Log("WARNING", "Discarded career OCR evidence because the frame changed during recognition.");
-            return CareerDomain::CareerObservation{};
-        }
-        std::string text = JoinText(detections);
         const auto semantic = Fold(region.semanticId);
-        const double confidence = DetectionConfidence(detections);
+        std::string text;
+        double confidence = 0.0;
+        const bool cacheEligible = id == "career_main"
+            && (semantic == "scenario.phase" || semantic == "objective.turns_left"
+                || semantic == "objective.title" || semantic == "mood.current");
+        if (!cacheEligible || !m_mainTextCache.TryGet(semantic, *frame, roi, text, &confidence))
+        {
+            auto detections = context.RecognizeText("en-US", roi);
+            if (!SameFrame(context, frame))
+            {
+                context.Log("WARNING", "Discarded career OCR evidence because the frame changed during recognition.");
+                return CareerDomain::CareerObservation{};
+            }
+            text = JoinText(detections);
+            confidence = DetectionConfidence(detections);
+            if (cacheEligible && confidence > 0.0 && !text.empty())
+            {
+                m_mainTextCache.Remember(semantic, *frame, roi, text, confidence);
+            }
+        }
         if (semantic == "scenario.phase")
         {
             if (confidence > 0.0)
@@ -1015,6 +1074,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
             }
         }
     }
+    if (id != "career_main")
+        m_mainTextCache.Clear();
 
     if (observation.screenKind == CareerDomain::CareerScreenKind::MainTurn
         && !observation.turnsToGoalEvidence.IsReliable())

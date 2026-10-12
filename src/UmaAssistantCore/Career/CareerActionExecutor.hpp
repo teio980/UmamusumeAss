@@ -41,6 +41,7 @@ public:
         const CareerDomain::CareerRaceResultExpectation& expectation,
         TaskEngine::ITaskExecutionContext& context) override;
     std::optional<bool> TakeRaceRetryDeclined() override;
+    std::optional<std::string> TakeLastActionOutcome() override;
 
     ActionExecutionStatus ExecuteAction(
         const std::string& screenId,
@@ -59,6 +60,9 @@ public:
 
     std::optional<CareerDomain::CareerObservation> TakeConfirmedObservation() override;
     void ResetAfterRecovery() noexcept override;
+    void SetGoalObservationPolicy(bool armed, bool replayCompleted) noexcept override;
+    void SetRaceRunnerResultExpected(bool expected) noexcept override;
+    void ClearLearnedSkills(const std::string& deviceKey) override;
 
     [[nodiscard]] const std::shared_ptr<CareerVisualResources>& GetResources() const noexcept
     {
@@ -76,6 +80,8 @@ private:
     std::string m_lastSourceScreen;
     std::optional<CareerDomain::CareerObservation> m_confirmedObservation;
     std::optional<bool> m_raceRetryDeclined;
+    std::optional<std::string> m_lastActionOutcome;
+    bool m_raceStrategyConfigured{false};
 };
 
 } // namespace UmaAssistant::Career

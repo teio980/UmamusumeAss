@@ -139,7 +139,7 @@ ActionIntent DefaultTrainingStrategy::Choose(
     const IScenarioModule* scenario)
 {
     auto overrideIntent = ScenarioOverride(state, scenario, m_restThreshold, false);
-    if (IsRacePriority(overrideIntent))
+    if (overrideIntent.has_value() && overrideIntent->kind == ActionIntentKind::DoNothing)
         return *overrideIntent;
 
     if (state.infirmaryAvailable)
@@ -167,7 +167,7 @@ ActionIntent RatioTrainingStrategy::Choose(
 {
     m_pendingTrainingType.reset();
     auto overrideIntent = ScenarioOverride(state, scenario, m_restThreshold, false);
-    if (IsRacePriority(overrideIntent))
+    if (overrideIntent.has_value() && overrideIntent->kind == ActionIntentKind::DoNothing)
         return *overrideIntent;
 
     if (state.infirmaryAvailable)

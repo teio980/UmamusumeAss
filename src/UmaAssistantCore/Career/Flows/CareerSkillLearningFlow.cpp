@@ -1,4 +1,5 @@
 #include "CareerSkillLearningFlow.hpp"
+#include "../CareerPersistenceStore.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -470,6 +471,26 @@ ActionExecutionStatus CareerSkillLearningFlow::RunBeforeRace(TaskEngine::ITaskEx
     const auto& resources = m_resources;
     if (config.normalSkillIds.empty()) return ActionExecutionStatus::Success;
     if (!resources || !resources->IsReady()) return ActionExecutionStatus::Failed;
+    if (!m_skillsLoadedFromDisk)
+    {
+        m_skillsLoadedFromDisk = true;
+        if (m_config.traineeId)
+        {
+            const auto loaded = NormalCareerSkillCache::Load(
+                m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial());
+            for (const int loadedId : loaded)
+                m_confirmedLearnedSkillIds.insert(loadedId);
+        }
+    }
+    const auto saveLearnedSkills = [&]() {
+        if (m_config.traineeId)
+        {
+            std::vector<int> skillIds(m_confirmedLearnedSkillIds.begin(), m_confirmedLearnedSkillIds.end());
+            std::sort(skillIds.begin(), skillIds.end());
+            NormalCareerSkillCache::Save(
+                m_config.checkpointDirectory, *m_config.traineeId, context.GetDeviceSerial(), skillIds);
+        }
+    };
     CoordinateReferenceScope coordinates(context);
     if (!EnsureCatalogLoaded(context)) return ActionExecutionStatus::Failed;
     const auto* catalog = &m_catalog.Skills();
@@ -545,7 +566,10 @@ ActionExecutionStatus CareerSkillLearningFlow::RunBeforeRace(TaskEngine::ITaskEx
             continue;
         }
         if (scan.kind == SkillScanResult::Kind::Obtained)
+        {
             m_confirmedLearnedSkillIds.insert(id);
+            saveLearnedSkills();
+        }
         if (scan.kind == SkillScanResult::Kind::Purchasable && scan.plus)
         {
             const auto priceRegion = ReadRegionRoi(*resources, "career.skill.price");
@@ -618,6 +642,7 @@ ActionExecutionStatus CareerSkillLearningFlow::RunBeforeRace(TaskEngine::ITaskEx
                 return ActionExecutionStatus::Failed;
             }
             m_confirmedLearnedSkillIds.insert(id);
+            saveLearnedSkills();
         }
         else if (scan.kind == SkillScanResult::Kind::NotFound)
         {
@@ -635,5 +660,15 @@ ActionExecutionStatus CareerSkillLearningFlow::RunBeforeRace(TaskEngine::ITaskEx
     return ActionExecutionStatus::Success;
 }
 
+void CareerSkillLearningFlow::ClearLearnedSkills(const std::string& deviceKey)
+{
+    m_confirmedLearnedSkillIds.clear();
+    m_skillsLoadedFromDisk = false;
+    if (m_config.traineeId)
+    {
+        NormalCareerSkillCache::Clear(
+            m_config.checkpointDirectory, *m_config.traineeId, deviceKey);
+    }
+}
 
 } // namespace UmaAssistant::Career

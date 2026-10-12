@@ -85,7 +85,11 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
     TaskEngine::ITaskExecutionContext& context)
 {
     m_raceRetryDeclined.reset();
+    m_lastActionOutcome.reset();
     m_lastSourceScreen = observation.screenId;
+    if (intent.kind == CareerDomain::ActionIntentKind::Race
+        && (Fold(observation.screenId) == "career_main" || Fold(observation.screenId) == "race_day"))
+        m_raceStrategyConfigured = false;
     if (m_observer) m_observer->RememberObservation(observation);
     if (Fold(observation.screenId) == "race_day"
         && intent.kind == CareerDomain::ActionIntentKind::Race
@@ -117,10 +121,12 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
             context.Log("ERROR", "Race intent or normal-mode configuration has no resource-defined lineup action.");
             return ActionExecutionStatus::Failed;
         }
-        const auto strategy = ExecuteAction(
-            observation.screenId, "strategy.apply." + lineup, context);
-        if (strategy != ActionExecutionStatus::Success)
-            return strategy;
+        if (!m_raceStrategyConfigured)
+        {
+            const auto strategy = ExecuteAction(observation.screenId, "strategy.apply." + lineup, context);
+            if (strategy != ActionExecutionStatus::Success) return strategy;
+            m_raceStrategyConfigured = true;
+        }
         // The resource task checks the View Results lock, starts an unlocked
         // race through entry.start, and follows the replay/result transitions.
         return ExecuteAction(observation.screenId, "entry.view_results", context);
@@ -171,16 +177,17 @@ ActionExecutionStatus CareerActionExecutor::ExecuteAction(
     if (result.status == TaskEngine::TaskGraphStatus::Success
         || result.status == TaskEngine::TaskGraphStatus::Completed)
     {
-        if (Fold(screenId) == "race_retry_dialog")
+        if (const auto* finalTask = m_resources->FindExecutionTask(result.finalTask);
+            finalTask && finalTask->outcome)
         {
-            if (const auto* finalTask = m_resources->FindExecutionTask(result.finalTask);
-                finalTask && finalTask->outcome)
+            m_lastActionOutcome = *finalTask->outcome;
+            const auto outcome = Fold(*finalTask->outcome);
+            if (outcome == "race.retry.declined")
+                m_raceRetryDeclined = true;
+            else if (outcome == "race.retry.accepted")
             {
-                const auto outcome = Fold(*finalTask->outcome);
-                if (outcome == "race.retry.declined")
-                    m_raceRetryDeclined = true;
-                else if (outcome == "race.retry.accepted")
-                    m_raceRetryDeclined = false;
+                m_raceRetryDeclined = false;
+                m_raceStrategyConfigured = false;
             }
         }
         return ActionExecutionStatus::Success;
@@ -211,19 +218,21 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     }
 
     constexpr int pollMs = 250;
+    m_observer->RememberObservation(observation);
     auto const sourceId = Fold(observation.screenId);
-    bool const raceEntry = intent.kind == CareerDomain::ActionIntentKind::Race
-        && (sourceId == "career_main" || sourceId == "career_races_ready" || sourceId == "race_day");
+    bool const raceTransition = intent.kind == CareerDomain::ActionIntentKind::Race
+        && (sourceId == "career_main" || sourceId == "career_races_ready" || sourceId == "race_day"
+            || sourceId == "race_recommendations" || sourceId == "race_list");
     bool const turnReturn = sourceId == "training_selection" || sourceId == "rest_confirmation"
         || sourceId == "summer_rest_confirmation" || sourceId == "infirmary_confirmation"
         || sourceId == "recreation_confirmation";
-    int const timeoutMs = raceEntry ? 30000 : turnReturn || observation.screenKind == CareerDomain::CareerScreenKind::EventChoice
+    int const timeoutMs = raceTransition ? 30000 : turnReturn || observation.screenKind == CareerDomain::CareerScreenKind::EventChoice
         ? 45000 : 15000;
     int const maxPolls = timeoutMs / pollMs;
     std::vector<std::string> candidates;
-    if (raceEntry)
+    if (raceTransition)
         candidates = {observation.screenId, "race_streak_warning", "race_recommendations",
-            "race_list_empty", "race_list", "race_day", "career_races_ready", "race_runner"};
+            "race_list_empty", "race_list", "race_details", "race_attributes", "race_day", "career_races_ready", "race_runner"};
     else if (turnReturn)
         candidates = {"event_choice", "training_event", "scenario_event", "inheritance_event", "training_result",
             "goal_objective_complete", "goal_update", "goal_complete", "race_day", "career_races_ready", "career_main",
@@ -250,11 +259,11 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
         }
         if (current.screenId == observation.screenId)
         {
-            if (raceEntry && !entryRetried && current.consecutiveFramesIdentical)
+            if (raceTransition && !entryRetried && current.consecutiveFramesIdentical)
             {
                 // ObserveScreens confirmed identical complete frames. The
                 // action graph must also rematch its button before this retry.
-                context.Log("INFO", "Race entry is unchanged in two frames; retrying its verified action once.");
+                context.Log("INFO", "Race transition is unchanged in two frames; retrying its verified action once.");
                 entryRetried = true;
                 if (ExecuteForObservation(intent, current, context) != ActionExecutionStatus::Success) return false;
                 continue;
@@ -269,7 +278,7 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             const bool eventStateChanged = observation.eventStateSignature
                 && current.eventStateSignature
                 && *observation.eventStateSignature != *current.eventStateSignature;
-            if (!raceEntry && (turnChanged || eventChanged || eventIdChanged || eventStateChanged))
+            if (!raceTransition && (turnChanged || eventChanged || eventIdChanged || eventStateChanged))
             {
                 context.Log("INFO", "Career action state transition observed within " + current.screenId + ".");
                 m_confirmedObservation = current;
@@ -294,7 +303,9 @@ void CareerActionExecutor::ResetAfterRecovery() noexcept
 {
     m_confirmedObservation.reset();
     m_raceRetryDeclined.reset();
+    m_lastActionOutcome.reset();
     m_lastSourceScreen.clear();
+    m_raceStrategyConfigured = false;
     if (m_observer)
         m_observer->ResetForRecovery();
 }
@@ -304,6 +315,31 @@ std::optional<bool> CareerActionExecutor::TakeRaceRetryDeclined()
     auto result = m_raceRetryDeclined;
     m_raceRetryDeclined.reset();
     return result;
+}
+
+void CareerActionExecutor::SetGoalObservationPolicy(bool armed, bool replayCompleted) noexcept
+{
+    if (!m_observer) return;
+    m_observer->SetGoalCompletionProbeArmed(armed);
+    m_observer->SetRaceReplayFlowCompleted(replayCompleted);
+}
+
+void CareerActionExecutor::SetRaceRunnerResultExpected(bool expected) noexcept
+{
+    if (m_observer) m_observer->SetRaceRunnerResultExpected(expected);
+}
+
+std::optional<std::string> CareerActionExecutor::TakeLastActionOutcome()
+{
+    auto result = m_lastActionOutcome;
+    m_lastActionOutcome.reset();
+    return result;
+}
+
+void CareerActionExecutor::ClearLearnedSkills(const std::string& deviceKey)
+{
+    if (m_skillLearningFlow)
+        m_skillLearningFlow->ClearLearnedSkills(deviceKey);
 }
 
 std::optional<CareerDomain::CareerRaceResultObservation> CareerActionExecutor::MatchRaceResult(
@@ -491,11 +527,11 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         if (screenId == "race_list")
         {
             const auto target = Fold(intent.raceTarget);
-            if (target == "fans" || target == "grade_race_count")
+            if (target == "grade_race_count")
                 return choose("race.fans_entry");
-            if (target == "recommended" || target == "goal" || target == "finale")
-                return choose("race.recommended_entry");
-            return std::nullopt;
+            if (auto rec = choose("race.recommended_entry"))
+                return rec;
+            return choose("race.fans_entry");
         }
         if (screenId == "race_streak_warning")
             return choose(intent.customActionName);

@@ -448,8 +448,7 @@ ActionIntent UraSmartTrainingStrategy::Choose(
     if (scenario != nullptr)
     {
         scenarioOverride = scenario->GetTrainingOverride(state, m_restThreshold, true);
-        if (scenarioOverride.has_value()
-            && (scenarioOverride->kind == ActionIntentKind::Race || scenarioOverride->kind == ActionIntentKind::DoNothing))
+        if (scenarioOverride.has_value() && scenarioOverride->kind == ActionIntentKind::DoNothing)
         {
             m_lastDecision = {};
             return *scenarioOverride;

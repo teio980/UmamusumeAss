@@ -56,6 +56,14 @@ public:
     [[nodiscard]] const CareerDomain::CareerState& GetState() const noexcept { return m_state; }
 
 private:
+    void SynchronizeObservationPolicy() noexcept;
+    bool CheckAndConfirmTrainingConsumed(
+        const CareerDomain::CareerObservation& observation,
+        TaskEngine::ITaskExecutionContext& context);
+    bool TryReconcileResumedTrainingConfirmation(
+        const CareerDomain::CareerObservation& observation,
+        TaskEngine::ITaskExecutionContext& context);
+
     std::shared_ptr<ICareerObserver> m_observer;
     std::shared_ptr<ICareerActionExecutor> m_actionExecutor;
     std::shared_ptr<CareerDomain::IScenarioModule> m_scenario;
@@ -66,12 +74,17 @@ private:
     std::optional<CareerDomain::CareerObservation> m_nextConfirmedObservation;
     std::optional<CareerDomain::ActionIntent> m_pendingTraining;
     std::optional<int> m_pendingTrainingBaseline;
+    std::optional<int> m_pendingTrainingTurnsToGoal;
+    bool m_restoredSmartTrainingConfirmation{false};
+    bool m_persistenceLoaded{false};
+    bool m_raceTurnSubmitted{false};
     // Keep the strategy's target while the same race traverses its entry,
     // warning, runner, playback, and result screens. Intermediate OCR from
     // those screens must not reclassify the objective.
     std::optional<CareerDomain::ActionIntent> m_pendingRaceIntent;
     bool m_terminalScreenSeen{false};
     int m_unknownObservations{0};
+    std::string m_lastLoggedCareerStatus;
 };
 
 } // namespace UmaAssistant::Career

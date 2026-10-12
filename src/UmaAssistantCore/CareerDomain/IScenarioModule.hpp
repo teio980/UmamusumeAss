@@ -189,6 +189,40 @@ public:
         return {false, false, "Scenario does not support verified race results."};
     }
     [[nodiscard]] virtual bool IsObjectiveCompleted(const CareerState& state) const = 0;
+    [[nodiscard]] virtual bool IsGoalCompletionProbeArmed(const CareerState& state) const
+    {
+        (void)state;
+        return false;
+    }
+    virtual void ArmGoalCompletionProbe(CareerState& state)
+    {
+        (void)state;
+    }
+    virtual void DisarmGoalCompletionProbe(CareerState& state)
+    {
+        (void)state;
+    }
+    virtual void OnRaceReplayCompleted(CareerState& state)
+    {
+        (void)state;
+    }
+    virtual void OnRaceStrategyConfigured(CareerState& state)
+    {
+        (void)state;
+    }
+    [[nodiscard]] virtual bool ShouldDeferRace(const CareerState& state) const
+    {
+        (void)state;
+        return false;
+    }
+    [[nodiscard]] virtual bool WouldBeThirdRace() const
+    {
+        return false;
+    }
+    [[nodiscard]] virtual bool MustRaceNow() const
+    {
+        return false;
+    }
 
     // Scenario modules can apply their own turn priorities without coupling
     // the shared strategy implementations to a particular scenario.

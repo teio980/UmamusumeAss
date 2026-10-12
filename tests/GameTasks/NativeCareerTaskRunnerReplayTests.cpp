@@ -748,12 +748,12 @@ private:
                     == m_raceSteps[m_raceResultIndex].objectiveId)
                 m_screen = "career_main"; // First of the two G1 count results.
             else
-                m_screen = "goal_update";
+                m_screen = "goal_objective_complete";
         }
         else if (m_graphRoot == "goal_update_goal_update_next")
-            m_screen = m_raceResultIndex == 8 ? "goal_complete" : "goal_objective_complete";
+            m_screen = m_raceResultIndex == 8 ? "goal_complete" : "career_main";
         else if (m_graphRoot == "goal_complete_goal_next")
-            m_screen = m_screen == "goal_complete" ? "scenario_event" : "career_main";
+            m_screen = m_screen == "goal_complete" ? "scenario_event" : "goal_update";
         else if (m_graphRoot == "scenario_event_event_advance") m_screen = "career_main";
         else if (m_graphRoot == "reward_reward_next") m_screen = "reward_support";
         else if (m_graphRoot == "reward_support_reward_next")
@@ -898,6 +898,12 @@ TEST_CASE("Native runner replays the packaged normal objective chain through URA
         "ura_finale_qualifier", "ura_finale_semifinal", "ura_finale_finals"};
     CHECK(context.MatchedRaceIds() == expectedRaceChain);
     CHECK(context.GoalCompleteCaptureCount() >= 2);
+    // main only admits Goal Update after the objective-complete banner.
+    // Keep the simulated game order explicit instead of weakening that gate.
+    const auto complete = std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "goal_complete_goal_next");
+    REQUIRE(complete != context.PipelineRoots().end());
+    REQUIRE(std::next(complete) != context.PipelineRoots().end());
+    CHECK(*std::next(complete) == "goal_update_goal_update_next");
     CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "home_home_career")
         != context.PipelineRoots().end());
     CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "career_continue_resume")

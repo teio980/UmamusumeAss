@@ -49,6 +49,10 @@ struct CareerState
     // Calendar indices can stay unchanged during Pre-Debut and the Finale.
     // Scenario-confirmed action progress is monotonic across those turns.
     int confirmedTurnActions{0};
+    bool raceReplayFlowCompleted{false};
+    bool raceStrategyConfigured{false};
+    int consecutiveRaceTurns{0};
+    std::string observedGoalKind;
 
     void UpdateFromObservation(const CareerObservation& obs)
     {

@@ -378,7 +378,7 @@ TEST_CASE("Cancelling a race streak warning and returning to Main clears the pen
     CHECK(executor->executions[2].intent.kind == ActionIntentKind::Training);
     CHECK(executor->executions[3].source.screenId == "race_list");
     CHECK(executor->executions[3].intent.kind == ActionIntentKind::Race);
-    CHECK(executor->executions[3].intent.raceTarget.empty());
+    CHECK(executor->executions[3].intent.raceTarget == "fans"); // reconstruct from the current list checkpoint
 }
 
 TEST_CASE("Declining a race retry fails closed if ordinary Career flow resumes", "[Career][Replay]")

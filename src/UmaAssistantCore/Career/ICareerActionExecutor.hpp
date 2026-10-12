@@ -62,6 +62,9 @@ public:
     // retry from its resource-authored cancel fallback.
     virtual std::optional<bool> TakeRaceRetryDeclined() { return std::nullopt; }
 
+    // Hand over action graph outcome (e.g. race.replay.completed, race.retry.declined, etc.)
+    virtual std::optional<std::string> TakeLastActionOutcome() { return std::nullopt; }
+
     virtual bool ConfirmCompletion(
         const CareerDomain::ActionIntent& intent,
         TaskEngine::ITaskExecutionContext& context) = 0;
@@ -81,6 +84,13 @@ public:
     }
 
     virtual void ResetAfterRecovery() noexcept {}
+    virtual void SetGoalObservationPolicy(bool armed, bool replayCompleted) noexcept
+    {
+        (void)armed;
+        (void)replayCompleted;
+    }
+    virtual void ClearLearnedSkills(const std::string& deviceKey) { (void)deviceKey; }
+    virtual void SetRaceRunnerResultExpected(bool expected) noexcept { (void)expected; }
 };
 
 } // namespace UmaAssistant::Career

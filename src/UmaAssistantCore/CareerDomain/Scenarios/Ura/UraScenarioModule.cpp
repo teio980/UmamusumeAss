@@ -102,7 +102,8 @@ bool IsActionSource(ActionIntentKind action, const CareerObservation& source)
         return source.screenKind == CareerScreenKind::Recreation
             || id == "recreation_confirmation" || id == "recreation_selection";
     case ActionIntentKind::Race:
-        return source.screenKind == CareerScreenKind::RaceEntry
+        return source.screenKind == CareerScreenKind::MainTurn || id == "career_main"
+            || source.screenKind == CareerScreenKind::RaceEntry
             || source.screenKind == CareerScreenKind::RaceExecution
             || source.screenKind == CareerScreenKind::RaceResult
             || id == "race_day" || id == "race_list" || id == "race_runner"
@@ -179,6 +180,10 @@ void UraScenarioModule::OnRunStart(CareerState& state, bool continueExistingCare
     state.currentRaceId.clear();
     state.raceRetryCount = 0;
     state.raceRetryDeclined = false;
+    state.raceReplayFlowCompleted = false;
+    state.raceStrategyConfigured = false;
+    state.consecutiveRaceTurns = continueExistingCareer ? 2 : 0;
+    state.observedGoalKind.clear();
     state.racePlacements.clear();
     state.completedObjectiveIds.clear();
     state.fans = ObservedValue<int>::Unknown();
@@ -245,6 +250,15 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
 
         if (m_goalCompletionProbeArmed)
         {
+            // main releases the post-race wait when a stable Main frame has
+            // a readable next goal, including Finale where the date is fixed.
+            const bool afterRace = m_pendingActionKind == ActionIntentKind::Race
+                || state.lastIntent.kind == ActionIntentKind::Race || state.raceReplayFlowCompleted;
+            const bool readableNextGoal = afterRace
+                && ((m_goal.kind != CareerGoalKind::Unknown && m_goal.kind != CareerGoalKind::GradeRaceCount)
+                    || (m_goal.kind == CareerGoalKind::GradeRaceCount && m_goal.gradeRaceCountLeft.IsReliable()
+                        && m_goal.gradeRaceCountLeft.Value() > 0 && m_gradeRaceStartedTurnIndex
+                        && m_currentTurnIndexObserved && m_currentTurnIndex > *m_gradeRaceStartedTurnIndex));
             const bool goalChanged = m_goal.kind != CareerGoalKind::Unknown
                 && (m_goal.kind != m_goalKindAtRaceStart
                     || (m_goalKindAtRaceStart == CareerGoalKind::GradeRaceCount
@@ -252,7 +266,7 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
                         && m_gradeRaceCountAtRaceStart.IsReliable()
                         && m_goal.gradeRaceCountLeft.Value()
                             < m_gradeRaceCountAtRaceStart.Value()));
-            if (goalChanged || (m_currentTurnIndexObserved && m_gradeRaceStartedTurnIndex
+            if (readableNextGoal || goalChanged || (m_currentTurnIndexObserved && m_gradeRaceStartedTurnIndex
                 && m_currentTurnIndex > *m_gradeRaceStartedTurnIndex))
                 m_goalCompletionProbeArmed = false;
         }
@@ -388,7 +402,24 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         m_hasPendingRace = true;
         if (state.currentRaceId.empty())
             state.currentRaceId = ResolveCurrentRaceId(state);
+        if (screenId == "race_day" && state.observedGoalKind.empty())
+        {
+            state.observedGoalKind = "race";
+            if (m_goal.kind == CareerGoalKind::Unknown) m_goal.kind = CareerGoalKind::Race;
+        }
+        else if (screenId == "race_list" && state.observedGoalKind.empty())
+        {
+            state.observedGoalKind = "fans";
+            if (m_goal.kind == CareerGoalKind::Unknown) m_goal.kind = CareerGoalKind::Fans;
+        }
     }
+
+    if (m_goal.kind == CareerGoalKind::GradeRaceCount)
+        state.observedGoalKind = "grade_race_count";
+    else if (m_goal.kind == CareerGoalKind::Fans)
+        state.observedGoalKind = "fans";
+    else if (m_goal.kind == CareerGoalKind::Race)
+        state.observedGoalKind = "race";
 
     if (screenId == "race_streak_warning")
     {
@@ -416,10 +447,16 @@ void UraScenarioModule::OnTurnActionSubmitted(
     m_pendingActionTurnsToGoal = m_goal.turnsToGoal;
     if (intent.kind == ActionIntentKind::Race)
     {
-        m_goalCompletionProbeArmed = true;
+        if (source.screenKind != CareerScreenKind::RaceResult
+            && Lower(source.screenId) != "race_result" && Lower(source.screenId) != "race_runner_result")
+            m_goalCompletionProbeArmed = false;
         m_goalKindAtRaceStart = m_goal.kind;
         m_gradeRaceCountAtRaceStart = m_goal.gradeRaceCountLeft;
         m_gradeRaceStartedTurnIndex = m_pendingActionTurnIndex;
+    }
+    else
+    {
+        m_goalCompletionProbeArmed = true;
     }
 }
 
@@ -733,6 +770,7 @@ CareerRaceResultApplication UraScenarioModule::OnRaceResultConfirmed(
     }
 
     AdvanceObjectiveAfterRace(state, *objective);
+    m_goalCompletionProbeArmed = true;
     return {true, false, {}};
 }
 
@@ -741,6 +779,7 @@ void UraScenarioModule::RefreshMainTurnEvidence(
     const CareerObservation& observation)
 {
     m_goal = {};
+    state.observedGoalKind.clear();
     auto text = GoalTextFromObservation(observation);
     m_goal.text = text;
     if (text.IsReliable())
@@ -768,6 +807,13 @@ void UraScenarioModule::RefreshMainTurnEvidence(
             CareerGoalTextParser::ParseFansToGo(text.Value()), text);
 
     m_currentTurnIndexObserved = observation.turnIndexEvidence.IsReliable();
+    switch (m_goal.kind)
+    {
+    case CareerGoalKind::Race: state.observedGoalKind = "race"; break;
+    case CareerGoalKind::Fans: state.observedGoalKind = "fans"; break;
+    case CareerGoalKind::GradeRaceCount: state.observedGoalKind = "grade_race_count"; break;
+    default: break;
+    }
     if (m_currentTurnIndexObserved)
     {
         m_currentTurnIndex = observation.turnIndexEvidence.Value();
@@ -983,6 +1029,11 @@ bool UraScenarioModule::ShouldDeferRace() const
     return m_hasPendingRace && WouldBeThirdRace() && !MustRaceNow();
 }
 
+bool UraScenarioModule::ShouldDeferRace(const CareerState& /*state*/) const
+{
+    return ShouldDeferRace();
+}
+
 bool UraScenarioModule::WouldBeThirdRace() const
 {
     return m_consecutiveRaceTurns >= 2
@@ -991,6 +1042,38 @@ bool UraScenarioModule::WouldBeThirdRace() const
                 || (m_pendingActionTurnIndex.has_value()
                     && m_currentTurnIndexObserved
                     && m_currentTurnIndex > *m_pendingActionTurnIndex)));
+}
+
+bool UraScenarioModule::IsGoalCompletionProbeArmed(const CareerState& /*state*/) const
+{
+    return m_goalCompletionProbeArmed;
+}
+
+void UraScenarioModule::ArmGoalCompletionProbe(CareerState& /*state*/)
+{
+    m_goalCompletionProbeArmed = true;
+}
+
+void UraScenarioModule::DisarmGoalCompletionProbe(CareerState& /*state*/)
+{
+    m_goalCompletionProbeArmed = false;
+}
+
+void UraScenarioModule::OnRaceReplayCompleted(CareerState& state)
+{
+    state.raceReplayFlowCompleted = true;
+    if (m_goal.kind == CareerGoalKind::Race
+        || (m_goal.kind == CareerGoalKind::GradeRaceCount
+            && m_goal.gradeRaceCountLeft.IsReliable()
+            && m_goal.gradeRaceCountLeft.Value() <= 1))
+    {
+        m_goalCompletionProbeArmed = true;
+    }
+}
+
+void UraScenarioModule::OnRaceStrategyConfigured(CareerState& state)
+{
+    state.raceStrategyConfigured = true;
 }
 
 void UraScenarioModule::Register()

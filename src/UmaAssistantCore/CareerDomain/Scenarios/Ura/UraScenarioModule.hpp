@@ -38,6 +38,14 @@ public:
         CareerState& state,
         const CareerRaceResultObservation& result) override;
     [[nodiscard]] bool IsObjectiveCompleted(const CareerState& state) const override;
+    [[nodiscard]] bool IsGoalCompletionProbeArmed(const CareerState& state) const override;
+    void ArmGoalCompletionProbe(CareerState& state) override;
+    void DisarmGoalCompletionProbe(CareerState& state) override;
+    void OnRaceReplayCompleted(CareerState& state) override;
+    void OnRaceStrategyConfigured(CareerState& state) override;
+    [[nodiscard]] bool ShouldDeferRace(const CareerState& state) const override;
+    [[nodiscard]] bool WouldBeThirdRace() const override;
+    [[nodiscard]] bool MustRaceNow() const override;
     [[nodiscard]] std::optional<ActionIntent> GetTrainingOverride(
         const CareerState& state,
         int restThreshold,
@@ -60,9 +68,7 @@ private:
     [[nodiscard]] bool HasQualifyingFirstCard(int turnIndex, const std::string& grade) const;
     [[nodiscard]] std::optional<int> CountLaterQualifyingFirstCards(
         int firstTurnIndex, int lastTurnIndex, const std::string& grade) const;
-    [[nodiscard]] bool MustRaceNow() const;
     [[nodiscard]] bool ShouldDeferRace() const;
-    [[nodiscard]] bool WouldBeThirdRace() const;
     [[nodiscard]] const ScenarioObjectiveDefinition* FindObjective(const std::string& id) const noexcept;
     [[nodiscard]] const ScenarioRaceDefinition* FindRace(const std::string& id) const noexcept;
     [[nodiscard]] std::string ResolveCurrentRaceId(const CareerState& state) const;

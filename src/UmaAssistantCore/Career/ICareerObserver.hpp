@@ -35,6 +35,10 @@ public:
     }
 
     virtual void ResetForRecovery() noexcept {}
+    virtual void SetGoalCompletionProbeArmed(bool armed) noexcept { (void)armed; }
+    virtual void SetRaceReplayFlowCompleted(bool completed) noexcept { (void)completed; }
+    virtual void SetRaceRunnerResultExpected(bool expected) noexcept { (void)expected; }
+    virtual void ClearMainTextCache() noexcept {}
 };
 
 } // namespace UmaAssistant::Career
