@@ -16,6 +16,10 @@
           50
         ],
         "templThreshold": 0.92,
+        "requiredTemplate": "../training/templates/training_selection_logos/wit.png",
+        "requiredTemplateRoi": [665, 1180, 205, 250],
+        "requiredTemplateThreshold": 0.7,
+        "requiredTemplateMatchAlphaTemplate": true,
         "requiredText": [
           "Training"
         ],

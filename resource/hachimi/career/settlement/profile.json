@@ -228,6 +228,8 @@
       "screenId": "career_epithet",
       "recognition": {
         "template": "templates/career_epithet_header.png",
+        "requiredText": ["Epithet"],
+        "verifyRequiredText": true,
         "matchColorText": true,
         "roi": [
           360,

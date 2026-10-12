@@ -384,7 +384,7 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
     }
 
     const auto manifestDirectory = manifestPath.parent_path();
-    for (const auto* name : {"definition", "objectives", "races"})
+    for (const auto* name : {"definition", "objectives", "races", "events"})
     {
         const auto reference = manifest->find(name);
         if (reference == manifest->end()) continue;
@@ -638,6 +638,7 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
             {
                 screen.priority = recognition.value("priority", 0);
                 screen.stable = recognition.value("stable", true);
+                screen.verifyRequiredText = recognition.value("verifyRequiredText", false);
                 if (recognition.contains("requiredText") && recognition["requiredText"].is_array())
                 {
                     for (const auto& text : recognition["requiredText"])
@@ -805,6 +806,7 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
             }
             existing->priority = (std::min)(existing->priority, screen.priority);
             existing->stable = existing->stable || screen.stable;
+            existing->verifyRequiredText = existing->verifyRequiredText || screen.verifyRequiredText;
             if (existing->flow.empty())
                 existing->flow = screen.flow;
             for (auto& templ : screen.templates)

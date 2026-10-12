@@ -61,6 +61,14 @@ public:
     CareerDomain::CareerObservation Observe(
         TaskEngine::ITaskExecutionContext& context) override;
 
+    CareerDomain::CareerObservation ObserveScreens(
+        TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screenIds,
+        bool allowResume = false) override;
+
+    CareerDomain::CareerObservation ObserveCareer(TaskEngine::ITaskExecutionContext& context) override;
+
+    void RememberObservation(const CareerDomain::CareerObservation& observation);
+
     void ResetForEntry() noexcept;
     void ResetForRecovery() noexcept override { ResetForEntry(); }
 
@@ -77,6 +85,14 @@ private:
     bool m_returningHome{false};
     std::string m_lastScreenId;
     std::unordered_map<std::string, std::string> m_eventIdsByNormalizedTitle;
+    struct EventTitleRecognition
+    {
+        std::string eventId;
+        std::string title;
+        std::string screenId;
+        std::string actionId;
+    };
+    std::vector<EventTitleRecognition> m_eventTitles;
 };
 
 } // namespace UmaAssistant::Career

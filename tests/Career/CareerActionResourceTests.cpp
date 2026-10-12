@@ -5,9 +5,12 @@
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
 #include "UmaAssistantCore/Career/Flows/CareerSkillLearningFlow.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
+#include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
+#include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdint>
 #include <filesystem>
@@ -41,11 +44,21 @@ public:
 
     bool CaptureScreen() override
     {
+        if (captureFailuresRemaining > 0) { --captureFailuresRemaining; return false; }
         auto frame = std::make_shared<TaskFrameSnapshot>();
         frame->width = 900;
         frame->height = 1600;
         frame->frameId = ++m_nextFrameId;
         frame->grayPixels.assign(static_cast<std::size_t>(frame->width) * frame->height, 0);
+        if (entryAnimating) frame->grayPixels[0] = static_cast<std::uint8_t>(frame->frameId);
+        if (m_eventSignatureReplay)
+        {
+            m_eventImage = UmaAssistant::Resources::WicImageDecoder::decode_file(
+                UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR)
+                / "resource/hachimi/ura/testdata/captures/runtime_frames/support_event_choice_ura.png");
+            frame->grayPixels = m_eventImage.gray;
+            frame->rgbaPixels = m_eventImage.rgba;
+        }
         m_frame = std::move(frame);
         return true;
     }
@@ -69,7 +82,16 @@ public:
             ? file == m_raceFrameName
             : m_eventSignatureReplay
             ? file == "event_effects_button.png" : m_matchEverything;
-        if (!m_eventSignatureReplay && !m_raceFrameReplay)
+        if (m_entryRetryResources)
+        {
+            auto const* screen = m_entryRetryResources->FindScreen(
+                entryTaps >= 2 || (entryAnimating && m_nextFrameId > 8) ? "race_list" : "career_main");
+            auto matches = [&](auto const& marker) { return FoldPath(marker.path) == file; };
+            found = screen && (std::any_of(screen->templates.begin(), screen->templates.end(), matches)
+                || std::any_of(screen->requiredTemplates.begin(), screen->requiredTemplates.end(), matches));
+            if (file == m_entryButtonPath) found = true;
+        }
+        if (!m_eventSignatureReplay && !m_raceFrameReplay && !m_entryRetryResources)
         {
             if (!found && file == "race_day_skills_open.png") found = true;
             if (!found && file == "career_skill_back.png") found = true;
@@ -102,7 +124,29 @@ public:
         result.referenceWidth = referenceWidth;
         result.referenceHeight = referenceHeight;
         result.frameId = m_frame ? m_frame->frameId : 0;
+        if (m_eventSignatureReplay && file == "event_effects_button.png")
+        {
+            auto const marker = LoadTemplateImage(path);
+            if (!marker) return {};
+            UmaAssistant::Vision::Roi bounds = std::nullopt;
+            if (roi) bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+            auto const match = UmaAssistant::Vision::find(m_eventImage, *marker,
+                bounds, threshold, referenceWidth, referenceHeight);
+            result.found = match.found;
+            result.score = match.score;
+            result.x = match.x;
+            result.y = match.y;
+            result.width = match.width;
+            result.height = match.height;
+        }
         return result;
+    }
+
+    std::shared_ptr<const UmaAssistant::Vision::GrayImage> LoadTemplateImage(const std::string& path) override
+    {
+        try { return std::make_shared<const UmaAssistant::Vision::GrayImage>(
+            UmaAssistant::Resources::WicImageDecoder::decode_file_utf8(path)); }
+        catch (...) { return {}; }
     }
 
     bool CheckImageChange(const TaskMatchResult&) override { return false; }
@@ -145,6 +189,7 @@ public:
     {
         taps.emplace_back(x, y);
         const auto file = FoldPath(m_lastTemplate);
+        if (m_entryRetryResources && file == m_entryButtonPath) ++entryTaps;
         if (file == "race_day_skills_open.png") ++skillsOpened;
         return true;
     }
@@ -188,6 +233,12 @@ public:
     void SetSkillPoints(int value) { m_skillPoints = value; }
     void SetDisplayedPrice(int value) { m_displayedPrice = value; }
     void SetEventSignatureReplay(bool value) { m_eventSignatureReplay = value; }
+    void SetEntryRetryResources(std::shared_ptr<CareerVisualResources> resources)
+    {
+        m_entryRetryResources = std::move(resources);
+        auto const* task = m_entryRetryResources->FindExecutionTask("career_main_action_races");
+        if (task && task->templatePath) m_entryButtonPath = FoldPath(*task->templatePath);
+    }
     void SetRaceFrameReplay(std::string filename)
     {
         m_raceFrameReplay = true;
@@ -195,6 +246,9 @@ public:
     }
     [[nodiscard]] std::uint64_t CaptureCount() const noexcept { return m_nextFrameId; }
     int skillsOpened{0};
+    int entryTaps{0};
+    bool entryAnimating{false};
+    int captureFailuresRemaining{0};
     int plusTaps{0};
     int learnTaps{0};
     std::vector<std::pair<int, int>> taps;
@@ -212,7 +266,10 @@ private:
     }
 
     std::vector<std::string> m_skillNames;
+    std::shared_ptr<CareerVisualResources> m_entryRetryResources;
+    std::string m_entryButtonPath;
     std::shared_ptr<TaskFrameSnapshot> m_frame;
+    UmaAssistant::Vision::GrayImage m_eventImage;
     std::uint64_t m_nextFrameId{0};
     std::string m_lastTemplate;
     bool m_matchEverything{false};
@@ -375,6 +432,32 @@ TEST_CASE("Normal skills use same-frame OCR, price checks, and confirmed catalog
         REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
         CHECK(context.skillsOpened == openedAfterConfirmedPurchase);
         CHECK(context.plusTaps == 2);
+    }
+}
+
+TEST_CASE("Race entry retries once after the source remains confirmed", "[CareerRuntime][CareerParity]")
+{
+    for (bool const animating : {false, true})
+    {
+        CAPTURE(animating);
+        auto config = PackagedConfig();
+        auto resources = std::make_shared<CareerVisualResources>(config);
+        REQUIRE(resources->IsReady());
+        CareerActionReplayContext context;
+        context.SetEntryRetryResources(resources);
+        context.entryAnimating = animating;
+        CareerActionExecutor executor(config, resources);
+        UmaAssistant::CareerDomain::CareerObservation source;
+        source.screenId = "career_main";
+        source.screenKind = UmaAssistant::CareerDomain::CareerScreenKind::MainTurn;
+        auto const intent = UmaAssistant::CareerDomain::ActionIntent::MakeRace("recommended");
+        REQUIRE(executor.ExecuteForObservation(intent, source, context) == ActionExecutionStatus::Success);
+        context.captureFailuresRemaining = 1;
+        REQUIRE(executor.ConfirmCompletionFromObservation(intent, source, context));
+        CHECK(context.entryTaps == (animating ? 1 : 2));
+        auto const returned = executor.TakeConfirmedObservation();
+        REQUIRE(returned.has_value());
+        CHECK(returned->screenId == "race_list");
     }
 }
 

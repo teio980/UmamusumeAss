@@ -86,6 +86,7 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
 {
     m_raceRetryDeclined.reset();
     m_lastSourceScreen = observation.screenId;
+    if (m_observer) m_observer->RememberObservation(observation);
     if (Fold(observation.screenId) == "race_day"
         && intent.kind == CareerDomain::ActionIntentKind::Race
         && !m_config.normalSkillIds.empty()
@@ -198,7 +199,7 @@ bool CareerActionExecutor::ConfirmCompletion(
 }
 
 bool CareerActionExecutor::ConfirmCompletionFromObservation(
-    const CareerDomain::ActionIntent&,
+    const CareerDomain::ActionIntent& intent,
     const CareerDomain::CareerObservation& observation,
     TaskEngine::ITaskExecutionContext& context)
 {
@@ -210,8 +211,24 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     }
 
     constexpr int pollMs = 250;
-    constexpr int timeoutMs = 15000;
-    constexpr int maxPolls = 60;
+    auto const sourceId = Fold(observation.screenId);
+    bool const raceEntry = intent.kind == CareerDomain::ActionIntentKind::Race
+        && (sourceId == "career_main" || sourceId == "career_races_ready" || sourceId == "race_day");
+    bool const turnReturn = sourceId == "training_selection" || sourceId == "rest_confirmation"
+        || sourceId == "summer_rest_confirmation" || sourceId == "infirmary_confirmation"
+        || sourceId == "recreation_confirmation";
+    int const timeoutMs = raceEntry ? 30000 : turnReturn || observation.screenKind == CareerDomain::CareerScreenKind::EventChoice
+        ? 45000 : 15000;
+    int const maxPolls = timeoutMs / pollMs;
+    std::vector<std::string> candidates;
+    if (raceEntry)
+        candidates = {observation.screenId, "race_streak_warning", "race_recommendations",
+            "race_list_empty", "race_list", "race_day", "career_races_ready", "race_runner"};
+    else if (turnReturn)
+        candidates = {"event_choice", "training_event", "scenario_event", "inheritance_event", "training_result",
+            "goal_objective_complete", "goal_update", "goal_complete", "race_day", "career_races_ready", "career_main",
+            "claw_machine", "claw_machine_result", "goal_incomplete", "complete_career_entry"};
+    bool entryRetried = false;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     for (int poll = 0; poll < maxPolls && !context.IsCancelled()
         && std::chrono::steady_clock::now() < deadline; ++poll)
@@ -219,9 +236,11 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
         context.Sleep(pollMs);
         if (context.IsCancelled())
             return false;
-        const auto current = m_observer->Observe(context);
-        if (current.screenId == "resource_error" || current.screenId == "capture_failed")
+        const auto current = candidates.empty() ? m_observer->ObserveCareer(context)
+            : m_observer->ObserveScreens(context, candidates);
+        if (current.screenId == "resource_error" || current.screenId == "capture_cancelled")
             return false;
+        if (current.screenId == "capture_failed") continue;
         if (current.screenId != "unknown" && Fold(current.screenId) != Fold(observation.screenId))
         {
             context.Log("INFO", "Career action transition observed: " + observation.screenId
@@ -231,6 +250,15 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
         }
         if (current.screenId == observation.screenId)
         {
+            if (raceEntry && !entryRetried && current.consecutiveFramesIdentical)
+            {
+                // ObserveScreens confirmed identical complete frames. The
+                // action graph must also rematch its button before this retry.
+                context.Log("INFO", "Race entry is unchanged in two frames; retrying its verified action once.");
+                entryRetried = true;
+                if (ExecuteForObservation(intent, current, context) != ActionExecutionStatus::Success) return false;
+                continue;
+            }
             const bool turnChanged = observation.turnIndexEvidence.IsReliable()
                 && current.turnIndexEvidence.IsReliable()
                 && current.turnIndexEvidence.Value() != observation.turnIndexEvidence.Value();
@@ -241,7 +269,7 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             const bool eventStateChanged = observation.eventStateSignature
                 && current.eventStateSignature
                 && *observation.eventStateSignature != *current.eventStateSignature;
-            if (turnChanged || eventChanged || eventIdChanged || eventStateChanged)
+            if (!raceEntry && (turnChanged || eventChanged || eventIdChanged || eventStateChanged))
             {
                 context.Log("INFO", "Career action state transition observed within " + current.screenId + ".");
                 m_confirmedObservation = current;
@@ -444,6 +472,7 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
             return choose("recreation.confirm");
         return std::nullopt;
     case Kind::SelectEventOption:
+        if (observation.eventActionId) return choose(*observation.eventActionId);
         if (screenId == "event_choice")
             return intent.optionIndex == 1 ? choose("event.choice_first") : std::nullopt;
         return OnlyAction(screen);
@@ -496,7 +525,7 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         return OnlyAction(screen);
     }
     case Kind::Skill:
-        // Skill profile is intentionally empty in the fixed resource package.
+        // Skill navigation is owned by the dedicated learning flow.
         return std::nullopt;
     case Kind::Custom:
     case Kind::DoNothing:

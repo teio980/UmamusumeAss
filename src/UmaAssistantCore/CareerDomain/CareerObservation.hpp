@@ -33,6 +33,8 @@ struct CareerObservation
     std::string screenId{"unknown"};
     double score{0.0};
     CareerScreenKind screenKind{CareerScreenKind::Unknown};
+    // Only identical complete frames permit a second race-entry input.
+    bool consecutiveFramesIdentical{false};
 
     // Legacy scalar fields stay available to the runtime. Evidence fields
     // preserve provenance and allow an absent observation to remain unknown.
@@ -52,6 +54,7 @@ struct CareerObservation
     std::optional<std::string> moodText;
     std::optional<std::string> eventId;
     std::optional<std::string> eventTitle;
+    std::optional<std::string> eventActionId;
     // Stable, scenario-neutral evidence for event-state changes where a choice
     // panel reuses the same screen ID and title.
     std::optional<std::uint64_t> eventStateSignature;

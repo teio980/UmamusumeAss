@@ -4,6 +4,8 @@
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
+#include "UmaAssistantCore/Resources/ImageTransforms.hpp"
+#include "UmaAssistantCore/Recognition/WindowsOcrRecognizer.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 
@@ -249,7 +251,19 @@ public:
     }
     bool CheckImageChange(const TaskMatchResult&) override { return false; }
     std::vector<TaskOcrDetection> RecognizeText(
-        const std::string&, const std::optional<TaskRoi>& = std::nullopt) override { return ocrDetections; }
+        const std::string& language, const std::optional<TaskRoi>& roi = std::nullopt) override
+    {
+        if (!nativeOcr) return ocrDetections;
+        UmaAssistant::Recognition::WindowsOcrRecognizer reader;
+        auto const cropped = roi ? UmaAssistant::Resources::crop_image(m_image,
+            roi->x, roi->y, roi->width, roi->height) : m_image;
+        auto const recognized = reader.recognize(cropped, language);
+        std::vector<TaskOcrDetection> result;
+        for (auto const& detection : recognized.detections)
+            result.push_back({detection.text, detection.bounds.x + (roi ? roi->x : 0), detection.bounds.y + (roi ? roi->y : 0),
+                detection.bounds.width, detection.bounds.height, detection.confidence});
+        return result;
+    }
     bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override { return false; }
     bool Tap(int, int) override { return false; }
     bool Swipe(int, int, int, int, int) override { return false; }
@@ -263,6 +277,7 @@ public:
     [[nodiscard]] std::size_t CaptureCount() const noexcept { return m_captureCount; }
 
     std::vector<TaskOcrDetection> ocrDetections;
+    bool nativeOcr{false};
 
 private:
     std::vector<std::filesystem::path> m_screenshots;
@@ -330,6 +345,115 @@ TEST_CASE("Career entry recognizes Scenario Select despite its selected Home tab
     REQUIRE(context.MatchTemplate(tab.path, tab.threshold, tab.roi).found);
 
     CareerScreenObserver observer(resources);
+    UmaAssistant::CareerDomain::CareerObservation unselectedHome;
+    unselectedHome.screenId = "home_unselected";
+    observer.RememberObservation(unselectedHome);
     const auto observation = observer.Observe(context);
     CHECK(observation.screenId == "scenario_select");
+}
+
+TEST_CASE("Career support formation distinguishes disabled and enabled Start buttons",
+    "[CareerRuntime][Replay][Entry]")
+{
+    const auto sourceRoot = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = sourceRoot / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (auto const& fixture : std::vector<std::pair<std::string, std::string>>{
+        {"support_select_ura.png", "support_select"},
+        {"support_autofill_prompt_ura.png", "support_autofill_confirmation"},
+        {"support_autofilled_ura.png", "support_ready"}})
+    {
+        CAPTURE(fixture.first);
+        ScreenshotReplayContext context({sourceRoot / "testdata/hachimi/ura/captures" / fixture.first});
+        context.ocrDetections = {
+            {"Support Formation", 20, 40, 400, 60, 0.99},
+            {"Auto-Fill", 400, 1100, 250, 60, 0.99},
+            {"Start Career!", 350, 1300, 250, 60, 0.99}};
+        CareerScreenObserver observer(resources);
+        CHECK(observer.Observe(context).screenId == fixture.second);
+    }
+}
+
+TEST_CASE("Career entry recognizes live MuMu Support Formation with an empty borrowed slot",
+    "[CareerRuntime][Replay][Entry][LiveSupport]")
+{
+    auto const sourceRoot = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = sourceRoot / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ScreenshotReplayContext context({sourceRoot / "testdata/hachimi/ura/captures/support_select_mumu_guest_empty_20261012.png"});
+    context.nativeOcr = true;
+    REQUIRE(context.CaptureScreen());
+    std::string recognizedText;
+    for (auto const& detection : context.RecognizeText("en-US")) recognizedText += detection.text + "\n";
+    CAPTURE(recognizedText);
+    for (auto const* id : {"support_select", "support_ready", "support_autofill_confirmation"})
+    {
+        auto const* screen = resources->FindScreen(id);
+        REQUIRE(screen != nullptr);
+        auto const& marker = screen->templates.front();
+        auto const match = context.MatchTemplate(marker.path, marker.threshold, marker.roi, marker.algorithm);
+        UNSCOPED_INFO(std::string(id) + " score=" + std::to_string(match.score));
+    }
+    CareerScreenObserver observer(resources);
+    CHECK(observer.ObserveScreens(context, {"support_select", "support_ready", "support_autofill_confirmation"}).screenId == "support_select");
+    CHECK(observer.Observe(context).screenId == "support_select");
+    auto const* autoFill = resources->FindAction("support_select", "support.auto_fill");
+    REQUIRE(autoFill != nullptr);
+    CHECK(UmaAssistant::TaskEngine::RecognitionPipeline::EvaluateSameFrameMonitors(
+        resources->GetExecutionDefinition(), {autoFill->taskName}, context).has_value());
+}
+
+TEST_CASE("Native Career perception identifies real entry turn event race and settlement frames",
+    "[CareerRuntime][Replay][NativePerceptionParity]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (auto const& fixture : std::vector<std::pair<std::string, std::string>>{
+        {"testdata/hachimi/ura/captures/support_ready_mumu_20261012.png", "support_ready"},
+        {"testdata/hachimi/ura/captures/support_after_selection_mumu_20261012.png", "support_ready"},
+        {"testdata/hachimi/ura/captures/career_final_confirmation_mumu_20261012.png", "career_final_confirmation"},
+        {"testdata/hachimi/ura/captures/career_start_ura.png", "support_select"},
+        {"testdata/hachimi/ura/captures/legacy_select_ura.png", "legacy_select"},
+        {"resource/hachimi/ura/testdata/captures/runtime_frames/training_selection_ura.png", "training_selection"},
+        {"testdata/hachimi/ura/captures/rest_confirmation_ura.png", "rest_confirmation"},
+        {"testdata/hachimi/ura/captures/acupuncturist_no_worries_choice.png", "event_choice"},
+        {"resource/hachimi/ura/testdata/captures/runtime_frames/support_event_choice_ura.png", "event_choice"},
+        {"testdata/hachimi/ura/captures/career_skill_race_day_490_sample.png", "race_day"},
+        {"testdata/hachimi/ura/captures/career_complete_close.png", "career_complete_close"},
+        {"testdata/hachimi/ura/captures/career_epithet_after_rating_record_updated.png", "career_epithet"},
+        {"testdata/hachimi/ura/captures/rating_record_updated.png", "career_rating_record_updated"},
+        {"resource/hachimi/ura/screens/captures/career_skill_learn_sample.png", "career_skills"},
+        {"resource/hachimi/ura/screens/captures/career_skill_confirmation_sample.png", "career_skills"},
+        {"resource/hachimi/ura/screens/captures/career_skill_learned_sample.png", "career_skills"},
+        {"resource/hachimi/ura/screens/captures/career_skill_exit_confirmation_sample.png", "career_skills"},
+        {"resource/hachimi/ura/screens/captures/career_skill_obtained_sample.png", "career_skills"}})
+    {
+        CAPTURE(fixture.first);
+        ScreenshotReplayContext context({root / fixture.first});
+        context.nativeOcr = true;
+        CareerScreenObserver observer(resources);
+        auto const* expected = resources->FindScreen(fixture.second);
+        REQUIRE(expected != nullptr);
+        REQUIRE(context.CaptureScreen());
+        auto const& primary = expected->templates.front();
+        auto const raw = context.MatchTemplate(primary.path, primary.threshold, primary.roi,
+            primary.requiresAlphaMatching ? "MatchTemplateColor" : primary.algorithm);
+        CAPTURE(raw.score);
+        std::string text;
+        for (auto const& detection : context.RecognizeText("en-US")) text += detection.text + "\n";
+        CAPTURE(text);
+        auto const observation = expected->flow == "entry"
+            ? observer.ObserveScreens(context, {}, true) : observer.ObserveCareer(context);
+        CHECK(observation.screenId == fixture.second);
+    }
 }

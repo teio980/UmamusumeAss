@@ -12,6 +12,7 @@
 #include <fstream>
 #include <regex>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -152,6 +153,31 @@ std::optional<TaskEngine::TaskMatchResult> MatchCatalogAsset(
 Vision::GrayImage ToVisionImage(const TaskEngine::TaskFrameSnapshot& frame)
 {
     return {frame.width, frame.height, frame.grayPixels, frame.rgbaPixels};
+}
+
+bool HasMatchingGlyphColors(const TaskEngine::TaskFrameSnapshot& frame, const Vision::GrayImage& marker,
+    const TaskEngine::TaskMatchResult& match, double threshold)
+{
+    if (frame.rgbaPixels.size() < static_cast<std::size_t>(frame.width) * frame.height * 4
+        || marker.rgba.size() < static_cast<std::size_t>(marker.width) * marker.height * 4) return false;
+    double error = 0;
+    int count = 0;
+    for (int y = 0; y < marker.height; ++y)
+        for (int x = 0; x < marker.width; ++x)
+        {
+            auto const offset = (static_cast<std::size_t>(y) * marker.width + x) * 4;
+            int const r = marker.rgba[offset], g = marker.rgba[offset + 1], b = marker.rgba[offset + 2];
+            if (marker.rgba[offset + 3] < 128 || std::max({r, g, b}) - std::min({r, g, b}) < 40) continue;
+            int const sx = static_cast<int>((match.x + (x + 0.5) * match.width / marker.width) * frame.width / 900.0);
+            int const sy = static_cast<int>((match.y + (y + 0.5) * match.height / marker.height) * frame.height / 1600.0);
+            if (sx < 0 || sy < 0 || sx >= frame.width || sy >= frame.height) return false;
+            auto const pixel = (static_cast<std::size_t>(sy) * frame.width + sx) * 4;
+            error += std::abs(static_cast<int>(frame.rgbaPixels[pixel]) - r)
+                + std::abs(static_cast<int>(frame.rgbaPixels[pixel + 1]) - g)
+                + std::abs(static_cast<int>(frame.rgbaPixels[pixel + 2]) - b);
+            ++count;
+        }
+    return count > 0 && 1 - error / (count * 765.0) >= threshold;
 }
 
 std::optional<Vision::MatchResult> MatchClawMarker(
@@ -410,14 +436,11 @@ CareerScreenObserver::CareerScreenObserver(std::shared_ptr<CareerVisualResources
 {
     if (!m_resources)
         return;
-    const auto eventCatalog = m_resources->GetCareerResourceRoot().parent_path()
-        / m_resources->GetScenarioId() / "events" / "events.json";
     try
     {
-        std::ifstream input(eventCatalog, std::ios::binary);
-        if (!input)
-            return;
-        const auto document = nlohmann::json::parse(input);
+        auto const* source = m_resources->GetScenarioDocument("events");
+        if (!source) return;
+        auto const& document = *source;
         if (!document.is_object() || !document.contains("events") || !document["events"].is_array())
             return;
         for (const auto& event : document["events"])
@@ -428,7 +451,17 @@ CareerScreenObserver::CareerScreenObserver(std::shared_ptr<CareerVisualResources
             const auto title = NormalizeText(event["title"].get<std::string>());
             const auto id = event["eventId"].get<std::string>();
             if (!title.empty() && !id.empty())
+            {
                 m_eventIdsByNormalizedTitle.emplace(title, id);
+                if (event.contains("ocrTitle") && event["ocrTitle"].is_object())
+                {
+                    auto const& recognition = event["ocrTitle"];
+                    auto const screenId = recognition.value("screenId", std::string{});
+                    auto const actionId = recognition.value("actionId", std::string{});
+                    if (!screenId.empty() && !actionId.empty())
+                        m_eventTitles.push_back({id, title, screenId, actionId});
+                }
+            }
         }
     }
     catch (...)
@@ -449,6 +482,18 @@ void CareerScreenObserver::ResetForEntry() noexcept
     m_settlementInProgress = false;
     m_returningHome = false;
     m_lastScreenId.clear();
+}
+
+void CareerScreenObserver::RememberObservation(const CareerDomain::CareerObservation& observation)
+{
+    auto const* screen = m_resources ? m_resources->FindScreen(observation.screenId) : nullptr;
+    if (!screen) return;
+    auto const flow = Fold(screen->flow);
+    if (flow == "main" || flow == "turn" || flow == "event" || flow == "race"
+        || flow == "settlement" || flow == "skill") m_careerStarted = true;
+    if (flow == "settlement") m_settlementInProgress = true;
+    if (m_careerStarted && IsReturningHomeScreen(screen->screenId)) m_returningHome = true;
+    m_lastScreenId = screen->screenId;
 }
 
 std::optional<int> CareerObservationReader::ParseObjectiveTurnsLeft(const std::string& text)
@@ -495,6 +540,27 @@ std::optional<int> CareerObservationReader::ParseFansToGoal(const std::string& t
 CareerDomain::CareerObservation CareerScreenObserver::Observe(
     TaskEngine::ITaskExecutionContext& context)
 {
+    return ObserveScreens(context, {});
+}
+
+CareerDomain::CareerObservation CareerScreenObserver::ObserveCareer(TaskEngine::ITaskExecutionContext& context)
+{
+    std::vector<std::string> screens;
+    if (m_resources)
+        for (auto const& screen : m_resources->GetScreens())
+        {
+            auto const flow = Fold(screen.flow);
+            if ((flow != "entry" && flow != "normal" && flow != "independent" && !IsHomeScreen(screen.screenId))
+                || (m_returningHome && IsHomeScreen(screen.screenId)))
+                screens.push_back(screen.screenId);
+        }
+    screens.push_back("career_skills");
+    return ObserveScreens(context, screens, !m_careerStarted);
+}
+
+CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
+    TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screenIds, bool allowResume)
+{
     CareerDomain::CareerObservation observation;
     if (!m_resources || !m_resources->IsReady())
     {
@@ -518,6 +584,9 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
         const CareerVisualScreenDefinition* screen{nullptr};
         double score{0.0};
         bool frameChanged{false};
+        std::optional<std::string> eventId;
+        std::optional<std::string> eventTitle;
+        std::optional<std::string> eventActionId;
     };
     CareerVisualScreenDefinition skillRecoveryScreen;
     skillRecoveryScreen.screenId = "career_skills";
@@ -526,6 +595,9 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
 
     const auto isEligible = [&](const CareerVisualScreenDefinition& screen) {
         const auto id = Fold(screen.screenId);
+        if (!screenIds.empty() && std::none_of(screenIds.begin(), screenIds.end(),
+            [&](auto const& allowed) { return Fold(allowed) == id; }))
+            return false;
         if (m_returningHome)
             return IsEligibleAfterSettlement(screen, true);
         if (m_settlementInProgress && !IsEligibleAfterSettlement(screen, false))
@@ -534,14 +606,16 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
             return false;
         if ((id == "follow_trainer_limit" || id == "rewards_collected"
                 || id == "career_epithet" || id == "career_rating_record_updated")
-            && !m_settlementInProgress)
+            && !m_settlementInProgress && !allowResume)
             return false;
         if (id == "career_epithet"
+            && !allowResume
             && Fold(m_lastScreenId) != "career_result_close"
             && Fold(m_lastScreenId) != "career_rating_record_updated"
             && Fold(m_lastScreenId) != "career_epithet")
             return false;
         if (id == "career_rating_record_updated"
+            && !allowResume
             && Fold(m_lastScreenId) != "career_result_close"
             && Fold(m_lastScreenId) != "career_rating_record_updated")
             return false;
@@ -576,12 +650,39 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
         // Skill pages and purchase dialogs are catalog-backed overlays rather
         // than static career profile screens. Recognize them for resume recovery.
         for (const auto* marker : {"career.skill.learned.title", "career.skill.confirmation.title",
-                 "career.skill.exit.title", "career.skill.back"})
+                 "career.skill.exit.title"})
         {
+            if (!isEligible(skillRecoveryScreen)) break;
             if (const auto match = MatchCatalogAsset(
                     context, sample.frame, *m_resources, marker, marker);
                 match && match->found)
             {
+                // "Confirmation" is shared with Final Confirmation. It only
+                // identifies a skill purchase together with its Learn button.
+                if (std::string_view(marker) == "career.skill.confirmation.title")
+                {
+                    const auto learn = MatchCatalogAsset(context, sample.frame, *m_resources,
+                        "career.skill.confirmation.learn", "career.skill.confirmation.learn");
+                    if (!SameFrame(context, sample.frame))
+                    {
+                        sample.frameChanged = true;
+                        return sample;
+                    }
+                    if (!learn || !learn->found) continue;
+                    const auto* learnRegion = m_resources->FindRegion("career.skill.confirmation.learn");
+                    if (!learnRegion || !learnRegion->contains("roi")) continue;
+                    const auto bounds = (*learnRegion)["roi"].get<std::vector<int>>();
+                    if (bounds.size() != 4) continue;
+                    const auto text = context.RecognizeText("en-US", ToRoi(bounds));
+                    if (!SameFrame(context, sample.frame))
+                    {
+                        sample.frameChanged = true;
+                        return sample;
+                    }
+                    if (std::none_of(text.begin(), text.end(), [](auto const& detection) {
+                        return NormalizeText(detection.text) == "learn";
+                    })) continue;
+                }
                 sample.screen = &skillRecoveryScreen;
                 sample.score = match->score;
                 return sample;
@@ -604,6 +705,9 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
             const auto& screen = *screenPointer;
             if (!isEligible(screen) || screen.templates.empty())
                 continue;
+            sample.eventId.reset();
+            sample.eventTitle.reset();
+            sample.eventActionId.reset();
             double screenScore = 0.0;
             bool matched = false;
 
@@ -648,13 +752,55 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
                         sample.frameChanged = true;
                         return sample;
                     }
-                    if (match.found && (!matched || match.score > screenScore))
+                    bool markerVerified = match.found;
+                    if (markerVerified && Fold(screen.screenId) == "event_choice")
+                    {
+                        // The Effects crop has a large white backing. A high
+                        // correlation alone can match unrelated white panels.
+                        const auto marker = context.LoadTemplateImage(templ.path);
+                        markerVerified = marker && HasMatchingGlyphColors(
+                            *sample.frame, *marker, match, templ.threshold);
+                    }
+                    if (markerVerified && (!matched || match.score > screenScore))
                     {
                         matched = true;
                         screenScore = match.score;
                     }
                     if (matched && screenScore >= 0.985)
                         break;
+                }
+            }
+            if (!matched && Fold(screen.flow) == "event")
+            {
+                const auto titleRegion = std::find_if(screen.ocrRegions.begin(), screen.ocrRegions.end(),
+                    [](auto const& region) { return Fold(region.semanticId) == "event.title"; });
+                const bool hasCatalogTitles = std::any_of(m_eventTitles.begin(), m_eventTitles.end(),
+                    [&](auto const& definition) { return Fold(definition.screenId) == Fold(screen.screenId); });
+                const auto title = titleRegion != screen.ocrRegions.end() && hasCatalogTitles
+                    ? JoinText(context.RecognizeText("en-US", titleRegion->roi)) : std::string{};
+                if (!SameFrame(context, sample.frame)) { sample.frameChanged = true; return sample; }
+                const auto normalizedTitle = NormalizeText(title);
+                for (auto const& definition : m_eventTitles)
+                {
+                    if (Fold(definition.screenId) != Fold(screen.screenId)) continue;
+                    if (normalizedTitle.empty() || normalizedTitle != definition.title) continue;
+                    auto const* action = m_resources->FindAction(screen.screenId, definition.actionId);
+                    auto const* task = action ? m_resources->FindExecutionTask(action->taskName) : nullptr;
+                    if (!task || !task->templatePath || !task->roi || task->roi->size() < 4) continue;
+                    // Match the authored colored option glyph, excluding a
+                    // grayscale-only correlation with dialogue clothing.
+                    auto const match = context.MatchTemplateAdvanced(*task->templatePath, task->templateThreshold,
+                        ToRoi(*task->roi), "MatchTemplateColor", 900, 1600, {});
+                    if (!SameFrame(context, sample.frame)) { sample.frameChanged = true; return sample; }
+                    if (!match.found) continue;
+                    auto const marker = context.LoadTemplateImage(*task->templatePath);
+                    if (!marker || !HasMatchingGlyphColors(*sample.frame, *marker, match, task->templateThreshold)) continue;
+                    matched = true;
+                    screenScore = match.score;
+                    sample.eventId = definition.eventId;
+                    sample.eventTitle = title;
+                    sample.eventActionId = definition.actionId;
+                    break;
                 }
             }
             if (!matched)
@@ -712,7 +858,8 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
             if (Fold(screen.screenId) == "career_main" && screen.requiredTemplates.empty())
                 continue;
 
-            if (!screen.requiredText.empty() && Fold(screen.screenId) != "goal_complete")
+            if (screen.verifyRequiredText && !screen.requiredText.empty()
+                && Fold(screen.screenId) != "goal_complete" && !sample.eventId)
             {
                 const auto detections = context.RecognizeText("en-US");
                 if (!SameFrame(context, sample.frame))
@@ -756,7 +903,8 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
     if (!second.screen)
         return observation;
     if ((second.screen->stable || second.screen->flow == "event")
-        && (!first.screen || Fold(first.screen->screenId) != Fold(second.screen->screenId)))
+        && (!first.screen || Fold(first.screen->screenId) != Fold(second.screen->screenId)
+            || first.eventId != second.eventId))
     {
         context.Log("WARNING", "Career screen did not remain stable across the two-frame confirmation window.");
         return observation;
@@ -775,15 +923,16 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
     observation.screenId = bestScreen->screenId;
     observation.score = bestScore;
     observation.screenKind = ClassifyScreen(*bestScreen);
+    observation.consecutiveFramesIdentical = first.frame
+        && first.frame->width == frame->width && first.frame->height == frame->height
+        && first.frame->grayPixels.size() == static_cast<std::size_t>(frame->width) * frame->height
+        && first.frame->grayPixels == frame->grayPixels
+        && first.frame->rgbaPixels == frame->rgbaPixels;
     const auto id = Fold(bestScreen->screenId);
     const auto flow = Fold(bestScreen->flow);
-    if (flow == "main" || flow == "turn" || flow == "event" || flow == "race" || flow == "settlement")
-        m_careerStarted = true;
-    if (flow == "settlement")
-        m_settlementInProgress = true;
-    if (IsReturningHomeScreen(bestScreen->screenId))
-        m_returningHome = true;
-    m_lastScreenId = bestScreen->screenId;
+    observation.eventId = second.eventId;
+    observation.eventTitle = second.eventTitle;
+    observation.eventActionId = second.eventActionId;
     if (id == "goal_objective_complete" || id == "goal_complete")
     {
         observation.objectiveCompleted = CareerDomain::ObservedValue<bool>::Make(
@@ -948,6 +1097,7 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
         context.Log("WARNING", "Discarded career observation because its frame changed before completion.");
         return CareerDomain::CareerObservation{};
     }
+    RememberObservation(observation);
     return observation;
 }
 

@@ -65,6 +65,7 @@ struct CareerVisualScreenDefinition
     int priority{0};
     bool stable{false};
     std::vector<std::string> requiredText;
+    bool verifyRequiredText{false};
     std::vector<CareerTemplateDefinition> templates;
     std::vector<CareerTemplateDefinition> requiredTemplates;
     std::vector<CareerOcrRegionDefinition> ocrRegions;
