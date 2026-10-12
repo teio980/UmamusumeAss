@@ -1,6 +1,7 @@
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
+using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.Services.Tasks;
 
@@ -187,10 +188,27 @@ public sealed class GrassTaskExecutionService(
                             progress.OperationId,
                             progress.StepIndex,
                             progress.TaskName));
-                        context.TaskLogSink?.Add(
-                            "Action",
-                            progress.Message,
-                            progress.Succeeded ? HachimiTaskLogEventKind.Info : HachimiTaskLogEventKind.Warning);
+                        if (string.Equals(progress.TaskName, "career_status", StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.TaskLogSink?.Add(
+                                "Career status",
+                                progress.Message,
+                                HachimiTaskLogEventKind.Detection);
+                        }
+                        else if (string.Equals(progress.TaskName, "smart_training_scan", StringComparison.OrdinalIgnoreCase))
+                        {
+                            UraSmartTrainingScanLog.WriteJson(
+                                context.TaskLogSink,
+                                progress.Message,
+                                _localizationService);
+                        }
+                        else
+                        {
+                            context.TaskLogSink?.Add(
+                                "Action",
+                                progress.Message,
+                                progress.Succeeded ? HachimiTaskLogEventKind.Info : HachimiTaskLogEventKind.Warning);
+                        }
                     }
                     break;
 
@@ -259,6 +277,24 @@ public sealed class GrassTaskExecutionService(
                 progress.OperationId,
                 progress.StepIndex,
                 progress.TaskName));
+
+            if (string.Equals(progress.TaskName, "career_status", StringComparison.OrdinalIgnoreCase))
+            {
+                context.TaskLogSink?.Add(
+                    "Career status",
+                    progress.Message,
+                    HachimiTaskLogEventKind.Detection);
+                return;
+            }
+
+            if (string.Equals(progress.TaskName, "smart_training_scan", StringComparison.OrdinalIgnoreCase))
+            {
+                UraSmartTrainingScanLog.WriteJson(
+                    context.TaskLogSink,
+                    progress.Message,
+                    _localizationService);
+                return;
+            }
 
             var profile = GetLogProfile(requests[taskIndex].TaskId);
             if (profile == HachimiTaskLogProfile.None

@@ -125,6 +125,108 @@ public sealed class GrassTaskExecutionServiceTests
     }
 
     [Fact]
+    public async Task CareerStatus_Event_Adds_Entry_With_Step_CareerStatus_And_Detection_Kind()
+    {
+        var native = new RecordingUmaService
+        {
+            CustomEventGenerator = emit =>
+            {
+                emit(new TaskStartedEvent(1, 1, 1, "career-training", 0, 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 2,
+                    TaskId: "career-training",
+                    EventType: GameTaskEventType.RecognitionEvaluated,
+                    TaskName: "career_status",
+                    PipelineName: "career-training",
+                    StepIndex: 0,
+                    CompletedUnits: 1,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 0,
+                    TargetY: 0,
+                    Message: "Date: Junior Year Pre-Debut\nTurns left: 11\nGoal: Make debut\nMood: Normal\nEnergy: 100%",
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new TaskCompletedEvent(1, 3, 1, "career-training", 1, 1, "done"));
+            }
+        };
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("career-training")]);
+        var logs = new List<(string Phase, string Message, HachimiTaskLogEventKind Kind)>();
+
+        var result = await service.RunAsync(requests, index => new(
+            null,
+            TaskLogSink: new RecordingTaskLogSink(logs)), _ => { });
+
+        Assert.True(result.Succeeded);
+        var entry = Assert.Single(logs, item => item.Phase == "Career status");
+        Assert.Equal(HachimiTaskLogEventKind.Detection, entry.Kind);
+        Assert.Contains("Date: Junior Year Pre-Debut", entry.Message);
+        Assert.Contains("Turns left: 11", entry.Message);
+        Assert.Contains("Energy: 100%", entry.Message);
+    }
+
+    [Fact]
+    public async Task SmartTrainingScan_Event_Adds_Entry_With_Detection_Kind_And_Localized_Formatting()
+    {
+        var scanJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            date = "Classic July, first half",
+            energy = 80,
+            chosen = "speed",
+            candidates = new[]
+            {
+                new { type = "speed", speed = 21, stamina = 0, power = 9, guts = 0, wit = 0, skill_points = 6, failure_rate = 0, score = (double?)36.5, exclusion_reason = (string?)null }
+            }
+        });
+
+        var native = new RecordingUmaService
+        {
+            CustomEventGenerator = emit =>
+            {
+                emit(new TaskStartedEvent(1, 1, 1, "career-training", 0, 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 2,
+                    TaskId: "career-training",
+                    EventType: GameTaskEventType.RecognitionEvaluated,
+                    TaskName: "smart_training_scan",
+                    PipelineName: "career-training",
+                    StepIndex: 0,
+                    CompletedUnits: 1,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 0,
+                    TargetY: 0,
+                    Message: scanJson,
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new TaskCompletedEvent(1, 3, 1, "career-training", 1, 1, "done"));
+            }
+        };
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("career-training")]);
+        var logs = new List<(string Phase, string Message, HachimiTaskLogEventKind Kind)>();
+
+        var result = await service.RunAsync(requests, index => new(
+            null,
+            TaskLogSink: new RecordingTaskLogSink(logs)), _ => { });
+
+        Assert.True(result.Succeeded);
+        var entry = Assert.Single(logs, item => item.Phase == "Smart training scan");
+        Assert.Equal(HachimiTaskLogEventKind.Detection, entry.Kind);
+        Assert.Contains("Classic July, first half", entry.Message);
+        Assert.Contains("Energy: 80%", entry.Message);
+        Assert.Contains("Speed training:", entry.Message);
+        Assert.Contains("Choice: Speed training (pending confirmation)", entry.Message);
+    }
+
+    [Fact]
     public async Task NativeCancellationAfterConnectionLossIsReportedAsDeviceDisconnect()
     {
         var connection = new ConnectionStateService();
@@ -242,10 +344,17 @@ public sealed class GrassTaskExecutionServiceTests
         public Task CancelOperationAsync(ulong operationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+        public Action<Action<ConnectionEvent>>? CustomEventGenerator { get; set; }
+
         public Task<QueueRunResult> RunQueueAsync(IReadOnlyList<QueueTaskRequest> tasks, CancellationToken cancellationToken = default)
         {
             RunQueueCallCount++;
             Requests = tasks.Select(item => item with { }).ToArray();
+            if (CustomEventGenerator is not null)
+            {
+                CustomEventGenerator(_events!);
+                return Task.FromResult(new QueueRunResult(true, tasks.Count, 0, 0, tasks.Count, ConnectionErrorCode.Success, string.Empty));
+            }
             _events?.Invoke(new TaskStartedEvent(1, 1, 1, tasks[0].TaskId, 0, tasks.Count));
             if (DisconnectConnectionState is not null)
             {
