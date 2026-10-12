@@ -88,6 +88,8 @@ private:
     bool m_currentTurnIndexObserved{false};
     int m_currentTurnIndex{0};
     bool m_hasPendingRace{false};
+    std::optional<int> m_unavailableRaceTurn;
+    bool m_inheritancePending{false};
     bool m_isFinale{false};
     int m_consecutiveRaceTurns{0};
     std::optional<ActionIntentKind> m_pendingActionKind;

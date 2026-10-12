@@ -6,6 +6,7 @@
 #include "UmaAssistantCore/Career/CareerObservationReader.hpp"
 #include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
 #include "UmaAssistantCore/Career/CareerFlowCoordinator.hpp"
+#include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
 #include "tests/TaskEngine/MockTaskExecutionContext.hpp"
 #include "MockCareerComponents.hpp"
 
@@ -14,6 +15,119 @@ using namespace UmaAssistant::CareerDomain::Ura;
 using namespace UmaAssistant::Career;
 using namespace UmaAssistant::Career::Tests;
 using namespace UmaAssistant::TaskEngine::Tests;
+
+TEST_CASE("A verified Rest invalidates unsafe candidates and requests a new scan at full energy",
+    "[Career][Replay][SmartRestRegression]")
+{
+    class CachedFallbackFlow final : public ICareerTrainingFlow
+    {
+    public:
+        bool HasCandidatesForCurrentTurn(const CareerState&) const noexcept override { return cached; }
+        CareerTrainingSelectionResult Select(UmaAssistant::TaskEngine::ITaskExecutionContext&,
+            const CareerState&, const IScenarioModule&, ICareerStrategy&) override { return {}; }
+        bool HasPendingConfirmedTap() const noexcept override { return false; }
+        bool HasPendingOutcome() const noexcept override { return false; }
+        bool MarkTrainingTapSent() noexcept override { return false; }
+        std::optional<std::string> ObserveOutcome(const CareerObservation&) override { return {}; }
+        void Reset() noexcept override { cached = false; ++resets; }
+        bool cached{true};
+        int resets{0};
+    };
+    auto observer = std::make_shared<MockCareerObserver>();
+    auto executor = std::make_shared<MockCareerActionExecutor>();
+    auto strategy = std::make_shared<UraSmartTrainingStrategy>();
+    auto flow = std::make_shared<CachedFallbackFlow>();
+    TrainingCandidate unreadable;
+    unreadable.trainingType = "speed";
+    strategy->SetLatestCandidates({unreadable});
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(), strategy,
+        CareerRuntimeConfig{}, flow);
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    main.energyPercent = ObservedValue<int>::Make(100);
+    main.moodEvidence = ObservedValue<std::string>::Make("Great");
+    main.turnPositionText = "Junior Year Pre-Debut";
+    main.turnIndexEvidence = ObservedValue<int>::Make(0);
+    main.turnsToGoalEvidence = ObservedValue<int>::Make(8);
+    auto after = main;
+    after.turnsToGoalEvidence = ObservedValue<int>::Make(7);
+    CareerObservation rest;
+    rest.screenId = "rest_confirmation";
+    rest.screenKind = CareerScreenKind::Rest;
+    observer->observationSequence = {main, rest, after};
+    MockTaskExecutionContext context;
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(executor->executedIntents.back().kind == ActionIntentKind::Rest);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(strategy->LatestCandidates().empty());
+    CHECK(flow->resets >= 1);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(coordinator.GetState().energy.Value() == 100);
+    CHECK(coordinator.GetState().confirmedTurnActions == 1);
+    CHECK(executor->executedIntents.back().kind == ActionIntentKind::Training);
+}
+
+TEST_CASE("MuMu full energy pixels stay reliable at Race Day", "[Career][Vision][SmartRestRegression]")
+{
+    auto const frame = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        std::filesystem::path(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/career_race_day_energy_full_mumu_20261012.png");
+    auto const energy = CareerObservationReader::MeasureEnergyBar(frame.rgba.data(), frame.width,
+        frame.height, {280,176,365,50}, {7,10,349,28}, 900,1600,0.18,0.18,0.55,frame.rgba.size());
+    REQUIRE(energy.has_value());
+    CHECK(energy->percent >= 98);
+    CHECK(energy->confidence >= 0.70);
+}
+
+TEST_CASE("Pre-Debut training confirms the ratio when its result is skipped", "[Career][Replay][CareerParity]")
+{
+    auto observer = std::make_shared<MockCareerObserver>();
+    auto executor = std::make_shared<MockCareerActionExecutor>();
+    auto strategy = std::make_shared<RatioTrainingStrategy>(TrainingRatio{1, 1, 0, 0, 0});
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(), strategy);
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    main.energyPercent = ObservedValue<int>::Make(80);
+    main.turnPositionText = "Junior Year Pre-Debut";
+    main.turnIndexEvidence = ObservedValue<int>::Make(0);
+    main.turnsToGoalEvidence = ObservedValue<int>::Make(5);
+    auto returned = main;
+    returned.turnsToGoalEvidence = ObservedValue<int>::Make(4);
+    CareerObservation drawer;
+    drawer.screenId = "training_selection";
+    drawer.screenKind = CareerScreenKind::TrainingSelect;
+    observer->observationSequence = {main, drawer, returned};
+    MockTaskExecutionContext context;
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(coordinator.GetState().confirmedTurnActions == 1);
+    REQUIRE(executor->executedIntents.size() == 3);
+    CHECK(executor->executedIntents.back().trainingType == "stamina");
+}
+
+TEST_CASE("Career runtime preserves a confirmed resumed event before another observation",
+    "[Career][Replay][EntryRegression]")
+{
+    auto observer = std::make_shared<MockCareerObserver>();
+    observer->observationSequence.push_back(CareerObservation{});
+    auto executor = std::make_shared<MockCareerActionExecutor>();
+    auto scenario = std::make_shared<UraScenarioModule>();
+    auto strategy = std::make_shared<DefaultTrainingStrategy>();
+    CareerFlowCoordinator coordinator(observer, executor, scenario, strategy);
+    CareerObservation event;
+    event.screenId = "event_choice";
+    event.screenKind = CareerScreenKind::EventChoice;
+    coordinator.SetConfirmedObservation(event);
+    MockTaskExecutionContext context;
+    CHECK(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(executor->executedIntents.size() == 1);
+    CHECK(coordinator.GetState().careerStarted);
+    CHECK(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(executor->executedIntents.size() == 1);
+}
 
 TEST_CASE("TrainingRatio reduces via GCD and builds expected cycle", "[CareerDomain]")
 {

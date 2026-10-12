@@ -128,7 +128,7 @@ void CareerFlowCoordinator::ResetAfterRecovery() noexcept
 {
     m_nextConfirmedObservation.reset();
     m_pendingTraining.reset();
-    m_pendingTrainingTurn.reset();
+    m_pendingTrainingBaseline.reset();
     // A race target is durable across the date-change/home recovery path: the
     // game may resume inside the same race flow after returning to Home.
     m_terminalScreenSeen = false;
@@ -141,6 +141,13 @@ void CareerFlowCoordinator::ResetAfterRecovery() noexcept
         m_observer->ResetForRecovery();
     if (m_actionExecutor)
         m_actionExecutor->ResetAfterRecovery();
+}
+
+void CareerFlowCoordinator::SetConfirmedObservation(const CareerDomain::CareerObservation& observation)
+{
+    if (observation.screenKind == CareerDomain::CareerScreenKind::Unknown) return;
+    m_state.careerStarted = true;
+    m_nextConfirmedObservation = observation;
 }
 
 CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& context)
@@ -164,7 +171,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
     if (!confirmedObservation)
         confirmedObservation = m_actionExecutor->TakeConfirmedObservation();
     auto observation = confirmedObservation
-        ? std::move(*confirmedObservation) : m_observer->Observe(context);
+        ? std::move(*confirmedObservation) : m_observer->ObserveCareer(context);
     if (context.IsCancelled())
     {
         result.status = CareerRunStatus::Cancelled;
@@ -273,7 +280,17 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             m_state.scenarioId, actionTask, true, transitionScore,
             observation.screenId + " -> " + destination);
         if (IsCommittedTurnAction(intent, observation))
+        {
             m_scenario->OnTurnActionSubmitted(m_state, intent, observation);
+            if (intent.kind == CareerDomain::ActionIntentKind::Rest
+                || intent.kind == CareerDomain::ActionIntentKind::Infirmary
+                || intent.kind == CareerDomain::ActionIntentKind::Recreation
+                || intent.kind == CareerDomain::ActionIntentKind::Race)
+            {
+                if (m_strategy) m_strategy->ClearTrainingCandidateEvidence();
+                if (m_trainingFlow) m_trainingFlow->Reset();
+            }
+        }
         if (Fold(observation.screenId) == "race_retry_dialog")
         {
             const auto observedRetryChoice = m_actionExecutor->TakeRaceRetryDeclined();
@@ -322,16 +339,23 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             {
                 m_strategy->ConfirmTraining(m_state, *committedTraining);
                 m_pendingTraining.reset();
-                m_pendingTrainingTurn.reset();
+                m_pendingTrainingBaseline.reset();
             }
         }
         m_scenario->OnTurnStart(m_state);
-        if (m_pendingTraining && m_pendingTrainingTurn && m_state.turnIndex > *m_pendingTrainingTurn)
+        if (candidateScanStrategy && !m_trainingFlow->HasPendingOutcome()
+            && !m_trainingFlow->HasCandidatesForCurrentTurn(m_state))
+        {
+            m_strategy->ClearTrainingCandidateEvidence();
+            m_trainingFlow->Reset();
+        }
+        if (m_pendingTraining && m_pendingTrainingBaseline
+            && m_state.confirmedTurnActions > *m_pendingTrainingBaseline)
         {
             if (m_strategy)
                 m_strategy->ConfirmTraining(m_state, m_pendingTraining->trainingType);
             m_pendingTraining.reset();
-            m_pendingTrainingTurn.reset();
+            m_pendingTrainingBaseline.reset();
         }
         CareerDomain::ActionIntent intent;
         {
@@ -345,6 +369,11 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                 intent = CareerDomain::ActionIntent::MakeTraining(
                     "speed", "Open training selection for frame-bound smart scan.");
             }
+        }
+        if (intent.kind == CareerDomain::ActionIntentKind::DoNothing)
+        {
+            context.Sleep(250);
+            return finishRunning();
         }
         if (intent.kind == CareerDomain::ActionIntentKind::Training
             && !m_state.energy.IsReliable())
@@ -361,6 +390,9 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                     CareerDomain::ObservationSource::DefaultFallback);
             }
         }
+        context.Log("INFO", "Career decision: energy="
+            + (m_state.energy.IsReliable() ? std::to_string(m_state.energy.Value()) + "%" : std::string("unknown"))
+            + ", confidence=" + std::to_string(m_state.energy.confidence) + "; " + intent.reason);
         if (!perform(intent)) return result;
         return finishRunning();
     }
@@ -416,7 +448,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         }
         if (!perform(intent)) return result;
         m_pendingTraining = intent;
-        m_pendingTrainingTurn = m_state.turnIndex;
+        m_pendingTrainingBaseline = m_state.confirmedTurnActions;
         return finishRunning();
     }
     case CareerDomain::CareerScreenKind::TrainingResult:
@@ -436,7 +468,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         else if (m_pendingTraining && m_strategy)
             m_strategy->ConfirmTraining(m_state, m_pendingTraining->trainingType);
         m_pendingTraining.reset();
-        m_pendingTrainingTurn.reset();
+        m_pendingTrainingBaseline.reset();
         const auto intent = CareerDomain::ActionIntent::MakeAdvance("Advance the observed training result.");
         if (!perform(intent)) return result;
         return finishRunning();

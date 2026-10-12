@@ -3,6 +3,7 @@
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/GameTasks/NativeCareerTaskRunner.hpp"
+#include "UmaAssistantCore/GameTasks/NativeGameTaskRunner.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
@@ -10,8 +11,10 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -164,6 +167,7 @@ public:
 
     bool CaptureScreen() override
     {
+        if (m_cancelled) return false;
         m_previousFrame = m_currentFrame;
         auto frame = std::make_shared<TaskFrameSnapshot>();
         frame->width = kWidth;
@@ -210,6 +214,16 @@ public:
                 }
             }
         }
+        if (numericProbeReplay && m_screen == "training_selection")
+        {
+            auto const image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+                std::filesystem::path(CMAKE_SOURCE_DIR)
+                / "testdata/hachimi/ura/captures/smart_runtime_20261006/speed-1.png");
+            frame->width = image.width;
+            frame->height = image.height;
+            frame->grayPixels = image.gray;
+            frame->rgbaPixels = image.rgba;
+        }
         m_currentFrame = std::move(frame);
         return true;
     }
@@ -223,10 +237,49 @@ public:
     }
 
     TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
-        const std::optional<TaskRoi>&, const std::string&, int referenceWidth,
+        const std::optional<TaskRoi>& roi, const std::string& algorithm, int referenceWidth,
         int referenceHeight, const std::vector<double>&) override
     {
         m_templateTrace.push_back(path);
+        if (numericProbeReplay && PathKey(path).find("common/date_changed/") != std::string::npos)
+            return {};
+        if (numericProbeReplay && m_screen == "training_selection" && !m_graphActive)
+        {
+            // The numeric fixture masks unrelated UI. Only expose its authored
+            // training markers; the other screens keep their simulated absence.
+            auto const key = PathKey(path);
+            bool const trainingTask = std::any_of(m_resources.GetExecutionDefinition().tasks.begin(),
+                m_resources.GetExecutionDefinition().tasks.end(), [&](auto const& item) {
+                    return item.first.rfind("training_selection", 0) == 0 && item.second.templatePath
+                        && PathKey(*item.second.templatePath) == key;
+                });
+            if (!trainingTask && key.find("/career/training/") == std::string::npos
+                && std::filesystem::path(path).filename().string().find("training_selection") == std::string::npos)
+                return {};
+            auto const marker = LoadTemplateImage(path);
+            if (!marker || !m_currentFrame) return {};
+            UmaAssistant::Vision::GrayImage const image{m_currentFrame->width, m_currentFrame->height,
+                m_currentFrame->grayPixels, m_currentFrame->rgbaPixels};
+            UmaAssistant::Vision::Roi bounds;
+            if (roi) bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+            auto const match = algorithm == "MatchTemplateExhaustiveColor"
+                ? UmaAssistant::Vision::find_exhaustive_color(image, *marker, bounds, threshold, referenceWidth, referenceHeight)
+                : algorithm == "MatchTemplateColor" || algorithm == "MatchTemplateColorText"
+                ? UmaAssistant::Vision::find_color(image, *marker, bounds, threshold, referenceWidth, referenceHeight,
+                    algorithm == "MatchTemplateColorText")
+                : UmaAssistant::Vision::find(image, *marker, bounds, threshold, referenceWidth, referenceHeight);
+            Trace("numeric marker " + std::filesystem::path(path).filename().string()
+                + " found=" + (match.found ? std::string("true") : std::string("false"))
+                + " score=" + std::to_string(match.score));
+            auto scale = [](int value, int actual, int reference) {
+                return static_cast<int>(std::nearbyint(static_cast<double>(value) * reference / actual));
+            };
+            return {match.found, match.score, scale(match.x, image.width, referenceWidth),
+                scale(match.y, image.height, referenceHeight), scale(match.width, image.width, referenceWidth),
+                scale(match.height, image.height, referenceHeight),
+                referenceWidth, referenceHeight, m_currentFrame->frameId,
+                m_currentFrame->sessionGeneration, m_currentFrame->geometryGeneration};
+        }
         TaskMatchResult result;
         result.referenceWidth = referenceWidth;
         result.referenceHeight = referenceHeight;
@@ -268,7 +321,11 @@ public:
             };
             const bool inPrimary = std::any_of(screen->templates.begin(), screen->templates.end(), isDeclared);
             const bool inRequired = std::any_of(screen->requiredTemplates.begin(), screen->requiredTemplates.end(), isDeclared);
-            result.found = inPrimary || inRequired;
+            // Home now requires its Career entry control on the same frame as
+            // the shared selected tab. The fixture exposes both authored markers.
+            const auto* entry = m_screen == "home" ? m_resources.FindExecutionTask("home_home_career") : nullptr;
+            const bool inEntry = entry && entry->templatePath && PathKey(*entry->templatePath) == key;
+            result.found = inPrimary || inRequired || inEntry;
             result.score = result.found ? (std::max)(threshold, 0.99) : 0.0;
         }
 
@@ -398,10 +455,21 @@ public:
         // frame by the production context.
         if ((!match.found && (match.frameId != 0 || !m_currentFrame))
             || (match.frameId != 0 && m_currentFrame
-                && match.frameId != m_currentFrame->frameId))
+                && match.frameId != m_currentFrame->frameId && !IsMatchRetained(match)))
             return false;
         return Tap(x, y);
     }
+
+    bool RetainMatchForRetry(const TaskMatchResult& match, int, int, int, int) override
+    {
+        if (!numericProbeReplay || !match.found || !m_currentFrame) return false;
+        m_probeRetainedFrame = match.frameId;
+        return true;
+    }
+    bool HasRetainedMatch() const override { return m_probeRetainedFrame != 0; }
+    bool IsMatchRetained(const TaskMatchResult& match) const override
+    { return m_probeRetainedFrame != 0 && match.frameId == m_probeRetainedFrame; }
+    void ReleaseRetainedMatch() override { m_probeRetainedFrame = 0; }
 
     bool Swipe(int, int, int, int, int) override { ++m_swipes; return true; }
     bool InputText(const std::string&) override { return true; }
@@ -413,7 +481,20 @@ public:
         if (milliseconds > 0)
             std::this_thread::sleep_for(std::chrono::milliseconds((std::clamp)(milliseconds, 1, 5)));
     }
-    bool IsCancelled() const override { return false; }
+    bool IsCancelled() const override { return m_cancelled; }
+    UmaAssistant::Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<UmaAssistant::Recognition::NumericOcrBatchField>& fields) override
+    {
+        if (numericProbeReplay && !fields.empty())
+        {
+            ++numericProbeCalls;
+            m_cancelled = true;
+        }
+        return {};
+    }
+    bool numericProbeReplay{false};
+    int numericProbeCalls{0};
+    bool cancelOnPipelineStart{false};
     void Log(const std::string& level, const std::string& message) override
     {
         m_logs.push_back(level + ": " + message);
@@ -422,6 +503,9 @@ public:
 
     void EmitEvent(const TaskExecutionEvent& event) override
     {
+        m_events.push_back(event);
+        if (cancelOnPipelineStart && event.type == TaskEventType::PipelineStarted)
+            m_cancelled = true;
         Trace("event type=" + std::to_string(static_cast<int>(event.type))
             + " name=" + event.taskName + " success=" + (event.succeeded ? "true" : "false")
             + " score=" + std::to_string(event.score) + " message=" + event.message);
@@ -456,6 +540,7 @@ public:
     { return false; }
 
     [[nodiscard]] const std::vector<std::string>& PipelineRoots() const noexcept { return m_pipelineRoots; }
+    [[nodiscard]] const std::vector<TaskExecutionEvent>& Events() const noexcept { return m_events; }
     [[nodiscard]] const std::vector<std::string>& TemplateTrace() const noexcept { return m_templateTrace; }
     [[nodiscard]] const std::vector<std::pair<int, int>>& Taps() const noexcept { return m_taps; }
     [[nodiscard]] const std::vector<std::string>& Logs() const noexcept { return m_logs; }
@@ -542,7 +627,7 @@ private:
         return "Participate in the URA Finale";
     }
 
-    std::shared_ptr<const UmaAssistant::Vision::GrayImage> LoadTemplateImage(const std::string& path)
+    std::shared_ptr<const UmaAssistant::Vision::GrayImage> LoadTemplateImage(const std::string& path) override
     {
         const auto* goalScreen = m_resources.FindScreen("goal_complete");
         if (!goalScreen || goalScreen->profilePath.empty())
@@ -563,7 +648,7 @@ private:
         };
         const bool isAllowlisted = std::any_of(goalScreen->templates.begin(), goalScreen->templates.end(), isGoalTemplate)
             || std::any_of(goalScreen->requiredTemplates.begin(), goalScreen->requiredTemplates.end(), isGoalTemplate);
-        if (!isAllowlisted)
+        if (!isAllowlisted && !numericProbeReplay)
         {
             // This replay fixes every non-goal-complete frame to a deterministic
             // negative template result. Only the goal_complete resources are
@@ -687,12 +772,15 @@ private:
     std::shared_ptr<const TaskFrameSnapshot> m_currentFrame;
     std::shared_ptr<const TaskFrameSnapshot> m_previousFrame;
     std::uint64_t m_nextFrameId{0};
+    std::uint64_t m_probeRetainedFrame{0};
     std::pair<int, int> m_coordinateReference{900, 1600};
     std::vector<RaceReplayStep> m_raceSteps;
     std::size_t m_raceResultIndex{0};
     std::vector<std::string> m_matchedRaceIds;
     std::unordered_map<std::string, std::shared_ptr<const UmaAssistant::Vision::GrayImage>> m_templateCache;
     std::vector<std::string> m_pipelineRoots;
+    std::vector<TaskExecutionEvent> m_events;
+    bool m_cancelled{false};
     std::vector<std::string> m_templateTrace;
     std::vector<std::pair<int, int>> m_taps;
     std::vector<std::string> m_logs;
@@ -719,6 +807,56 @@ std::string Join(const std::vector<std::string>& values)
 }
 
 } // namespace
+
+TEST_CASE("Career recovery context forwards numeric OCR used by smart training",
+    "[GameTasks][NativeCareerTaskRunnerReplay][SmartRestRegression]")
+{
+    auto config = PackagedConfig();
+    CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    RunnerReplayContext context(resources, "career_main");
+    context.numericProbeReplay = true;
+    auto const result = NativeGameTaskRunner::Run("career-training", nlohmann::json{
+        {"manifestPath", config.manifestPath}, {"traineeId", *config.traineeId},
+        {"strategyId", "smart-balanced-safe"}, {"maxSteps", 4}}, context, config.resourceDirectory);
+    CAPTURE(result.message);
+    REQUIRE_FALSE(result.succeeded);
+    CHECK(context.numericProbeCalls == 1);
+    CHECK(context.IsCancelled());
+}
+
+TEST_CASE("Native Career progress retains configured run counts during nested setup cancellation",
+    "[GameTasks][NativeCareerTaskRunnerReplay][CareerRunProgress]")
+{
+    auto config = PackagedConfig();
+    CareerVisualResources screenResources(config);
+    REQUIRE(screenResources.IsReady());
+    for (int const runCount : {1, 3})
+    {
+        CAPTURE(runCount);
+        RunnerReplayContext context(screenResources, "career_final_confirmation");
+        context.cancelOnPipelineStart = true;
+        auto const result = NativeGameTaskRunner::Run("career-training", nlohmann::json{
+            {"manifestPath", config.manifestPath}, {"traineeId", *config.traineeId},
+            {"runCount", runCount}}, context, config.resourceDirectory);
+        CAPTURE(result.message);
+        REQUIRE_FALSE(result.succeeded);
+        REQUIRE(context.IsCancelled());
+        CHECK(result.completedUnits == 0);
+        CHECK(result.totalUnits == runCount);
+        REQUIRE(context.Events().size() > 1);
+        CHECK(context.Events().front().taskName == "career.run");
+        REQUIRE(std::any_of(context.Events().begin(), context.Events().end(), [](auto const& event) {
+            return event.type == TaskEventType::PipelineStarted;
+        }));
+        for (auto const& event : context.Events())
+        {
+            CAPTURE(event.taskName);
+            CHECK(event.completedUnits == 0);
+            CHECK(event.totalUnits == runCount);
+        }
+    }
+}
 
 TEST_CASE("Native runner replays the packaged normal objective chain through URA Finale and settlement",
     "[GameTasks][NativeCareerTaskRunnerReplay]")
@@ -747,6 +885,7 @@ TEST_CASE("Native runner replays the packaged normal objective chain through URA
     const auto logTrace = Join(context.Logs());
     CAPTURE(pipelineTrace);
     CAPTURE(logTrace);
+    CAPTURE(result.message);
     INFO("The replay uses packaged profile/execution graphs with a fixed frame, template-match, and OCR context.");
 
     REQUIRE(result.succeeded);

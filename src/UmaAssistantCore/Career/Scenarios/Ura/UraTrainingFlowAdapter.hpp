@@ -37,6 +37,8 @@ private:
     UraTrainingVisualScanner m_visualScanner;
     CareerDomain::Ura::UraTrainingScanner m_scanner;
     int m_scannedTurnIndex{0};
+    int m_scannedTurnActions{0};
+    std::optional<int> m_scannedTurnsToGoal;
     bool m_hasScannedTurn{false};
 };
 

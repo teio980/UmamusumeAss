@@ -73,7 +73,9 @@ bool UraTrainingFlowAdapter::HasCandidatesForCurrentTurn(
     const CareerDomain::CareerState& state) const noexcept
 {
     const auto turnIndex = CurrentTurnIndex(state);
-    return m_hasScannedTurn && turnIndex && *turnIndex == m_scannedTurnIndex;
+    return m_hasScannedTurn && turnIndex && *turnIndex == m_scannedTurnIndex
+        && state.confirmedTurnActions == m_scannedTurnActions
+        && state.turnsToGoal.value == m_scannedTurnsToGoal;
 }
 
 CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
@@ -109,12 +111,27 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
         return result;
     }
 
+    for (auto const& candidate : m_scanner.Candidates())
+    {
+        auto number = [](auto const& value) { return value ? std::to_string(*value) : std::string("unknown"); };
+        context.Log("INFO", "Smart training candidate " + candidate.trainingType
+            + ": gains=" + number(candidate.speedGain) + "/" + number(candidate.staminaGain)
+            + "/" + number(candidate.powerGain) + "/" + number(candidate.gutsGain)
+            + "/" + number(candidate.witGain) + ", skill=" + number(candidate.skillPointGain)
+            + ", failure=" + number(candidate.failureRatePercent)
+            + "%, core confidence=" + std::to_string(candidate.coreConfidence)
+            + ", failure confidence=" + std::to_string(candidate.failureRateConfidence));
+    }
+
     if (m_scanner.Stage() == CareerDomain::Ura::UraTrainingScannerStage::Fallback
         && m_scanner.Candidates().size() == 5)
     {
         strategy.SetTrainingCandidateEvidence(ToEvidence(m_scanner.Candidates()));
         m_hasScannedTurn = true;
         m_scannedTurnIndex = CurrentTurnIndex(state).value_or(state.turnIndex);
+        m_scannedTurnActions = state.confirmedTurnActions;
+        m_scannedTurnsToGoal = state.turnsToGoal.value;
+        context.Log("WARNING", "Smart training scan found no safe candidate: " + scan.detail);
         m_scanner.Reset();
         result.status = CareerTrainingSelectionStatus::BackOut;
         result.intent = CareerDomain::ActionIntent::MakeAdvance(
@@ -135,6 +152,8 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
     strategy.SetTrainingCandidateEvidence(ToEvidence(m_scanner.Candidates()));
     m_hasScannedTurn = true;
     m_scannedTurnIndex = CurrentTurnIndex(state).value_or(state.turnIndex);
+    m_scannedTurnActions = state.confirmedTurnActions;
+    m_scannedTurnsToGoal = state.turnsToGoal.value;
 
     result.intent = strategy.Choose(state, &scenario);
     if (result.intent.kind != CareerDomain::ActionIntentKind::Training)
@@ -208,6 +227,8 @@ void UraTrainingFlowAdapter::Reset() noexcept
     m_scanner.Reset();
     m_hasScannedTurn = false;
     m_scannedTurnIndex = 0;
+    m_scannedTurnActions = 0;
+    m_scannedTurnsToGoal.reset();
 }
 
 void RegisterTrainingFlow(CareerTrainingFlowRegistry& registry)

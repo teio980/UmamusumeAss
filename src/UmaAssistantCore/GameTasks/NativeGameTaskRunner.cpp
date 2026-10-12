@@ -209,6 +209,9 @@ public:
     }
     std::vector<TaskOcrDetection> RecognizeImageText(const Vision::GrayImage& image, const std::string& language) override
     { return m_inner.RecognizeImageText(image, language); }
+    Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<Recognition::NumericOcrBatchField>& fields) override
+    { return m_inner.RecognizeNumericImages(fields); }
     bool PrepareHeldTouch() override { return m_inner.PrepareHeldTouch(); }
     bool TouchDownMatch(int x, int y, const TaskMatchResult& source) override
     {
@@ -329,7 +332,18 @@ public:
             m_currentActionName.clear();
         if (CaseInsensitiveEqual{}(m_rootPipelineName, "career-training"))
         {
-            m_inner.EmitEvent(event);
+            // Only the outer run confirms a completed career. Nested graphs
+            // count their own steps and must not overwrite the run progress.
+            if (event.taskName == "career.run" && event.pipelineName == "career-training"
+                && (event.type == TaskEventType::TaskEntering || event.type == TaskEventType::TaskCompleted))
+            {
+                m_completedCareerRuns = event.completedUnits;
+                m_totalCareerRuns = event.totalUnits;
+            }
+            auto enriched = event;
+            enriched.completedUnits = m_completedCareerRuns;
+            enriched.totalUnits = m_totalCareerRuns;
+            m_inner.EmitEvent(enriched);
             return;
         }
         auto enriched = event;
@@ -525,6 +539,8 @@ private:
     std::string m_currentActionName;
     RecoveryState& m_state;
     int m_requestedRaceUnits{0};
+    int m_completedCareerRuns{0};
+    int m_totalCareerRuns{0};
     bool m_recoveringStartup{false};
     std::string m_recoveryError;
 };

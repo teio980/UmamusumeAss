@@ -62,7 +62,7 @@ std::optional<ActionIntent> ScenarioOverride(
 
 bool IsRacePriority(const std::optional<ActionIntent>& intent) noexcept
 {
-    return intent.has_value() && intent->kind == ActionIntentKind::Race;
+    return intent.has_value() && (intent->kind == ActionIntentKind::Race || intent->kind == ActionIntentKind::DoNothing);
 }
 
 ActionIntent LowEnergyRest(const CareerState& state, int threshold)

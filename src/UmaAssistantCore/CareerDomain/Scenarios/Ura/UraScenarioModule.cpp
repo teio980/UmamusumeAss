@@ -162,6 +162,8 @@ void UraScenarioModule::OnRunStart(CareerState& state, bool continueExistingCare
     m_currentTurnIndexObserved = false;
     m_currentTurnIndex = 0;
     m_hasPendingRace = false;
+    m_unavailableRaceTurn.reset();
+    m_inheritancePending = false;
     m_isFinale = false;
     m_consecutiveRaceTurns = continueExistingCareer ? 2 : 0;
     m_pendingActionKind.reset();
@@ -217,6 +219,14 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
 {
     const auto screenId = Lower(observation.screenId);
     state.UpdateFromObservation(observation);
+    if (screenId == "inheritance_event") m_inheritancePending = false;
+
+    if (screenId == "race_list_empty")
+    {
+        m_unavailableRaceTurn = state.turnIndex;
+        m_hasPendingRace = false;
+        m_goalCompletionProbeArmed = false;
+    }
 
     if (observation.screenKind == CareerScreenKind::MainTurn || screenId == "career_main")
     {
@@ -310,6 +320,8 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
                 break;
             }
         }
+        if (m_unavailableRaceTurn && *m_unavailableRaceTurn == state.turnIndex)
+            m_hasPendingRace = false;
         return;
     }
 
@@ -394,6 +406,9 @@ void UraScenarioModule::OnTurnActionSubmitted(
 {
     if (!IsActionSource(intent.kind, source))
         return;
+
+    if (m_currentTurnIndexObserved && (m_currentTurnIndex == 30 || m_currentTurnIndex == 54))
+        m_inheritancePending = true;
 
     m_pendingActionKind = intent.kind;
     m_pendingActionTurnIndex = m_currentTurnIndexObserved
@@ -794,6 +809,9 @@ void UraScenarioModule::ConfirmTurnAdvance(
     if (!calendarAdvanced && !countdownAdvanced)
         return;
 
+    ++state.confirmedTurnActions;
+    m_unavailableRaceTurn.reset();
+
     if (*m_pendingActionKind == ActionIntentKind::Race)
         m_consecutiveRaceTurns = std::min(2, m_consecutiveRaceTurns + 1);
     else
@@ -815,6 +833,14 @@ std::optional<ActionIntent> UraScenarioModule::GetTrainingOverride(
     int restThreshold,
     bool smartStrategy) const
 {
+    if (m_inheritancePending)
+    {
+        ActionIntent wait;
+        wait.reason = "Wait for the pending inheritance GO event before selecting another turn action.";
+        return wait;
+    }
+    if (m_unavailableRaceTurn && *m_unavailableRaceTurn == state.turnIndex)
+        return std::nullopt;
     if ((m_isFinale || Lower(state.phaseId) == "finale_underway") && m_hasPendingRace)
     {
         return ActionIntent::MakeRace(

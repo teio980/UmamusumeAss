@@ -41,6 +41,10 @@ public:
 
     CareerRunResult Step(TaskEngine::ITaskExecutionContext& context);
 
+    // Preserve the confirmed startup/resume frame across the runtime handoff.
+    // Domain observation is applied by Step before choosing the first action.
+    void SetConfirmedObservation(const CareerDomain::CareerObservation& observation);
+
     // Resets only transient visual/run state after the managed date-change
     // recovery flow. Confirmed career state and strategy history are retained.
     void ResetAfterRecovery() noexcept;
@@ -61,7 +65,7 @@ private:
     CareerDomain::CareerState m_state;
     std::optional<CareerDomain::CareerObservation> m_nextConfirmedObservation;
     std::optional<CareerDomain::ActionIntent> m_pendingTraining;
-    std::optional<int> m_pendingTrainingTurn;
+    std::optional<int> m_pendingTrainingBaseline;
     // Keep the strategy's target while the same race traverses its entry,
     // warning, runner, playback, and result screens. Intermediate OCR from
     // those screens must not reclassify the objective.

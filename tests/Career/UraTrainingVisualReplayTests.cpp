@@ -1,6 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include "UmaAssistantCore/Career/Scenarios/Ura/UraTrainingVisualScanner.hpp"
+#include "UmaAssistantCore/Career/Scenarios/Ura/UraTrainingFlowAdapter.hpp"
+#include "UmaAssistantCore/CareerDomain/Scenarios/Ura/UraSmartTrainingStrategy.hpp"
+#include "UmaAssistantCore/CareerDomain/Scenarios/Ura/UraScenarioModule.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/ResourceSnapshot.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
@@ -221,6 +224,35 @@ TEST_CASE("URA visual scan reads captured five-card evidence and rechecks its wi
     CHECK(confirmation.IsReadyToTap());
     CHECK(scanner.CanTapTraining());
     CHECK(context.previewTypes.size() <= 5);
+}
+
+TEST_CASE("Smart scan evidence expires when pre-debut countdown or committed actions change",
+    "[Career][Vision][Replay][SmartRestRegression]")
+{
+    TrainingCaptureContext context("speed");
+    Career::Ura::UraTrainingFlowAdapter flow(TrainingResources());
+    CareerDomain::CareerState state;
+    state.energy = CareerDomain::ObservedValue<int>::Make(100);
+    state.turnIndexEvidence = CareerDomain::ObservedValue<int>::Make(0);
+    state.turnsToGoal = CareerDomain::ObservedValue<int>::Make(8);
+    state.turnPositionText = "Junior Year Pre-Debut";
+    CareerDomain::UraScenarioModule scenario;
+    CareerDomain::UraSmartTrainingStrategy strategy(RaceDistanceBand::Unknown);
+    auto const result = flow.Select(context, state, scenario, strategy);
+    CAPTURE(result.error);
+    REQUIRE(result.status == Career::CareerTrainingSelectionStatus::Ready);
+    REQUIRE(flow.HasCandidatesForCurrentTurn(state));
+    state.confirmedTurnActions = 1;
+    CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
+    state.confirmedTurnActions = 0;
+    state.turnsToGoal = CareerDomain::ObservedValue<int>::Make(7);
+    CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
+    state.turnsToGoal = CareerDomain::ObservedValue<int>::Make(8);
+    CHECK(flow.HasCandidatesForCurrentTurn(state));
+    state.turnIndexEvidence = CareerDomain::ObservedValue<int>::Make(1);
+    CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
+    flow.Reset();
+    CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
 }
 
 TEST_CASE("URA visual scan uses selected chevron when a Duel badge distracts icon matching", "[Career][Vision][Replay]")

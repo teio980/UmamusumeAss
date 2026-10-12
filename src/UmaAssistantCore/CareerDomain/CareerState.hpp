@@ -46,6 +46,9 @@ struct CareerState
     std::string lastScreenId{"unknown"};
     ActionIntent lastIntent;
     bool careerStarted{false};
+    // Calendar indices can stay unchanged during Pre-Debut and the Finale.
+    // Scenario-confirmed action progress is monotonic across those turns.
+    int confirmedTurnActions{0};
 
     void UpdateFromObservation(const CareerObservation& obs)
     {

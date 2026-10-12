@@ -968,4 +968,66 @@ TEST_CASE("URA grade race count advances to the next unattempted race", "[Career
 
 } // namespace
 
+TEST_CASE("An empty race list blocks the current turn and becomes eligible on the next turn", "[CareerDomainParity][CareerParity]")
+{
+    for (int const turn : {0, 12})
+    {
+        CAPTURE(turn);
+        UraScenarioModule scenario;
+        CareerState state;
+        scenario.OnRunStart(state, false);
+        DefaultTrainingStrategy strategy;
+        CareerObservation main;
+        main.screenId = "career_main";
+        main.screenKind = CareerScreenKind::MainTurn;
+        main.turnIndexEvidence = ObservedValue<int>::Make(turn);
+        main.energyPercent = ObservedValue<int>::Make(80);
+        main.goalTextEvidence = ObservedValue<std::string>::Make("Run in Junior Make Debut");
+        main.turnsToGoalEvidence = ObservedValue<int>::Make(0);
+        scenario.OnObserve(state, main);
+        REQUIRE(strategy.Choose(state, &scenario).kind == ActionIntentKind::Race);
+        CareerObservation empty;
+        empty.screenId = "race_list_empty";
+        empty.screenKind = CareerScreenKind::RaceEntry;
+        scenario.OnObserve(state, empty);
+        scenario.OnObserve(state, main);
+        CHECK(strategy.Choose(state, &scenario).kind == ActionIntentKind::Training);
+        main.turnIndexEvidence = ObservedValue<int>::Make(turn + 1);
+        scenario.OnObserve(state, main);
+        CHECK(strategy.Choose(state, &scenario).kind == ActionIntentKind::Race);
+    }
+}
+
+TEST_CASE("The inheritance boundary blocks another action even when energy is low", "[CareerDomainParity][CareerParity]")
+{
+    for (int const turn : {30, 54})
+    {
+        UraScenarioModule scenario;
+        CareerState state;
+        scenario.OnRunStart(state, false);
+        CareerObservation main;
+        main.screenId = "career_main";
+        main.screenKind = CareerScreenKind::MainTurn;
+        main.turnIndexEvidence = ObservedValue<int>::Make(turn);
+        main.energyPercent = ObservedValue<int>::Make(20);
+        scenario.OnObserve(state, main);
+        CareerObservation drawer;
+        drawer.screenId = "training_selection";
+        drawer.screenKind = CareerScreenKind::TrainingSelect;
+        scenario.OnTurnActionSubmitted(state, ActionIntent::MakeTraining("speed"), drawer);
+        main.turnIndexEvidence = ObservedValue<int>::Make(turn + 1);
+        scenario.OnObserve(state, main);
+        DefaultTrainingStrategy strategy;
+        CHECK(strategy.Choose(state, &scenario).kind == ActionIntentKind::DoNothing);
+        UraSmartTrainingStrategy smart;
+        CHECK(smart.Choose(state, &scenario).kind == ActionIntentKind::DoNothing);
+        CareerObservation inheritance;
+        inheritance.screenId = "inheritance_event";
+        inheritance.screenKind = CareerScreenKind::EventChoice;
+        scenario.OnObserve(state, inheritance);
+        scenario.OnObserve(state, main);
+        CHECK(strategy.Choose(state, &scenario).kind == ActionIntentKind::Rest);
+    }
+}
+
 
