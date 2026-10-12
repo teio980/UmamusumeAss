@@ -276,3 +276,24 @@ TEST_CASE("Windows OCR accepts processed grayscale and rejects malformed planes"
     rgba.rgba.pop_back();
     CHECK_THROWS_AS(recognizer.recognize(rgba, "en-US"), std::invalid_argument);
 }
+
+TEST_CASE("Windows OCR survives repeated instance and worker apartment lifetimes", "[ocr][processed][CareerParity]")
+{
+    GrayImage image{32, 32, std::vector<std::uint8_t>(32 * 32, 255), {}};
+    for (int iteration = 0; iteration < 8; ++iteration)
+    {
+        CAPTURE(iteration);
+        {
+            WindowsOcrRecognizer reader;
+            auto const result = reader.recognize(image, "en-US");
+            CHECK(result.width == 32);
+            CHECK(result.detections.empty());
+        }
+        auto const result = std::async(std::launch::async, [&] {
+            WindowsOcrRecognizer reader;
+            return reader.recognize(image, "en-US");
+        }).get();
+        CHECK(result.width == 32);
+        CHECK(result.detections.empty());
+    }
+}

@@ -111,6 +111,27 @@ private:
     bool initialized{};
 };
 
+// C++/WinRT caches activation factories across recognizer instances. Keep the
+// MTA alive across short-lived calls and worker threads until those factories
+// are released, instead of tearing it down between OCR operations.
+class OcrRuntimeLifetime
+{
+public:
+    OcrRuntimeLifetime() { winrt::check_hresult(::CoIncrementMTAUsage(&m_cookie)); }
+    ~OcrRuntimeLifetime()
+    {
+        winrt::clear_factory_cache();
+        if (m_cookie) static_cast<void>(::CoDecrementMTAUsage(m_cookie));
+    }
+private:
+    CO_MTA_USAGE_COOKIE m_cookie{};
+};
+
+void EnsureOcrRuntime()
+{
+    static OcrRuntimeLifetime lifetime;
+}
+
 [[nodiscard]] SoftwareBitmap make_bitmap(Vision::GrayImage const& image)
 {
     if (image.width <= 0 || image.height <= 0 || image.width > 10000 || image.height > 10000)
@@ -172,7 +193,7 @@ struct WindowsOcrRecognizer::Impl
     }
 };
 
-WindowsOcrRecognizer::WindowsOcrRecognizer() : impl_(std::make_unique<Impl>()) {}
+WindowsOcrRecognizer::WindowsOcrRecognizer() : impl_(std::make_unique<Impl>()) { EnsureOcrRuntime(); }
 WindowsOcrRecognizer::~WindowsOcrRecognizer() = default;
 WindowsOcrRecognizer::WindowsOcrRecognizer(WindowsOcrRecognizer&&) noexcept = default;
 WindowsOcrRecognizer& WindowsOcrRecognizer::operator=(WindowsOcrRecognizer&&) noexcept = default;
