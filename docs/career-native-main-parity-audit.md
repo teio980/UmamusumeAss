@@ -60,3 +60,96 @@
 - Debug 输出的原生 DLL、回放工具和四个资源配置已更新。DLL 与最新构建产物 SHA-256 一致，旧 DLL 保留为 `.previous-*` 备份；正在运行的进程需要关闭再打开才能加载新版。
 
 完整验证结果与构建记录见本次任务的 `build/career-parity-*` 日志。真实截图识别与完整实机育成不是同一项验证；此记录不将离线回放称为完整实机通关。
+
+## 原生重构版行为补齐与 main (52619a03) 完整对齐核对
+
+以下为实施阶段针对本地 `main`（`52619a03`）的 10 项静态修复记录。当时尚未编译或执行回归；后续实际验证发现的问题、补修及结果见文末“实际构建与回归验证”，不能仅据此静态记录认定全部行为已验证。
+
+### 1. 已恢复行为
+
+| 环节 | 问题与遗漏 | 恢复后行为与静态对应实现 | 对应模块与文件 |
+|---|---|---|---|
+| **比赛续跑** | 从 Race Day / Race List 恢复时目标为空，列表动作 target 无法解析；无法识别第 3 场连续赛事 | 根据已有目标或当前页面恢复赛事意图（`race_day` -> `"race"`, `race_list` -> `"fans"`, 或从 `state.observedGoalKind` 恢复）；从赛事列表/详情续跑时，若无主界面行动且触发 `ShouldDeferRace(state)`，暂停自动化并输出与 main 一致的连续赛事保护提示，避免误入第 3 场可选赛事；若 `MustRaceNow` 则允许继续 | `CareerFlowCoordinator.cpp`<br>`UraScenarioModule.cpp` |
+| **粉丝目标** | 粉丝目标被错误映射为直接选择首场赛事 | 严格对齐 main 行为：只有 `grade_race_count` 目标使用 `race.fans_entry`；粉丝目标、推荐赛事目标、最终关卡及未知目标一律优先匹配 `race.recommended_entry`，未找到推荐时安全回退至首场 `race.fans_entry` | `CareerActionExecutor.cpp` |
+| **医务室** | 普通与智能策略中赛事判断覆盖医务室，与 main 顺序不一致 | 在主界面等待条件（如继承 GO 等待）解除后，将 `state.infirmaryAvailable` 优先于赛事决策及训练决策处理；同时兼顾智能训练策略与普通/比率训练策略 | `TrainingStrategies.cpp`<br>`UraSmartTrainingStrategy.cpp` |
+| **目标完成流程** | 缺少完整的目标页识别条件；比赛入口便开启完成标记，赛后主界面也缺少等待保护 | 1. 明确启用目标探测（Probe Armed）条件：仅非比赛行动（训练、休息、外出、医务室）确认后开启；比赛入口不开启；比赛结果确认或赛后回放完成时开启。<br>2. 页面识别门槛：`goal_objective_complete` 与 `goal_complete` 必须满足 probe armed 或赛后恢复；`goal_update` 严格要求上一页为 `goal_objective_complete`。<br>3. 赛后主界面等待保护：若处于 probe armed 且上一行动为比赛，在主界面等待 250ms 避免横幅动画未完成时抢跑 | `CareerObservationReader.cpp`<br>`CareerFlowCoordinator.cpp`<br>`UraScenarioModule.cpp` |
+| **动作图结果** | 执行器未将 `race.replay.completed` 等动作图终态结果通知协调器与剧本 | 执行器通过 `TakeLastActionOutcome()` 将动作终态结果提交协调器；协调器分发至剧本更新 `raceReplayFlowCompleted`、根据目标剩余次数重新武装目标探测，并更新跑法已配置 (`raceStrategyConfigured`) 及闹钟重试选择 | `CareerActionExecutor.cpp`<br>`CareerFlowCoordinator.cpp`<br>`UraScenarioModule.cpp` |
+| **比赛过渡** | 推荐弹窗、赛事列表进入详情缺少 main 的完整 30 秒窗口和一次重试保护 | 将 `raceTransition` 范围扩展至 `career_main`, `career_races_ready`, `race_day`, `race_recommendations`, `race_list`；配置 30 秒超时窗口与两帧完全相同时的一次重新匹配按钮的安全重试；候选页面补充 `race_details`, `race_attributes`, `race_runner` | `CareerActionExecutor.cpp` |
+| **训练提交** | 智能扫描只接受结果页或日期增加；倒计时减少、直接到比赛日没有完整处理 | 统一按 main 规则通过 `CheckAndConfirmTrainingConsumed` 消费训练：接受训练结果页、强制比赛日到达（`race_day` / `career_races_ready`）、决赛倒计时减少（`turnsToGoal - 1`）以及主界面回合行动递增；确认后推进训练比例/策略，重置扫描器并清除待确认记录 | `CareerFlowCoordinator.cpp` |
+| **停止后恢复** | 普通技能仅存在内存；智能训练确认记录没有持久化 | 引入 `CareerPersistenceStore.hpp`：<br>1. `NormalCareerSkillCache`：基于 `checkpointDirectory`、`traineeId` 和设备识别哈希（FNV-1a）隔离持久化已购技能；断点恢复自动加载，新育成或结算回首页时清理。<br>2. `SmartTrainingConfirmationStore`：记录未确认的智能训练点击；重启/恢复时在主界面核对并安全作废，在训练选择页暂停防重复点击；新育成或结算回首页时清理 | `CareerPersistenceStore.hpp`<br>`CareerSkillLearningFlow.cpp`<br>`CareerFlowCoordinator.cpp`<br>`NativeCareerTaskRunner.cpp` |
+| **结算续跑** | 完成判断只接受两种结算完成页；从故事解锁等返回首页可能被判失败 | 扩展 `IsTerminalScreen` 集合，纳入 `career_complete`, `career_complete_close`, `career_story_unlocked`, `career_story_unlocked_compact`, `career_story_unlocked_to_home`, `home_unselected`；在识别到任一结算终态页后再返回 `home` 时，确认整场育成圆满完成并清理各持久化记录 | `CareerFlowCoordinator.cpp` |
+| **主界面 OCR** | main 的成功文本缓存未迁移，主界面重复 OCR 相同区域 | 引入 `CareerMainTextCache`：当主界面关键字段（`scenario.phase`, `objective.turns_left`, `objective.title`, `mood.current`）ROI 的像素数据（灰度与 RGBA）与缓存帧完全一致时，直接复用上一次成功的文本与置信度；发生换页离开 `career_main`、提交行动、开局进入或恢复时清除缓存 | `CareerObservationReader.hpp`<br>`CareerObservationReader.cpp` |
+
+### 2. 保留的设计差异
+
+- **原生 C++ 架构与类型安全**：main 使用 C# 托管执行链；原生重构版采用 C++20、明确的所有权分层（`TaskEngine` -> `GameTasks` -> `Career` -> `CareerDomain`）、强类型 `ObservedValue<T>` 和 RAII 资源管理。
+- **持久化设备散列**：main 采用 SHA-256 计算设备标识字符串并截断，原生实现采用标准 FNV-1a 64 位哈希生成统一的 16 位十六进制设备标识（`normal-skills-{traineeId}-{deviceHash}.json`），无需依赖额外加解密平台库。
+- **扫描与决策解耦**：智能训练评分器（`UraSmartTrainingScorer`）与剧本动作决策解耦，通过 `IScenarioModule` 和 `ICareerStrategy` 纯虚接口进行领域模型交互，保证独立育成与各类剧本策略扩展能力。
+
+### 3. 实施阶段的验证方式与未验证项（历史记录）
+
+- **静态核对方式**：本次修改完全基于对本地 `main`（`52619a03`）与重构代码、资源及配置文件的静态逐行比对和静态语义核对。
+- **未验证项声明**：
+  - **未运行构建工具**：按照用户明确指令（"只负责改，不需要cmake，ctest"），本次未执行 `cmake` 配置与编译构建；
+  - **未运行测试套件**：未执行 `ctest` 或其他自动化测试；
+  - **未连接实机与模拟器**：未连接 ADB、未操作模拟器、未推进实际游戏育成。
+  - 本次交付不把静态对照等同于实机验证通过。
+
+## 实际构建与回归验证（2026-10-12）
+
+用户随后明确要求运行验证。本轮执行 MSVC Release 原生构建、WPF Release 构建、原生 CTest、Bridge 集成测试及 WPF 离线回归。没有连接真实模拟器或推进游戏；设备接口测试使用测试进程及 FakeAdb。
+
+### 验证发现并补修的问题
+
+- 修正重复成员声明、把普通 `ActionIntent` 当作 optional、错误的 `MakeRace` 参数、错误的 optional 访问及不存在的 `confirmedByAction` 字段，使原生代码可以编译。
+- 在首次运行观测之前加载智能训练确认记录，兼容开局模块已交接确认页面的情况；损坏或身份无效的记录阻止输入。训练输入前写入确认记录，写入失败不发送点击，取消后保留记录。
+- 在观测动作目的页面之前交接动作结果并启用目标探测；同时同步协调器观察器和动作执行器内部观察器。推进已确认的赛果不再关闭探测。
+- 按 main 补齐稳定主界面上的等待解除规则：识别到明确的后续目标后继续行动，覆盖决赛日期不变的情况。修复主界面目标分类未更新及未知目标残留。
+- OCR 缓存按 900×1600 参考坐标映射截图区域，保留原置信度，校验灰度、RGBA、截图尺寸和会话/几何代次；缓存命中不提升置信度至 1.0。提交行动时清理缓存。
+- 跑法配置在同一比赛内只执行一次，新比赛、接受闹钟重试及恢复时重新配置。续跑的可选赛事检查不再因导航操作把 `lastIntent` 改成 Race 而被绕过。
+- 原完整育成回放模拟了 `goal_update → goal_objective_complete`，与 main 的 `goal_update` 识别前置条件矛盾；更正为先完成横幅再目标更新，并增加明确的顺序断言。比赛取消后的目标断言改为检查当前列表重建出的回退目标。
+
+### 最终结果
+
+| 检查 | 结果 | 日志 |
+| --- | --- | --- |
+| MSVC Release 原生全量构建 | 通过；52 个 C ABI 导出校验通过 | `build/career-behavior-validation-final-build.log` |
+| 原生全量 CTest | 378/378 通过 | `build/career-behavior-validation-native-final.log` |
+| 新增行为回归 | 11 个用例、59 条断言通过 | `build/career-behavior-regression-final.log` |
+| Bridge 集成回归 | 163/163 通过 | `build/career-behavior-validation-bridge-final.log` |
+| WPF Release 构建 | 0 错误；现有 ImageSharp 依赖有 NuGet 审计告警 | `build/career-behavior-validation-wpf-build.log` |
+| WPF 离线回归 | 583/583 通过；发现阶段排除 Live/Packaging 用例 | `build/career-behavior-validation-wpf-final.log` |
+| 原生育成资源包检查 | 7 个场景通过 | `build/career-behavior-validation-package.log` |
+| 架构边界检查 | 通过 | `build/career-behavior-validation-architecture.log` |
+
+完整育成离线回放已覆盖目标赛事、URA 决赛系列及结算返回 Home。它使用打包资源和模拟帧、输入、OCR 上下文，不代表完整实机育成通关。最终 Bridge 和 WPF 回归使用本轮构建的原生 DLL；只同步测试输出，没有替换正在运行的 GUI 的原生 DLL。
+
+## 比赛查看结果的现场超时补修（2026-10-12）
+
+用户提供的运行日志在 `race_runner.entry.view_results` 之后出现过渡确认超时。只读截图显示游戏已停在 Cosmos Sho 的第 3 名结果页，底部 Next 可见；截图保存为 `testdata/hachimi/ura/captures/race_view_results_cosmos_sho_3rd_mumu_20261012.png`。本次只执行截图读取，没有点击或继续育成。
+
+对照 main 的 `HachimiJsonPipelineRunner`，发现 `repeatTapUntilTransition` 的等待语义被改变：main 在每次点击后、下一次重试前分别创建等待窗口；原生实现让所有点击尝试共享同一个截止时间。此处资源配置为 2,500 ms，较慢的截图/识别会提前耗尽整个窗口，尚未观察到结果便失败。
+
+- 恢复每次尝试独立等待；重试前先等待上一操作的结果，再使用当前帧重新匹配源按钮。源按钮消失时继续观察，截图失败或取消时停止，不向未知页面继续发送点击。
+- 新增慢截图回归，覆盖独立等待窗口、重试使用新坐标、源按钮消失后不重复输入；旧实现下两个分支均失败。原有“一个未命中立即发送第二次点击”的断言改为等待第一下的结果，与 main 一致。
+- 用现场结果截图验证原资源的 Next 过渡模板能够命中，保留现有阈值。它只证明该截图可识别，不等同于重跑完整实机比赛。
+- 过渡失败消息增加具体任务名，避免只看到没有动作位置的通用超时。
+
+验证：Release 全量构建及 52 个 C ABI 导出检查通过；TaskEngine 全集 23 个用例、422 条断言通过；现场截图匹配用例 7 条断言通过；原生全量 CTest **380/380**、Bridge **163/163** 通过。日志为 `build/career-race-transition-*`。
+
+新 DLL 和回放工具已同步到 staging、Debug 和 Release GUI 输出，旧文件保留备份，哈希见 `build/career-race-transition-runtime-hashes.json`。DLL SHA-256 为 `EC50B8A5D057032846E7EC29FB358DAC2A1B32655615B56785834F63F8FE13A7`。正在运行的助手仍加载旧模块，关闭并重新打开后才会使用更新文件；本次没有关闭助手、操作结果页或自动恢复任务。
+
+## 直接查看赛果的外层交接补修（2026-10-12）
+
+后续日志在 `race_runner.entry.view_results` 完成后报 `Career action produced no resource-confirmed screen transition: race_runner`。只读现场截图显示 Fuyo Stakes 第 1 名赛果，Next 可见，未出现 Replay 标记。本轮开始时构建输出和 Debug GUI 的 DLL 哈希均为上一节的 `EC50B8A...`，不是部署文件未同步导致。
+
+对照 main 的 `CareerScreenObserver.cs`，确认原生识别器遗漏了直接查看赛果的兼容分支：存在待处理比赛、跑法已配置且上一页为 `race_runner` 时，使用 `race_runner_result` 的 required Next 模板识别无 Replay 标签的名次页。动作图的 Next 过渡验证已经成功，但外层重新识别仍要求 Replay，因此把实际成功的操作判为失败。
+
+- 补齐该条件分支，把待处理比赛的参赛页结果识别条件同步到协调器观察器和动作执行器内部观察器；仍要求同帧模板证据和两帧稳定识别。
+- 离开参赛页后停止使用此兼容分支，恢复任务时清空该条件；没有待处理比赛上下文或没有 Next 时不能只凭共享按钮宣告赛果。
+- 两张现场截图（Cosmos Sho 第 3 名、Fuyo Stakes 第 1 名）在旧实现下都返回 `unknown`，共复现 4 条失败断言。新回归使用实际 PNG、打包模板和原生图像匹配，而非预设成功的模板匹配结果，覆盖识别、外层确认交接及条件清除。
+- 本轮没有发送 ADB 输入或推进游戏。截图识别和离线回归不能作为整场实机育成通关的证明；此前“全部对齐”的静态结论应按这些实际遗漏修正。
+
+验证结果：Release 全量构建和 52 个 C ABI 导出检查通过；比赛补修回归 **3 个用例 / 72 条断言**；原生 CTest **382/382**、Bridge **163/163** 通过。原生 CTest 明确排除 `ManagedBridgeTests` 和 `WpfGuiTests`，Bridge 使用已有 xUnit 直连执行器运行；本轮没有重跑 WPF 全集。并行构建曾遇到 MSBuild 子进程异常退出，串行全量构建完成。日志为 `build/career-runner-result-*`。
+
+通过验证的 DLL 和回放工具已同步到 staging、Debug 和 Release GUI 输出，并保留旧文件备份，逐文件哈希见 `build/career-runner-result-runtime-hashes.json`。本轮 DLL SHA-256 为 `D0F8068EDC222BD1AA6DAA7C69C2D613EBC1E1A740E6A774E42EA68C89832DB9`。没有关闭或重启助手，旧进程需要重新打开才能加载新模块。
