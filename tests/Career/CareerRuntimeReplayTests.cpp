@@ -249,7 +249,7 @@ public:
     }
     bool CheckImageChange(const TaskMatchResult&) override { return false; }
     std::vector<TaskOcrDetection> RecognizeText(
-        const std::string&, const std::optional<TaskRoi>& = std::nullopt) override { return {}; }
+        const std::string&, const std::optional<TaskRoi>& = std::nullopt) override { return ocrDetections; }
     bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override { return false; }
     bool Tap(int, int) override { return false; }
     bool Swipe(int, int, int, int, int) override { return false; }
@@ -261,6 +261,8 @@ public:
     void EmitEvent(const UmaAssistant::TaskEngine::TaskExecutionEvent&) override {}
 
     [[nodiscard]] std::size_t CaptureCount() const noexcept { return m_captureCount; }
+
+    std::vector<TaskOcrDetection> ocrDetections;
 
 private:
     std::vector<std::filesystem::path> m_screenshots;
@@ -303,4 +305,31 @@ TEST_CASE("Career observer replays a packaged Home screenshot on one captured fr
     REQUIRE(frame != nullptr);
     CHECK(frame->frameId == 2);
     CHECK(frame->rgbaPixels.size() == static_cast<std::size_t>(frame->width) * frame->height * 4);
+}
+
+TEST_CASE("Career entry recognizes Scenario Select despite its selected Home tab", "[CareerRuntime][Replay][Entry]")
+{
+    const auto resourceRoot = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "resource";
+    CareerRuntimeConfig config;
+    config.resourceDirectory = resourceRoot;
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(resourceRoot / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+
+    ScreenshotReplayContext context({
+        resourceRoot / "hachimi/career/race/templates/runtime_frames/scenario_select_ura.png"});
+    context.ocrDetections = {
+        {"Scenario Select", 25, 205, 235, 35, 0.99},
+        {"the URA Finale!", 590, 1120, 240, 35, 0.99}};
+    REQUIRE(context.CaptureScreen());
+    const auto* home = resources->FindScreen("home");
+    REQUIRE(home != nullptr);
+    REQUIRE_FALSE(home->templates.empty());
+    const auto& tab = home->templates.front();
+    // This shared navigation marker is present on both Home and Scenario Select.
+    REQUIRE(context.MatchTemplate(tab.path, tab.threshold, tab.roi).found);
+
+    CareerScreenObserver observer(resources);
+    const auto observation = observer.Observe(context);
+    CHECK(observation.screenId == "scenario_select");
 }

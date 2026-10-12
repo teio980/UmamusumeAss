@@ -3,6 +3,7 @@
 
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/ImageTransforms.hpp"
+#include "UmaAssistantCore/TaskEngine/RecognitionPipeline.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 
 #include <algorithm>
@@ -658,6 +659,26 @@ CareerDomain::CareerObservation CareerScreenObserver::Observe(
             }
             if (!matched)
                 continue;
+
+            // Scenario/trainee/legacy selection retain the selected Home tab.
+            // The tab alone is not proof that the Career entry button is still
+            // available. Probe its authored primary/alternative templates on
+            // this frame before routing back into the Home entry action.
+            if (Fold(screen.screenId) == "home")
+            {
+                const auto* entry = m_resources->FindAction("home", "home.career");
+                const auto entryMatch = entry
+                    ? TaskEngine::RecognitionPipeline::EvaluateSameFrameMonitors(
+                        m_resources->GetExecutionDefinition(), {entry->taskName}, context)
+                    : std::nullopt;
+                if (!SameFrame(context, sample.frame))
+                {
+                    sample.frameChanged = true;
+                    return sample;
+                }
+                if (!entryMatch)
+                    continue;
+            }
 
             bool requiredTemplatesMatch = true;
             if (Fold(screen.screenId) != "goal_complete")
