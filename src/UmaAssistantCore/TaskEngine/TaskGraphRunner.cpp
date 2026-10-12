@@ -946,7 +946,7 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             }
             if (!transition.confirmed)
             {
-                if (!routeFailure("Transition confirmation failed: " + transition.failureReason,
+                if (!routeFailure("Transition confirmation failed on task '" + currentTaskName + "': " + transition.failureReason,
                                   TaskGraphStatus::Failed))
                     return result;
                 if (optionalTerminal)

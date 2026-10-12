@@ -14,6 +14,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <thread>
 
 using namespace UmaAssistant::TaskEngine;
 using namespace UmaAssistant::TaskEngine::Tests;
@@ -514,7 +515,52 @@ TEST_CASE("Transition click counts its first tap and accepts a same-frame transi
 
     const auto result = runner.Run(*definition, "Repeated", context);
     CHECK(result.status == TaskGraphStatus::Completed);
-    CHECK(context.taps.size() == 2);
+    CHECK(context.taps.size() == 1); // Wait for the first tap's transition before considering a retry.
+}
+
+TEST_CASE("Repeated transition clicks keep per-attempt waits under slow capture", "[TaskEngine][CareerRaceTransition]")
+{
+    class SlowContext : public MockTaskExecutionContext
+    {
+    public:
+        bool CaptureScreen() override
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return MockTaskExecutionContext::CaptureScreen();
+        }
+        TaskMatchResult MatchTemplate(const std::string& path, double,
+            const std::optional<TaskRoi>&, const std::string&) override
+        {
+            const auto name = std::filesystem::path(path).filename().string();
+            if (name == "next.png")
+                return {sourceGone ? captureCount >= 4 : taps.size() >= 2, 0.99, 80, 90, 20, 20};
+            if (name == "button.png")
+                return {!(sourceGone && !taps.empty()), 0.99, taps.empty() ? 10 : 30, 20, 20, 20};
+            return {};
+        }
+        bool sourceGone{false};
+    };
+    const auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({"tasks":{
+        "Repeated":{"template":"button.png","action":"ClickSelfUntilTransition",
+          "repeatTapUntilTransition":true,"transitionTemplates":["next.png"],
+          "maxClickAttempts":2,"transitionTimeoutMs":1,"transitionPollIntervalMs":1,"success":true}
+    }})");
+    REQUIRE(definition);
+    SlowContext context;
+    SECTION("A second tap gets its own window and uses fresh source coordinates")
+    {
+        const auto result = TaskGraphRunner().Run(*definition, "Repeated", context);
+        CHECK(result.status == TaskGraphStatus::Success);
+        REQUIRE(context.taps.size() == 2);
+        CHECK(context.taps[1].first == 40);
+    }
+    SECTION("A disappearing source is observed until its destination arrives without retapping")
+    {
+        context.sourceGone = true;
+        const auto result = TaskGraphRunner().Run(*definition, "Repeated", context);
+        CHECK(result.status == TaskGraphStatus::Success);
+        CHECK(context.taps.size() == 1);
+    }
 }
 
 TEST_CASE("Scroll-to-find succeeds after a swipe and exhausts the configured swipe count", "[TaskEngine]")

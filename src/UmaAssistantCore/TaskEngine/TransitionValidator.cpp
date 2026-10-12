@@ -349,13 +349,67 @@ TransitionResult TransitionValidator::ValidateTransition(
     const int timeoutMs = task.transitionTimeoutMilliseconds > 0
         ? task.transitionTimeoutMilliseconds : 2600;
     const int pollMs = PollInterval(task);
+    if (needsRepeatedTaps)
+    {
+        const int limit = (std::clamp)(task.maxClickAttempts, 1, 100);
+        result.tapAttemptsMade = initialTapPerformed ? 1 : 0;
+        // main gives every post-tap wait and pre-retry wait its own budget.
+        // Screenshot and recognition latency must not consume all attempts.
+        const auto waitForDestination = [&]() {
+            const auto waitDeadline = DeadlineAfter(timeoutMs);
+            while (!context.IsCancelled())
+            {
+                if (!context.CaptureScreen())
+                {
+                    result.failureReason = "Transition validation could not capture a fresh frame";
+                    return false;
+                }
+                if (context.IsCancelled()) break;
+                if (CheckTransitionTemplates(task, context, result.confirmedTemplate))
+                {
+                    result.confirmed = true;
+                    return true;
+                }
+                if (std::chrono::steady_clock::now() >= waitDeadline) return false;
+                context.Sleep(pollMs);
+            }
+            result.failureReason = "Transition validation canceled";
+            return false;
+        };
+        for (int attempt = 0; attempt < limit && !context.IsCancelled(); ++attempt)
+        {
+            TaskMatchResult tapMatch = originalMatch;
+            bool sendTap = attempt != 0 || !initialTapPerformed;
+            if (attempt != 0)
+            {
+                if (waitForDestination() || !result.failureReason.empty()) return result;
+                // Re-identify the original source on the last captured frame.
+                // If it disappeared, keep observing without tapping a new page.
+                sendTap = CheckCurrentTemplate(task, context, tapMatch);
+            }
+            if (sendTap)
+            {
+                if (context.IsCancelled()) break;
+                const auto [tapX, tapY] = ResolveTapPoint(task, tapMatch);
+                if (!context.TapMatch(tapX, tapY, tapMatch))
+                {
+                    result.failureReason = "Transition tap failed";
+                    return result;
+                }
+                ++result.tapAttemptsMade;
+            }
+            if (waitForDestination() || !result.failureReason.empty()) return result;
+        }
+        result.failureReason = context.IsCancelled() ? "Transition validation canceled"
+            : "Transition validation timed out after " + std::to_string(result.tapAttemptsMade) + " tap attempt(s)";
+        return result;
+    }
     const bool mayUseFallback = !needsGone && !needsRepeatedTaps
         && task.fallbackRoi && task.fallbackRoi->size() >= 4;
     const int waitTimeoutMs = needsGone ? 600000 : timeoutMs;
     const auto deadline = DeadlineAfter(mayUseFallback ? (std::min)(timeoutMs, 1000) : waitTimeoutMs);
     const int clickGoneLimit = task.maxClickAttempts > 0
         ? task.maxClickAttempts : (std::numeric_limits<int>::max)();
-    const int repeatedTapLimit = (std::clamp)(task.maxClickAttempts, 1, 100);
     int clickAttempts = initialTapPerformed ? 1 : 0;
     result.tapAttemptsMade = initialTapPerformed ? 1 : 0;
     int consecutiveGone = 0;
@@ -365,55 +419,6 @@ TransitionResult TransitionValidator::ValidateTransition(
 
     while (!context.IsCancelled())
     {
-        // Repeated-transition clicks are sent only after checking whether the
-        // previous click already started the transition.
-        if (needsRepeatedTaps)
-        {
-            if (clickAttempts == 0)
-            {
-                const auto [tapX, tapY] = ResolveTapPoint(task, originalMatch);
-                if (!context.TapMatch(tapX, tapY, originalMatch))
-                {
-                    result.failureReason = "Initial transition tap failed";
-                    return result;
-                }
-                ++clickAttempts;
-                ++result.tapAttemptsMade;
-            }
-            const bool captured = context.CaptureScreen();
-            if (captured && CheckTransitionTemplates(task, context, result.confirmedTemplate))
-            {
-                result.confirmed = true;
-                return result;
-            }
-            if (std::chrono::steady_clock::now() >= deadline)
-                break;
-            // A failed capture is not evidence that the transition is absent.
-            // Fail safely instead of retrying on an unobserved screen.
-            if (!captured)
-            {
-                result.failureReason = "Transition validation could not capture a fresh frame";
-                return result;
-            }
-            if (clickAttempts < repeatedTapLimit)
-            {
-                const auto [tapX, tapY] = ResolveTapPoint(task, originalMatch);
-                if (!context.TapMatch(tapX, tapY, originalMatch))
-                {
-                    result.failureReason = "Transition retry tap failed";
-                    return result;
-                }
-                ++clickAttempts;
-                ++result.tapAttemptsMade;
-            }
-            else
-            {
-                context.Sleep(pollMs);
-                continue;
-            }
-            continue;
-        }
-
         if (needsGone && clickAttempts == 0)
         {
             const auto [tapX, tapY] = ResolveTapPoint(task, originalMatch);
