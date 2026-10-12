@@ -15,6 +15,7 @@ namespace
 
 GameTaskPackageResult Failure(int errorCode, std::string message, bool cancelled = false)
 {
+    if (message.empty()) message = cancelled ? "Package operation was canceled." : "Package operation failed.";
     return GameTaskPackageResult{
         false,
         false,
