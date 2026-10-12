@@ -359,11 +359,16 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
         bool optionalTerminal = false;
         auto routeFailure = [&](const std::string& message, TaskGraphStatus failureStatus) -> bool {
             optionalTerminal = false;
-            context.Log("WARN", message);
-            context.EmitEvent(TaskExecutionEvent{
-                TaskEventType::TaskFailed, currentTaskName, definition.name, step, false, 0.0, 0, 0,
-                message,
-                std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count()});
+            if (failureStatus == TaskGraphStatus::TimedOut && !task.required)
+                context.Log("DEBUG", "Optional visual marker is absent: " + currentTaskName);
+            else
+            {
+                context.Log("WARN", message);
+                context.EmitEvent(TaskExecutionEvent{
+                    TaskEventType::TaskFailed, currentTaskName, definition.name, step, false, 0.0, 0, 0,
+                    message,
+                    std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count()});
+            }
             if (const auto next = FirstExisting(definition, task.onErrorNext))
             {
                 currentTaskName = *next;

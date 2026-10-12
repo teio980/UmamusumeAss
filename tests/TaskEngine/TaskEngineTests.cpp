@@ -19,6 +19,32 @@ using namespace UmaAssistant::TaskEngine;
 using namespace UmaAssistant::TaskEngine::Tests;
 namespace Paths = UmaAssistant::Paths;
 
+TEST_CASE("Optional visual probes use their fallback without reporting a task failure", "[TaskEngine][CareerParity]")
+{
+    HachimiPipelineDefinition definition;
+    definition.name = "optional-probe";
+    HachimiPipelineTask probe;
+    probe.templatePath = "missing-probe.png";
+    probe.required = false;
+    probe.timeoutMilliseconds = 0;
+    probe.onErrorNext = {"fallback"};
+    definition.tasks["probe"] = probe;
+    HachimiPipelineTask fallback;
+    fallback.algorithm = "JustReturn";
+    fallback.action = "JustReturn";
+    definition.tasks["fallback"] = fallback;
+    MockTaskExecutionContext context;
+    auto const result = TaskGraphRunner{}.Run(definition, "probe", context);
+    CHECK(result.status == TaskGraphStatus::Completed);
+    CHECK(result.finalTask == "fallback");
+    CHECK(std::none_of(context.emittedEvents.begin(), context.emittedEvents.end(), [](auto const& event) {
+        return event.type == TaskEventType::TaskFailed;
+    }));
+    CHECK(std::none_of(context.logs.begin(), context.logs.end(), [](auto const& log) {
+        return log.starts_with("WARN");
+    }));
+}
+
 namespace
 {
 
