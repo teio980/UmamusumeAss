@@ -53,9 +53,10 @@ void Emit(
 {
     auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+    int const completedUnits = (type == TaskEventType::PipelineCompleted && succeeded) ? 1 : 0;
     context.EmitEvent(TaskExecutionEvent{
         type, taskName, pipelineName, stepIndex, succeeded, score, targetX, targetY,
-        std::move(message), timestamp, {}, 0, 1});
+        std::move(message), timestamp, {}, completedUnits, 1});
 }
 
 bool Capture(ITaskExecutionContext& context)

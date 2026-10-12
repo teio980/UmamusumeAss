@@ -215,8 +215,18 @@ public sealed class GrassTaskExecutionService(
 
                 case TaskCompletedEvent completed when TryGetTaskIndexByInstance(completed.TaskId, completed.OperationId, out var completedIndex):
                     terminalIndices.Add(completedIndex);
+                    var total = completed.TotalUnits > 0 ? completed.TotalUnits : 1;
+                    var completedRuns = completed.CompletedUnits > 0 ? completed.CompletedUnits : total;
+                    var finalProgress = new GrassTaskExecutionProgress(
+                        completedRuns,
+                        total,
+                        requests[completedIndex].TaskId,
+                        completed.OperationId,
+                        TaskName: completed.Name);
+                    contextFactory(completedIndex).ReportProgress?.Invoke(finalProgress);
                     report(new(completedIndex, GrassTaskQueueEventKind.Completed,
-                        new(true, false, completed.Message)));
+                        new(true, false, completed.Message),
+                        Progress: finalProgress));
                     break;
 
                 case TaskFailedEvent failed when TryGetTaskIndexByInstance(failed.TaskId, failed.OperationId, out var failedIndex):

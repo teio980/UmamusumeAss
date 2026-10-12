@@ -864,7 +864,15 @@ NativeGameTaskResult NativeGameTaskRunner::Run(
         result.completedUnits = (std::max)(graph.completedUnits, recoveryState.confirmedRaceUnits);
         if (!dailyRace && !teamRace &&
             (graph.status == TaskGraphStatus::Success || graph.status == TaskGraphStatus::Completed))
+        {
             result.completedUnits = 1;
+        }
+        else if ((dailyRace || teamRace) &&
+            (graph.status == TaskGraphStatus::Success || graph.status == TaskGraphStatus::Completed))
+        {
+            if (result.completedUnits == 0 && requestedRaces > 0)
+                result.completedUnits = requestedRaces;
+        }
         result.succeeded = graph.status == TaskGraphStatus::Success
             || graph.status == TaskGraphStatus::Completed;
         result.errorCode = result.succeeded ? 0

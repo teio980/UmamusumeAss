@@ -49,8 +49,11 @@ public sealed class GrassTaskExecutionServiceTests
         Assert.True(submitted["shop"]!["buyAlarmClock"]!.GetValue<bool>());
         Assert.Equal("saved.package", submitted["packageId"]!.GetValue<string>());
         Assert.Equal("saved.Activity", submitted["activityName"]!.GetValue<string>());
-        Assert.Contains(events, item => item.TaskIndex == 0 && item.Kind == GrassTaskQueueEventKind.Completed);
-        Assert.Contains(events, item => item.TaskIndex == 1 && item.Kind == GrassTaskQueueEventKind.Completed);
+        Assert.Contains(events, item => item.TaskIndex == 0 && item.Kind == GrassTaskQueueEventKind.Completed
+            && item.Progress != null && item.Progress.CompletedRuns == 1 && item.Progress.TotalRuns == 1);
+        Assert.Contains(events, item => item.TaskIndex == 1 && item.Kind == GrassTaskQueueEventKind.Completed
+            && item.Progress != null && item.Progress.CompletedRuns == 1 && item.Progress.TotalRuns == 1);
+        Assert.Contains(progress, item => item.TaskId == "mail-collection" && item.CompletedRuns == 1 && item.TotalRuns == 1);
         Assert.Contains(progress, item => item.TaskId == "daily-race" && item.CompletedRuns == 1 && item.TotalRuns == 2);
         Assert.Contains(semanticLogs, item => item.Message == "正在打开每日计划。"
             && item.Kind == HachimiTaskLogEventKind.Info);
@@ -145,6 +148,58 @@ public sealed class GrassTaskExecutionServiceTests
         Assert.Contains(events, item => item.TaskIndex == 1
             && item.Kind == GrassTaskQueueEventKind.Skipped
             && item.Message == "DeviceDisconnected");
+    }
+
+    [Fact]
+    public async Task TaskCompletedEventReportsFinalProgressAndUpdatesCompletedRuns()
+    {
+        var native = new SingleTaskUmaService();
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("start-game")]);
+        var events = new List<GrassTaskQueueEvent>();
+        var progress = new List<GrassTaskExecutionProgress>();
+
+        var result = await service.RunAsync(requests, _ => new(null, ReportProgress: progress.Add), events.Add);
+
+        Assert.True(result.Succeeded);
+        var completedEvent = Assert.Single(events, item => item.Kind == GrassTaskQueueEventKind.Completed);
+        Assert.NotNull(completedEvent.Progress);
+        Assert.Equal(1, completedEvent.Progress.CompletedRuns);
+        Assert.Equal(1, completedEvent.Progress.TotalRuns);
+        Assert.Equal("1/1", completedEvent.Progress.DisplayText);
+        Assert.Equal(2, progress.Count);
+        Assert.Equal(0, progress[0].CompletedRuns);
+        Assert.Equal(1, progress[1].CompletedRuns);
+    }
+
+    private sealed class SingleTaskUmaService : IUmaService
+    {
+        private Action<ConnectionEvent>? _events;
+        public string? CoreVersion => "test";
+        public event Action<ConnectionEvent>? ConnectionEventReceived
+        {
+            add => _events += value;
+            remove => _events -= value;
+        }
+        public event Action<BridgeDiagnostic>? DiagnosticReceived { add { } remove { } }
+        public Task InitializeAsync(string appBaseDir, string appDataDir, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ConnectionTerminalEvent> ConnectAsync(string adbPath, string serial, string profile, CancellationToken cancellationToken = default) =>
+            Task.FromException<ConnectionTerminalEvent>(new NotSupportedException());
+        public Task CancelOperationAsync(ulong operationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public Task<QueueRunSnapshot> GetRunSnapshotAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new QueueRunSnapshot(1, QueueRunState.Completed, null, string.Empty, 0, 0, 1, 0, 0, []));
+
+        public Task<QueueRunResult> RunQueueAsync(IReadOnlyList<QueueTaskRequest> tasks, CancellationToken cancellationToken = default)
+        {
+            _events?.Invoke(new TaskStartedEvent(1, 1, 1, tasks[0].TaskId, 0, tasks.Count));
+            _events?.Invoke(new GameTaskProgressEvent(
+                1, 2, tasks[0].TaskId, GameTaskEventType.TaskEntering, "home", "Start Game",
+                0, 0, 1, true, 1, 0, 0, "entering home", 0, 1));
+            _events?.Invoke(new TaskCompletedEvent(1, 3, 1, tasks[0].TaskId, 1, 1, "done"));
+            return Task.FromResult(new QueueRunResult(true, 1, 0, 0, 1, ConnectionErrorCode.Success, string.Empty));
+        }
     }
 
     private sealed class RecordingModule(string taskId) : IGrassTaskModule

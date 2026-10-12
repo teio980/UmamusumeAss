@@ -683,6 +683,11 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     {
         var task = tasks[update.TaskIndex];
         var taskLogId = GetTaskLogId(update.TaskIndex, task);
+        if (update.Progress is not null)
+        {
+            task.SetExecutionProgress(update.Progress);
+            HachimiTaskLog.SetTaskProgress(taskLogId, update.Progress);
+        }
         switch (update.Kind)
         {
             case GrassTaskQueueEventKind.Started:
