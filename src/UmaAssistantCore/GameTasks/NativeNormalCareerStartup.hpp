@@ -10,6 +10,7 @@ public:
         const Career::CareerRuntimeConfig& config,
         Career::CareerVisualResources& resources,
         Career::ICareerObserver& observer,
-        TaskEngine::ITaskExecutionContext& context);
+        TaskEngine::ITaskExecutionContext& context,
+        std::string const& confirmedEntryScreen = {});
 };
 }

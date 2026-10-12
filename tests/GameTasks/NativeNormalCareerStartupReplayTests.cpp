@@ -86,6 +86,21 @@ public:
         done.screenKind = CareerScreenKind::MainTurn;
         return done;
     }
+    CareerObservation ObserveScreens(ITaskExecutionContext& context,
+        const std::vector<std::string>& screens, bool allowResume = false) override
+    {
+        candidateHistory.push_back(screens);
+        if (settlementTrap && allowResume)
+        {
+            CareerObservation wrong;
+            wrong.screenId = "career_epithet";
+            wrong.screenKind = CareerScreenKind::Settlement;
+            return wrong;
+        }
+        return ICareerObserver::ObserveScreens(context, screens, allowResume);
+    }
+    bool settlementTrap{false};
+    std::vector<std::vector<std::string>> candidateHistory;
 private:
     std::vector<CareerObservation> m_observations;
     std::size_t m_next{0};
@@ -110,6 +125,29 @@ CareerObservation Screen(std::string id, CareerScreenKind kind)
 }
 
 } // namespace
+
+TEST_CASE("Confirmed final confirmation keeps normal startup out of settlement recovery",
+    "[GameTasks][CareerStartupReplay][StartupPhaseRegression]")
+{
+    auto const config = PackagedConfig();
+    CareerVisualResources resources(config);
+    SequenceCareerObserver observer({
+        Screen("career_final_confirmation", CareerScreenKind::Unknown),
+        Screen("career_intro_event", CareerScreenKind::EventChoice),
+        Screen("career_main", CareerScreenKind::MainTurn)});
+    observer.settlementTrap = true;
+    StartupReplayContext context;
+    auto const result = NativeNormalCareerStartup::Run(
+        config, resources, observer, context, "career_final_confirmation");
+    REQUIRE(result.succeeded);
+    REQUIRE(result.runtimeObservation.has_value());
+    CHECK(result.runtimeObservation->screenId == "career_main");
+    CHECK(result.actionsCompleted == 10);
+    REQUIRE_FALSE(observer.candidateHistory.empty());
+    CHECK(observer.candidateHistory.front() == std::vector<std::string>{"career_final_confirmation"});
+    for (auto const& candidates : observer.candidateHistory)
+        CHECK(std::find(candidates.begin(), candidates.end(), "career_epithet") == candidates.end());
+}
 
 TEST_CASE("Normal Career startup replays the configured mode, intro skip, and quick-mode actions",
     "[GameTasks][CareerStartupReplay]")
@@ -139,6 +177,8 @@ TEST_CASE("Normal Career startup replays the configured mode, intro skip, and qu
     REQUIRE(result.succeeded);
     CHECK_FALSE(result.cancelled);
     CHECK(result.lastScreenId == "career_main");
+    REQUIRE(result.runtimeObservation.has_value());
+    CHECK(result.runtimeObservation->screenId == "career_main");
     CHECK(result.actionsCompleted == 10);
     CHECK(std::any_of(context.templates.begin(), context.templates.end(), [](const auto& path) {
         return FoldPath(path) == "mode_normal_selected.png";
@@ -149,5 +189,22 @@ TEST_CASE("Normal Career startup replays the configured mode, intro skip, and qu
     CHECK(std::any_of(context.templates.begin(), context.templates.end(), [](const auto& path) {
         return FoldPath(path) == "quick_mode_skip_two.png";
     }));
+}
+
+TEST_CASE("Normal Career startup waits for a stable resumed event and retains it for runtime",
+    "[GameTasks][CareerStartupReplay]")
+{
+    auto const config = PackagedConfig();
+    CareerVisualResources resources(config);
+    SequenceCareerObserver observer({
+        Screen("capture_failed", CareerScreenKind::Unknown),
+        Screen("unknown", CareerScreenKind::Unknown),
+        Screen("event_choice", CareerScreenKind::EventChoice)});
+    StartupReplayContext context;
+    auto const result = NativeNormalCareerStartup::Run(config, resources, observer, context);
+    REQUIRE(result.succeeded);
+    REQUIRE(result.runtimeObservation.has_value());
+    CHECK(result.runtimeObservation->screenId == "event_choice");
+    CHECK(context.taps.empty());
 }
 

@@ -17,7 +17,7 @@
         ],
         "templThreshold": 0.8,
         "stable": true,
-        "priority": 20
+        "priority": 18
       },
       "actions": [
         {
@@ -553,7 +553,7 @@
         ],
         "templThreshold": 0.86,
         "stable": true,
-        "priority": 20
+        "priority": 11
       },
       "actions": [
         {
@@ -576,7 +576,7 @@
         ],
         "templThreshold": 0.86,
         "stable": true,
-        "priority": 20
+        "priority": 11
       },
       "actions": [
         {
@@ -599,7 +599,7 @@
         ],
         "templThreshold": 0.82,
         "stable": true,
-        "priority": 20
+        "priority": 10
       },
       "actions": [
         {
@@ -633,7 +633,7 @@
           "URA Finale"
         ],
         "stable": true,
-        "priority": 20
+        "priority": 12
       },
       "actions": [
         {
@@ -660,7 +660,7 @@
         ],
         "templThreshold": 0.88,
         "stable": true,
-        "priority": 20
+        "priority": 13
       },
       "actions": [
         {
@@ -678,20 +678,19 @@
     {
       "screenId": "support_select",
       "recognition": {
-        "template": "../modes/normal/templates/support_select_support_auto_fill.png",
+        "template": "../modes/normal/templates/normal/deck_title.png",
         "roi": [
-          350,
-          1030,
-          520,
-          240
+          66,
+          286,
+          73,
+          38
         ],
-        "templThreshold": 0.92,
+        "templThreshold": 0.88,
         "requiredText": [
-          "Support Formation",
-          "Auto-Fill"
+          "Support Formation"
         ],
         "stable": true,
-        "priority": 20
+        "priority": 17
       },
       "actions": [
         {
@@ -826,7 +825,7 @@
         ],
         "templThreshold": 0.78,
         "stable": true,
-        "priority": 20
+        "priority": 15
       },
       "actions": [
         {
@@ -848,12 +847,13 @@
           180
         ],
         "templThreshold": 0.85,
+        "matchColor": true,
         "requiredText": [
           "Support Formation",
           "Start Career!"
         ],
         "stable": true,
-        "priority": 20
+        "priority": 16
       },
       "actions": [
         {
@@ -880,7 +880,7 @@
           "Auto-Select"
         ],
         "stable": true,
-        "priority": 20
+        "priority": 14
       },
       "actions": [
         {

@@ -17,6 +17,7 @@ struct CareerEntryResult
     std::string error;
     std::string lastScreenId{"unknown"};
     int actionsCompleted{0};
+    std::optional<CareerDomain::CareerObservation> runtimeObservation;
 };
 
 /// Owns Home -> Final Confirmation routing. It deliberately stops before

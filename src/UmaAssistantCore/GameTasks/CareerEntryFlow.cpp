@@ -57,11 +57,16 @@ struct VisualCatalog
         const auto& regions = json["regions"];
         auto it = regions.find(std::string(id));
         if (it == regions.end() || !it->is_object()) return {};
-        auto roi = it->find(focused ? "focusedRoi" : "roi");
-        if (focused && roi == it->end() && it->contains("metadata")
-            && (*it)["metadata"].is_object())
-            roi = (*it)["metadata"].find("badgeRoi");
-        if (roi == it->end() || !roi->is_array() || roi->size() < 4) return {};
+        Json const* roi = nullptr;
+        auto const direct = it->find(focused ? "focusedRoi" : "roi");
+        if (direct != it->end()) roi = &*direct;
+        else if (focused && it->contains("metadata") && (*it)["metadata"].is_object())
+        {
+            auto const& metadata = (*it)["metadata"];
+            auto const badge = metadata.find("badgeRoi");
+            if (badge != metadata.end()) roi = &*badge;
+        }
+        if (!roi || !roi->is_array() || roi->size() < 4) return {};
         try { return TaskEngine::TaskRoi{(*roi)[0].get<int>(), (*roi)[1].get<int>(),
             (*roi)[2].get<int>(), (*roi)[3].get<int>()}; }
         catch (...) { return {}; }
@@ -101,6 +106,12 @@ bool WaitTapAsset(TaskEngine::ITaskExecutionContext& context, VisualCatalog cons
     std::string_view asset, std::string_view region, int timeoutMs = 8000,
     std::string_view logLabel = {})
 {
+    if (visual.Asset(asset).empty() || (!region.empty() && !visual.Roi(region)))
+    {
+        context.Log("ERROR", "Career visual catalog is missing control metadata: "
+            + std::string(asset) + " / " + std::string(region));
+        return false;
+    }
     auto const start = std::chrono::steady_clock::now();
     do
     {
@@ -326,13 +337,14 @@ bool LegacyAutoSelect(Career::CareerRuntimeConfig const& config, TaskEngine::ITa
     if (!WaitTapAsset(context, visual, "career.entry.legacy.legacy_auto_select", "career.entry.legacy.auto_select")) return false;
     if (config.useLegacyGuest)
     {
+        if (!context.CaptureScreen()) return false;
         TaskEngine::TaskMatchResult on;
         if (!MatchAsset(context, visual, "career.entry.legacy.legacy_auto_select_include_guests_on",
-                "career.entry.legacy.auto_select.include_guests", on)
+                "career.entry.legacy.guest.checkbox", on)
             && !WaitTapAsset(context, visual, "career.entry.legacy.legacy_auto_select_include_guests",
                 "career.entry.legacy.guest.checkbox")) return false;
     }
-    if (!WaitTapAsset(context, visual, "career.entry.legacy.legacy_auto_select_ok", "career.entry.legacy.auto_select.ok")) return false;
+    if (!WaitTapAsset(context, visual, "career.entry.legacy.legacy_auto_select_ok", "career.entry.legacy.auto_select.confirm")) return false;
     const auto start = std::chrono::steady_clock::now();
     bool borrowConfirmed = false;
     while (std::chrono::steady_clock::now() - start < std::chrono::seconds(20))
@@ -349,8 +361,7 @@ bool LegacyAutoSelect(Career::CareerRuntimeConfig const& config, TaskEngine::ITa
         else
         {
             TaskEngine::TaskMatchResult next;
-            if (MatchAsset(context, visual, "career.entry.legacy.legacy_next_enabled", "career.entry.legacy.next", next)
-                && (!config.useLegacyGuest || borrowConfirmed))
+            if (MatchAsset(context, visual, "career.entry.legacy.legacy_next_enabled", "career.entry.legacy.next", next))
                 return context.TapMatch(next.CenterX(), next.CenterY(), next);
         }
         context.Sleep(250);
@@ -529,22 +540,27 @@ bool RunAction(CareerEntryResult& result, Career::CareerVisualResources& resourc
 }
 
 CareerDomain::CareerObservation ObserveStable(Career::ICareerObserver& observer,
-    TaskEngine::ITaskExecutionContext& context, CareerEntryResult& result)
+    TaskEngine::ITaskExecutionContext& context, CareerEntryResult& result,
+    std::vector<std::string> const& screenIds, bool allowResume)
 {
-    constexpr int attempts = 8;
-    auto prior = observer.Observe(context);
+    constexpr int attempts = 30;
+    auto prior = observer.ObserveScreens(context, screenIds, allowResume);
     result.lastScreenId = prior.screenId;
     for (int attempt = 0; attempt < attempts; ++attempt)
     {
-        if (context.IsCancelled()) { result.cancelled = true; break; }
-        context.Sleep(140);
-        auto current = observer.Observe(context);
+        if (context.IsCancelled() || prior.screenId == "capture_cancelled")
+        { result.cancelled = true; return {}; }
+        if (prior.screenId == "resource_error") return prior;
+        context.Sleep(250);
+        auto current = observer.ObserveScreens(context, screenIds, allowResume);
         result.lastScreenId = current.screenId;
-        if (!prior.screenId.empty() && prior.screenId == current.screenId && current.screenId != "unknown")
+        if (!prior.screenId.empty() && prior.screenId == current.screenId && current.screenId != "unknown"
+            && current.screenId != "capture_failed" && current.screenId != "capture_cancelled")
             return current;
         prior = std::move(current);
     }
-    return prior;
+    // A final isolated match is not a stable navigation boundary.
+    return {};
 }
 
 bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
@@ -565,7 +581,7 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
         { result.error = "Selected support deck requires exactly five owned card IDs and one optional guest card."; return false; }
         if (ownIds.size() == 6) friendId = ownIds.back();
         if (!run("support.reset_if_needed")) return false;
-            auto selectExact = [&](int id, int slot, bool friendPage) {
+        auto selectExact = [&](int id, int slot, bool friendPage) {
             auto const* card = catalogs.TryGetSupportCard(id);
             auto const path = catalogs.GetSupportCardTemplatePath(id);
             if (!card || !card->available || path.empty())
@@ -667,18 +683,26 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
         { result.error = "Friend-slot preset has no usable support-card type in the catalog."; return false; }
         guestType = NormalizeKey(candidate->type);
     }
+    else
+    {
+        // All presets describe six cards including the borrowed card. Reserve
+        // its type before filling the five owned slots, even without a guest ID.
+        guestType = required.contains("speed") ? "speed" : required.begin()->first;
+        if (--required[guestType] == 0) required.erase(guestType);
+    }
     if (!run("support.reset_if_needed")) return false;
     int slot = 0;
-    static const std::array<std::array<int, 4>, 6> highestStarSlots{{
+    static const std::array<std::array<int, 4>, 5> highestStarSlots{{
         {{90, 420, 160, 160}}, {{360, 420, 160, 160}}, {{630, 420, 160, 160}},
-        {{90, 770, 160, 160}}, {{360, 770, 160, 160}}, {{630, 770, 160, 160}}}};
+        {{90, 770, 160, 160}}, {{360, 770, 160, 160}}}};
     for (auto const& [type, count] : required)
     {
         if (type == "friend") continue;
         for (int index = 0; index < count; ++index)
         {
             TaskEngine::TaskGraphRunOptions open;
-            if (slot >= static_cast<int>(highestStarSlots.size())) { result.error = "Support preset exceeds available card slots."; return false; }
+            if (slot >= static_cast<int>(highestStarSlots.size()))
+            { result.error = "Support preset exceeds available owned card slots."; return false; }
             auto const& roi = highestStarSlots[static_cast<std::size_t>(slot++)];
             open.searchRoiOverrides["support_select_support_open"] = {{roi[0], roi[1], roi[2], roi[3]}};
             if (!run("support.open", open)) return false;
@@ -744,38 +768,32 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
     }
     else
     {
-        // For presets with an explicit Friend slot and no requested ID, use
-        // the declared Friend type filter and its own page's highest card.
-        auto const friendCount = required.contains("friend") ? required["friend"] : 0;
-        if (friendCount > 0)
+        TaskEngine::TaskGraphRunOptions open;
+        open.searchRoiOverrides["support_select_support_open"] = {{630, 770, 160, 160}};
+        if (!run("support.open", open))
         {
-            TaskEngine::TaskGraphRunOptions open;
-            open.searchRoiOverrides["support_select_support_open"] = {{630, 770, 160, 160}};
-            if (!run("support.open", open))
-            {
-                if (!context.CaptureScreen()) return false;
-                auto detections = context.RecognizeText("en-US", TaskEngine::TaskRoi{20, 140, 860, 130});
-                auto remove = std::find_if(detections.begin(), detections.end(), [](auto const& text) {
-                    return NormalizeKey(text.text).find("remove") != std::string::npos;
-                });
-                if (remove == detections.end() || !TapOcrDetection(context, *remove))
-                { result.error = "Could not verify the Remove action for an occupied guest support slot."; return false; }
-                result.error.clear();
-                if (!run("support.open", open)) return false;
-            }
-            for (auto const& action : {std::string("support.ranked.display_settings"), std::string("support.ranked.filter_tab"),
-                std::string("support.ranked.filter_reset"), std::string("support.ranked.filter_sr"),
-                std::string("support.ranked.filter_ssr"), std::string("support.ranked.filter_friend"),
-                std::string("support.ranked.filter_apply"), std::string("support.ranked.display_settings"),
-                std::string("support.ranked.friend_sort_level"), std::string("support.ranked.sort_apply"),
-                std::string("support.ranked.sort_desc")}) if (!run(action)) return false;
-            TaskEngine::TaskGraphRunOptions best;
-            auto const* typeTemplate = resources.FindAsset("career.entry.support.type.friend." + guestType);
-            if (!typeTemplate) { result.error = "Friend support template is missing for type " + guestType; return false; }
-            best.templateOverrides["support_select_support_guest_top_card_ssr"] = typeTemplate->path;
-            best.templateOverrides["support_select_support_guest_top_card_sr"] = typeTemplate->path;
-            if (!run("support.ranked.select_guest_highest_card", best)) return false;
+            if (!context.CaptureScreen()) return false;
+            auto detections = context.RecognizeText("en-US", TaskEngine::TaskRoi{20, 140, 860, 130});
+            auto remove = std::find_if(detections.begin(), detections.end(), [](auto const& text) {
+                return NormalizeKey(text.text).find("remove") != std::string::npos;
+            });
+            if (remove == detections.end() || !TapOcrDetection(context, *remove))
+            { result.error = "Could not verify the Remove action for an occupied guest support slot."; return false; }
+            result.error.clear();
+            if (!run("support.open", open)) return false;
         }
+        for (auto const& action : {std::string("support.ranked.display_settings"), std::string("support.ranked.filter_tab"),
+            std::string("support.ranked.filter_reset"), std::string("support.ranked.filter_sr"),
+            std::string("support.ranked.filter_ssr"), "support.ranked.filter_" + guestType,
+            std::string("support.ranked.filter_apply"), std::string("support.ranked.display_settings"),
+            std::string("support.ranked.friend_sort_level"), std::string("support.ranked.sort_apply"),
+            std::string("support.ranked.sort_desc")}) if (!run(action)) return false;
+        TaskEngine::TaskGraphRunOptions best;
+        auto const* typeTemplate = resources.FindAsset("career.entry.support.type.friend." + guestType);
+        if (!typeTemplate) { result.error = "Friend support template is missing for type " + guestType; return false; }
+        best.templateOverrides["support_select_support_friend_top_card_ssr"] = typeTemplate->path;
+        best.templateOverrides["support_select_support_friend_top_card_sr"] = typeTemplate->path;
+        if (!run("support.ranked.select_friend_highest_card", best)) return false;
     }
     return run("support.start");
 }
@@ -802,10 +820,26 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
     TaskEngine::ITaskExecutionContext& context)
 {
     CareerEntryResult result;
+    std::vector<std::string> runtimeScreens;
+    for (auto const& screen : resources.GetScreens())
+        if (screen.flow != "entry" && screen.flow != "normal" && screen.flow != "independent"
+            && screen.screenId != "home" && screen.screenId != "home_unselected")
+            runtimeScreens.push_back(screen.screenId);
+    // Opening settings may also be resumed after an interrupted start.
+    for (auto const* screen : {"career_final_confirmation", "normal_final_confirmation_startup",
+        "career_intro_event", "normal_intro_event", "normal_quick_mode_settings", "career_skills"})
+        runtimeScreens.push_back(screen);
+    auto eligibleScreens = runtimeScreens;
+    for (auto const& screen : resources.GetScreens())
+        if (IsEntryScreen(screen.screenId)) eligibleScreens.push_back(screen.screenId);
+    bool supportConfigured = false;
+    bool allowResume = config.continueExistingCareer;
     for (int step = 0; step < 48; ++step)
     {
         if (context.IsCancelled()) { result.cancelled = true; return result; }
-        auto const observation = ObserveStable(observer, context, result);
+        auto const observation = ObserveStable(observer, context, result, eligibleScreens, allowResume);
+        allowResume = false;
+        if (result.cancelled || context.IsCancelled()) { result.cancelled = true; return result; }
         auto const& screen = observation.screenId;
         if (screen == "career_final_confirmation" || IsRuntimeCareerScreen(screen))
         { result.succeeded = true; return result; }
@@ -814,15 +848,20 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
         if (screen == "home")
         {
             if (!RunAction(result, resources, context, "home", "home.career")) return result;
+            eligibleScreens = {"career_continue", "scenario_select"};
         }
         else if (screen == "home_unselected")
         {
             if (!RunAction(result, resources, context, "home_unselected", "home.select")) return result;
+            eligibleScreens = {"home"};
         }
         else if (screen == "career_continue")
         {
             if (!RunAction(result, resources, context, screen,
                 config.continueExistingCareer ? "career.continue.resume" : "career.continue.delete")) return result;
+            eligibleScreens = config.continueExistingCareer ? runtimeScreens
+                : std::vector<std::string>{"home", "home_unselected", "scenario_select"};
+            allowResume = config.continueExistingCareer;
         }
         else if (screen == "scenario_select")
         {
@@ -831,17 +870,21 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
                 frame ? frame->frameId : 0);
             if (!RunAction(result, resources, context, screen,
                 selected.found ? "scenario.next" : "scenario.next_card")) return result;
+            eligibleScreens = {"trainee_select"};
         }
         else if (screen == "trainee_select")
         {
             if (!RunAction(result, resources, context, screen, "trainee.pick")) return result;
-            if (!RunAction(result, resources, context, screen, "trainee.next")) return result;
+            // trainee.pick already chains Next in the resource graph.
+            eligibleScreens = {"legacy_select"};
         }
         else if (screen == "legacy_select")
         {
             if (!RunAction(result, resources, context, screen, "legacy.choose")) return result;
+            eligibleScreens = {"support_select", "support_autofill_confirmation", "support_ready"};
         }
-        else if (screen == "support_select")
+        else if (screen == "support_select" || (screen == "support_ready"
+            && !supportConfigured && config.supportDeckMode != "auto"))
         {
             GameData::CareerSelectionCatalog catalogs(config.resourceDirectory);
             std::string catalogError;
@@ -851,14 +894,20 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
                 if (result.error.empty()) result.error = "Support deck setup was not verified.";
                 return result;
             }
+            supportConfigured = true;
+            eligibleScreens = config.supportDeckMode == "auto"
+                ? std::vector<std::string>{"support_autofill_confirmation", "support_ready", "career_final_confirmation"}
+                : std::vector<std::string>{"career_final_confirmation"};
         }
         else if (screen == "support_autofill_confirmation")
         {
             if (!RunAction(result, resources, context, screen, "support.autofill_ok")) return result;
+            eligibleScreens = {"support_ready", "career_final_confirmation"};
         }
         else if (screen == "support_ready")
         {
             if (!RunAction(result, resources, context, screen, "support.start")) return result;
+            eligibleScreens = {"career_final_confirmation"};
         }
         else if (!IsEntryScreen(screen))
         {

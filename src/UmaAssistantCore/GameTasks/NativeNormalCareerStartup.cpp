@@ -46,13 +46,43 @@ bool ConfigureQuickMode(CareerEntryResult& result, Career::CareerVisualResources
 
 CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConfig& config,
     Career::CareerVisualResources& resources, Career::ICareerObserver& observer,
-    TaskEngine::ITaskExecutionContext& context)
+    TaskEngine::ITaskExecutionContext& context, std::string const& confirmedEntryScreen)
 {
     CareerEntryResult result;
-    auto const initial = observer.Observe(context);
+    std::vector<std::string> startupScreens;
+    for (auto const& screen : resources.GetScreens())
+        if (screen.flow != "entry" && screen.flow != "normal" && screen.flow != "independent"
+            && screen.screenId != "home" && screen.screenId != "home_unselected")
+            startupScreens.push_back(screen.screenId);
+    for (auto const* id : {"career_final_confirmation", "normal_final_confirmation_startup",
+        "career_intro_event", "normal_intro_event", "normal_quick_mode_settings", "career_skills"})
+        startupScreens.push_back(id);
+    bool const newCareer = confirmedEntryScreen == "career_final_confirmation"
+        || confirmedEntryScreen == "normal_final_confirmation_startup"
+        || confirmedEntryScreen == "career_intro_event" || confirmedEntryScreen == "normal_intro_event"
+        || confirmedEntryScreen == "normal_quick_mode_settings";
+    auto const initialScreens = confirmedEntryScreen.empty() ? startupScreens
+        : std::vector<std::string>{confirmedEntryScreen};
+    if (newCareer)
+        std::erase_if(startupScreens, [&](auto const& id) {
+            auto const* screen = resources.FindScreen(id);
+            return screen && screen->flow == "settlement";
+        });
+    auto initial = observer.ObserveScreens(context, initialScreens, !newCareer);
+    for (int attempt = 0; (initial.screenId == "unknown" || initial.screenId == "capture_failed")
+        && attempt < 30 && !context.IsCancelled(); ++attempt)
+    {
+        context.Sleep(250);
+        initial = observer.ObserveScreens(context, initialScreens, !newCareer);
+    }
     result.lastScreenId = initial.screenId;
-    if (context.IsCancelled()) { result.cancelled = true; return result; }
-    if (IsRuntimeScreen(initial)) { result.succeeded = true; return result; }
+    if (context.IsCancelled() || initial.screenId == "capture_cancelled") { result.cancelled = true; return result; }
+    if (IsRuntimeScreen(initial))
+    {
+        result.runtimeObservation = initial;
+        result.succeeded = true;
+        return result;
+    }
     bool const finalConfirmation = initial.screenId == "career_final_confirmation"
         || initial.screenId == "normal_final_confirmation_startup";
     bool const pendingOpening = initial.screenId == "career_intro_event"
@@ -76,11 +106,16 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
     for (int attempt = 0; attempt < 30; ++attempt)
     {
         if (context.IsCancelled()) { result.cancelled = true; return result; }
-        auto const observation = attempt == 0 && pendingOpening ? initial : observer.Observe(context);
+        auto const observation = attempt == 0 && pendingOpening ? initial : observer.ObserveScreens(context, startupScreens);
         if (context.IsCancelled()) { result.cancelled = true; return result; }
         result.lastScreenId = observation.screenId;
+        if (observation.screenId == "capture_cancelled") { result.cancelled = true; return result; }
+        if (observation.screenId == "resource_error")
+        { result.error = "Normal Career visual resources are unavailable."; return result; }
+        if (observation.screenId == "capture_failed") { context.Sleep(400); continue; }
         if (observation.screenId == "career_main" || observation.screenId == "career_races_ready")
         {
+            result.runtimeObservation = observation;
             result.succeeded = true;
             return result;
         }
@@ -103,6 +138,7 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         {
             // The startup sequence has completed. Any remaining recognized
             // event/goal overlay is handled by the Career runtime.
+            result.runtimeObservation = observation;
             result.succeeded = true;
             return result;
         }

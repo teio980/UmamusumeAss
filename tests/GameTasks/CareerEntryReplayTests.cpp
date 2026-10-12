@@ -4,6 +4,8 @@
 #include "GameTasks/NativeIndependentTrainingFlow.hpp"
 #include "Career/CareerVisualResources.hpp"
 #include "Common/PathEncoding.hpp"
+#include "Resources/WicImageDecoder.hpp"
+#include "Vision/TemplateMatcher.hpp"
 #include "TaskEngine/TaskContextInterruption.hpp"
 #include "../TaskEngine/MockTaskExecutionContext.hpp"
 
@@ -11,9 +13,11 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -66,12 +70,14 @@ public:
     {
         ++observations;
         CareerDomain::CareerObservation value;
-        value.screenId = screenId;
+        value.screenId = nextScreen < sequence.size() ? sequence[nextScreen++] : screenId;
         value.score = 0.99;
         return value;
     }
     std::string screenId;
     int observations{0};
+    std::vector<std::string> sequence;
+    std::size_t nextScreen{0};
 };
 
 class CareerReplayContext final : public Tests::MockTaskExecutionContext
@@ -82,13 +88,18 @@ public:
     TaskMatchResult MatchTemplateAdvanced(
         const std::string& path,
         double,
-        const std::optional<TaskRoi>&,
+        const std::optional<TaskRoi>& roi,
         const std::string&,
         int referenceWidth,
         int referenceHeight,
         const std::vector<double>&) override
     {
         templateRequests.push_back(path);
+        if (legacyManualReplay && path.find("legacy_trainee_badge.png") != std::string::npos)
+        {
+            legacyBadgeRois.push_back(roi);
+            return TaskMatchResult{};
+        }
         if (path.find("skills_main_reset.png") != std::string::npos
             || path.find("lineup_open_down.png") != std::string::npos)
         {
@@ -129,6 +140,7 @@ public:
 
     void EmitEvent(TaskExecutionEvent const& event) override
     {
+        if (onEvent) onEvent(event);
         if (event.type == TaskEventType::TaskEntering)
         {
             enteredTasks.push_back(event.taskName);
@@ -152,6 +164,68 @@ public:
     std::vector<std::string> ocrTexts;
     std::vector<std::string> enteredTasks;
     std::vector<std::string> templateRequests;
+    bool legacyManualReplay{false};
+    std::vector<std::optional<TaskRoi>> legacyBadgeRois;
+    std::function<void(TaskExecutionEvent const&)> onEvent;
+};
+
+class LegacyScreenshotReplayContext final : public Tests::MockTaskExecutionContext
+{
+public:
+    bool CaptureScreen() override
+    {
+        const auto file = confirmation ? "legacy_auto_select_confirmation_mumu_20261012.png"
+            : "legacy_select_mumu_20261012.png";
+        image = Resources::WicImageDecoder::decode_file(
+            std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / file);
+        frame = std::make_shared<TaskFrameSnapshot>();
+        frame->width = image.width;
+        frame->height = image.height;
+        frame->frameId = ++captureCount;
+        frame->grayPixels = image.gray;
+        frame->rgbaPixels = image.rgba;
+        return true;
+    }
+
+    TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string&, int referenceWidth,
+        int referenceHeight, const std::vector<double>&) override
+    {
+        lastMarker = std::filesystem::path(path).filename().string();
+        if (!roi || !frame) { missingRegions.push_back(lastMarker); return {}; }
+        const auto marker = Resources::WicImageDecoder::decode_file_utf8(path);
+        const Vision::Roi bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+        const auto match = Vision::find(image, marker, bounds, threshold, referenceWidth, referenceHeight);
+        TaskMatchResult result;
+        result.found = match.found;
+        result.score = match.score;
+        result.x = match.x; result.y = match.y;
+        result.width = match.width; result.height = match.height;
+        result.frameId = frame->frameId;
+        result.referenceWidth = referenceWidth; result.referenceHeight = referenceHeight;
+        return result;
+    }
+
+    std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return frame; }
+    bool TapMatch(int x, int y, const TaskMatchResult& match) override
+    {
+        if (!frame || match.frameId != frame->frameId) return false;
+        if (lastMarker == "legacy_auto_select.png") confirmation = true;
+        if (lastMarker == "legacy_auto_select_ok.png") { confirmation = false; ++confirmed; }
+        if (lastMarker == "legacy_next_enabled.png") ++nextTapped;
+        if (lastMarker == "legacy_auto_select_include_guests.png") ++guestToggles;
+        return Tap(x, y);
+    }
+
+    int confirmed{0};
+    int nextTapped{0};
+    int guestToggles{0};
+    std::vector<std::string> missingRegions;
+private:
+    bool confirmation{false};
+    std::string lastMarker;
+    Vision::GrayImage image;
+    std::shared_ptr<TaskFrameSnapshot> frame;
 };
 
 Career::CareerRuntimeConfig IndependentConfig(std::filesystem::path const& checkpointDirectory)
@@ -204,6 +278,60 @@ bool HasTaskPrefix(CareerReplayContext const& context, std::string const& prefix
 
 } // namespace
 
+TEST_CASE("Legacy auto selection uses real catalog regions and allows owned auto results with guests enabled",
+    "[GameTasks][Career][Replay][LegacyRegression]")
+{
+    for (bool const guests : {false, true})
+    {
+        CAPTURE(guests);
+        Career::CareerRuntimeConfig config;
+        config.resourceDirectory = ResourceRoot();
+        config.useCachedLegacy = false;
+        config.useLegacyGuest = guests;
+        GameData::UmaGameDatabase trainees(ResourceRoot());
+        GameData::CareerSelectionCatalog catalog(ResourceRoot());
+        ActionRegistry registry;
+        CareerEntryFlow::RegisterActions(config, trainees, catalog, registry);
+        LegacyScreenshotReplayContext context;
+        REQUIRE(context.CaptureScreen());
+        HachimiPipelineTask task;
+        task.action = "SelectUraLegacy";
+        REQUIRE(registry.ExecuteAction(task, {}, context) == ActionResult::Success);
+        CHECK(context.confirmed == 1);
+        CHECK(context.nextTapped == 1);
+        CHECK(context.guestToggles == 0);
+        CHECK(context.missingRegions.empty());
+    }
+}
+
+TEST_CASE("Manual Legacy selection reads the authored nested trainee badge regions",
+    "[GameTasks][Career][Replay][LegacyRegression]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.legacySelectionMode = "manual";
+    config.useCachedLegacy = false;
+    config.useLegacyGuest = false;
+    config.legacyAttributeSparks = {"speed", "wit"};
+    config.legacyAptitudeSparks = {"turf", "late"};
+    GameData::UmaGameDatabase trainees(ResourceRoot());
+    GameData::CareerSelectionCatalog catalog(ResourceRoot());
+    ActionRegistry registry;
+    CareerEntryFlow::RegisterActions(config, trainees, catalog, registry);
+    CareerReplayContext context;
+    context.legacyManualReplay = true;
+    HachimiPipelineTask task;
+    task.action = "SelectUraLegacy";
+    REQUIRE(registry.ExecuteAction(task, {}, context) == ActionResult::Success);
+    REQUIRE(context.legacyBadgeRois.size() == 2);
+    for (auto const& roi : context.legacyBadgeRois)
+    {
+        REQUIRE(roi.has_value());
+        CHECK(roi->width == 160);
+        CHECK(roi->height == 75);
+    }
+}
+
 TEST_CASE("Career entry requires registered screen evidence before handing off", "[GameTasks][Career][Replay]")
 {
     Career::CareerRuntimeConfig config;
@@ -231,6 +359,106 @@ TEST_CASE("Career entry requires registered screen evidence before handing off",
         CHECK_FALSE(result.succeeded);
         CHECK_FALSE(result.error.empty());
         CHECK(context.taps.empty());
+    }
+}
+
+TEST_CASE("Career entry chains trainee Next once and configures Legacy before Support",
+    "[GameTasks][Career][Replay][EntryRegression]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    ActionRegistry actions;
+    int legacySelections = 0;
+    actions.RegisterHandler("SelectUraTrainee", [](auto const&, auto const&, auto&) { return ActionResult::Success; });
+    actions.RegisterHandler("SelectUraLegacy", [&](auto const&, auto const&, auto&) {
+        ++legacySelections;
+        return ActionResult::Success;
+    });
+    Career::CareerVisualResources resources(config, std::move(actions));
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("trainee_select");
+    CareerReplayContext context;
+    context.onEvent = [&](auto const& event) {
+        if (event.type != TaskEventType::TaskCompleted) return;
+        if (event.taskName == "trainee_select_trainee_next") observer.screenId = "legacy_select";
+        else if (event.taskName == "legacy_select_legacy_choose") observer.screenId = "support_ready";
+        else if (event.taskName == "support_ready_support_start") observer.screenId = "career_final_confirmation";
+    };
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error, result.lastScreenId);
+    REQUIRE(result.succeeded);
+    CHECK(legacySelections == 1);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "trainee_select_trainee_next") == 1);
+}
+
+TEST_CASE("Career entry waits through stale Support frames without repeating Start",
+    "[GameTasks][Career][Replay][EntryRegression]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    Career::CareerVisualResources resources(config);
+    ReplayObserver observer("support_ready");
+    observer.sequence = {"capture_failed", "unknown"};
+    CareerReplayContext context;
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted && event.taskName == "support_ready_support_start")
+        {
+            observer.sequence = {"support_ready", "support_ready", "unknown", "unknown"};
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+}
+
+TEST_CASE("Career entry refuses a match that never stabilizes", "[GameTasks][Career][Replay][EntryRegression]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    Career::CareerVisualResources resources(config);
+    ReplayObserver observer("career_final_confirmation");
+    for (int i = 0; i < 31; ++i)
+        observer.sequence.push_back(i % 2 == 0 ? "career_final_confirmation" : "home");
+    CareerReplayContext context;
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Highest-star presets fill five owned slots and a borrowed slot",
+    "[GameTasks][Career][Replay][EntryRegression]")
+{
+    for (auto const* preset : {"speed3-stamina3", "speed3-stamina2-wit1",
+        "speed2-stamina2-power1-wit1", "speed2-stamina1-power1-wit1-friend1"})
+    {
+        CAPTURE(preset);
+        Career::CareerRuntimeConfig config;
+        config.resourceDirectory = ResourceRoot();
+        config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+        config.supportDeckMode = "highest-star";
+        config.supportDeckPreset = preset;
+        Career::CareerVisualResources resources(config);
+        REQUIRE(resources.IsReady());
+        // A previously populated formation still needs the requested preset.
+        ReplayObserver observer("support_ready");
+        CareerReplayContext context;
+        context.onEvent = [&](auto const& event) {
+            if (event.type == TaskEventType::TaskCompleted && event.taskName == "support_select_support_start")
+                observer.screenId = "career_final_confirmation";
+        };
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CAPTURE(result.error);
+        REQUIRE(result.succeeded);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_select_support_open") == 6);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_select_support_top_card_ssr") == 5);
+        CHECK(HasTask(context, "support_select_support_friend_sort_level"));
+        CHECK(HasTask(context, "support_select_support_friend_top_card_ssr"));
+        CHECK_FALSE(HasTask(context, "support_select_support_filter_friend"));
     }
 }
 

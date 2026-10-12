@@ -433,6 +433,7 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                 try
                 {
                     bool needsEntry = true;
+                    std::string confirmedEntryScreen;
                     if (snapshot.careerMode == "independent"
                         && !NativeIndependentTrainingFlow::NeedsEntry(snapshot, context, needsEntry, error, recoveryCount > 0))
                         return fail(error);
@@ -441,6 +442,7 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                         auto const entry = CareerEntryFlow::Run(entryConfig, *resources, *observer, context);
                         if (!entry.succeeded)
                             return fail(entry.error.empty() ? "Career entry was not confirmed." : entry.error, entry.cancelled);
+                        confirmedEntryScreen = entry.lastScreenId;
                     }
                     if (snapshot.careerMode == "independent")
                     {
@@ -452,10 +454,13 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                     }
                     else
                     {
-                        auto const startup = NativeNormalCareerStartup::Run(snapshot, *resources, *observer, context);
+                        auto const startup = NativeNormalCareerStartup::Run(
+                            snapshot, *resources, *observer, context, confirmedEntryScreen);
                         if (!startup.succeeded)
                             return fail(startup.error.empty() ? "Normal Career startup was not confirmed." : startup.error,
                                 startup.cancelled);
+                        if (startup.runtimeObservation)
+                            coordinator->SetConfirmedObservation(*startup.runtimeObservation);
                         auto const flow = coordinator->RunToCompletion(context, snapshot.maxSteps);
                         if (flow.status != Career::CareerRunStatus::Completed)
                             return fail(flow.failureReason.empty() ? "Career did not reach confirmed completion." : flow.failureReason,
