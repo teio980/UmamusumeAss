@@ -77,7 +77,7 @@
 | **比赛过渡** | 推荐弹窗、赛事列表进入详情缺少 main 的完整 30 秒窗口和一次重试保护 | 将 `raceTransition` 范围扩展至 `career_main`, `career_races_ready`, `race_day`, `race_recommendations`, `race_list`；配置 30 秒超时窗口与两帧完全相同时的一次重新匹配按钮的安全重试；候选页面补充 `race_details`, `race_attributes`, `race_runner` | `CareerActionExecutor.cpp` |
 | **训练提交** | 智能扫描只接受结果页或日期增加；倒计时减少、直接到比赛日没有完整处理 | 统一按 main 规则通过 `CheckAndConfirmTrainingConsumed` 消费训练：接受训练结果页、强制比赛日到达（`race_day` / `career_races_ready`）、决赛倒计时减少（`turnsToGoal - 1`）以及主界面回合行动递增；确认后推进训练比例/策略，重置扫描器并清除待确认记录 | `CareerFlowCoordinator.cpp` |
 | **停止后恢复** | 普通技能仅存在内存；智能训练确认记录没有持久化 | 引入 `CareerPersistenceStore.hpp`：<br>1. `NormalCareerSkillCache`：基于 `checkpointDirectory`、`traineeId` 和设备识别哈希（FNV-1a）隔离持久化已购技能；断点恢复自动加载，新育成或结算回首页时清理。<br>2. `SmartTrainingConfirmationStore`：记录未确认的智能训练点击；重启/恢复时在主界面核对并安全作废，在训练选择页暂停防重复点击；新育成或结算回首页时清理 | `CareerPersistenceStore.hpp`<br>`CareerSkillLearningFlow.cpp`<br>`CareerFlowCoordinator.cpp`<br>`NativeCareerTaskRunner.cpp` |
-| **结算续跑** | 完成判断只接受两种结算完成页；从故事解锁等返回首页可能被判失败 | 扩展 `IsTerminalScreen` 集合，纳入 `career_complete`, `career_complete_close`, `career_story_unlocked`, `career_story_unlocked_compact`, `career_story_unlocked_to_home`, `home_unselected`；在识别到任一结算终态页后再返回 `home` 时，确认整场育成圆满完成并清理各持久化记录 | `CareerFlowCoordinator.cpp` |
+| **结算续跑** | 完成判断只接受两种结算完成页；从故事解锁等返回首页可能被判失败 | 扩展终态集合至 `career_complete`, `career_complete_close`, `career_story_unlocked`, `career_story_unlocked_compact`, `career_story_unlocked_to_home`；终态后若到达 `home_unselected`，先执行 Home 标签选择，确认 `home` 后完成并清理持久化记录。未选中的 Home 标签本身不是育成完成证据 | `CareerFlowCoordinator.cpp` |
 | **主界面 OCR** | main 的成功文本缓存未迁移，主界面重复 OCR 相同区域 | 引入 `CareerMainTextCache`：当主界面关键字段（`scenario.phase`, `objective.turns_left`, `objective.title`, `mood.current`）ROI 的像素数据（灰度与 RGBA）与缓存帧完全一致时，直接复用上一次成功的文本与置信度；发生换页离开 `career_main`、提交行动、开局进入或恢复时清除缓存 | `CareerObservationReader.hpp`<br>`CareerObservationReader.cpp` |
 
 ### 2. 保留的设计差异
@@ -153,3 +153,106 @@
 验证结果：Release 全量构建和 52 个 C ABI 导出检查通过；比赛补修回归 **3 个用例 / 72 条断言**；原生 CTest **382/382**、Bridge **163/163** 通过。原生 CTest 明确排除 `ManagedBridgeTests` 和 `WpfGuiTests`，Bridge 使用已有 xUnit 直连执行器运行；本轮没有重跑 WPF 全集。并行构建曾遇到 MSBuild 子进程异常退出，串行全量构建完成。日志为 `build/career-runner-result-*`。
 
 通过验证的 DLL 和回放工具已同步到 staging、Debug 和 Release GUI 输出，并保留旧文件备份，逐文件哈希见 `build/career-runner-result-runtime-hashes.json`。本轮 DLL SHA-256 为 `D0F8068EDC222BD1AA6DAA7C69C2D613EBC1E1A740E6A774E42EA68C89832DB9`。没有关闭或重启助手，旧进程需要重新打开才能加载新模块。
+
+## Career Rank 结算阈值补修（2026-10-13）
+
+用户日志在 `complete_career.career.finish` 后报外层过渡确认失败。只读 ADB 截图确认当前页面是 Career Rank：B+、Rating 8,533、底部 Next。现场截图保存为 `testdata/hachimi/ura/captures/career_rank_bplus_8533_mumu_20261013.png`，本轮没有发送游戏输入。
+
+main 的 `CareerSettlementFlow` 已有 `career_rank -> career.next`，该动作和资源在原生版本中也存在。真正差异位于资源解析：main 的 `UraScreenRecognition.TemplateThreshold` 和 `RequiredTemplateThreshold` 默认值均为 **0.78**，原生加载器却用 **0.86**。Career Rank 配置省略了阈值，现场 B+ 图对现有 A 等级样图的匹配分数为 **0.8390682615**，因错误默认值被判为 `unknown`。旧实现的现场回归共出现 5 条失败断言，包含默认值及 B+ 图识别；这不是育成完成按钮未点击成功。
+
+恢复屏幕主模板和 required 模板的默认值为 0.78，资源中的显式阈值继续优先，目录资源资产和动作图阈值不受此改动影响。同一默认值用于 Career Rank、Sparks 及其确认页等省略阈值的屏幕，因此修复解析契约而非只给当前截图设置特例。
+
+新增回归使用真实 B+ 截图和既有 A 等级样图，验证结算页稳定识别、`complete_career -> career_rank` 外层交接及原 `career.next` 按钮匹配；同时检查省略/显式阈值及 Career Rank、Sparks、Sparks Confirmation 现有截图在结算阶段的分类。
+
+验证结果：Release 全量构建及 52 个 C ABI 导出检查通过；结算补修回归 **3 个用例 / 63 条断言**；原生 CTest **385/385**、Bridge **163/163** 通过。原生 CTest 排除 `ManagedBridgeTests` 和 `WpfGuiTests`，Bridge 使用已有 xUnit 直连执行器运行，本轮没有重跑 WPF 全集。日志为 `build/career-rank-*-20261013.log`。本轮仅用 ADB 读取截图，实际 Next 点击在离线测试上下文中验证，没有推进实机结算流程。
+
+修复后的 DLL 和回放工具已同步到 staging、Debug 和 Release GUI 输出，旧文件保留备份；逐文件哈希见 `build/career-rank-runtime-hashes-20261013.json`。DLL SHA-256 为 `29362B51F9FF21257ACBA66A78562D42D3CFDDE8A4B339A14EB1AC86850329EC`。旧进程需要重新打开助手才能加载修复。
+
+## Rewards 同页翻页确认补修（2026-10-13）
+
+后续日志成功通过 Career Rank、Sparks、Epithet 和 Career Result，在 `rewards.rewards.next` 后报外层过渡确认失败。只读 ADB 截图显示游戏已经进入 Support Cards 奖励页，仍使用 `rewards` 页面 ID。main 的结算分发器会继续处理同 ID 的下一页；原生通用确认器此前只接受不同页面 ID、回合变化或事件状态变化，未处理两页 Rewards 的内容推进。
+
+使用既有 Bond Level 奖励截图和现场 Support Cards 截图复现：一次模板确认的 Next 点击成功，目的页仍为 `rewards`，旧确认器超时并没有交回观测。新增两份 Support Cards 现场截图，在背景彩纸位置不同的情况下验证标题标记保持稳定。
+
+资源为 Rewards 指定第一条奖励分组标题的 `stateSignatureRoi`，不使用整帧动画差异判断翻页。观察器仅在两帧均认出同页、标记像素一致且会话、画面尺寸及几何代次一致时提供页面状态证据。动作确认器允许相同页面 ID 上该证据发生变化，并交回实际目的观测；不自动发送重试点击。其他页面未配置该区域时维持原有确认规则。
+
+回归覆盖 Bond Level 到 Support Cards 的一次点击交接、相同内容、区域外动画、标题不稳定、会话/几何变更及两次现场截图。ADB 仅用于读取画面，没有推进实际结算。
+
+验证结果：Release 全量构建和 52 个 C ABI 导出检查通过；奖励页补修回归 **3 个用例 / 48 条断言**；原生 CTest **388/388**、Bridge **163/163** 通过。原生 CTest 排除 `ManagedBridgeTests` 和 `WpfGuiTests`，Bridge 使用既有 xUnit 直连执行器运行，本轮没有重跑 WPF 全集。日志为 `build/career-rewards-*-20261013.log`。
+
+新 DLL 和回放工具已同步到 staging、Debug 和 Release GUI 输出，新增 ROI 配置也同步到两套 GUI 的 `resource/hachimi/career/settlement/profile.json`，旧文件均保留备份。逐文件哈希见 `build/career-rewards-runtime-hashes-20261013.json`。DLL SHA-256 为 `C8EFC826733FBF0FCE5FD6FA590A3B3EDBE6509DD99CF2DB7EFC6C7F97E3C651`，资源配置 SHA-256 为 `B3E9781D66998D9990A4C3EFEAD9039386674BA37C4085820B395F6E5A7ECEAC`。没有重启助手，旧进程需重新打开以加载修复。
+
+## 整条结算链核对与实机验证（2026-10-13）
+
+再次失败时，ADB 截图已是 Rewards Collected 弹窗。日志中的两帧不稳定与外层失败发生于同一毫秒。旧通用确认窗口只有 15 秒，捕获与识别一对帧本身即可耗尽它；一次观测跨过弹窗动画后，没有预算再确认稳定画面。main 的引擎允许多次稳定识别重试，而非仅以一次观测判失败。
+
+- 结算过渡窗口为 60 秒，其他普通动作过渡为 45 秒；赛事入口原有的 30 秒保护继续生效。观测包含实际采集和识别耗时，没有因等待窗口延长增加点击重试。
+- 两帧不稳定日志现在记录两个页面 ID；超时诊断记录完整观测次数、源页面、末次页面和窗口长度，区分动画中的识别失败与动作图失败。
+- 补齐结算后 `home_unselected` 的处理：已确认终态时执行资源中的 Home 标签选择，随后在 `home` 完成；未确认终态时不能仅凭未选中的 Home 标签宣告育成结束。此前纳入终态集合却未处理 Unknown 分类的实现遗漏已修正。
+- 回归使用生产图像算法，包含颜色文字匹配及原生 OCR。19 份结算/返回截图中，18 份识别到对应阶段，另有一份旧奖励截图的 Next 分数只有 0.709，低于资源要求的 0.78，明确拒绝发送输入；不通过降低按钮阈值让动画帧通过。
+- 慢截图回归模拟每次采集 8 秒，第一对帧跨过弹窗动画：旧实现超时，修复后下一对稳定帧确认 Rewards Collected。完整协调器用本次实际截取的 7 个阶段重放 6 次动作并确认 Home。
+
+实机验证使用临时 `build/settlement-live-probe` 工具，调用同一 `NativeTaskExecutionContext`、`CareerScreenObserver` 和 `CareerActionExecutor`，输入只来自已识别结算页面的资源动作；只允许单动作结算页，进入 Home 即停止。没有开始下一次育成。当前育成实际通过：
+
+`rewards_collected -> rewards -> event_reward -> rewards -> follow_trainer_limit -> career_complete -> home`
+
+6 次原生动作均确认成功，最终 Home 识别分数为 0.980908。日志为 `build/career-settlement-live-advance.log`；实际截图已纳入 `testdata/hachimi/ura/captures/*_mumu_20261013.png`。本次实机只验证当前剩余结算路径，其他可选结算分支由真实截图和协调器回归验证，不声明重新通关整场育成。
+
+最终验证：Release 全量构建、52 个 C ABI 导出检查通过；整链审查回归 **4 个用例 / 148 条断言**；原生 CTest **392/392**、Bridge **163/163** 通过。原生 CTest 排除 `ManagedBridgeTests` 和 `WpfGuiTests`，Bridge 使用既有 xUnit 直连执行器；本轮没有重跑 WPF 全集。日志为 `build/career-settlement-audit-*`。
+
+最终 DLL、回放工具及结算配置已同步到 staging 和两套 GUI 输出，保留旧文件备份。哈希记录为 `build/career-settlement-audit-runtime-hashes.json`，DLL SHA-256 为 `039B44F7A512741B07F00E044093577820878680FE7DF3812621BDDA1A00863B`。游戏已留在 Home；没有重启助手，旧进程需要重新打开才能加载新模块。
+
+## 新育成误入目标完成流程补修（2026-10-13）
+
+用户日志在开局 Skip 配置后直接执行 `goal_objective_complete.goal.next`，随后找不到 `goal_complete_goal_next`。本次 ADB 现场为小栗帽出道前主界面，剩余 **11 回合**，满体力，比赛尚未解锁。截图保存为 `testdata/hachimi/ura/captures/career_main_oguri_predebut_mumu_20261013.png`。这张稳定截图本身能正确识别为 `career_main`，没有把它称为失败瞬间的截图。
+
+对照仍为 `main` 的 `52619a03`。自动逐项比对九个 Career profile 片段中的 **254 个动作绑定**，没有删除或改名任何 main 动作绑定；逐项记录为 `build/career-main-actions-audit-20261013.csv`。资源绑定存在不能证明执行行为已迁移，以下核对同时检查相应的原生执行层与已有回归。
+
+| main 操作范围 | 本轮核对的原生执行路径与验证 |
+| --- | --- |
+| 入口、选马、继承、配卡、续育成 | `CareerEntryFlow`、原生任务包装；入口及完整 runner 回放 |
+| 普通模式、四种跑法、开场 Skip、Quick | `NativeNormalCareerStartup`；补充两种 Final Confirmation 来源的开局边界回归 |
+| 主界面八个资源动作 | 目标详情、训练、休息、夏合宿休息、外出、医务室、普通赛事、决赛入口的资源绑定；执行器、协调器、剧本和策略既有回归 |
+| 五种训练与智能/比率策略 | 训练选择与结果确认、当前回合候选、训练数字 OCR；Career/URA/完整 runner 回放 |
+| 休息、医务室、外出及继承 GO | 专属确认动作、行动后观测、GO 等待；行为和资源动作回归 |
+| 目标、粉丝、指定等级及连续比赛 | 推荐/首场回退、第三场保护、跑法、回放/直接赛果、闹钟；赛事意图和完整 runner 回放 |
+| 技能、事件及抓娃娃 | 技能点与价格、购买确认、技能缓存、事件标题/选项证据、专属抓娃娃流程；对应现有测试组 |
+| 单项目标、目标更新、全部目标完成 | 目标探测前置条件、目标页 Next 证据、真实单项目标截图；与结算区分 |
+| 结算、奖励及返回首页 | 保留前述结算补修；真实截图、完整结算协调器与 runner 回放 |
+| 中断、恢复、多次育成 | 数字 OCR 包装层转发、智能训练确认记录、日期恢复、取消与 runCount；原生任务/Bridge 回归 |
+
+### 已确认的迁移遗漏
+
+- **新开局候选未限制。** main 的 `careerStartTransitionExpected` 只允许开场和首个主界面；原生开局仍加入目标和比赛候选，Quick 配置后还允许任意 runtime 页面结束开局。使用已识别的开场后返回目标页的回放，旧实现出现 **10 条失败断言**，并把 `goal_objective_complete` 交给运行器。开局候选现限定为开场、Quick、`career_main` 和 `career_races_ready`，首个主界面确认后才交接。已有育成从真正目标页恢复的路径保留。
+- **单项目标页只有标题证据。** 增加彩色 GOAL 字形匹配和同帧 Next 必需模板。真实单项目标完成截图及原 Next 动作仍能匹配；人为模拟标题相关误命中时，真实主界面缺少 Next，因此不能被路由成目标完成页。没有降低按钮阈值或添加坐标点击回退。
+- **倒计时数字回退未接齐。** Windows OCR 对现场数字只返回 `turn(s) left`，原路径丢失 11。接回有界数字 OCR，使用明确的无符号整数格式，并为倒计时保留彩色卡片。训练增益的 `+N` 和失败率的 `N%` 默认解析保持原语义。数字子区域排除卡框，拒绝字母、负数、单位、多值和溢出；两种裁剪读数冲突时保持未知。成功值按同一设备/几何的实际 ROI 像素缓存，原置信度保留。
+- **条件探测被标成必需失败。** 普通模式、四种跑法的前置状态以及三个 Quick/Skip 探测均已有资源回退，现在显式 `required: false`。未命中走原回退并记录 Debug，实际按钮点击和后置确认仍为必需步骤。
+
+全量并行验证还暴露了测试自身的临时文件名冲突：`ConnectionProfileTests` 每个进程的首次 `std::rand()` 都生成同名 `uma_profile_test_41.json`，导致另一个测试读到空文件。临时文件名增加时钟标识，避免并发测试互相覆盖；没有修改连接配置的生产解析规则。
+
+### 最终验证与运行文件
+
+- MSVC Release 全量构建通过，52 个 C ABI 导出检查通过；最终原生 CTest **396/396**、Bridge **163/163** 通过，资源包 **7 个场景**和架构边界检查通过。原生 CTest 排除 `ManagedBridgeTests`、`WpfGuiTests`，Bridge 使用已有 xUnit 直连执行器；本轮没有重跑 WPF 全集。
+- 新增开局、真实主界面/目标页和数字解析回归合计 **4 个用例、167 条断言**。旧版本开局边界回放失败，新版本通过；图像回归实际调用生产模板算法、Windows OCR 和本机数字 OCR。
+- 实机工具使用同一 `NativeTaskExecutionContext`、`CareerScreenObserver` 和 `CareerActionExecutor`。首次读取为 `career_main / 11 回合 / 99% 体力`；开启目标探测后仍识别为 `career_main`。随后实际完成 `career_main -> training_selection -> career_main` 两次资源匹配输入，返回后仍为 11 回合和 99% 体力，没有提交训练或消耗回合。日志为 `build/career-startup-live-navigation-final.log`，返回截图为 `debug/career-regression-20261013/after.png`。这项实测没有重新完成整场育成。
+- 初次实机工具的默认临时目录写入被系统拒绝，数字读取保持未知且工具在发送输入前退出。添加了可读的数字 OCR 失败原因；验证子进程随后单独使用项目内临时目录，未修改系统环境或助手的用户设置。
+- DLL、回放工具及四个 Career 资源配置已同步到 staging、Debug 和 Release GUI 输出，GUI 中原文件保留备份。12 个副本逐项哈希一致，记录为 `build/career-startup-runtime-hashes-20261013.json`。最终 DLL SHA-256 为 `76BCCD9EA219DD50BFB57353E545ECEDF840D62EA1A39C304F863194C3CCA59A`。正在运行的助手仍映射旧模块，需要关闭再打开后继续当前育成。
+
+最终日志为 `build/career-regression-verified-build.log`、`build/career-regression-verified-native-tests.log`、`build/career-regression-verified-bridge.log`、`build/career-regression-verified-package.log` 和 `build/career-regression-verified-architecture.log`。
+
+## 最后一次训练直接进入必赛列表补修（2026-10-13）
+
+用户在 `training_selection.training.guts` 后收到 45 秒、14 次观测、末次 `unknown` 的过渡失败。只读 ADB 截图显示当前已进入出道赛 Race List，左上卡片为 **Race Day**，目标为 Run in Junior Make Debut；截图保存为 `testdata/hachimi/ura/captures/race_list_debut_after_training_mumu_20261013.png`。这是报错后的稳定目的页，不是训练点击未成功的证据。
+
+原生完整观察器已有 `race_list` 资源；训练/休息后的专用候选集却没有它，因此同一截图在指定 `race_list` 时能识别，在训练交接确认时一直返回 unknown。旧代码的真实截图交接回归失败，日志为 `build/career-training-race-before.log`。对照 main 的 `CareerScreenObserver.TurnActionReturnScreens`，该候选集同样未包含 Race List；本次按实际 Quick 路径补齐边界，不把 main 的遗漏当成正确行为。前轮实机只验证了打开和退出训练页，未覆盖训练结束直达比赛列表。
+
+- 训练及非比赛回合动作的目的候选集补入 Race List、空比赛列表、推荐和连赛提醒，保持现有等待窗口与输入策略。
+- Race List 增加卡片状态 OCR：只有实际读取到 **Race Day** 才提供到目标 0 回合的证据，普通可选赛事列表不能提供这一必赛边界。没有把任意 Race List 写成 0 回合。
+- 协调器与 URA 剧本在这个可靠边界确认最后一次训练已消耗，提交训练计数一次，重置非比赛行动后的连赛计数。重启恢复的持久训练确认记录在相同边界重建剧本待确认行动，再确认并清除记录；普通可选赛事列表继续保留未知状态和确认记录。
+- 增加三项回归，覆盖真实截图交接、原生 OCR 区分必赛/可选列表、运行中及重启后的单次训练提交和连赛状态。修复后 **3 个用例 / 32 条断言**通过，日志为 `build/career-training-race-recheck.log`。
+
+实机只读工具调用同一 `NativeTaskExecutionContext` 和 `CareerActionExecutor.ConfirmCompletionFromObservation`，对已提交的训练确认当前目的页，实际返回 `training_selection -> race_list`，识别分数 1、可靠倒计时 0、原始 OCR 为 Race Day。工具没有调用动作执行方法或发送游戏输入，日志为 `build/career-training-race-live-confirm.log`，原生截图为 `debug/career-training-transition-20261013/native-confirmed.png`。未重复训练、推进当前比赛或重新完成整场育成。
+
+最终验证：Release 全量构建和 52 个 C ABI 导出检查通过；原生 CTest **399/399**、包含原生集成的 Bridge **163/163**（无跳过）通过，资源包 **7 个场景**及架构检查通过。原生 CTest 排除 ManagedBridgeTests 和 WpfGuiTests，Bridge 使用既有 xUnit 直连执行器；本轮没有重跑 WPF 全集。日志为 `build/career-training-race-build-20261013.log`、`build/career-training-race-native-tests-20261013.log`、`build/career-training-race-bridge-integrated-20261013.log`、`build/career-training-race-package-20261013.log` 和 `build/career-training-race-architecture-20261013.log`。
+
+新 DLL、回放工具及比赛配置已同步到 staging（原生文件）、Debug 和 Release GUI 输出，GUI 原文件保留 `.previous-training-race-20261013-130456` 备份；8 个副本的哈希记录为 `build/career-training-race-runtime-hashes-20261013.json`。DLL SHA-256 为 `B20D3C81CE7156CAA2E354D24B66F711250EF06BCE99120BDAB8E59BC660CCCA`，比赛配置为 `B6BF1CF1492CCC24FECE4A2C6EF6B3BA377E0997F9C8D10A28CBDC2F3F4BACAA`。助手进程 31392 仍映射旧模块，需要重开后从当前比赛页继续。
