@@ -108,6 +108,35 @@ TEST_CASE("Career package inspection uses the production parser and returns sour
     CHECK(std::find(sourcePaths.begin(), sourcePaths.end(), Utf8(package.resourceRoot / "hachimi" / "career" / "catalog.json")) != sourcePaths.end());
 }
 
+TEST_CASE("Career screen recognition preserves main defaults and authored threshold overrides", "[CareerPackageInspection][CareerSettlementTransition]")
+{
+    TemporaryPackage package;
+    Json recognition{{"template", "templates/main.png"}, {"requiredTemplate", "templates/main.png"}};
+    double expectedPrimary = 0.78;
+    double expectedRequired = 0.78;
+    SECTION("Omitted thresholds use the legacy profile defaults") {}
+    SECTION("Explicit thresholds remain authoritative")
+    {
+        recognition["templThreshold"] = expectedPrimary = 0.91;
+        recognition["requiredTemplateThreshold"] = expectedRequired = 0.92;
+    }
+    const auto profilePath = package.resourceRoot / "hachimi" / "career" / "profile.json";
+    const Json profile{{"scenarioId", "inspection-test"}, {"screens", Json::array({Json{{"screenId", "career_main"},
+        {"recognition", recognition},
+        {"actions", Json::array({Json{{"semanticId", "begin"}, {"task", "start"}}})}}})}};
+    UmaAssistant::Career::CareerRuntimeConfig config;
+    config.resourceDirectory = package.resourceRoot;
+    config.manifestPath = Utf8(package.manifestPath);
+    UmaAssistant::Career::CareerVisualResources resources(config, {}, {{Utf8(profilePath), profile.dump()}});
+    REQUIRE(resources.IsReady());
+    const auto* screen = resources.FindScreen("career_main");
+    REQUIRE(screen != nullptr);
+    REQUIRE(screen->templates.size() == 1);
+    REQUIRE(screen->requiredTemplates.size() == 1);
+    CHECK(screen->templates.front().threshold == expectedPrimary);
+    CHECK(screen->requiredTemplates.front().threshold == expectedRequired);
+}
+
 TEST_CASE("Career package inspection applies overlays before native validation", "[CareerPackageInspection]")
 {
     TemporaryPackage package;

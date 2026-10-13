@@ -237,6 +237,31 @@ TEST_CASE("Restored story settlement completes only after Home", "[CareerBehavio
     CHECK(coordinator.Step(context).status == CareerRunStatus::Completed);
 }
 
+TEST_CASE("Settlement selects the unselected Home tab only after a confirmed terminal page", "[CareerBehavior][CareerSettlementAudit]")
+{
+    auto observer = std::make_shared<Observer>();
+    auto executor = std::make_shared<Executor>();
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(),
+        std::make_shared<DefaultTrainingStrategy>());
+    Context context;
+    SECTION("A terminal page followed by an unselected Home tab completes after selection")
+    {
+        observer->observationSequence = {Screen("career_complete", CareerScreenKind::Settlement),
+            Screen("home_unselected", CareerScreenKind::Unknown), Screen("home", CareerScreenKind::Unknown)};
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+        REQUIRE(executor->executedIntents.size() == 2);
+        CHECK(executor->executedIntents.back().customActionName == "Advance");
+        CHECK(coordinator.Step(context).status == CareerRunStatus::Completed);
+    }
+    SECTION("An unselected Home tab alone cannot prove Career completion")
+    {
+        observer->observationSequence = {Screen("home_unselected", CareerScreenKind::Unknown)};
+        CHECK(coordinator.Step(context).status == CareerRunStatus::Failed);
+        CHECK(executor->executedIntents.empty());
+    }
+}
+
 TEST_CASE("A readable Finale goal releases post-race waiting without a calendar change", "[CareerBehavior]")
 {
     auto observer = std::make_shared<Observer>();
@@ -372,5 +397,76 @@ TEST_CASE("Resumed optional races remain guarded while Race Day resumes a requir
         REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
         REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
         CHECK(executor->executedIntents.back().raceTarget == "race");
+    }
+}
+
+TEST_CASE("The mandatory Race List commits the final training once and resets its non-race streak",
+    "[CareerBehavior][CareerTrainingRaceHandoff]")
+{
+    class TrackingStrategy : public DefaultTrainingStrategy
+    {
+    public:
+        TrackingStrategy() : DefaultTrainingStrategy("guts") {}
+        bool RequiresTrainingCandidateScan() const noexcept override { return scan; }
+        void ConfirmTraining(CareerState&, const std::string& type) override { committed.push_back(type); }
+        bool scan{false};
+        std::vector<std::string> committed;
+    };
+    TempStore temporary;
+    Context context;
+    auto observer = std::make_shared<Observer>();
+    auto executor = std::make_shared<Executor>();
+    auto strategy = std::make_shared<TrackingStrategy>();
+    auto scenario = std::make_shared<UraScenarioModule>();
+    CareerRuntimeConfig config;
+    config.continueExistingCareer = false;
+    auto raceList = Screen("race_list", CareerScreenKind::RaceEntry);
+    raceList.goalTextEvidence = ObservedValue<std::string>::Make("Run in Junior Make Debut");
+    raceList.turnsToGoalEvidence = ObservedValue<int>::Make(0);
+    SECTION("Live final training skips directly into Race List")
+    {
+        auto main = Main(1);
+        main.turnPositionText = "Junior Year Pre-Debut";
+        main.goalTextEvidence = raceList.goalTextEvidence;
+        observer->observationSequence = {main, Screen("training_selection", CareerScreenKind::TrainingSelect),
+            raceList, raceList};
+        CareerFlowCoordinator coordinator(observer, executor, scenario, strategy, config);
+        for (int step = 0; step < 4; ++step) REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+        CHECK(strategy->committed == std::vector<std::string>{"guts"});
+        CHECK(coordinator.GetState().confirmedTurnActions == 1);
+        CHECK(coordinator.GetState().consecutiveRaceTurns == 0);
+        CHECK(executor->executedIntents.back().kind == ActionIntentKind::Race);
+    }
+    SECTION("A resumed pending training is reconciled at the mandatory Race List")
+    {
+        config.continueExistingCareer = true;
+        config.traineeId = 1001;
+        config.checkpointDirectory = temporary.path;
+        strategy->scan = true;
+        REQUIRE(SmartTrainingConfirmationStore::Save(temporary.path, 1001, context.GetDeviceSerial(), "guts", 0));
+        observer->observationSequence = {raceList, raceList};
+        CareerFlowCoordinator coordinator(observer, executor, scenario, strategy, config);
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+        CHECK(strategy->committed == std::vector<std::string>{"guts"});
+        CHECK(coordinator.GetState().confirmedTurnActions == 1);
+        CHECK(coordinator.GetState().consecutiveRaceTurns == 0);
+        CHECK_FALSE(SmartTrainingConfirmationStore::Load(temporary.path, 1001, context.GetDeviceSerial()).has_value());
+    }
+    SECTION("A generic optional Race List cannot prove that the pending training finished")
+    {
+        config.continueExistingCareer = true;
+        config.traineeId = 1001;
+        config.checkpointDirectory = temporary.path;
+        strategy->scan = true;
+        raceList.turnsToGoalEvidence = ObservedValue<int>::Unknown();
+        raceList.goalTextEvidence = ObservedValue<std::string>::Make("Earn 3000 fans");
+        REQUIRE(SmartTrainingConfirmationStore::Save(temporary.path, 1001, context.GetDeviceSerial(), "guts", 0));
+        observer->observationSequence = {raceList};
+        CareerFlowCoordinator coordinator(observer, executor, scenario, strategy, config);
+        CHECK(coordinator.Step(context).status == CareerRunStatus::Failed);
+        CHECK(strategy->committed.empty());
+        CHECK(coordinator.GetState().confirmedTurnActions == 0);
+        CHECK(SmartTrainingConfirmationStore::Load(temporary.path, 1001, context.GetDeviceSerial()).has_value());
     }
 }

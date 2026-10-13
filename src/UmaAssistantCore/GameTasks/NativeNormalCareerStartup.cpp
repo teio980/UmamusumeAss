@@ -92,6 +92,12 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         result.error = "Normal Career setup requires confirmed Final Confirmation or a resumed Career screen.";
         return result;
     }
+    // Match main's careerStartTransitionExpected policy: opening setup must
+    // reach its first turn before runtime goal/race/settlement candidates are
+    // admitted. A shared marker during the opening animation cannot establish
+    // that a new Career has already completed an objective.
+    startupScreens = {"career_intro_event", "normal_intro_event", "normal_quick_mode_settings",
+        "career_main", "career_races_ready"};
     std::string const finalPage = "career_final_confirmation";
     if (finalConfirmation)
     {
@@ -102,7 +108,6 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
     }
 
     bool introSkipped = false;
-    bool quickModeConfigured = false;
     for (int attempt = 0; attempt < 30; ++attempt)
     {
         if (context.IsCancelled()) { result.cancelled = true; return result; }
@@ -122,7 +127,6 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         if (observation.screenId == "normal_quick_mode_settings")
         {
             if (!ConfigureQuickMode(result, resources, context)) return result;
-            quickModeConfigured = true;
         }
         else if (!introSkipped && (observation.screenId == "career_intro_event"
             || observation.screenId == "normal_intro_event"
@@ -132,15 +136,6 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
             if (!Execute(result, resources, context, finalPage, "normal.post_start.skip")) return result;
             introSkipped = true;
             if (!ConfigureQuickMode(result, resources, context)) return result;
-            quickModeConfigured = true;
-        }
-        else if (IsRuntimeScreen(observation) && quickModeConfigured)
-        {
-            // The startup sequence has completed. Any remaining recognized
-            // event/goal overlay is handled by the Career runtime.
-            result.runtimeObservation = observation;
-            result.succeeded = true;
-            return result;
         }
         else if (!introSkipped && observation.screenKind == CareerDomain::CareerScreenKind::Unknown
             && finalConfirmation)
@@ -151,7 +146,6 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
             if (!Execute(result, resources, context, finalPage, "normal.post_start.skip")) return result;
             introSkipped = true;
             if (!ConfigureQuickMode(result, resources, context)) return result;
-            quickModeConfigured = true;
         }
         context.Sleep(400);
     }

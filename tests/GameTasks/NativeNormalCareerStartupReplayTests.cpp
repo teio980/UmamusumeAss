@@ -97,9 +97,18 @@ public:
             wrong.screenKind = CareerScreenKind::Settlement;
             return wrong;
         }
+        if (goalTrap && m_next >= 2
+            && std::find(screens.begin(), screens.end(), "goal_objective_complete") != screens.end())
+        {
+            CareerObservation wrong;
+            wrong.screenId = "goal_objective_complete";
+            wrong.screenKind = CareerScreenKind::ConfirmationDialog;
+            return wrong;
+        }
         return ICareerObserver::ObserveScreens(context, screens, allowResume);
     }
     bool settlementTrap{false};
+    bool goalTrap{false};
     std::vector<std::vector<std::string>> candidateHistory;
 private:
     std::vector<CareerObservation> m_observations;
@@ -206,5 +215,32 @@ TEST_CASE("Normal Career startup waits for a stable resumed event and retains it
     REQUIRE(result.runtimeObservation.has_value());
     CHECK(result.runtimeObservation->screenId == "event_choice");
     CHECK(context.taps.empty());
+}
+
+TEST_CASE("New Normal Career startup excludes goal overlays before confirming its first turn",
+    "[GameTasks][CareerStartupReplay][CareerStartupMainRegression]")
+{
+    auto const config = PackagedConfig();
+    CareerVisualResources resources(config);
+    SequenceCareerObserver observer({
+        Screen("career_final_confirmation", CareerScreenKind::Unknown),
+        Screen("career_intro_event", CareerScreenKind::EventChoice),
+        Screen("career_main", CareerScreenKind::MainTurn)});
+    observer.goalTrap = true;
+    StartupReplayContext context;
+    std::string confirmedEntry;
+    SECTION("Entry confirmed Final Confirmation") { confirmedEntry = "career_final_confirmation"; }
+    SECTION("Startup recovered Final Confirmation") {}
+    auto const result = NativeNormalCareerStartup::Run(config, resources, observer, context, confirmedEntry);
+    REQUIRE(result.succeeded);
+    REQUIRE(result.runtimeObservation.has_value());
+    CHECK(result.runtimeObservation->screenId == "career_main");
+    CHECK(result.actionsCompleted == 10);
+    for (std::size_t index = 1; index < observer.candidateHistory.size(); ++index)
+    {
+        auto const& candidates = observer.candidateHistory[index];
+        CHECK(std::find(candidates.begin(), candidates.end(), "goal_objective_complete") == candidates.end());
+        CHECK(std::find(candidates.begin(), candidates.end(), "race_runner") == candidates.end());
+    }
 }
 

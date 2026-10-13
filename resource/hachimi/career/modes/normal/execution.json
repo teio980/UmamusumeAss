@@ -130,6 +130,7 @@
       "success": false
     },
     "normal_mode_selected_probe": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "templates/normal/mode_normal_selected.png",
@@ -179,6 +180,7 @@
       "postDelay": 600
     },
     "normal_strategy_option_front_pre": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
@@ -230,6 +232,7 @@
       "success": true
     },
     "normal_strategy_option_pace_pre": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
@@ -281,6 +284,7 @@
       "success": true
     },
     "normal_strategy_option_late_pre": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
@@ -332,6 +336,7 @@
       "success": true
     },
     "normal_strategy_option_end_pre": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
@@ -448,6 +453,7 @@
       "required": false
     },
     "normal_quick_mode_shorten_probe": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_shorten_selected.png",
@@ -498,6 +504,7 @@
       "success": true
     },
     "normal_quick_mode_skip_two_probe": {
+      "required": false,
       "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_skip_two.png",
@@ -515,6 +522,7 @@
       ]
     },
     "normal_quick_mode_skip_one_probe": {
+      "required": false,
       "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_skip_one.png",

@@ -639,6 +639,8 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                 screen.priority = recognition.value("priority", 0);
                 screen.stable = recognition.value("stable", true);
                 screen.verifyRequiredText = recognition.value("verifyRequiredText", false);
+                if (recognition.contains("stateSignatureRoi"))
+                    screen.stateSignatureRoi = ParseRoi(recognition["stateSignatureRoi"]);
                 if (recognition.contains("requiredText") && recognition["requiredText"].is_array())
                 {
                     for (const auto& text : recognition["requiredText"])
@@ -677,7 +679,7 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                         continue;
                     }
                     templ.path = Paths::ToUtf8(resolved);
-                    templ.threshold = recognition.value("templThreshold", 0.86);
+                    templ.threshold = recognition.value("templThreshold", templ.threshold);
                     templ.roi = roi;
                     templ.algorithm = algorithm;
                     templ.requiresAlphaMatching = recognition.value("matchAlphaTemplate", false);
@@ -714,7 +716,7 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                         continue;
                     }
                     required.path = Paths::ToUtf8(resolved);
-                    required.threshold = recognition.value("requiredTemplateThreshold", 0.86);
+                    required.threshold = recognition.value("requiredTemplateThreshold", required.threshold);
                     required.roi = requiredRoi;
                     required.algorithm = algorithm;
                     required.requiresAlphaMatching = recognition.value("requiredTemplateMatchAlphaTemplate", false);
@@ -743,7 +745,8 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                             region["semanticId"].get<std::string>(),
                             TaskEngine::TaskRoi{
                                 bounds.at("x").get<int>(), bounds.at("y").get<int>(),
-                                bounds.at("width").get<int>(), bounds.at("height").get<int>()}});
+                                bounds.at("width").get<int>(), bounds.at("height").get<int>()},
+                            region.contains("numericRoi") ? ParseRoi(region["numericRoi"]) : std::nullopt});
                     }
                     catch (...)
                     {
@@ -807,6 +810,8 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
             existing->priority = (std::min)(existing->priority, screen.priority);
             existing->stable = existing->stable || screen.stable;
             existing->verifyRequiredText = existing->verifyRequiredText || screen.verifyRequiredText;
+            if (!existing->stateSignatureRoi && screen.stateSignatureRoi)
+                existing->stateSignatureRoi = screen.stateSignatureRoi;
             if (existing->flow.empty())
                 existing->flow = screen.flow;
             for (auto& templ : screen.templates)

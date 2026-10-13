@@ -25,7 +25,7 @@ bool IsTerminalScreen(const std::string& screenId)
     const auto id = Fold(screenId);
     return id == "career_complete" || id == "career_complete_close"
         || id == "career_story_unlocked" || id == "career_story_unlocked_compact"
-        || id == "career_story_unlocked_to_home" || id == "home_unselected";
+        || id == "career_story_unlocked_to_home";
 }
 
 bool IsUnexpectedScreenAfterDeclinedRaceRetry(const std::string& screenId)
@@ -254,7 +254,9 @@ bool CareerFlowCoordinator::CheckAndConfirmTrainingConsumed(
     const auto id = Fold(observation.screenId);
     const bool resultShown = observation.screenKind == CareerDomain::CareerScreenKind::TrainingResult
         || id == "training_result";
-    const bool mandatoryRaceReached = id == "race_day" || id == "career_races_ready";
+    const bool mandatoryRaceReached = id == "race_day" || id == "career_races_ready"
+        || (id == "race_list" && observation.turnsToGoalEvidence.IsReliable()
+            && observation.turnsToGoalEvidence.Value() == 0);
     const bool finaleCountdownAdvanced = id == "career_main"
         && observation.turnPositionText && Fold(*observation.turnPositionText).find("finale") != std::string::npos
         && m_pendingTrainingTurnsToGoal && *m_pendingTrainingTurnsToGoal > 0
@@ -410,6 +412,19 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         m_state.fansToGoal = CareerDomain::ObservedValue<int>::Unknown();
         m_state.objectiveCompleted = CareerDomain::ObservedValue<bool>::Unknown();
         m_state.goalText.clear();
+    }
+    if (m_restoredSmartTrainingConfirmation && m_pendingTraining
+        && (Fold(observation.screenId) == "race_day" || Fold(observation.screenId) == "career_races_ready"
+            || (Fold(observation.screenId) == "race_list" && observation.turnsToGoalEvidence.IsReliable()
+                && observation.turnsToGoalEvidence.Value() == 0)))
+    {
+        // A persisted training tap followed by the mandatory race boundary
+        // proves the non-race action finished, including on process restart.
+        // Restore its scenario accounting before applying the destination.
+        CareerDomain::CareerObservation trainingSource;
+        trainingSource.screenId = "training_selection";
+        trainingSource.screenKind = CareerDomain::CareerScreenKind::TrainingSelect;
+        m_scenario->OnTurnActionSubmitted(m_state, *m_pendingTraining, trainingSource);
     }
     m_scenario->OnObserve(m_state, observation);
     SynchronizeObservationPolicy();
@@ -584,6 +599,18 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         result.status = CareerRunStatus::Failed;
         result.failureReason = "Career returned to Home before a terminal settlement screen was confirmed.";
         return result;
+    }
+    if (Fold(observation.screenId) == "home_unselected")
+    {
+        if (!m_terminalScreenSeen)
+        {
+            result.status = CareerRunStatus::Failed;
+            result.failureReason = "Career returned to an unselected Home tab before a terminal settlement screen was confirmed.";
+            return result;
+        }
+        if (!perform(CareerDomain::ActionIntent::MakeAdvance(
+                "Select the resource-confirmed Home tab after terminal settlement."))) return result;
+        return finishRunning();
     }
     if (IsTerminalScreen(observation.screenId))
         m_terminalScreenSeen = true;

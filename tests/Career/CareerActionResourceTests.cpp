@@ -3,6 +3,9 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
+#include "UmaAssistantCore/Career/CareerFlowCoordinator.hpp"
+#include "UmaAssistantCore/CareerDomain/Scenarios/Ura/UraScenarioModule.hpp"
+#include "UmaAssistantCore/CareerDomain/TrainingStrategies.hpp"
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
 #include "UmaAssistantCore/Career/Flows/CareerSkillLearningFlow.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
@@ -19,6 +22,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <thread>
 
 namespace
 {
@@ -304,8 +309,21 @@ public:
 
     bool CaptureScreen() override
     {
+        if (alternatingImage) std::swap(image, *alternatingImage);
+        if (nextImage && !taps.empty() && captures >= capturesBeforeNextImage) image = *nextImage;
+        if (!taps.empty() && captureDelayAfterTapMs > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(captureDelayAfterTapMs));
+        if (animateOutsideMarker || animateInsideMarker)
+        {
+            const std::size_t pixel = animateInsideMarker ? 190 * image.width + 50 : 1000 * image.width + 850;
+            const auto value = static_cast<std::uint8_t>((captures % 2) == 0 ? 0 : 255);
+            image.gray[pixel] = value;
+            for (std::size_t channel = 0; channel < 3; ++channel) image.rgba[pixel * 4 + channel] = value;
+        }
         auto snapshot = std::make_shared<TaskFrameSnapshot>();
         snapshot->frameId = ++captures;
+        snapshot->sessionGeneration = sessionGeneration;
+        snapshot->geometryGeneration = geometryGeneration;
         snapshot->width = image.width;
         snapshot->height = image.height;
         snapshot->grayPixels = image.gray;
@@ -326,8 +344,9 @@ public:
         const auto marker = LoadTemplateImage(path);
         UmaAssistant::Vision::Roi bounds;
         if (roi) bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
-        const auto match = algorithm == "MatchTemplateColor"
-            ? UmaAssistant::Vision::find_color(image, *marker, bounds, threshold, referenceWidth, referenceHeight)
+        const auto match = algorithm == "MatchTemplateColor" || algorithm == "MatchTemplateColorText"
+            ? UmaAssistant::Vision::find_color(image, *marker, bounds, threshold, referenceWidth, referenceHeight,
+                algorithm == "MatchTemplateColorText")
             : UmaAssistant::Vision::find(image, *marker, bounds, threshold, referenceWidth, referenceHeight);
         TaskMatchResult result;
         result.found = match.found;
@@ -335,12 +354,25 @@ public:
         result.x = match.x; result.y = match.y;
         result.width = match.width; result.height = match.height;
         result.frameId = frame ? frame->frameId : 0;
+        result.referenceWidth = referenceWidth; result.referenceHeight = referenceHeight;
+        result.sessionGeneration = frame ? frame->sessionGeneration : 0;
+        result.geometryGeneration = frame ? frame->geometryGeneration : 0;
         return result;
     }
     std::vector<TaskOcrDetection> RecognizeText(const std::string&, const std::optional<TaskRoi>&) override { return {}; }
+    bool IsCancelled() const override { return cancelAfterCaptures != 0 && captures >= cancelAfterCaptures; }
     UmaAssistant::Vision::GrayImage image;
+    std::optional<UmaAssistant::Vision::GrayImage> nextImage;
+    std::optional<UmaAssistant::Vision::GrayImage> alternatingImage;
     std::shared_ptr<const TaskFrameSnapshot> frame;
     std::uint64_t captures{0};
+    std::uint64_t cancelAfterCaptures{0};
+    std::uint64_t sessionGeneration{1};
+    std::uint64_t geometryGeneration{1};
+    bool animateOutsideMarker{false};
+    bool animateInsideMarker{false};
+    std::uint64_t capturesBeforeNextImage{0};
+    int captureDelayAfterTapMs{0};
 };
 
 std::uint64_t EventSignature(std::vector<std::pair<int, std::string>> detections)
@@ -679,4 +711,235 @@ TEST_CASE("Direct View Results placings are recognized after the runner checkpoi
         std::fill(context.image.rgba.begin(), context.image.rgba.end(), std::uint8_t{0});
         CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
     }
+}
+
+TEST_CASE("Training can finish directly on the actual mandatory debut Race List",
+    "[CareerRuntime][CareerTrainingRaceHandoff]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_list_debut_after_training_mumu_20261013.png");
+    CareerScreenObserver observer(resources);
+    auto const current = observer.ObserveScreens(context, {"race_list"}, true);
+    REQUIRE(current.screenId == "race_list");
+    context.cancelAfterCaptures = context.captures + 3;
+    CareerActionExecutor executor(config, resources);
+    CareerObservation source;
+    source.screenId = "training_selection";
+    source.screenKind = CareerScreenKind::TrainingSelect;
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeTraining("guts"), source, context));
+    auto const destination = executor.TakeConfirmedObservation();
+    REQUIRE(destination.has_value());
+    CHECK(destination->screenId == "race_list");
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Career Rank keeps main's default recognition threshold and confirms settlement handoff", "[CareerRuntime][CareerSettlementTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto* screen = resources->FindScreen("career_rank");
+    REQUIRE(screen != nullptr);
+    REQUIRE(screen->templates.size() == 1);
+    CHECK(screen->templates.front().threshold == Catch::Approx(0.78));
+    ActualRaceResultContext context("career_rank_bplus_8533_mumu_20261013.png");
+    SECTION("Current B plus result") {}
+    SECTION("Packaged A rank result")
+    {
+        context.image = UmaAssistant::Resources::WicImageDecoder::decode_file_utf8(screen->templates.front().path);
+    }
+    REQUIRE(context.CaptureScreen());
+    const auto& marker = screen->templates.front();
+    const auto match = context.MatchTemplateAdvanced(marker.path, marker.threshold, marker.roi,
+        marker.algorithm, 900, 1600, {});
+    CAPTURE(match.score, marker.threshold);
+    CHECK(match.found);
+    CareerObservation source;
+    source.screenId = "complete_career";
+    source.screenKind = CareerScreenKind::Settlement;
+    CareerScreenObserver observer(resources);
+    observer.RememberObservation(source);
+    const auto observed = observer.ObserveScreens(context, {"career_rank"});
+    CHECK(observed.screenId == "career_rank");
+    CHECK(observed.screenKind == CareerScreenKind::Settlement);
+    CHECK(context.taps.empty());
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context));
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "career_rank");
+    REQUIRE(executor.ExecuteAction("career_rank", "career.next", context) == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first > 400);
+    CHECK(context.taps.front().first < 500);
+    CHECK(context.taps.front().second > 1400);
+    CHECK(context.taps.front().second < 1550);
+}
+
+TEST_CASE("Packaged rank and Sparks captures remain distinct during settlement", "[CareerRuntime][CareerSettlementTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto id = GENERATE("career_rank", "sparks", "sparks_confirmation");
+    CAPTURE(id);
+    const auto* expected = resources->FindScreen(id);
+    REQUIRE(expected != nullptr);
+    REQUIRE_FALSE(expected->templates.empty());
+    ActualRaceResultContext context("career_rank_bplus_8533_mumu_20261013.png");
+    context.image = UmaAssistant::Resources::WicImageDecoder::decode_file_utf8(expected->templates.front().path);
+    CareerObservation source;
+    source.screenId = std::string(id) == "career_rank" ? "complete_career"
+        : std::string(id) == "sparks" ? "career_rank" : "sparks";
+    source.screenKind = CareerScreenKind::Settlement;
+    CareerScreenObserver observer(resources);
+    observer.RememberObservation(source);
+    CHECK(observer.ObserveCareer(context).screenId == id);
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Rewards advances from Bond Level to Support Cards while keeping its screen ID", "[CareerRuntime][CareerRewardsTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("rewards_support_mumu_20261013.png");
+    context.nextImage = context.image;
+    context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        config.resourceDirectory / "hachimi/ura/testdata/captures/runtime_frames/ura_rewards_loaded.png");
+    CareerObservation previous;
+    previous.screenId = "career_result";
+    previous.screenKind = CareerScreenKind::Settlement;
+    CareerScreenObserver observer(resources);
+    observer.RememberObservation(previous);
+    const auto source = observer.ObserveCareer(context);
+    REQUIRE(source.screenId == "rewards");
+    REQUIRE(source.pageStateEvidence);
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), source, context) == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 1);
+    const auto success = executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context);
+    CHECK(success);
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "rewards");
+    REQUIRE(confirmed->pageStateEvidence);
+    CHECK(source.pageStateEvidence->signature != confirmed->pageStateEvidence->signature);
+    CHECK(context.taps.size() == 1);
+}
+
+TEST_CASE("Rewards only confirms stable authored content changes within the same device geometry", "[CareerRuntime][CareerRewardsTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("rewards_support_mumu_20261013.png");
+    CareerScreenObserver observer(resources);
+    CareerObservation prior;
+    prior.screenId = "career_result";
+    observer.RememberObservation(prior);
+    const auto source = observer.ObserveCareer(context);
+    REQUIRE(source.screenId == "rewards");
+    REQUIRE(source.pageStateEvidence);
+    CareerActionExecutor executor(config, resources);
+    SECTION("An unchanged rewards page cannot confirm a successful tap") {}
+    SECTION("Animated pixels outside the group title do not count as progression") { context.animateOutsideMarker = true; }
+    SECTION("An unstable group title is not reliable progress evidence") { context.animateInsideMarker = true; }
+    SECTION("Changed content in a new screenshot geometry cannot confirm the old action")
+    {
+        ++context.geometryGeneration;
+        context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+            config.resourceDirectory / "hachimi/ura/testdata/captures/runtime_frames/ura_rewards_loaded.png");
+    }
+    SECTION("Changed content in a new device session cannot confirm the old action")
+    {
+        ++context.sessionGeneration;
+        context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+            config.resourceDirectory / "hachimi/ura/testdata/captures/runtime_frames/ura_rewards_loaded.png");
+    }
+    context.cancelAfterCaptures = context.captures + 6;
+    CHECK_FALSE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context));
+    CHECK_FALSE(executor.TakeConfirmedObservation());
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Two live Support Cards captures retain the same Rewards page marker", "[CareerRuntime][CareerRewardsTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("rewards_support_mumu_20261013.png");
+    context.alternatingImage = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/rewards_support_second_mumu_20261013.png");
+    CareerScreenObserver observer(resources);
+    CareerObservation prior;
+    prior.screenId = "career_result";
+    observer.RememberObservation(prior);
+    const auto first = observer.ObserveCareer(context);
+    const auto second = observer.ObserveCareer(context);
+    REQUIRE(first.screenId == "rewards");
+    REQUIRE(second.screenId == "rewards");
+    REQUIRE(first.pageStateEvidence);
+    REQUIRE(second.pageStateEvidence);
+    CHECK(first.pageStateEvidence->signature == second.pageStateEvidence->signature);
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Settlement retries a full unstable observation after slow capture instead of exhausting one sample", "[CareerRuntime][CareerSettlementAudit]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("rewards_support_mumu_20261013.png");
+    CareerObservation prior;
+    prior.screenId = "career_result";
+    CareerScreenObserver observer(resources);
+    observer.RememberObservation(prior);
+    const auto source = observer.ObserveCareer(context);
+    REQUIRE(source.screenId == "rewards");
+    context.nextImage = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/rewards_collected_ticket_mumu_20261013.png");
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), source, context) == ActionExecutionStatus::Success);
+    context.capturesBeforeNextImage = context.captures + 1;
+    context.captureDelayAfterTapMs = 8000;
+    CHECK(executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context));
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "rewards_collected");
+    CHECK(context.taps.size() == 1);
+}
+
+TEST_CASE("Coordinator replays the actual completed settlement through all six actions to Home", "[CareerRuntime][CareerSettlementAudit]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    class ChainContext : public ActualRaceResultContext
+    {
+    public:
+        ChainContext() : ActualRaceResultContext("rewards_collected_ticket_mumu_20261013.png") {}
+        bool CaptureScreen() override
+        {
+            image = stages.at((std::min)(taps.size(), stages.size() - 1));
+            return ActualRaceResultContext::CaptureScreen();
+        }
+        std::vector<UmaAssistant::Vision::GrayImage> stages;
+    } context;
+    for (const auto* filename : {"rewards_collected_ticket_mumu_20261013.png", "rewards_ura_mumu_20261013.png",
+        "event_reward_mumu_20261013.png", "rewards_event_mumu_20261013.png", "follow_trainer_limit_mumu_20261013.png",
+        "career_complete_mumu_20261013.png", "settlement_home_mumu_20261013.png"})
+        context.stages.push_back(UmaAssistant::Resources::WicImageDecoder::decode_file(
+            UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename));
+    CareerFlowCoordinator coordinator(std::make_shared<CareerScreenObserver>(resources),
+        std::make_shared<CareerActionExecutor>(config, resources),
+        std::make_shared<UraScenarioModule>(), std::make_shared<DefaultTrainingStrategy>(), config);
+    const auto result = coordinator.RunToCompletion(context, 10);
+    CAPTURE(result.failureReason);
+    CHECK(result.status == CareerRunStatus::Completed);
+    CHECK(context.taps.size() == 6);
 }

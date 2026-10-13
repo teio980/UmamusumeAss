@@ -20,7 +20,8 @@ namespace UmaAssistant::Career
 struct CareerTemplateDefinition
 {
     std::string path;
-    double threshold{0.86};
+    // UraScreenRecognition on main defaults both screen markers to 0.78.
+    double threshold{0.78};
     std::optional<TaskEngine::TaskRoi> roi;
     std::string algorithm{"MatchTemplate"};
     bool requiresAlphaMatching{false};
@@ -30,6 +31,7 @@ struct CareerOcrRegionDefinition
 {
     std::string semanticId;
     TaskEngine::TaskRoi roi;
+    std::optional<TaskEngine::TaskRoi> numericRoi;
 };
 
 struct CareerEnergyBarDefinition
@@ -66,6 +68,7 @@ struct CareerVisualScreenDefinition
     bool stable{false};
     std::vector<std::string> requiredText;
     bool verifyRequiredText{false};
+    std::optional<TaskEngine::TaskRoi> stateSignatureRoi;
     std::vector<CareerTemplateDefinition> templates;
     std::vector<CareerTemplateDefinition> requiredTemplates;
     std::vector<CareerOcrRegionDefinition> ocrRegions;

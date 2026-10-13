@@ -226,8 +226,13 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     bool const turnReturn = sourceId == "training_selection" || sourceId == "rest_confirmation"
         || sourceId == "summer_rest_confirmation" || sourceId == "infirmary_confirmation"
         || sourceId == "recreation_confirmation";
-    int const timeoutMs = raceTransition ? 30000 : turnReturn || observation.screenKind == CareerDomain::CareerScreenKind::EventChoice
-        ? 45000 : 15000;
+    const auto* sourceScreen = m_resources ? m_resources->FindScreen(observation.screenId) : nullptr;
+    bool const settlementTransition = observation.screenKind == CareerDomain::CareerScreenKind::Settlement
+        || (sourceScreen && Fold(sourceScreen->flow) == "settlement");
+    // A full two-frame observation includes capture and recognition work.
+    // Keep enough time to reobserve an animating destination; 15 seconds could
+    // expire during the very first sample pair on MuMu.
+    int const timeoutMs = settlementTransition ? 60000 : raceTransition ? 30000 : 45000;
     int const maxPolls = timeoutMs / pollMs;
     std::vector<std::string> candidates;
     if (raceTransition)
@@ -236,8 +241,11 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     else if (turnReturn)
         candidates = {"event_choice", "training_event", "scenario_event", "inheritance_event", "training_result",
             "goal_objective_complete", "goal_update", "goal_complete", "race_day", "career_races_ready", "career_main",
+            "race_list", "race_list_empty", "race_recommendations", "race_streak_warning",
             "claw_machine", "claw_machine_result", "goal_incomplete", "complete_career_entry"};
     bool entryRetried = false;
+    int observations = 0;
+    std::string lastObservedId = "unknown";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     for (int poll = 0; poll < maxPolls && !context.IsCancelled()
         && std::chrono::steady_clock::now() < deadline; ++poll)
@@ -247,6 +255,8 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             return false;
         const auto current = candidates.empty() ? m_observer->ObserveCareer(context)
             : m_observer->ObserveScreens(context, candidates);
+        ++observations;
+        lastObservedId = current.screenId;
         if (current.screenId == "resource_error" || current.screenId == "capture_cancelled")
             return false;
         if (current.screenId == "capture_failed") continue;
@@ -278,7 +288,14 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             const bool eventStateChanged = observation.eventStateSignature
                 && current.eventStateSignature
                 && *observation.eventStateSignature != *current.eventStateSignature;
-            if (!raceTransition && (turnChanged || eventChanged || eventIdChanged || eventStateChanged))
+            const auto& beforePage = observation.pageStateEvidence;
+            const auto& afterPage = current.pageStateEvidence;
+            const bool pageStateChanged = beforePage && afterPage
+                && beforePage->frameWidth == afterPage->frameWidth && beforePage->frameHeight == afterPage->frameHeight
+                && beforePage->sessionGeneration == afterPage->sessionGeneration
+                && beforePage->geometryGeneration == afterPage->geometryGeneration
+                && beforePage->signature != afterPage->signature;
+            if (!raceTransition && (turnChanged || eventChanged || eventIdChanged || eventStateChanged || pageStateChanged))
             {
                 context.Log("INFO", "Career action state transition observed within " + current.screenId + ".");
                 m_confirmedObservation = current;
@@ -288,7 +305,9 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     }
     context.Log("ERROR", context.IsCancelled()
         ? "Career action transition confirmation was cancelled."
-        : "Career action produced no resource-confirmed screen transition.");
+        : "Career action produced no resource-confirmed screen transition after "
+            + std::to_string(observations) + " observations (window " + std::to_string(timeoutMs)
+            + " ms, source " + observation.screenId + ", last " + lastObservedId + ").");
     return false;
 }
 

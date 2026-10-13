@@ -265,6 +265,10 @@
       },
       "ocrRegions": [
         {
+          "semanticId": "race.day_status",
+          "bounds": {"x": 15, "y": 135, "width": 160, "height": 65}
+        },
+        {
           "semanticId": "objective.title",
           "bounds": {
             "x": 315,
@@ -707,6 +711,10 @@
       "screenId": "goal_objective_complete",
       "recognition": {
         "template": "../settlement/templates/goal_complete_header.png",
+        "requiredTemplate": "../settlement/templates/goal_complete_goal_next.png",
+        "requiredTemplateRoi": [240, 1320, 420, 150],
+        "requiredTemplateThreshold": 0.78,
+        "matchColorText": true,
         "roi": [
           288,
           315,

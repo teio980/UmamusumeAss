@@ -233,6 +233,11 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         m_goalCompletionProbeArmed = false;
     }
 
+    if (screenId == "race_day" || screenId == "career_races_ready"
+        || (screenId == "race_list" && observation.turnsToGoalEvidence.IsReliable()
+            && observation.turnsToGoalEvidence.Value() == 0))
+        ConfirmTurnAdvance(state, observation);
+
     if (observation.screenKind == CareerScreenKind::MainTurn || screenId == "career_main")
     {
         state.careerStarted = true;
@@ -379,6 +384,8 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         || screenId == "race_attributes")
     {
         const auto text = GoalTextFromObservation(observation);
+        if (observation.turnsToGoalEvidence.IsReliable())
+            m_goal.turnsToGoal = observation.turnsToGoalEvidence;
         if (text.IsReliable())
         {
             const auto parsedKind = CareerGoalTextParser::Classify(text.Value());
@@ -852,7 +859,12 @@ void UraScenarioModule::ConfirmTurnAdvance(
 
     const bool calendarAdvanced = currentTurnEvidence.IsReliable()
         && currentTurnEvidence.Value() > *m_pendingActionTurnIndex;
-    if (!calendarAdvanced && !countdownAdvanced)
+    const auto screenId = Lower(observation.screenId);
+    const bool mandatoryRaceReached = *m_pendingActionKind != ActionIntentKind::Race
+        && (screenId == "race_day" || screenId == "career_races_ready"
+            || (screenId == "race_list" && observation.turnsToGoalEvidence.IsReliable()
+                && observation.turnsToGoalEvidence.Value() == 0));
+    if (!calendarAdvanced && !countdownAdvanced && !mandatoryRaceReached)
         return;
 
     ++state.confirmedTurnActions;
@@ -862,6 +874,7 @@ void UraScenarioModule::ConfirmTurnAdvance(
         m_consecutiveRaceTurns = std::min(2, m_consecutiveRaceTurns + 1);
     else
         m_consecutiveRaceTurns = 0;
+    state.consecutiveRaceTurns = m_consecutiveRaceTurns;
     m_pendingActionKind.reset();
     m_pendingActionTurnIndex.reset();
     m_pendingActionTurnsToGoal = ObservedValue<int>::Unknown();

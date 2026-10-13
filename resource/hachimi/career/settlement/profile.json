@@ -346,6 +346,7 @@
       "screenId": "rewards",
       "recognition": {
         "template": "templates/rewards_header.png",
+        "stateSignatureRoi": [45, 178, 260, 26],
         "matchColorText": true,
         "roi": [
           130,

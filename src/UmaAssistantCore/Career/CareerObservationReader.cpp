@@ -5,11 +5,13 @@
 #include "UmaAssistantCore/Resources/ImageTransforms.hpp"
 #include "UmaAssistantCore/TaskEngine/RecognitionPipeline.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
+#include "UmaAssistantCore/Vision/ColorAnalysis.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -57,6 +59,29 @@ std::string NormalizeText(const std::string& value)
             normalized.push_back(static_cast<char>(std::tolower(c)));
     }
     return normalized;
+}
+
+std::optional<std::uint64_t> PageSignature(
+    const TaskEngine::TaskFrameSnapshot& frame, const TaskEngine::TaskRoi& roi)
+{
+    if (frame.width <= 0 || frame.height <= 0
+        || frame.grayPixels.size() != static_cast<std::size_t>(frame.width) * frame.height
+        || roi.x < 0 || roi.y < 0 || roi.width <= 0 || roi.height <= 0
+        || roi.x >= 900 || roi.y >= 1600 || roi.width > 900 - roi.x || roi.height > 1600 - roi.y)
+        return {};
+    const int x = static_cast<int>(std::lround(roi.x * frame.width / 900.0));
+    const int y = static_cast<int>(std::lround(roi.y * frame.height / 1600.0));
+    const int width = static_cast<int>(std::lround(roi.width * frame.width / 900.0));
+    const int height = static_cast<int>(std::lround(roi.height * frame.height / 1600.0));
+    if (width <= 0 || height <= 0 || x + width > frame.width || y + height > frame.height) return {};
+    std::uint64_t hash = 14695981039346656037ull;
+    for (int row = y; row < y + height; ++row)
+        for (int column = x; column < x + width; ++column)
+        {
+            hash ^= frame.grayPixels[static_cast<std::size_t>(row) * frame.width + column];
+            hash *= 1099511628211ull;
+        }
+    return hash;
 }
 
 std::uint64_t EventSignature(const std::vector<TaskEngine::TaskOcrDetection>& detections)
@@ -390,38 +415,75 @@ double DetectionConfidence(const std::vector<TaskEngine::TaskOcrDetection>& dete
 std::optional<std::pair<int, double>> ReadCountdownFallback(
     TaskEngine::ITaskExecutionContext& context,
     const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
-    const TaskEngine::TaskRoi& referenceRoi)
+    const CareerOcrRegionDefinition& region)
 {
     if (!frame || frame->width <= 0 || frame->height <= 0
         || frame->grayPixels.size() < static_cast<std::size_t>(frame->width) * frame->height)
         return std::nullopt;
     const auto image = ToVisionImage(*frame);
-    const int x = static_cast<int>(std::lround(referenceRoi.x * frame->width / 900.0));
-    const int y = static_cast<int>(std::lround(referenceRoi.y * frame->height / 1600.0));
-    const int width = static_cast<int>(std::lround(referenceRoi.width * frame->width / 900.0));
-    const int height = static_cast<int>(std::lround(referenceRoi.height * frame->height / 1600.0));
-    try
-    {
-        auto crop = Resources::crop_image(image, x, y, width, height);
-        crop = Resources::resize_image(crop, (std::max)(1, crop.width * 4),
+    const auto cropRegion = [&](const TaskEngine::TaskRoi& roi) {
+        return Resources::crop_image(image,
+            static_cast<int>(std::lround(roi.x * frame->width / 900.0)),
+            static_cast<int>(std::lround(roi.y * frame->height / 1600.0)),
+            static_cast<int>(std::lround(roi.width * frame->width / 900.0)),
+            static_cast<int>(std::lround(roi.height * frame->height / 1600.0)));
+    };
+    const auto readText = [&](const Vision::GrayImage& crop) -> std::optional<std::pair<int, double>> {
+        const auto enlarged = Resources::resize_image(crop, (std::max)(1, crop.width * 4),
             (std::max)(1, crop.height * 4));
-        const auto detections = context.RecognizeImageText(crop, "en-US");
-        if (!SameFrame(context, frame))
-            return std::nullopt;
+        const auto detections = context.RecognizeImageText(enlarged, "en-US");
+        if (!SameFrame(context, frame) || context.IsCancelled()) return std::nullopt;
         const auto text = JoinText(detections);
         if (const auto parsed = CareerObservationReader::ParseObjectiveTurnsLeft(text))
             return std::pair<int, double>{*parsed, DetectionConfidence(detections)};
         static const std::regex isolatedNumber(R"((^|[^0-9])([0-9]+)(?![0-9]))");
         std::smatch match;
-        if (!std::regex_search(text, match, isolatedNumber))
-            return std::nullopt;
+        if (!std::regex_search(text, match, isolatedNumber)) return std::nullopt;
         const auto firstValue = std::stoi(match.str(2));
         const auto suffix = match.suffix().str();
-        if (std::regex_search(suffix, isolatedNumber))
-            return std::nullopt;
+        if (std::regex_search(suffix, isolatedNumber)) return std::nullopt;
         return std::pair<int, double>{firstValue, DetectionConfidence(detections)};
+    };
+    try
+    {
+        if (const auto value = readText(cropRegion(region.roi))) return value;
+        if (!region.numericRoi || !SameFrame(context, frame) || context.IsCancelled()) return std::nullopt;
+        const auto rawCrop = cropRegion(*region.numericRoi);
+        UmaColorRule whiteDigits{};
+        whiteDigits.minimum_red = whiteDigits.minimum_green = whiteDigits.minimum_blue = 220;
+        whiteDigits.maximum_red = whiteDigits.maximum_green = whiteDigits.maximum_blue = 255;
+        whiteDigits.minimum_red_green = whiteDigits.minimum_green_blue = -35;
+        whiteDigits.maximum_red_green = whiteDigits.maximum_green_blue = 35;
+        const auto crop = Vision::binarize_color(rawCrop, whiteDigits);
+        if (const auto value = readText(crop)) return value;
+        if (!SameFrame(context, frame) || context.IsCancelled()) return std::nullopt;
+        // main used its numeric OCR fallback here. Windows text OCR alone
+        // cannot reliably read the large white countdown digits on blue.
+        const auto readings = context.RecognizeNumericImages({
+            {"objective.turns_left", crop, (std::numeric_limits<int>::max)(), false,
+                Recognition::NumericOcrFormat::UnsignedInteger},
+            {"objective.turns_left_card", cropRegion(region.roi), (std::numeric_limits<int>::max)(), false,
+                Recognition::NumericOcrFormat::UnsignedInteger}});
+        if (!SameFrame(context, frame) || context.IsCancelled()) return std::nullopt;
+        const auto found = readings.find("objective.turns_left");
+        const auto card = readings.find("objective.turns_left_card");
+        if (found != readings.end() && card != readings.end() && found->second.value && card->second.value
+            && found->second.value != card->second.value)
+            return std::nullopt;
+        if (found != readings.end() && found->second.value && *found->second.value >= 0)
+            return std::pair<int, double>{*found->second.value, 0.82};
+        if (card != readings.end() && card->second.value && *card->second.value >= 0)
+            return std::pair<int, double>{*card->second.value, 0.82};
+        context.Log("DEBUG", "Career countdown numeric fallback remained unreadable: digits="
+            + (found != readings.end() ? found->second.rawText + " " + found->second.failureReason : std::string("unavailable"))
+            + "; card=" + (card != readings.end() ? card->second.rawText + " " + card->second.failureReason : std::string("unavailable")));
+        return std::nullopt;
     }
-    catch (...) { return std::nullopt; }
+    catch (const std::exception& error)
+    {
+        context.Log("DEBUG", std::string("Career countdown fallback could not read this frame: ") + error.what());
+        return std::nullopt;
+    }
 }
 
 } // namespace
@@ -953,7 +1015,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         && (!first.screen || Fold(first.screen->screenId) != Fold(second.screen->screenId)
             || first.eventId != second.eventId))
     {
-        context.Log("WARNING", "Career screen did not remain stable across the two-frame confirmation window.");
+        context.Log("WARNING", "Career screen did not remain stable across the two-frame confirmation window: "
+            + (first.screen ? first.screen->screenId : "unknown") + " -> " + second.screen->screenId + ".");
         return observation;
     }
 
@@ -975,6 +1038,18 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         && first.frame->grayPixels.size() == static_cast<std::size_t>(frame->width) * frame->height
         && first.frame->grayPixels == frame->grayPixels
         && first.frame->rgbaPixels == frame->rgbaPixels;
+    if (bestScreen->stateSignatureRoi && first.frame && first.screen
+        && Fold(first.screen->screenId) == Fold(bestScreen->screenId)
+        && first.frame->width == frame->width && first.frame->height == frame->height
+        && first.frame->sessionGeneration == frame->sessionGeneration
+        && first.frame->geometryGeneration == frame->geometryGeneration)
+    {
+        const auto firstSignature = PageSignature(*first.frame, *bestScreen->stateSignatureRoi);
+        const auto secondSignature = PageSignature(*frame, *bestScreen->stateSignatureRoi);
+        if (firstSignature && firstSignature == secondSignature)
+            observation.pageStateEvidence = CareerDomain::CareerPageStateEvidence{
+                *secondSignature, frame->width, frame->height, frame->sessionGeneration, frame->geometryGeneration};
+    }
     const auto id = Fold(bestScreen->screenId);
     const auto flow = Fold(bestScreen->flow);
     observation.eventId = second.eventId;
@@ -1036,6 +1111,18 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
                 }
             }
         }
+        else if (semantic == "race.day_status" && id == "race_list")
+        {
+            // Quick mode may arrive directly at the mandatory Race List.
+            // Its Race Day card proves the countdown has reached zero; a
+            // generic optional Race List must not supply this evidence.
+            if (confidence > 0.0 && NormalizeText(text) == "raceday")
+            {
+                observation.turnsToGoal = 0;
+                observation.turnsToGoalEvidence = CareerDomain::ObservedValue<int>::Make(
+                    0, confidence, CareerDomain::ObservationSource::Ocr, text);
+            }
+        }
         else if (semantic == "objective.title" || semantic == "race.objective")
         {
             if (!text.empty() && confidence > 0.0)
@@ -1084,13 +1171,24 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
             [](const auto& item) { return Fold(item.semanticId) == "objective.turns_left"; });
         if (region != bestScreen->ocrRegions.end())
         {
-            if (const auto fallback = ReadCountdownFallback(context, frame, region->roi);
-                fallback && fallback->second > 0.0)
+            std::optional<std::pair<int, double>> fallback;
+            std::string cached;
+            double cachedConfidence = 0.0;
+            if (m_mainTextCache.TryGet("objective.turns_left.fallback", *frame, region->roi, cached, &cachedConfidence))
+            {
+                if (const auto value = CareerObservationReader::ParseObjectiveTurnsLeft(cached))
+                    fallback = std::pair<int, double>{*value, cachedConfidence};
+            }
+            else
+                fallback = ReadCountdownFallback(context, frame, *region);
+            if (fallback && fallback->second > 0.0)
             {
                 observation.turnsToGoal = fallback->first;
                 observation.turnsToGoalEvidence = CareerDomain::ObservedValue<int>::Make(
                     fallback->first, fallback->second, CareerDomain::ObservationSource::Ocr,
                     "processed crop of the dedicated objective countdown region");
+                m_mainTextCache.Remember("objective.turns_left.fallback", *frame, region->roi,
+                    std::to_string(fallback->first), fallback->second);
             }
         }
     }

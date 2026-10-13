@@ -28,6 +28,15 @@ enum class CareerScreenKind
     ConfirmationDialog
 };
 
+struct CareerPageStateEvidence
+{
+    std::uint64_t signature{0};
+    int frameWidth{0};
+    int frameHeight{0};
+    std::uint64_t sessionGeneration{0};
+    std::uint64_t geometryGeneration{0};
+};
+
 struct CareerObservation
 {
     std::string screenId{"unknown"};
@@ -58,6 +67,9 @@ struct CareerObservation
     // Stable, scenario-neutral evidence for event-state changes where a choice
     // panel reuses the same screen ID and title.
     std::optional<std::uint64_t> eventStateSignature;
+    // An authored content marker, identical across two confirmed samples,
+    // distinguishes successive pages sharing a screen ID (e.g. Rewards).
+    std::optional<CareerPageStateEvidence> pageStateEvidence;
 };
 
 } // namespace UmaAssistant::CareerDomain

@@ -6,6 +6,7 @@
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
 #include "UmaAssistantCore/Resources/ImageTransforms.hpp"
 #include "UmaAssistantCore/Recognition/WindowsOcrRecognizer.hpp"
+#include "UmaAssistantCore/Recognition/NumericOcrBatch.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 
@@ -228,6 +229,11 @@ public:
         result.referenceWidth = referenceWidth;
         result.referenceHeight = referenceHeight;
         result.frameId = m_frame->frameId;
+        if (forceGoalHeader && std::filesystem::path(templatePath).filename() == "goal_complete_header.png")
+        {
+            result.found = true;
+            result.score = 0.99;
+        }
         return result;
     }
 
@@ -264,6 +270,28 @@ public:
                 detection.bounds.width, detection.bounds.height, detection.confidence});
         return result;
     }
+    std::vector<TaskOcrDetection> RecognizeImageText(const GrayImage& image, const std::string& language) override
+    {
+        if (!nativeOcr) return ocrDetections;
+        UmaAssistant::Recognition::WindowsOcrRecognizer reader;
+        std::vector<TaskOcrDetection> result;
+        for (auto const& detection : reader.recognize(image, language).detections)
+        {
+            processedOcrText += detection.text + "\n";
+            result.push_back({detection.text, detection.bounds.x, detection.bounds.y,
+                detection.bounds.width, detection.bounds.height, detection.confidence});
+        }
+        return result;
+    }
+    UmaAssistant::Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<UmaAssistant::Recognition::NumericOcrBatchField>& fields) override
+    {
+        if (!nativeOcr) return {};
+        UmaAssistant::Recognition::NumericOcrBatch reader;
+        auto const result = reader.read(fields);
+        for (auto const& [key, reading] : result) numericOcrText += key + ": " + reading.rawText + "\n";
+        return result;
+    }
     bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override { return false; }
     bool Tap(int, int) override { return false; }
     bool Swipe(int, int, int, int, int) override { return false; }
@@ -271,13 +299,17 @@ public:
     bool SendKey(const std::string&) override { return false; }
     void Sleep(int) override {}
     bool IsCancelled() const override { return false; }
-    void Log(const std::string&, const std::string&) override {}
+    void Log(const std::string&, const std::string& message) override { diagnostics += message + "\n"; }
     void EmitEvent(const UmaAssistant::TaskEngine::TaskExecutionEvent&) override {}
 
     [[nodiscard]] std::size_t CaptureCount() const noexcept { return m_captureCount; }
 
     std::vector<TaskOcrDetection> ocrDetections;
     bool nativeOcr{false};
+    bool forceGoalHeader{false};
+    std::string processedOcrText;
+    std::string numericOcrText;
+    std::string diagnostics;
 
 private:
     std::vector<std::filesystem::path> m_screenshots;
@@ -455,5 +487,183 @@ TEST_CASE("Native Career perception identifies real entry turn event race and se
         auto const observation = expected->flow == "entry"
             ? observer.ObserveScreens(context, {}, true) : observer.ObserveCareer(context);
         CHECK(observation.screenId == fixture.second);
+    }
+}
+
+TEST_CASE("MuMu Oguri pre-debut main remains a turn screen during startup resume and goal probing",
+    "[CareerRuntime][Replay][CareerStartupMainRegression]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/career_main_oguri_predebut_mumu_20261013.png"});
+    context.nativeOcr = true;
+    CareerScreenObserver observer(resources);
+    bool allowResume = false;
+    SECTION("Fresh startup") {}
+    SECTION("Resumed Career") { allowResume = true; }
+    SECTION("A goal header correlation still requires its actual Next button")
+    {
+        allowResume = true;
+        context.forceGoalHeader = true;
+    }
+    SECTION("An action armed goal completion")
+    {
+        UmaAssistant::CareerDomain::CareerObservation source;
+        source.screenId = "career_main";
+        observer.RememberObservation(source);
+        observer.SetGoalCompletionProbeArmed(true);
+    }
+    REQUIRE(context.CaptureScreen());
+    for (auto const* id : {"career_main", "goal_objective_complete"})
+    {
+        auto const* screen = resources->FindScreen(id);
+        REQUIRE(screen != nullptr);
+        auto const& marker = screen->templates.front();
+        auto const match = context.MatchTemplate(marker.path, marker.threshold, marker.roi, marker.algorithm);
+        INFO(id << " primary score=" << match.score);
+        if (std::string(id) == "career_main")
+        {
+            for (auto const& required : screen->requiredTemplates)
+            {
+                auto const proof = context.MatchTemplate(required.path, required.threshold, required.roi, required.algorithm);
+                INFO("Training score=" << proof.score);
+                CHECK(proof.found);
+            }
+        }
+    }
+    auto const observation = observer.ObserveScreens(context, {}, allowResume);
+    CHECK(observation.screenId == "career_main");
+    auto const* mainScreen = resources->FindScreen("career_main");
+    REQUIRE(mainScreen != nullptr);
+    auto const countdownRegion = std::find_if(mainScreen->ocrRegions.begin(), mainScreen->ocrRegions.end(),
+        [](auto const& region) { return region.semanticId == "objective.turns_left"; });
+    REQUIRE(countdownRegion != mainScreen->ocrRegions.end());
+    REQUIRE(countdownRegion->numericRoi.has_value());
+    std::string countdownText;
+    for (auto const& text : context.RecognizeText("en-US", TaskRoi{10, 90, 175, 140}))
+        countdownText += text.text + "\n";
+    INFO("Countdown OCR: " << countdownText);
+    INFO("Processed OCR: " << context.processedOcrText);
+    INFO("Numeric OCR: " << context.numericOcrText);
+    INFO("Diagnostics: " << context.diagnostics);
+    CHECK(observation.turnsToGoal == 11);
+}
+
+TEST_CASE("An actual single objective complete banner still advances through its authored Next",
+    "[CareerRuntime][Replay][CareerStartupMainRegression]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/ura_finale_entry_boundary.png"});
+    context.nativeOcr = true;
+    CareerScreenObserver observer(resources);
+    auto const observation = observer.ObserveScreens(context, {"goal_objective_complete"}, true);
+    CHECK(observation.screenId == "goal_objective_complete");
+    auto const* action = resources->FindAction("goal_objective_complete", "goal.next");
+    REQUIRE(action != nullptr);
+    auto const* task = resources->FindExecutionTask(action->taskName);
+    REQUIRE(task != nullptr);
+    REQUIRE(task->templatePath.has_value());
+    REQUIRE(task->roi.has_value());
+    auto const& bounds = *task->roi;
+    auto const next = context.MatchTemplate(*task->templatePath, task->templateThreshold,
+        TaskRoi{bounds[0], bounds[1], bounds[2], bounds[3]}, task->algorithm);
+    CHECK(next.found);
+}
+
+TEST_CASE("Actual Race Lists distinguish the mandatory Race Day boundary from an optional race",
+    "[CareerRuntime][Replay][CareerTrainingRaceHandoff]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (auto const& [file, mandatory] : std::vector<std::pair<std::string, bool>>{
+        {"race_list_debut_after_training_mumu_20261013.png", true},
+        {"year2_insufficient_fans_race_list.png", false}})
+    {
+        CAPTURE(file);
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures" / file});
+        context.nativeOcr = true;
+        CareerScreenObserver observer(resources);
+        auto const observed = observer.ObserveScreens(context, {"race_list"}, true);
+        REQUIRE(observed.screenId == "race_list");
+        CHECK(observed.turnsToGoalEvidence.IsReliable() == mandatory);
+        if (mandatory) CHECK(observed.turnsToGoalEvidence.Value() == 0);
+    }
+}
+
+TEST_CASE("Settlement catalog recognizes every captured optional popup in its actual phase", "[CareerRuntime][Replay][CareerSettlementAudit]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    struct Stage { const char* file; const char* previous; const char* expected; bool nextVerified{true}; };
+    for (const auto& stage : std::vector<Stage>{
+        {"complete_career_entry.png", "race_runner_result", "complete_career_entry"},
+        {"career_rank_bplus_8533_mumu_20261013.png", "complete_career", "career_rank"},
+        {"ura_sparks_keep_confirmed.png", "sparks_confirmation", "career_result_close"},
+        {"rating_record_updated.png", "career_result_close", "career_rating_record_updated"},
+        {"career_epithet_after_rating_record_updated.png", "career_rating_record_updated", "career_epithet"},
+        {"rewards_support_mumu_20261013.png", "rewards", "rewards"},
+        // This older capture has a Next score of 0.709, below the authored
+        // 0.78 gate. It must wait for a verified button rather than click it.
+        {"ura_rewards_next.png", "rewards", "rewards", false},
+        {"rewards_collected.png", "rewards", "rewards_collected"},
+        {"rewards_collected_ticket_mumu_20261013.png", "rewards", "rewards_collected"},
+        {"rewards_ura_mumu_20261013.png", "rewards_collected", "rewards"},
+        {"event_reward_mumu_20261013.png", "rewards", "event_reward"},
+        {"rewards_event_mumu_20261013.png", "event_reward", "rewards"},
+        {"follow_trainer_limit_mumu_20261013.png", "rewards", "follow_trainer_limit"},
+        {"career_complete_mumu_20261013.png", "follow_trainer_limit", "career_complete"},
+        {"settlement_home_mumu_20261013.png", "career_complete", "home"},
+        {"career_complete_close.png", "rewards_collected", "career_complete_close"},
+        {"career_story_unlocked.png", "career_complete_close", "career_story_unlocked"},
+        {"career_story_unlocked_compact.png", "career_complete_close", "career_story_unlocked_compact"},
+        {"career_story_unlocked_to_home.png", "career_complete_close", "career_story_unlocked_to_home"}})
+    {
+        CAPTURE(stage.file, stage.previous, stage.expected);
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures" / stage.file});
+        context.nativeOcr = true;
+        CareerScreenObserver observer(resources);
+        UmaAssistant::CareerDomain::CareerObservation previous;
+        previous.screenId = stage.previous;
+        observer.RememberObservation(previous);
+        REQUIRE(context.CaptureScreen());
+        const auto* markers = resources->FindScreen(stage.expected);
+        REQUIRE(markers != nullptr);
+        for (const auto& marker : markers->templates)
+        {
+            const auto score = context.MatchTemplate(marker.path, marker.threshold, marker.roi,
+                marker.requiresAlphaMatching ? "MatchTemplateColor" : marker.algorithm);
+            UNSCOPED_INFO("primary=" << score.score << " threshold=" << marker.threshold);
+        }
+        for (const auto& marker : markers->requiredTemplates)
+        {
+            const auto score = context.MatchTemplate(marker.path, marker.threshold, marker.roi,
+                marker.requiresAlphaMatching ? "MatchTemplateColor" : marker.algorithm);
+            UNSCOPED_INFO("required=" << score.score << " threshold=" << marker.threshold);
+        }
+        const auto observed = observer.ObserveCareer(context);
+        CHECK(observed.screenId == (stage.nextVerified ? stage.expected : "unknown"));
+        const auto* definition = resources->FindScreen(stage.expected);
+        REQUIRE(definition != nullptr);
+        if (observed.screenId == "home") continue; // Coordinator completes here instead of starting another Career.
+        REQUIRE(definition->actions.size() == 1);
+        CHECK(definition->actions.begin()->second.valid);
+        CHECK(resources->FindExecutionTask(definition->actions.begin()->second.taskName) != nullptr);
     }
 }
