@@ -90,7 +90,7 @@ private:
     std::filesystem::path path_;
 };
 
-[[nodiscard]] Vision::GrayImage resize_nearest(Vision::GrayImage const& source, bool padded)
+[[nodiscard]] Vision::GrayImage resize_nearest(Vision::GrayImage const& source, bool padded, bool preserve_color = false)
 {
     if (source.width <= 0 || source.height <= 0
         || source.width > 10000 || source.height > 10000
@@ -111,6 +111,8 @@ private:
     resized.width = width;
     resized.height = height;
     resized.gray.assign(static_cast<std::size_t>(width) * height, 255);
+    if (preserve_color && source.rgba.size() == source.gray.size() * 4u)
+        resized.rgba.assign(resized.gray.size() * 4u, 255);
     for (int y = 0; y < source.height; ++y)
     {
         auto const* input = source.gray.data() + static_cast<std::size_t>(y) * source.width;
@@ -123,6 +125,17 @@ private:
             first[x * 2 + 1] = value;
             second[x * 2] = value;
             second[x * 2 + 1] = value;
+            if (!resized.rgba.empty())
+            {
+                const auto source_at = (static_cast<std::size_t>(y) * source.width + x) * 4u;
+                for (int dy = 0; dy < 2; ++dy)
+                    for (int dx = 0; dx < 2; ++dx)
+                    {
+                        const auto target_at = (static_cast<std::size_t>(offset_y + y * 2 + dy) * width
+                            + offset_x + x * 2 + dx) * 4u;
+                        std::copy_n(source.rgba.data() + source_at, 4, resized.rgba.data() + target_at);
+                    }
+            }
         }
     }
     return resized;
@@ -132,13 +145,13 @@ void save_png(std::filesystem::path const& path, Vision::GrayImage const& image)
 {
     auto const pixel_count = static_cast<std::size_t>(image.width) * image.height;
     std::vector<std::uint8_t> bgra(pixel_count * 4u);
+    const bool color = image.rgba.size() == pixel_count * 4u;
     for (std::size_t index = 0; index < pixel_count; ++index)
     {
-        auto const gray = image.gray[index];
         auto const offset = index * 4u;
-        bgra[offset] = gray;
-        bgra[offset + 1] = gray;
-        bgra[offset + 2] = gray;
+        bgra[offset] = color ? image.rgba[offset + 2] : image.gray[index];
+        bgra[offset + 1] = color ? image.rgba[offset + 1] : image.gray[index];
+        bgra[offset + 2] = color ? image.rgba[offset] : image.gray[index];
         bgra[offset + 3] = 255;
     }
 
@@ -329,26 +342,48 @@ void write_image_list(std::filesystem::path const& list_path,
     return false;
 }
 
-[[nodiscard]] std::optional<int> parse_numeric(std::string const& raw, int maximum)
+[[nodiscard]] std::optional<int> parse_numeric(std::string const& raw, int maximum, NumericOcrFormat format)
 {
     auto normalized = normalize_unicode_whitespace(raw);
     if (contains_negative_number(normalized)) return std::nullopt;
-    normalized = remove_failure_label(normalized);
-    for (auto& value : normalized)
+    bool const integer = format == NumericOcrFormat::UnsignedInteger;
+    if (!integer)
     {
-        if (value == 'O' || value == 'o') value = '0';
-        else if (value == 'l' || value == 'I') value = '1';
+        normalized = remove_failure_label(normalized);
+        for (auto& value : normalized)
+        {
+            if (value == 'O' || value == 'o') value = '0';
+            else if (value == 'l' || value == 'I') value = '1';
+        }
     }
 
     auto first = normalized.begin();
     auto last = normalized.end();
     while (first != last && ascii_space(*first)) ++first;
     while (first != last && ascii_space(*(last - 1))) --last;
+    if (integer)
+    {
+        // Countdown-card OCR can add an apostrophe beside a narrow digit 1.
+        // Admit surrounding quote marks, while still rejecting words, signs,
+        // units, multiple values, and arithmetic overflow.
+        const std::array<std::string_view, 4> quotes{"'", "\"", "\xE2\x80\x98", "\xE2\x80\x99"};
+        bool trimmed = true;
+        while (trimmed && first != last)
+        {
+            trimmed = false;
+            const std::string_view view(&*first, static_cast<std::size_t>(last - first));
+            for (auto const quote : quotes)
+            {
+                if (view.starts_with(quote)) { first += static_cast<std::ptrdiff_t>(quote.size()); trimmed = true; break; }
+                if (view.ends_with(quote)) { last -= static_cast<std::ptrdiff_t>(quote.size()); trimmed = true; break; }
+            }
+        }
+    }
     if (std::none_of(first, last, ascii_digit)) return std::nullopt;
 
     auto cursor = first;
-    bool const percent = maximum == 100;
-    if (!percent)
+    bool const percent = !integer && maximum == 100;
+    if (!percent && !integer)
     {
         if (cursor == last || (*cursor != '+' && *cursor != '*' && *cursor != '#')) return std::nullopt;
         ++cursor;
@@ -359,7 +394,8 @@ void write_image_list(std::filesystem::path const& list_path,
     int digit_count = 0;
     while (cursor != last && ascii_digit(*cursor))
     {
-        if (++digit_count > (percent ? 3 : 4)) return std::nullopt;
+        if (++digit_count > (integer ? 10 : percent ? 3 : 4)) return std::nullopt;
+        if (value > (maximum - (*cursor - '0')) / 10 || (*cursor - '0') > maximum) return std::nullopt;
         value = value * 10 + (*cursor - '0');
         ++cursor;
     }
@@ -547,7 +583,8 @@ NumericOcrBatchResult NumericOcrBatch::read(
         for (std::size_t index = 0; index < fields.size(); ++index)
         {
             throw_if_cancelled(cancellation);
-            auto const image = resize_nearest(fields[index].crop, false);
+            auto const image = resize_nearest(fields[index].crop, false,
+                fields[index].format == NumericOcrFormat::UnsignedInteger);
             normal_images[index] = temporary.path() / ("image-" + std::to_string(index) + ".png");
             save_png(normal_images[index], image);
         }
@@ -608,7 +645,7 @@ NumericOcrBatchResult NumericOcrBatch::read(
                 auto& reading = readings.at(fields[index].key);
                 append_reading(reading, raw);
 
-                auto value = parse_numeric(raw, fields[index].maxValue);
+                auto value = parse_numeric(raw, fields[index].maxValue, fields[index].format);
                 bool glyph_mismatch = false;
                 if (value && fields[index].validateGainGlyphs)
                 {
@@ -626,6 +663,11 @@ NumericOcrBatchResult NumericOcrBatch::read(
         if (exception.code() == std::make_error_code(std::errc::operation_canceled)) throw;
         // Tesseract is an optional fallback. Unavailable process/image services
         // leave the affected OCR values unknown, matching the managed behavior.
+        for (auto& [_, reading] : readings) if (!reading.value) reading.failureReason = exception.what();
+    }
+    catch (const std::exception& exception)
+    {
+        for (auto& [_, reading] : readings) if (!reading.value) reading.failureReason = exception.what();
     }
     catch (...)
     {

@@ -238,6 +238,26 @@ TEST_CASE("Numeric OCR tries PSM modes then pads only unresolved gain crops")
     CHECK(process.images.back().height == 44);
 }
 
+TEST_CASE("Countdown numeric OCR accepts unsigned integers without changing training token parsing",
+    "[CareerStartupMainRegression]")
+{
+    using UmaAssistant::Recognition::NumericOcrFormat;
+    for (auto const& [raw, expected] : std::vector<std::pair<std::string, std::optional<int>>>{
+        {"0", 0}, {"11", 11}, {"'11", 11}, {"\xE2\x80\x98" "11", 11}, {"100", 100}, {"2147483647", 2147483647},
+        {"2147483648", std::nullopt}, {"11%", std::nullopt}, {"+11", std::nullopt},
+        {"-11", std::nullopt}, {"11 12", std::nullopt}, {"Failure 11", std::nullopt},
+        {"II", std::nullopt}, {"", std::nullopt}})
+    {
+        CAPTURE(raw);
+        FakeWin32Process process;
+        process.results.assign(3, success(tsv({{1, raw}})));
+        NumericOcrBatch service(process, process.expected_executable);
+        std::vector<NumericOcrBatchField> fields{{"turns", crop_with_ink_groups(2), 2147483647, false,
+            NumericOcrFormat::UnsignedInteger}};
+        CHECK(service.read(fields).at("turns").value == expected);
+    }
+}
+
 TEST_CASE("Numeric OCR rejects gain values whose crop glyph count disagrees")
 {
     FakeWin32Process process;

@@ -18,12 +18,15 @@ class IWin32Process;
 
 namespace UmaAssistant::Recognition {
 
+enum class NumericOcrFormat { TrainingValue, UnsignedInteger };
+
 struct NumericOcrBatchField
 {
     std::string key;
     Vision::GrayImage crop;
     int maxValue{999};
     bool validateGainGlyphs{};
+    NumericOcrFormat format{NumericOcrFormat::TrainingValue};
 };
 
 struct NumericOcrBatchReading
@@ -31,6 +34,7 @@ struct NumericOcrBatchReading
     std::optional<int> value;
     std::string rawText;
     bool glyphMismatch{};
+    std::string failureReason;
 };
 
 using NumericOcrBatchResult = std::map<std::string, NumericOcrBatchReading, std::less<>>;
