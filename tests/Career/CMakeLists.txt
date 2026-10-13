@@ -3,6 +3,7 @@ include(Catch)
 add_executable(CareerTests
   CareerTests.cpp
   CareerDomainParityTests.cpp
+  CareerTransitionPolicyTests.cpp
   CareerBehaviorRegressionTests.cpp
   CareerObservationValueTests.cpp
   CareerRuntimeReplayTests.cpp

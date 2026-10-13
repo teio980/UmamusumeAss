@@ -46,7 +46,8 @@ bool ConfigureQuickMode(CareerEntryResult& result, Career::CareerVisualResources
 
 CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConfig& config,
     Career::CareerVisualResources& resources, Career::ICareerObserver& observer,
-    TaskEngine::ITaskExecutionContext& context, std::string const& confirmedEntryScreen)
+    TaskEngine::ITaskExecutionContext& context, std::string const& confirmedEntryScreen,
+    std::optional<CareerDomain::CareerObservation> confirmedEntry)
 {
     CareerEntryResult result;
     std::vector<std::string> startupScreens;
@@ -68,7 +69,8 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
             auto const* screen = resources.FindScreen(id);
             return screen && screen->flow == "settlement";
         });
-    auto initial = observer.ObserveScreens(context, initialScreens, !newCareer);
+    auto initial = confirmedEntry ? std::move(*confirmedEntry)
+        : observer.ObserveScreens(context, initialScreens, !newCareer);
     for (int attempt = 0; (initial.screenId == "unknown" || initial.screenId == "capture_failed")
         && attempt < 30 && !context.IsCancelled(); ++attempt)
     {

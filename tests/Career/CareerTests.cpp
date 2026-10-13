@@ -412,24 +412,50 @@ TEST_CASE("CareerFlowCoordinator orchestrates main loop, events and settlement",
     CareerObservation obs5;
     obs5.screenId = "home";
 
-    observer->observationSequence = {obs1, obs2, obs3, obs4, obs5};
+    const auto page = [](const std::string& id, CareerScreenKind kind) {
+        CareerObservation observation;
+        observation.screenId = id;
+        observation.screenKind = kind;
+        return observation;
+    };
+    // Exercise actual navigation boundaries rather than jumping from an
+    // unopened training drawer straight to an event or Rest straight to Home.
+    observer->observationSequence = {obs1, page("training_selection", CareerScreenKind::TrainingSelect),
+        obs2, page("training_result", CareerScreenKind::TrainingResult), obs3,
+        page("rest_confirmation", CareerScreenKind::Rest), page("goal_incomplete", CareerScreenKind::Settlement),
+        page("complete_career_entry", CareerScreenKind::Settlement), page("complete_career", CareerScreenKind::Settlement),
+        page("career_rank", CareerScreenKind::Settlement), page("career_result", CareerScreenKind::Settlement),
+        page("rewards", CareerScreenKind::Settlement), obs4, obs5};
 
     CareerFlowCoordinator coordinator(observer, actionExecutor, scenario, strategy);
     MockTaskExecutionContext context;
 
-    auto result = coordinator.RunToCompletion(context, 10);
+    auto result = coordinator.RunToCompletion(context, 30);
 
     CHECK(result.status == CareerRunStatus::Completed);
-    REQUIRE(actionExecutor->executedIntents.size() == 4);
+    REQUIRE(actionExecutor->executedIntents.size() == 13);
     CHECK(actionExecutor->executedIntents[0].kind == ActionIntentKind::Training);
-    CHECK(actionExecutor->executedIntents[1].kind == ActionIntentKind::SelectEventOption);
-    CHECK(actionExecutor->executedIntents[2].kind == ActionIntentKind::Rest);
+    CHECK(actionExecutor->executedIntents[2].kind == ActionIntentKind::SelectEventOption);
+    CHECK(actionExecutor->executedIntents[4].kind == ActionIntentKind::Rest);
 }
 
 TEST_CASE("Career goal completion is insufficient proof of whole-run completion", "[Career][Replay]")
 {
     auto observer = std::make_shared<MockCareerObserver>();
-    auto executor = std::make_shared<MockCareerActionExecutor>();
+    class UnexpectedHomeExecutor final : public MockCareerActionExecutor
+    {
+    public:
+        std::optional<CareerObservation> TakeConfirmedObservation() override
+        {
+            if (executedIntents.empty() || delivered) return {};
+            delivered = true;
+            CareerObservation home;
+            home.screenId = "home";
+            return home;
+        }
+        bool delivered{false};
+    };
+    auto executor = std::make_shared<UnexpectedHomeExecutor>();
     CareerObservation goal;
     goal.screenId = "goal_complete";
     goal.screenKind = CareerScreenKind::GoalUpdate;

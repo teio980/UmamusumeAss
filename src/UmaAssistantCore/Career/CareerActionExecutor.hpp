@@ -5,6 +5,7 @@
 #include "CareerRuntimeConfig.hpp"
 #include <memory>
 #include <optional>
+#include <chrono>
 
 namespace UmaAssistant::Career
 {
@@ -42,6 +43,8 @@ public:
         TaskEngine::ITaskExecutionContext& context) override;
     std::optional<bool> TakeRaceRetryDeclined() override;
     std::optional<std::string> TakeLastActionOutcome() override;
+    void SetTransitionContext(const CareerTransitionContext& transition) override { m_transitionContext = transition; }
+    std::optional<CareerActionHandoff> TakeActionHandoff() override;
 
     ActionExecutionStatus ExecuteAction(
         const std::string& screenId,
@@ -82,6 +85,9 @@ private:
     std::optional<bool> m_raceRetryDeclined;
     std::optional<std::string> m_lastActionOutcome;
     bool m_raceStrategyConfigured{false};
+    CareerTransitionContext m_transitionContext;
+    std::optional<CareerActionHandoff> m_actionHandoff;
+    std::chrono::steady_clock::time_point m_handoffCreated;
 };
 
 } // namespace UmaAssistant::Career

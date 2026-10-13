@@ -30,7 +30,8 @@ public:
         Career::CareerVisualResources& resources,
         Career::ICareerObserver& observer,
         TaskEngine::ITaskExecutionContext& context,
-        bool resumeAfterRecovery = false);
+        bool resumeAfterRecovery = false,
+        std::optional<CareerDomain::CareerObservation> confirmedEntry = {});
 };
 
 } // namespace UmaAssistant::GameTasks

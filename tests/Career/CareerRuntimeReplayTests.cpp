@@ -16,6 +16,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -29,6 +30,7 @@ using Json = nlohmann::json;
 using UmaAssistant::Career::CareerRuntimeConfig;
 using UmaAssistant::Career::CareerScreenObserver;
 using UmaAssistant::Career::CareerVisualResources;
+using UmaAssistant::Career::CareerTransitionPolicy;
 using UmaAssistant::TaskEngine::ITaskExecutionContext;
 using UmaAssistant::TaskEngine::TaskFrameSnapshot;
 using UmaAssistant::TaskEngine::TaskMatchResult;
@@ -156,7 +158,7 @@ public:
         const auto index = (std::min)(m_captureCount, m_screenshots.size() - 1);
         try
         {
-            m_image = UmaAssistant::Resources::WicImageDecoder::decode_file(m_screenshots[index]);
+        m_image = frameOverride ? *frameOverride : UmaAssistant::Resources::WicImageDecoder::decode_file(m_screenshots[index]);
         }
         catch (...)
         {
@@ -169,6 +171,7 @@ public:
         frame->frameId = static_cast<std::uint64_t>(m_captureCount);
         frame->grayPixels = m_image.gray;
         frame->rgbaPixels = m_image.rgba;
+        frame->geometryGeneration = geometryGeneration;
         m_frame = std::move(frame);
         return true;
     }
@@ -191,6 +194,18 @@ public:
         int referenceHeight,
         const std::vector<double>& /*scaleCandidates*/) override
     {
+        ++matchCalls;
+        matchedPaths.push_back(templatePath);
+        if (std::filesystem::path(templatePath).filename() == "career_main_action_training.png" && roi)
+        {
+            mainAnchorSearches.push_back(*roi);
+            if (rejectNarrowMainAnchor && roi->width < 500) return {};
+        }
+        if (std::filesystem::path(templatePath).filename().string().starts_with("infirmary_"))
+        {
+            infirmaryRois.push_back(roi);
+            infirmaryAlgorithms.push_back(algorithm);
+        }
         TaskMatchResult result;
         if (!m_frame || referenceWidth <= 0 || referenceHeight <= 0)
             return result;
@@ -259,6 +274,7 @@ public:
     std::vector<TaskOcrDetection> RecognizeText(
         const std::string& language, const std::optional<TaskRoi>& roi = std::nullopt) override
     {
+        ++ocrCalls;
         if (!nativeOcr) return ocrDetections;
         UmaAssistant::Recognition::WindowsOcrRecognizer reader;
         auto const cropped = roi ? UmaAssistant::Resources::crop_image(m_image,
@@ -297,7 +313,7 @@ public:
     bool Swipe(int, int, int, int, int) override { return false; }
     bool InputText(const std::string&) override { return false; }
     bool SendKey(const std::string&) override { return false; }
-    void Sleep(int) override {}
+    void Sleep(int milliseconds) override { requestedWaitMs += milliseconds; }
     bool IsCancelled() const override { return false; }
     void Log(const std::string&, const std::string& message) override { diagnostics += message + "\n"; }
     void EmitEvent(const UmaAssistant::TaskEngine::TaskExecutionEvent&) override {}
@@ -307,6 +323,16 @@ public:
     std::vector<TaskOcrDetection> ocrDetections;
     bool nativeOcr{false};
     bool forceGoalHeader{false};
+    std::size_t matchCalls{0};
+    std::size_t ocrCalls{0};
+    int requestedWaitMs{0};
+    std::vector<std::string> matchedPaths;
+    std::vector<TaskRoi> mainAnchorSearches;
+    bool rejectNarrowMainAnchor{false};
+    std::uint64_t geometryGeneration{0};
+    std::optional<GrayImage> frameOverride;
+    std::vector<std::optional<TaskRoi>> infirmaryRois;
+    std::vector<std::string> infirmaryAlgorithms;
     std::string processedOcrText;
     std::string numericOcrText;
     std::string diagnostics;
@@ -320,6 +346,175 @@ private:
 };
 
 } // namespace
+
+TEST_CASE("Career fixed screenshots report recognition work and elapsed time", "[CareerPerformance]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (auto const& fixture : std::vector<std::pair<std::string, std::string>>{
+        {"career_main_oguri_predebut_mumu_20261013.png", "career_main"},
+        {"rest_confirmation_ura.png", "rest_confirmation"},
+        {"rewards_support_mumu_20261013.png", "rewards"}})
+    {
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures" / fixture.first});
+        CareerScreenObserver observer(resources);
+        std::vector<double> elapsed;
+        for (int iteration = 0; iteration < 22; ++iteration)
+        {
+            auto const started = std::chrono::steady_clock::now();
+            auto const transition = CareerTransitionPolicy::FromObservation(fixture.second);
+            auto const observation = observer.ObserveTransition(context, transition);
+            REQUIRE(observation.screenId == fixture.second);
+            if (iteration >= 2)
+                elapsed.push_back(std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - started).count());
+        }
+        std::sort(elapsed.begin(), elapsed.end());
+        std::cout << "CAREER_BENCH " << fixture.second << " captures=" << context.CaptureCount()
+            << " matches=" << context.matchCalls << " ocr=" << context.ocrCalls
+            << " waitMs=" << context.requestedWaitMs << " medianMs=" << elapsed[10]
+            << " p95Ms=" << elapsed[18] << '\n';
+    }
+}
+
+TEST_CASE("Stable entry uses one two-frame observation and training reuses a valid graph frame", "[CareerTransition][Replay]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    SECTION("stable entry does not repeat its two-frame proof")
+    {
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/career_final_confirmation_mumu_20261012.png"});
+        CareerScreenObserver observer(resources);
+        const auto observation = observer.ObserveStableScreens(context, {"career_final_confirmation"});
+        CHECK(observation.screenId == "career_final_confirmation");
+        CHECK(observation.stableFrameCount == 2);
+        CHECK(context.CaptureCount() == 2);
+        CHECK(context.requestedWaitMs == 120);
+    }
+    SECTION("training destination consumes the graph frame once without training OCR")
+    {
+        ScreenshotReplayContext context({root / "resource/hachimi/ura/testdata/captures/runtime_frames/training_selection_ura.png"});
+        REQUIRE(context.CaptureScreen());
+        auto seed = context.GetCurrentFrame();
+        CareerScreenObserver observer(resources);
+        auto transition = CareerTransitionPolicy::AfterAction({}, "career_main", "action.training", "training.selection.confirmed");
+        auto observation = observer.ObserveTransition(context, transition, seed);
+        CHECK(observation.screenId == "training_selection");
+        CHECK(observation.stableFrameCount == 2);
+        CHECK(context.CaptureCount() == 2);
+        CHECK(context.ocrCalls == 0);
+        for (auto const& path : context.matchedPaths)
+        {
+            CHECK(path.find("settlement") == std::string::npos);
+            CHECK(path.find("skill/templates") == std::string::npos);
+            CHECK(path.find("race/templates") == std::string::npos);
+        }
+        const auto captures = context.CaptureCount();
+        observation = observer.ObserveTransition(context, transition, seed); // seed no longer current
+        CHECK(observation.screenId == "training_selection");
+        CHECK(context.CaptureCount() == captures + 2);
+    }
+}
+
+TEST_CASE("Main anchor hints rematch each frame and retain authored fallback and geometry boundaries", "[CareerTransition][Replay]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/career_main_oguri_predebut_mumu_20261013.png"});
+    CareerScreenObserver observer(resources);
+    const auto transition = CareerTransitionPolicy::FromObservation("career_main");
+    REQUIRE(observer.ObserveTransition(context, transition).screenId == "career_main");
+    REQUIRE(context.mainAnchorSearches.size() == 2);
+    CHECK(context.mainAnchorSearches.front().width == 500);
+    CHECK(context.mainAnchorSearches.back().width < 500);
+    CHECK(context.CaptureCount() == 2);
+    context.mainAnchorSearches.clear();
+    context.rejectNarrowMainAnchor = true;
+    REQUIRE(observer.ObserveTransition(context, transition).screenId == "career_main");
+    REQUIRE(context.mainAnchorSearches.size() == 4);
+    CHECK(context.mainAnchorSearches[0].width < 500);
+    CHECK(context.mainAnchorSearches[1].width == 500);
+    CHECK(context.mainAnchorSearches[2].width < 500);
+    CHECK(context.mainAnchorSearches[3].width == 500);
+    context.mainAnchorSearches.clear();
+    context.rejectNarrowMainAnchor = false;
+    ++context.geometryGeneration;
+    REQUIRE(observer.ObserveTransition(context, transition).screenId == "career_main");
+    REQUIRE(context.mainAnchorSearches.size() == 2);
+    CHECK(context.mainAnchorSearches.front().width == 500);
+    observer.ResetForEntry();
+    context.mainAnchorSearches.clear();
+    REQUIRE(observer.ObserveTransition(context, transition).screenId == "career_main");
+    REQUIRE(context.mainAnchorSearches.size() == 2);
+    CHECK(context.mainAnchorSearches.front().width == 500);
+}
+
+TEST_CASE("Infirmary perception uses main colored button regions and score gap", "[CareerTransition][Replay]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (auto const& [file, expected] : std::vector<std::pair<std::string, bool>>{
+        {"infirmary_current.png", true}, {"infirmary_unavailable_reference.png", false}, {"infirmary_unavailable_shifted.png", false}})
+    {
+        CAPTURE(file);
+        ScreenshotReplayContext context({root / "resource/hachimi/ura/screens/captures" / file});
+        CareerScreenObserver observer(resources);
+        const auto observed = observer.ObserveTransition(context, CareerTransitionPolicy::FromObservation("career_main"));
+        REQUIRE(observed.screenId == "career_main");
+        REQUIRE(observed.infirmaryEvidence.IsReliable());
+        CHECK(observed.infirmaryAvailable == expected);
+        REQUIRE_FALSE(context.infirmaryRois.empty());
+        for (const auto& roi : context.infirmaryRois)
+        {
+            REQUIRE(roi);
+            CHECK(roi->width == 170);
+            CHECK(roi->height == 62);
+            CHECK((roi->x == 130 || roi->x == 250));
+        }
+        for (const auto& algorithm : context.infirmaryAlgorithms) CHECK(algorithm == "MatchTemplateColor");
+    }
+    SECTION("The lit button is also recognized in the summer shifted position")
+    {
+        ScreenshotReplayContext context({root / "resource/hachimi/ura/screens/captures/infirmary_unavailable_shifted.png"});
+        auto image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+            root / "resource/hachimi/ura/screens/captures/infirmary_unavailable_shifted.png");
+        const auto* active = resources->FindAsset("career.infirmary.available");
+        REQUIRE(active);
+        const auto marker = context.LoadTemplateImage(active->path);
+        REQUIRE(marker);
+        REQUIRE(image.width >= 260 + marker->width);
+        REQUIRE(image.height >= 1420 + marker->height);
+        REQUIRE(marker->rgba.size() == marker->gray.size() * 4);
+        // Match the existing main regression: put the active colored glyphs
+        // at the authored shifted button without changing other page content.
+        for (int y = 0; y < marker->height; ++y)
+            for (int x = 0; x < marker->width; ++x)
+            {
+                const auto source = static_cast<std::size_t>(y * marker->width + x);
+                const auto destination = static_cast<std::size_t>((1420 + y) * image.width + 260 + x);
+                image.gray[destination] = marker->gray[source];
+                std::copy_n(marker->rgba.begin() + static_cast<std::ptrdiff_t>(source * 4), 4,
+                    image.rgba.begin() + static_cast<std::ptrdiff_t>(destination * 4));
+            }
+        context.frameOverride = std::move(image);
+        CareerScreenObserver observer(resources);
+        const auto observed = observer.ObserveTransition(context, CareerTransitionPolicy::FromObservation("career_main"));
+        REQUIRE(observed.screenId == "career_main");
+        CHECK(observed.infirmaryAvailable);
+    }
+}
 
 TEST_CASE("Career observer replays a packaged Home screenshot on one captured frame", "[CareerRuntime][Replay]")
 {

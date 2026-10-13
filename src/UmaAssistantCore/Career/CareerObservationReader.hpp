@@ -175,6 +175,9 @@ public:
         bool allowResume = false) override;
 
     CareerDomain::CareerObservation ObserveCareer(TaskEngine::ITaskExecutionContext& context) override;
+    CareerDomain::CareerObservation ObserveTransition(TaskEngine::ITaskExecutionContext& context,
+        const CareerTransitionContext& transition,
+        std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed = {}) override;
 
     void RememberObservation(const CareerDomain::CareerObservation& observation);
 
@@ -191,6 +194,9 @@ public:
     }
 
 private:
+    CareerDomain::CareerObservation ObserveScreensCore(TaskEngine::ITaskExecutionContext& context,
+        const std::vector<std::string>& screens, bool allowResume,
+        std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails);
     std::shared_ptr<CareerVisualResources> m_resources;
     bool m_diagnosticsLogged{false};
     bool m_careerStarted{false};
@@ -210,6 +216,16 @@ private:
         std::string actionId;
     };
     std::vector<EventTitleRecognition> m_eventTitles;
+    struct MainAnchorHint
+    {
+        std::string path;
+        TaskEngine::TaskMatchResult match;
+        int width{0};
+        int height{0};
+        std::uint64_t session{0};
+        std::uint64_t geometry{0};
+    };
+    std::optional<MainAnchorHint> m_mainAnchorHint;
 };
 
 } // namespace UmaAssistant::Career

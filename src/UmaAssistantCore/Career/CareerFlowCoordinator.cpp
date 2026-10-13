@@ -83,6 +83,30 @@ std::string IntentSemantic(const CareerDomain::ActionIntent& intent)
     return "advance";
 }
 
+std::string TransitionSemantic(const CareerDomain::ActionIntent& intent,
+    const CareerDomain::CareerObservation& source)
+{
+    using Kind = CareerDomain::ActionIntentKind;
+    const auto id = Fold(source.screenId);
+    if (id == "career_main")
+    {
+        switch (intent.kind)
+        {
+        case Kind::Training: return "action.training";
+        case Kind::Rest: return "action.rest";
+        case Kind::Infirmary: return "action.infirmary";
+        case Kind::Recreation: return "action.recreation";
+        case Kind::Race: return intent.raceTarget == "finale" ? "action.finale_races" : "action.races";
+        default: return {};
+        }
+    }
+    if (id == "training_selection") return intent.kind == Kind::Training ? "training." + intent.trainingType : "training.back";
+    if (id == "race_streak_warning") return intent.customActionName;
+    if (id == "race_retry_dialog") return "";
+    if (id == "recreation_confirmation") return "recreation.confirm";
+    return source.eventActionId.value_or("");
+}
+
 void EmitCareerEvent(
     TaskEngine::ITaskExecutionContext& context,
     TaskEngine::TaskEventType type,
@@ -206,6 +230,7 @@ CareerFlowCoordinator::CareerFlowCoordinator(
 void CareerFlowCoordinator::ResetAfterRecovery() noexcept
 {
     m_nextConfirmedObservation.reset();
+    m_transitionContext = {};
     m_pendingTraining.reset();
     m_pendingTrainingBaseline.reset();
     m_pendingTrainingTurnsToGoal.reset();
@@ -317,6 +342,7 @@ void CareerFlowCoordinator::SetConfirmedObservation(const CareerDomain::CareerOb
 {
     if (observation.screenKind == CareerDomain::CareerScreenKind::Unknown) return;
     m_state.careerStarted = true;
+    m_transitionContext = CareerTransitionPolicy::FromObservation(observation.screenId);
     m_nextConfirmedObservation = observation;
 }
 
@@ -367,7 +393,9 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
     if (!confirmedObservation)
         confirmedObservation = m_actionExecutor->TakeConfirmedObservation();
     auto observation = confirmedObservation
-        ? std::move(*confirmedObservation) : m_observer->ObserveCareer(context);
+        ? std::move(*confirmedObservation)
+        : m_transitionContext.candidates.empty() ? m_observer->ObserveCareer(context)
+            : m_observer->ObserveTransition(context, m_transitionContext);
     if (context.IsCancelled())
     {
         result.status = CareerRunStatus::Cancelled;
@@ -414,11 +442,11 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         m_state.goalText.clear();
     }
     if (m_restoredSmartTrainingConfirmation && m_pendingTraining
-        && (Fold(observation.screenId) == "race_day" || Fold(observation.screenId) == "career_races_ready"
+        && (Fold(observation.screenId) == "training_result" || Fold(observation.screenId) == "race_day" || Fold(observation.screenId) == "career_races_ready"
             || (Fold(observation.screenId) == "race_list" && observation.turnsToGoalEvidence.IsReliable()
                 && observation.turnsToGoalEvidence.Value() == 0)))
     {
-        // A persisted training tap followed by the mandatory race boundary
+        // A persisted training tap followed by its result or mandatory race boundary
         // proves the non-race action finished, including on process restart.
         // Restore its scenario accounting before applying the destination.
         CareerDomain::CareerObservation trainingSource;
@@ -427,6 +455,8 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         m_scenario->OnTurnActionSubmitted(m_state, *m_pendingTraining, trainingSource);
     }
     m_scenario->OnObserve(m_state, observation);
+    if (observation.screenKind != CareerDomain::CareerScreenKind::Unknown)
+        m_transitionContext = CareerTransitionPolicy::FromObservation(observation.screenId, m_transitionContext);
     SynchronizeObservationPolicy();
     if (observation.screenKind != CareerDomain::CareerScreenKind::Unknown)
         m_unknownObservations = 0;
@@ -485,6 +515,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         }
         m_observer->ClearMainTextCache();
         m_state.lastIntent = intent;
+        m_actionExecutor->SetTransitionContext(m_transitionContext);
         const auto actionTask = Fold(observation.screenId) + "." + IntentSemantic(intent);
         EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuting,
             m_state.scenarioId, actionTask, false, observation.score, intent.reason);
@@ -550,6 +581,16 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             return false;
         }
         m_nextConfirmedObservation = m_actionExecutor->TakeConfirmedObservation();
+        if (auto handoff = m_actionExecutor->TakeActionHandoff())
+        {
+            m_transitionContext = std::move(handoff->transition);
+            if (handoff->observation) m_nextConfirmedObservation = std::move(handoff->observation);
+        }
+        else
+        {
+            m_transitionContext = CareerTransitionPolicy::AfterAction(m_transitionContext,
+                observation.screenId, TransitionSemantic(intent, observation), outcome.value_or(""));
+        }
         const auto destination = m_nextConfirmedObservation
             ? m_nextConfirmedObservation->screenId : std::string("recognized transition");
         const auto transitionScore = m_nextConfirmedObservation
@@ -646,29 +687,12 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             result.failureReason = "The selected strategy requires a registered scenario training flow.";
             return result;
         }
-        if (candidateScanStrategy)
-        {
-            if (auto committedTraining = m_trainingFlow->ObserveOutcome(observation))
-            {
-                m_strategy->ConfirmTraining(m_state, *committedTraining);
-                m_pendingTraining.reset();
-                m_pendingTrainingBaseline.reset();
-            }
-        }
         m_scenario->OnTurnStart(m_state);
         if (candidateScanStrategy && !m_trainingFlow->HasPendingOutcome()
             && !m_trainingFlow->HasCandidatesForCurrentTurn(m_state))
         {
             m_strategy->ClearTrainingCandidateEvidence();
             m_trainingFlow->Reset();
-        }
-        if (m_pendingTraining && m_pendingTrainingBaseline
-            && m_state.confirmedTurnActions > *m_pendingTrainingBaseline)
-        {
-            if (m_strategy)
-                m_strategy->ConfirmTraining(m_state, m_pendingTraining->trainingType);
-            m_pendingTraining.reset();
-            m_pendingTrainingBaseline.reset();
         }
         CareerDomain::ActionIntent intent;
         {
@@ -764,22 +788,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
     }
     case CareerDomain::CareerScreenKind::TrainingResult:
     {
-        if (m_strategy && m_strategy->RequiresTrainingCandidateScan() && m_trainingFlow)
-        {
-            const bool pendingOutcome = m_trainingFlow->HasPendingOutcome();
-            if (auto committedTraining = m_trainingFlow->ObserveOutcome(observation))
-                m_strategy->ConfirmTraining(m_state, *committedTraining);
-            else if (pendingOutcome)
-            {
-                result.status = CareerRunStatus::Failed;
-                result.failureReason = "Training result did not provide a valid scenario training commit.";
-                return result;
-            }
-        }
-        else if (m_pendingTraining && m_strategy)
-            m_strategy->ConfirmTraining(m_state, m_pendingTraining->trainingType);
-        m_pendingTraining.reset();
-        m_pendingTrainingBaseline.reset();
+        // CheckAndConfirmTrainingConsumed owns all ratio/scanner commits.
         const auto intent = CareerDomain::ActionIntent::MakeAdvance("Advance the observed training result.");
         if (!perform(intent)) return result;
         return finishRunning();

@@ -11,6 +11,7 @@ public:
         Career::CareerVisualResources& resources,
         Career::ICareerObserver& observer,
         TaskEngine::ITaskExecutionContext& context,
-        std::string const& confirmedEntryScreen = {});
+        std::string const& confirmedEntryScreen = {},
+        std::optional<CareerDomain::CareerObservation> confirmedEntry = {});
 };
 }

@@ -135,6 +135,25 @@ CareerObservation Screen(std::string id, CareerScreenKind kind)
 
 } // namespace
 
+TEST_CASE("A confirmed entry runtime frame reaches startup without another capture", "[GameTasks][Career][CareerTransition]")
+{
+    const auto config = PackagedConfig();
+    CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    SequenceCareerObserver observer({});
+    StartupReplayContext context;
+    CareerObservation confirmed;
+    confirmed.screenId = "career_main";
+    confirmed.screenKind = CareerScreenKind::MainTurn;
+    confirmed.stableFrameCount = 2;
+    const auto result = NativeNormalCareerStartup::Run(config, resources, observer, context, confirmed.screenId, confirmed);
+    REQUIRE(result.succeeded);
+    REQUIRE(result.runtimeObservation);
+    CHECK(result.runtimeObservation->stableFrameCount == 2);
+    CHECK(observer.candidateHistory.empty());
+    CHECK(context.taps.empty());
+}
+
 TEST_CASE("Confirmed final confirmation keeps normal startup out of settlement recovery",
     "[GameTasks][CareerStartupReplay][StartupPhaseRegression]")
 {

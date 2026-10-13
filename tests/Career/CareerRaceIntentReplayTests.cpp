@@ -301,8 +301,8 @@ void PushFullRaceFlow(ReplayObserver& observer)
     observer.observations = {
         Screen("career_main", CareerScreenKind::MainTurn),
         Screen("career_races_ready", CareerScreenKind::RaceEntry),
-        Screen("race_list", CareerScreenKind::RaceEntry),
         Screen("race_day", CareerScreenKind::RaceEntry),
+        Screen("race_list", CareerScreenKind::RaceEntry),
         Screen("race_runner", CareerScreenKind::RaceExecution),
         Screen("race_runner_result", CareerScreenKind::RaceResult),
         Screen("career_main", CareerScreenKind::MainTurn)};
@@ -328,9 +328,9 @@ void CheckRaceTargetReplay(const std::string& target)
         CHECK(executor->executions[i].intent.kind == ActionIntentKind::Race);
         CHECK(executor->executions[i].intent.raceTarget == target);
     }
-    CHECK(executor->executions[2].source.screenId == "race_list");
+    CHECK(executor->executions[2].source.screenId == "race_day");
     CHECK(executor->executions[2].intent.tactic == "late");
-    CHECK(executor->executions[3].source.screenId == "race_day");
+    CHECK(executor->executions[3].source.screenId == "race_list");
     CHECK(executor->executions[3].intent.tactic == "late");
     CHECK(executor->executions[4].source.screenId == "race_runner");
     CHECK(executor->executions[5].source.screenId == "race_runner_result");
@@ -366,8 +366,12 @@ TEST_CASE("Cancelling a race streak warning and returning to Main clears the pen
     CareerFlowCoordinator coordinator(observer, executor, scenario, strategy);
     UmaAssistant::TaskEngine::Tests::MockTaskExecutionContext context;
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 3; ++i)
         REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    // The fourth page models an external resume inside a race list, rather
+    // than claiming that opening Training can navigate to Race List.
+    coordinator.ResetAfterRecovery();
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
 
     REQUIRE(executor->executions.size() == 4);
     CHECK(executor->executions[0].intent.raceTarget == "fans");

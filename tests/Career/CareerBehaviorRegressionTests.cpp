@@ -39,6 +39,30 @@ public:
     bool replayCompleted{false};
     bool runnerResultExpected{false};
 };
+
+class ScopedObserver : public Observer
+{
+public:
+    CareerObservation ObserveCareer(UmaAssistant::TaskEngine::ITaskExecutionContext& context) override
+    {
+        ++globalProbes;
+        return Observe(context);
+    }
+    CareerObservation ObserveTransition(UmaAssistant::TaskEngine::ITaskExecutionContext& context,
+        const CareerTransitionContext& transition,
+        std::shared_ptr<const UmaAssistant::TaskEngine::TaskFrameSnapshot> = {}) override
+    {
+        const auto observation = Observe(context);
+        CHECK(std::find(transition.candidates.begin(), transition.candidates.end(), observation.screenId)
+            != transition.candidates.end());
+        CHECK(std::find(transition.candidates.begin(), transition.candidates.end(), "career_epithet")
+            == transition.candidates.end());
+        transitions.push_back(transition);
+        return observation;
+    }
+    int globalProbes{0};
+    std::vector<CareerTransitionContext> transitions;
+};
 class Executor : public MockCareerActionExecutor
 {
 public:
@@ -103,6 +127,70 @@ CareerObservation Main(int countdown = 3)
     observation.turnsToGoalEvidence = ObservedValue<int>::Make(countdown);
     return observation;
 }
+}
+
+TEST_CASE("Coordinator retains training context through continuous events without global scans", "[CareerBehavior][CareerTransition]")
+{
+    auto observer = std::make_shared<ScopedObserver>();
+    auto strategy = std::make_shared<RatioTrainingStrategy>(TrainingRatio{1, 1, 0, 0, 0});
+    auto executor = std::make_shared<Executor>();
+    auto main = Main(3);
+    main.turnPositionText = "Junior Year Pre-Debut";
+    observer->observationSequence = {
+        Screen("training_selection", CareerScreenKind::TrainingSelect),
+        Screen("event_choice", CareerScreenKind::EventChoice),
+        Screen("scenario_event", CareerScreenKind::EventChoice),
+        Screen("training_result", CareerScreenKind::TrainingResult)};
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(), strategy);
+    coordinator.SetConfirmedObservation(main);
+    Context context;
+    for (int step = 0; step < 5; ++step)
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(observer->globalProbes == 0);
+    REQUIRE(observer->transitions.size() == 4);
+    CHECK(observer->transitions.back().continuation == CareerTransitionPhase::TrainingOutcome);
+    // Only the result commits the ratio, after the intervening events.
+    CHECK(executor->executedIntents[1].trainingType == "speed");
+    CHECK(strategy->Choose(coordinator.GetState(), nullptr).trainingType == "stamina");
+}
+
+TEST_CASE("Resuming an event admits its training result without crediting an unknown training", "[CareerBehavior][CareerTransition]")
+{
+    auto observer = std::make_shared<ScopedObserver>();
+    auto strategy = std::make_shared<RatioTrainingStrategy>(TrainingRatio{1, 1, 0, 0, 0});
+    auto executor = std::make_shared<Executor>();
+    observer->observationSequence = {Screen("training_result", CareerScreenKind::TrainingResult), Main(3)};
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(), strategy);
+    coordinator.SetConfirmedObservation(Screen("event_choice", CareerScreenKind::EventChoice));
+    Context context;
+    for (int step = 0; step < 3; ++step)
+        REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(observer->globalProbes == 0);
+    CHECK(strategy->Choose(coordinator.GetState(), nullptr).trainingType == "speed");
+}
+
+TEST_CASE("A restored training result restores non-race accounting before its next Main", "[CareerBehavior][CareerTransition]")
+{
+    TempStore directory;
+    Context context;
+    CareerRuntimeConfig config;
+    config.traineeId = 1001;
+    config.continueExistingCareer = true;
+    config.checkpointDirectory = directory.path;
+    REQUIRE(SmartTrainingConfirmationStore::Save(directory.path, 1001, context.GetDeviceSerial(), "speed", 23));
+    auto observer = std::make_shared<ScopedObserver>();
+    auto next = Main(3);
+    next.turnIndexEvidence = ObservedValue<int>::Make(24);
+    next.turnPositionText = "Classic Year Early Jan";
+    observer->observationSequence = {next};
+    CareerFlowCoordinator coordinator(observer, std::make_shared<Executor>(), std::make_shared<UraScenarioModule>(),
+        std::make_shared<UraSmartTrainingStrategy>(), config, std::make_shared<Flow>());
+    coordinator.SetConfirmedObservation(Screen("training_result", CareerScreenKind::TrainingResult));
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(coordinator.GetState().consecutiveRaceTurns == 0);
+    CHECK(coordinator.GetState().confirmedTurnActions == 1);
+    CHECK_FALSE(SmartTrainingConfirmationStore::Load(directory.path, 1001, context.GetDeviceSerial()).has_value());
 }
 
 TEST_CASE("Career persistence replaces existing records and rejects ambiguous pending guards", "[CareerBehavior]")

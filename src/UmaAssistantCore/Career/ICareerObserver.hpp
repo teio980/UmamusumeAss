@@ -2,6 +2,7 @@
 
 #include "UmaAssistantCore/CareerDomain/CareerObservation.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
+#include "CareerTransitionPolicy.hpp"
 #include <algorithm>
 #include <vector>
 
@@ -35,6 +36,31 @@ public:
     }
 
     virtual void ResetForRecovery() noexcept {}
+    [[nodiscard]] virtual CareerDomain::CareerObservation ObserveTransition(
+        TaskEngine::ITaskExecutionContext& context, const CareerTransitionContext& transition,
+        std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed = {})
+    {
+        (void)seed;
+        return ObserveScreens(context, transition.candidates);
+    }
+
+    [[nodiscard]] virtual CareerDomain::CareerObservation ObserveStableScreens(
+        TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screens,
+        bool allowResume = false)
+    {
+        CareerDomain::CareerObservation prior;
+        for (int attempt = 0; attempt <= 30 && !context.IsCancelled(); ++attempt)
+        {
+            auto current = ObserveScreens(context, screens, allowResume);
+            if (current.screenId == "resource_error" || current.screenId == "capture_cancelled") return current;
+            const bool known = current.screenId != "unknown" && current.screenId != "capture_failed";
+            if (known && (current.stableFrameCount >= 2 || (attempt > 0 && prior.screenId == current.screenId)))
+                return current;
+            prior = std::move(current);
+            if (attempt < 30) context.Sleep(250);
+        }
+        return {};
+    }
     virtual void SetGoalCompletionProbeArmed(bool armed) noexcept { (void)armed; }
     virtual void SetRaceReplayFlowCompleted(bool completed) noexcept { (void)completed; }
     virtual void SetRaceRunnerResultExpected(bool expected) noexcept { (void)expected; }

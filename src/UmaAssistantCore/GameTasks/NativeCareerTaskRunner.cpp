@@ -444,20 +444,24 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                 {
                     bool needsEntry = true;
                     std::string confirmedEntryScreen;
+                    std::optional<CareerDomain::CareerObservation> confirmedEntry;
                     if (snapshot.careerMode == "independent"
                         && !NativeIndependentTrainingFlow::NeedsEntry(snapshot, context, needsEntry, error, recoveryCount > 0))
                         return fail(error);
                     if (needsEntry)
                     {
-                        auto const entry = CareerEntryFlow::Run(entryConfig, *resources, *observer, context);
+                        const auto initialScreens = recoveryCount > 0 || run > 0
+                            ? std::vector<std::string>{"home", "home_unselected"} : std::vector<std::string>{};
+                        auto const entry = CareerEntryFlow::Run(entryConfig, *resources, *observer, context, initialScreens);
                         if (!entry.succeeded)
                             return fail(entry.error.empty() ? "Career entry was not confirmed." : entry.error, entry.cancelled);
                         confirmedEntryScreen = entry.lastScreenId;
+                        confirmedEntry = entry.runtimeObservation;
                     }
                     if (snapshot.careerMode == "independent")
                     {
                         auto const independent = NativeIndependentTrainingFlow::Run(
-                            snapshot, *resources, *observer, context, recoveryCount > 0);
+                            snapshot, *resources, *observer, context, recoveryCount > 0, confirmedEntry);
                         if (!independent.succeeded)
                             return fail(independent.error.empty() ? "Independent Training was not confirmed." : independent.error,
                                 independent.cancelled);
@@ -465,7 +469,7 @@ NativeGameTaskResult NativeCareerTaskRunner::Run(
                     else
                     {
                         auto const startup = NativeNormalCareerStartup::Run(
-                            snapshot, *resources, *observer, context, confirmedEntryScreen);
+                            snapshot, *resources, *observer, context, confirmedEntryScreen, confirmedEntry);
                         if (!startup.succeeded)
                             return fail(startup.error.empty() ? "Normal Career startup was not confirmed." : startup.error,
                                 startup.cancelled);

@@ -194,6 +194,7 @@ uma_add_strict_warnings(UmaAssistantUraScenario)
 add_library(UmaAssistantCareerRuntime STATIC
   Career/CareerActionExecutor.cpp
   Career/CareerFlowCoordinator.cpp
+  Career/CareerTransitionPolicy.cpp
   Career/CareerObservationReader.cpp
   Career/CareerObservationValues.cpp
   Career/CareerVisualResources.cpp

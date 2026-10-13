@@ -72,10 +72,12 @@ public:
         CareerDomain::CareerObservation value;
         value.screenId = nextScreen < sequence.size() ? sequence[nextScreen++] : screenId;
         value.score = 0.99;
+          value.stableFrameCount = stableFrameCount;
         return value;
     }
     std::string screenId;
     int observations{0};
+      int stableFrameCount{0};
     std::vector<std::string> sequence;
     std::size_t nextScreen{0};
 };
@@ -390,6 +392,23 @@ TEST_CASE("Career entry chains trainee Next once and configures Legacy before Su
     REQUIRE(result.succeeded);
     CHECK(legacySelections == 1);
     CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "trainee_select_trainee_next") == 1);
+}
+
+TEST_CASE("Entry accepts existing stable proof without a second observation", "[GameTasks][Career][CareerTransition]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("career_final_confirmation");
+    observer.stableFrameCount = 2;
+    CareerReplayContext context;
+    const auto result = CareerEntryFlow::Run(config, resources, observer, context, {"career_final_confirmation"});
+    REQUIRE(result.succeeded);
+    CHECK(observer.observations == 1);
+    REQUIRE(result.runtimeObservation);
+    CHECK(result.runtimeObservation->stableFrameCount == 2);
+    CHECK(context.taps.empty());
 }
 
 TEST_CASE("Career entry waits through stale Support frames without repeating Start",

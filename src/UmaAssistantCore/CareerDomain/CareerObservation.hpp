@@ -44,6 +44,8 @@ struct CareerObservation
     CareerScreenKind screenKind{CareerScreenKind::Unknown};
     // Only identical complete frames permit a second race-entry input.
     bool consecutiveFramesIdentical{false};
+    // Independent samples supporting this page, rather than template hits.
+    int stableFrameCount{0};
 
     // Legacy scalar fields stay available to the runtime. Evidence fields
     // preserve provenance and allow an absent observation to remain unknown.

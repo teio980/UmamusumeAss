@@ -464,7 +464,8 @@ bool NativeIndependentTrainingFlow::NeedsEntry(Career::CareerRuntimeConfig const
 
 CareerEntryResult NativeIndependentTrainingFlow::Run(Career::CareerRuntimeConfig const& config,
     Career::CareerVisualResources& resources, Career::ICareerObserver& observer,
-    TaskEngine::ITaskExecutionContext& context, bool resumeAfterRecovery)
+    TaskEngine::ITaskExecutionContext& context, bool resumeAfterRecovery,
+    std::optional<CareerDomain::CareerObservation> confirmedEntry)
 {
     CareerEntryResult result;
     if (config.careerMode != "independent") { result.error = "Independent flow received non-independent settings."; return result; }
@@ -497,7 +498,12 @@ CareerEntryResult NativeIndependentTrainingFlow::Run(Career::CareerRuntimeConfig
     };
     auto stageIs = [&](std::string_view stage) { return state.stage == stage; };
 
-    auto const observed = observer.Observe(context);
+    // A post-start checkpoint already selects the Home route. Reopening a
+    // global setup observer here can only duplicate work or misclassify Home.
+    const bool postStart = stageIs("HandlePostStartDialog") || stageIs("ReturnHome")
+        || (stageIs("StartTraining") && state.lastConfirmedScreen == kStartIssued);
+    auto const observed = confirmedEntry ? *confirmedEntry : postStart
+        ? CareerDomain::CareerObservation{} : observer.ObserveStableScreens(context, {"career_final_confirmation"});
     result.lastScreenId = observed.screenId;
     if (context.IsCancelled()) { result.cancelled = true; return result; }
     // The root-owned shared entry flow runs immediately before this function.

@@ -543,24 +543,10 @@ CareerDomain::CareerObservation ObserveStable(Career::ICareerObserver& observer,
     TaskEngine::ITaskExecutionContext& context, CareerEntryResult& result,
     std::vector<std::string> const& screenIds, bool allowResume)
 {
-    constexpr int attempts = 30;
-    auto prior = observer.ObserveScreens(context, screenIds, allowResume);
-    result.lastScreenId = prior.screenId;
-    for (int attempt = 0; attempt < attempts; ++attempt)
-    {
-        if (context.IsCancelled() || prior.screenId == "capture_cancelled")
-        { result.cancelled = true; return {}; }
-        if (prior.screenId == "resource_error") return prior;
-        context.Sleep(250);
-        auto current = observer.ObserveScreens(context, screenIds, allowResume);
-        result.lastScreenId = current.screenId;
-        if (!prior.screenId.empty() && prior.screenId == current.screenId && current.screenId != "unknown"
-            && current.screenId != "capture_failed" && current.screenId != "capture_cancelled")
-            return current;
-        prior = std::move(current);
-    }
-    // A final isolated match is not a stable navigation boundary.
-    return {};
+    auto observation = observer.ObserveStableScreens(context, screenIds, allowResume);
+    result.lastScreenId = observation.screenId;
+    result.cancelled = context.IsCancelled() || observation.screenId == "capture_cancelled";
+    return observation;
 }
 
 bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
@@ -817,7 +803,7 @@ void CareerEntryFlow::RegisterActions(Career::CareerRuntimeConfig const& config,
 
 CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config,
     Career::CareerVisualResources& resources, Career::ICareerObserver& observer,
-    TaskEngine::ITaskExecutionContext& context)
+    TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& initialScreens)
 {
     CareerEntryResult result;
     std::vector<std::string> runtimeScreens;
@@ -832,6 +818,7 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
     auto eligibleScreens = runtimeScreens;
     for (auto const& screen : resources.GetScreens())
         if (IsEntryScreen(screen.screenId)) eligibleScreens.push_back(screen.screenId);
+    if (!initialScreens.empty()) eligibleScreens = initialScreens;
     bool supportConfigured = false;
     bool allowResume = config.continueExistingCareer;
     for (int step = 0; step < 48; ++step)
@@ -842,7 +829,7 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
         if (result.cancelled || context.IsCancelled()) { result.cancelled = true; return result; }
         auto const& screen = observation.screenId;
         if (screen == "career_final_confirmation" || IsRuntimeCareerScreen(screen))
-        { result.succeeded = true; return result; }
+        { result.runtimeObservation = observation; result.succeeded = true; return result; }
         if (screen == "unknown" || screen == "capture_failed" || screen == "resource_error")
         { result.error = "Career entry could not identify the current screen safely (" + screen + ")."; return result; }
         if (screen == "home")

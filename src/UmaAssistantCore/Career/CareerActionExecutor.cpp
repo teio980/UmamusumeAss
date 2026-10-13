@@ -86,7 +86,9 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
 {
     m_raceRetryDeclined.reset();
     m_lastActionOutcome.reset();
+    m_actionHandoff.reset();
     m_lastSourceScreen = observation.screenId;
+    m_transitionContext = CareerTransitionPolicy::FromObservation(observation.screenId, m_transitionContext);
     if (intent.kind == CareerDomain::ActionIntentKind::Race
         && (Fold(observation.screenId) == "career_main" || Fold(observation.screenId) == "race_day"))
         m_raceStrategyConfigured = false;
@@ -177,10 +179,12 @@ ActionExecutionStatus CareerActionExecutor::ExecuteAction(
     if (result.status == TaskEngine::TaskGraphStatus::Success
         || result.status == TaskEngine::TaskGraphStatus::Completed)
     {
+        std::string outcomeValue;
         if (const auto* finalTask = m_resources->FindExecutionTask(result.finalTask);
             finalTask && finalTask->outcome)
         {
             m_lastActionOutcome = *finalTask->outcome;
+            outcomeValue = *finalTask->outcome;
             const auto outcome = Fold(*finalTask->outcome);
             if (outcome == "race.retry.declined")
                 m_raceRetryDeclined = true;
@@ -190,6 +194,13 @@ ActionExecutionStatus CareerActionExecutor::ExecuteAction(
                 m_raceStrategyConfigured = false;
             }
         }
+        m_transitionContext = CareerTransitionPolicy::AfterAction(m_transitionContext, screenId, semanticId, outcomeValue);
+        m_actionHandoff = CareerActionHandoff{m_transitionContext, {}, {}};
+        // This terminal task observed the destination after the click. A
+        // ClickSelf frame predates its input and must never seed the next page.
+        if (Fold(outcomeValue) == "training.selection.confirmed")
+            m_actionHandoff->frame = context.GetCurrentFrame();
+        m_handoffCreated = std::chrono::steady_clock::now();
         return ActionExecutionStatus::Success;
     }
     context.Log("ERROR", "Career profile action failed: " + result.errorMessage);
@@ -219,30 +230,20 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
 
     constexpr int pollMs = 250;
     m_observer->RememberObservation(observation);
-    auto const sourceId = Fold(observation.screenId);
-    bool const raceTransition = intent.kind == CareerDomain::ActionIntentKind::Race
-        && (sourceId == "career_main" || sourceId == "career_races_ready" || sourceId == "race_day"
-            || sourceId == "race_recommendations" || sourceId == "race_list");
-    bool const turnReturn = sourceId == "training_selection" || sourceId == "rest_confirmation"
-        || sourceId == "summer_rest_confirmation" || sourceId == "infirmary_confirmation"
-        || sourceId == "recreation_confirmation";
-    const auto* sourceScreen = m_resources ? m_resources->FindScreen(observation.screenId) : nullptr;
-    bool const settlementTransition = observation.screenKind == CareerDomain::CareerScreenKind::Settlement
-        || (sourceScreen && Fold(sourceScreen->flow) == "settlement");
-    // A full two-frame observation includes capture and recognition work.
-    // Keep enough time to reobserve an animating destination; 15 seconds could
-    // expire during the very first sample pair on MuMu.
-    int const timeoutMs = settlementTransition ? 60000 : raceTransition ? 30000 : 45000;
+    const auto transition = m_actionHandoff && m_actionHandoff->transition.sourceScreenId == Fold(observation.screenId)
+        ? m_actionHandoff->transition
+        : CareerTransitionPolicy::AfterAction(CareerTransitionPolicy::FromObservation(observation.screenId, m_transitionContext), observation.screenId,
+            ResolveSemanticAction(intent, observation).value_or(""));
+    if (transition.phase == CareerTransitionPhase::Unknown)
+    {
+        context.Log("ERROR", "No local transition contract for " + observation.screenId + "." + transition.semanticActionId);
+        return false;
+    }
+    bool const raceTransition = transition.retryUnchangedRaceEntry;
+    int const timeoutMs = transition.timeoutMs;
     int const maxPolls = timeoutMs / pollMs;
-    std::vector<std::string> candidates;
-    if (raceTransition)
-        candidates = {observation.screenId, "race_streak_warning", "race_recommendations",
-            "race_list_empty", "race_list", "race_details", "race_attributes", "race_day", "career_races_ready", "race_runner"};
-    else if (turnReturn)
-        candidates = {"event_choice", "training_event", "scenario_event", "inheritance_event", "training_result",
-            "goal_objective_complete", "goal_update", "goal_complete", "race_day", "career_races_ready", "career_main",
-            "race_list", "race_list_empty", "race_recommendations", "race_streak_warning",
-            "claw_machine", "claw_machine_result", "goal_incomplete", "complete_career_entry"};
+    auto seed = m_actionHandoff && std::chrono::steady_clock::now() - m_handoffCreated < std::chrono::seconds(1)
+        ? m_actionHandoff->frame : std::shared_ptr<const TaskEngine::TaskFrameSnapshot>{};
     bool entryRetried = false;
     int observations = 0;
     std::string lastObservedId = "unknown";
@@ -250,11 +251,11 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     for (int poll = 0; poll < maxPolls && !context.IsCancelled()
         && std::chrono::steady_clock::now() < deadline; ++poll)
     {
-        context.Sleep(pollMs);
+        if (poll > 0) context.Sleep(pollMs);
         if (context.IsCancelled())
             return false;
-        const auto current = candidates.empty() ? m_observer->ObserveCareer(context)
-            : m_observer->ObserveScreens(context, candidates);
+        const auto current = m_observer->ObserveTransition(context, transition, std::move(seed));
+        seed.reset();
         ++observations;
         lastObservedId = current.screenId;
         if (current.screenId == "resource_error" || current.screenId == "capture_cancelled")
@@ -265,6 +266,7 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             context.Log("INFO", "Career action transition observed: " + observation.screenId
                 + " -> " + current.screenId);
             m_confirmedObservation = current;
+            if (m_actionHandoff) m_actionHandoff->observation = current;
             return true;
         }
         if (current.screenId == observation.screenId)
@@ -299,6 +301,7 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             {
                 context.Log("INFO", "Career action state transition observed within " + current.screenId + ".");
                 m_confirmedObservation = current;
+                if (m_actionHandoff) m_actionHandoff->observation = current;
                 return true;
             }
         }
@@ -324,9 +327,18 @@ void CareerActionExecutor::ResetAfterRecovery() noexcept
     m_raceRetryDeclined.reset();
     m_lastActionOutcome.reset();
     m_lastSourceScreen.clear();
+    m_actionHandoff.reset();
+    m_transitionContext = {};
     m_raceStrategyConfigured = false;
     if (m_observer)
         m_observer->ResetForRecovery();
+}
+
+std::optional<CareerActionHandoff> CareerActionExecutor::TakeActionHandoff()
+{
+    auto result = std::move(m_actionHandoff);
+    m_actionHandoff.reset();
+    return result;
 }
 
 std::optional<bool> CareerActionExecutor::TakeRaceRetryDeclined()

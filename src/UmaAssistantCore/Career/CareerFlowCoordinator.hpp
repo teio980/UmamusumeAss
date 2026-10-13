@@ -85,6 +85,7 @@ private:
     bool m_terminalScreenSeen{false};
     int m_unknownObservations{0};
     std::string m_lastLoggedCareerStatus;
+    CareerTransitionContext m_transitionContext;
 };
 
 } // namespace UmaAssistant::Career

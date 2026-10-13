@@ -486,6 +486,54 @@ std::optional<std::pair<int, double>> ReadCountdownFallback(
     }
 }
 
+std::optional<CareerDomain::ObservedValue<bool>> ReadInfirmaryAvailability(
+    TaskEngine::ITaskExecutionContext& context,
+    const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
+    const CareerVisualResources& resources)
+{
+    const auto* available = resources.FindAsset("career.infirmary.available");
+    const auto* unavailable = resources.FindAsset("career.infirmary.unavailable");
+    const auto* region = resources.FindRegion("career.infirmary.button");
+    if (!available || !unavailable || !region) return std::nullopt;
+    try
+    {
+        const double threshold = region->at("threshold").get<double>();
+        const auto& metadata = region->at("metadata");
+        const double scoreGap = metadata.at("scoreGap").get<double>();
+        const auto& rois = metadata.at("buttonRois");
+        if (!std::isfinite(threshold) || threshold < 0 || threshold > 1
+            || !std::isfinite(scoreGap) || scoreGap < 0 || !rois.is_array() || rois.empty()) return std::nullopt;
+        for (const auto& bounds : rois)
+        {
+            if (!bounds.is_array() || bounds.size() != 4
+                || !std::all_of(bounds.begin(), bounds.end(), [](const auto& value) { return value.is_number_integer(); }))
+                return std::nullopt;
+            const TaskEngine::TaskRoi roi{bounds[0].get<int>(), bounds[1].get<int>(), bounds[2].get<int>(), bounds[3].get<int>()};
+            if (roi.x < 0 || roi.y < 0 || roi.width <= 0 || roi.height <= 0
+                || roi.x > 900 - roi.width || roi.y > 1600 - roi.height) return std::nullopt;
+            // main compares colored active/inactive lettering in the two
+            // authored positions, including the summer-camp shifted button.
+            const auto active = context.MatchTemplateAdvanced(available->path, threshold, roi,
+                "MatchTemplateColor", 900, 1600, {});
+            if (!SameFrame(context, frame)) return std::nullopt;
+            if (!active.found) continue;
+            const auto inactive = context.MatchTemplateAdvanced(unavailable->path, 0, roi,
+                "MatchTemplateColor", 900, 1600, {});
+            if (!SameFrame(context, frame)) return std::nullopt;
+            if (active.score >= inactive.score + scoreGap)
+                return CareerDomain::ObservedValue<bool>::Make(true, active.score,
+                    CareerDomain::ObservationSource::TemplateMatch, "authored colored infirmary button score gap");
+        }
+        return CareerDomain::ObservedValue<bool>::Make(false, threshold,
+            CareerDomain::ObservationSource::TemplateMatch, "no active infirmary button in its authored regions");
+    }
+    catch (const std::exception& error)
+    {
+        context.Log("DEBUG", std::string("Infirmary visual policy is unavailable: ") + error.what());
+        return std::nullopt;
+    }
+}
+
 } // namespace
 
 CareerScreenObserver::CareerScreenObserver()
@@ -540,6 +588,7 @@ CareerScreenObserver::CareerScreenObserver(const CareerRuntimeConfig& config)
 
 void CareerScreenObserver::ResetForEntry() noexcept
 {
+    m_mainAnchorHint.reset();
     m_careerStarted = false;
     m_settlementInProgress = false;
     m_returningHome = false;
@@ -629,6 +678,21 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveCareer(TaskEngine::
 CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
     TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screenIds, bool allowResume)
 {
+    return ObserveScreensCore(context, screenIds, allowResume, {}, false);
+}
+
+CareerDomain::CareerObservation CareerScreenObserver::ObserveTransition(
+    TaskEngine::ITaskExecutionContext& context, const CareerTransitionContext& transition,
+    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed)
+{
+    if (transition.candidates.empty()) return {};
+    return ObserveScreensCore(context, transition.candidates, false, std::move(seed), true);
+}
+
+CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
+    TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screenIds, bool allowResume,
+    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails)
+{
     CareerDomain::CareerObservation observation;
     if (!m_resources || !m_resources->IsReady())
     {
@@ -711,14 +775,17 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         return true;
     };
 
+    const CareerVisualScreenDefinition* firstWinner = nullptr;
     const auto captureAndRecognize = [&]() -> Sample {
         Sample sample;
-        if (!context.CaptureScreen())
+        const bool reuseSeed = seed && SameFrame(context, seed);
+        if (!reuseSeed && !context.CaptureScreen())
         {
             sample.frameChanged = true;
             return sample;
         }
-        sample.frame = context.GetCurrentFrame();
+        sample.frame = reuseSeed ? std::move(seed) : context.GetCurrentFrame();
+        seed.reset();
         if (!sample.frame || sample.frame->width <= 0 || sample.frame->height <= 0)
         {
             sample.frameChanged = true;
@@ -793,6 +860,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         {
             const auto& screen = *screenPointer;
             if (!isEligible(screen) || screen.templates.empty())
+                continue;
+            if (firstWinner && screen.priority > firstWinner->priority)
                 continue;
             sample.eventId.reset();
             sample.eventTitle.reset();
@@ -942,8 +1011,29 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
                 {
                     const auto algorithm = templ.requiresAlphaMatching
                         ? std::string("MatchTemplateColor") : templ.algorithm;
-                    const auto required = context.MatchTemplateAdvanced(
-                        templ.path, templ.threshold, templ.roi, algorithm, 900, 1600, {});
+                    TaskEngine::TaskMatchResult required;
+                    // The main Training button stays in place across turns.
+                    // This is a search hint, not cached visual proof: rematch
+                    // each frame and fall back to the full authored ROI on miss.
+                    if (Fold(screen.screenId) == "career_main" && templ.roi && m_mainAnchorHint
+                        && m_mainAnchorHint->path == templ.path
+                        && m_mainAnchorHint->width == sample.frame->width && m_mainAnchorHint->height == sample.frame->height
+                        && m_mainAnchorHint->session == sample.frame->sessionGeneration
+                        && m_mainAnchorHint->geometry == sample.frame->geometryGeneration
+                        && m_mainAnchorHint->match.referenceWidth == 900 && m_mainAnchorHint->match.referenceHeight == 1600)
+                    {
+                        const auto& old = m_mainAnchorHint->match;
+                        const int left = (std::max)(templ.roi->x, old.x - 8);
+                        const int top = (std::max)(templ.roi->y, old.y - 8);
+                        const int right = (std::min)(templ.roi->x + templ.roi->width, old.x + old.width + 8);
+                        const int bottom = (std::min)(templ.roi->y + templ.roi->height, old.y + old.height + 8);
+                        if (old.width > 0 && old.height > 0 && right > left && bottom > top)
+                            required = context.MatchTemplateAdvanced(templ.path, templ.threshold,
+                                TaskEngine::TaskRoi{left, top, right - left, bottom - top}, algorithm, 900, 1600, {});
+                    }
+                    if (!required.found && SameFrame(context, sample.frame))
+                        required = context.MatchTemplateAdvanced(
+                            templ.path, templ.threshold, templ.roi, algorithm, 900, 1600, {});
                     if (!SameFrame(context, sample.frame)
                         || (required.frameId != 0 && sample.frame->frameId != 0
                             && required.frameId != sample.frame->frameId))
@@ -956,6 +1046,9 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
                         requiredTemplatesMatch = false;
                         break;
                     }
+                    if (Fold(screen.screenId) == "career_main")
+                        m_mainAnchorHint = MainAnchorHint{templ.path, required, sample.frame->width, sample.frame->height,
+                            sample.frame->sessionGeneration, sample.frame->geometryGeneration};
                 }
             }
             if (!requiredTemplatesMatch)
@@ -997,6 +1090,7 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         observation.screenId = "capture_failed";
         return observation;
     }
+    firstWinner = first.screen;
     context.Sleep(120);
     if (context.IsCancelled())
     {
@@ -1033,6 +1127,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
     observation.screenId = bestScreen->screenId;
     observation.score = bestScore;
     observation.screenKind = ClassifyScreen(*bestScreen);
+    observation.stableFrameCount = first.screen
+        && Fold(first.screen->screenId) == Fold(bestScreen->screenId) ? 2 : 1;
     observation.consecutiveFramesIdentical = first.frame
         && first.frame->width == frame->width && first.frame->height == frame->height
         && first.frame->grayPixels.size() == static_cast<std::size_t>(frame->width) * frame->height
@@ -1067,6 +1163,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
         const auto& roi = region.roi;
         if (roi.width <= 0 || roi.height <= 0) continue;
         const auto semantic = Fold(region.semanticId);
+        if (minimumDetails && id != "career_main" && semantic != "event.title" && semantic != "race.day_status")
+            continue;
         std::string text;
         double confidence = 0.0;
         const bool cacheEligible = id == "career_main"
@@ -1235,19 +1333,13 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreens(
 
     if (observation.screenKind == CareerDomain::CareerScreenKind::MainTurn)
     {
-        const auto available = m_resources->MatchAsset("career.infirmary.available", context, frame->frameId);
+        const auto available = ReadInfirmaryAvailability(context, frame, *m_resources);
         if (!SameFrame(context, frame))
             return CareerDomain::CareerObservation{};
-        const auto unavailable = m_resources->MatchAsset("career.infirmary.unavailable", context, frame->frameId);
-        if (!SameFrame(context, frame))
-            return CareerDomain::CareerObservation{};
-        if (available.found != unavailable.found)
+        if (available)
         {
-            observation.infirmaryAvailable = available.found;
-            observation.infirmaryEvidence = CareerDomain::ObservedValue<bool>::Make(
-                available.found, (std::max)(available.score, unavailable.score),
-                CareerDomain::ObservationSource::TemplateMatch,
-                available.found ? "infirmary available icon" : "infirmary unavailable icon");
+            observation.infirmaryAvailable = available->Value();
+            observation.infirmaryEvidence = *available;
         }
     }
 

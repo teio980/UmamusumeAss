@@ -35,7 +35,8 @@ public:
         Career::CareerRuntimeConfig const& config,
         Career::CareerVisualResources& resources,
         Career::ICareerObserver& observer,
-        TaskEngine::ITaskExecutionContext& context);
+        TaskEngine::ITaskExecutionContext& context,
+        const std::vector<std::string>& initialScreens = {});
 };
 
 } // namespace UmaAssistant::GameTasks

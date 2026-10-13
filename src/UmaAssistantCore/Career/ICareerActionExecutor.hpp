@@ -3,6 +3,7 @@
 #include "UmaAssistantCore/CareerDomain/ActionIntent.hpp"
 #include "UmaAssistantCore/CareerDomain/CareerObservation.hpp"
 #include "UmaAssistantCore/CareerDomain/IScenarioModule.hpp"
+#include "CareerTransitionPolicy.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 #include <memory>
 #include <optional>
@@ -11,6 +12,13 @@ namespace UmaAssistant::Career
 {
 
 class CareerVisualResources;
+
+struct CareerActionHandoff
+{
+    CareerTransitionContext transition;
+    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> frame;
+    std::optional<CareerDomain::CareerObservation> observation;
+};
 
 enum class ActionExecutionStatus
 {
@@ -64,6 +72,8 @@ public:
 
     // Hand over action graph outcome (e.g. race.replay.completed, race.retry.declined, etc.)
     virtual std::optional<std::string> TakeLastActionOutcome() { return std::nullopt; }
+    virtual void SetTransitionContext(const CareerTransitionContext& transition) { (void)transition; }
+    virtual std::optional<CareerActionHandoff> TakeActionHandoff() { return std::nullopt; }
 
     virtual bool ConfirmCompletion(
         const CareerDomain::ActionIntent& intent,
