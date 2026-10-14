@@ -17,7 +17,6 @@
         ],
         "templThreshold": 0.9,
         "matchColorText": true,
-        "stable": true,
         "priority": -3
       },
       "actions": [
@@ -41,7 +40,6 @@
           50
         ],
         "templThreshold": 0.96,
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -65,7 +63,6 @@
           40
         ],
         "templThreshold": 0.78,
-        "stable": true,
         "priority": -3
       },
       "actions": [
@@ -85,7 +82,6 @@
           "CAREER RANK",
           "Rating"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -105,7 +101,6 @@
           "SPARKS",
           "Confirm"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -125,7 +120,6 @@
           "Confirmation",
           "Keep this set of Sparks?"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -149,7 +143,6 @@
           180
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -181,7 +174,6 @@
           80
         ],
         "requiredTemplateThreshold": 0.84,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -212,7 +204,6 @@
           100
         ],
         "requiredTemplateThreshold": 0.78,
-        "stable": true,
         "priority": -5
       },
       "actions": [
@@ -238,7 +229,6 @@
           80
         ],
         "templThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -274,7 +264,6 @@
           "Career Record",
           "Next"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -306,7 +295,6 @@
           450
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -6
       },
       "actions": [
@@ -330,7 +318,6 @@
           250
         ],
         "templThreshold": 0.88,
-        "stable": true,
         "priority": -5
       },
       "actions": [
@@ -367,7 +354,6 @@
           "REWARDS",
           "Next"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -398,7 +384,6 @@
           95
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -430,7 +415,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -462,7 +446,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.94,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -494,7 +477,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -530,7 +512,6 @@
           "Career Complete",
           "To Home"
         ],
-        "stable": true,
         "priority": -4
       },
       "actions": [

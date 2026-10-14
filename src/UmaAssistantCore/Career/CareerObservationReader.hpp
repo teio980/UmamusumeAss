@@ -206,6 +206,7 @@ private:
     bool m_raceReplayFlowCompleted{false};
     bool m_raceRunnerResultExpected{false};
     CareerMainTextCache m_mainTextCache;
+    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> m_pendingConfirmationFrame;
     std::string m_lastScreenId;
     std::unordered_map<std::string, std::string> m_eventIdsByNormalizedTitle;
     struct EventTitleRecognition

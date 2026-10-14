@@ -679,7 +679,6 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
             if (recognition.is_object())
             {
                 screen.priority = recognition.value("priority", 0);
-                screen.stable = recognition.value("stable", true);
                 screen.verifyRequiredText = recognition.value("verifyRequiredText", false);
                 if (recognition.contains("stateSignatureRoi"))
                     screen.stateSignatureRoi = ParseRoi(recognition["stateSignatureRoi"]);
@@ -850,7 +849,6 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                 continue;
             }
             existing->priority = (std::min)(existing->priority, screen.priority);
-            existing->stable = existing->stable || screen.stable;
             existing->verifyRequiredText = existing->verifyRequiredText || screen.verifyRequiredText;
             if (!existing->stateSignatureRoi && screen.stateSignatureRoi)
                 existing->stateSignatureRoi = screen.stateSignatureRoi;

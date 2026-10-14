@@ -16,7 +16,6 @@
           76
         ],
         "templThreshold": 0.8,
-        "stable": true,
         "priority": 18
       },
       "actions": [
@@ -552,7 +551,6 @@
           200
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": 11
       },
       "actions": [
@@ -575,7 +573,6 @@
           200
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": 11
       },
       "actions": [
@@ -598,7 +595,6 @@
           150
         ],
         "templThreshold": 0.82,
-        "stable": true,
         "priority": 10
       },
       "actions": [
@@ -632,7 +628,6 @@
           "Scenario Select",
           "URA Finale"
         ],
-        "stable": true,
         "priority": 12
       },
       "actions": [
@@ -659,7 +654,6 @@
           32
         ],
         "templThreshold": 0.88,
-        "stable": true,
         "priority": 13
       },
       "actions": [
@@ -689,7 +683,6 @@
         "requiredText": [
           "Support Formation"
         ],
-        "stable": true,
         "priority": 17
       },
       "actions": [
@@ -824,7 +817,6 @@
           220
         ],
         "templThreshold": 0.78,
-        "stable": true,
         "priority": 15
       },
       "actions": [
@@ -852,7 +844,6 @@
           "Support Formation",
           "Start Career!"
         ],
-        "stable": true,
         "priority": 16
       },
       "actions": [
@@ -879,7 +870,6 @@
           "Legacy Select",
           "Auto-Select"
         ],
-        "stable": true,
         "priority": 14
       },
       "actions": [
@@ -922,7 +912,6 @@
         "requiredText": [
           "Tazuna"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -945,8 +934,7 @@
         200,
         380
       ],
-      "templThreshold": 0.78,
-      "stable": true
+      "templThreshold": 0.78
     },
     "maxAdvanceAttempts": 8
   },

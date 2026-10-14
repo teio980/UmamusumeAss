@@ -590,6 +590,7 @@ CareerScreenObserver::CareerScreenObserver(const CareerRuntimeConfig& config)
 void CareerScreenObserver::ResetForEntry() noexcept
 {
     m_mainAnchorHint.reset();
+    m_pendingConfirmationFrame.reset();
     m_careerStarted = false;
     m_settlementInProgress = false;
     m_returningHome = false;
@@ -602,6 +603,7 @@ void CareerScreenObserver::ResetForEntry() noexcept
 
 void CareerScreenObserver::RememberObservation(const CareerDomain::CareerObservation& observation)
 {
+    m_pendingConfirmationFrame.reset();
     auto const* screen = m_resources ? m_resources->FindScreen(observation.screenId) : nullptr;
     if (!screen) return;
     auto const flow = Fold(screen->flow);
@@ -725,7 +727,6 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
     CareerVisualScreenDefinition skillRecoveryScreen;
     skillRecoveryScreen.screenId = "career_skills";
     skillRecoveryScreen.flow = "skill";
-    skillRecoveryScreen.stable = true;
 
     const auto isEligible = [&](const CareerVisualScreenDefinition& screen) {
         const auto id = Fold(screen.screenId);
@@ -777,7 +778,11 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
         return true;
     };
 
-    const CareerVisualScreenDefinition* firstWinner = nullptr;
+    // Continue an unfinished comparison only while its latest frame is still
+    // current. Re-recognize it under this call's candidates and flow policy.
+    if (!seed && SameFrame(context, m_pendingConfirmationFrame))
+        seed = std::move(m_pendingConfirmationFrame);
+    m_pendingConfirmationFrame.reset();
     const auto captureAndRecognize = [&]() -> Sample {
         Sample sample;
         const bool reuseSeed = seed && SameFrame(context, seed);
@@ -863,8 +868,6 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
         {
             const auto& screen = *screenPointer;
             if (!isEligible(screen) || screen.templates.empty())
-                continue;
-            if (firstWinner && screen.priority > firstWinner->priority)
                 continue;
             sample.eventId.reset();
             sample.eventTitle.reset();
@@ -968,7 +971,8 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
             // only for a pending race whose configured runner was just seen;
             // the shared Next button alone cannot identify arbitrary screens.
             if (!matched && Fold(screen.screenId) == "race_runner_result"
-                && m_raceRunnerResultExpected && Fold(m_lastScreenId) == "race_runner"
+                && m_raceRunnerResultExpected
+                && (Fold(m_lastScreenId) == "race_runner" || Fold(m_lastScreenId) == "race_attributes")
                 && !screen.requiredTemplates.empty())
             {
                 const auto& marker = screen.requiredTemplates.front();
@@ -1093,35 +1097,11 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
         observation.screenId = "capture_failed";
         return observation;
     }
-    firstWinner = first.screen;
-    context.Sleep(120);
-    if (context.IsCancelled())
+    Sample second;
+    // Bound each observation so the caller retains its timeout and retry
+    // budget. Across retries, the final sample becomes the next starting frame.
+    for (int comparison = 0; comparison < 2; ++comparison)
     {
-        observation.screenId = "capture_cancelled";
-        return observation;
-    }
-    auto second = captureAndRecognize();
-    if (second.frameChanged)
-    {
-        observation.screenId = "capture_failed";
-        return observation;
-    }
-    if (!second.screen)
-        return observation;
-    const auto isTurnConfirmation = [](const std::string& screenId) {
-        const auto id = Fold(screenId);
-        return id == "recreation_selection" || id == "recreation_confirmation" || id == "infirmary_confirmation"
-            || id == "rest_confirmation" || id == "summer_rest_confirmation";
-    };
-    if (isTurnConfirmation(second.screen->screenId)
-        && (second.screen->stable || second.screen->flow == "event")
-        && (!first.screen || Fold(first.screen->screenId) != Fold(second.screen->screenId)
-            || first.eventId != second.eventId))
-    {
-        // Keep the newly recognized sample. One more independent capture can
-        // confirm B/C without discarding B and recapturing a complete C/D pair.
-        first = std::move(second);
-        firstWinner = first.screen;
         context.Sleep(120);
         if (context.IsCancelled())
         {
@@ -1134,26 +1114,34 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
             observation.screenId = "capture_failed";
             return observation;
         }
-        if (!second.screen || !isTurnConfirmation(second.screen->screenId)) return observation;
-    }
-    if ((second.screen->stable || second.screen->flow == "event")
-        && (!first.screen || Fold(first.screen->screenId) != Fold(second.screen->screenId)
-            || first.eventId != second.eventId))
-    {
-        context.Log("WARNING", "Career screen did not remain stable across the two-frame confirmation window: "
-            + (first.screen ? first.screen->screenId : "unknown") + " -> " + second.screen->screenId + ".");
-        return observation;
+        if (!second.screen)
+        {
+            m_pendingConfirmationFrame = second.frame;
+            return observation;
+        }
+        const bool matchingPage = first.screen
+            && Fold(first.screen->screenId) == Fold(second.screen->screenId)
+            && first.eventId == second.eventId;
+        if (matchingPage)
+            break;
+        if (comparison == 1)
+        {
+            m_pendingConfirmationFrame = second.frame;
+            context.Log("DEBUG", "Career screen confirmation is still changing: "
+                + (first.screen ? first.screen->screenId : "unknown") + " -> " + second.screen->screenId + ".");
+            return observation;
+        }
+        first = std::move(second);
     }
 
-    if (isTurnConfirmation(second.screen->screenId)
-        && (!first.frame || !second.frame || first.frame == second.frame
-            || (first.frame->frameId != 0 && first.frame->frameId == second.frame->frameId)
-            || first.frame->width != second.frame->width || first.frame->height != second.frame->height
-            || first.frame->orientation != second.frame->orientation
-            || first.frame->sessionGeneration != second.frame->sessionGeneration
-            || first.frame->geometryGeneration != second.frame->geometryGeneration))
+    if (!first.frame || !second.frame || first.frame == second.frame
+        || (first.frame->frameId != 0 && first.frame->frameId == second.frame->frameId)
+        || first.frame->width != second.frame->width || first.frame->height != second.frame->height
+        || first.frame->orientation != second.frame->orientation
+        || first.frame->sessionGeneration != second.frame->sessionGeneration
+        || first.frame->geometryGeneration != second.frame->geometryGeneration)
     {
-        context.Log("WARNING", "Turn confirmation requires independent frames with unchanged session and geometry.");
+        context.Log("WARNING", "Career screen confirmation requires independent frames with unchanged session and geometry.");
         return observation;
     }
 
@@ -1170,18 +1158,13 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
     observation.screenId = bestScreen->screenId;
     observation.score = bestScore;
     observation.screenKind = ClassifyScreen(*bestScreen);
-    observation.stableFrameCount = first.screen
-        && Fold(first.screen->screenId) == Fold(bestScreen->screenId) ? 2 : 1;
+    observation.stableFrameCount = 2;
     observation.consecutiveFramesIdentical = first.frame
         && first.frame->width == frame->width && first.frame->height == frame->height
         && first.frame->grayPixels.size() == static_cast<std::size_t>(frame->width) * frame->height
         && first.frame->grayPixels == frame->grayPixels
         && first.frame->rgbaPixels == frame->rgbaPixels;
-    if (bestScreen->stateSignatureRoi && first.frame && first.screen
-        && Fold(first.screen->screenId) == Fold(bestScreen->screenId)
-        && first.frame->width == frame->width && first.frame->height == frame->height
-        && first.frame->sessionGeneration == frame->sessionGeneration
-        && first.frame->geometryGeneration == frame->geometryGeneration)
+    if (bestScreen->stateSignatureRoi)
     {
         const auto firstSignature = PageSignature(*first.frame, *bestScreen->stateSignatureRoi);
         const auto secondSignature = PageSignature(*frame, *bestScreen->stateSignatureRoi);
@@ -1391,13 +1374,7 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
         context.Log("WARNING", "Discarded career observation because its frame changed before completion.");
         return CareerDomain::CareerObservation{};
     }
-    const bool independentSourceFrames = first.frame && first.frame != frame
-        && first.frame->frameId != frame->frameId && first.frame->width == frame->width
-        && first.frame->height == frame->height && first.frame->orientation == frame->orientation
-        && first.frame->sessionGeneration == frame->sessionGeneration
-        && first.frame->geometryGeneration == frame->geometryGeneration;
-    if ((isTurnConfirmation(observation.screenId) || id == "career_main")
-        && observation.stableFrameCount >= 2 && frame->frameId != 0 && independentSourceFrames)
+    if (frame->frameId != 0)
     {
         observation.visualFrameEvidence = CareerDomain::CareerObservation::VisualFrameEvidence{
             frame->frameId, frame->sessionGeneration, frame->geometryGeneration,

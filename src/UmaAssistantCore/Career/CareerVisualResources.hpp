@@ -65,7 +65,6 @@ struct CareerVisualScreenDefinition
     std::string screenId;
     std::string flow;
     int priority{0};
-    bool stable{false};
     std::vector<std::string> requiredText;
     bool verifyRequiredText{false};
     std::optional<TaskEngine::TaskRoi> stateSignatureRoi;
