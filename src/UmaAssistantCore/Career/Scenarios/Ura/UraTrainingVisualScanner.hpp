@@ -50,6 +50,7 @@ public:
 private:
     struct SelectionFrame;
     struct CandidateRead;
+    struct ScanCache;
 
     [[nodiscard]] std::shared_ptr<const TaskEngine::TaskFrameSnapshot> CurrentFrame(
         TaskEngine::ITaskExecutionContext& context,
@@ -75,6 +76,7 @@ private:
         const std::string& trainingType) const;
 
     std::shared_ptr<CareerVisualResources> m_resources;
+    std::shared_ptr<ScanCache> m_scanCache;
 };
 
 } // namespace UmaAssistant::Career::Ura

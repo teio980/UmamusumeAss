@@ -54,22 +54,32 @@ public:
     bool CaptureScreen() override
     {
         if (IsCancelled()) return false;
-        const auto sample = (++perTypeCaptures[selectedType] % 2 == 1) ? 1 : 2;
+        const auto typeCapture = ++perTypeCaptures[selectedType];
+        const auto sample = identicalSamples || typeCapture % 2 == 1 ? 1 : 2;
         const auto name = selectedType == "wit" && duelWit
             ? "wit-duel-" + std::to_string(sample) : selectedType + "-" + std::to_string(sample);
         image = Resources::WicImageDecoder::decode_file(
             std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures/smart_runtime_20261006" / (name + ".png"));
+        if (changeWinnerSpeed && selectedType == "speed")
+        {
+            // Change only a color byte inside the speed ROI. Even identical
+            // grayscale/prepared glyphs must not reuse the prior raw crop.
+            const auto offset = (static_cast<std::size_t>(965) * image.width + 25) * 4;
+            image.rgba.at(offset) ^= 1;
+        }
         auto next = std::make_shared<TaskFrameSnapshot>();
         next->width = image.width;
         next->height = image.height;
         next->frameId = static_cast<std::uint64_t>(++captureCount);
         next->sessionGeneration = 1;
-        next->geometryGeneration = 1;
+        next->geometryGeneration = geometryGeneration;
         next->grayPixels = image.gray;
         next->rgbaPixels = image.rgba;
         frame = std::move(next);
         capturedTypes.push_back(selectedType);
         ocrCallsThisFrame = 0;
+        pendingWindowsFields.clear();
+        fullLogoSearchesThisFrame.clear();
         if (cancelAtCapture == captureCount) cancelled = true;
         return !cancelled;
     }
@@ -78,6 +88,19 @@ public:
         const std::optional<TaskRoi>& roi, const std::string& algorithm,
         int referenceWidth, int referenceHeight, const std::vector<double>& scales) override
     {
+        if (path.find("training_selection_logos") != std::string::npos && roi)
+        {
+            if (roi->height < 200 && !fullLogoSearchesThisFrame[path])
+            {
+                ++smallLogoSearches;
+                if (failSmallLogoSearch) return {};
+            }
+            else if (roi->height >= 200)
+            {
+                ++fullLogoSearches;
+                fullLogoSearchesThisFrame[path] = true;
+            }
+        }
         const auto templ = LoadTemplateImage(path);
         if (!templ || !frame) return {};
         Vision::Roi search;
@@ -144,19 +167,26 @@ public:
         }
         // Frozen OCR words are associated with supplied numeric rows; actual
         // WIC pixels, glyph preprocessing, blank detection and validation run.
+        // The auxiliary level crop is a separate OCR call, not the gain batch.
+        if (prepared.height <= 100) return {};
         if (ocrCallsThisFrame != 1) return {};
-        auto values = FixtureExpected.at(selectedType);
-        if (selectedType == "wit" && duelWit) values.gains = {4, 0, 0, 0, 13, 6};
         std::vector<std::string> words;
-        for (int value : values.gains)
-            if (value > 0) words.push_back("+" + std::to_string(value));
-        words.push_back(std::to_string(values.failure) + "%");
+        for (const auto& field : pendingWindowsFields)
+            words.push_back(field == "failure_rate" ? std::to_string(FieldValue(field)) + "%"
+                : "+" + std::to_string(FieldValue(field)));
+        if (words.empty()) return {};
         REQUIRE(prepared.height % static_cast<int>(words.size()) == 0);
         const auto rowHeight = prepared.height / static_cast<int>(words.size());
         std::vector<TaskOcrDetection> results;
         for (std::size_t i = 0; i < words.size(); ++i)
+        {
+            if (failFirstSpeed && selectedType == "speed" && perTypeCaptures[selectedType] == 1
+                && pendingWindowsFields[i] == "speed") continue;
+            const double confidence = lowConfidenceFirstSpeed && selectedType == "speed"
+                && perTypeCaptures[selectedType] == 1 && pendingWindowsFields[i] == "speed" ? 0.79 : 1.0;
             results.push_back({words[i], 24, static_cast<int>(i) * rowHeight + 24,
-                50, 20, 1.0});
+                50, 20, confidence});
+        }
         return results;
     }
 
@@ -164,19 +194,66 @@ public:
     Recognition::NumericOcrBatchResult RecognizeNumericImages(
         const std::vector<Recognition::NumericOcrBatchField>& fields) override
     {
-        return realOcr ? numericOcr.read(fields) : Recognition::NumericOcrBatchResult{};
+        ++numericBatchCalls;
+        Recognition::NumericOcrBatchResult result;
+        for (const auto& field : fields)
+        {
+            ++numericFieldCalls[selectedType + "." + field.key];
+            const bool unreadable = selectedType == "speed" && field.key == "speed"
+                && perTypeCaptures[selectedType] == 1 && (failFirstSpeed || lowConfidenceFirstSpeed);
+            if (frozenNumeric && !unreadable)
+                result[field.key].value = FieldValue(field.key);
+            else
+                pendingWindowsFields.push_back(field.key);
+        }
+        if (realOcr)
+        {
+            auto actual = numericOcr.read(fields);
+            for (const auto& [key, reading] : actual)
+                numericDiagnostics.push_back(selectedType + "." + key + ": "
+                    + (reading.value ? std::to_string(*reading.value) : "unknown")
+                    + "; raw=" + reading.rawText + "; failure=" + reading.failureReason);
+            return actual;
+        }
+        return result;
     }
     bool IsCancelled() const override { return cancelled; }
     std::string selectedType;
     std::vector<std::string> capturedTypes;
     std::vector<std::string> previewTypes;
     int cancelAtCapture{-1};
+    bool identicalSamples{false};
+    bool frozenNumeric{false};
+    bool changeWinnerSpeed{false};
+    bool failSmallLogoSearch{false};
+    bool lowConfidenceFirstSpeed{false};
+    bool failFirstSpeed{false};
+    std::uint64_t geometryGeneration{1};
+    int numericBatchCalls{0};
+    int smallLogoSearches{0};
+    int fullLogoSearches{0};
+    std::unordered_map<std::string, int> numericFieldCalls;
+    std::vector<std::string> numericDiagnostics;
 
 private:
+    int FieldValue(const std::string& field) const
+    {
+        auto values = FixtureExpected.at(selectedType);
+        if (selectedType == "wit" && duelWit) values.gains = {4, 0, 0, 0, 13, 6};
+        if (selectedType == "speed" && changeWinnerSpeed) values.gains[0] = 20;
+        if (field == "failure_rate") return values.failure;
+        const std::array<std::string, 6> names{"speed", "stamina", "power", "guts", "wit", "skill_points"};
+        const auto found = std::find(names.begin(), names.end(), field);
+        REQUIRE(found != names.end());
+        return values.gains[static_cast<std::size_t>(found - names.begin())];
+    }
+
     bool duelWit;
     bool realOcr;
     bool cancelled{false};
     int ocrCallsThisFrame{0};
+    std::vector<std::string> pendingWindowsFields;
+    std::unordered_map<std::string, bool> fullLogoSearchesThisFrame;
     std::unordered_map<std::string, int> perTypeCaptures;
     Resources::ResourceSnapshot resources;
     Vision::GrayImage image;
@@ -255,6 +332,118 @@ TEST_CASE("Smart scan evidence expires when pre-debut countdown or committed act
     CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
 }
 
+TEST_CASE("URA scan reuses identical OCR crops while retaining fresh two-frame evidence",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = GENERATE(false, true);
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CAPTURE(scan.detail, context.frozenNumeric);
+    REQUIRE(scan.IsReadyToSelect());
+    REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
+    CHECK(context.capturedTypes.size() == 10);
+    CHECK(context.numericBatchCalls == 5);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 1);
+    const int smallBefore = context.smallLogoSearches;
+    const auto confirmation = visual.ConfirmWinner(context, scanner);
+    CAPTURE(confirmation.detail);
+    REQUIRE(confirmation.IsReadyToTap());
+    CHECK(context.capturedTypes.size() == 13);
+    CHECK(context.numericBatchCalls == 5);
+    CHECK(context.smallLogoSearches > smallBefore);
+}
+
+TEST_CASE("URA cached winner rechecks a changed raw field and rejects changed gains",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = true;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
+    REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
+    context.changeWinnerSpeed = true;
+    const auto confirmation = visual.ConfirmWinner(context, scanner);
+    CHECK_FALSE(confirmation.IsReadyToTap());
+    CHECK_FALSE(scanner.CanTapTraining());
+    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
+    CHECK(context.numericFieldCalls.at("speed.power") == 1);
+    CHECK(context.numericFieldCalls.at("speed.skill_points") == 1);
+    CHECK(context.numericFieldCalls.at("speed.failure_rate") == 1);
+}
+
+TEST_CASE("URA OCR cache retries unknown and low confidence readings",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = true;
+    context.lowConfidenceFirstSpeed = GENERATE(false, true);
+    context.failFirstSpeed = !context.lowConfidenceFirstSpeed;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CAPTURE(scan.detail, context.lowConfidenceFirstSpeed);
+    REQUIRE(scan.IsReadyToSelect());
+    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
+    CHECK(context.numericFieldCalls.at("speed.power") == 1);
+    REQUIRE(scanner.SelectedTrainingType().has_value());
+    CHECK(*scanner.SelectedTrainingType() != "speed");
+}
+
+TEST_CASE("URA OCR cache starts empty on a new scan even with identical rendered values",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = true;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
+    CHECK(context.numericBatchCalls == 5);
+    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 18).IsReadyToSelect());
+    CHECK(context.numericBatchCalls == 10);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
+}
+
+TEST_CASE("URA local logo search falls back to the authored region on a miss",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = true;
+    context.failSmallLogoSearch = true;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CAPTURE(scan.detail);
+    REQUIRE(scan.IsReadyToSelect());
+    REQUIRE(visual.ConfirmWinner(context, scanner).IsReadyToTap());
+    CHECK(context.smallLogoSearches > 0);
+    CHECK(context.fullLogoSearches >= context.smallLogoSearches + 5);
+}
+
+TEST_CASE("URA cached winner still requires a fresh uncancelled frame with matching geometry",
+    "[Career][Vision][Replay][TrainingScanCache]")
+{
+    TrainingCaptureContext context("speed");
+    context.identicalSamples = true;
+    context.frozenNumeric = true;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
+    const bool geometryChanged = GENERATE(false, true);
+    if (geometryChanged) context.geometryGeneration = 2;
+    else context.cancelAtCapture = context.captureCount + 1;
+    const auto confirmation = visual.ConfirmWinner(context, scanner);
+    CHECK_FALSE(confirmation.IsReadyToTap());
+    CHECK_FALSE(scanner.CanTapTraining());
+}
+
 TEST_CASE("URA visual scan uses selected chevron when a Duel badge distracts icon matching", "[Career][Vision][Replay]")
 {
     TrainingCaptureContext context("wit", true);
@@ -304,6 +493,17 @@ TEST_CASE("URA visual scan preserves actual numeric OCR on the captured five-car
     Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
     UraTrainingScanner scanner;
     const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    std::vector<std::string> evidence;
+    for (const auto& candidate : scanner.Candidates())
+    {
+        auto number = [](const std::optional<int>& value) { return value ? std::to_string(*value) : "unknown"; };
+        evidence.push_back(candidate.trainingType + ": " + number(candidate.speedGain) + "/"
+            + number(candidate.staminaGain) + "/" + number(candidate.powerGain) + "/"
+            + number(candidate.gutsGain) + "/" + number(candidate.witGain) + "/"
+            + number(candidate.skillPointGain) + "; failure=" + number(candidate.failureRatePercent));
+    }
+    CAPTURE(evidence);
+    CAPTURE(context.numericDiagnostics);
     CAPTURE(scan.detail);
     REQUIRE(scan.IsReadyToSelect());
     REQUIRE(scanner.Candidates().size() == 5);
@@ -319,4 +519,8 @@ TEST_CASE("URA visual scan preserves actual numeric OCR on the captured five-car
         CHECK(candidate.HasReliableCoreValues());
         CHECK(candidate.HasReliableFailureRate());
     }
+    const auto confirmation = visual.ConfirmWinner(context, scanner);
+    CAPTURE(confirmation.detail);
+    CHECK(confirmation.IsReadyToTap());
+    CHECK(scanner.CanTapTraining());
 }
