@@ -2,6 +2,7 @@
 #include <catch2/generators/catch_generators.hpp>
 #include "UmaAssistantCore/Career/Scenarios/Ura/UraTrainingVisualScanner.hpp"
 #include "UmaAssistantCore/Career/Scenarios/Ura/UraTrainingFlowAdapter.hpp"
+#include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
 #include "UmaAssistantCore/CareerDomain/Scenarios/Ura/UraSmartTrainingStrategy.hpp"
 #include "UmaAssistantCore/CareerDomain/Scenarios/Ura/UraScenarioModule.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
@@ -141,15 +142,21 @@ public:
         REQUIRE(match.frameId == frame->frameId);
         REQUIRE(match.sessionGeneration == frame->sessionGeneration);
         REQUIRE(match.geometryGeneration == frame->geometryGeneration);
-        // Preview taps use the lower, unselected card. Final confirmation is
-        // deliberately absent from this visual-only flow.
-        CHECK(y > 1300);
         const std::array<std::string, 5> types{"speed", "stamina", "power", "guts", "wit"};
         const std::array<int, 5> columns{110, 270, 430, 590, 750};
         auto nearest = std::min_element(columns.begin(), columns.end(), [x](int a, int b) {
             return std::abs(a - x) < std::abs(b - x);
         });
-        selectedType = types[static_cast<std::size_t>(nearest - columns.begin())];
+        const auto targetType = types[static_cast<std::size_t>(nearest - columns.begin())];
+        CAPTURE(x, y, match.x, match.y, match.referenceWidth, match.referenceHeight, selectedType, targetType);
+        if (targetType == selectedType)
+        {
+            finalTrainingTypes.push_back(selectedType);
+            return true;
+        }
+        // Preview/selection taps use the lower, unselected card.
+        CHECK(y > 1300);
+        selectedType = targetType;
         previewTypes.push_back(selectedType);
         return true;
     }
@@ -190,6 +197,13 @@ public:
         return results;
     }
 
+    void Log(const std::string& level, const std::string& message) override
+    {
+        Tests::MockTaskExecutionContext::Log(level, message);
+        if (changeWinnerAfterScan && message.starts_with("Smart training candidate "))
+            changeWinnerSpeed = true;
+    }
+
     void Sleep(int) override {}
     Recognition::NumericOcrBatchResult RecognizeNumericImages(
         const std::vector<Recognition::NumericOcrBatchField>& fields) override
@@ -221,10 +235,12 @@ public:
     std::string selectedType;
     std::vector<std::string> capturedTypes;
     std::vector<std::string> previewTypes;
+    std::vector<std::string> finalTrainingTypes;
     int cancelAtCapture{-1};
     bool identicalSamples{false};
     bool frozenNumeric{false};
     bool changeWinnerSpeed{false};
+    bool changeWinnerAfterScan{false};
     bool failSmallLogoSearch{false};
     bool lowConfidenceFirstSpeed{false};
     bool failFirstSpeed{false};
@@ -273,7 +289,7 @@ std::shared_ptr<Career::CareerVisualResources> TrainingResources()
 }
 }
 
-TEST_CASE("URA visual scan reads captured five-card evidence and rechecks its winner", "[Career][Vision][Replay]")
+TEST_CASE("URA visual scan reads captured five-card evidence for scoring", "[Career][Vision][Replay]")
 {
     const auto initial = GENERATE(std::string{"speed"}, std::string{"guts"}, std::string{"wit"});
     TrainingCaptureContext context(initial);
@@ -296,11 +312,9 @@ TEST_CASE("URA visual scan reads captured five-card evidence and rechecks its wi
         CHECK(candidate.HasReliableFailureRate());
         CHECK(std::count(context.capturedTypes.begin(), context.capturedTypes.end(), candidate.trainingType) == 2);
     }
-    const auto confirmation = visual.ConfirmWinner(context, scanner);
-    CAPTURE(confirmation.detail);
-    CHECK(confirmation.IsReadyToTap());
-    CHECK(scanner.CanTapTraining());
-    CHECK(context.previewTypes.size() <= 5);
+    CHECK(context.capturedTypes.size() == 10);
+    CHECK(context.previewTypes.size() == 4);
+    CHECK_FALSE(scanner.CanTapTraining());
 }
 
 TEST_CASE("Smart scan evidence expires when pre-debut countdown or committed actions change",
@@ -347,33 +361,67 @@ TEST_CASE("URA scan reuses identical OCR crops while retaining fresh two-frame e
     CHECK(context.capturedTypes.size() == 10);
     CHECK(context.numericBatchCalls == 5);
     CHECK(context.numericFieldCalls.at("speed.speed") == 1);
-    const int smallBefore = context.smallLogoSearches;
-    const auto confirmation = visual.ConfirmWinner(context, scanner);
-    CAPTURE(confirmation.detail);
-    REQUIRE(confirmation.IsReadyToTap());
-    CHECK(context.capturedTypes.size() == 13);
-    CHECK(context.numericBatchCalls == 5);
-    CHECK(context.smallLogoSearches > smallBefore);
+    CHECK(context.smallLogoSearches > 0);
 }
 
-TEST_CASE("URA cached winner rechecks a changed raw field and rejects changed gains",
-    "[Career][Vision][Replay][TrainingScanCache]")
+TEST_CASE("URA flow hands the scored training directly to execution without winner OCR or preview taps",
+    "[Career][Vision][Replay][TrainingDirectExecution]")
 {
-    TrainingCaptureContext context("speed");
+    const auto initial = GENERATE(std::string{"speed"}, std::string{"guts"}, std::string{"wit"});
+    TrainingCaptureContext context(initial);
     context.identicalSamples = true;
     context.frozenNumeric = true;
-    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
-    UraTrainingScanner scanner;
-    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
-    REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
-    context.changeWinnerSpeed = true;
-    const auto confirmation = visual.ConfirmWinner(context, scanner);
-    CHECK_FALSE(confirmation.IsReadyToTap());
-    CHECK_FALSE(scanner.CanTapTraining());
-    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
-    CHECK(context.numericFieldCalls.at("speed.power") == 1);
-    CHECK(context.numericFieldCalls.at("speed.skill_points") == 1);
-    CHECK(context.numericFieldCalls.at("speed.failure_rate") == 1);
+    context.changeWinnerAfterScan = true;
+    Career::Ura::UraTrainingFlowAdapter flow(TrainingResources());
+    CareerDomain::CareerState state;
+    state.energy = CareerDomain::ObservedValue<int>::Make(58);
+    state.turnIndexEvidence = CareerDomain::ObservedValue<int>::Make(17);
+    state.turnPositionText = "Classic Year";
+    CareerDomain::UraScenarioModule scenario;
+    CareerDomain::UraSmartTrainingStrategy strategy(RaceDistanceBand::Middle);
+    const auto result = flow.Select(context, state, scenario, strategy);
+    CAPTURE(initial, result.error);
+    REQUIRE(result.status == Career::CareerTrainingSelectionStatus::Ready);
+    CHECK(result.intent.kind == CareerDomain::ActionIntentKind::Training);
+    CHECK(result.intent.trainingType == "speed");
+    CHECK(flow.HasPendingConfirmedTap());
+    CHECK(context.changeWinnerSpeed);
+    CHECK(context.capturedTypes.size() == 10);
+    CHECK(context.previewTypes.size() == 4);
+    CHECK(context.selectedType == (initial == "wit" ? "guts" : "wit"));
+    CHECK(context.numericBatchCalls == 5);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 1);
+    Career::CareerActionExecutor executor(TrainingResources());
+    CareerDomain::CareerObservation observation;
+    observation.screenId = "training_selection";
+    REQUIRE(executor.ExecuteForObservation(result.intent, observation, context) == Career::ActionExecutionStatus::Success);
+    CHECK(context.finalTrainingTypes == std::vector<std::string>{"speed"});
+    CHECK(context.previewTypes.size() == 5);
+    CHECK(context.previewTypes.back() == "speed");
+    CHECK(context.numericBatchCalls == 5);
+    REQUIRE(flow.MarkTrainingTapSent());
+    CHECK(flow.HasPendingOutcome());
+    CHECK_FALSE(flow.HasPendingConfirmedTap());
+}
+
+TEST_CASE("URA executor selects normal training cards and clicks raised cards directly", "[Career][Vision][Replay][CareerTrainingAction]")
+{
+    const auto type = GENERATE(std::string{"speed"}, std::string{"stamina"}, std::string{"power"},
+        std::string{"guts"}, std::string{"wit"});
+    const bool alreadyRaised = GENERATE(false, true);
+    TrainingCaptureContext context(alreadyRaised ? type : (type == "speed" ? "wit" : "speed"));
+    REQUIRE(context.CaptureScreen());
+    Career::CareerActionExecutor executor(TrainingResources());
+    CareerDomain::CareerObservation observation;
+    observation.screenId = "training_selection";
+    REQUIRE(executor.ExecuteForObservation(CareerDomain::ActionIntent::MakeTraining(type), observation, context)
+        == Career::ActionExecutionStatus::Success);
+    if (alreadyRaised)
+        CHECK(context.previewTypes.empty());
+    else
+        CHECK(context.previewTypes == std::vector<std::string>{type});
+    CHECK(context.finalTrainingTypes == std::vector<std::string>{type});
+    CHECK(context.numericBatchCalls == 0);
 }
 
 TEST_CASE("URA OCR cache retries unknown and low confidence readings",
@@ -422,26 +470,8 @@ TEST_CASE("URA local logo search falls back to the authored region on a miss",
     const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
     CAPTURE(scan.detail);
     REQUIRE(scan.IsReadyToSelect());
-    REQUIRE(visual.ConfirmWinner(context, scanner).IsReadyToTap());
     CHECK(context.smallLogoSearches > 0);
     CHECK(context.fullLogoSearches >= context.smallLogoSearches + 5);
-}
-
-TEST_CASE("URA cached winner still requires a fresh uncancelled frame with matching geometry",
-    "[Career][Vision][Replay][TrainingScanCache]")
-{
-    TrainingCaptureContext context("speed");
-    context.identicalSamples = true;
-    context.frozenNumeric = true;
-    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
-    UraTrainingScanner scanner;
-    REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
-    const bool geometryChanged = GENERATE(false, true);
-    if (geometryChanged) context.geometryGeneration = 2;
-    else context.cancelAtCapture = context.captureCount + 1;
-    const auto confirmation = visual.ConfirmWinner(context, scanner);
-    CHECK_FALSE(confirmation.IsReadyToTap());
-    CHECK_FALSE(scanner.CanTapTraining());
 }
 
 TEST_CASE("URA visual scan uses selected chevron when a Duel badge distracts icon matching", "[Career][Vision][Replay]")
@@ -519,8 +549,5 @@ TEST_CASE("URA visual scan preserves actual numeric OCR on the captured five-car
         CHECK(candidate.HasReliableCoreValues());
         CHECK(candidate.HasReliableFailureRate());
     }
-    const auto confirmation = visual.ConfirmWinner(context, scanner);
-    CAPTURE(confirmation.detail);
-    CHECK(confirmation.IsReadyToTap());
-    CHECK(scanner.CanTapTraining());
+    CHECK_FALSE(scanner.CanTapTraining());
 }

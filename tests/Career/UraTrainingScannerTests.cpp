@@ -95,44 +95,23 @@ TEST_CASE("URA scan requires stable double samples for all five cards", "[UraTra
     REQUIRE(unstableSpeed->second.IsExcluded());
 }
 
-TEST_CASE("URA winner must be freshly raised and resampled before tap", "[UraTrainingScanner]")
+TEST_CASE("URA scored winner is ready for execution without further samples", "[UraTrainingScanner]")
 {
     UraTrainingScanner scanner;
-    REQUIRE(scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Middle, "Senior Year", 72, 20) ==
+    REQUIRE_FALSE(scanner.PrepareTrainingTap());
+    REQUIRE(scanner.BeginCandidateScan(Markers("power"), RaceDistanceBand::Middle, "Senior Year", 72, 20) ==
            UraTrainingScannerStage::SamplingCandidates);
+    REQUIRE_FALSE(scanner.PrepareTrainingTap());
     SubmitStableFullCardSet(scanner);
     REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
-
-    REQUIRE(!scanner.BeginWinnerConfirmation(Markers("power")));
-    REQUIRE(scanner.Stage() == UraTrainingScannerStage::Fallback);
-
-    UraTrainingScanner confirmed;
-    REQUIRE(confirmed.BeginCandidateScan(Markers(), RaceDistanceBand::Middle, "Senior Year", 72, 20) ==
-           UraTrainingScannerStage::SamplingCandidates);
-    SubmitStableFullCardSet(confirmed);
-    REQUIRE(confirmed.BeginWinnerConfirmation(Markers("SPEED")));
-    REQUIRE(confirmed.Stage() == UraTrainingScannerStage::SamplingWinnerConfirmation);
-    REQUIRE(!confirmed.CanTapTraining());
-    REQUIRE(confirmed.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
-    REQUIRE(!confirmed.CanTapTraining());
-
-    auto changedConfirmation = Candidate("speed", 30);
-    changedConfirmation.failureRatePercent = 1;
-    REQUIRE(!confirmed.SubmitWinnerConfirmationSample(changedConfirmation));
-    REQUIRE(confirmed.Stage() == UraTrainingScannerStage::Fallback);
-
-    UraTrainingScanner fresh;
-    REQUIRE(fresh.BeginCandidateScan(Markers(), RaceDistanceBand::Middle, "Senior Year", 72, 20) ==
-           UraTrainingScannerStage::SamplingCandidates);
-    SubmitStableFullCardSet(fresh);
-    REQUIRE(fresh.BeginWinnerConfirmation(Markers("speed")));
-    REQUIRE(fresh.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
-    REQUIRE(fresh.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
-    REQUIRE(fresh.Stage() == UraTrainingScannerStage::ReadyToTap);
-    REQUIRE(fresh.CanTapTraining());
-    REQUIRE(fresh.MarkTrainingTapSent());
-    REQUIRE(!fresh.CanTapTraining());
-    REQUIRE(!fresh.MarkTrainingTapSent());
+    REQUIRE(scanner.PrepareTrainingTap());
+    REQUIRE(scanner.Stage() == UraTrainingScannerStage::ReadyToTap);
+    REQUIRE(scanner.CanTapTraining());
+    REQUIRE_FALSE(scanner.PrepareTrainingTap());
+    REQUIRE(scanner.MarkTrainingTapSent());
+    REQUIRE_FALSE(scanner.CanTapTraining());
+    REQUIRE_FALSE(scanner.MarkTrainingTapSent());
+    REQUIRE_FALSE(scanner.PrepareTrainingTap());
 }
 
 TEST_CASE("URA training commits only after observed outcome and only once", "[UraTrainingScanner]")
@@ -141,9 +120,7 @@ TEST_CASE("URA training commits only after observed outcome and only once", "[Ur
     REQUIRE(scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Middle, "Classic Year", 70, 3) ==
            UraTrainingScannerStage::SamplingCandidates);
     SubmitStableFullCardSet(scanner);
-    REQUIRE(scanner.BeginWinnerConfirmation(Markers("speed")));
-    REQUIRE(scanner.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
-    REQUIRE(scanner.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
+    REQUIRE(scanner.PrepareTrainingTap());
     REQUIRE(scanner.MarkTrainingTapSent());
 
     auto sameTurn = ObservedValue<int>::Make(3, 0.99, ObservationSource::Ocr);
@@ -164,9 +141,7 @@ TEST_CASE("URA training commits only after observed outcome and only once", "[Ur
     REQUIRE(resultScreen.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Junior Year", 60) ==
            UraTrainingScannerStage::SamplingCandidates);
     SubmitStableFullCardSet(resultScreen);
-    REQUIRE(resultScreen.BeginWinnerConfirmation(Markers("speed")));
-    REQUIRE(resultScreen.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
-    REQUIRE(resultScreen.SubmitWinnerConfirmationSample(Candidate("speed", 30)));
+    REQUIRE(resultScreen.PrepareTrainingTap());
     REQUIRE(resultScreen.MarkTrainingTapSent());
     const auto resultCommit = resultScreen.ObserveOutcome(
         CareerScreenKind::TrainingResult, ObservedValue<int>::Unknown());
@@ -183,6 +158,7 @@ TEST_CASE("URA incomplete or unsafe scans cannot authorize a training tap", "[Ur
     REQUIRE(scanner.BeginCandidateScan(incomplete, RaceDistanceBand::Mile, "Junior", 80) ==
            UraTrainingScannerStage::Fallback);
     REQUIRE(!scanner.CanTapTraining());
+    REQUIRE_FALSE(scanner.PrepareTrainingTap());
 
     UraTrainingScanner risky;
     REQUIRE(risky.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Junior", 80) ==
@@ -197,6 +173,7 @@ TEST_CASE("URA incomplete or unsafe scans cannot authorize a training tap", "[Ur
             risky.Stage() == UraTrainingScannerStage::Fallback));
     REQUIRE(risky.Stage() == UraTrainingScannerStage::Fallback);
     REQUIRE(!risky.CanTapTraining());
+    REQUIRE_FALSE(risky.PrepareTrainingTap());
 }
 
 } // namespace

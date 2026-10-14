@@ -129,67 +129,10 @@ bool UraTrainingScanner::SubmitCandidateSample(const TrainingCandidate& sample)
     return true;
 }
 
-bool UraTrainingScanner::BeginWinnerConfirmation(const UraTrainingMarkerEvidence& markers)
+bool UraTrainingScanner::PrepareTrainingTap()
 {
     if (m_stage != UraTrainingScannerStage::ReadyToSelect || !m_decision.chosenCandidate.has_value())
         return false;
-    if (!HasValidFiveMarkers(markers))
-    {
-        Fail("Fresh training markers were incomplete or unreliable before selection confirmation.");
-        return false;
-    }
-    if (!markers.raisedTrainingType.has_value())
-    {
-        Fail("The selected candidate was not visibly raised before the training tap.");
-        return false;
-    }
-    std::string raised;
-    if (!TrainingTypeCatalog::TryNormalize(*markers.raisedTrainingType, raised) ||
-        raised != m_decision.chosenCandidate->trainingType)
-    {
-        Fail("The raised training card did not match the scored winner.");
-        return false;
-    }
-
-    m_scannedWinner = m_decision.chosenCandidate;
-    m_winnerSamples = {};
-    m_stage = UraTrainingScannerStage::SamplingWinnerConfirmation;
-    return true;
-}
-
-bool UraTrainingScanner::SubmitWinnerConfirmationSample(const TrainingCandidate& sample)
-{
-    if (m_stage != UraTrainingScannerStage::SamplingWinnerConfirmation || !m_scannedWinner.has_value())
-        return false;
-
-    std::string normalized;
-    if (!TrainingTypeCatalog::TryNormalize(sample.trainingType, normalized) ||
-        normalized != m_scannedWinner->trainingType)
-    {
-        Fail("Winner confirmation sample did not match the selected training type.");
-        return false;
-    }
-
-    TrainingCandidate normalizedSample = sample;
-    normalizedSample.trainingType = normalized;
-    if (!m_winnerSamples.first.has_value())
-    {
-        m_winnerSamples.first = std::move(normalizedSample);
-        return true;
-    }
-    if (m_winnerSamples.second.has_value())
-    {
-        Fail("The winner was sampled more than twice during confirmation.");
-        return false;
-    }
-    m_winnerSamples.second = std::move(normalizedSample);
-
-    const auto merged = MergeStable(*m_winnerSamples.first, *m_winnerSamples.second);
-    if (!merged.has_value() || !MatchesWinnerEvidence(*m_scannedWinner, *merged))
-    {
-        Fail("Fresh winner values were unstable or differed from the scored candidate.");
-        return false;
-    }
     m_stage = UraTrainingScannerStage::ReadyToTap;
     return true;
 }
@@ -238,8 +181,6 @@ void UraTrainingScanner::Reset() noexcept
     m_candidates.clear();
     m_decision = {};
     m_candidateSamples.clear();
-    m_winnerSamples = {};
-    m_scannedWinner.reset();
 }
 
 bool UraTrainingScanner::HasValidFiveMarkers(const UraTrainingMarkerEvidence& markers)
@@ -302,29 +243,6 @@ std::optional<TrainingCandidate> UraTrainingScanner::MergeStable(
     merged.failureRateSource = MergeSource(first.failureRateSource, second.failureRateSource);
     merged.auxiliarySource = MergeSource(first.auxiliarySource, second.auxiliarySource);
     return merged;
-}
-
-bool UraTrainingScanner::MatchesWinnerEvidence(
-    const TrainingCandidate& scanned,
-    const TrainingCandidate& confirmed)
-{
-    if (scanned.trainingType != confirmed.trainingType ||
-        !confirmed.HasReliableCoreValues() || !confirmed.HasReliableFailureRate())
-        return false;
-
-    const auto sameIfScannedKnown = [](const std::optional<int>& expected, const std::optional<int>& actual) {
-        return !expected.has_value() || (actual.has_value() && *expected == *actual);
-    };
-    return sameIfScannedKnown(scanned.speedGain, confirmed.speedGain) &&
-           sameIfScannedKnown(scanned.staminaGain, confirmed.staminaGain) &&
-           sameIfScannedKnown(scanned.powerGain, confirmed.powerGain) &&
-           sameIfScannedKnown(scanned.gutsGain, confirmed.gutsGain) &&
-           sameIfScannedKnown(scanned.witGain, confirmed.witGain) &&
-           sameIfScannedKnown(scanned.skillPointGain, confirmed.skillPointGain) &&
-           sameIfScannedKnown(scanned.failureRatePercent, confirmed.failureRatePercent) &&
-           sameIfScannedKnown(scanned.trainingLevel, confirmed.trainingLevel) &&
-           sameIfScannedKnown(scanned.unbondedSupportCount, confirmed.unbondedSupportCount) &&
-           sameIfScannedKnown(scanned.hintCount, confirmed.hintCount);
 }
 
 void UraTrainingScanner::Fail(std::string reason)

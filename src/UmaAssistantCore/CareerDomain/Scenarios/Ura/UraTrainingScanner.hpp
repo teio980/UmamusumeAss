@@ -15,7 +15,6 @@ enum class UraTrainingScannerStage
     Idle,
     SamplingCandidates,
     ReadyToSelect,
-    SamplingWinnerConfirmation,
     ReadyToTap,
     AwaitingOutcome,
     Committed,
@@ -44,9 +43,9 @@ struct UraTrainingCommit
     std::optional<int> turnIndex;
 };
 
-// Pure scan/confirmation state machine. It accepts only stable double samples,
-// requires the selected winner to be re-read and visibly raised before a tap,
-// and emits one commit only after a result screen or observed turn advancement.
+// Pure scan/action state machine. It scores stable double samples, hands the
+// selected training to the action executor, and emits one commit only after
+// a result screen or observed turn advancement.
 class UraTrainingScanner
 {
 public:
@@ -75,10 +74,8 @@ public:
     // cards must produce two samples; changing or missing values stay unknown.
     bool SubmitCandidateSample(const TrainingCandidate& sample);
 
-    // Re-read all five markers after selection and require the chosen card to
-    // be the raised card, then capture that card twice again.
-    bool BeginWinnerConfirmation(const UraTrainingMarkerEvidence& markers);
-    bool SubmitWinnerConfirmationSample(const TrainingCandidate& sample);
+    // Use the scored choice directly; the executor handles normal/raised clicks.
+    bool PrepareTrainingTap();
 
     // Call only once the executor has actually sent the authorized tap.
     bool MarkTrainingTapSent() noexcept;
@@ -101,9 +98,6 @@ private:
     static std::optional<TrainingCandidate> MergeStable(
         const TrainingCandidate& first,
         const TrainingCandidate& second);
-    static bool MatchesWinnerEvidence(
-        const TrainingCandidate& scanned,
-        const TrainingCandidate& confirmed);
     void Fail(std::string reason);
 
     UraTrainingScannerStage m_stage{UraTrainingScannerStage::Idle};
@@ -116,8 +110,6 @@ private:
     std::vector<TrainingCandidate> m_candidates;
     SmartTrainingDecision m_decision;
     std::vector<SamplePair> m_candidateSamples;
-    SamplePair m_winnerSamples;
-    std::optional<TrainingCandidate> m_scannedWinner;
 };
 
 } // namespace UmaAssistant::CareerDomain::Ura

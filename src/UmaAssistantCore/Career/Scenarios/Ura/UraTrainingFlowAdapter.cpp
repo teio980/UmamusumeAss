@@ -268,15 +268,15 @@ CareerTrainingSelectionResult UraTrainingFlowAdapter::Select(
 
     EmitSmartTrainingScan(context, state, m_scanner, winner);
 
-    const auto confirmed = m_visualScanner.ConfirmWinner(context, m_scanner);
-    if (!confirmed.IsReadyToTap() || !m_scanner.CanTapTraining())
+    if (context.IsCancelled())
     {
-        result.status = context.IsCancelled()
-            ? CareerTrainingSelectionStatus::Cancelled
-            : CareerTrainingSelectionStatus::Failed;
-        result.error = confirmed.detail.empty()
-            ? "URA winner failed fresh visual confirmation."
-            : confirmed.detail;
+        result.status = CareerTrainingSelectionStatus::Cancelled;
+        result.error = "URA training selection was cancelled.";
+        return result;
+    }
+    if (!m_scanner.PrepareTrainingTap())
+    {
+        result.error = "URA selected training could not be prepared for execution.";
         return result;
     }
 

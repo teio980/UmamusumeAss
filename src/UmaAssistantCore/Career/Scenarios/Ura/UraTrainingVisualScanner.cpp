@@ -353,9 +353,13 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
     std::optional<int> energyPercent,
     std::optional<int> turnIndex)
 {
-    // One cache per scan/confirmation pair; a subsequent turn always starts
-    // empty even when its rendered values happen to be identical.
+    // Each scan starts empty even when a subsequent turn renders identical values.
     m_scanCache = std::make_shared<ScanCache>();
+    struct ClearCache
+    {
+        std::shared_ptr<ScanCache>& cache;
+        ~ClearCache() { cache.reset(); }
+    } clearCache{m_scanCache};
     std::string error;
     auto frame = CurrentFrame(context, error);
     if (!frame)
@@ -428,64 +432,6 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
         selection = std::move(secondSelection);
         if (scanner.Stage() != CareerDomain::Ura::UraTrainingScannerStage::SamplingCandidates)
             return {scanner.Stage(), false, scanner.FailureReason()};
-    }
-
-    return {scanner.Stage(), false, scanner.FailureReason()};
-}
-
-UraTrainingVisualScanResult UraTrainingVisualScanner::ConfirmWinner(
-    TaskEngine::ITaskExecutionContext& context,
-    CareerDomain::Ura::UraTrainingScanner& scanner)
-{
-    struct ClearCache
-    {
-        std::shared_ptr<ScanCache>& cache;
-        ~ClearCache() { cache.reset(); }
-    } clearCache{m_scanCache};
-    const auto winner = scanner.SelectedTrainingType();
-    if (!winner.has_value() || scanner.Stage() != CareerDomain::Ura::UraTrainingScannerStage::ReadyToSelect)
-        return {scanner.Stage(), false, "No scored winner is ready for visual confirmation."};
-
-    std::string error;
-    auto frame = CaptureFreshFrame(context, context.GetCurrentFrame(), error);
-    if (!frame)
-        return {scanner.Stage(), false, std::move(error)};
-    auto selection = DetectSelection(context, frame);
-    if (!selection.IsValid())
-        return {scanner.Stage(), selection.screenChanged, selection.error.empty()
-            ? "The training selection screen could not be verified before the final tap." : std::move(selection.error)};
-
-    if (!SelectPreview(context, selection, *winner, error))
-        return {scanner.Stage(), selection.screenChanged, std::move(error)};
-    if (!scanner.BeginWinnerConfirmation(selection.evidence))
-        return {scanner.Stage(), false, scanner.FailureReason()};
-
-    for (int sampleIndex = 0; sampleIndex < 2; ++sampleIndex)
-    {
-        const auto logo = selection.logoMatches.find(*winner);
-        if (logo == selection.logoMatches.end())
-            return {scanner.Stage(), false, "The selected winner marker was not present in the confirmation frame."};
-        auto read = ReadCandidate(context, selection.frame, *winner, logo->second);
-        if (read.screenChanged)
-            return {scanner.Stage(), true, "The training selection screen changed during winner confirmation."};
-        if (!scanner.SubmitWinnerConfirmationSample(read.candidate))
-            return {scanner.Stage(), false, scanner.FailureReason()};
-        if (sampleIndex == 0)
-        {
-            context.Sleep(kPreviewSettleMilliseconds);
-            auto nextFrame = CaptureFreshFrame(context, selection.frame, error);
-            if (!nextFrame)
-                return {scanner.Stage(), false, std::move(error)};
-            auto nextSelection = DetectSelection(context, nextFrame);
-            if (!nextSelection.IsValid())
-                return {scanner.Stage(), nextSelection.screenChanged, nextSelection.error.empty()
-                    ? "The training selection screen changed during winner confirmation."
-                    : std::move(nextSelection.error)};
-            if (!nextSelection.evidence.raisedTrainingType.has_value() ||
-                NormalizeSemantic(*nextSelection.evidence.raisedTrainingType) != NormalizeSemantic(*winner))
-                return {scanner.Stage(), false, "The winner was no longer visibly raised in the fresh confirmation frame."};
-            selection = std::move(nextSelection);
-        }
     }
 
     return {scanner.Stage(), false, scanner.FailureReason()};

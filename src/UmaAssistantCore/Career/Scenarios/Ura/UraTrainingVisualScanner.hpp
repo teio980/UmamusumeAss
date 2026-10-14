@@ -21,10 +21,6 @@ struct UraTrainingVisualScanResult
     {
         return stage == CareerDomain::Ura::UraTrainingScannerStage::ReadyToSelect;
     }
-    [[nodiscard]] bool IsReadyToTap() const noexcept
-    {
-        return stage == CareerDomain::Ura::UraTrainingScannerStage::ReadyToTap;
-    }
 };
 
 // Runtime adapter for the pure UraTrainingScanner. It reads the configured
@@ -42,10 +38,6 @@ public:
         const std::string& careerStage,
         std::optional<int> energyPercent,
         std::optional<int> turnIndex);
-
-    [[nodiscard]] UraTrainingVisualScanResult ConfirmWinner(
-        TaskEngine::ITaskExecutionContext& context,
-        CareerDomain::Ura::UraTrainingScanner& scanner);
 
 private:
     struct SelectionFrame;
