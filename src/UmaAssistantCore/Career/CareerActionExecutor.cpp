@@ -93,6 +93,34 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
         && (Fold(observation.screenId) == "career_main" || Fold(observation.screenId) == "race_day"))
         m_raceStrategyConfigured = false;
     if (m_observer) m_observer->RememberObservation(observation);
+    TaskEngine::TaskGraphRunOptions observedOptions;
+    const auto observedScreen = Fold(observation.screenId);
+    const bool turnConfirmation = observedScreen == "recreation_confirmation"
+        || observedScreen == "infirmary_confirmation" || observedScreen == "rest_confirmation"
+        || observedScreen == "summer_rest_confirmation";
+    const bool openingTurnAction = observedScreen == "career_main"
+        && (intent.kind == CareerDomain::ActionIntentKind::Rest
+            || intent.kind == CareerDomain::ActionIntentKind::Infirmary
+            || intent.kind == CareerDomain::ActionIntentKind::Recreation);
+    const bool recreationSelection = observedScreen == "recreation_selection"
+        && intent.kind == CareerDomain::ActionIntentKind::Recreation;
+    observedOptions.traceTurnActionTiming = turnConfirmation || openingTurnAction || recreationSelection;
+    if (observedOptions.traceTurnActionTiming && observation.stableFrameCount >= 2 && observation.visualFrameEvidence)
+    {
+        const auto& proof = *observation.visualFrameEvidence;
+        const auto frame = context.GetCurrentFrame();
+        const auto now = std::chrono::steady_clock::now();
+        if (frame && proof.frameId != 0 && frame->frameId == proof.frameId
+            && frame->sessionGeneration == proof.sessionGeneration
+            && frame->geometryGeneration == proof.geometryGeneration
+            && frame->width == proof.width && frame->height == proof.height
+            && frame->orientation == proof.orientation && now >= proof.capturedAt
+            && now - proof.capturedAt < std::chrono::seconds(1))
+        {
+            observedOptions.initialFrame = frame;
+            observedOptions.initialFrameValidUntil = proof.capturedAt + std::chrono::seconds(1);
+        }
+    }
     if (Fold(observation.screenId) == "race_day"
         && intent.kind == CareerDomain::ActionIntentKind::Race
         && !m_config.normalSkillIds.empty()
@@ -149,7 +177,19 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
         if (!type.empty())
         {
             const std::string raisedTask = "training_selection_" + type + "_raised_probe";
-            if (m_resources && m_resources->MatchExecutionTask(raisedTask, context).found)
+            const auto* normalTask = m_resources
+                ? m_resources->FindExecutionTask("training_selection_training_" + type) : nullptr;
+            const auto selectedMarker = m_resources
+                ? m_resources->MatchExecutionTask("training_selection_selected_chevron", context)
+                : TaskEngine::TaskMatchResult{};
+            // A broad raised-icon search can match background in another card.
+            // Only take the single-click path when the selected chevron is in
+            // the target column; otherwise use the normal select/raised chain.
+            const bool targetSelected = normalTask && normalTask->roi && normalTask->roi->size() >= 4
+                && selectedMarker.found
+                && selectedMarker.CenterX() >= (*normalTask->roi)[0]
+                && selectedMarker.CenterX() < (*normalTask->roi)[0] + (*normalTask->roi)[2];
+            if (targetSelected && m_resources->MatchExecutionTask(raisedTask, context).found)
             {
                 return ExecuteTask(observation.screenId, "training." + type, raisedTask, context);
             }
@@ -162,7 +202,7 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
             + "' and intent '" + intent.reason + "'.");
         return context.IsCancelled() ? ActionExecutionStatus::Cancelled : ActionExecutionStatus::Failed;
     }
-    return ExecuteAction(observation.screenId, *semantic, context);
+    return ExecuteAction(observation.screenId, *semantic, context, observedOptions);
 }
 
 ActionExecutionStatus CareerActionExecutor::ExecuteTask(
@@ -280,13 +320,27 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     int observations = 0;
     std::string lastObservedId = "unknown";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    const auto source = Fold(observation.screenId);
+    const bool openingTurnDialog = (source == "career_main"
+        && (intent.kind == CareerDomain::ActionIntentKind::Rest
+            || intent.kind == CareerDomain::ActionIntentKind::Infirmary
+            || intent.kind == CareerDomain::ActionIntentKind::Recreation))
+        || source == "recreation_selection";
+    auto dialogProbe = transition;
+    if (openingTurnDialog)
+        std::erase(dialogProbe.candidates, source);
     for (int poll = 0; poll < maxPolls && !context.IsCancelled()
         && std::chrono::steady_clock::now() < deadline; ++poll)
     {
         if (poll > 0) context.Sleep(pollMs);
         if (context.IsCancelled())
             return false;
-        const auto current = m_observer->ObserveTransition(context, transition, std::move(seed));
+        // First look only for the expected dialog/outing selection. Reading
+        // the old Main's date, goal and energy cannot confirm this action.
+        // Preserve the original source-page checks on subsequent polls.
+        const auto current = m_observer->ObserveTransition(context,
+            openingTurnDialog && poll == 0 && !dialogProbe.candidates.empty() ? dialogProbe : transition,
+            std::move(seed));
         seed.reset();
         ++observations;
         lastObservedId = current.screenId;

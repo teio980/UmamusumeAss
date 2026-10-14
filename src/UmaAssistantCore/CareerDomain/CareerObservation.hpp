@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <cstdint>
+#include <chrono>
 
 namespace UmaAssistant::CareerDomain
 {
@@ -46,6 +47,18 @@ struct CareerObservation
     bool consecutiveFramesIdentical{false};
     // Independent samples supporting this page, rather than template hits.
     int stableFrameCount{0};
+    // Runtime-only lease for rematching an action on the last observed frame.
+    // This contains no reusable button coordinates and expires before input.
+    struct VisualFrameEvidence
+    {
+        std::uint64_t frameId{0};
+        std::uint64_t sessionGeneration{0};
+        std::uint64_t geometryGeneration{0};
+        int width{0};
+        int height{0};
+        int orientation{0};
+        std::chrono::steady_clock::time_point capturedAt;
+    };
 
     // Legacy scalar fields stay available to the runtime. Evidence fields
     // preserve provenance and allow an absent observation to remain unknown.
@@ -72,6 +85,7 @@ struct CareerObservation
     // An authored content marker, identical across two confirmed samples,
     // distinguishes successive pages sharing a screen ID (e.g. Rewards).
     std::optional<CareerPageStateEvidence> pageStateEvidence;
+    std::optional<VisualFrameEvidence> visualFrameEvidence;
 };
 
 } // namespace UmaAssistant::CareerDomain

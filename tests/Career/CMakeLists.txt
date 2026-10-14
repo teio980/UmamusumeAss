@@ -7,6 +7,7 @@ add_executable(CareerTests
   CareerBehaviorRegressionTests.cpp
   CareerObservationValueTests.cpp
   CareerRuntimeReplayTests.cpp
+  CareerTurnConfirmationSpeedTests.cpp
   CareerActionResourceTests.cpp
   CareerRaceIntentReplayTests.cpp
   CareerClawMachineFlowTests.cpp

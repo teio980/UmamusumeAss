@@ -464,6 +464,11 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             hasNoVisualSelector && NormalizeName(task.algorithm) != "parallelmonitor" &&
             NormalizeName(task.algorithm) != "raceresultmonitor";
         bool recognized = actionNeedsNoFrame;
+        bool reusedInitialFrame = false;
+        const bool traceTurnAction = options.traceTurnActionTiming && depth == 0;
+        long long captureMs = 0;
+        long long matchMs = 0;
+        long long inputMs = 0;
         if (actionNeedsNoFrame)
         {
             eval.matched = true;
@@ -683,7 +688,15 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             bool firstCapture = true;
             while (!context.IsCancelled())
             {
-                const bool captured = context.CaptureScreen();
+                const bool reuseInitial = step == 0 && depth == 0 && pipelineDepth == 0
+                    && retryAttempt == 0 && firstCapture && options.initialFrame
+                    && options.initialFrame->frameId != 0
+                    && Clock::now() < options.initialFrameValidUntil
+                    && context.GetCurrentFrame() == options.initialFrame;
+                const auto captureStarted = traceTurnAction ? Clock::now() : Clock::time_point{};
+                const bool captured = reuseInitial || context.CaptureScreen();
+                if (traceTurnAction)
+                    captureMs += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - captureStarted).count();
                 if (captured)
                 {
                     // Configured monitor order is preserved. If a task declares
@@ -720,9 +733,20 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
                     }
 
                     context.SetCoordinateReference(task.referenceWidth, task.referenceHeight);
+                    const auto matchStarted = traceTurnAction ? Clock::now() : Clock::time_point{};
                     eval = RecognitionPipeline::EvaluateTask(definition, currentTaskName, task, context);
+                    if (traceTurnAction)
+                        matchMs += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - matchStarted).count();
                     if (eval.matched)
                     {
+                        // A slow matcher must not extend the source-frame lease.
+                        if (reuseInitial && (Clock::now() >= options.initialFrameValidUntil
+                            || context.GetCurrentFrame() != options.initialFrame))
+                        {
+                            firstCapture = false;
+                            continue;
+                        }
+                        reusedInitialFrame = reuseInitial;
                         recognized = true;
                         break;
                     }
@@ -894,11 +918,23 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             }
             if (actionSucceeded && !task.clickUntilGone && !task.repeatTapUntilTransition)
             {
+                if (reusedInitialFrame && (Clock::now() >= options.initialFrameValidUntil
+                    || context.GetCurrentFrame() != options.initialFrame))
+                {
+                    context.Log("DEBUG", "Observed confirmation frame expired before input; refreshing.");
+                    continue;
+                }
+                const auto inputStarted = traceTurnAction ? Clock::now() : Clock::time_point{};
                 const auto actionResult = m_actionRegistry.ExecuteAction(task, eval.matchResult, context);
+                if (traceTurnAction)
+                    inputMs += std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - inputStarted).count();
                 actionSucceeded = actionResult != ActionResult::Failed;
                 initialTapPerformed = actionResult == ActionResult::Success &&
                     (NormalizeName(task.action) == "clickself" || NormalizeName(task.action) == "clickrect" ||
                      NormalizeName(task.action) == "clickspecificrect" || NormalizeName(task.action) == "clickselfuntiltransition");
+                if (initialTapPerformed && options.initialFrame)
+                    context.Log("DEBUG", "Turn confirmation button clicked: " + currentTaskName
+                        + (reusedInitialFrame ? " (observed frame)." : " (fresh capture)."));
                 context.EmitEvent(TaskExecutionEvent{
                     TaskEventType::ActionExecuted, currentTaskName, definition.name, step, actionSucceeded,
                     eval.matchResult.score, eval.matchResult.CenterX(), eval.matchResult.CenterY(),
@@ -963,6 +999,10 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             ++result.completedUnits;
         if (task.postDelay > 0)
             context.Sleep(task.postDelay);
+        if (traceTurnAction)
+            context.Log("DEBUG", "Turn action timing: task=" + currentTaskName
+                + ", capture_ms=" + std::to_string(captureMs) + ", match_ms=" + std::to_string(matchMs)
+                + ", input_ms=" + std::to_string(inputMs) + ", post_delay_ms=" + std::to_string(task.postDelay));
         TaskExecutionEvent completedEvent{
             TaskEventType::TaskCompleted, currentTaskName, definition.name, step, true, 0.0, 0, 0,
             "Task completed successfully",

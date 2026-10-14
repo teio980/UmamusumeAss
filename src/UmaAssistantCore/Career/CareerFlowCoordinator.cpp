@@ -975,7 +975,19 @@ CareerRunResult CareerFlowCoordinator::RunToCompletion(
         auto stepResult = Step(context);
         if (stepResult.status != CareerRunStatus::Running)
             return stepResult;
-        context.Sleep(250);
+        // Only these turn dialogs and Recreation's intermediate selection may
+        // proceed immediately. Other screens keep their scheduling delay.
+        const auto nextId = m_nextConfirmedObservation ? Fold(m_nextConfirmedObservation->screenId) : std::string{};
+        const bool turnConfirmation = nextId == "recreation_selection" || nextId == "recreation_confirmation" || nextId == "infirmary_confirmation"
+            || nextId == "rest_confirmation" || nextId == "summer_rest_confirmation";
+        const auto now = std::chrono::steady_clock::now();
+        const bool readyConfirmation = turnConfirmation && m_nextConfirmedObservation->stableFrameCount >= 2
+            && m_nextConfirmedObservation->visualFrameEvidence
+            && now >= m_nextConfirmedObservation->visualFrameEvidence->capturedAt
+            && now - m_nextConfirmedObservation->visualFrameEvidence->capturedAt < std::chrono::seconds(1)
+            && context.GetCurrentFrame()
+            && context.GetCurrentFrame()->frameId == m_nextConfirmedObservation->visualFrameEvidence->frameId;
+        if (!readyConfirmation) context.Sleep(250);
     }
     finalResult.status = CareerRunStatus::Failed;
     finalResult.failureReason = "Career exceeded the configured step budget before reaching the confirmed Home screen.";

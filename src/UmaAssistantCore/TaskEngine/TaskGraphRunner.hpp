@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_set>
+#include <chrono>
 
 namespace UmaAssistant::TaskEngine
 {
@@ -48,6 +49,11 @@ struct TaskGraphRunOptions
     std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> targetTextOverrides;
     std::unordered_map<std::string, int, CaseInsensitiveHash, CaseInsensitiveEqual> recoveredCountOffsets;
     std::unordered_set<std::string, CaseInsensitiveHash, CaseInsensitiveEqual> skipNestedPipelines;
+    // Opt-in, short-lived source frame supplied by a completed observation.
+    // Only the entry task can use it and still rematches its own selector.
+    std::shared_ptr<const TaskFrameSnapshot> initialFrame;
+    std::chrono::steady_clock::time_point initialFrameValidUntil;
+    bool traceTurnActionTiming{false};
 };
 
 class TaskGraphRunner

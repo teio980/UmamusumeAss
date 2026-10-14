@@ -457,6 +457,39 @@ TEST_CASE("Stable entry uses one two-frame observation and training reuses a val
     }
 }
 
+TEST_CASE("Captured turn dialogs provide independent frame proof and an authored OK button",
+    "[CareerTransition][Replay][TurnConfirmationSpeed]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    struct Fixture { std::string capture; std::string screen; std::string task; };
+    for (const auto& fixture : std::vector<Fixture>{
+        {"testdata/hachimi/ura/captures/rest_confirmation_ura.png", "rest_confirmation", "rest_confirmation_rest_confirm"},
+        {"resource/hachimi/ura/screens/captures/summer_rest_dialog.png", "summer_rest_confirmation", "rest_confirmation_rest_confirm"},
+        {"resource/hachimi/ura/screens/captures/infirmary_confirm.png", "infirmary_confirmation", "infirmary_confirmation_ok"},
+        {"resource/hachimi/ura/screens/captures/recreation_confirmation.png", "recreation_confirmation", "recreation_confirmation_ok"}})
+    {
+        DYNAMIC_SECTION(fixture.screen)
+        {
+            ScreenshotReplayContext context({root / fixture.capture});
+            CareerScreenObserver observer(resources);
+            const auto observation = observer.ObserveScreens(context, {fixture.screen});
+            REQUIRE(observation.screenId == fixture.screen);
+            CHECK(observation.stableFrameCount == 2);
+            REQUIRE(observation.visualFrameEvidence);
+            CHECK(context.CaptureCount() == 2);
+            const auto button = resources->MatchExecutionTask(fixture.task, context,
+                observation.visualFrameEvidence->frameId);
+            CHECK(button.found);
+            CHECK(button.frameId == observation.visualFrameEvidence->frameId);
+            CHECK(context.tapAttempts == 0);
+        }
+    }
+}
+
 TEST_CASE("Main anchor hints rematch each frame and retain authored fallback and geometry boundaries", "[CareerTransition][Replay]")
 {
     auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
