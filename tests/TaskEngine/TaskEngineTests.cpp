@@ -497,6 +497,43 @@ TEST_CASE("Transition click failure stops retries and capture failure never caus
     REQUIRE(failedCaptureContext.taps.size() == 1);
 }
 
+TEST_CASE("Transition input failures preserve the device error and attempted tap", "[TaskEngine][CareerRaceTransition]")
+{
+    class FailedInputContext : public MockTaskExecutionContext
+    {
+    public:
+        bool CaptureScreen() override
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            return MockTaskExecutionContext::CaptureScreen();
+        }
+        int GetLastErrorCode() const override { return 7; }
+    };
+    const auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({"tasks":{
+        "Repeated":{"template":"button.png","action":"ClickSelfUntilTransition",
+          "repeatTapUntilTransition":true,"transitionTemplates":["next.png"],
+          "maxClickAttempts":3,"transitionTimeoutMs":1,"transitionPollIntervalMs":1}
+    }})");
+    REQUIRE(definition);
+    FailedInputContext context;
+    context.SetMockMatch("button.png", TaskMatchResult{true, 0.99, 10, 20, 20, 20});
+    context.SetMockMatch("next.png", TaskMatchResult{});
+    int failedAttempt = 1;
+    SECTION("Initial input failure") { context.tapResults = {false}; }
+    SECTION("Retry input failure")
+    {
+        context.tapResults = {true, false};
+        failedAttempt = 2;
+    }
+    const auto result = TaskGraphRunner{}.Run(*definition, "Repeated", context);
+    CHECK(result.status == TaskGraphStatus::Failed);
+    CHECK(context.taps.size() == static_cast<std::size_t>(failedAttempt));
+    CHECK(result.errorMessage.find("attempt=" + std::to_string(failedAttempt)) != std::string::npos);
+    CHECK(result.errorMessage.find("error=7") != std::string::npos);
+    CHECK(result.errorMessage.find("point=20,30") != std::string::npos);
+    CHECK_FALSE(context.HasRetainedMatch());
+}
+
 TEST_CASE("Transition click counts its first tap and accepts a same-frame transition", "[TaskEngine]")
 {
     auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({

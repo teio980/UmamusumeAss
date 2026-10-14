@@ -614,22 +614,28 @@ std::string NativeTaskExecutionContext::GetTemplateBaseDirectory() const
 bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& match)
 {
     m_last_error_code = 0;
+    const auto reject = [&](int errorCode, const std::string& reason) {
+        m_last_error_code = errorCode;
+        Log("WARN", "TapMatch failed (error=" + std::to_string(errorCode)
+            + ", frame=" + std::to_string(match.frameId)
+            + ", point=" + std::to_string(x) + "," + std::to_string(y)
+            + "): " + reason);
+        return false;
+    };
     if (m_cancellation.stop_requested())
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::Canceled);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::Canceled), "Operation was canceled.");
     }
     if (!m_session)
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::DeviceDisconnected);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::DeviceDisconnected), "No connected device session.");
     }
 
     auto const frameId = match.frameId != 0 ? match.frameId : m_current_frame_id;
     if (frameId == 0 || (frameId != m_current_frame_id && frameId != m_retained_frame_id))
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+            "Source frame is neither current nor retained for retry.");
     }
     const bool isRetainedMatch = frameId == m_retained_frame_id;
     if (isRetainedMatch)
@@ -647,24 +653,23 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
                 m_current_frame_snapshot.reset();
                 m_current_frame_input_consumed = true;
             }
-            m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-            return false;
+            return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+                "Retained retry frame expired or exhausted its tap budget.");
         }
         if (match.referenceWidth <= 0 || match.referenceHeight <= 0)
         {
-            m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-            return false;
+            return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+                "Retained match has invalid reference dimensions.");
         }
     }
     else if (frameId == m_current_frame_id && m_current_frame_input_consumed)
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+            "Current screenshot evidence was already consumed by an input.");
     }
     else if (frameId == m_current_frame_id &&
              std::chrono::steady_clock::now() - m_current_frame_captured_at > std::chrono::seconds(20))
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
         if (frameId != m_retained_frame_id)
             static_cast<void>(m_session->release_frame(frameId));
         m_current_frame_id = 0;
@@ -672,7 +677,8 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
         m_current_screen.reset();
         m_current_frame_snapshot.reset();
         m_current_frame_input_consumed = true;
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+            "Current screenshot evidence is older than 20 seconds.");
     }
     auto const metadata = m_session->frame_metadata(frameId);
     if (!metadata || (match.sessionGeneration != 0
@@ -680,8 +686,8 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
         || (match.geometryGeneration != 0
         && metadata->geometry_generation != match.geometryGeneration))
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+            "Source frame was released or its session/geometry generation no longer matches.");
     }
 
     const int pixelX = ScaleReferenceCoordinate(x, match.referenceWidth, metadata->width);
@@ -691,16 +697,16 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
     {
         if (canonicalX != m_retained_canonical_x || canonicalY != m_retained_canonical_y)
         {
-            m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-            return false;
+            return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+                "Retry coordinates differ from the retained target point.");
         }
         canonicalX = m_retained_canonical_x;
         canonicalY = m_retained_canonical_y;
     }
     if (canonicalX < 0 || canonicalY < 0)
     {
-        m_last_error_code = static_cast<int>(ConnectionErrorCode::InvalidArgument);
-        return false;
+        return reject(static_cast<int>(ConnectionErrorCode::InvalidArgument),
+            "Match coordinates cannot be mapped to the canonical screen.");
     }
     auto res = m_session->tap(frameId, canonicalX, canonicalY, m_cancellation);
     if (frameId == m_current_frame_id)
@@ -709,8 +715,6 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
         if (frameId != m_retained_frame_id)
             static_cast<void>(m_session->release_frame(frameId));
     }
-    if (res.failure)
-        m_last_error_code = res.failure->error_code;
     if (isRetainedMatch)
     {
         // A failed input can still have reached the device. Consume the lease
@@ -719,7 +723,9 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
         if (m_retained_taps_remaining <= 0)
             ReleaseRetainedMatch();
     }
-    return !res.failure.has_value();
+    if (res.failure)
+        return reject(res.failure->error_code, res.failure->phase + ": " + res.failure->message);
+    return true;
 }
 
 bool NativeTaskExecutionContext::RetainMatchForRetry(

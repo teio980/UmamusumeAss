@@ -393,7 +393,11 @@ TransitionResult TransitionValidator::ValidateTransition(
                 const auto [tapX, tapY] = ResolveTapPoint(task, tapMatch);
                 if (!context.TapMatch(tapX, tapY, tapMatch))
                 {
-                    result.failureReason = "Transition tap failed";
+                    result.failureReason = "Transition tap failed (attempt="
+                        + std::to_string(result.tapAttemptsMade + 1)
+                        + ", error=" + std::to_string(context.GetLastErrorCode())
+                        + ", frame=" + std::to_string(tapMatch.frameId)
+                        + ", point=" + std::to_string(tapX) + "," + std::to_string(tapY) + ")";
                     return result;
                 }
                 ++result.tapAttemptsMade;
