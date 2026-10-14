@@ -535,10 +535,6 @@
       ],
       "actions": [
         {
-          "semanticId": "race.start_playback",
-          "task": "race_attributes_race_start_playback"
-        },
-        {
           "semanticId": "strategy.apply.front",
           "task": "race_runner_strategy_apply_front"
         },
@@ -610,7 +606,7 @@
       "actions": [
         {
           "semanticId": "race.playback_settings_ok",
-          "task": "race_playback_settings_race_playback_settings_ok"
+          "task": "race_runner_playback_ok"
         }
       ],
       "flow": "race",
@@ -634,7 +630,7 @@
       "actions": [
         {
           "semanticId": "race.live_next",
-          "task": "race_live_race_live_next"
+          "task": "race_runner_playback_result_monitor"
         }
       ],
       "flow": "race",
@@ -678,7 +674,7 @@
       "actions": [
         {
           "semanticId": "result.next",
-          "task": "race_result_result_next"
+          "task": "race_runner_result_next"
         }
       ],
       "flow": "race",

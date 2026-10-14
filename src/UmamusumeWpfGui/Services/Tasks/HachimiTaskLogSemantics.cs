@@ -549,8 +549,9 @@ internal static class HachimiTaskLogSemantics
                 "Goal race opened"),
             "race_day_skills_open" => Step("Opening race skills", "Race skills opened"),
             "race_details_race_confirm" => Step("Confirming the goal race", "Goal race confirmed"),
-            "race_attributes_race_start_playback" => Step("Starting the goal race", "Goal race started"),
-            "race_live_race_live_next" or "race_result_result_next" => Step(
+            "race_runner_entry_start" or "race_runner_playback_start" => Step("Starting the goal race", "Goal race started"),
+            "race_runner_playback_skip" => Step("Skipping race playback", "Race playback skipped"),
+            "race_runner_result_next" or "race_runner_last_next" => Step(
                 "Continuing past the race result",
                 "Race result continued"),
             "reward_reward_next" or "reward_support_reward_next" => Step(

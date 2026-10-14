@@ -575,11 +575,9 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
 {
     const auto screenId = Fold(observation.screenId);
     const auto* screen = m_resources ? m_resources->FindScreen(observation.screenId) : nullptr;
-    const auto contains = [&](const std::string& semantic) {
-        return screen && screen->actions.find(Fold(semantic)) != screen->actions.end();
-    };
     const auto choose = [&](const std::string& semantic) -> std::optional<std::string> {
-        return contains(semantic) ? std::optional<std::string>(semantic) : std::nullopt;
+        return screen && screen->actions.contains(Fold(semantic))
+            ? std::optional<std::string>(semantic) : std::nullopt;
     };
 
     using Kind = CareerDomain::ActionIntentKind;
@@ -656,17 +654,7 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
             return choose(m_config.retryFailedRaceWithAlarmClock
                 ? "retry_with_alarm_clock" : "cancel");
         if (screenId == "race_runner" || screenId == "race_attributes")
-        {
-            std::string lineup = Fold(intent.tactic);
-            if (lineup.empty())
-                lineup = Fold(m_config.normalLineupStrategy);
-            if (lineup == "front" || lineup == "pace" || lineup == "late" || lineup == "end")
-            {
-                if (contains("strategy.apply." + lineup))
-                    return "strategy.apply." + lineup;
-            }
-            return std::nullopt;
-        }
+            return choose("entry.view_results");
         if (screenId == "race_details")
             return choose("race.confirm");
         if (screenId == "race_result" || screenId == "race_runner_result")

@@ -315,6 +315,8 @@ public:
     {
         if (alternatingImage) std::swap(image, *alternatingImage);
         if (nextImage && !taps.empty() && captures >= capturesBeforeNextImage) image = *nextImage;
+        if (!framesAfterTap.empty() && !taps.empty())
+            image = framesAfterTap[(std::min)(taps.size(), framesAfterTap.size()) - 1];
         if (!taps.empty() && captureDelayAfterTapMs > 0)
             std::this_thread::sleep_for(std::chrono::milliseconds(captureDelayAfterTapMs));
         if (animateOutsideMarker || animateInsideMarker)
@@ -374,6 +376,7 @@ public:
     bool IsCancelled() const override { return cancelAfterCaptures != 0 && captures >= cancelAfterCaptures; }
     UmaAssistant::Vision::GrayImage image;
     std::optional<UmaAssistant::Vision::GrayImage> nextImage;
+    std::vector<UmaAssistant::Vision::GrayImage> framesAfterTap;
     std::optional<UmaAssistant::Vision::GrayImage> alternatingImage;
     std::shared_ptr<const TaskFrameSnapshot> frame;
     std::uint64_t captures{0};
@@ -864,9 +867,8 @@ TEST_CASE("MuMu finale playback resumes with the visible Race glyph",
     context.nextImage = retry.image;
     context.cancelAfterCaptures = 20;
     REQUIRE(context.CaptureScreen());
-    const auto oldButton = resources->MatchExecutionTask("race_playback_race_play", context);
     const auto glyph = resources->MatchExecutionTask("race_runner_playback_start", context);
-    CAPTURE(oldButton.score, glyph.score);
+    CAPTURE(glyph.score);
     REQUIRE(glyph.found);
     CareerScreenObserver observer(resources);
     auto source = observer.ObserveScreens(context, {"race_playback", "race_playback_start"});
@@ -882,6 +884,49 @@ TEST_CASE("MuMu finale playback resumes with the visible Race glyph",
     CHECK(context.taps.front().first < 630);
     CHECK(context.taps.front().second >= 1410);
     CHECK(context.taps.front().second < 1520);
+}
+
+TEST_CASE("Race playback recovery stages resume the shared graph through the retry checkpoint",
+    "[CareerRuntime][CareerRaceEntryRepair]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext ready("race_playback_final_oguri_mumu_20261015.png");
+    ActualRaceResultContext retry("race_retry_oguri_3rd_mumu_20261014.png");
+    std::string screenId;
+    std::string filename;
+    std::vector<UmaAssistant::Vision::GrayImage> continuation;
+    SECTION("Playback settings")
+    {
+        screenId = "race_playback_settings";
+        filename = "resource/hachimi/career/race/templates/runtime_frames/ura_prelim_playback_ready.png";
+        continuation = {ready.image, retry.image};
+    }
+    SECTION("Live race")
+    {
+        screenId = "race_live";
+        filename = "resource/hachimi/career/race/templates/runtime_frames/ura_final_race_live.png";
+        continuation = {retry.image};
+    }
+    ActualRaceResultContext context(filename);
+    context.framesAfterTap = continuation;
+    context.cancelAfterCaptures = 30;
+    CareerObservation source;
+    source.screenId = screenId;
+    source.screenKind = CareerScreenKind::RaceExecution;
+    CareerActionExecutor executor(config, resources);
+    const auto status = executor.ExecuteForObservation(ActionIntent::MakeRace("finale"), source, context);
+    std::string diagnostics;
+    for (const auto& log : context.logs) diagnostics += log + "\n";
+    INFO(diagnostics);
+    REQUIRE(status == ActionExecutionStatus::Success);
+    CHECK(executor.TakeLastActionOutcome() == "race.retry.pending");
+    CHECK(context.taps.size() == continuation.size());
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeRace("finale"), source, context));
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "race_retry_dialog");
 }
 
 TEST_CASE("Attributes entry prefers available View Results after configuring strategy",

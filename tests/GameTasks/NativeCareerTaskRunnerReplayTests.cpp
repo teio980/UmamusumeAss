@@ -739,7 +739,7 @@ private:
             || m_graphRoot == "race_list_race_fans_entry"
             || m_graphRoot == "race_list_race_goal_entry") m_screen = "race_runner";
         else if (m_graphRoot == "race_runner_entry_view_results") m_screen = "race_result";
-        else if (m_graphRoot == "race_result_result_next")
+        else if (m_graphRoot == "race_runner_result_next")
         {
             if (m_raceResultIndex > 8)
                 m_screen = "reward";
