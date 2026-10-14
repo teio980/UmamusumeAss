@@ -4,11 +4,19 @@
 
 #include <chrono>
 #include <filesystem>
+#include <exception>
 #include <functional>
 #include <string>
 
 namespace UmaAssistant::GameTasks
 {
+
+// A recovery popup dismissed immediately before startup input invalidates the
+// observed control. Restart the monitor cycle instead of replaying that input.
+struct StartupObservationInvalidated final : std::exception
+{
+    const char* what() const noexcept override { return "Startup observation was interrupted by a recovery dialog."; }
+};
 
 struct StartGameMonitorResult
 {

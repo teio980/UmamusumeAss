@@ -258,133 +258,142 @@ StartGameMonitorResult StartGameMonitor::Run(
         step, true, 0.0, 0, 0, "Startup monitor started.");
     while (!context.IsCancelled())
     {
-        // Give the monitor one initial observation even for timeoutMs=0, then
-        // enforce the deadline before every cycle so capture failures, missing
-        // frame metadata and repeated trigger hits cannot spin forever.
-        if (!firstIteration && now() - started >= timeout)
+        try
         {
-            std::string summary = "Startup monitor timed out waiting for Home.";
-            if (!lastMatches.empty()) summary += " Last observed " + std::to_string(lastMatches.size()) + " monitor candidate(s).";
-            Emit(context, TaskEventType::PipelineFailed, monitorName, definition->name,
-                step, false, 0.0, 0, 0, summary);
-            return {false, false, summary};
-        }
-        firstIteration = false;
-        ++step;
-        if (!Capture(context))
-        {
-            if (context.IsCancelled()) break;
-            context.Sleep(static_cast<int>(poll.count()));
-            continue;
-        }
-        auto const frame = context.GetCurrentFrame();
-        if (!frame)
-        {
-            context.Sleep(static_cast<int>(poll.count()));
-            continue;
-        }
-
-        std::vector<Candidate> activeCandidates;
-        if (chainIndex >= 0)
-        {
-            for (auto const* candidate : successCandidates) activeCandidates.push_back(*candidate);
-            for (auto const* candidate : triggerChain) activeCandidates.push_back(*candidate);
-        }
-        else
-        {
-            for (auto const* candidate : monitorCandidates) activeCandidates.push_back(*candidate);
-        }
-        lastMatches = FindMatches(context, activeCandidates);
-
-        Candidate const* successCandidate = nullptr;
-        TaskMatchResult const* successMatch = nullptr;
-        for (auto const* candidate : successCandidates)
-        {
-            if (auto const* match = Found(lastMatches, candidate->name))
+            // Give the monitor one initial observation even for timeoutMs=0, then
+            // enforce the deadline before every cycle so capture failures, missing
+            // frame metadata and repeated trigger hits cannot spin forever.
+            if (!firstIteration && now() - started >= timeout)
             {
-                successCandidate = candidate;
-                successMatch = match;
-                break;
+                std::string summary = "Startup monitor timed out waiting for Home.";
+                if (!lastMatches.empty()) summary += " Last observed " + std::to_string(lastMatches.size()) + " monitor candidate(s).";
+                Emit(context, TaskEventType::PipelineFailed, monitorName, definition->name,
+                    step, false, 0.0, 0, 0, summary);
+                return {false, false, summary};
             }
-        }
-        if (successCandidate != nullptr)
-        {
-            context.Log("INFO", "Startup Home candidate found; waiting for stable confirmation.");
-            context.Sleep(std::max(0, monitorTask->successConfirmDelayMs));
-            if (Capture(context))
+            firstIteration = false;
+            ++step;
+            if (!Capture(context))
             {
-                std::vector<Candidate> onlySuccess;
-                for (auto const* candidate : successCandidates) onlySuccess.push_back(*candidate);
-                auto const confirmationMatches = FindMatches(context, onlySuccess);
-                auto const confirmed = std::any_of(successCandidates.begin(), successCandidates.end(),
-                    [&confirmationMatches](Candidate const* candidate) {
-                        return Found(confirmationMatches, candidate->name) != nullptr;
-                    });
-                if (confirmed)
-                {
-                    Emit(context, TaskEventType::TaskCompleted, successCandidate->name, definition->name,
-                        step, true, successMatch->score, successMatch->CenterX(), successMatch->CenterY(),
-                        "Home screen confirmed after settle delay.");
-                    Emit(context, TaskEventType::PipelineCompleted, monitorName, definition->name,
-                        step, true, successMatch->score, successMatch->CenterX(), successMatch->CenterY(),
-                        "Startup monitor confirmed Home.");
-                    return {true, true, "The game Home screen was detected and confirmed."};
-                }
-            }
-            chainIndex = -1;
-            context.Log("WARN", "Home confirmation was transient; resuming all startup monitor checks.");
-            continue;
-        }
-
-        if (chainIndex >= 0 && chainIndex < static_cast<int>(triggerChain.size()))
-        {
-            auto const* current = triggerChain[static_cast<std::size_t>(chainIndex)];
-            if (auto const* match = Found(lastMatches, current->name))
-            {
-                if (!RunMonitorAction(context, *current, *match))
-                    return {false, false, "Startup trigger chain action failed: " + current->name};
-                ++chainIndex;
-                if (chainIndex >= static_cast<int>(triggerChain.size())) chainIndex = -1;
+                if (context.IsCancelled()) break;
+                context.Sleep(static_cast<int>(poll.count()));
                 continue;
             }
-        }
-
-        if (chainIndex < 0)
-        {
-            if (triggerCandidate != nullptr)
+            auto const frame = context.GetCurrentFrame();
+            if (!frame)
             {
-                if (auto const* match = Found(lastMatches, triggerCandidate->name))
-                {
-                    if (!RunMonitorAction(context, *triggerCandidate, *match))
-                        return {false, false, "Startup trigger action failed: " + triggerCandidate->name};
-                    chainIndex = triggerChain.empty() ? -1 : 0;
-                    continue;
-                }
+                context.Sleep(static_cast<int>(poll.count()));
+                continue;
             }
 
-            Candidate const* independentCandidate = nullptr;
-            for (auto const& name : monitorTask->monitorTasks)
+            std::vector<Candidate> activeCandidates;
+            if (chainIndex >= 0)
             {
-                if (successNames.contains(name)
-                    || (monitorTask->triggerTask && CaseInsensitiveEqual{}(name, *monitorTask->triggerTask)))
-                    continue;
-                auto found = byName.find(name);
-                if (found != byName.end() && Found(lastMatches, name) != nullptr)
+                for (auto const* candidate : successCandidates) activeCandidates.push_back(*candidate);
+                for (auto const* candidate : triggerChain) activeCandidates.push_back(*candidate);
+            }
+            else
+            {
+                for (auto const* candidate : monitorCandidates) activeCandidates.push_back(*candidate);
+            }
+            lastMatches = FindMatches(context, activeCandidates);
+
+            Candidate const* successCandidate = nullptr;
+            TaskMatchResult const* successMatch = nullptr;
+            for (auto const* candidate : successCandidates)
+            {
+                if (auto const* match = Found(lastMatches, candidate->name))
                 {
-                    independentCandidate = found->second;
+                    successCandidate = candidate;
+                    successMatch = match;
                     break;
                 }
             }
-            if (independentCandidate != nullptr)
+            if (successCandidate != nullptr)
             {
-                auto const* match = Found(lastMatches, independentCandidate->name);
-                if (!RunMonitorAction(context, *independentCandidate, *match))
-                    return {false, false, "Startup monitor action failed: " + independentCandidate->name};
+                context.Log("INFO", "Startup Home candidate found; waiting for stable confirmation.");
+                context.Sleep(std::max(0, monitorTask->successConfirmDelayMs));
+                if (Capture(context))
+                {
+                    std::vector<Candidate> onlySuccess;
+                    for (auto const* candidate : successCandidates) onlySuccess.push_back(*candidate);
+                    auto const confirmationMatches = FindMatches(context, onlySuccess);
+                    auto const confirmed = std::any_of(successCandidates.begin(), successCandidates.end(),
+                        [&confirmationMatches](Candidate const* candidate) {
+                            return Found(confirmationMatches, candidate->name) != nullptr;
+                        });
+                    if (confirmed)
+                    {
+                        Emit(context, TaskEventType::TaskCompleted, successCandidate->name, definition->name,
+                            step, true, successMatch->score, successMatch->CenterX(), successMatch->CenterY(),
+                            "Home screen confirmed after settle delay.");
+                        Emit(context, TaskEventType::PipelineCompleted, monitorName, definition->name,
+                            step, true, successMatch->score, successMatch->CenterX(), successMatch->CenterY(),
+                            "Startup monitor confirmed Home.");
+                        return {true, true, "The game Home screen was detected and confirmed."};
+                    }
+                }
+                chainIndex = -1;
+                context.Log("WARN", "Home confirmation was transient; resuming all startup monitor checks.");
                 continue;
             }
-        }
 
-        context.Sleep(static_cast<int>(poll.count()));
+            if (chainIndex >= 0 && chainIndex < static_cast<int>(triggerChain.size()))
+            {
+                auto const* current = triggerChain[static_cast<std::size_t>(chainIndex)];
+                if (auto const* match = Found(lastMatches, current->name))
+                {
+                    if (!RunMonitorAction(context, *current, *match))
+                        return {false, false, "Startup trigger chain action failed: " + current->name};
+                    ++chainIndex;
+                    if (chainIndex >= static_cast<int>(triggerChain.size())) chainIndex = -1;
+                    continue;
+                }
+            }
+
+            if (chainIndex < 0)
+            {
+                if (triggerCandidate != nullptr)
+                {
+                    if (auto const* match = Found(lastMatches, triggerCandidate->name))
+                    {
+                        if (!RunMonitorAction(context, *triggerCandidate, *match))
+                            return {false, false, "Startup trigger action failed: " + triggerCandidate->name};
+                        chainIndex = triggerChain.empty() ? -1 : 0;
+                        continue;
+                    }
+                }
+
+                Candidate const* independentCandidate = nullptr;
+                for (auto const& name : monitorTask->monitorTasks)
+                {
+                    if (successNames.contains(name)
+                        || (monitorTask->triggerTask && CaseInsensitiveEqual{}(name, *monitorTask->triggerTask)))
+                        continue;
+                    auto found = byName.find(name);
+                    if (found != byName.end() && Found(lastMatches, name) != nullptr)
+                    {
+                        independentCandidate = found->second;
+                        break;
+                    }
+                }
+                if (independentCandidate != nullptr)
+                {
+                    auto const* match = Found(lastMatches, independentCandidate->name);
+                    if (!RunMonitorAction(context, *independentCandidate, *match))
+                        return {false, false, "Startup monitor action failed: " + independentCandidate->name};
+                    continue;
+                }
+            }
+
+            context.Sleep(static_cast<int>(poll.count()));
+        }
+        catch (StartupObservationInvalidated const&)
+        {
+            chainIndex = -1;
+            lastMatches.clear();
+            context.Log("INFO", "Startup recovery dialog dismissed; recognizing controls again.");
+        }
     }
     return {false, false, context.IsCancelled()
         ? "Startup monitor was canceled."

@@ -75,6 +75,10 @@ public:
 
     virtual bool CaptureScreen() = 0;
 
+    // An observational capture must preserve the selected frame and any input
+    // lease. Its pixels can be inspected, but must not be used for input.
+    [[nodiscard]] virtual std::shared_ptr<const TaskFrameSnapshot> CaptureInspectionFrame() { return {}; }
+
     // Persistence can bind checkpoints to the connected device without
     // trusting a serial supplied by task settings or depending on DeviceSession.
     [[nodiscard]] virtual std::string GetDeviceSerial() const { return {}; }

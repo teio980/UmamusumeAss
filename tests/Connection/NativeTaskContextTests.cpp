@@ -191,6 +191,32 @@ TEST_CASE("Native task recognition taps keep the source pixel point at every ori
     }
 }
 
+TEST_CASE("Native inspection captures preserve selected evidence and cannot authorize input", "[phase3][context][inspection]")
+{
+    Fixture fixture;
+    auto const selected = fixture.context->GetCurrentFrame();
+    auto const original = fixture.MatchAt(180, 320);
+    auto const inspected = fixture.context->CaptureInspectionFrame();
+    REQUIRE(inspected);
+    CHECK(inspected->frameId != selected->frameId);
+    CHECK(inspected->grayPixels == selected->grayPixels);
+    CHECK(fixture.context->GetCurrentFrame() == selected);
+    CHECK_FALSE(fixture.session->frame_metadata(inspected->frameId));
+    auto rejected = original;
+    rejected.frameId = inspected->frameId;
+    CHECK_FALSE(fixture.context->TapMatch(rejected.CenterX(), rejected.CenterY(), rejected));
+    REQUIRE(fixture.context->TapMatch(original.CenterX(), original.CenterY(), original));
+    CHECK(fixture.Taps().size() == 1);
+
+    REQUIRE(fixture.context->CaptureScreen());
+    auto const retained = fixture.MatchAt(180, 320);
+    REQUIRE(fixture.context->RetainMatchForRetry(retained, 1, 30000));
+    REQUIRE(fixture.context->CaptureInspectionFrame());
+    CHECK(fixture.context->IsMatchRetained(retained));
+    REQUIRE(fixture.context->TapMatch(retained.CenterX(), retained.CenterY(), retained));
+    CHECK(fixture.Taps().size() == 2);
+}
+
 TEST_CASE("Native task input consumes ordinary screenshot evidence", "[phase3][context]")
 {
     Fixture fixture;

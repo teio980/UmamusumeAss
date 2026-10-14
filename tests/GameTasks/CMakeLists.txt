@@ -1,6 +1,6 @@
 include(Catch)
 
-add_executable(GameTaskTests GameTaskTests.cpp NativeGameTaskPackageOperationsTests.cpp CareerSettingsTests.cpp CareerEntryReplayTests.cpp
+add_executable(GameTaskTests GameTaskTests.cpp GameRecoveryDialogTests.cpp NativeGameTaskPackageOperationsTests.cpp CareerSettingsTests.cpp CareerEntryReplayTests.cpp
   NativeNormalCareerStartupReplayTests.cpp NativeCareerTaskRunnerReplayTests.cpp)
 target_link_libraries(GameTaskTests PRIVATE Catch2::Catch2WithMain UmaAssistantGameTasks)
 target_compile_definitions(GameTaskTests PRIVATE CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"

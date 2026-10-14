@@ -223,6 +223,7 @@ add_library(UmaAssistantGameTasks STATIC
   GameTasks/GameTaskActionExtensions.cpp
   GameTasks/NativeGameTaskPackageOperations.cpp
   GameTasks/NativeGameTaskRunner.cpp
+  GameTasks/GameRecoveryDialogDetector.cpp
   GameTasks/NativeCareerTaskRunner.cpp
   GameTasks/CareerEntryFlow.cpp
   GameTasks/NativeIndependentTrainingFlow.cpp

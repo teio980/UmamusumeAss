@@ -37,6 +37,7 @@ public:
     ~NativeTaskExecutionContext() override;
 
     bool CaptureScreen() override;
+    [[nodiscard]] std::shared_ptr<const TaskFrameSnapshot> CaptureInspectionFrame() override;
 
     [[nodiscard]] std::string GetDeviceSerial() const override;
 

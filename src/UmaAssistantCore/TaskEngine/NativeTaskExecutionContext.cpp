@@ -233,6 +233,36 @@ bool NativeTaskExecutionContext::CaptureScreen()
     }
 }
 
+std::shared_ptr<const TaskFrameSnapshot> NativeTaskExecutionContext::CaptureInspectionFrame()
+{
+    if (!m_session || m_cancellation.stop_requested()) return {};
+    auto const captured = m_session->capture(m_cancellation);
+    if (captured.failure || !captured.frame) return {};
+    struct ReleaseFrame
+    {
+        DeviceSession& session;
+        std::uint64_t id;
+        ~ReleaseFrame() { static_cast<void>(session.release_frame(id)); }
+    } release{*m_session, captured.frame->id};
+    try
+    {
+        std::vector<std::uint8_t> png(captured.frame->byte_count);
+        if (!m_session->copy_frame_png(captured.frame->id, png.data(), png.size())) return {};
+        auto image = Resources::WicImageDecoder::decode_bytes(png);
+        auto frame = std::make_shared<TaskFrameSnapshot>();
+        frame->width = image.width;
+        frame->height = image.height;
+        frame->orientation = captured.frame->orientation;
+        frame->frameId = captured.frame->id;
+        frame->sessionGeneration = captured.frame->session_generation;
+        frame->geometryGeneration = captured.frame->geometry_generation;
+        frame->grayPixels = std::move(image.gray);
+        frame->rgbaPixels = std::move(image.rgba);
+        return frame;
+    }
+    catch (...) { return {}; }
+}
+
 TaskMatchResult NativeTaskExecutionContext::MatchTemplate(
     const std::string& templatePath,
     double threshold,

@@ -3,6 +3,7 @@
 
 #include "DailyRaceRunnerSelector.hpp"
 #include "GameTaskActionExtensions.hpp"
+#include "GameRecoveryDialogDetector.hpp"
 #include "Common/PathEncoding.hpp"
 #include "Resources/ResourceSnapshot.hpp"
 #include "ShopItemSelector.hpp"
@@ -134,6 +135,22 @@ public:
     {
     }
 
+    StartGameMonitorResult RunStartupMonitor()
+    {
+        m_recoveringStartup = true;
+        try
+        {
+            auto const result = StartGameMonitor::Run(*this, m_resourceRoot);
+            m_recoveringStartup = false;
+            return result;
+        }
+        catch (...)
+        {
+            m_recoveringStartup = false;
+            throw;
+        }
+    }
+
     bool CaptureScreen() override
     {
         if (!m_inner.CaptureScreen()) return false;
@@ -142,17 +159,20 @@ public:
         if (first.kind == DialogKind::missingTemplates)
             throw RecoveryInterruption("Date-change recovery references could not be loaded.");
 
-        m_inner.Sleep(120);
-        if (!m_inner.CaptureScreen())
-            throw RecoveryInterruption("Could not confirm a possible game recovery dialog.");
-        auto confirmed = DetectDialog(m_inner);
-        if (confirmed.kind != first.kind)
-            return true;
+        auto confirmed = first;
+        if (first.kind != DialogKind::sessionError)
+        {
+            m_inner.Sleep(120);
+            if (!m_inner.CaptureScreen())
+                throw RecoveryInterruption("Could not confirm a possible game recovery dialog.");
+            confirmed = DetectDialog(m_inner);
+            if (confirmed.kind != first.kind) return true;
+        }
 
         // A graph retry lease belongs to the interrupted screen. Release it
         // before dismissing the confirmed dialog on its current frame.
         m_inner.ReleaseRetainedMatch();
-        if (!DismissDialog(confirmed.match))
+        if (!DismissDialog(confirmed))
             throw RecoveryInterruption("The recovery dialog did not disappear within ten seconds (at most three taps).");
 
         if (m_recoveringStartup)
@@ -304,7 +324,50 @@ public:
         return m_inner.SendKey(keyCode);
     }
 
-    void Sleep(int milliseconds) override { m_inner.Sleep(milliseconds); }
+    void Sleep(int milliseconds) override
+    {
+        while (milliseconds > 1000 && !m_inner.IsCancelled())
+        {
+            m_inner.Sleep(1000);
+            if (m_inner.IsCancelled()) return;
+            auto const frame = m_inner.CaptureInspectionFrame();
+            if (frame)
+            {
+                auto const dialog = DetectGameRecoveryDialog(frame.get(), m_resources, m_resourceRoot);
+                if (dialog.kind == DialogKind::missingTemplates)
+                    throw RecoveryInterruption("Date-change recovery references could not be loaded.");
+                if (dialog.kind != DialogKind::none)
+                {
+                    if (dialog.kind == DialogKind::sessionError)
+                    {
+                        // Inspection frames cannot authorize input. Capture a
+                        // current input frame, without requiring a second match.
+                        static_cast<void>(CaptureScreen());
+                        if (m_recoveringStartup) throw StartupObservationInvalidated{};
+                        milliseconds -= 1000;
+                        continue;
+                    }
+                    m_inner.Sleep(120);
+                    if (m_inner.IsCancelled()) return;
+                    auto const confirmation = m_inner.CaptureInspectionFrame();
+                    auto const confirmed = DetectGameRecoveryDialog(confirmation.get(), m_resources, m_resourceRoot);
+                    // A transient inspection must not discard the pending
+                    // action's selected frame. Only stable evidence enters the
+                    // ordinary capture/dismiss path, which verifies input anew.
+                    if (confirmation && confirmed.kind == dialog.kind
+                        && confirmation->sessionGeneration == frame->sessionGeneration
+                        && confirmation->geometryGeneration == frame->geometryGeneration
+                        && confirmation->width == frame->width && confirmation->height == frame->height)
+                    {
+                        static_cast<void>(CaptureScreen());
+                        if (m_recoveringStartup) throw StartupObservationInvalidated{};
+                    }
+                }
+            }
+            milliseconds -= 1000;
+        }
+        if (!m_inner.IsCancelled()) m_inner.Sleep(milliseconds);
+    }
     bool IsCancelled() const override { return m_inner.IsCancelled(); }
     void Log(const std::string& level, const std::string& message) override { m_inner.Log(level, message); }
 
@@ -378,55 +441,16 @@ private:
                 1, m_requestedRaceUnits - m_state.confirmedRaceUnits);
     }
 
-    enum class DialogKind { none, dateChanged, connectionError, missingTemplates };
-    struct DialogMatch
-    {
-        DialogKind kind{DialogKind::none};
-        TaskMatchResult match;
-    };
+    using DialogKind = GameRecoveryDialogKind;
+    using DialogMatch = GameRecoveryDialogMatch;
 
     DialogMatch DetectDialog(ITaskExecutionContext& context)
     {
-        if (m_resources == nullptr) return {DialogKind::missingTemplates, {}};
-        auto const base = m_resourceRoot / "hachimi" / "common" / "date_changed";
-        auto const title = base / "title.png";
-        auto const body = base / "body.png";
-        auto const ok = base / "ok.png";
-        auto const error = base / "err.png";
-        auto const titleScreen = base / "titlescreen.png";
-        auto load = [this](std::filesystem::path const& path) {
-            return m_resources->load_template(Paths::ToUtf8(path), Resources::TemplatePreparation::original);
-        };
-        auto const titleTemplate = load(title);
-        auto const bodyTemplate = load(body);
-        auto const okTemplate = load(ok);
-        auto const errorTemplate = load(error);
-        auto const titleScreenTemplate = load(titleScreen);
-        if (!titleTemplate || !bodyTemplate || !okTemplate || !errorTemplate || !titleScreenTemplate)
-            return {DialogKind::missingTemplates, {}};
-
-        auto titleMatch = context.MatchTemplateAdvanced(Paths::ToUtf8(title), 0.92,
-            TaskRoi{310, 475, 280, 80}, "MatchTemplate", 900, 1600, {});
-        if (titleMatch.found)
-        {
-            auto bodyMatch = context.MatchTemplateAdvanced(Paths::ToUtf8(body), 0.90,
-                TaskRoi{325, 730, 250, 85}, "MatchTemplate", 900, 1600, {});
-            if (bodyMatch.found)
-            {
-                auto button = context.MatchTemplateAdvanced(Paths::ToUtf8(ok), 0.92,
-                    TaskRoi{250, 975, 400, 130}, "MatchTemplateColor", 900, 1600, {});
-                if (button.found) return {DialogKind::dateChanged, button};
-            }
-        }
-        auto errorMatch = context.MatchTemplateAdvanced(Paths::ToUtf8(error), 0.92,
-            TaskRoi{300, 485, 300, 55}, "MatchTemplate", 900, 1600, {});
-        if (!errorMatch.found) return {};
-        auto button = context.MatchTemplateAdvanced(Paths::ToUtf8(titleScreen), 0.92,
-            TaskRoi{120, 1000, 260, 80}, "MatchTemplate", 900, 1600, {});
-        return button.found ? DialogMatch{DialogKind::connectionError, button} : DialogMatch{};
+        auto const frame = context.GetCurrentFrame();
+        return DetectGameRecoveryDialog(frame.get(), m_resources, m_resourceRoot);
     }
 
-    bool DismissDialog(TaskMatchResult button)
+    bool DismissDialog(DialogMatch dialog)
     {
         auto const started = std::chrono::steady_clock::now();
         int taps = 0;
@@ -435,9 +459,9 @@ private:
         while (pollCount++ < 40 && std::chrono::steady_clock::now() - started < std::chrono::seconds(10))
         {
             if (m_inner.IsCancelled()) return false;
-            if (taps == 0 && button.found)
+            if (taps == 0 && dialog.match.found)
             {
-                if (!m_inner.TapMatch(button.CenterX(), button.CenterY(), button)) return false;
+                if (!m_inner.TapMatch(dialog.TargetX(), dialog.TargetY(), dialog.match)) return false;
                 ++taps;
                 seen = true;
                 m_inner.Sleep(1000);
@@ -458,7 +482,7 @@ private:
                 continue;
             }
             if (!current.match.found
-                || !m_inner.TapMatch(current.match.CenterX(), current.match.CenterY(), current.match))
+                || !m_inner.TapMatch(current.TargetX(), current.TargetY(), current.match))
                 return false;
             ++taps;
             m_inner.Sleep(1000);
@@ -468,21 +492,24 @@ private:
 
     bool CheckBeforeInput(bool capture = true)
     {
-        if (m_recoveringStartup) return true;
         if (capture && !m_inner.CaptureScreen()) return false;
         auto const detected = DetectDialog(m_inner);
         if (detected.kind == DialogKind::none) return true;
         if (detected.kind == DialogKind::missingTemplates)
             throw RecoveryInterruption("Date-change recovery references could not be loaded.");
-        m_inner.Sleep(120);
-        if (!m_inner.CaptureScreen())
-            throw RecoveryInterruption("Could not confirm a possible game recovery dialog before input.");
-        auto const confirmed = DetectDialog(m_inner);
-        if (confirmed.kind != detected.kind) return true;
+        auto confirmed = detected;
+        if (detected.kind != DialogKind::sessionError)
+        {
+            m_inner.Sleep(120);
+            if (!m_inner.CaptureScreen())
+                throw RecoveryInterruption("Could not confirm a possible game recovery dialog before input.");
+            confirmed = DetectDialog(m_inner);
+            if (confirmed.kind != detected.kind) return true;
+        }
         m_inner.ReleaseRetainedMatch();
-        if (!DismissDialog(confirmed.match))
+        if (!DismissDialog(confirmed))
             throw RecoveryInterruption("The recovery dialog did not disappear within ten seconds (at most three taps).");
-        if (m_recoveringStartup) return true;
+        if (m_recoveringStartup) throw StartupObservationInvalidated{};
         if (!RecoverToHome())
             throw RecoveryInterruption(m_recoveryError.empty()
                 ? "Game recovery could not restore Home." : m_recoveryError);
@@ -509,18 +536,7 @@ private:
             m_recoveryError = "Could not relaunch the game during date-change recovery: " + started.message;
             return false;
         }
-        m_recoveringStartup = true;
-        StartGameMonitorResult startup;
-        try
-        {
-            startup = StartGameMonitor::Run(*this, m_resourceRoot);
-        }
-        catch (...)
-        {
-            m_recoveringStartup = false;
-            throw;
-        }
-        m_recoveringStartup = false;
+        auto const startup = RunStartupMonitor();
         if (!startup.succeeded || !startup.homeDetected)
         {
             m_recoveryError = "Date-change recovery could not confirm Home: " + startup.message;
@@ -693,7 +709,16 @@ NativeGameTaskResult NativeGameTaskRunner::Run(
                 result.message = "Could not start the game process: " + launch.message;
                 return result;
             }
-            auto const startup = StartGameMonitor::Run(context, resourceRoot);
+            std::unique_ptr<Resources::ResourceSnapshot> startupSnapshot;
+            if (resourceSnapshot == nullptr)
+            {
+                startupSnapshot = std::make_unique<Resources::ResourceSnapshot>(resourceRoot);
+                resourceSnapshot = startupSnapshot.get();
+            }
+            RecoveryState recoveryState;
+            GuardedTaskContext guarded(context, resourceSnapshot, resourceRoot,
+                packageOperations, packageId, activityName, "start-game", recoveryState, 0);
+            auto const startup = guarded.RunStartupMonitor();
             if (!startup.succeeded || !startup.homeDetected)
             {
                 result.errorCode = ErrorCodeForContext(context, kCommandFailed);

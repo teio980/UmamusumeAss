@@ -13,6 +13,7 @@
 #include "Common/PathEncoding.hpp"
 #include "Resources/ImageTransforms.hpp"
 #include "Resources/ResourceSnapshot.hpp"
+#include "Resources/WicImageDecoder.hpp"
 #include "TaskEngine/ActionRegistry.hpp"
 #include "TaskEngine/TaskFrameSnapshot.hpp"
 #include "../TaskEngine/MockTaskExecutionContext.hpp"
@@ -54,6 +55,7 @@ public:
     {
         ++captureCount;
         ++frameId;
+        if (onCapture) onCapture();
         currentFrame = std::make_shared<TaskFrameSnapshot>();
         currentFrame->width = frameWidth;
         currentFrame->height = frameHeight;
@@ -68,6 +70,12 @@ public:
     std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override
     {
         return currentFrame;
+    }
+
+    std::shared_ptr<const TaskFrameSnapshot> CaptureInspectionFrame() override
+    {
+        ++inspectionCaptureCount;
+        return inspectionFrame ? inspectionFrame() : nullptr;
     }
 
     TaskMatchResult MatchTemplateAdvanced(
@@ -122,6 +130,9 @@ public:
     std::vector<MatchTap> matchTaps;
     std::function<void(int, int, const TaskMatchResult&)> onMatchTap;
     std::function<bool(int, int)> probeMatcher;
+    std::function<void()> onCapture;
+    std::function<std::shared_ptr<const TaskFrameSnapshot>()> inspectionFrame;
+    int inspectionCaptureCount{0};
 };
 
 class FakePackageOperations final : public GameTasks::IGameTaskPackageOperations
@@ -693,23 +704,69 @@ TEST_CASE("Date-change recovery retries work interrupted before input but never 
         output << definition.dump(2);
     }
 
-    auto execute = [&](bool interruptBeforeInput) {
+    auto execute = [&](bool interruptBeforeInput, bool interruptDuringDelay = false,
+                       bool transientDuringDelay = false, bool sessionError = false, int retainedMarker = -1) {
+        definition["tasks"]["shopExchangeConfirm"]["preDelay"] = interruptDuringDelay ? 3500 : 0;
+        {
+            std::ofstream output(definitionPath, std::ios::binary);
+            REQUIRE(output.good());
+            output << definition.dump(2);
+        }
         MonitorContext context;
-        auto dialogVisible = [interruptBeforeInput](std::uint64_t frame) {
+        auto dialogVisible = [interruptBeforeInput, transientDuringDelay, sessionError](std::uint64_t frame) {
+            if (transientDuringDelay) return false;
+            if (sessionError) return frame == (interruptBeforeInput ? 3U : 4U);
             if (interruptBeforeInput) return frame == 3 || frame == 4;
             return frame == 4 || frame == 5;
         };
-        context.matcher = [dialogVisible](std::string const& path, std::uint64_t frame) {
-            auto const dateDialog = dialogVisible(frame);
-            if (path.find("date_changed/title.png") != std::string::npos)
-                return dateDialog ? HitAt(300) : TaskMatchResult{};
-            if (path.find("date_changed/body.png") != std::string::npos)
-                return dateDialog ? HitAt(330) : TaskMatchResult{};
-            if (path.find("date_changed/ok.png") != std::string::npos)
-                return dateDialog ? HitAt(700) : TaskMatchResult{};
-            if (path.find("date_changed/err.png") != std::string::npos
-                || path.find("date_changed/titlescreen.png") != std::string::npos)
-                return TaskMatchResult{};
+        auto modal = Resources::WicImageDecoder::decode_file(sessionError
+            ? root.parent_path() / "testdata/hachimi/ura/captures/session_error_inactivity_mumu_20261014.png"
+            : root / "hachimi/common/date_changed/sample.png");
+        if (sessionError && retainedMarker >= 0)
+        {
+            constexpr std::array markerRois{std::array{320, 475, 260, 80},
+                std::array{140, 730, 620, 100}, std::array{320, 1000, 260, 90}};
+            for (int marker = 0; marker < 3; ++marker)
+            {
+                if (marker == retainedMarker) continue;
+                auto const roi = markerRois[marker];
+                for (int y = roi[1]; y < roi[1] + roi[3]; ++y)
+                    for (int x = roi[0]; x < roi[0] + roi[2]; ++x)
+                    {
+                        auto const offset = static_cast<std::size_t>(y * modal.width + x);
+                        modal.gray[offset] = 248;
+                        for (std::size_t channel = 0; channel < 3; ++channel) modal.rgba[offset * 4 + channel] = 248;
+                    }
+            }
+        }
+        if (interruptDuringDelay)
+        {
+            context.inspectionFrame = [&]() -> std::shared_ptr<const TaskFrameSnapshot> {
+                if (context.frameId != 2 || (transientDuringDelay && context.inspectionCaptureCount > 1)) return {};
+                auto const selected = context.GetCurrentFrame();
+                auto frame = std::make_shared<TaskFrameSnapshot>();
+                frame->width = modal.width;
+                frame->height = modal.height;
+                frame->grayPixels = modal.gray;
+                frame->rgbaPixels = modal.rgba;
+                // Inspection does not replace the pending input's source.
+                CHECK(context.GetCurrentFrame() == selected);
+                return frame;
+            };
+        }
+        context.onCapture = [&] {
+            if (dialogVisible(context.frameId))
+            {
+                context.frameGrayPixels = modal.gray;
+                context.frameRgbaPixels = modal.rgba;
+            }
+            else
+            {
+                context.frameGrayPixels.clear();
+                context.frameRgbaPixels.clear();
+            }
+        };
+        context.matcher = [](std::string const&, std::uint64_t) {
             return HitAt(100);
         };
         Resources::ResourceSnapshot resources(root);
@@ -720,9 +777,16 @@ TEST_CASE("Date-change recovery retries work interrupted before input but never 
         };
         auto const result = GameTasks::NativeGameTaskRunner::Run(
             "mail-collection", settings, context, root, &packageOperations, &resources);
+        if (interruptDuringDelay) CHECK(context.inspectionCaptureCount > 0);
         std::size_t confirmationTaps = 0;
         for (auto const& [x, _] : context.taps)
             if (x == 115) ++confirmationTaps;
+        if (sessionError)
+        {
+            CHECK(std::count_if(context.matchTaps.begin(), context.matchTaps.end(), [](auto const& tap) {
+                return tap.x >= 441 && tap.x <= 459 && tap.y >= 1035 && tap.y <= 1055;
+            }) == 1);
+        }
         return std::tuple{result, confirmationTaps, packageOperations.stopCount, packageOperations.startCount};
     };
 
@@ -738,7 +802,83 @@ TEST_CASE("Date-change recovery retries work interrupted before input but never 
     CHECK(postInputTaps == 1);
     CHECK(postStops == 1);
     CHECK(postStarts == 1);
+
+    auto const [duringDelay, delayTaps, delayStops, delayStarts] = execute(true, true);
+    CHECK(duringDelay.succeeded);
+    CHECK(delayTaps == 1);
+    CHECK(delayStops == 1);
+    CHECK(delayStarts == 1);
+    auto const [transient, transientTaps, transientStops, transientStarts] = execute(true, true, true);
+    CHECK(transient.succeeded);
+    CHECK(transientTaps == 1);
+    CHECK(transientStops == 0);
+    CHECK(transientStarts == 0);
+    auto const [session, sessionTaps, sessionStops, sessionStarts] = execute(true, false, false, true);
+    CHECK(session.succeeded);
+    CHECK(sessionTaps == 1);
+    CHECK(sessionStops == 1);
+    CHECK(sessionStarts == 1);
+    auto const [uncertainSession, uncertainTaps, uncertainStops, uncertainStarts] = execute(false, false, false, true);
+    CHECK_FALSE(uncertainSession.succeeded);
+    CHECK(uncertainSession.message.find("could not be confirmed") != std::string::npos);
+    CHECK(uncertainTaps == 1);
+    CHECK(uncertainStops == 1);
+    CHECK(uncertainStarts == 1);
+    for (int marker = 0; marker < 3; ++marker)
+    {
+        CAPTURE(marker);
+        auto const [single, singleTaps, singleStops, singleStarts] = execute(true, false, false, true, marker);
+        CHECK(single.succeeded);
+        CHECK(singleTaps == 1);
+        CHECK(singleStops == 1);
+        CHECK(singleStarts == 1);
+    }
+    auto const [sessionDelay, sessionDelayTaps, sessionDelayStops, sessionDelayStarts] = execute(true, true, false, true);
+    CHECK(sessionDelay.succeeded);
+    CHECK(sessionDelayTaps == 1);
+    CHECK(sessionDelayStops == 1);
+    CHECK(sessionDelayStarts == 1);
     std::filesystem::remove_all(directory);
+}
+
+TEST_CASE("Standalone startup dismisses repeated resets and restarts interrupted input recognition", "[game-tasks][GameRecovery]")
+{
+    auto const root = ResourceRoot();
+    auto const modal = Resources::WicImageDecoder::decode_file(root / "hachimi/common/date_changed/sample.png");
+    for (bool beforeInput : {false, true})
+    {
+        CAPTURE(beforeInput);
+        MonitorContext context;
+        context.onCapture = [&] {
+            bool const visible = beforeInput
+                ? context.frameId == 2 || context.frameId == 3
+                : context.frameId == 1 || context.frameId == 2 || context.frameId == 4 || context.frameId == 5;
+            context.frameGrayPixels = visible ? modal.gray : std::vector<std::uint8_t>{};
+            context.frameRgbaPixels = visible ? modal.rgba : std::vector<std::uint8_t>{};
+        };
+        context.matcher = [beforeInput](std::string const& path, std::uint64_t frame) {
+            if (beforeInput && frame == 1 && path.find("startnotice_skip.png") != std::string::npos)
+                return HitAt(100);
+            if (frame >= 3 && path.find("game_home_selected.png") != std::string::npos)
+                return HitAt(300);
+            return TaskMatchResult{};
+        };
+        Resources::ResourceSnapshot resources(root);
+        FakePackageOperations packages;
+        auto const result = GameTasks::NativeGameTaskRunner::Run("start-game",
+            nlohmann::json{{"packageId", "com.example.game"}}, context, root, &packages, &resources);
+        REQUIRE(result.succeeded);
+        CHECK(packages.startCount == 1);
+        CHECK(packages.stopCount == 0);
+        CHECK(context.matchTaps.size() == (beforeInput ? 1U : 2U));
+        for (auto const& tap : context.matchTaps)
+        {
+            CHECK(tap.x >= 441);
+            CHECK(tap.x <= 459);
+            CHECK(tap.y >= 1024);
+            CHECK(tap.y <= 1072);
+        }
+    }
 }
 
 TEST_CASE("Failed preflight recovery and launcher failures return without replay or input", "[game-tasks]")
