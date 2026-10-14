@@ -4,6 +4,7 @@
 #include "TaskEngine/HachimiPipelineLoader.hpp"
 #include "TaskEngine/TaskGraphRunner.hpp"
 #include "Common/PathEncoding.hpp"
+#include "Resources/WicImageDecoder.hpp"
 
 #include <windows.h>
 #include <wincodec.h>
@@ -107,6 +108,7 @@ public:
         environment.Set(L"UMA_FAKE_ADB_GETEVENT_DELAY_MS", L"");
         environment.Set(L"UMA_FAKE_ADB_TOUCH_DOWN_DELAY_MS", L"");
         environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"");
+        environment.Set(L"UMA_FAKE_ADB_GEOMETRY_BATCH_MODE", L"");
         environment.Set(L"UMA_FAKE_ADB_SCREENSHOT_PATH", screenshot.wstring());
         environment.Set(L"UMA_FAKE_ADB_RESOLUTION", orientation % 2 == 0
             ? std::to_wstring(width) + L"x" + std::to_wstring(height)
@@ -173,6 +175,113 @@ public:
 };
 
 } // namespace
+
+TEST_CASE("Native captures reuse pixels identical to the public PNG decoder", "[phase3][context][capture]")
+{
+    Fixture fixture;
+    DeviceSessionOptions options;
+    SECTION("colored PNG")
+    {
+        options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::png;
+        fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"900x1600");
+        fixture.environment.Set(L"UMA_FAKE_ADB_SCREENSHOT_PATH",
+            (fs::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures/career_skill_race_day_490_sample.png").wstring());
+    }
+    SECTION("raw screenshot")
+    {
+        options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::raw;
+        fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"raw");
+        fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"10x16");
+    }
+    SECTION("gzip screenshot")
+    {
+        options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::gzip;
+        fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"gzip");
+        fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"10x16");
+    }
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    auto const previous = fixture.context->GetCurrentFrame();
+    REQUIRE(fixture.context->CaptureScreen());
+    auto const frame = fixture.context->GetCurrentFrame();
+    REQUIRE(frame);
+    auto const metadata = fixture.session->frame_metadata(frame->frameId);
+    REQUIRE(metadata);
+    auto const pixels = fixture.session->frame_pixels(frame->frameId);
+    REQUIRE(pixels);
+    std::vector<std::uint8_t> png(static_cast<std::size_t>(metadata->byte_count));
+    REQUIRE(fixture.session->copy_frame_png(frame->frameId, png.data(), png.size()));
+    auto const expected = Resources::WicImageDecoder::decode_bytes(png);
+    CHECK(pixels->width == expected.width);
+    CHECK(pixels->height == expected.height);
+    CHECK(pixels->rgba == expected.rgba);
+    CHECK(pixels->gray == expected.gray);
+    CHECK(frame->rgbaPixels == expected.rgba);
+    CHECK(frame->grayPixels == expected.gray);
+    CHECK(fixture.context->GetPreviousFrame() == previous);
+
+    REQUIRE(fixture.session->release_frame(frame->frameId));
+    CHECK_FALSE(fixture.session->frame_pixels(frame->frameId));
+    CHECK(pixels->rgba == expected.rgba); // Immutable ownership outlives release.
+    auto const external = fixture.session->capture({});
+    REQUIRE_FALSE(external.failure);
+    REQUIRE(external.frame);
+    CHECK_FALSE(fixture.session->frame_pixels(external.frame->id));
+    REQUIRE(fixture.session->release_frame(external.frame->id));
+}
+
+TEST_CASE("Native geometry batching retains both checks and falls back to original queries", "[phase3][context][capture]")
+{
+    Fixture fixture;
+    DeviceSessionOptions options;
+    options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::png;
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    std::string mode;
+    SECTION("standard queries") { mode = ""; }
+    SECTION("unsupported shell") { mode = "unsupported"; }
+    SECTION("malformed batch output") { mode = "malformed"; }
+    fixture.environment.Set(L"UMA_FAKE_ADB_GEOMETRY_BATCH_MODE", std::wstring(mode.begin(), mode.end()));
+    { std::ofstream clear(fixture.commandLog, std::ios::trunc); }
+    REQUIRE(fixture.context->CaptureScreen());
+    REQUIRE(fixture.context->CaptureScreen());
+    std::ifstream log(fixture.commandLog);
+    int commands = 0;
+    int batches = 0;
+    for (std::string line; std::getline(log, line);)
+    {
+        ++commands;
+        if (line.find("__UMA_GEOMETRY_ORIENTATION__") != std::string::npos) ++batches;
+    }
+    CHECK(commands == (mode.empty() ? 6 : 11));
+    CHECK(batches == (mode.empty() ? 4 : 1));
+    auto const match = fixture.MatchAt(180, 320);
+    fixture.environment.Set(L"UMA_FAKE_ADB_ORIENTATION", L"2");
+    CHECK_FALSE(fixture.context->TapMatch(match.CenterX(), match.CenterY(), match));
+    CHECK(fixture.Taps().empty());
+}
+
+TEST_CASE("Native custom geometry queries keep their authored arguments", "[phase3][context][capture]")
+{
+    Fixture fixture;
+    auto const profilePath = fixture.directory / "custom-connection.json";
+    {
+        std::ofstream profile(profilePath);
+        profile << R"({"connection":[{"configName":"Custom","commands":{"get_size":["-s","[AdbSerial]","shell","wm","size","--custom-size"]}}]})";
+    }
+    auto profile = std::make_shared<ConnectionProfile const>(ConnectionProfile::load(profilePath));
+    DeviceSessionOptions options;
+    options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::png;
+    DeviceSession session(profile, fs::path(UMA_FAKE_ADB_PATH), "Custom",
+        ConnectedDevice{"emulator-5554", "test", "14", 450, 800, 450, 800}, 78, options);
+    { std::ofstream clear(fixture.commandLog, std::ios::trunc); }
+    auto const capture = session.capture({});
+    REQUIRE_FALSE(capture.failure);
+    REQUIRE(capture.frame);
+    std::ifstream input(fixture.commandLog);
+    std::stringstream contents;
+    contents << input.rdbuf();
+    CHECK(contents.str().find("__UMA_GEOMETRY_ORIENTATION__") == std::string::npos);
+    CHECK(contents.str().find("\twm\tsize\t--custom-size") != std::string::npos);
+}
 
 TEST_CASE("Native task recognition taps keep the source pixel point at every orientation", "[phase3][context]")
 {

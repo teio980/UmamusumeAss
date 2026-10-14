@@ -733,6 +733,19 @@ int wmain(int argc, wchar_t** argv)
         std::cout << (disconnected ? "offline\n" : "device\n");
         return 0;
     }
+    if (contains(args, "shell") && contains(args, "sh") && contains(args, "-c")
+        && contains_fragment(args, "__UMA_GEOMETRY_ORIENTATION__"))
+    {
+        auto const mode = environment_value("UMA_FAKE_ADB_GEOMETRY_BATCH_MODE");
+        if (mode == "unsupported") return 2;
+        if (mode == "malformed") { std::cout << "unexpected geometry output\n"; return 0; }
+        auto const resolution = environment_value("UMA_FAKE_ADB_RESOLUTION");
+        auto const orientation = environment_value("UMA_FAKE_ADB_ORIENTATION");
+        std::cout << "Physical size: " << (resolution.empty() ? "1080x1920" : resolution)
+                  << "\n__UMA_GEOMETRY_ORIENTATION__\nSurfaceOrientation: "
+                  << (orientation.empty() ? "0" : orientation) << "\n";
+        return 0;
+    }
     if (contains(args, "dumpsys") && contains(args, "input"))
     {
         auto const orientation = environment_value("UMA_FAKE_ADB_ORIENTATION");

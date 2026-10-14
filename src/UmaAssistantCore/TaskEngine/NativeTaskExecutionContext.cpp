@@ -180,7 +180,7 @@ bool NativeTaskExecutionContext::CaptureScreen()
         m_current_frame_input_consumed = false;
     }
 
-    auto opRes = m_session->capture(m_cancellation);
+    auto opRes = m_session->capture(m_cancellation, true);
     if (opRes.failure.has_value() || !opRes.frame.has_value())
     {
         m_last_error_code = opRes.failure
@@ -192,8 +192,8 @@ bool NativeTaskExecutionContext::CaptureScreen()
     m_current_metadata = opRes.frame;
     m_current_frame_id = opRes.frame->id;
 
-    std::vector<std::uint8_t> pngBytes(opRes.frame->byte_count);
-    if (!m_session->copy_frame_png(m_current_frame_id, pngBytes.data(), pngBytes.size()))
+    m_current_screen = m_session->frame_pixels(m_current_frame_id);
+    if (!m_current_screen)
     {
         static_cast<void>(m_session->release_frame(m_current_frame_id));
         m_current_frame_id = 0;
@@ -205,7 +205,6 @@ bool NativeTaskExecutionContext::CaptureScreen()
 
     try
     {
-        m_current_screen = Resources::WicImageDecoder::decode_bytes(pngBytes);
         auto frame = std::make_shared<TaskFrameSnapshot>();
         frame->width = m_current_screen->width;
         frame->height = m_current_screen->height;
@@ -236,7 +235,7 @@ bool NativeTaskExecutionContext::CaptureScreen()
 std::shared_ptr<const TaskFrameSnapshot> NativeTaskExecutionContext::CaptureInspectionFrame()
 {
     if (!m_session || m_cancellation.stop_requested()) return {};
-    auto const captured = m_session->capture(m_cancellation);
+    auto const captured = m_session->capture(m_cancellation, true);
     if (captured.failure || !captured.frame) return {};
     struct ReleaseFrame
     {
@@ -246,18 +245,17 @@ std::shared_ptr<const TaskFrameSnapshot> NativeTaskExecutionContext::CaptureInsp
     } release{*m_session, captured.frame->id};
     try
     {
-        std::vector<std::uint8_t> png(captured.frame->byte_count);
-        if (!m_session->copy_frame_png(captured.frame->id, png.data(), png.size())) return {};
-        auto image = Resources::WicImageDecoder::decode_bytes(png);
+        auto const image = m_session->frame_pixels(captured.frame->id);
+        if (!image) return {};
         auto frame = std::make_shared<TaskFrameSnapshot>();
-        frame->width = image.width;
-        frame->height = image.height;
+        frame->width = image->width;
+        frame->height = image->height;
         frame->orientation = captured.frame->orientation;
         frame->frameId = captured.frame->id;
         frame->sessionGeneration = captured.frame->session_generation;
         frame->geometryGeneration = captured.frame->geometry_generation;
-        frame->grayPixels = std::move(image.gray);
-        frame->rgbaPixels = std::move(image.rgba);
+        frame->grayPixels = image->gray;
+        frame->rgbaPixels = image->rgba;
         return frame;
     }
     catch (...) { return {}; }
@@ -282,7 +280,7 @@ TaskMatchResult NativeTaskExecutionContext::MatchTemplateAdvanced(
     int referenceHeight,
     const std::vector<double>& scaleCandidates)
 {
-    if (!m_current_screen.has_value() || !m_resources || referenceWidth <= 0 || referenceHeight <= 0)
+    if (!m_current_screen || !m_resources || referenceWidth <= 0 || referenceHeight <= 0)
         return TaskMatchResult{false, 0.0, 0, 0, 0, 0};
 
     auto resolvedPath = ResolveTemplatePath(templatePath);
@@ -354,7 +352,7 @@ TaskMatchResult NativeTaskExecutionContext::MatchTemplateAdvanced(
 
 bool NativeTaskExecutionContext::CheckImageChange(const TaskMatchResult& match)
 {
-    if (!m_previous_screen.has_value() || !m_current_screen.has_value())
+    if (!m_previous_screen || !m_current_screen)
         return false;
 
     Vision::MatchResult vr;
@@ -373,7 +371,7 @@ std::vector<TaskOcrDetection> NativeTaskExecutionContext::RecognizeText(
     const std::optional<TaskRoi>& roi)
 {
     std::vector<TaskOcrDetection> result;
-    if (!m_current_screen.has_value() || m_ocr == nullptr)
+    if (!m_current_screen || m_ocr == nullptr)
         return result;
 
     try
@@ -422,7 +420,7 @@ bool NativeTaskExecutionContext::ProbeHsv(
     double vMin, double vMax,
     double minRatio)
 {
-    if (!m_current_screen.has_value())
+    if (!m_current_screen)
         return false;
 
     UmaColorRule rule{};

@@ -1239,7 +1239,7 @@ DeviceOperationResult DeviceSession::verify_game(
     return {.package_id = package_id};
 }
 
-DeviceOperationResult DeviceSession::capture(std::stop_token cancellation)
+DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool retain_pixels)
 {
     std::lock_guard lock(mutex_);
     std::optional<SessionFailure> geometry_failure;
@@ -1253,6 +1253,8 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation)
         CaptureMethod method{};
         std::vector<std::uint8_t> png;
         std::chrono::steady_clock::duration duration{};
+        std::pair<std::int32_t, std::int32_t> dimensions;
+        std::shared_ptr<const Vision::GrayImage> pixels;
     };
     auto attempt = [&](CaptureMethod method) -> std::variant<CapturedImage, SessionFailure> {
         std::vector<std::string> arguments;
@@ -1334,14 +1336,15 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation)
                 return static_cast<std::uint8_t>(static_cast<unsigned char>(value));
             });
         }
-        auto const dimensions = decode_png(png);
+        auto pixels = retain_pixels ? std::make_shared<Vision::GrayImage>() : nullptr;
+        auto const dimensions = decode_png(png, pixels.get());
         if (!dimensions)
             return fail(ConnectionErrorCode::InvalidDeviceResponse,
                         "capture", "ADB returned an invalid or unsupported screenshot frame.");
         if (dimensions->first != before->width || dimensions->second != before->height)
             return fail(ConnectionErrorCode::DeviceNotReady,
                         "capture", "Screenshot dimensions do not match the display geometry.");
-        return CapturedImage{method, std::move(png), duration};
+        return CapturedImage{method, std::move(png), duration, *dimensions, std::move(pixels)};
     };
 
     std::optional<CapturedImage> captured;
@@ -1399,16 +1402,13 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation)
             "capture", "No supported ADB screenshot method succeeded."))};
     capture_method_ = captured->method;
     auto bytes = std::move(captured->png);
-    auto const dimensions = decode_png(bytes);
-    if (!dimensions)
-    {
-        return {.failure = fail(ConnectionErrorCode::InvalidDeviceResponse,
-                                "capture", "Screenshot encoding was invalid after capture.")};
-    }
+    // The selected immutable PNG was fully validated in attempt(). Retain its
+    // dimensions and optional pixels instead of decoding the same bytes again.
+    auto const dimensions = captured->dimensions;
     auto const after = current_geometry(cancellation, geometry_failure);
     if (geometry_failure) return {.failure = std::move(geometry_failure)};
-    if (!after || *before != *after || dimensions->first != after->width
-        || dimensions->second != after->height)
+    if (!after || *before != *after || dimensions.first != after->width
+        || dimensions.second != after->height)
     {
         return {.failure = fail(ConnectionErrorCode::DeviceNotReady,
                                 "capture", "Display geometry changed during screenshot capture.")};
@@ -1437,6 +1437,7 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation)
             .display_offset_y = transform.offset_y,
         },
         .png = std::move(bytes),
+        .pixels = std::move(captured->pixels),
     };
     auto [stored, inserted] = frames_.emplace(frame_id, std::move(frame));
     if (!inserted)
@@ -2304,6 +2305,13 @@ std::optional<DeviceFrameMetadata> DeviceSession::frame_metadata(std::uint64_t f
     return found->second.metadata;
 }
 
+std::shared_ptr<const Vision::GrayImage> DeviceSession::frame_pixels(std::uint64_t frame_id) const
+{
+    std::lock_guard lock(mutex_);
+    auto const found = frames_.find(frame_id);
+    return found == frames_.end() ? nullptr : found->second.pixels;
+}
+
 bool DeviceSession::copy_frame_png(
     std::uint64_t frame_id,
     std::uint8_t* destination,
@@ -2389,24 +2397,62 @@ std::optional<DeviceSession::Geometry> DeviceSession::current_geometry(
     std::stop_token cancellation,
     std::optional<SessionFailure>& failure)
 {
-    auto const dimensions = current_size(cancellation, failure);
-    if (failure || !dimensions) return std::nullopt;
-
+    std::optional<std::pair<std::int32_t, std::int32_t>> dimensions;
+    std::optional<std::int32_t> orientation;
     std::string output;
-    failure = run_command(
-        options_.display_id
-            ? std::vector<std::string>{"-s", device_.serial, "shell", "dumpsys", "display"}
-            : std::vector<std::string>{"-s", device_.serial, "shell", "dumpsys", "input"},
-        std::chrono::seconds(5), cancellation, 1024 * 1024, output);
-    if (failure) return std::nullopt;
-    auto const orientation = options_.display_id
-        ? parse_display_orientation(output, *options_.display_id)
-        : parse_orientation(output);
-    if (!orientation)
+    auto const size_invocation = profile_->expand(profile_name_, "get_size", adb_path_, device_.serial);
+    const std::vector<std::string> standard_size{"-s", device_.serial, "shell", "wm", "size"};
+    // Batch only the standard primary-display query. Authored commands and
+    // selected-display routing keep their original arguments and semantics.
+    if (geometry_batch_supported_ && !options_.display_id
+        && (!size_invocation || size_invocation->arguments == standard_size))
     {
-        failure = fail(ConnectionErrorCode::InvalidDeviceResponse,
-                       "get_orientation", "ADB returned an unknown orientation for the selected display.");
-        return std::nullopt;
+        constexpr std::string_view separator{"__UMA_GEOMETRY_ORIENTATION__"};
+        auto const query = quote_android_shell_argument(
+            "wm size && printf '\\n__UMA_GEOMETRY_ORIENTATION__\\n' && dumpsys input");
+        auto const batch_failure = run_command(
+            {"-s", device_.serial, "shell", "sh", "-c", query},
+            std::chrono::seconds(5), cancellation, 1024 * 1024, output);
+        if (cancellation.stop_requested())
+        {
+            failure = batch_failure.value_or(fail(ConnectionErrorCode::Canceled,
+                "command", "Operation was canceled."));
+            return std::nullopt;
+        }
+        auto const split = output.find(separator);
+        if (!batch_failure && split != std::string::npos)
+        {
+            dimensions = parse_size(output.substr(0, split));
+            orientation = parse_orientation(output.substr(split + separator.size()));
+        }
+        if (!dimensions || !orientation)
+        {
+            // An older shell or unexpected output must not break input. Use
+            // the original checked queries for the rest of this session.
+            geometry_batch_supported_ = false;
+            dimensions.reset();
+            orientation.reset();
+        }
+    }
+    if (!dimensions || !orientation)
+    {
+        dimensions = current_size(cancellation, failure);
+        if (failure || !dimensions) return std::nullopt;
+        failure = run_command(
+            options_.display_id
+                ? std::vector<std::string>{"-s", device_.serial, "shell", "dumpsys", "display"}
+                : std::vector<std::string>{"-s", device_.serial, "shell", "dumpsys", "input"},
+            std::chrono::seconds(5), cancellation, 1024 * 1024, output);
+        if (failure) return std::nullopt;
+        orientation = options_.display_id
+            ? parse_display_orientation(output, *options_.display_id)
+            : parse_orientation(output);
+        if (!orientation)
+        {
+            failure = fail(ConnectionErrorCode::InvalidDeviceResponse,
+                           "get_orientation", "ADB returned an unknown orientation for the selected display.");
+            return std::nullopt;
+        }
     }
 
     auto width = dimensions->first;
@@ -2442,7 +2488,7 @@ std::optional<DeviceSession::Geometry> DeviceSession::current_geometry(
 }
 
 std::optional<std::pair<std::int32_t, std::int32_t>> DeviceSession::decode_png(
-    std::vector<std::uint8_t> const& bytes)
+    std::vector<std::uint8_t> const& bytes, Vision::GrayImage* pixels)
 {
     if (!valid_png_chunks(bytes)) return std::nullopt;
 
@@ -2485,6 +2531,7 @@ std::optional<std::pair<std::int32_t, std::int32_t>> DeviceSession::decode_png(
     constexpr std::uint64_t kMaxDecodedPixels = 16ULL * 1024 * 1024;
     auto const pixel_count = static_cast<std::uint64_t>(width) * height;
     if (pixel_count > kMaxDecodedPixels) return std::nullopt;
+    if (pixels && (width > 10000 || height > 10000)) return std::nullopt;
     Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
     result = factory->CreateFormatConverter(&converter);
     if (FAILED(result)) return std::nullopt;
@@ -2502,6 +2549,24 @@ std::optional<std::pair<std::int32_t, std::int32_t>> DeviceSession::decode_png(
         nullptr, static_cast<UINT>(stride),
         static_cast<UINT>(decoded.size()), decoded.data());
     if (FAILED(result)) return std::nullopt;
+    if (pixels)
+    {
+        pixels->width = static_cast<std::int32_t>(width);
+        pixels->height = static_cast<std::int32_t>(height);
+        pixels->rgba = std::move(decoded);
+        pixels->gray.resize(static_cast<std::size_t>(pixel_count));
+        // WIC's straight BGRA becomes the same straight RGBA and integer
+        // grayscale planes that the task context's decoder previously built.
+        for (std::size_t index = 0; index < pixels->gray.size(); ++index)
+        {
+            auto const offset = index * 4;
+            std::swap(pixels->rgba[offset], pixels->rgba[offset + 2]);
+            pixels->gray[index] = static_cast<std::uint8_t>(
+                (static_cast<std::uint32_t>(pixels->rgba[offset]) * 299u
+                    + static_cast<std::uint32_t>(pixels->rgba[offset + 1]) * 587u
+                    + static_cast<std::uint32_t>(pixels->rgba[offset + 2]) * 114u) / 1000u);
+        }
+    }
     return std::pair{static_cast<std::int32_t>(width), static_cast<std::int32_t>(height)};
 }
 

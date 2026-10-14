@@ -3,6 +3,7 @@
 #include "Connection/ConnectionProfile.hpp"
 #include "Connection/AdbCommandRunner.hpp"
 #include "UmaAssistant/Connection.hpp"
+#include "Vision/TemplateMatcher.hpp"
 
 #include <cstdint>
 #include <chrono>
@@ -43,6 +44,7 @@ struct DeviceFrame
 {
     DeviceFrameMetadata metadata;
     std::vector<std::uint8_t> png;
+    std::shared_ptr<const Vision::GrayImage> pixels;
 };
 
 struct DeviceOperationResult
@@ -146,7 +148,8 @@ public:
     [[nodiscard]] DeviceOperationResult verify_game(
         std::string const& package_id,
         std::stop_token cancellation);
-    [[nodiscard]] DeviceOperationResult capture(std::stop_token cancellation);
+    [[nodiscard]] DeviceOperationResult capture(
+        std::stop_token cancellation, bool retain_pixels = false);
     [[nodiscard]] DeviceOperationResult tap(
         std::uint64_t frame_id,
         std::int32_t canonical_x,
@@ -188,6 +191,7 @@ public:
     [[nodiscard]] bool listed_as_ready(std::stop_token cancellation);
     [[nodiscard]] std::uint64_t session_generation() const noexcept;
     [[nodiscard]] std::optional<DeviceFrameMetadata> frame_metadata(std::uint64_t frame_id) const;
+    [[nodiscard]] std::shared_ptr<const Vision::GrayImage> frame_pixels(std::uint64_t frame_id) const;
     [[nodiscard]] bool copy_frame_png(
         std::uint64_t frame_id,
         std::uint8_t* destination,
@@ -224,7 +228,7 @@ private:
         std::stop_token cancellation,
         std::optional<SessionFailure>& failure);
     [[nodiscard]] static std::optional<std::pair<std::int32_t, std::int32_t>> decode_png(
-        std::vector<std::uint8_t> const& bytes);
+        std::vector<std::uint8_t> const& bytes, Vision::GrayImage* pixels = nullptr);
     struct HeldTouchDevice
     {
         std::string path;
@@ -286,6 +290,7 @@ private:
     std::optional<Geometry> last_geometry_;
     std::uint64_t geometry_generation_{};
     std::optional<CaptureMethod> capture_method_;
+    bool geometry_batch_supported_{true};
     std::optional<HeldTouchDevice> held_touch_;
     std::optional<DeviceFrameMetadata> held_touch_frame_;
     std::optional<InteractiveTouch> interactive_touch_;

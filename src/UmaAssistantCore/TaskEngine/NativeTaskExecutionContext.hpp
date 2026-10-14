@@ -150,8 +150,8 @@ private:
     bool m_current_frame_input_consumed{false};
     int m_last_error_code{0};
     std::optional<DeviceFrameMetadata> m_current_metadata;
-    std::optional<Vision::GrayImage> m_current_screen;
-    std::optional<Vision::GrayImage> m_previous_screen;
+    std::shared_ptr<const Vision::GrayImage> m_current_screen;
+    std::shared_ptr<const Vision::GrayImage> m_previous_screen;
     std::shared_ptr<const TaskFrameSnapshot> m_current_frame_snapshot;
     std::shared_ptr<const TaskFrameSnapshot> m_previous_frame_snapshot;
 };
