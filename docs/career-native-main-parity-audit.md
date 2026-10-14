@@ -1,5 +1,57 @@
 # Career 原生迁移回归核对
 
+## 比赛播放到闹钟弹窗的实际出口核对（2026-10-14）
+
+本次日志 `05:29:57 race_playback_start.race.play` 后，`05:30:30 race_runner_playback_result_monitor` 超时。只读 ADB 现场为 Oguri Cap 第三名的 Try Again 闹钟弹窗，保存到 `testdata/hachimi/ura/captures/race_retry_oguri_3rd_mumu_20261014.png`，没有点击游戏或消耗闹钟。
+
+对照本地 `main@52619a03` 的资源及托管 `CareerRaceFlow`，区分三处问题：
+
+- **main 也存在的动作图缺口**：播放监视器的成功出口只有奖杯及 Replay，没有闹钟。协调器虽有重试处理，内部动作图仍先耗尽 30 秒，无法把弹窗交给它。新增使用现有闹钟提示模板、原 ROI 与 0.88 门槛的无输入出口 `race.retry.pending`；此出口不代表重试已经接受，也不代表赛果成功。随后由观察器两帧确认完整闹钟页面，再按设置执行 Try Again／Cancel。保留普通赛果及奖杯出口。
+- **局部识别迁移遗漏**：Cancel 的后继候选只有资源期望赛果及结算，没有普通 `race_runner_result`（Replay + Next）检查点。main Cancel 后显式执行该页 Next／Final Next。补回这个局部候选，继续原动作图，禁止回到 Main 或另开比赛。
+- **目标完成状态迁移差异**：main 拒绝重试后推进赛果，但不启用成功比赛的 GOAL 探测。原生的 `OnRaceReplayCompleted` 会对必赛目标启用探测；现在已拒绝重试时保持该探测关闭，不应用未知名次或完成目标。
+
+新的 [全动作图审计工具](../tools/AuditCareerActionGraphs.py) 对照 main 的 **72 页、254 绑定及 387 个内部任务**，检查每个绑定可达的内部图、所有任务引用、执行字段和两个并行监视器的真实出口，输出到 `build/career-alarm-audit-20261014/main-action-graphs.json`。当前增加一个技能页和一个闹钟等待出口任务；原任务及绑定均保留。
+
+Career Main 的八个绑定分别为 Goal Details、Training、Rest、Recreation、Summer Rest、Infirmary、Races、Finale Races，绑定及其入口动作图均与 main 相同；Goal Details 仍只是资源声明。全部旧任务中十项有字段变化：八个普通开局可选探测的 `required=false`、既有剧情无输入交接、本次播放监视器补充闹钟出口。识别策略、回合确认、技能缓存及恢复守卫的历史迁移差异仍须结合下方专项证据，不能凭资源相同就认定行为相同。
+
+原“72 页、254 绑定”清单证明了结构保留，**没有证明播放监视器能到达闹钟分支**。新增测试从现场像素经过生产监视器、Career 局部确认和实际按钮执行验证该路径；测试上下文模拟按钮之后的截图序列，不是新的实机通关。
+
+新增实际像素用例覆盖播放完整动作 → 闹钟无输入交接、闹钟两帧确认、Cancel → Replay + Next 检查点，以及 Try Again 只点击一次、没有 Runner 证据就不返回 accepted。启用重试的 accepted 终态仍有原有模拟动作回放；本轮没有捕获实机重试后的 Runner 页，不能把它表述为实际完整重试成功。
+
+最终 Release 构建及 52 个 C ABI 导出检查通过。Career **130/130**（2,895 断言）、GameTasks **54/54**（890 断言）、TaskEngine **23/23**（422 断言）、NativeTaskContext **11/11**（337 断言），合计 **218/218、4,544 断言**。生产资源包 7 项、生产回放工具 9 项及架构边界检查通过。日志集中在 `build/career-alarm-audit-20261014/`；全动作图与识别字段差异在 `main-action-graphs.json`，最终 Career 导出与测试在 `career-tests.log`。
+
+DLL、回放工具及比赛执行 JSON 同步到 native-staging、Debug、Release 并逐项校验 SHA-256；旧文件保留 `.previous-career-alarm-20261014-*` 备份。DLL：`C95D10BDAB5427F1C6F9E7D9DCCC1BAFD43A45AF38069B68E7BB5BCC8702FECB`；执行 JSON：`09B4C4740A437E05C7047C31F18E9E0E0B665269D32E3DD2CCF1CD8ED3F65D05`。详见 `runtime-hashes.json`。运行中的助手未重启，仍需重新打开后加载新模块和资源快照。
+
+## Session Error 闲置失效弹窗补齐（2026-10-14）
+
+现场训练提交后等待后继页面 45 秒失败；只读 ADB 截图显示 `Session Error / Returning to Title screen due to inactivity.`，其 Title Screen 按钮居中。之前的恢复流程已经存在，但只匹配 Date Changed 和 Connection Error；后者的模板标题是 `Connection Error`，按钮搜索限定在左侧区域，无法覆盖这张 Session Error 实际画面。本地 main 的同一守卫也没有此变体，本次不是把已有 Connection Error 处理删掉。
+
+从原始 ADB 截图提取并保留完整颜色、背景和不透明像素，增加 Session Error 标题、闲置正文及居中按钮三个模板。按用户要求，任意一个命中即点击恢复，不要求同时命中，也不要求第二帧确认。只有标题或正文命中时，按其当前位置确定居中按钮点击位置。复用现有关闭弹窗 → StartGame → 验证 Home → 续接原育成流程。保留未知训练结果不计数、持久确认记录恢复及不重复提交保护。现场原图保存为 `testdata/hachimi/ura/captures/session_error_inactivity_mumu_20261014.png`。
+
+Session Error 实际截图在 900×1600、720×1280、1080×1920 下覆盖三个模板分别单独命中及全部消失。生产守卫回放验证单帧单模板恢复、长等待恢复及未确认提交不会重复；完整 GameTasks **54/54**、890 断言通过，Release DLL 构建及 52 个 C ABI 导出检查通过。新版 DLL 与三张新增模板同步到 Debug／Release；运行中的助手需重启以加载模块及新的不可变资源视图。本次没有点击实际 Title Screen、推进游戏或执行新的实机完整恢复。
+
+## URA 剧情返回主界面：移除 Skip 查找与点击（2026-10-14）
+
+现场日志已经完成跨日恢复、休息、训练和比赛，最后在 `scenario_event_event_advance` 等待 Skip 模板 12 秒后失败；ADB 实际已经在 Finale Underway 主界面，目标为 URA Finale Qualifier、剩余 1 回合。该截图保存为 `testdata/hachimi/ura/captures/career_main_oguri_finale_qualifier_20261014.png`。
+
+按用户要求，`scenario_event_event_advance` 改为无输入交接：移除 Skip 模板、匹配区域和匹配门槛，取消 ClickSelf、12 秒搜索及点击后等待。保留原事件的局部后继确认；主界面两帧确认后交回协调器，继续常规训练决策。仍处于剧情画面时只观察其自动返回，不把动画或背景变化当作已经可以训练。
+
+新增真实截图回归覆盖两条路径：剧情自动返回 Main，以及来源观测还叫 scenario_event、实际已经是 Main。两条路径均确认 Main、没有输入尝试、没有查找 Skip 模板，也没有原来的 12 秒等待。Career 相关 27 个用例（1,173 断言）、完整 GameTasks 53 个用例（716 断言）及资源包检查 7 项通过。本次生产改动仅在事件执行资源；Debug／Release 对应 JSON 已同步并核对 SHA-256：`7522BC7FDFE03708408D2670AA56DE9E736D02F490540BECE7984B4B4405373B`。运行中的助手需要重新打开以加载新的不可变资源视图。本次没有点击或推进游戏。
+
+## 全局恢复弹窗补修（2026-10-14）
+
+ADB 现场停在 `Date Changed / It's a new day!`。使用当时 GUI 输出同哈希的 DLL 检查现场截图，默认两像素搜索使标题得分 0.911146（门槛 0.92）、正文得分 0.897414（门槛 0.90）；恢复 main 的逐像素参数后两处均为 1.0。源码、GUI 和当前资源视图中的五张恢复模板一致。本次没有调整图片、阈值或 Career 动作绑定。
+
+- `DetectGameRecoveryDialog` 直接检查当前帧像素，恢复 main 的一像素文字搜索及完整彩色画面归一化；按钮仍携带原截图的帧、会话、几何身份，使用 900×1600 参考坐标交给输入层映射。
+- 长等待每秒获取独立观察帧。观察帧立即释放，不替换当前行动的截图或续点凭据；短暂单帧弹窗不触发恢复。稳定弹窗仍进入原有两帧确认、最多三次关闭及 Home 恢复流程。
+- 独立 StartGame 入口也使用相同守卫。启动过程中再次出现弹窗可以关闭后重新识别；点击前被中断的启动控件不会使用旧观测重放，也不会递归重启游戏。
+- `GameRecoveryDialogTests` 使用原始 Date Changed 实际截图，验证 900×1600、720×1280、1080×1920 和六类竞争页面。Connection Error 使用原始标题及 Title Screen 裁图在原坐标组成测试夹具，不能称为新的完整实机断线测试。
+- `GameTaskTests` 的恢复回放改为输入实际弹窗像素，覆盖提交前、提交后、长等待、单帧闪现、重复启动弹窗及启动输入中断；不再模拟恢复模板直接命中。`NativeTaskContextTests` 用 FakeAdb 验证独立观察不会破坏普通或续点输入依据，已释放的观察帧不能点击。
+
+Release 构建及 52 个 C ABI 导出检查通过。相关离线完整测试：Career **123/123**（2,828 断言）、GameTasks **53/53**（716 断言）、TaskEngine **23/23**（422 断言）、NativeTaskContext **11/11**（337 断言）；合计 **210/210**、4,303 断言。资源包检查 7 项、生产回放工具检查 9 项和架构边界检查通过。下方历史“72 页面、254 绑定”记录只证明绑定保留，不能替代全局守卫参数及实际像素验证。
+
+最终 DLL SHA-256：`06DAD9FE4AC954FECE8A795D40A46031AA4E8F1662ACF0C53EA177D1563C1271`。运行文件同步到 native-staging、Debug 和 Release GUI 输出，旧文件保留备份；已运行的助手需重启加载新版。本次未点击 ADB、未重启助手或游戏，也未执行新的实机育成通关。
+
 ## 当前交付：全流程局部识别与性能优化（2026-10-13）
 
 本轮以 `main@52619a03` 为行为基准，在 `codex/newframework` 上完成普通、独立育成的流程调整。全部验证离线运行，没有连接或操作实际模拟器。
