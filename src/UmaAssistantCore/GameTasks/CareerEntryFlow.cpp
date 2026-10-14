@@ -618,13 +618,11 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
             TaskEngine::TaskGraphRunOptions exact;
             exact.templateOverrides["support_select_support_card_exact"] = Paths::ToUtf8(path);
             exact.templateOverrides["support_select_support_card_exact_fallback"] = Paths::ToUtf8(path);
-            exact.templateOverrides["support_select_support_card_exact_scroll"] = Paths::ToUtf8(path);
             if (friendPage)
             {
-                for (auto const* task : {"support_select_support_card_exact", "support_select_support_card_exact_fallback",
-                    "support_select_support_card_exact_scroll"})
+                for (auto const* task : {"support_select_support_card_exact", "support_select_support_card_exact_fallback"})
                 {
-                    exact.roiOverrides[task] = {25, 270, 190, 990};
+                    exact.roiOverrides[task] = {25, 270, 190, 1060};
                     exact.scaleCandidatesOverrides[task] = {0.85};
                 }
             }
@@ -743,11 +741,9 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
         TaskEngine::TaskGraphRunOptions exact;
         exact.templateOverrides["support_select_support_card_exact"] = Paths::ToUtf8(path);
         exact.templateOverrides["support_select_support_card_exact_fallback"] = Paths::ToUtf8(path);
-        exact.templateOverrides["support_select_support_card_exact_scroll"] = Paths::ToUtf8(path);
-        for (auto const* task : {"support_select_support_card_exact", "support_select_support_card_exact_fallback",
-            "support_select_support_card_exact_scroll"})
+        for (auto const* task : {"support_select_support_card_exact", "support_select_support_card_exact_fallback"})
         {
-            exact.roiOverrides[task] = {25, 270, 190, 990};
+            exact.roiOverrides[task] = {25, 270, 190, 1060};
             exact.scaleCandidatesOverrides[task] = {0.85};
         }
         if (!run("support.ranked.select_exact_card", exact)) return false;
