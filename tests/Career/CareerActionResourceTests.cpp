@@ -361,6 +361,13 @@ public:
         result.referenceWidth = referenceWidth; result.referenceHeight = referenceHeight;
         result.sessionGeneration = frame ? frame->sessionGeneration : 0;
         result.geometryGeneration = frame ? frame->geometryGeneration : 0;
+        // Entry-only replays can start after a separately verified strategy;
+        // all entry buttons and result markers still use the actual pixels.
+        if (replayConfiguredStrategy && FoldPath(path) == "race_strategy_selected_marker.png")
+        {
+            result.found = true;
+            result.score = 1.0;
+        }
         return result;
     }
     std::vector<TaskOcrDetection> RecognizeText(const std::string&, const std::optional<TaskRoi>&) override { return {}; }
@@ -377,6 +384,7 @@ public:
     bool animateInsideMarker{false};
     std::uint64_t capturesBeforeNextImage{0};
     int captureDelayAfterTapMs{0};
+    bool replayConfiguredStrategy{false};
 };
 
 std::uint64_t EventSignature(std::vector<std::pair<int, std::string>> detections)
@@ -843,6 +851,68 @@ TEST_CASE("Direct View Results placings are recognized after the runner checkpoi
         std::fill(context.image.rgba.begin(), context.image.rgba.end(), std::uint8_t{0});
         CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
     }
+}
+
+TEST_CASE("MuMu finale playback resumes with the visible Race glyph",
+    "[CareerRuntime][CareerRaceEntryRepair]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_playback_final_oguri_mumu_20261015.png");
+    ActualRaceResultContext retry("race_retry_oguri_3rd_mumu_20261014.png");
+    context.nextImage = retry.image;
+    context.cancelAfterCaptures = 20;
+    REQUIRE(context.CaptureScreen());
+    const auto oldButton = resources->MatchExecutionTask("race_playback_race_play", context);
+    const auto glyph = resources->MatchExecutionTask("race_runner_playback_start", context);
+    CAPTURE(oldButton.score, glyph.score);
+    REQUIRE(glyph.found);
+    CareerScreenObserver observer(resources);
+    auto source = observer.ObserveScreens(context, {"race_playback", "race_playback_start"});
+    REQUIRE(source.screenId == "race_playback_start");
+    SECTION("Resume from the Race glyph checkpoint") {}
+    SECTION("Continue from the legacy playback screen") { source.screenId = "race_playback"; }
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeRace("finale"), source, context)
+        == ActionExecutionStatus::Success);
+    CHECK(executor.TakeLastActionOutcome() == "race.retry.pending");
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 270);
+    CHECK(context.taps.front().first < 630);
+    CHECK(context.taps.front().second >= 1410);
+    CHECK(context.taps.front().second < 1520);
+}
+
+TEST_CASE("Attributes entry prefers available View Results after configuring strategy",
+    "[CareerRuntime][CareerRaceEntryRepair]")
+{
+    auto config = PackagedConfig();
+    config.normalLineupStrategy = "late";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("resource/hachimi/career/race/templates/runtime_frames/ura_final_attributes2.png");
+    context.replayConfiguredStrategy = true;
+    ActualRaceResultContext result("race_view_results_fuyo_stakes_1st_mumu_20261012.png");
+    context.nextImage = result.image;
+    context.cancelAfterCaptures = 10000; // Allow the bounded absent-lock probe to expire.
+    CareerObservation source;
+    source.screenId = "race_attributes";
+    source.screenKind = CareerScreenKind::RaceExecution;
+    CareerActionExecutor executor(config, resources);
+    const auto status = executor.ExecuteForObservation(ActionIntent::MakeRace("finale"), source, context);
+    std::string diagnostics;
+    for (const auto& log : context.logs) diagnostics += log + "\n";
+    INFO(diagnostics);
+    REQUIRE(status == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 150);
+    CHECK(context.taps.front().first < 450);
+    executor.SetRaceRunnerResultExpected(true);
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeRace("finale"), source, context));
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "race_runner_result");
 }
 
 TEST_CASE("Training can finish directly on the actual mandatory debut Race List",

@@ -18,7 +18,6 @@
           "Fans",
           "Items"
         ],
-        "stable": true,
         "priority": 20
       },
       "ocrRegions": [
@@ -58,7 +57,6 @@
           "REWARDS",
           "Support Cards"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -85,7 +83,6 @@
         "requiredText": [
           "Races"
         ],
-        "stable": true,
         "priority": 7
       },
       "actions": [
@@ -115,7 +112,6 @@
         "requiredText": [
           "Race Day"
         ],
-        "stable": true,
         "priority": 8
       },
       "ocrRegions": [
@@ -162,7 +158,6 @@
           85
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": -1
       },
       "actions": [
@@ -194,7 +189,6 @@
           90
         ],
         "requiredTemplateThreshold": 0.94,
-        "stable": true,
         "priority": -2
       },
       "ocrRegions": [
@@ -233,7 +227,6 @@
           150
         ],
         "templThreshold": 0.94,
-        "stable": true,
         "priority": 10
       },
       "actions": [
@@ -260,7 +253,6 @@
         "requiredText": [
           "Race List"
         ],
-        "stable": true,
         "priority": 11
       },
       "ocrRegions": [
@@ -332,7 +324,6 @@
           650,
           150
         ],
-        "stable": true,
         "templThreshold": 0.9,
         "priority": 11
       },
@@ -355,7 +346,6 @@
           260,
           180
         ],
-        "stable": true,
         "templThreshold": 0.92,
         "priority": 12
       },
@@ -386,7 +376,6 @@
           100
         ],
         "requiredTemplateThreshold": 0.88,
-        "stable": true,
         "templThreshold": 0.88,
         "priority": -2
       },
@@ -421,7 +410,6 @@
           180
         ],
         "requiredTemplateThreshold": 0.82,
-        "stable": true,
         "templThreshold": 0.82,
         "priority": 13
       },
@@ -444,7 +432,6 @@
           180,
           140
         ],
-        "stable": true,
         "templThreshold": 0.88,
         "priority": 14
       },
@@ -492,7 +479,6 @@
           "Race Details",
           "Enter race?"
         ],
-        "stable": true,
         "priority": 10
       },
       "ocrRegions": [
@@ -534,7 +520,6 @@
           "Stats",
           "Aptitude"
         ],
-        "stable": true,
         "priority": 16
       },
       "ocrRegions": [
@@ -552,6 +537,26 @@
         {
           "semanticId": "race.start_playback",
           "task": "race_attributes_race_start_playback"
+        },
+        {
+          "semanticId": "strategy.apply.front",
+          "task": "race_runner_strategy_apply_front"
+        },
+        {
+          "semanticId": "strategy.apply.pace",
+          "task": "race_runner_strategy_apply_pace"
+        },
+        {
+          "semanticId": "strategy.apply.late",
+          "task": "race_runner_strategy_apply_late"
+        },
+        {
+          "semanticId": "strategy.apply.end",
+          "task": "race_runner_strategy_apply_end"
+        },
+        {
+          "semanticId": "entry.view_results",
+          "task": "race_runner_entry_view_results"
         }
       ],
       "flow": "race",
@@ -570,7 +575,6 @@
         "requiredText": [
           "Race!"
         ],
-        "stable": true,
         "priority": 18
       },
       "ocrRegions": [
@@ -587,7 +591,7 @@
       "actions": [
         {
           "semanticId": "race.play",
-          "task": "race_playback_race_play"
+          "task": "race_runner_playback_start"
         }
       ],
       "flow": "race",
@@ -601,7 +605,6 @@
           "Race Playback",
           "OK"
         ],
-        "stable": true,
         "priority": 17
       },
       "actions": [
@@ -626,7 +629,6 @@
           "START",
           "FINISH"
         ],
-        "stable": false,
         "priority": 20
       },
       "actions": [
@@ -651,7 +653,6 @@
         "requiredText": [
           "1st"
         ],
-        "stable": true,
         "priority": 20
       },
       "ocrRegions": [
@@ -695,7 +696,6 @@
         ],
         "templThreshold": 0.88,
         "matchColorText": true,
-        "stable": true,
         "priority": 3
       },
       "actions": [
@@ -722,7 +722,6 @@
           114
         ],
         "templThreshold": 0.78,
-        "stable": true,
         "priority": 3
       },
       "actions": [
@@ -749,7 +748,6 @@
         "requiredText": [
           "All goals achieved!"
         ],
-        "stable": true,
         "priority": 2
       },
       "ocrRegions": [

@@ -255,7 +255,8 @@ void CareerFlowCoordinator::SynchronizeObservationPolicy() noexcept
 {
     const bool armed = m_scenario && m_scenario->IsGoalCompletionProbeArmed(m_state);
     const bool runnerResultExpected = m_pendingRaceIntent.has_value()
-        && m_state.raceStrategyConfigured && Fold(m_state.lastScreenId) == "race_runner";
+        && m_state.raceStrategyConfigured
+        && (Fold(m_state.lastScreenId) == "race_runner" || Fold(m_state.lastScreenId) == "race_attributes");
     if (m_observer)
     {
         m_observer->SetGoalCompletionProbeArmed(armed);
@@ -567,7 +568,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                 m_state.raceRetryDeclined = false;
             }
         }
-        if (Fold(observation.screenId) == "race_runner")
+        if (Fold(observation.screenId) == "race_runner" || Fold(observation.screenId) == "race_attributes")
         {
             m_scenario->OnRaceStrategyConfigured(m_state);
             m_state.raceStrategyConfigured = true;

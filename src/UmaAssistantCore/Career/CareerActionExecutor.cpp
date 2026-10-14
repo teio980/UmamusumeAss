@@ -140,7 +140,7 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
         return returned ? ActionExecutionStatus::Success
             : context.IsCancelled() ? ActionExecutionStatus::Cancelled : ActionExecutionStatus::Failed;
     }
-    if (Fold(observation.screenId) == "race_runner"
+    if ((observedScreen == "race_runner" || observedScreen == "race_attributes")
         && intent.kind == CareerDomain::ActionIntentKind::Race)
     {
         auto lineup = Fold(intent.tactic);
@@ -157,8 +157,8 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
             if (strategy != ActionExecutionStatus::Success) return strategy;
             m_raceStrategyConfigured = true;
         }
-        // The resource task checks the View Results lock, starts an unlocked
-        // race through entry.start, and follows the replay/result transitions.
+        // Both views show the same entry controls. Prefer View Results;
+        // only its locked state routes through entry.start and playback.
         return ExecuteAction(observation.screenId, "entry.view_results", context);
     }
     if (Fold(observation.screenId).find("claw_machine") != std::string::npos)
@@ -655,7 +655,7 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         if (screenId == "race_retry_dialog")
             return choose(m_config.retryFailedRaceWithAlarmClock
                 ? "retry_with_alarm_clock" : "cancel");
-        if (screenId == "race_runner")
+        if (screenId == "race_runner" || screenId == "race_attributes")
         {
             std::string lineup = Fold(intent.tactic);
             if (lineup.empty())
@@ -669,8 +669,6 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         }
         if (screenId == "race_details")
             return choose("race.confirm");
-        if (screenId == "race_attributes")
-            return choose("race.start_playback");
         if (screenId == "race_result" || screenId == "race_runner_result")
             return choose("result.next");
         if (screenId == "career_complete" || screenId == "career_complete_close")
