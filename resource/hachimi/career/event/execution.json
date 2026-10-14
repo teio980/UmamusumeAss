@@ -32,20 +32,12 @@
       "success": false
     },
     "scenario_event_event_advance": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "../entry/templates/scenario_event_event_advance.png",
-      "templThreshold": 0.78,
-      "roi": [
-        225,
-        1510,
-        200,
-        70
-      ],
+      "algorithm": "JustReturn",
+      "action": "DoNothing",
       "preDelay": 0,
-      "postDelay": 650,
+      "postDelay": 0,
       "waitMs": 0,
-      "timeoutMs": 12000,
+      "timeoutMs": 0,
       "pollIntervalMs": 250,
       "next": [],
       "onErrorNext": [],

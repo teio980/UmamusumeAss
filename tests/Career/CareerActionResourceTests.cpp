@@ -305,7 +305,11 @@ class ActualRaceResultContext : public UmaAssistant::TaskEngine::Tests::MockTask
 public:
     explicit ActualRaceResultContext(const std::string& filename)
         : image(UmaAssistant::Resources::WicImageDecoder::decode_file(
-            UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename)) {}
+            std::filesystem::path(filename).is_absolute()
+                ? std::filesystem::path(filename)
+                : std::filesystem::exists(UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / filename)
+                ? UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / filename
+                : UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename)) {}
 
     bool CaptureScreen() override
     {
@@ -396,6 +400,134 @@ std::uint64_t EventSignature(std::vector<std::pair<int, std::string>> detections
 }
 
 } // namespace
+
+TEST_CASE("Playback hands the actual alarm dialog back to Career before any result input",
+    "[CareerRuntime][CareerAlarmHandoff]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_retry_oguri_3rd_mumu_20261014.png");
+    auto definition = resources->GetExecutionDefinition();
+    // One production monitor iteration proves the exit without a 30 s failure wait.
+    definition.tasks.at("race_runner_playback_result_monitor").timeoutMilliseconds = 0;
+    TaskGraphRunner runner;
+    const auto result = runner.Run(definition, "race_runner_playback_result_monitor", context);
+    INFO(result.errorMessage);
+    REQUIRE(result.status == TaskGraphStatus::Success);
+    REQUIRE(result.finalTask == "race_runner_retry_pending");
+    CHECK(context.taps.empty());
+    CHECK(definition.tasks.at(result.finalTask).outcome == "race.retry.pending");
+
+    CareerActionExecutor executor(config, resources);
+    CareerObservation source;
+    source.screenId = "race_playback_start";
+    source.screenKind = CareerScreenKind::RaceExecution;
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeRace("finale"), source, context));
+    const auto destination = executor.TakeConfirmedObservation();
+    REQUIRE(destination.has_value());
+    CHECK(destination->screenId == "race_retry_dialog");
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Race playback action returns pending retry without consuming an alarm",
+    "[CareerRuntime][CareerAlarmHandoff]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("senior_february_playback_ready2.png");
+    ActualRaceResultContext alarm("race_retry_oguri_3rd_mumu_20261014.png");
+    context.nextImage = alarm.image;
+    context.cancelAfterCaptures = 16;
+    CareerScreenObserver observer(resources);
+    const auto source = observer.ObserveScreens(context, {"race_playback_start"});
+    REQUIRE(source.screenId == "race_playback_start");
+    CareerActionExecutor executor(config, resources);
+    const auto intent = ActionIntent::MakeRace("finale");
+    REQUIRE(executor.ExecuteForObservation(intent, source, context) == ActionExecutionStatus::Success);
+    CHECK(executor.TakeLastActionOutcome() == "race.retry.pending");
+    CHECK_FALSE(executor.TakeRaceRetryDeclined().has_value());
+    REQUIRE(executor.ConfirmCompletionFromObservation(intent, source, context));
+    const auto destination = executor.TakeConfirmedObservation();
+    REQUIRE(destination.has_value());
+    CHECK(destination->screenId == "race_retry_dialog");
+    REQUIRE(context.taps.size() == 1); // Race! only; no Try Again / Cancel / Next.
+    CHECK(context.taps.front().second >= 1380);
+}
+
+TEST_CASE("Declined alarm retries recognize the ordinary Replay result checkpoint",
+    "[CareerRuntime][CareerAlarmHandoff]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("goal2_cosmos_playback_end.png");
+    CareerScreenObserver observer(resources);
+    const auto transition = CareerTransitionPolicy::AfterAction({}, "race_retry_dialog", "cancel", "race.retry.declined");
+    const auto result = observer.ObserveTransition(context, transition);
+    CHECK(result.screenId == "race_runner_result");
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Actual alarm cancellation returns to the Replay checkpoint exactly once",
+    "[CareerRuntime][CareerAlarmHandoff]")
+{
+    auto config = PackagedConfig();
+    config.retryFailedRaceWithAlarmClock = false;
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_retry_oguri_3rd_mumu_20261014.png");
+    ActualRaceResultContext next("goal2_cosmos_playback_end.png");
+    context.nextImage = next.image;
+    context.cancelAfterCaptures = 16;
+    CareerScreenObserver observer(resources);
+    const auto source = observer.ObserveScreens(context, {"race_retry_dialog"});
+    REQUIRE(source.screenId == "race_retry_dialog");
+    const auto retryButton = resources->MatchExecutionTask("race_retry_try_again_probe", context);
+    INFO(retryButton.score);
+    REQUIRE(retryButton.found);
+    CareerActionExecutor executor(config, resources);
+    const auto intent = ActionIntent::MakeRace("finale");
+    const auto status = executor.ExecuteForObservation(intent, source, context);
+    std::string diagnostics;
+    for (const auto& log : context.logs) diagnostics += log + "\n";
+    INFO(diagnostics);
+    REQUIRE(status == ActionExecutionStatus::Success);
+    CHECK(executor.TakeRaceRetryDeclined() == true);
+    REQUIRE(executor.ConfirmCompletionFromObservation(intent, source, context));
+    const auto destination = executor.TakeConfirmedObservation();
+    REQUIRE(destination.has_value());
+    CHECK(destination->screenId == "race_runner_result");
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 50);
+    CHECK(context.taps.front().first < 450);
+    CHECK(context.taps.front().second >= 1080);
+    CHECK(context.taps.front().second < 1220);
+}
+
+TEST_CASE("Actual retry input remains unconfirmed until the runner appears and is never repeated",
+    "[CareerRuntime][CareerAlarmHandoff]")
+{
+    auto config = PackagedConfig();
+    config.retryFailedRaceWithAlarmClock = true;
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_retry_oguri_3rd_mumu_20261014.png");
+    context.cancelAfterCaptures = 8;
+    CareerScreenObserver observer(resources);
+    const auto source = observer.ObserveScreens(context, {"race_retry_dialog"});
+    REQUIRE(source.screenId == "race_retry_dialog");
+    CareerActionExecutor executor(config, resources);
+    // Keep the modal visible after the simulated tap: no runner proof exists.
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeRace("finale"), source, context)
+        == ActionExecutionStatus::Cancelled);
+    CHECK_FALSE(executor.TakeLastActionOutcome().has_value());
+    CHECK_FALSE(executor.TakeRaceRetryDeclined().has_value());
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 450);
+    CHECK(context.taps.front().first < 850);
+}
 
 TEST_CASE("Normal career actions execute the authored rest and alarm-clock graphs", "[CareerRuntime][ActionReplay]")
 {
@@ -942,4 +1074,25 @@ TEST_CASE("Coordinator replays the actual completed settlement through all six a
     CAPTURE(result.failureReason);
     CHECK(result.status == CareerRunStatus::Completed);
     CHECK(context.taps.size() == 6);
+}
+
+TEST_CASE("Training selection executes single tap on raised card and does not hit rest button", "[CareerRuntime][CareerTrainingAction]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("resource/hachimi/ura/testdata/captures/runtime_frames/training_selection_ura.png");
+    CareerActionExecutor executor(config, resources);
+    CareerObservation observation;
+    observation.screenId = "training_selection";
+
+    const auto status = executor.ExecuteForObservation(ActionIntent::MakeTraining("speed", "Speed training"), observation, context);
+    REQUIRE(status == ActionExecutionStatus::Success);
+    // Exactly 1 tap should be executed
+    REQUIRE(context.taps.size() == 1);
+    // Tap must be on the raised card button, not the bottom unraised area
+    CHECK(context.taps[0].first >= 20);
+    CHECK(context.taps[0].first <= 200);
+    CHECK(context.taps[0].second >= 1250);
+    CHECK(context.taps[0].second <= 1350);
 }

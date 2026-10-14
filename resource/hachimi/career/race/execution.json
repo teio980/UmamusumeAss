@@ -1008,6 +1008,7 @@
       ],
       "successTask": "race_runner_trophy_probe",
       "successTasks": [
+        "race_runner_retry_pending",
         "race_runner_result_flow"
       ],
       "timeoutMs": 30000,
@@ -1015,6 +1016,22 @@
       "next": [
         "race_runner_result_flow"
       ]
+    },
+    "race_runner_retry_pending": {
+      "algorithm": "MatchTemplateColor",
+      "action": "JustReturn",
+      "template": "templates/career/race/race_retry_alarm_prompt.png",
+      "templThreshold": 0.88,
+      "roi": [
+        40,
+        570,
+        820,
+        100
+      ],
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "success": true,
+      "outcome": "race.retry.pending"
     },
     "race_runner_trophy_probe": {
       "algorithm": "MatchTemplate",

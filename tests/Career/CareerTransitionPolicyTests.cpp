@@ -88,6 +88,7 @@ TEST_CASE("Empty races and declined retries have separate return contracts", "[C
     CHECK(Has(empty, "career_main"));
     CHECK_FALSE(Has(empty, "race_runner"));
     const auto declined = CareerTransitionPolicy::AfterAction({}, "race_retry_dialog", "retry_with_alarm_clock", "race.retry.declined");
+    CHECK(Has(declined, "race_runner_result"));
     CHECK(Has(declined, "goal_incomplete"));
     CHECK_FALSE(Has(declined, "race_runner"));
     const auto accepted = CareerTransitionPolicy::AfterAction({}, "race_retry_dialog", "retry_with_alarm_clock", "race.retry.accepted");

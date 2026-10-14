@@ -968,6 +968,27 @@ TEST_CASE("URA grade race count advances to the next unattempted race", "[Career
 
 } // namespace
 
+TEST_CASE("Declined race replay cannot arm the successful objective probe", "[CareerDomainParity][CareerAlarmHandoff]")
+{
+    UraScenarioModule scenario;
+    CareerState state;
+    scenario.OnRunStart(state, false);
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    main.goalTextEvidence = ObservedValue<std::string>::Make("Run in Junior Make Debut");
+    main.turnsToGoalEvidence = ObservedValue<int>::Make(0);
+    scenario.OnObserve(state, main);
+    scenario.OnRaceReplayCompleted(state);
+    REQUIRE(scenario.IsGoalCompletionProbeArmed(state));
+    state.raceRetryDeclined = true;
+    scenario.OnRaceReplayCompleted(state);
+    CHECK(state.raceReplayFlowCompleted);
+    CHECK_FALSE(scenario.IsGoalCompletionProbeArmed(state));
+    CHECK_FALSE(state.lastRacePlacement.HasValue());
+    CHECK(state.completedObjectiveIds.empty());
+}
+
 TEST_CASE("An empty race list blocks the current turn and becomes eligible on the next turn", "[CareerDomainParity][CareerParity]")
 {
     for (int const turn : {0, 12})

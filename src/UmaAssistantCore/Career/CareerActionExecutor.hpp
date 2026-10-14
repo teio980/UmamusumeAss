@@ -52,6 +52,13 @@ public:
         TaskEngine::ITaskExecutionContext& context,
         const TaskEngine::TaskGraphRunOptions& options = {});
 
+    ActionExecutionStatus ExecuteTask(
+        const std::string& screenId,
+        const std::string& semanticId,
+        const std::string& taskName,
+        TaskEngine::ITaskExecutionContext& context,
+        const TaskEngine::TaskGraphRunOptions& options = {});
+
     bool ConfirmCompletion(
         const CareerDomain::ActionIntent& intent,
         TaskEngine::ITaskExecutionContext& context) override;

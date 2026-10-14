@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "UmaAssistantCore/Career/CareerObservationReader.hpp"
+#include "UmaAssistantCore/Career/CareerActionExecutor.hpp"
 #include "UmaAssistantCore/Career/CareerVisualResources.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
@@ -309,7 +310,7 @@ public:
         return result;
     }
     bool ProbeHsv(int, int, int, double, double, double, double, double, double, double) override { return false; }
-    bool Tap(int, int) override { return false; }
+    bool Tap(int, int) override { ++tapAttempts; return false; }
     bool Swipe(int, int, int, int, int) override { return false; }
     bool InputText(const std::string&) override { return false; }
     bool SendKey(const std::string&) override { return false; }
@@ -326,6 +327,7 @@ public:
     std::size_t matchCalls{0};
     std::size_t ocrCalls{0};
     int requestedWaitMs{0};
+    int tapAttempts{0};
     std::vector<std::string> matchedPaths;
     std::vector<TaskRoi> mainAnchorSearches;
     bool rejectNarrowMainAnchor{false};
@@ -346,6 +348,39 @@ private:
 };
 
 } // namespace
+
+TEST_CASE("URA scenario return reaches the actual Finale Main without searching or tapping Skip", "[CareerRuntime][ScenarioAutoAdvance]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    auto const main = root / "testdata/hachimi/ura/captures/career_main_oguri_finale_qualifier_20261014.png";
+    auto const event = root / "resource/hachimi/career/race/templates/runtime_frames/ura_finale_after_goal_next.png";
+    for (bool alreadyAtMain : {false, true})
+    {
+        CAPTURE(alreadyAtMain);
+        ScreenshotReplayContext context(alreadyAtMain ? std::vector<std::filesystem::path>{main}
+            : std::vector<std::filesystem::path>{event, main});
+        UmaAssistant::Career::CareerActionExecutor executor(config, resources);
+        UmaAssistant::CareerDomain::CareerObservation source;
+        source.screenId = "scenario_event";
+        source.screenKind = UmaAssistant::CareerDomain::CareerScreenKind::EventChoice;
+        auto const intent = UmaAssistant::CareerDomain::ActionIntent::MakeAdvance("Observe the automatic scenario return.");
+        REQUIRE(executor.ExecuteForObservation(intent, source, context) == UmaAssistant::Career::ActionExecutionStatus::Success);
+        REQUIRE(executor.ConfirmCompletionFromObservation(intent, source, context));
+        auto const handoff = executor.TakeConfirmedObservation();
+        REQUIRE(handoff);
+        CHECK(handoff->screenId == "career_main");
+        CHECK(handoff->stableFrameCount == 2);
+        CHECK(context.tapAttempts == 0);
+        CHECK(context.requestedWaitMs < 1000);
+        CHECK(std::none_of(context.matchedPaths.begin(), context.matchedPaths.end(), [](auto const& path) {
+            return std::filesystem::path(path).filename() == "scenario_event_event_advance.png";
+        }));
+    }
+}
 
 TEST_CASE("Career fixed screenshots report recognition work and elapsed time", "[CareerPerformance]")
 {

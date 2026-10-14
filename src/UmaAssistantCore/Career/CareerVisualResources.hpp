@@ -121,6 +121,10 @@ public:
         TaskEngine::ITaskExecutionContext& context,
         std::uint64_t requiredFrameId = 0,
         const std::string& algorithm = "MatchTemplate") const;
+    [[nodiscard]] TaskEngine::TaskMatchResult MatchExecutionTask(
+        const std::string& taskName,
+        TaskEngine::ITaskExecutionContext& context,
+        std::uint64_t requiredFrameId = 0) const;
     [[nodiscard]] const std::filesystem::path& GetCareerResourceRoot() const noexcept
     {
         return m_careerRoot;
@@ -156,6 +160,11 @@ public:
     [[nodiscard]] TaskEngine::TaskGraphRunResult RunAction(
         const std::string& screenId,
         const std::string& semanticId,
+        TaskEngine::ITaskExecutionContext& context,
+        const TaskEngine::TaskGraphRunOptions& options = {}) const;
+
+    [[nodiscard]] TaskEngine::TaskGraphRunResult RunTask(
+        const std::string& taskName,
         TaskEngine::ITaskExecutionContext& context,
         const TaskEngine::TaskGraphRunOptions& options = {}) const;
 

@@ -1075,6 +1075,13 @@ void UraScenarioModule::DisarmGoalCompletionProbe(CareerState& /*state*/)
 void UraScenarioModule::OnRaceReplayCompleted(CareerState& state)
 {
     state.raceReplayFlowCompleted = true;
+    // Cancel still executes Next / Final Next, but cannot complete the objective.
+    // Match the managed retry flow: do not arm the successful-race GOAL probe.
+    if (state.raceRetryDeclined)
+    {
+        m_goalCompletionProbeArmed = false;
+        return;
+    }
     if (m_goal.kind == CareerGoalKind::Race
         || (m_goal.kind == CareerGoalKind::GradeRaceCount
             && m_goal.gradeRaceCountLeft.IsReliable()

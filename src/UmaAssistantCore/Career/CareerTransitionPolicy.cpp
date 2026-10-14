@@ -131,7 +131,7 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
     else if (id == "race_retry_dialog")
     {
         if (result.actionOutcome == "race.retry.declined" || action == "cancel")
-            select(Phase::RaceOutcome, {"race_result", "goal_incomplete", "complete_career_entry"});
+            select(Phase::RaceOutcome, {"race_runner_result", "race_result", "goal_incomplete", "complete_career_entry"});
         else select(Phase::RaceExecution, {"race_runner", "race_runner_result", "race_result", "race_playback_start", "race_retry_dialog"});
     }
     else if (id == "race_runner" || id == "race_attributes" || id == "race_playback"

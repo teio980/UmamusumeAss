@@ -321,6 +321,55 @@ TaskEngine::TaskMatchResult CareerVisualResources::MatchAsset(
     return match;
 }
 
+TaskEngine::TaskMatchResult CareerVisualResources::MatchExecutionTask(
+    const std::string& taskName,
+    TaskEngine::ITaskExecutionContext& context,
+    std::uint64_t requiredFrameId) const
+{
+    const auto* task = FindExecutionTask(taskName);
+    if (!task || !task->templatePath || task->templatePath->empty())
+        return {};
+    const auto frame = context.GetCurrentFrame();
+    if (requiredFrameId != 0 && frame && frame->frameId != 0 && frame->frameId != requiredFrameId)
+        return {};
+    TaskEngine::TaskRoi roi{};
+    if (task->roi && task->roi->size() >= 4)
+    {
+        roi.x = (*task->roi)[0];
+        roi.y = (*task->roi)[1];
+        roi.width = (*task->roi)[2];
+        roi.height = (*task->roi)[3];
+    }
+    auto match = context.MatchTemplateAdvanced(
+        *task->templatePath,
+        task->templateThreshold,
+        roi,
+        task->algorithm.empty() ? "MatchTemplate" : task->algorithm,
+        task->referenceWidth,
+        task->referenceHeight,
+        task->scaleCandidates);
+    if (requiredFrameId != 0 && match.frameId != 0 && match.frameId != requiredFrameId)
+        return {};
+    return match;
+}
+
+TaskEngine::TaskGraphRunResult CareerVisualResources::RunTask(
+    const std::string& taskName,
+    TaskEngine::ITaskExecutionContext& context,
+    const TaskEngine::TaskGraphRunOptions& options) const
+{
+    TaskEngine::TaskGraphRunResult failed;
+    failed.status = TaskEngine::TaskGraphStatus::Failed;
+    if (!m_ready || !m_executionLoaded)
+    {
+        failed.errorMessage = "Career execution definitions are unavailable.";
+        return failed;
+    }
+
+    TaskEngine::TaskGraphRunner runner(m_actionRegistry);
+    return runner.Run(m_execution, taskName, context, options);
+}
+
 TaskEngine::TaskGraphRunResult CareerVisualResources::RunAction(
     const std::string& screenId,
     const std::string& semanticId,
@@ -343,14 +392,7 @@ TaskEngine::TaskGraphRunResult CareerVisualResources::RunAction(
             : action->error;
         return failed;
     }
-    if (!m_executionLoaded)
-    {
-        failed.errorMessage = "Career execution definitions are unavailable for " + screenId;
-        return failed;
-    }
-
-    TaskEngine::TaskGraphRunner runner(m_actionRegistry);
-    return runner.Run(m_execution, action->taskName, context, options);
+    return RunTask(action->taskName, context, options);
 }
 
 void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)

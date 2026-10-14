@@ -141,6 +141,20 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
             context.Log("ERROR", "Claw machine flow failed: " + result.error);
         return result.status;
     }
+    if (Fold(observation.screenId) == "training_selection"
+        && intent.kind == CareerDomain::ActionIntentKind::Training)
+    {
+        auto type = Fold(intent.trainingType);
+        if (type == "intelligence") type = "wit";
+        if (!type.empty())
+        {
+            const std::string raisedTask = "training_selection_" + type + "_raised_probe";
+            if (m_resources && m_resources->MatchExecutionTask(raisedTask, context).found)
+            {
+                return ExecuteTask(observation.screenId, "training." + type, raisedTask, context);
+            }
+        }
+    }
     const auto semantic = ResolveSemanticAction(intent, observation);
     if (!semantic)
     {
@@ -151,9 +165,10 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
     return ExecuteAction(observation.screenId, *semantic, context);
 }
 
-ActionExecutionStatus CareerActionExecutor::ExecuteAction(
+ActionExecutionStatus CareerActionExecutor::ExecuteTask(
     const std::string& screenId,
     const std::string& semanticId,
+    const std::string& taskName,
     TaskEngine::ITaskExecutionContext& context,
     const TaskEngine::TaskGraphRunOptions& options)
 {
@@ -164,16 +179,10 @@ ActionExecutionStatus CareerActionExecutor::ExecuteAction(
         context.Log("ERROR", "Career visual resources are unavailable; refusing to tap.");
         return ActionExecutionStatus::Failed;
     }
-    const auto* action = m_resources->FindAction(screenId, semanticId);
-    if (!action || !action->valid)
-    {
-        context.Log("ERROR", "Career visual action is unavailable: " + screenId + "." + semanticId);
-        return ActionExecutionStatus::Failed;
-    }
 
     context.Log("INFO", "Running profile action " + screenId + "." + semanticId
-        + " (task " + action->taskName + ").");
-    const auto result = m_resources->RunAction(screenId, semanticId, context, options);
+        + " (task " + taskName + ").");
+    const auto result = m_resources->RunTask(taskName, context, options);
     if (context.IsCancelled() || result.status == TaskEngine::TaskGraphStatus::Cancelled)
         return ActionExecutionStatus::Cancelled;
     if (result.status == TaskEngine::TaskGraphStatus::Success
@@ -205,6 +214,29 @@ ActionExecutionStatus CareerActionExecutor::ExecuteAction(
     }
     context.Log("ERROR", "Career profile action failed: " + result.errorMessage);
     return ActionExecutionStatus::Failed;
+}
+
+ActionExecutionStatus CareerActionExecutor::ExecuteAction(
+    const std::string& screenId,
+    const std::string& semanticId,
+    TaskEngine::ITaskExecutionContext& context,
+    const TaskEngine::TaskGraphRunOptions& options)
+{
+    if (context.IsCancelled())
+        return ActionExecutionStatus::Cancelled;
+    if (!m_resources || !m_resources->IsReady())
+    {
+        context.Log("ERROR", "Career visual resources are unavailable; refusing to tap.");
+        return ActionExecutionStatus::Failed;
+    }
+    const auto* action = m_resources->FindAction(screenId, semanticId);
+    if (!action || !action->valid)
+    {
+        context.Log("ERROR", "Career visual action is unavailable: " + screenId + "." + semanticId);
+        return ActionExecutionStatus::Failed;
+    }
+
+    return ExecuteTask(screenId, semanticId, action->taskName, context, options);
 }
 
 bool CareerActionExecutor::ConfirmCompletion(
