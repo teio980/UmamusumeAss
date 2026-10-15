@@ -40,6 +40,7 @@ struct CareerRuntimeConfig
     std::vector<int> independentSkillIds;
     bool deleteExistingCareerData{false};
     bool continueExistingCareer{true};
+    bool autoRestoreTp{false};
     std::string supportDeckMode{"auto"};
     std::string supportDeckPreset;
     std::optional<int> friendSupportCardId;

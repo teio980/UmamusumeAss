@@ -3,6 +3,7 @@
 #include "GameTasks/CareerEntryFlow.hpp"
 #include "GameTasks/NativeIndependentTrainingFlow.hpp"
 #include "Career/CareerVisualResources.hpp"
+#include "Career/CareerObservationReader.hpp"
 #include "Common/PathEncoding.hpp"
 #include "Resources/WicImageDecoder.hpp"
 #include "Vision/TemplateMatcher.hpp"
@@ -462,6 +463,125 @@ TEST_CASE("Career entry waits through stale Support frames without repeating Sta
     CAPTURE(result.error);
     REQUIRE(result.succeeded);
     CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+}
+
+TEST_CASE("Career entry restores TP only when enabled and resumes without rebuilding Support",
+    "[GameTasks][Career][Replay][EntryRegression][TpRestore]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.autoRestoreTp = true;
+    // A resumed TP prompt must preserve a manually configured formation too.
+    config.supportDeckMode = "selected";
+    ReplayObserver observer("career_tp_restore_prompt");
+    CareerReplayContext context;
+    bool returnToPrompt = false;
+    SECTION("restores and starts") {}
+    SECTION("disabled stops without consuming anything") { config.autoRestoreTp = false; }
+    SECTION("cancellation before OK never consumes a potion") { context.cancelOnTask = "career_tp_restore_ok"; }
+    SECTION("unresolved shortage cannot consume indefinitely") { returnToPrompt = true; }
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    context.onEvent = [&](auto const& event) {
+        if (event.type != TaskEventType::TaskCompleted) return;
+        if (event.taskName == "career_tp_restore_close") observer.screenId = "support_ready";
+        if (event.taskName == "support_ready_support_start")
+            observer.screenId = returnToPrompt ? "career_tp_restore_prompt" : "career_final_confirmation";
+    };
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    if (!config.autoRestoreTp)
+    {
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.error.find("disabled") != std::string::npos);
+        CHECK(context.taps.empty());
+    }
+    else if (!context.cancelOnTask.empty())
+    {
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.cancelled);
+        CHECK(context.taps.size() == 3);
+        CHECK_FALSE(HasTask(context, "career_tp_restore_close"));
+    }
+    else if (returnToPrompt)
+    {
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.error.find("two Toughness 30") != std::string::npos);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "career_tp_restore_ok") == 2);
+    }
+    else
+    {
+        REQUIRE(result.succeeded);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "career_tp_restore_ok") == 1);
+        CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    }
+}
+
+TEST_CASE("TP recovery matches real screenshots and selects the potion row",
+    "[GameTasks][Career][Replay][EntryRegression][TpRestore]")
+{
+    class ScreenshotContext final : public Tests::MockTaskExecutionContext
+    {
+    public:
+        bool CaptureScreen() override
+        {
+            static const std::array<const char*, 4> files{
+                "prompt.png", "list.png", "confirm.png", "list.png"};
+            if (stage >= files.size()) return false;
+            image = Resources::WicImageDecoder::decode_file(
+                std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures/tp_restore" / files[stage]);
+            frame = std::make_shared<TaskFrameSnapshot>();
+            frame->width = image.width; frame->height = image.height;
+            frame->frameId = ++captureCount;
+            frame->grayPixels = image.gray; frame->rgbaPixels = image.rgba;
+            return true;
+        }
+        TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+            const std::optional<TaskRoi>& roi, const std::string&, int rw, int rh,
+            const std::vector<double>&) override
+        {
+            lastMarker = std::filesystem::path(path).filename().string();
+            if (!roi || !frame) return {};
+            const auto marker = Resources::WicImageDecoder::decode_file_utf8(path);
+            const Vision::Roi bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+            const auto match = Vision::find(image, marker, bounds, threshold, rw, rh);
+            TaskMatchResult result;
+            result.found = match.found; result.score = match.score;
+            result.x = match.x; result.y = match.y; result.width = match.width; result.height = match.height;
+            result.frameId = frame->frameId; result.referenceWidth = rw; result.referenceHeight = rh;
+            return result;
+        }
+        std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return frame; }
+        bool TapMatch(int x, int y, const TaskMatchResult& match) override
+        {
+            if (!frame || frame->frameId != match.frameId) return false;
+            if (lastMarker != "career_entry_recover_tp_min.png") ++stage;
+            return Tap(x, y);
+        }
+        std::size_t stage{0};
+        std::string lastMarker;
+        Vision::GrayImage image;
+        std::shared_ptr<TaskFrameSnapshot> frame;
+    } context;
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    auto resources = std::make_shared<Career::CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    Career::CareerScreenObserver observer(resources);
+    auto const observation = observer.ObserveScreens(context, {"career_tp_restore_prompt"});
+    REQUIRE(observation.screenId == "career_tp_restore_prompt");
+    auto const result = resources->RunAction("career_tp_restore_prompt", "tp.restore", context);
+    CAPTURE(result.errorMessage);
+    REQUIRE((result.status == TaskGraphStatus::Completed || result.status == TaskGraphStatus::Success));
+    REQUIRE(context.taps.size() == 5);
+    // Restore, the lower Use button, Min (one potion), OK, Close.
+    CHECK(context.taps[0].first > 470);
+    CHECK(context.taps[1].second > 355);
+    CHECK(context.taps[1].second < 450);
+    CHECK(context.taps[2].first < 190);
+    CHECK(context.taps[3].second > 1100);
+    CHECK(context.taps[4].second > 1420);
 }
 
 TEST_CASE("Career entry refuses a match that never stabilizes", "[GameTasks][Career][Replay][EntryRegression]")

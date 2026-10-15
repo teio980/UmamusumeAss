@@ -6,6 +6,36 @@
   "referenceHeight": 1600,
   "screens": [
     {
+      "screenId": "career_tp_restore_prompt",
+      "recognition": {
+        "template": "templates/career_entry_tp_restore_header.png",
+        "roi": [
+          300,
+          475,
+          300,
+          75
+        ],
+        "templThreshold": 0.88,
+        "requiredTemplate": "templates/career_entry_tp_restore_confirm.png",
+        "requiredTemplateRoi": [
+          470,
+          990,
+          355,
+          110
+        ],
+        "requiredTemplateThreshold": 0.88,
+        "priority": 30
+      },
+      "actions": [
+        {
+          "semanticId": "tp.restore",
+          "task": "career_tp_restore_open"
+        }
+      ],
+      "flow": "entry",
+      "order": 16
+    },
+    {
       "screenId": "career_final_confirmation",
       "recognition": {
         "template": "../modes/independent/templates/independent/career_final_confirmation_header.png",

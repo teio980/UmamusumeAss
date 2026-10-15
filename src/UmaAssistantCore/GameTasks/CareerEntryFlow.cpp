@@ -517,9 +517,9 @@ bool IsRuntimeCareerScreen(std::string const& id)
 
 bool IsEntryScreen(std::string const& id)
 {
-    static const std::array<std::string_view, 9> known{
+    static const std::array<std::string_view, 10> known{
         "home", "home_unselected", "career_continue", "scenario_select", "trainee_select",
-        "legacy_select", "support_select", "support_autofill_confirmation", "support_ready"};
+        "legacy_select", "support_select", "support_autofill_confirmation", "support_ready", "career_tp_restore_prompt"};
     return std::any_of(known.begin(), known.end(), [&](auto const value) { return NormalizeKey(id) == value; });
 }
 
@@ -816,6 +816,7 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
         if (IsEntryScreen(screen.screenId)) eligibleScreens.push_back(screen.screenId);
     if (!initialScreens.empty()) eligibleScreens = initialScreens;
     bool supportConfigured = false;
+    int tpRestores = 0;
     bool allowResume = config.continueExistingCareer;
     for (int step = 0; step < 48; ++step)
     {
@@ -879,18 +880,39 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
             }
             supportConfigured = true;
             eligibleScreens = config.supportDeckMode == "auto"
-                ? std::vector<std::string>{"support_autofill_confirmation", "support_ready", "career_final_confirmation"}
-                : std::vector<std::string>{"career_final_confirmation"};
+                ? std::vector<std::string>{"support_autofill_confirmation", "support_ready", "career_final_confirmation", "career_tp_restore_prompt"}
+                : std::vector<std::string>{"career_final_confirmation", "career_tp_restore_prompt"};
         }
         else if (screen == "support_autofill_confirmation")
         {
             if (!RunAction(result, resources, context, screen, "support.autofill_ok")) return result;
-            eligibleScreens = {"support_ready", "career_final_confirmation"};
+            eligibleScreens = {"support_ready", "career_final_confirmation", "career_tp_restore_prompt"};
         }
         else if (screen == "support_ready")
         {
             if (!RunAction(result, resources, context, screen, "support.start")) return result;
-            eligibleScreens = {"career_final_confirmation"};
+            eligibleScreens = {"career_final_confirmation", "career_tp_restore_prompt"};
+        }
+        else if (screen == "career_tp_restore_prompt")
+        {
+            if (!config.autoRestoreTp)
+            {
+                result.error = "Insufficient TP to start Career; automatic TP restoration is disabled.";
+                return result;
+            }
+            if (tpRestores >= 2)
+            {
+                result.error = "TP is still insufficient after two Toughness 30 restorations; stopping.";
+                return result;
+            }
+            context.Log("INFO", "Insufficient TP; restoring with one Toughness 30.");
+            if (!RunAction(result, resources, context, screen, "tp.restore")) return result;
+            ++tpRestores;
+            context.Log("INFO", "Toughness 30 confirmed; returning to Career entry.");
+            // The recovery graph verifies Close before returning. Re-enter the
+            // normal Start action without rebuilding the configured deck.
+            eligibleScreens = {"support_ready"};
+            supportConfigured = true;
         }
         else if (!IsEntryScreen(screen))
         {

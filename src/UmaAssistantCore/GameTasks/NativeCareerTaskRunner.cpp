@@ -259,6 +259,7 @@ std::optional<Career::CareerRuntimeConfig> NativeCareerTaskRunner::ParseSettings
         bool const continueExisting = Bool(settings, "continueExistingCareer", true);
         config.deleteExistingCareerData = Bool(settings, "deleteExistingCareerData", !continueExisting);
         config.continueExistingCareer = hasDelete ? !config.deleteExistingCareerData : continueExisting;
+        config.autoRestoreTp = Bool(settings, "autoRestoreTp", false);
         config.supportDeckMode = Normalize(String(settings, "supportDeckMode", "auto"));
         config.supportDeckPreset = Normalize(String(settings, "supportDeckPreset", "custom"));
         config.friendSupportCardId = PositiveId(settings, "friendSupportCardId");
