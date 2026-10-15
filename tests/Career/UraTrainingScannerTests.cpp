@@ -53,64 +53,40 @@ void SubmitFullCardSet(UraTrainingScanner& scanner, int speedOverride = 30)
         REQUIRE(scanner.SubmitCandidateSample(candidate));
 }
 
-TEST_CASE("URA single-frame scan requires a fresh matching winner before authorization", "[UraTrainingScanner]")
+TEST_CASE("URA single-frame scan requires the winning card to be raised before authorization", "[UraTrainingScanner]")
 {
     UraTrainingScanner scanner;
     REQUIRE(scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60, 11) ==
         UraTrainingScannerStage::SamplingCandidates);
     SubmitFullCardSet(scanner);
-    REQUIRE(scanner.Stage() == UraTrainingScannerStage::VerifyingSelection);
+    REQUIRE(scanner.Stage() == UraTrainingScannerStage::SelectingTraining);
     REQUIRE(scanner.Candidates().size() == 5);
     REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
     REQUIRE_FALSE(scanner.PrepareTrainingTap());
-    REQUIRE(scanner.VerifySelectedCandidate(*scanner.Decision().chosenCandidate));
+    REQUIRE(scanner.ConfirmSelectedTraining("speed"));
     REQUIRE(scanner.Stage() == UraTrainingScannerStage::ReadyToSelect);
     REQUIRE(scanner.PrepareTrainingTap());
 }
 
-TEST_CASE("URA winner changes are rescored and the new winner must be verified", "[UraTrainingScanner]")
-{
-    UraTrainingScanner scanner;
-    scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60);
-    SubmitFullCardSet(scanner);
-    REQUIRE(scanner.VerifySelectedCandidate(Candidate("speed", 1)));
-    REQUIRE(scanner.Stage() == UraTrainingScannerStage::VerifyingSelection);
-    REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"power"});
-    REQUIRE_FALSE(scanner.PrepareTrainingTap());
-    REQUIRE(scanner.VerifySelectedCandidate(Candidate("power", 12)));
-    REQUIRE(scanner.PrepareTrainingTap());
-}
-
-TEST_CASE("URA changed winner values need another fresh check even when the winner stays the same", "[UraTrainingScanner]")
-{
-    UraTrainingScanner scanner;
-    scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60);
-    SubmitFullCardSet(scanner);
-    REQUIRE(scanner.VerifySelectedCandidate(Candidate("speed", 31)));
-    REQUIRE(scanner.Stage() == UraTrainingScannerStage::VerifyingSelection);
-    REQUIRE_FALSE(scanner.PrepareTrainingTap());
-    REQUIRE(scanner.VerifySelectedCandidate(Candidate("speed", 31)));
-    REQUIRE(scanner.Stage() == UraTrainingScannerStage::ReadyToSelect);
-}
-
-TEST_CASE("URA unknown or unsafe rechecks exclude the old winner without assuming zero risk", "[UraTrainingScanner]")
+TEST_CASE("URA unknown or unsafe first readings are excluded without assuming zero risk", "[UraTrainingScanner]")
 {
     for (const bool unreadable : {false, true})
     {
         UraTrainingScanner scanner;
         scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60);
-        SubmitFullCardSet(scanner);
-        auto fresh = Candidate("speed", 30, 6);
-        if (unreadable) fresh.failureRatePercent.reset();
-        REQUIRE(scanner.VerifySelectedCandidate(fresh));
+        auto speed = Candidate("speed", 30, 6);
+        if (unreadable) speed.failureRatePercent.reset();
+        REQUIRE(scanner.SubmitCandidateSample(speed));
+        for (const auto* type : {"stamina", "power", "guts", "wit"})
+            REQUIRE(scanner.SubmitCandidateSample(Candidate(type, 10)));
         REQUIRE(scanner.SelectedTrainingType() != std::optional<std::string>{"speed"});
         REQUIRE_FALSE(scanner.PrepareTrainingTap());
-        REQUIRE(scanner.VerifySelectedCandidate(*scanner.Decision().chosenCandidate));
+        REQUIRE(scanner.ConfirmSelectedTraining(*scanner.SelectedTrainingType()));
         REQUIRE(scanner.PrepareTrainingTap());
     }
 }
 
-TEST_CASE("URA scan rejects duplicate submissions and verification of another card", "[UraTrainingScanner]")
+TEST_CASE("URA scan rejects duplicate submissions and selection of another card", "[UraTrainingScanner]")
 {
     UraTrainingScanner duplicate;
     duplicate.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60);
@@ -120,11 +96,11 @@ TEST_CASE("URA scan rejects duplicate submissions and verification of another ca
     UraTrainingScanner wrong;
     wrong.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Classic Year", 60);
     SubmitFullCardSet(wrong);
-    REQUIRE_FALSE(wrong.VerifySelectedCandidate(Candidate("wit", 5)));
+    REQUIRE_FALSE(wrong.ConfirmSelectedTraining("wit"));
     REQUIRE_FALSE(wrong.PrepareTrainingTap());
 }
 
-TEST_CASE("URA verified winner can authorize only one training tap", "[UraTrainingScanner]")
+TEST_CASE("URA raised winner can authorize only one training tap", "[UraTrainingScanner]")
 {
     UraTrainingScanner scanner;
     REQUIRE_FALSE(scanner.PrepareTrainingTap());
@@ -133,7 +109,7 @@ TEST_CASE("URA verified winner can authorize only one training tap", "[UraTraini
     REQUIRE_FALSE(scanner.PrepareTrainingTap());
     SubmitFullCardSet(scanner);
     REQUIRE(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
-    REQUIRE(scanner.VerifySelectedCandidate(*scanner.Decision().chosenCandidate));
+    REQUIRE(scanner.ConfirmSelectedTraining(*scanner.SelectedTrainingType()));
     REQUIRE(scanner.PrepareTrainingTap());
     REQUIRE(scanner.Stage() == UraTrainingScannerStage::ReadyToTap);
     REQUIRE(scanner.CanTapTraining());
@@ -150,7 +126,7 @@ TEST_CASE("URA training commits only after observed outcome and only once", "[Ur
     REQUIRE(scanner.BeginCandidateScan(Markers(), RaceDistanceBand::Middle, "Classic Year", 70, 3) ==
            UraTrainingScannerStage::SamplingCandidates);
     SubmitFullCardSet(scanner);
-    REQUIRE(scanner.VerifySelectedCandidate(*scanner.Decision().chosenCandidate));
+    REQUIRE(scanner.ConfirmSelectedTraining(*scanner.SelectedTrainingType()));
     REQUIRE(scanner.PrepareTrainingTap());
     REQUIRE(scanner.MarkTrainingTapSent());
 
@@ -172,7 +148,7 @@ TEST_CASE("URA training commits only after observed outcome and only once", "[Ur
     REQUIRE(resultScreen.BeginCandidateScan(Markers(), RaceDistanceBand::Mile, "Junior Year", 60) ==
            UraTrainingScannerStage::SamplingCandidates);
     SubmitFullCardSet(resultScreen);
-    REQUIRE(resultScreen.VerifySelectedCandidate(*resultScreen.Decision().chosenCandidate));
+    REQUIRE(resultScreen.ConfirmSelectedTraining(*resultScreen.SelectedTrainingType()));
     REQUIRE(resultScreen.PrepareTrainingTap());
     REQUIRE(resultScreen.MarkTrainingTapSent());
     const auto resultCommit = resultScreen.ObserveOutcome(

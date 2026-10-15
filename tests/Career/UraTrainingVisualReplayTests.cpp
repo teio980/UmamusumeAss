@@ -132,7 +132,7 @@ private:
     std::shared_ptr<OverlapTrace> m_trace;
 };
 
-class TrainingCaptureContext final : public Tests::MockTaskExecutionContext
+class TrainingCaptureContext : public Tests::MockTaskExecutionContext
 {
 public:
     explicit TrainingCaptureContext(std::string selected, bool duel = false, bool windowsOcr = false)
@@ -297,7 +297,7 @@ public:
         return results;
     }
 
-    void Sleep(int) override {}
+    void Sleep(int milliseconds) override { sleepCalls.push_back(milliseconds); }
     std::shared_ptr<IImageRecognitionContext> CreateImageRecognitionContext() override
     {
         if (realOcr && detachedOcr)
@@ -366,23 +366,24 @@ public:
     std::shared_ptr<OverlapTrace> overlap;
     bool failOverlapPreview{false};
     bool detachedOcr{false};
+    std::optional<int> speedGainOverride;
     std::optional<int> recheckedSpeedGain;
     std::optional<int> recheckedSpeedFailure;
-    bool oscillatingSpeed{false};
     bool missingRecheckedFailure{false};
     bool alwaysUnreadableSpeed{false};
     int geometryChangeAtCapture{-1};
+    std::vector<int> sleepCalls;
 
 private:
     FixtureValues CurrentValues() const
     {
         auto values = FixtureExpected.at(selectedType);
+        if (selectedType == "speed" && speedGainOverride) values.gains[0] = *speedGainOverride;
         if (selectedType == "wit" && duelWit) values.gains = {4, 0, 0, 0, 13, 6};
         const auto captured = perTypeCaptures.find(selectedType);
         if (selectedType == "speed" && captured != perTypeCaptures.end() && captured->second >= 2)
         {
             if (recheckedSpeedGain) values.gains[0] = *recheckedSpeedGain;
-            if (oscillatingSpeed) values.gains[0] = captured->second % 2 == 0 ? 20 : 19;
             if (recheckedSpeedFailure) values.failure = *recheckedSpeedFailure;
         }
         return values;
@@ -414,6 +415,51 @@ private:
     std::shared_ptr<IImageRecognitionContext> detachedReader;
 };
 
+// Keep the real fixture matcher, but inject intermediate preview observations.
+class PreviewTransitionContext final : public TrainingCaptureContext
+{
+public:
+    enum class Failure { LogoPosition, MissingChevron, MissingLogoTemplate, ScreenChanged };
+    PreviewTransitionContext() : TrainingCaptureContext("speed") { frozenNumeric = true; }
+
+    TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+        const std::optional<TaskRoi>& roi, const std::string& algorithm,
+        int referenceWidth, int referenceHeight, const std::vector<double>& scales) override
+    {
+        if (IsIntermediateFrame())
+        {
+            if (failure == Failure::MissingChevron && path.find("selected_chevron") != std::string::npos)
+                return {};
+            if (failure == Failure::ScreenChanged && path.find("training_selection_header") != std::string::npos)
+                return {};
+            if (failure == Failure::LogoPosition && path.find("training_selection_logos/power.png") != std::string::npos)
+            {
+                if (roi && roi->height < 200) return {};
+                auto match = TrainingCaptureContext::MatchTemplateAdvanced(path, threshold, roi, algorithm,
+                    referenceWidth, referenceHeight, scales);
+                match.y -= 80;
+                return match;
+            }
+        }
+        return TrainingCaptureContext::MatchTemplateAdvanced(path, threshold, roi, algorithm,
+            referenceWidth, referenceHeight, scales);
+    }
+
+    std::shared_ptr<const Vision::GrayImage> LoadTemplateImage(const std::string& path) override
+    {
+        if (IsIntermediateFrame() && failure == Failure::MissingLogoTemplate
+            && path.find("training_selection_logos/power.png") != std::string::npos)
+            return {};
+        return TrainingCaptureContext::LoadTemplateImage(path);
+    }
+
+    Failure failure{Failure::LogoPosition};
+    int intermediateFrames{1};
+
+private:
+    bool IsIntermediateFrame() const { return captureCount >= 3 && captureCount < 3 + intermediateFrames; }
+};
+
 std::shared_ptr<Career::CareerVisualResources> TrainingResources()
 {
     Career::CareerRuntimeConfig config;
@@ -425,7 +471,7 @@ std::shared_ptr<Career::CareerVisualResources> TrainingResources()
 }
 }
 
-TEST_CASE("URA single-frame scan reads five cards and freshly rechecks only its winner", "[Career][Vision][Replay][TrainingSingleFrame]")
+TEST_CASE("URA single-frame scan reads five cards and selects its winner without rereading", "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     const auto initial = GENERATE(std::string{"speed"}, std::string{"guts"}, std::string{"wit"});
     TrainingCaptureContext context(initial);
@@ -452,13 +498,104 @@ TEST_CASE("URA single-frame scan reads five cards and freshly rechecks only its 
             == (candidate.trainingType == "speed" ? 2 : 1));
     }
     CHECK(context.capturedTypes.size() == 6);
+    CHECK(context.numericBatchCalls == 5);
     CHECK(context.unusedLevelOcrCalls == 0);
     CHECK(context.previewTypes.size() == 5);
+    CHECK(context.sleepCalls.empty());
     CHECK(context.finalTrainingTypes.empty());
     CHECK_FALSE(scanner.CanTapTraining());
     REQUIRE_FALSE(context.logs.empty());
     CHECK(context.logs.back().find("fresh_captures=6") != std::string::npos);
-    CHECK(context.logs.back().find("retries=0, winner_checks=1") != std::string::npos);
+    CHECK(context.logs.back().find("retries=0") != std::string::npos);
+    CHECK(context.logs.back().find("preview_rechecks=0") != std::string::npos);
+}
+
+TEST_CASE("URA preview recaptures intermediate markers without tapping or reading them",
+    "[Career][Vision][Replay][TrainingPreviewRetry]")
+{
+    PreviewTransitionContext context;
+    context.failure = GENERATE(PreviewTransitionContext::Failure::LogoPosition,
+        PreviewTransitionContext::Failure::MissingChevron);
+    context.intermediateFrames = GENERATE(1, 2);
+    const bool detached = GENERATE(false, true);
+    if (detached) context.overlap = std::make_shared<OverlapTrace>();
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CAPTURE(scan.detail, context.intermediateFrames);
+    REQUIRE(scan.IsReadyToSelect());
+    CHECK(context.captureCount == 6 + context.intermediateFrames);
+    CHECK(context.previewTypes == std::vector<std::string>{"stamina", "power", "guts", "wit", "speed"});
+    if (detached)
+    {
+        CHECK(context.overlap->tappedWhileReading);
+        CHECK_FALSE(context.overlap->tapWaitTimedOut);
+        CHECK(context.overlap->active == 0);
+        CHECK(context.overlap->reads.size() == 5);
+        CHECK(context.overlap->fieldCalls.at("power.power") == 1);
+    }
+    else
+    {
+        CHECK(context.numericBatchCalls == 5);
+        CHECK(context.numericFieldCalls.at("power.power") == 1);
+    }
+    CHECK(context.finalTrainingTypes.empty());
+    CHECK(context.sleepCalls.empty());
+    CHECK(context.logs.back().find("preview_rechecks=" + std::to_string(context.intermediateFrames)) != std::string::npos);
+}
+
+TEST_CASE("URA preview stops after three unsettled frames without committing training",
+    "[Career][Vision][Replay][TrainingPreviewRetry]")
+{
+    PreviewTransitionContext context;
+    context.intermediateFrames = 3;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CHECK_FALSE(scan.IsReadyToSelect());
+    CHECK(scan.detail == "The power training logo could not be verified on its card.");
+    CHECK(context.captureCount == 5);
+    CHECK(context.previewTypes == std::vector<std::string>{"stamina", "power"});
+    CHECK(context.numericBatchCalls == 2);
+    CHECK_FALSE(scanner.PrepareTrainingTap());
+    CHECK(context.finalTrainingTypes.empty());
+    CHECK(context.sleepCalls.empty());
+    CHECK(context.logs.back().find("preview_rechecks=2") != std::string::npos);
+}
+
+TEST_CASE("URA preview does not retry missing resources or changed screens",
+    "[Career][Vision][Replay][TrainingPreviewRetry]")
+{
+    PreviewTransitionContext context;
+    context.failure = GENERATE(PreviewTransitionContext::Failure::MissingLogoTemplate,
+        PreviewTransitionContext::Failure::ScreenChanged);
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CHECK_FALSE(scan.IsReadyToSelect());
+    CHECK(context.captureCount == 3);
+    CHECK(context.previewTypes.size() == 2);
+    CHECK(context.numericBatchCalls == 2);
+    CHECK(context.finalTrainingTypes.empty());
+    CHECK(context.logs.back().find("preview_rechecks=0") != std::string::npos);
+}
+
+TEST_CASE("URA preview recapture stops on cancellation or changed display geometry",
+    "[Career][Vision][Replay][TrainingPreviewRetry]")
+{
+    PreviewTransitionContext context;
+    const bool cancel = GENERATE(false, true);
+    if (cancel) context.cancelAtCapture = 4;
+    else context.geometryChangeAtCapture = 4;
+    Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
+    UraTrainingScanner scanner;
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
+    CHECK_FALSE(scan.IsReadyToSelect());
+    CHECK(context.captureCount == 4);
+    CHECK(context.previewTypes.size() == 2);
+    CHECK(context.numericBatchCalls == 2);
+    CHECK_FALSE(scanner.PrepareTrainingTap());
+    CHECK(context.finalTrainingTypes.empty());
 }
 
 TEST_CASE("URA scan switches cards while detached OCR reads the preceding snapshot",
@@ -476,7 +613,7 @@ TEST_CASE("URA scan switches cards while detached OCR reads the preceding snapsh
     CHECK_FALSE(context.overlap->tapWaitTimedOut);
     CHECK(context.overlap->active == 0);
     CHECK(context.overlap->maxActive == 1);
-    CHECK(context.overlap->reads.size() == 6);
+    CHECK(context.overlap->reads.size() == 5);
     CHECK(context.capturedTypes.size() == 6);
     CHECK(context.previewTypes.size() == 5);
     CHECK(context.numericBatchCalls == 0);
@@ -492,8 +629,7 @@ TEST_CASE("URA scan switches cards while detached OCR reads the preceding snapsh
         CHECK(candidate.witGain == expected.gains[4]);
         CHECK(candidate.skillPointGain == expected.gains[5]);
         CHECK(candidate.failureRatePercent == expected.failure);
-        CHECK(context.overlap->fieldCalls.at(candidate.trainingType + ".failure_rate")
-            == (candidate.trainingType == "speed" ? 2 : 1));
+        CHECK(context.overlap->fieldCalls.at(candidate.trainingType + ".failure_rate") == 1);
     }
 }
 
@@ -533,7 +669,7 @@ TEST_CASE("URA scan reports a detached reader exception without authorizing trai
     CHECK(context.finalTrainingTypes.empty());
 }
 
-TEST_CASE("URA winner recheck updates scores and restores and verifies the new winner",
+TEST_CASE("URA winner selection keeps the first scores without a second OCR read",
     "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     TrainingCaptureContext context("speed");
@@ -544,19 +680,19 @@ TEST_CASE("URA winner recheck updates scores and restores and verifies the new w
     const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
     CAPTURE(scan.detail);
     REQUIRE(scan.IsReadyToSelect());
-    CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"guts"});
-    CHECK(context.selectedType == "guts");
-    CHECK(context.capturedTypes.size() == 7);
-    CHECK(context.overlap->fieldCalls.at("speed.speed") == 2);
-    CHECK(context.overlap->fieldCalls.at("guts.guts") == 2);
+    CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
+    CHECK(context.selectedType == "speed");
+    CHECK(context.capturedTypes.size() == 6);
+    CHECK(context.overlap->fieldCalls.at("speed.speed") == 1);
+    CHECK(context.overlap->fieldCalls.at("guts.guts") == 1);
     const auto speed = std::find_if(scanner.Candidates().begin(), scanner.Candidates().end(),
         [](const auto& candidate) { return candidate.trainingType == "speed"; });
     REQUIRE(speed != scanner.Candidates().end());
-    CHECK(speed->speedGain == 1);
+    CHECK(speed->speedGain == FixtureExpected.at("speed").gains[0]);
     CHECK(context.finalTrainingTypes.empty());
 }
 
-TEST_CASE("URA changed winner values are reread even when identical pictures would have hit the old OCR cache",
+TEST_CASE("URA winner selection does not reread numeric values even with identical pictures",
     "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     TrainingCaptureContext context("speed");
@@ -569,13 +705,13 @@ TEST_CASE("URA changed winner values are reread even when identical pictures wou
     CAPTURE(scan.detail);
     REQUIRE(scan.IsReadyToSelect());
     CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
-    CHECK(scanner.Decision().chosenCandidate->speedGain == 20);
-    CHECK(context.numericFieldCalls.at("speed.speed") == 3);
-    CHECK(context.capturedTypes.size() == 7);
-    CHECK(context.logs.back().find("winner_checks=2") != std::string::npos);
+    CHECK(scanner.Decision().chosenCandidate->speedGain == FixtureExpected.at("speed").gains[0]);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 1);
+    CHECK(context.numericBatchCalls == 5);
+    CHECK(context.capturedTypes.size() == 6);
 }
 
-TEST_CASE("URA winner recheck excludes unreadable or unsafe failure rates",
+TEST_CASE("URA winner selection does not reread the failure rate",
     "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     const bool unreadable = GENERATE(false, true);
@@ -588,25 +724,30 @@ TEST_CASE("URA winner recheck excludes unreadable or unsafe failure rates",
     const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
     CAPTURE(scan.detail, unreadable);
     REQUIRE(scan.IsReadyToSelect());
-    CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"guts"});
-    CHECK(context.selectedType == "guts");
-    CHECK(context.overlap->fieldCalls.at("guts.failure_rate") == 2);
+    CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
+    CHECK(context.selectedType == "speed");
+    CHECK(context.overlap->fieldCalls.at("speed.failure_rate") == 1);
+    CHECK(scanner.Decision().chosenCandidate->failureRatePercent == 0);
     CHECK(context.finalTrainingTypes.empty());
 }
 
-TEST_CASE("URA unstable winner checks are bounded and cannot authorize training",
+TEST_CASE("URA winner already raised after scanning needs no additional capture or OCR",
     "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     TrainingCaptureContext context("speed");
     context.frozenNumeric = true;
-    context.oscillatingSpeed = true;
+    context.speedGainOverride = 18;
     Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
     UraTrainingScanner scanner;
-    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17);
-    CHECK_FALSE(scan.IsReadyToSelect());
-    CHECK(scan.detail.find("five winner checks") != std::string::npos);
-    CHECK(context.capturedTypes.size() == 10);
-    CHECK_FALSE(scanner.PrepareTrainingTap());
+    const auto scan = visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 30, 17);
+    CAPTURE(scan.detail);
+    REQUIRE(scan.IsReadyToSelect());
+    CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"wit"});
+    CHECK(context.selectedType == "wit");
+    CHECK(context.capturedTypes.size() == 5);
+    CHECK(context.previewTypes.size() == 4);
+    CHECK(context.numericBatchCalls == 5);
+    CHECK(scanner.PrepareTrainingTap());
     CHECK(context.finalTrainingTypes.empty());
 }
 
@@ -623,9 +764,9 @@ TEST_CASE("URA unreadable or low confidence cards get one fresh retry before sco
     CAPTURE(scan.detail, context.lowConfidenceFirstSpeed);
     REQUIRE(scan.IsReadyToSelect());
     CHECK(scanner.SelectedTrainingType() == std::optional<std::string>{"speed"});
-    CHECK(context.numericFieldCalls.at("speed.speed") == 3);
-    CHECK(context.capturedTypes.size() == 7);
-    CHECK(context.logs.back().find("retries=1, winner_checks=1") != std::string::npos);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
+    CHECK(context.capturedTypes.size() == 6);
+    CHECK(context.logs.back().find("retries=1") != std::string::npos);
 }
 
 TEST_CASE("URA persistently unreadable cards are retried once and excluded",
@@ -644,7 +785,7 @@ TEST_CASE("URA persistently unreadable cards are retried once and excluded",
     CHECK(context.logs.back().find("retries=1") != std::string::npos);
 }
 
-TEST_CASE("URA winner recheck rejects cancellation or changed display geometry",
+TEST_CASE("URA winner selection rejects cancellation or changed display geometry",
     "[Career][Vision][Replay][TrainingSingleFrame]")
 {
     const bool cancel = GENERATE(false, true);
@@ -688,7 +829,7 @@ TEST_CASE("Smart scan evidence expires when pre-debut countdown or committed act
     CHECK_FALSE(flow.HasCandidatesForCurrentTurn(state));
 }
 
-TEST_CASE("URA flow publishes the rechecked winner and the executor confirms it once",
+TEST_CASE("URA flow publishes the first-scan winner and the executor confirms it once",
     "[Career][Vision][Replay][TrainingDirectExecution]")
 {
     const bool changeWinner = GENERATE(false, true);
@@ -705,11 +846,12 @@ TEST_CASE("URA flow publishes the rechecked winner and the executor confirms it 
     const auto result = flow.Select(context, state, scenario, strategy);
     CAPTURE(result.error, changeWinner);
     REQUIRE(result.status == Career::CareerTrainingSelectionStatus::Ready);
-    const std::string expected = changeWinner ? "guts" : "speed";
+    const std::string expected = "speed";
     CHECK(result.intent.trainingType == expected);
     CHECK(context.selectedType == expected);
     CHECK(flow.HasPendingConfirmedTap());
-    CHECK(context.capturedTypes.size() == (changeWinner ? 7 : 6));
+    CHECK(context.capturedTypes.size() == 6);
+    CHECK(context.numericBatchCalls == 5);
     const auto reads = context.numericBatchCalls;
     const auto previews = context.previewTypes.size();
     Career::CareerActionExecutor executor(TrainingResources());
@@ -732,10 +874,10 @@ TEST_CASE("URA single-frame scan rereads all values on a subsequent turn",
     Career::Ura::UraTrainingVisualScanner visual(TrainingResources());
     UraTrainingScanner scanner;
     REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 17).IsReadyToSelect());
-    CHECK(context.numericBatchCalls == 6);
+    CHECK(context.numericBatchCalls == 5);
     REQUIRE(visual.ScanCandidates(context, scanner, RaceDistanceBand::Middle, "career", 58, 18).IsReadyToSelect());
-    CHECK(context.numericBatchCalls == 12);
-    CHECK(context.numericFieldCalls.at("speed.speed") == 4);
+    CHECK(context.numericBatchCalls == 10);
+    CHECK(context.numericFieldCalls.at("speed.speed") == 2);
     CHECK(context.logs.back().find("fresh_captures=5") != std::string::npos);
 }
 

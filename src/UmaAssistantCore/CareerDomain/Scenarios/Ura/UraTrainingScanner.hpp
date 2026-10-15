@@ -14,7 +14,7 @@ enum class UraTrainingScannerStage
 {
     Idle,
     SamplingCandidates,
-    VerifyingSelection,
+    SelectingTraining,
     ReadyToSelect,
     ReadyToTap,
     AwaitingOutcome,
@@ -45,7 +45,7 @@ struct UraTrainingCommit
 };
 
 // Pure scan/action state machine. Five single-frame candidates are scored,
-// and the selected card must pass a fresh value check before authorization.
+// and the selected card must be raised before authorization.
 class UraTrainingScanner
 {
 public:
@@ -73,9 +73,8 @@ public:
     // Submit one final reading per card, after any bounded unreadable retry.
     bool SubmitCandidateSample(const TrainingCandidate& sample);
 
-    // Replace the current winner with its fresh reading and score again. A
-    // changed reading/winner stays unverified until another fresh check agrees.
-    bool VerifySelectedCandidate(const TrainingCandidate& sample);
+    // Confirm that the visual layer raised the winner, without rereading values.
+    bool ConfirmSelectedTraining(const std::string& trainingType);
 
     bool PrepareTrainingTap();
 

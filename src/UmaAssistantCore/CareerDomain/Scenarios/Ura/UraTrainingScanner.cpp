@@ -20,15 +20,6 @@ bool IsValidConfidence(double value)
     return std::isfinite(value) && value >= 0.0 && value <= 1.0;
 }
 
-bool SameScoringValues(const TrainingCandidate& first, const TrainingCandidate& second)
-{
-    return first.speedGain == second.speedGain && first.staminaGain == second.staminaGain
-        && first.powerGain == second.powerGain && first.gutsGain == second.gutsGain
-        && first.witGain == second.witGain && first.skillPointGain == second.skillPointGain
-        && first.failureRatePercent == second.failureRatePercent
-        && first.unbondedSupportCount == second.unbondedSupportCount && first.hintCount == second.hintCount;
-}
-
 } // namespace
 
 std::optional<std::string> UraTrainingScanner::SelectedTrainingType() const
@@ -109,32 +100,21 @@ void UraTrainingScanner::ScoreCandidates()
         Fail("No safe training candidate: " + m_decision.decisionReason);
         return;
     }
-    m_stage = UraTrainingScannerStage::VerifyingSelection;
+    m_stage = UraTrainingScannerStage::SelectingTraining;
 }
 
-bool UraTrainingScanner::VerifySelectedCandidate(const TrainingCandidate& sample)
+bool UraTrainingScanner::ConfirmSelectedTraining(const std::string& trainingType)
 {
-    if (m_stage != UraTrainingScannerStage::VerifyingSelection || !m_decision.chosenCandidate)
+    if (m_stage != UraTrainingScannerStage::SelectingTraining || !m_decision.chosenCandidate)
         return false;
     std::string normalized;
-    if (!TrainingTypeCatalog::TryNormalize(sample.trainingType, normalized)
+    if (!TrainingTypeCatalog::TryNormalize(trainingType, normalized)
         || normalized != m_decision.chosenCandidate->trainingType)
     {
-        Fail("The fresh candidate did not match the selected training.");
+        Fail("The raised card did not match the selected training.");
         return false;
     }
-    const auto before = *m_decision.chosenCandidate;
-    const auto candidate = std::find_if(m_candidates.begin(), m_candidates.end(), [&](const auto& item) {
-        return item.trainingType == normalized;
-    });
-    if (candidate == m_candidates.end()) return false;
-    *candidate = sample;
-    candidate->trainingType = normalized;
-    ScoreCandidates();
-    if (m_stage == UraTrainingScannerStage::Fallback) return false;
-    if (SameScoringValues(before, *candidate) && candidate->HasReliableCoreValues()
-        && candidate->HasReliableFailureRate() && SelectedTrainingType() == normalized)
-        m_stage = UraTrainingScannerStage::ReadyToSelect;
+    m_stage = UraTrainingScannerStage::ReadyToSelect;
     return true;
 }
 

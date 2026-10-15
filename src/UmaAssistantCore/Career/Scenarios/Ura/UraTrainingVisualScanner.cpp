@@ -259,6 +259,7 @@ struct UraTrainingVisualScanner::SelectionFrame
     CareerDomain::Ura::UraTrainingMarkerEvidence evidence;
     std::unordered_map<std::string, TaskEngine::TaskMatchResult> logoMatches;
     bool screenChanged{false};
+    bool retryableMarkerFailure{false};
     std::string error;
     [[nodiscard]] bool IsValid() const noexcept
     {
@@ -275,6 +276,7 @@ struct UraTrainingVisualScanner::ScanCache
     std::uint64_t geometry{0};
     int captures{0};
     int previewTaps{0};
+    int previewRechecks{0};
     std::unordered_map<std::string, TaskEngine::TaskMatchResult> logoHints;
 
     void BindFrame(const TaskEngine::TaskFrameSnapshot& frame)
@@ -312,15 +314,15 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
         std::shared_ptr<ScanCache>& cache;
         std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
         int retries{0};
-        int winnerChecks{0};
         ~ScanLifetime()
         {
             const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - started).count();
-            context.Log("DEBUG", "Smart training scan timing: mode=single-frame-recheck, total_ms="
+            context.Log("DEBUG", "Smart training scan timing: mode=single-frame, total_ms="
                 + std::to_string(elapsed) + ", fresh_captures=" + std::to_string(cache->captures)
                 + ", preview_taps=" + std::to_string(cache->previewTaps)
-                + ", retries=" + std::to_string(retries) + ", winner_checks=" + std::to_string(winnerChecks));
+                + ", retries=" + std::to_string(retries)
+                + ", preview_rechecks=" + std::to_string(cache->previewRechecks));
             cache.reset();
         }
     } lifetime{context, m_scanCache};
@@ -388,7 +390,7 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
     if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
 
     // Switching already produces a fresh verified frame. If the card is still
-    // selected, explicitly capture again so retries/rechecks cannot reuse it.
+    // selected, explicitly capture again so unreadable retries cannot reuse it.
     auto freshPreview = [&](const std::string& type) {
         const bool alreadySelected = selection.evidence.raisedTrainingType == type;
         if (!SelectPreview(context, selection, type, error)) return false;
@@ -425,25 +427,17 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
         if (!scanner.SubmitCandidateSample(candidate))
             return {scanner.Stage(), false, scanner.FailureReason()};
 
-    constexpr int maximumWinnerChecks = 5;
-    while (scanner.Stage() == Stage::VerifyingSelection && lifetime.winnerChecks < maximumWinnerChecks)
+    if (scanner.Stage() == Stage::SelectingTraining)
     {
         const auto winner = *scanner.SelectedTrainingType();
-        if (!freshPreview(winner))
+        if (!SelectPreview(context, selection, winner, error))
             return {scanner.Stage(), selection.screenChanged, std::move(error)};
-        ++lifetime.winnerChecks;
-        const auto fresh = readCurrent(winner);
         if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
         if (!SameFrame(context, selection.frame))
-            return {scanner.Stage(), true, "Training frame changed during winner verification."};
-        if (!scanner.VerifySelectedCandidate(fresh))
+            return {scanner.Stage(), true, "Training frame changed during winner selection."};
+        if (!scanner.ConfirmSelectedTraining(*selection.evidence.raisedTrainingType))
             return {scanner.Stage(), false, scanner.FailureReason()};
-        if (scanner.Stage() == Stage::VerifyingSelection)
-            context.Log("DEBUG", "Smart training winner changed on recheck: " + winner
-                + " -> " + scanner.SelectedTrainingType().value_or("unknown") + "; checking fresh values again.");
     }
-    if (scanner.Stage() == Stage::VerifyingSelection)
-        return {scanner.Stage(), false, "Training values did not stabilize within five winner checks."};
     return {scanner.Stage(), false, scanner.FailureReason()};
 }
 
@@ -605,6 +599,8 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
         if (!match.found || !MatchBelongsToFrame(match, *frame))
         {
             result.error = std::string("Could not find the ") + trainingType + " training card marker.";
+            result.retryableMarkerFailure = !match.found
+                && static_cast<bool>(context.LoadTemplateImage(*normalTask->templatePath));
             return result;
         }
         result.evidence.matches.push_back({trainingType, true, match.score});
@@ -618,6 +614,7 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
     if (raisedType.empty())
     {
         result.error = "The raised training card could not be identified.";
+        result.retryableMarkerFailure = true;
         return result;
     }
 
@@ -655,6 +652,7 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
     if (markedTypes.size() != 1)
     {
         result.error = "The selected training card marker is missing or ambiguous.";
+        result.retryableMarkerFailure = static_cast<bool>(context.LoadTemplateImage(*chevronTask->templatePath));
         return result;
     }
     std::vector<int> flatRows;
@@ -670,6 +668,7 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
     if (flatRows.size() < 2)
     {
         result.error = "The flat training card row could not be verified.";
+        result.retryableMarkerFailure = true;
         return result;
     }
     const int flatY = flatRows[flatRows.size() / 2];
@@ -710,6 +709,7 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
         if (!match.found || !MatchBelongsToFrame(match, *frame))
         {
             result.error = std::string("The ") + trainingType + " training logo could not be verified on its card.";
+            result.retryableMarkerFailure = !match.found;
             return result;
         }
     }
@@ -735,16 +735,22 @@ UraTrainingVisualScanner::SelectionFrame UraTrainingVisualScanner::DetectSelecti
     if (NormalizeSemantic(markedTypes.front()) != NormalizeSemantic(raisedType))
     {
         result.error = "The selected card marker and verified logo heights disagree.";
+        result.retryableMarkerFailure = true;
         return result;
     }
     const auto* raisedClickTask = m_resources->FindExecutionTask(
         std::string("training_selection_") + markedTypes.front() + "_raised_click");
     if (!raisedClickTask || !raisedClickTask->clickOffset || raisedClickTask->clickOffset->size() < 2 ||
-        (*raisedClickTask->clickOffset)[1] <= 0 ||
-        std::abs(result.logoMatches.at(markedTypes.front()).CenterY() -
+        (*raisedClickTask->clickOffset)[1] <= 0)
+    {
+        result.error = "The raised training card geometry is not configured.";
+        return result;
+    }
+    if (std::abs(result.logoMatches.at(markedTypes.front()).CenterY() -
             (flatY - (*raisedClickTask->clickOffset)[1])) > 22)
     {
         result.error = "The selected marker and raised-card geometry disagree.";
+        result.retryableMarkerFailure = true;
         return result;
     }
     result.evidence.raisedTrainingType = std::move(raisedType);
@@ -788,6 +794,11 @@ bool UraTrainingVisualScanner::SelectPreview(
 
     for (int attempt = 0; attempt < kMaximumPreviewAttempts; ++attempt)
     {
+        if (context.IsCancelled())
+        {
+            error = "Training preview verification was cancelled.";
+            return false;
+        }
         auto nextFrame = CaptureFreshFrame(context, current.frame, error);
         if (!nextFrame)
             return false;
@@ -807,6 +818,15 @@ bool UraTrainingVisualScanner::SelectPreview(
         current = std::move(next);
         if (!current.IsValid())
         {
+            // A preview animation can temporarily move or obscure a marker.
+            // Recapture only; tapping the now-selected card would commit training.
+            if (current.retryableMarkerFailure && attempt + 1 < kMaximumPreviewAttempts)
+            {
+                if (m_scanCache) ++m_scanCache->previewRechecks;
+                context.Log("DEBUG", "Training preview markers are not settled for " + trainingType
+                    + "; capturing again: " + current.error);
+                continue;
+            }
             error = current.error.empty() ? "Training card markers became incomplete after a preview tap."
                                           : current.error;
             return false;
