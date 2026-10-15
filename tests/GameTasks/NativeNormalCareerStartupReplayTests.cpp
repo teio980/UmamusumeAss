@@ -236,6 +236,25 @@ TEST_CASE("Normal Career startup waits for a stable resumed event and retains it
     CHECK(context.taps.empty());
 }
 
+TEST_CASE("Resumed startup follows an event that has already transitioned to Career Main",
+    "[GameTasks][CareerStartupReplay][ResumeHandoffRegression]")
+{
+    auto const config = PackagedConfig();
+    CareerVisualResources resources(config);
+    SequenceCareerObserver observer({Screen("career_main", CareerScreenKind::MainTurn)});
+    StartupReplayContext context;
+    auto const result = NativeNormalCareerStartup::Run(config, resources, observer, context, "scenario_event");
+    CAPTURE(result.error, result.lastScreenId);
+    REQUIRE(result.succeeded);
+    REQUIRE(result.runtimeObservation);
+    CHECK(result.runtimeObservation->screenId == "career_main");
+    REQUIRE(observer.candidateHistory.size() == 2);
+    CHECK(observer.candidateHistory.front() == std::vector<std::string>{"scenario_event"});
+    auto const& retry = observer.candidateHistory.back();
+    CHECK(std::find(retry.begin(), retry.end(), "career_main") != retry.end());
+    CHECK(context.taps.empty());
+}
+
 TEST_CASE("New Normal Career startup excludes goal overlays before confirming its first turn",
     "[GameTasks][CareerStartupReplay][CareerStartupMainRegression]")
 {

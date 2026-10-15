@@ -75,7 +75,10 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         && attempt < 30 && !context.IsCancelled(); ++attempt)
     {
         context.Sleep(250);
-        initial = observer.ObserveScreens(context, initialScreens, !newCareer);
+        // A resumed event or dialog may disappear while entry hands control
+        // to startup. Retry all runtime candidates instead of pinning every
+        // capture to the screen that was visible before the transition.
+        initial = observer.ObserveScreens(context, newCareer ? initialScreens : startupScreens, !newCareer);
     }
     result.lastScreenId = initial.screenId;
     if (context.IsCancelled() || initial.screenId == "capture_cancelled") { result.cancelled = true; return result; }
@@ -91,7 +94,8 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         || initial.screenId == "normal_intro_event" || initial.screenId == "normal_quick_mode_settings";
     if (!finalConfirmation && !pendingOpening)
     {
-        result.error = "Normal Career setup requires confirmed Final Confirmation or a resumed Career screen.";
+        result.error = "Normal Career setup requires confirmed Final Confirmation or a resumed Career screen. Last observed screen: "
+            + initial.screenId + ".";
         return result;
     }
     // Match main's careerStartTransitionExpected policy: opening setup must
