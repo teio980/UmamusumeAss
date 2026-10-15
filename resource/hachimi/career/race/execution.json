@@ -720,7 +720,11 @@
       "template": "templates/career/race/race_result_next.png",
       "templThreshold": 0.82,
       "roi": [240, 1380, 420, 180],
-      "timeoutMs": 0,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 150,
+      "onErrorNext": [
+        "race_runner_view_results_tap"
+      ],
       "success": true
     },
     "race_retry_cancel": {

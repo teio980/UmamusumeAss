@@ -799,6 +799,92 @@ TEST_CASE("MuMu Cosmos Sho result satisfies the View Results destination marker"
     CHECK(match.score >= task->transitionThreshold);
 }
 
+TEST_CASE("View Results recovers when its result marker disappears before the terminal check",
+    "[CareerRuntime][CareerRaceReadyRecovery]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    class TransientResultContext : public ActualRaceResultContext
+    {
+    public:
+        TransientResultContext() : ActualRaceResultContext("race_view_results_junior_debut_tap_mumu_20261015.png") {}
+        bool CaptureScreen() override
+        {
+            if (recoveryImage && captures == recoveryAfterCaptures)
+                image = *recoveryImage;
+            return ActualRaceResultContext::CaptureScreen();
+        }
+        TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
+            const std::optional<TaskRoi>& roi, const std::string& algorithm, int width, int height,
+            const std::vector<double>& scales) override
+        {
+            auto match = ActualRaceResultContext::MatchTemplateAdvanced(path, threshold, roi, algorithm, width, height, scales);
+            // Reproduce a single result observation followed by the real TAP
+            // placement overlay on the next capture. Only that first observation
+            // is injected; recovery clicks and destination checks use real pixels.
+            if (captures == 1 && FoldPath(path) == "race_result_next.png")
+            {
+                match.found = true;
+                match.score = 0.99;
+            }
+            return match;
+        }
+        std::optional<UmaAssistant::Vision::GrayImage> recoveryImage;
+        std::uint64_t recoveryAfterCaptures{1};
+    } context;
+    ActualRaceResultContext destination("race_view_results_fuyo_stakes_1st_mumu_20261012.png");
+    context.nextImage = destination.image;
+    context.cancelAfterCaptures = 30;
+    bool expectsTap = false;
+    bool expectsRetry = false;
+    bool expectsCancellation = false;
+    SECTION("Placement overlay is dismissed before the result appears") { expectsTap = true; }
+    SECTION("A late result marker completes without an extra tap")
+    {
+        context.recoveryImage = destination.image;
+        context.recoveryAfterCaptures = 2;
+    }
+    SECTION("A retry dialog is handed back without spending an alarm")
+    {
+        ActualRaceResultContext retry("race_retry_oguri_3rd_mumu_20261014.png");
+        context.recoveryImage = retry.image;
+        expectsRetry = true;
+    }
+    SECTION("Cancellation while awaiting the result sends no input")
+    {
+        context.cancelAfterCaptures = 3;
+        expectsCancellation = true;
+    }
+    TaskGraphRunner runner;
+    const auto result = runner.Run(resources->GetExecutionDefinition(), "race_runner_view_results_tap", context);
+    INFO(result.errorMessage);
+    if (expectsCancellation)
+    {
+        REQUIRE(result.status == TaskGraphStatus::Cancelled);
+        CHECK(context.taps.empty());
+        return;
+    }
+    REQUIRE((result.status == TaskGraphStatus::Success || result.status == TaskGraphStatus::Completed));
+    if (expectsRetry)
+    {
+        CHECK(result.finalTask == "race_runner_retry_pending");
+        CHECK(context.taps.empty());
+        return;
+    }
+    if (!expectsTap)
+    {
+        CHECK(result.finalTask == "race_runner_view_results_ready");
+        CHECK(context.taps.empty());
+        return;
+    }
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 300);
+    CHECK(context.taps.front().first < 600);
+    CHECK(context.taps.front().second >= 1200);
+    CHECK(context.taps.front().second < 1450);
+}
+
 TEST_CASE("Direct View Results placings are recognized after the runner checkpoint", "[CareerRuntime][CareerRaceTransition]")
 {
     const auto config = PackagedConfig();
