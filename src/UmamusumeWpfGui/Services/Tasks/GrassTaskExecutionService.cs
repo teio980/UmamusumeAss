@@ -204,10 +204,10 @@ public sealed class GrassTaskExecutionService(
                         }
                         else
                         {
-                            context.TaskLogSink?.Add(
+                            context.LogSink?.Add(
                                 "Action",
                                 progress.Message,
-                                progress.Succeeded ? HachimiTaskLogEventKind.Info : HachimiTaskLogEventKind.Warning);
+                                progress.Succeeded ? LogEntryKind.Info : LogEntryKind.Failure);
                         }
                     }
                     break;
@@ -301,9 +301,9 @@ public sealed class GrassTaskExecutionService(
                 || !HachimiTaskLogSemantics.TryDescribe(profile, progress.TaskName, out var semantic))
             {
                 if (progress.EventType is GameTaskEventType.ActionExecuted or GameTaskEventType.TaskFailed)
-                    context.TaskLogSink?.Add(
+                    context.LogSink?.Add(
                         "Action", progress.Message,
-                        progress.Succeeded ? HachimiTaskLogEventKind.Info : HachimiTaskLogEventKind.Warning);
+                        progress.Succeeded ? LogEntryKind.Info : LogEntryKind.Failure);
                 return;
             }
 
@@ -316,6 +316,7 @@ public sealed class GrassTaskExecutionService(
                 case GameTaskEventType.ActionExecuting when semantic.SentMessage is not null:
                     context.TaskLogSink?.Add("Action", semantic.SentMessage, HachimiTaskLogEventKind.Action);
                     break;
+                case GameTaskEventType.TransitionVerified when semantic.SentMessage is not null:
                 case GameTaskEventType.TaskCompleted:
                     context.TaskLogSink?.Add("Step", semantic.CompletedMessage, HachimiTaskLogEventKind.Success);
                     break;
@@ -465,6 +466,7 @@ public sealed class GrassTaskExecutionService(
 
     private static HachimiTaskLogProfile GetLogProfile(string taskId) => taskId switch
     {
+        "start-game" => HachimiTaskLogProfile.StartGame,
         "team-race" => HachimiTaskLogProfile.TeamRace,
         "daily-race" => HachimiTaskLogProfile.DailyRace,
         "mail-collection" => HachimiTaskLogProfile.MailCollection,

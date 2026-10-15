@@ -937,10 +937,24 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
                 if (initialTapPerformed && options.initialFrame)
                     context.Log("DEBUG", "Turn confirmation button clicked: " + currentTaskName
                         + (reusedInitialFrame ? " (observed frame)." : " (fresh capture)."));
+                std::string actionMessage;
+                switch (actionResult)
+                {
+                case ActionResult::Success:
+                    actionMessage = "Action executed successfully.";
+                    break;
+                case ActionResult::Skipped:
+                    actionMessage = "Action execution skipped.";
+                    break;
+                case ActionResult::Failed:
+                default:
+                    actionMessage = "Action execution failed.";
+                    break;
+                }
                 context.EmitEvent(TaskExecutionEvent{
                     TaskEventType::ActionExecuted, currentTaskName, definition.name, step, actionSucceeded,
                     eval.matchResult.score, eval.matchResult.CenterX(), eval.matchResult.CenterY(),
-                    "Action executed result: " + std::to_string(static_cast<int>(actionResult)),
+                    std::move(actionMessage),
                     std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count()});
             }
             else if (actionSucceeded)

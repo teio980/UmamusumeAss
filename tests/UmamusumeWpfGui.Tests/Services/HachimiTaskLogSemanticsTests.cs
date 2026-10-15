@@ -6,6 +6,31 @@ namespace UmamusumeWpfGui.Tests.Services;
 public sealed class HachimiTaskLogSemanticsTests
 {
     [Fact]
+    public void StartGame_OnlyDescribesUserFacingSteps()
+    {
+        Assert.True(HachimiTaskLogSemantics.TryDescribe(
+            HachimiTaskLogProfile.StartGame,
+            "CheckTapToStart",
+            out var tapToStart));
+        Assert.Contains("start the game", tapToStart.StartMessage, StringComparison.OrdinalIgnoreCase);
+
+        Assert.True(HachimiTaskLogSemantics.TryDescribe(
+            HachimiTaskLogProfile.StartGame,
+            "CheckGameHome",
+            out var gameHome));
+        Assert.Contains("home screen", gameHome.StartMessage, StringComparison.OrdinalIgnoreCase);
+
+        Assert.False(HachimiTaskLogSemantics.TryDescribe(
+            HachimiTaskLogProfile.StartGame,
+            "WaitForStartup",
+            out _));
+        Assert.False(HachimiTaskLogSemantics.TryDescribe(
+            HachimiTaskLogProfile.StartGame,
+            "unknownProbe",
+            out _));
+    }
+
+    [Fact]
     public void TeamRace_OnlyDescribesUserFacingSteps()
     {
         Assert.True(HachimiTaskLogSemantics.TryDescribe(

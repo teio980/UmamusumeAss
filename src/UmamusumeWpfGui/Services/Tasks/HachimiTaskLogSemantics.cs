@@ -198,6 +198,7 @@ internal static class HachimiTaskLogSemantics
         var name = taskName.Trim();
         step = profile switch
         {
+            HachimiTaskLogProfile.StartGame => DescribeStartGame(name),
             HachimiTaskLogProfile.TeamRace => DescribeTeamRace(name),
             HachimiTaskLogProfile.DailyRace => DescribeDailyRace(name),
             HachimiTaskLogProfile.MailCollection => DescribeMailCollection(name),
@@ -208,6 +209,20 @@ internal static class HachimiTaskLogSemantics
         };
         return !string.IsNullOrWhiteSpace(step.StartMessage);
     }
+
+    private static HachimiTaskLogSemanticStep DescribeStartGame(string name) => name switch
+    {
+        "CheckTapToStart" => Step("Tapping to start the game", "Game title screen tapped"),
+        "CheckGameHome" => Step("Confirming game home screen", "Game home screen confirmed"),
+        "CheckHomeTabOnOtherPage" => Step("Returning to game home screen", "Game home screen returned"),
+        "CheckNotices" => Step("Closing game notices", "Game notices closed"),
+        "CheckPromoSkip" => Step("Skipping game promotion", "Game promotion skipped"),
+        "CheckDataDownload" => Step("Confirming data download", "Data download confirmed"),
+        "CheckStartNoticeSkip" => Step("Skipping startup notice", "Startup notice skipped"),
+        "CheckLogoSkip" => Step("Skipping startup logo", "Startup logo skipped"),
+        "StartupMonitor" => Step("Monitoring game startup", "Game startup completed"),
+        _ => default,
+    };
 
     private static HachimiTaskLogSemanticStep DescribeTeamRace(string name) => name switch
     {

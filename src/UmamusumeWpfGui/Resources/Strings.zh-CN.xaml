@@ -595,4 +595,22 @@
   <sys:String x:Key="HachimiTaskLog_Career_introduction_continued">Career 开场流程已继续。</sys:String>
   <sys:String x:Key="HachimiTaskLog_Starting_Career">正在开始 Career 育成。</sys:String>
   <sys:String x:Key="HachimiTaskLog_Career_started">Career 育成已开始。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Tapping_to_start_the_game">正在点击标题画面进入游戏。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_title_screen_tapped">已点击标题画面。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Confirming_game_home_screen">正在确认游戏主界面。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_home_screen_confirmed">游戏主界面已确认。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Returning_to_game_home_screen">正在返回游戏主界面。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_home_screen_returned">已返回游戏主界面。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Closing_game_notices">正在关闭游戏公告。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_notices_closed">游戏公告已关闭。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Skipping_game_promotion">正在跳过活动推广。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_promotion_skipped">活动推广已跳过。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Confirming_data_download">正在确认数据下载。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Data_download_confirmed">数据下载已确认。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Skipping_startup_notice">正在跳过开屏提示。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Startup_notice_skipped">开屏提示已跳过。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Skipping_startup_logo">正在跳过开屏 Logo。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Startup_logo_skipped">开屏 Logo 已跳过。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Monitoring_game_startup">正在监控游戏启动。</sys:String>
+  <sys:String x:Key="HachimiTaskLog_Game_startup_completed">游戏启动完成。</sys:String>
 </ResourceDictionary>

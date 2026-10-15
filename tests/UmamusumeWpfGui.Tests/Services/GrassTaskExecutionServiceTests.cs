@@ -275,6 +275,150 @@ public sealed class GrassTaskExecutionServiceTests
         Assert.Equal(1, progress[1].CompletedRuns);
     }
 
+    [Fact]
+    public async Task UnmappedActionExecutedEvent_IsRoutedToDiagnosticLog_AndNeverAddedToTaskLogSink()
+    {
+        var diagnosticLogs = new List<(string Type, string Details, LogEntryKind Kind)>();
+        var semanticLogs = new List<(string Phase, string Message, HachimiTaskLogEventKind Kind)>();
+        var native = new RecordingUmaService
+        {
+            CustomEventGenerator = emit =>
+            {
+                emit(new TaskStartedEvent(1, 1, 1, "daily-race", 0, 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 2,
+                    TaskId: "daily-race",
+                    EventType: GameTaskEventType.ActionExecuted,
+                    TaskName: "teamShopProbe",
+                    PipelineName: "daily-race",
+                    StepIndex: 0,
+                    CompletedUnits: 0,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 100,
+                    TargetY: 200,
+                    Message: "Action executed successfully.",
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new TaskCompletedEvent(1, 3, 1, "daily-race", 1, 1, "done"));
+            }
+        };
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("daily-race")]);
+
+        var result = await service.RunAsync(requests, _ => new(
+            null,
+            LogSink: new RecordingDiagnosticLogSink(diagnosticLogs),
+            TaskLogSink: new RecordingTaskLogSink(semanticLogs)), _ => { });
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(semanticLogs);
+        Assert.Contains(diagnosticLogs, item => item.Type == "Action" && item.Details == "Action executed successfully.");
+    }
+
+    [Fact]
+    public async Task TransitionVerifiedEvent_ForCareerAction_AddsCompletedMessageToTaskLogSink()
+    {
+        var semanticLogs = new List<(string Phase, string Message, HachimiTaskLogEventKind Kind)>();
+        var native = new RecordingUmaService
+        {
+            CustomEventGenerator = emit =>
+            {
+                emit(new TaskStartedEvent(1, 1, 1, "career-training", 0, 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 2,
+                    TaskId: "career-training",
+                    EventType: GameTaskEventType.ActionExecuting,
+                    TaskName: "career_main.training.select",
+                    PipelineName: "career-training",
+                    StepIndex: 0,
+                    CompletedUnits: 0,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 0,
+                    TargetY: 0,
+                    Message: "Selecting career training",
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 3,
+                    TaskId: "career-training",
+                    EventType: GameTaskEventType.TransitionVerified,
+                    TaskName: "career_main.training.select",
+                    PipelineName: "career-training",
+                    StepIndex: 0,
+                    CompletedUnits: 0,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 0,
+                    TargetY: 0,
+                    Message: "Transition verified",
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new TaskCompletedEvent(1, 4, 1, "career-training", 1, 1, "done"));
+            }
+        };
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("career-training")]);
+
+        var result = await service.RunAsync(requests, _ => new(
+            null,
+            TaskLogSink: new RecordingTaskLogSink(semanticLogs)), _ => { });
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(semanticLogs, item => item.Phase == "Action" && item.Message == "Career training action sent.");
+        Assert.Contains(semanticLogs, item => item.Phase == "Step" && item.Message == "Career training confirmed.");
+    }
+
+    [Fact]
+    public async Task StartGameTask_MapsUserFacingActionsToTaskLogSink()
+    {
+        var semanticLogs = new List<(string Phase, string Message, HachimiTaskLogEventKind Kind)>();
+        var native = new RecordingUmaService
+        {
+            CustomEventGenerator = emit =>
+            {
+                emit(new TaskStartedEvent(1, 1, 1, "start-game", 0, 1));
+                emit(new GameTaskProgressEvent(
+                    OperationId: 1,
+                    Sequence: 2,
+                    TaskId: "start-game",
+                    EventType: GameTaskEventType.TaskEntering,
+                    TaskName: "CheckTapToStart",
+                    PipelineName: "start_game",
+                    StepIndex: 0,
+                    CompletedUnits: 0,
+                    TotalUnits: 1,
+                    Succeeded: true,
+                    Score: 1.0,
+                    TargetX: 0,
+                    TargetY: 0,
+                    Message: "Tapping title",
+                    TimestampMs: 0,
+                    TaskInstanceId: 1));
+                emit(new TaskCompletedEvent(1, 3, 1, "start-game", 1, 1, "done"));
+            }
+        };
+        var executor = new NativeGrassTaskExecutor(native, new MemorySettingsService());
+        var service = new GrassTaskExecutionService(executor);
+        var requests = service.Capture([new RecordingModule("start-game")]);
+
+        var result = await service.RunAsync(requests, _ => new(
+            null,
+            TaskLogSink: new RecordingTaskLogSink(semanticLogs)), _ => { });
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(semanticLogs, item => item.Phase == "Step" && item.Message == "Tapping to start the game.");
+    }
+
     private sealed class SingleTaskUmaService : IUmaService
     {
         private Action<ConnectionEvent>? _events;
@@ -425,6 +569,13 @@ public sealed class GrassTaskExecutionServiceTests
     {
         public void Add(string phase, string message, HachimiTaskLogEventKind kind = HachimiTaskLogEventKind.Info) =>
             entries.Add((phase, message, kind));
+    }
+
+    private sealed class RecordingDiagnosticLogSink(
+        List<(string Type, string Details, LogEntryKind Kind)> entries) : IGrassTaskLogSink
+    {
+        public void Add(string type, string details, LogEntryKind kind = LogEntryKind.Info) =>
+            entries.Add((type, details, kind));
     }
 
     private sealed class ReplayLocalizationService : ILocalizationService
