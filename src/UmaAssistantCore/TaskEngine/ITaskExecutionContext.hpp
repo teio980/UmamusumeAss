@@ -166,6 +166,9 @@ public:
         (void)match;
         return Tap(x, y);
     }
+    // An explicit coordinate-only action has no screenshot evidence to match.
+    // The device adapter maps and validates display geometry without capturing.
+    [[nodiscard]] virtual bool TapCoordinate(int x, int y) { return Tap(x, y); }
     [[nodiscard]] virtual bool RetainMatchForRetry(
         const TaskMatchResult& match,
         int maxTapAttempts = 1,

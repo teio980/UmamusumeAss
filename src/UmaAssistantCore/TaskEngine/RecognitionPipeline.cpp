@@ -347,7 +347,7 @@ std::optional<TaskMatchResult> RecognitionPipeline::DetectSingleFrame(
         direct.found = false;
         direct.referenceWidth = referenceWidth;
         direct.referenceHeight = referenceHeight;
-        return direct;
+        return stampMatch(std::move(direct));
     }
 
     return std::nullopt;

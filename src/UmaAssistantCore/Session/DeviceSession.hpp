@@ -15,6 +15,7 @@
 #include <stop_token>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace UmaAssistant {
@@ -46,6 +47,9 @@ struct DeviceFrame
     std::vector<std::uint8_t> png;
     std::shared_ptr<const Vision::GrayImage> pixels;
 };
+
+[[nodiscard]] std::pair<int, int> MapImagePointToCanonical(
+    int x, int y, DeviceFrameMetadata const& metadata);
 
 struct DeviceOperationResult
 {
@@ -155,6 +159,10 @@ public:
         std::int32_t canonical_x,
         std::int32_t canonical_y,
         std::stop_token cancellation);
+    [[nodiscard]] DeviceOperationResult tap_coordinate(
+        std::int32_t x, std::int32_t y,
+        std::int32_t reference_width, std::int32_t reference_height,
+        std::stop_token cancellation);
     [[nodiscard]] DeviceOperationResult swipe(
         std::uint64_t frame_id,
         std::int32_t x1,
@@ -199,6 +207,10 @@ public:
     [[nodiscard]] bool release_frame(std::uint64_t frame_id) noexcept;
 
 private:
+    [[nodiscard]] DeviceOperationResult tap_on_geometry(
+        DeviceFrameMetadata const& source_frame,
+        std::int32_t canonical_x, std::int32_t canonical_y,
+        std::stop_token cancellation);
     [[nodiscard]] std::optional<SessionFailure> run_command(
         std::vector<std::string> arguments,
         std::chrono::milliseconds timeout,

@@ -229,6 +229,79 @@ TEST_CASE("Layout ClickRect works without a template and template-less ClickSelf
     CHECK(noEvidenceContext.taps.empty());
 }
 
+TEST_CASE("Direct coordinate clicks repeat before checking a success marker", "[TaskEngine][CoordinateClick]")
+{
+    auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({
+      "tasks": {
+        "Burst": {"algorithm":"JustReturn","action":"ClickRect","specificRect":[440,1290,20,20],
+          "repeat":2,"repeat_delay":150,"next":["Continue"]},
+        "Continue": {"algorithm":"JustReturn","action":"ClickRect","specificRect":[440,1290,20,20],
+          "successTasks":["Done"],"postDelay":150,"maxTimes":3,"next":["Continue"]},
+        "Done": {"template":"next.png","action":"JustReturn","success":true}
+      }
+    })");
+    REQUIRE(definition);
+    class CoordinateContext : public MockTaskExecutionContext
+    {
+    public:
+        bool Tap(int x, int y) override
+        {
+            captureAtTap.push_back(captureCount);
+            sleepAtTap.push_back(totalSleepMs);
+            return MockTaskExecutionContext::Tap(x, y);
+        }
+        std::vector<int> captureAtTap, sleepAtTap;
+    } context;
+    context.SetMockMatchSequence("next.png", {
+        TaskMatchResult{}, TaskMatchResult{true, 0.99, 400, 1450, 100, 40}});
+    TaskGraphRunner runner;
+    const auto result = runner.Run(*definition, "Burst", context);
+    REQUIRE(result.status == TaskGraphStatus::Success);
+    CHECK(result.finalTask == "Done");
+    REQUIRE(context.taps.size() == 3);
+    CHECK((context.captureAtTap == std::vector<int>{0, 0, 1}));
+    CHECK((context.sleepAtTap == std::vector<int>{0, 150, 150}));
+    for (const auto& point : context.taps)
+        CHECK((point == std::pair<int, int>{450, 1300}));
+    CHECK_FALSE(context.HasRetainedMatch());
+}
+
+TEST_CASE("Coordinate click bursts stop on cancellation or failed input", "[TaskEngine][CoordinateClick]")
+{
+    auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({
+      "tasks": {"Burst":{"algorithm":"JustReturn","action":"ClickRect",
+        "specificRect":[440,1290,20,20],"repeat":2,"repeat_delay":150,"success":true}}
+    })");
+    REQUIRE(definition);
+    MockTaskExecutionContext context;
+    std::size_t expectedTaps = 1;
+    auto expectedStatus = TaskGraphStatus::Failed;
+    SECTION("Cancellation between clicks")
+    {
+        context.cancelOnSleep = true;
+        expectedStatus = TaskGraphStatus::Cancelled;
+    }
+    SECTION("The first input fails") { context.tapResults = {false}; }
+    SECTION("The second input fails") { context.tapResults = {true, false}; expectedTaps = 2; }
+    TaskGraphRunner runner;
+    CHECK(runner.Run(*definition, "Burst", context).status == expectedStatus);
+    CHECK(context.taps.size() == expectedTaps);
+    CHECK_FALSE(context.HasRetainedMatch());
+}
+
+TEST_CASE("Invalid coordinate click repeat settings are rejected", "[TaskEngine][CoordinateClick]")
+{
+    for (const auto& fields : {
+        R"("repeat":0)", R"("repeat":101)", R"("repeat_delay":-1)",
+        R"("repeat_delay":10001)", R"("repeat":2,"action":"ClickSelf")"})
+    {
+        const auto json = std::string(R"({"tasks":{"Burst":{"action":"ClickRect","specificRect":[0,0,20,20],)")
+            + fields + "}}}";
+        CAPTURE(json);
+        CHECK_FALSE(HachimiPipelineLoader::LoadFromJsonString(json));
+    }
+}
+
 TEST_CASE("Recognition applies scaled-template defaults and search ROI score-gap policy", "[TaskEngine]")
 {
     auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({

@@ -254,10 +254,10 @@ public:
 
     bool TapMatch(int x, int y, const TaskMatchResult& match) override
     {
-        // Coordinate-only actions (for example a configured ClickSpecificRect)
-        // have no recognition provenance to retain. Check the current screen
-        // and let NativeTaskExecutionContext map the reference point there.
-        if (!match.found || match.frameId == 0)
+        // Only frame-less actions bind to the pre-input capture. Coordinate
+        // actions can carry a source frame without a visual hit; retain that
+        // frame below before the recovery check captures a newer screen.
+        if (match.frameId == 0)
         {
             if (!CheckBeforeInput()) return false;
             MarkActionAttemptPending();
@@ -287,6 +287,15 @@ public:
     }
 
     bool HasRetainedMatch() const override { return m_inner.HasRetainedMatch(); }
+    bool TapCoordinate(int x, int y) override
+    {
+        if (m_inner.IsCancelled()) return false;
+        // JustReturn explicitly requests an unobserved coordinate click.
+        // Recovery is checked by the next observation, not an extra screenshot
+        // inserted between consecutive actions in the same direct-click chain.
+        MarkActionAttemptPending();
+        return m_inner.TapCoordinate(x, y);
+    }
     bool IsMatchRetained(const TaskMatchResult& match) const override { return m_inner.IsMatchRetained(match); }
     bool RetainMatchForRetry(const TaskMatchResult& match, int maxTapAttempts = 1,
         int lifetimeMilliseconds = 30000, int fixedReferenceX = -1, int fixedReferenceY = -1) override

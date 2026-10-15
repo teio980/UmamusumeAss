@@ -126,7 +126,7 @@ add_dependencies(UmaCallerTests UmaFakeAdb)
 uma_add_strict_warnings(UmaCallerTests)
 
 add_executable(NativeTaskContextTests NativeTaskContextTests.cpp)
-target_link_libraries(NativeTaskContextTests PRIVATE Catch2::Catch2WithMain UmaAssistantTaskEngine)
+target_link_libraries(NativeTaskContextTests PRIVATE Catch2::Catch2WithMain UmaAssistantGameTasks)
 target_compile_definitions(NativeTaskContextTests PRIVATE
   CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
   UMA_FAKE_ADB_PATH="$<TARGET_FILE:UmaFakeAdb>"

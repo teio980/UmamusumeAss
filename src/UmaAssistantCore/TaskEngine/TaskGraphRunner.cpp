@@ -460,7 +460,9 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             task.monitorTasks.empty() && !task.successTask && task.successTasks.empty() &&
             !task.clickVerification && !task.clickUntilGone && !task.repeatTapUntilTransition &&
             task.transitionTemplates.empty();
-        const bool actionNeedsNoFrame = NormalizeName(task.action) == "donothing" &&
+        const bool directCoordinateClick = NormalizeName(task.algorithm) == "justreturn"
+            && (NormalizeName(task.action) == "clickrect" || NormalizeName(task.action) == "clickspecificrect");
+        const bool actionNeedsNoFrame = (NormalizeName(task.action) == "donothing" || directCoordinateClick) &&
             hasNoVisualSelector && NormalizeName(task.algorithm) != "parallelmonitor" &&
             NormalizeName(task.algorithm) != "raceresultmonitor";
         bool recognized = actionNeedsNoFrame;
@@ -952,6 +954,11 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
             {
                 if (retainedForRetry)
                     context.ReleaseRetainedMatch();
+                if (context.IsCancelled())
+                {
+                    result.status = TaskGraphStatus::Cancelled;
+                    return result;
+                }
                 if (!routeFailure("Action execution failed on task: " + currentTaskName, TaskGraphStatus::Failed))
                     return result;
                 if (optionalTerminal)

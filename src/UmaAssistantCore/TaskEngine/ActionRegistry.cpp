@@ -3,6 +3,63 @@
 namespace UmaAssistant::TaskEngine
 {
 
+namespace
+{
+
+ActionResult ClickPoint(const HachimiPipelineTask& task, TaskMatchResult source,
+    ITaskExecutionContext& context, int x, int y)
+{
+    if (context.IsCancelled() || task.repeat < 1 || task.repeat > 100
+        || task.repeatDelayMilliseconds < 0 || task.repeatDelayMilliseconds > 10000)
+        return ActionResult::Failed;
+    if (CaseInsensitiveEqual{}(task.algorithm, "JustReturn") && !source.found)
+    {
+        for (int attempt = 0; attempt < task.repeat; ++attempt)
+        {
+            if (attempt > 0 && task.repeatDelayMilliseconds > 0)
+                context.Sleep(task.repeatDelayMilliseconds);
+            if (context.IsCancelled() || !context.TapCoordinate(x, y))
+                return ActionResult::Failed;
+        }
+        return ActionResult::Success;
+    }
+    if (task.repeat == 1)
+        return context.TapMatch(x, y, source) ? ActionResult::Success : ActionResult::Failed;
+
+    // One explicit coordinate-click burst owns one bounded input intent.
+    // Repetitions neither recapture the screen nor renew the frame lease.
+    if (source.frameId == 0)
+    {
+        if (const auto frame = context.GetCurrentFrame())
+        {
+            source.frameId = frame->frameId;
+            source.sessionGeneration = frame->sessionGeneration;
+            source.geometryGeneration = frame->geometryGeneration;
+        }
+    }
+    if (context.HasRetainedMatch()
+        || !context.RetainMatchForRetry(source, task.repeat, 30000, x, y))
+    {
+        context.Log("ERROR", "Repeated coordinate click could not retain its input frame.");
+        return ActionResult::Failed;
+    }
+    struct ReleaseIntent
+    {
+        ITaskExecutionContext& context;
+        ~ReleaseIntent() { context.ReleaseRetainedMatch(); }
+    } release{context};
+    for (int attempt = 0; attempt < task.repeat; ++attempt)
+    {
+        if (attempt > 0 && task.repeatDelayMilliseconds > 0)
+            context.Sleep(task.repeatDelayMilliseconds);
+        if (context.IsCancelled() || !context.TapMatch(x, y, source))
+            return ActionResult::Failed;
+    }
+    return ActionResult::Success;
+}
+
+} // namespace
+
 ActionRegistry::ActionRegistry()
 {
     RegisterBuiltinHandlers();
@@ -71,7 +128,7 @@ void ActionRegistry::RegisterBuiltinHandlers()
         return tapped ? ActionResult::Success : ActionResult::Failed;
     });
 
-    RegisterHandler("ClickSpecificRect", [](const HachimiPipelineTask& task, const TaskMatchResult&, ITaskExecutionContext& context) {
+    RegisterHandler("ClickSpecificRect", [](const HachimiPipelineTask& task, const TaskMatchResult& match, ITaskExecutionContext& context) {
         if (!task.specificRect || task.specificRect->size() < 4)
         {
             context.Log("ERROR", "ClickSpecificRect failed: specificRect not specified or invalid");
@@ -82,11 +139,10 @@ void ActionRegistry::RegisterBuiltinHandlers()
         int targetX = rect[0] + rect[2] / 2;
         int targetY = rect[1] + rect[3] / 2;
 
-        TaskMatchResult coordinateFrame;
+        TaskMatchResult coordinateFrame = match;
         coordinateFrame.referenceWidth = task.referenceWidth;
         coordinateFrame.referenceHeight = task.referenceHeight;
-        bool tapped = context.TapMatch(targetX, targetY, coordinateFrame);
-        return tapped ? ActionResult::Success : ActionResult::Failed;
+        return ClickPoint(task, coordinateFrame, context, targetX, targetY);
     });
 
     RegisterHandler("ClickText", [](const HachimiPipelineTask& task, const TaskMatchResult& match, ITaskExecutionContext& context) {
@@ -189,7 +245,7 @@ void ActionRegistry::RegisterBuiltinHandlers()
             const auto& rect = *task.specificRect;
             int targetX = rect[0] + rect[2] / 2;
             int targetY = rect[1] + rect[3] / 2;
-            return context.TapMatch(targetX, targetY, match) ? ActionResult::Success : ActionResult::Failed;
+            return ClickPoint(task, match, context, targetX, targetY);
         }
         if (match.found)
         {

@@ -64,6 +64,7 @@ public:
     [[nodiscard]] std::string GetTemplateBaseDirectory() const override;
     void SetTemplateBaseDirectory(const std::string& directory) override;
     [[nodiscard]] bool TapMatch(int x, int y, const TaskMatchResult& match) override;
+    [[nodiscard]] bool TapCoordinate(int x, int y) override;
     [[nodiscard]] bool RetainMatchForRetry(
         const TaskMatchResult& match,
         int maxTapAttempts = 1,

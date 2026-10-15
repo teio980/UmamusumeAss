@@ -112,6 +112,8 @@ HachimiPipelineTask ParseTask(const Json& j)
     task.transitionTimeoutMilliseconds = GetValueOrDefault(j, "transitionTimeoutMs", 2600);
     task.transitionPollIntervalMilliseconds = GetValueOrDefault(j, "transitionPollIntervalMs", 250);
     task.specificRect = GetOptional<std::vector<int>>(j, "specificRect");
+    task.repeat = GetValueOrDefault(j, "repeat", 1);
+    task.repeatDelayMilliseconds = GetValueOrDefault(j, "repeat_delay", 0);
     task.searchRois = GetValueOrDefault<std::vector<std::vector<int>>>(j, "searchRois", {});
     task.minimumScoreGap = GetValueOrDefault(j, "minScoreGap", 0.0);
     task.scaleCandidates = GetValueOrDefault<std::vector<double>>(j, "scaleCandidates", {});
@@ -196,7 +198,7 @@ std::optional<HachimiPipelineDefinition> HachimiPipelineLoader::LoadFromJsonStri
                     "clickUntilGone", "reuseLastMatchOnRetry", "maxClickAttempts", "repeatTapUntilTransition",
                     "goneConfirmationSamples", "transitionTemplates", "pollTransitionTemplatesTogether",
                     "transitionRoi", "transitionRois", "transitionThreshold", "transitionTimeoutMs",
-                    "transitionPollIntervalMs", "specificRect", "searchRois", "minScoreGap", "scaleCandidates",
+                    "transitionPollIntervalMs", "specificRect", "repeat", "repeat_delay", "searchRois", "minScoreGap", "scaleCandidates",
                     "preDelay", "postDelay", "waitMs", "timeoutMs", "pollIntervalMs", "monitorStableMs",
                     "retryTimes", "retryDelayMs", "next", "onErrorNext", "exceededNext", "sub", "monitorTasks",
                     "successTask", "successTasks", "maxTimes", "required", "success", "countAs", "countKey",
@@ -206,6 +208,14 @@ std::optional<HachimiPipelineDefinition> HachimiPipelineLoader::LoadFromJsonStri
                     return std::nullopt;
 
                 auto task = ParseTask(taskJson);
+                if (task.repeat < 1 || task.repeat > 100 || task.repeatDelayMilliseconds < 0
+                    || task.repeatDelayMilliseconds > 10000)
+                    return std::nullopt;
+                if (task.repeat > 1 && !CaseInsensitiveEqual{}(task.action, "ClickRect")
+                    && !CaseInsensitiveEqual{}(task.action, "ClickSpecificRect"))
+                    return std::nullopt;
+                if (task.repeat > 1 && (!task.specificRect || task.specificRect->size() != 4))
+                    return std::nullopt;
                 if (!taskJson.contains("referenceWidth"))
                     task.referenceWidth = def.referenceWidth;
                 if (!taskJson.contains("referenceHeight"))

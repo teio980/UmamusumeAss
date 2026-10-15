@@ -89,6 +89,8 @@ struct HachimiPipelineTask
     int transitionTimeoutMilliseconds{2600};
     int transitionPollIntervalMilliseconds{250};
     std::optional<std::vector<int>> specificRect;
+    int repeat{1};
+    int repeatDelayMilliseconds{0};
     std::vector<std::vector<int>> searchRois;
     double minimumScoreGap{0.0};
     std::vector<double> scaleCandidates;

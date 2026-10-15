@@ -1446,6 +1446,74 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
     return {.frame = stored->second.metadata};
 }
 
+std::pair<int, int> MapImagePointToCanonical(int x, int y, const DeviceFrameMetadata& metadata)
+{
+    if (metadata.display_scale <= 0.0 || !std::isfinite(metadata.display_scale))
+        return {-1, -1};
+    const double logicalX = (static_cast<double>(x) - metadata.display_offset_x) / metadata.display_scale;
+    const double logicalY = (static_cast<double>(y) - metadata.display_offset_y) / metadata.display_scale;
+    double canonicalX = 0.0;
+    double canonicalY = 0.0;
+    switch (metadata.orientation)
+    {
+    case 0:
+        canonicalX = logicalX;
+        canonicalY = logicalY;
+        break;
+    case 1:
+        canonicalX = logicalY;
+        canonicalY = 1919.0 - logicalX;
+        break;
+    case 2:
+        canonicalX = 1079.0 - logicalX;
+        canonicalY = 1919.0 - logicalY;
+        break;
+    case 3:
+        canonicalX = 1079.0 - logicalY;
+        canonicalY = logicalX;
+        break;
+    default:
+        return {-1, -1};
+    }
+    if (!std::isfinite(canonicalX) || !std::isfinite(canonicalY))
+        return {-1, -1};
+    return {
+        std::clamp(static_cast<int>(std::nearbyint(canonicalX)), 0, 1079),
+        std::clamp(static_cast<int>(std::nearbyint(canonicalY)), 0, 1919)};
+}
+
+DeviceOperationResult DeviceSession::tap_coordinate(
+    std::int32_t x, std::int32_t y,
+    std::int32_t reference_width, std::int32_t reference_height,
+    std::stop_token cancellation)
+{
+    std::lock_guard lock(mutex_);
+    if (held_touch_ || (interactive_touch_ && interactive_touch_->pressed))
+        return {.failure = fail(ConnectionErrorCode::Busy, "tap", "A held touch must be released before another input.")};
+    if (reference_width <= 0 || reference_height <= 0 || x < 0 || y < 0
+        || x >= reference_width || y >= reference_height)
+        return {.failure = fail(ConnectionErrorCode::InvalidArgument, "tap", "Invalid coordinate-click target.")};
+    std::optional<SessionFailure> geometry_failure;
+    const auto geometry = current_geometry(cancellation, geometry_failure);
+    if (geometry_failure) return {.failure = std::move(geometry_failure)};
+    if (!geometry)
+        return {.failure = fail(ConnectionErrorCode::DeviceNotReady, "tap", "Display geometry is unavailable.")};
+    const auto transform = display_transform(geometry->width, geometry->height, geometry->orientation);
+    // id remains zero: geometry for an unobserved coordinate action is not a screenshot.
+    const DeviceFrameMetadata metadata{
+        .session_generation = session_generation_, .geometry_generation = geometry_generation_,
+        .width = geometry->width, .height = geometry->height, .orientation = geometry->orientation,
+        .display_scale = transform.scale,
+        .display_offset_x = transform.offset_x, .display_offset_y = transform.offset_y,
+    };
+    const int pixel_x = static_cast<int>(std::nearbyint(static_cast<double>(x) * geometry->width / reference_width));
+    const int pixel_y = static_cast<int>(std::nearbyint(static_cast<double>(y) * geometry->height / reference_height));
+    const auto [canonical_x, canonical_y] = MapImagePointToCanonical(pixel_x, pixel_y, metadata);
+    if (canonical_x < 0 || canonical_y < 0)
+        return {.failure = fail(ConnectionErrorCode::InvalidArgument, "tap", "Coordinate cannot be mapped to the display.")};
+    return tap_on_geometry(metadata, canonical_x, canonical_y, cancellation);
+}
+
 DeviceOperationResult DeviceSession::tap(
     std::uint64_t frame_id,
     std::int32_t canonical_x,
@@ -1484,10 +1552,21 @@ DeviceOperationResult DeviceSession::tap(
                                 "tap", "Device screen geometry changed after capture."),
                 .source_frame = source_frame, .requested_first_point = request};
     }
+    return tap_on_geometry(source_frame, canonical_x, canonical_y, cancellation);
+}
+
+DeviceOperationResult DeviceSession::tap_on_geometry(
+    DeviceFrameMetadata const& source_frame,
+    std::int32_t canonical_x, std::int32_t canonical_y,
+    std::stop_token cancellation)
+{
+    DeviceOperationResult::Point const request{
+        .canonical_x = canonical_x, .canonical_y = canonical_y,
+    };
     auto const point = transform_point(canonical_x, canonical_y,
-                                      frame_it->second.metadata.width,
-                                      frame_it->second.metadata.height,
-                                      frame_it->second.metadata.orientation,
+                                      source_frame.width,
+                                      source_frame.height,
+                                      source_frame.orientation,
         DisplayTransform{source_frame.display_scale, source_frame.display_offset_x,
                          source_frame.display_offset_y});
     if (!point)

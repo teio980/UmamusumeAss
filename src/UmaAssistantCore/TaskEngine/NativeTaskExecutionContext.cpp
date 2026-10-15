@@ -80,41 +80,6 @@ int ScaleReferenceCoordinate(int value, int source, int target)
     return ScaleRoundEven(static_cast<double>(value) * target / source);
 }
 
-std::pair<int, int> MapImagePointToCanonical(int x, int y, const DeviceFrameMetadata& metadata)
-{
-    if (metadata.display_scale <= 0.0 || !std::isfinite(metadata.display_scale))
-        return {-1, -1};
-    const double logicalX = (static_cast<double>(x) - metadata.display_offset_x) / metadata.display_scale;
-    const double logicalY = (static_cast<double>(y) - metadata.display_offset_y) / metadata.display_scale;
-    double canonicalX = 0.0;
-    double canonicalY = 0.0;
-    switch (metadata.orientation)
-    {
-    case 0:
-        canonicalX = logicalX;
-        canonicalY = logicalY;
-        break;
-    case 1:
-        canonicalX = logicalY;
-        canonicalY = 1919.0 - logicalX;
-        break;
-    case 2:
-        canonicalX = 1079.0 - logicalX;
-        canonicalY = 1919.0 - logicalY;
-        break;
-    case 3:
-        canonicalX = 1079.0 - logicalY;
-        canonicalY = logicalX;
-        break;
-    default:
-        return {-1, -1};
-    }
-    if (!std::isfinite(canonicalX) || !std::isfinite(canonicalY))
-        return {-1, -1};
-    return {
-        std::clamp(ScaleRoundEven(canonicalX), 0, 1079),
-        std::clamp(ScaleRoundEven(canonicalY), 0, 1919)};
-}
 
 std::string NormalizeName(std::string value)
 {
@@ -659,6 +624,23 @@ void NativeTaskExecutionContext::SetTemplateBaseDirectory(const std::string& dir
 std::string NativeTaskExecutionContext::GetTemplateBaseDirectory() const
 {
     return Paths::ToUtf8(m_template_base_dir);
+}
+
+bool NativeTaskExecutionContext::TapCoordinate(int x, int y)
+{
+    m_last_error_code = 0;
+    if (m_cancellation.stop_requested() || !m_session)
+    {
+        m_last_error_code = static_cast<int>(m_cancellation.stop_requested()
+            ? ConnectionErrorCode::Canceled : ConnectionErrorCode::DeviceDisconnected);
+        return false;
+    }
+    const auto result = m_session->tap_coordinate(x, y, m_reference_width, m_reference_height, m_cancellation);
+    m_current_frame_input_consumed = true;
+    if (m_current_frame_id != 0 && m_current_frame_id != m_retained_frame_id)
+        static_cast<void>(m_session->release_frame(m_current_frame_id));
+    if (result.failure) m_last_error_code = result.failure->error_code;
+    return !result.failure;
 }
 
 bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& match)

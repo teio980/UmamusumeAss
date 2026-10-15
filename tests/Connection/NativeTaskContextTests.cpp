@@ -3,8 +3,11 @@
 #include "TaskEngine/NativeTaskExecutionContext.hpp"
 #include "TaskEngine/HachimiPipelineLoader.hpp"
 #include "TaskEngine/TaskGraphRunner.hpp"
+#include "GameTasks/NativeGameTaskRunner.hpp"
 #include "Common/PathEncoding.hpp"
 #include "Resources/WicImageDecoder.hpp"
+
+#include <nlohmann/json.hpp>
 
 #include <windows.h>
 #include <wincodec.h>
@@ -175,6 +178,110 @@ public:
 };
 
 } // namespace
+
+TEST_CASE("Native direct coordinate clicks need no screenshot", "[phase3][context][CoordinateClick]")
+{
+    Fixture fixture;
+    auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({
+      "tasks":{"Burst":{"algorithm":"JustReturn","action":"ClickRect",
+        "specificRect":[440,1290,20,20],"repeat":2,"repeat_delay":150,"success":true}}
+    })");
+    REQUIRE(definition);
+    { std::ofstream clear(fixture.commandLog, std::ios::trunc); }
+    TaskGraphRunner runner;
+    const auto result = runner.Run(*definition, "Burst", *fixture.context);
+    INFO(result.errorMessage);
+    REQUIRE(result.status == TaskGraphStatus::Success);
+    CHECK((fixture.Taps() == std::vector<std::pair<int, int>>{{225, 650}, {225, 650}}));
+    CHECK_FALSE(fixture.context->HasRetainedMatch());
+    const auto commands = fixture.Commands();
+    const auto firstTap = commands.find("\tinput\ttap\t");
+    REQUIRE(firstTap != std::string::npos);
+    CHECK(commands.find("screencap") == std::string::npos);
+}
+
+TEST_CASE("Guarded direct clicks follow a matched click without a screenshot in between", "[phase3][context][CoordinateClick][GameRecovery]")
+{
+    const auto resourceRoot = fs::path(CMAKE_SOURCE_DIR) / "resource";
+    Resources::ResourceSnapshot resources(resourceRoot);
+    Fixture fixture;
+    const auto definitionPath = fixture.directory / "immediate-click-chain.json";
+    const nlohmann::json definition = {
+        {"name", "immediate-click-chain"}, {"referenceWidth", 900}, {"referenceHeight", 1600},
+        {"tasks", {
+            {"home", {{"action", "DoNothing"}, {"next", {"Matched"}}}},
+            {"Matched", {{"algorithm", "MatchTemplate"}, {"action", "ClickSelf"},
+                {"template", Paths::ToUtf8(fixture.directory / "frame.png")},
+                {"next", {"Blank"}}}},
+            {"Blank", {{"algorithm", "JustReturn"}, {"action", "ClickRect"},
+                {"specificRect", {440, 1290, 20, 20}}, {"repeat", 2},
+                {"repeat_delay", 150}, {"success", true}}}
+        }}
+    };
+    { std::ofstream output(definitionPath); output << definition; }
+    const auto result = GameTasks::NativeGameTaskRunner::Run("mail-collection",
+        nlohmann::json{{"definitionPath", Paths::ToUtf8(definitionPath)}},
+        *fixture.context, resourceRoot, nullptr, &resources);
+    INFO(result.message);
+    REQUIRE(result.succeeded);
+    REQUIRE(fixture.Taps().size() == 3);
+    const auto commands = fixture.Commands();
+    const auto firstTap = commands.find("\tinput\ttap\t");
+    REQUIRE(firstTap != std::string::npos);
+    CHECK(commands.find("screencap", firstTap) == std::string::npos);
+}
+
+TEST_CASE("Direct coordinate clicks scale to every display orientation without screenshots", "[phase3][context][CoordinateClick]")
+{
+    for (int orientation = 0; orientation < 4; ++orientation)
+    {
+        CAPTURE(orientation);
+        const int width = orientation % 2 == 0 ? 450 : 800;
+        const int height = orientation % 2 == 0 ? 800 : 450;
+        Fixture fixture(width, height, orientation);
+        { std::ofstream clear(fixture.commandLog, std::ios::trunc); }
+        REQUIRE(fixture.context->TapCoordinate(180, 320));
+        const auto taps = fixture.Taps();
+        REQUIRE(taps.size() == 1);
+        CHECK(std::abs(taps[0].first - width / 5) <= 1);
+        CHECK(std::abs(taps[0].second - height / 5) <= 1);
+        CHECK(fixture.Commands().find("screencap") == std::string::npos);
+    }
+}
+
+TEST_CASE("Guarded coordinate clicks retain their source across the pre-input capture", "[phase3][context][CoordinateClick][GameRecovery]")
+{
+    auto const resourceRoot = fs::path(CMAKE_SOURCE_DIR) / "resource";
+    Resources::ResourceSnapshot resources(resourceRoot);
+    for (auto const* action : {"ClickRect", "ClickSpecificRect"})
+    for (int repeat : {1, 2})
+    {
+        CAPTURE(action, repeat);
+        Fixture fixture;
+        auto const definitionPath = fixture.directory / "guarded-race-click.json";
+        nlohmann::json const definition = {
+            {"name", "guarded-race-click"}, {"referenceWidth", 900}, {"referenceHeight", 1600},
+            {"tasks", {
+                {"home", {{"action", "DoNothing"}, {"next", {"race_list_race_start"}}}},
+                {"race_list_race_start", {{"algorithm", "ClickRect"}, {"action", action},
+                    {"specificRect", {270, 1300, 360, 120}}, {"repeat", repeat}, {"success", true}}}
+            }}
+        };
+        {
+            std::ofstream output(definitionPath, std::ios::binary);
+            REQUIRE(output.good());
+            output << definition;
+        }
+        auto const result = GameTasks::NativeGameTaskRunner::Run("mail-collection",
+            nlohmann::json{{"definitionPath", Paths::ToUtf8(definitionPath)}},
+            *fixture.context, resourceRoot, nullptr, &resources);
+        INFO(result.message);
+        CHECK(result.succeeded);
+        CHECK((fixture.Taps() == std::vector<std::pair<int, int>>(
+            static_cast<std::size_t>(repeat), {225, 680})));
+        CHECK_FALSE(fixture.context->HasRetainedMatch());
+    }
+}
 
 TEST_CASE("Native captures reuse pixels identical to the public PNG decoder", "[phase3][context][capture]")
 {
