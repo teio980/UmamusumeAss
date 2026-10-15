@@ -296,6 +296,12 @@ public sealed partial class GrassView : UserControl
         viewModel.MoveTask(sourceTask, targetIndex);
     }
 
+    private void OnTaskSettingsBackClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is GrassViewModel viewModel)
+            viewModel.CloseTaskSettings();
+    }
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Escape

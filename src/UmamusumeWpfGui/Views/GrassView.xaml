@@ -9,6 +9,7 @@
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <c:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
     <c:LogEntryKindToColorConverter x:Key="LogColorConverter" />
     <Style x:Key="PanelBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
@@ -111,6 +112,7 @@
                    Foreground="{DynamicResource TextSecondaryBrush}" />
       </StackPanel>
       <Border HorizontalAlignment="Right"
+              Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource InverseBoolToVisibility}}"
               Padding="10,6"
               Background="{DynamicResource SurfaceRaisedBrush}"
               BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -119,6 +121,20 @@
         <TextBlock Text="{Binding TaskCountSummary}"
                    Foreground="{DynamicResource TextSecondaryBrush}" />
       </Border>
+      <ui:Button Width="40"
+                 Height="32"
+                 MinWidth="0"
+                 Margin="0,4,8,0"
+                 Padding="0"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Top"
+                 ToolTip="{DynamicResource GrassTaskSettingsBackToolTip}"
+                 AutomationProperties.Name="{DynamicResource GrassTaskSettingsBackToolTip}"
+                 Appearance="Primary"
+                 Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource BoolToVisibility}}"
+                 Click="OnTaskSettingsBackClick">
+        <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="18" />
+      </ui:Button>
     </Grid>
 
     <Grid x:Name="HachimiWorkspace" Grid.Row="1">
