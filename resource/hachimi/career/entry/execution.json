@@ -130,13 +130,25 @@
       "timeoutMs": 8000,
       "pollIntervalMs": 250,
       "required": true,
+      "next": ["career_tp_restore_plus"]
+    },
+    "career_tp_restore_plus": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_plus.png",
+      "templThreshold": 0.88,
+      "roi": [605, 790, 95, 100],
+      "postDelay": 350,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
       "next": ["career_tp_restore_ok"]
     },
     "career_tp_restore_ok": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "ClickSelf",
       "template": "templates/career_entry_recover_tp_ok.png",
-      "templThreshold": 0.88,
+      "templThreshold": 0.95,
       "roi": [
         470,
         1100,
