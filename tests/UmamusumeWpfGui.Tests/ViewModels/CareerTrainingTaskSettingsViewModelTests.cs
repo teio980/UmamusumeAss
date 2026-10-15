@@ -194,6 +194,24 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Auto_restore_tp_defaults_to_false_and_round_trips()
+    {
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
+
+        Assert.False(settings.AutoRestoreTp);
+
+        settings.AutoRestoreTp = true;
+        Assert.True(settings.AutoRestoreTp);
+
+        var exported = CareerTaskSettingsSerializer.Export(settings);
+        Assert.True(exported["autoRestoreTp"]!.GetValue<bool>());
+
+        using var imported = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
+        CareerTaskSettingsSerializer.Import(imported, exported);
+        Assert.True(imported.AutoRestoreTp);
+    }
+
+    [Fact]
     public void Career_mode_normalizes_and_preserves_independent_selection()
     {
         using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
@@ -230,7 +248,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
-    public void Independent_train_settings_are_nested_under_career_mode_in_view()
+    public void Independent_train_settings_use_a_separate_mode_specific_agenda_tab()
     {
         var root = FindSolutionRoot();
         var view = XDocument.Load(Path.Combine(
@@ -244,8 +262,14 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         XNamespace wpfui = "http://schemas.lepo.co/wpfui/2022/xaml";
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
         var tabs = view.Descendants(presentation + "TabItem").ToArray();
-        var basic = Assert.Single(tabs, tab => (string?)tab.Attribute("Header") == "Basic");
-        Assert.DoesNotContain(tabs, tab => (string?)tab.Attribute("Header") == "Train");
+        var basic = Assert.Single(tabs, tab =>
+            (string?)tab.Attribute("Header") == "{DynamicResource GrassCareerBasicTab}");
+        var agenda = Assert.Single(tabs, tab =>
+            (string?)tab.Attribute("Header") == "{DynamicResource GrassCareerAgendaTab}");
+        Assert.Equal(
+            "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
+            (string?)agenda.Attribute("Visibility"));
+        Assert.Contains("IndependentTrainingSettingsView", agenda.ToString(), StringComparison.Ordinal);
 
         Assert.Contains("CareerBasicSettingsView", basic.ToString(), StringComparison.Ordinal);
         var basicSettingsFile = XDocument.Load(Path.Combine(

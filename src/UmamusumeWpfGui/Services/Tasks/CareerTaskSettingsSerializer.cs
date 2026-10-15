@@ -40,6 +40,7 @@ public static class CareerTaskSettingsSerializer
             ["independentSkillIds"] = new JsonArray(settings.ParseIndependentSkillIds()
                 .Select(item => (JsonNode?)JsonValue.Create(item)).ToArray()),
             ["deleteExistingCareerData"] = settings.DeleteExistingCareerData,
+            ["autoRestoreTp"] = settings.AutoRestoreTp,
             // Keep exporting the legacy key so older profiles/builds retain
             // the same behavior if they are opened elsewhere.
             ["continueExistingCareer"] = !settings.DeleteExistingCareerData,
@@ -109,6 +110,14 @@ public static class CareerTaskSettingsSerializer
                 values,
                 "continueExistingCareer",
                 !settings.DeleteExistingCareerData);
+        }
+
+        if (values.ContainsKey("autoRestoreTp"))
+        {
+            settings.AutoRestoreTp = ReadBool(
+                values,
+                "autoRestoreTp",
+                settings.AutoRestoreTp);
         }
 
         var supportCardIds = values["supportCardIds"] is JsonArray cards

@@ -19,6 +19,7 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
     private string _manifestPath = CareerTrainingTaskSettingsViewModel.DefaultManifestPath;
     private int? _traineeId = 100601;
     private bool _deleteExistingCareerData;
+    private bool _autoRestoreTp;
     private string _legacySelectionMode = "auto";
     private bool _useLegacyGuest;
     private bool _useCachedLegacy = true;
@@ -99,6 +100,12 @@ public sealed class CareerEntrySettingsViewModel : INotifyPropertyChanged, IDisp
     {
         get => _deleteExistingCareerData;
         set => Set(ref _deleteExistingCareerData, value);
+    }
+
+    public bool AutoRestoreTp
+    {
+        get => _autoRestoreTp;
+        set => Set(ref _autoRestoreTp, value);
     }
 
     public string TraineeSearchText

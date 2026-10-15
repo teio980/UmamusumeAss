@@ -95,17 +95,17 @@ public sealed class NormalCareerSkillSettingsViewModelTests
         Assert.Contains("{Binding FilteredSkills}", view.ToString(), StringComparison.Ordinal);
         Assert.Contains("{Binding TargetSkills}", view.ToString(), StringComparison.Ordinal);
 
-        var basicPath = Path.Combine(
+        var careerPath = Path.Combine(
             FindSolutionRoot(),
             "src",
             "UmamusumeWpfGui",
             "Views",
             "Tasks",
-            "CareerBasicSettingsView.xaml");
-        var basic = XDocument.Load(basicPath);
+            "CareerTrainingTaskSettingsView.xaml");
+        var career = XDocument.Load(careerPath);
         Assert.Contains(
             "<taskviews:NormalCareerSkillSettingsView DataContext=\"{Binding NormalSkills}\" />",
-            basic.ToString(),
+            career.ToString(),
             StringComparison.Ordinal);
     }
 

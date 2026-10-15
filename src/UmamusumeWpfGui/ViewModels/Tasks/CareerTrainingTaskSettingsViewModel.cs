@@ -206,6 +206,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         set => Entry.DeleteExistingCareerData = value;
     }
 
+    public bool AutoRestoreTp
+    {
+        get => Entry.AutoRestoreTp;
+        set => Entry.AutoRestoreTp = value;
+    }
+
     // Keep the old in-memory property available for callers compiled against
     // the previous profile model. Its value is intentionally the inverse of
     // the new UI-facing setting.

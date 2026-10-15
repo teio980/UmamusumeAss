@@ -5,199 +5,106 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
-    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     <DataTemplate x:Key="ComboOptionTemplate">
-      <TextBlock TextWrapping="Wrap">
-        <TextBlock.Style>
-          <Style TargetType="TextBlock">
-            <Setter Property="Text" Value="{Binding Label}" />
-            <Style.Triggers>
-              <DataTrigger Binding="{Binding Value}" Value="smart-balanced-safe">
-                <Setter Property="Text" Value="{DynamicResource GrassNormalSmartTrainingStrategyOptionLabel}" />
-              </DataTrigger>
-              <DataTrigger Binding="{Binding Value}" Value="custom-ratio">
-                <Setter Property="Text" Value="{DynamicResource GrassNormalCustomTrainingRatioOptionLabel}" />
-              </DataTrigger>
-            </Style.Triggers>
-          </Style>
-        </TextBlock.Style>
-      </TextBlock>
+      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
     </DataTemplate>
   </UserControl.Resources>
   <StackPanel TextElement.FontSize="12"
               HorizontalAlignment="Stretch">
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch">
-      <Grid HorizontalAlignment="Stretch">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <ui:SymbolIcon Grid.Column="0"
-                       Symbol="Person24"
-                       Style="{DynamicResource SettingIconStyle}" />
-        <StackPanel Grid.Column="1"
-                    HorizontalAlignment="Stretch">
-          <TextBlock Text="{DynamicResource GrassCareerTraineeLabel}"
-                     Style="{DynamicResource SettingCardTitleStyle}" />
-          <taskviews:TraineePickerView Margin="0,10,0,0"
-                                       HorizontalAlignment="Stretch"
-                                       DataContext="{Binding Entry}" />
-        </StackPanel>
-      </Grid>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch">
-      <StackPanel>
-        <TextBlock Text="{DynamicResource GrassCareerRunCountLabel}"
-                   Style="{DynamicResource SettingCardTitleStyle}" />
-        <TextBlock Text="{DynamicResource GrassCareerRunCountHint}"
-                   Style="{DynamicResource SettingCardDescriptionStyle}" />
-        <ui:TextBox Width="120"
-                    Margin="0,10,0,0"
-                    HorizontalAlignment="Left"
-                    Text="{Binding RunCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-      </StackPanel>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch">
-      <CheckBox IsChecked="{Binding DeleteExistingCareerData, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-        <StackPanel>
-          <TextBlock Text="{DynamicResource GrassCareerDeleteExistingLabel}"
-                     Style="{DynamicResource SettingCardTitleStyle}" />
-          <TextBlock Text="{DynamicResource GrassCareerDeleteExistingHint}"
-                     Style="{DynamicResource SettingCardDescriptionStyle}" />
-        </StackPanel>
-      </CheckBox>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch">
-      <Grid HorizontalAlignment="Stretch">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <ui:SymbolIcon Grid.Column="0"
-                       Symbol="AppsList24"
-                       Style="{DynamicResource SettingIconStyle}" />
-        <StackPanel Grid.Column="1"
-                    HorizontalAlignment="Stretch">
-          <TextBlock Text="{DynamicResource GrassCareerModeLabel}"
-                     Style="{DynamicResource SettingCardTitleStyle}" />
-          <ComboBox Margin="0,10,0,0"
-                    HorizontalContentAlignment="Stretch"
-                    ItemsSource="{Binding CareerModes}"
-                    ItemTemplate="{StaticResource ComboOptionTemplate}"
-                    SelectedValuePath="Value"
-                    SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-        </StackPanel>
-      </Grid>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch"
-            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
-      <StackPanel>
-        <TextBlock Text="{DynamicResource GrassNormalTrainingStrategyLabel}"
-                   Style="{DynamicResource SettingCardTitleStyle}" />
-        <ComboBox Margin="0,10,0,0"
-                  HorizontalContentAlignment="Stretch"
-                  ItemsSource="{Binding NormalTrainingStrategyOptions}"
-                  ItemTemplate="{StaticResource ComboOptionTemplate}"
-                  SelectedValuePath="Value"
-                  SelectedValue="{Binding NormalTrainingStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-      </StackPanel>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch"
-            Visibility="{Binding IsCustomNormalTrainingStrategy, Converter={StaticResource BoolToVisibility}}">
-      <StackPanel>
-        <TextBlock Text="{DynamicResource GrassNormalTrainingRatioLabel}"
-                   Style="{DynamicResource SettingCardTitleStyle}" />
-        <TextBlock Text="{DynamicResource GrassNormalTrainingRatioHint}"
-                   Style="{DynamicResource SettingCardDescriptionStyle}" />
-        <Grid Margin="0,10,0,0">
-          <Grid.RowDefinitions>
-            <RowDefinition />
-            <RowDefinition />
-            <RowDefinition />
-            <RowDefinition />
-            <RowDefinition />
-          </Grid.RowDefinitions>
+    <!-- Group 1: Career Mode -->
+    <StackPanel Style="{DynamicResource SettingCardGroupStyle}">
+      <TextBlock Text="{DynamicResource GrassCareerModeGroupTitle}"
+                 Style="{DynamicResource SettingGroupTitleStyle}" />
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="90" />
-            <ColumnDefinition Width="70" />
           </Grid.ColumnDefinitions>
-          <TextBlock Grid.Row="0" Text="{DynamicResource GrassNormalTrainingSpeedLabel}" VerticalAlignment="Center" />
-          <ui:TextBox Grid.Row="0" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.SpeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding NormalTrainingRatio.SpeedPercentage}" VerticalAlignment="Center" />
-          <TextBlock Grid.Row="1" Text="{DynamicResource GrassNormalTrainingStaminaLabel}" VerticalAlignment="Center" />
-          <ui:TextBox Grid.Row="1" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.StaminaText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding NormalTrainingRatio.StaminaPercentage}" VerticalAlignment="Center" />
-          <TextBlock Grid.Row="2" Text="{DynamicResource GrassNormalTrainingPowerLabel}" VerticalAlignment="Center" />
-          <ui:TextBox Grid.Row="2" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.PowerText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding NormalTrainingRatio.PowerPercentage}" VerticalAlignment="Center" />
-          <TextBlock Grid.Row="3" Text="{DynamicResource GrassNormalTrainingGutsLabel}" VerticalAlignment="Center" />
-          <ui:TextBox Grid.Row="3" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.GutsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding NormalTrainingRatio.GutsPercentage}" VerticalAlignment="Center" />
-          <TextBlock Grid.Row="4" Text="{DynamicResource GrassNormalTrainingWitLabel}" VerticalAlignment="Center" />
-          <ui:TextBox Grid.Row="4" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingRatio.WitText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding NormalTrainingRatio.WitPercentage}" VerticalAlignment="Center" />
+          <ui:SymbolIcon Grid.Column="0"
+                         Symbol="AppsList24"
+                         Style="{DynamicResource SettingIconStyle}" />
+          <StackPanel Grid.Column="1"
+                      HorizontalAlignment="Stretch">
+            <TextBlock Text="{DynamicResource GrassCareerModeLabel}"
+                       Style="{DynamicResource SettingCardTitleStyle}" />
+            <ComboBox Margin="0,10,0,0"
+                      HorizontalContentAlignment="Stretch"
+                      ItemsSource="{Binding CareerModes}"
+                      ItemTemplate="{StaticResource ComboOptionTemplate}"
+                      SelectedValuePath="Value"
+                      SelectedValue="{Binding CareerMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
         </Grid>
-        <TextBlock Margin="0,8,0,0"
-                   Text="{DynamicResource GrassNormalTrainingCycleLabel}"
-                   Style="{DynamicResource SettingCardDescriptionStyle}" />
-        <TextBlock Text="{Binding NormalTrainingRatio.CyclePreview}"
-                   TextWrapping="Wrap" />
-        <TextBlock Margin="0,6,0,0"
-                   Text="{DynamicResource GrassNormalTrainingRatioInvalid}"
-                   Foreground="IndianRed"
-                   Visibility="{Binding NormalTrainingRatio.IsInvalid, Converter={StaticResource BoolToVisibility}}" />
-      </StackPanel>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch"
-            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
-      <StackPanel>
-        <TextBlock Text="{DynamicResource GrassNormalLineupStrategyLabel}"
-                   Style="{DynamicResource SettingCardTitleStyle}" />
-        <ComboBox Margin="0,10,0,0"
-                  HorizontalContentAlignment="Stretch"
-                  ItemsSource="{Binding NormalLineupStrategyOptions}"
-                  ItemTemplate="{StaticResource ComboOptionTemplate}"
-                  SelectedValuePath="Value"
-                  SelectedValue="{Binding NormalLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-      </StackPanel>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch"
-            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
-      <StackPanel>
-        <TextBlock Text="{DynamicResource GrassNormalEventHandlingLabel}"
-                   Style="{DynamicResource SettingCardTitleStyle}" />
-        <TextBlock Text="{DynamicResource GrassNormalEventHandlingHint}"
-                   Style="{DynamicResource SettingCardDescriptionStyle}" />
-        <ComboBox Margin="0,10,0,0"
-                  HorizontalContentAlignment="Stretch"
-                  ItemsSource="{Binding NormalEventHandlingOptions}"
-                  ItemTemplate="{StaticResource ComboOptionTemplate}"
-                  SelectedValuePath="Value"
-                  SelectedValue="{Binding NormalEventHandling, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-      </StackPanel>
-    </Border>
-    <Border Style="{DynamicResource SettingCardStyle}"
-            HorizontalAlignment="Stretch"
-            Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}">
-      <CheckBox IsChecked="{Binding RetryFailedRaceWithAlarmClock, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+      </Border>
+    </StackPanel>
+
+    <!-- Group 2: General Settings -->
+    <StackPanel Style="{DynamicResource SettingCardGroupStyle}">
+      <TextBlock Text="{DynamicResource GrassCareerGeneralGroupTitle}"
+                 Style="{DynamicResource SettingGroupTitleStyle}" />
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ui:SymbolIcon Grid.Column="0"
+                         Symbol="Person24"
+                         Style="{DynamicResource SettingIconStyle}" />
+          <StackPanel Grid.Column="1"
+                      HorizontalAlignment="Stretch">
+            <TextBlock Text="{DynamicResource GrassCareerTraineeLabel}"
+                       Style="{DynamicResource SettingCardTitleStyle}" />
+            <taskviews:TraineePickerView Margin="0,10,0,0"
+                                         HorizontalAlignment="Stretch"
+                                         DataContext="{Binding Entry}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
         <StackPanel>
-          <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryLabel}"
+          <TextBlock Text="{DynamicResource GrassCareerRunCountLabel}"
                      Style="{DynamicResource SettingCardTitleStyle}" />
-          <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryHint}"
+          <TextBlock Text="{DynamicResource GrassCareerRunCountHint}"
                      Style="{DynamicResource SettingCardDescriptionStyle}" />
+          <ui:TextBox Width="120"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Left"
+                      Text="{Binding RunCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </StackPanel>
-      </CheckBox>
-    </Border>
-    <taskviews:NormalCareerSkillSettingsView DataContext="{Binding NormalSkills}" />
-    <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
+      </Border>
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <CheckBox IsChecked="{Binding DeleteExistingCareerData, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource GrassCareerDeleteExistingLabel}"
+                       Style="{DynamicResource SettingCardTitleStyle}" />
+            <TextBlock Text="{DynamicResource GrassCareerDeleteExistingHint}"
+                       Style="{DynamicResource SettingCardDescriptionStyle}" />
+          </StackPanel>
+        </CheckBox>
+      </Border>
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <CheckBox IsChecked="{Binding AutoRestoreTp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource GrassCareerRestoreTpLabel}"
+                       Style="{DynamicResource SettingCardTitleStyle}" />
+            <TextBlock Text="{DynamicResource GrassCareerRestoreTpHint}"
+                       Style="{DynamicResource SettingCardDescriptionStyle}" />
+          </StackPanel>
+        </CheckBox>
+      </Border>
+    </StackPanel>
+
   </StackPanel>
 </UserControl>

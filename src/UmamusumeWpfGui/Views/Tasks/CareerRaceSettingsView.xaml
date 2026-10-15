@@ -1,0 +1,45 @@
+<UserControl x:Class="UmamusumeWpfGui.Views.Tasks.CareerRaceSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Foreground="{DynamicResource TextPrimaryBrush}">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ComboOptionTemplate">
+      <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel TextElement.FontSize="12"
+              HorizontalAlignment="Stretch">
+    <StackPanel Style="{DynamicResource SettingCardGroupStyle}">
+      <TextBlock Text="{DynamicResource GrassCareerRacesGroupTitle}"
+                 Style="{DynamicResource SettingGroupTitleStyle}" />
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <StackPanel>
+          <TextBlock Text="{DynamicResource GrassNormalLineupStrategyLabel}"
+                     Style="{DynamicResource SettingCardTitleStyle}" />
+          <ComboBox Margin="0,10,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding NormalLineupStrategyOptions}"
+                    ItemTemplate="{StaticResource ComboOptionTemplate}"
+                    SelectedValuePath="Value"
+                    SelectedValue="{Binding NormalLineupStrategy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+      </Border>
+
+      <Border Style="{DynamicResource SettingCardStyle}"
+              HorizontalAlignment="Stretch">
+        <CheckBox IsChecked="{Binding RetryFailedRaceWithAlarmClock, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryLabel}"
+                       Style="{DynamicResource SettingCardTitleStyle}" />
+            <TextBlock Text="{DynamicResource GrassNormalRaceAlarmRetryHint}"
+                       Style="{DynamicResource SettingCardDescriptionStyle}" />
+          </StackPanel>
+        </CheckBox>
+      </Border>
+    </StackPanel>
+  </StackPanel>
+</UserControl>
