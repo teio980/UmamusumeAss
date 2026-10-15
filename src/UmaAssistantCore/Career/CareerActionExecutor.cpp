@@ -1,6 +1,7 @@
 #include "CareerActionExecutor.hpp"
 #include "Flows/CareerClawMachineFlow.hpp"
 #include "Flows/CareerSkillLearningFlow.hpp"
+#include "UmaAssistantCore/CareerDomain/CareerCalendar.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -596,13 +597,9 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
     case Kind::Rest:
         if (screenId == "career_main")
         {
-            if (observation.turnPositionText)
-            {
-                if (const auto position = CareerObservationReader::ParseTurnPosition(*observation.turnPositionText);
-                    position && position->month && (*position->month == 7 || *position->month == 8)
-                    && (position->year == "classic" || position->year == "senior"))
-                    return choose("action.summer_rest");
-            }
+            if (observation.turnPositionText
+                && CareerDomain::CareerCalendar::IsSummerCamp(*observation.turnPositionText))
+                return choose("action.summer_rest");
             return choose("action.rest");
         }
         if (screenId == "summer_rest_confirmation" || screenId == "rest_confirmation")
@@ -616,7 +613,14 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         return std::nullopt;
     case Kind::Recreation:
         if (screenId == "career_main")
+        {
+            if (observation.turnPositionText
+                && CareerDomain::CareerCalendar::IsSummerCamp(*observation.turnPositionText))
+                return choose("action.summer_rest");
             return choose("action.recreation");
+        }
+        if (screenId == "summer_rest_confirmation")
+            return choose("rest.confirm");
         if (screenId == "recreation_selection")
             return choose("recreation.trainee");
         if (screenId == "recreation_confirmation")

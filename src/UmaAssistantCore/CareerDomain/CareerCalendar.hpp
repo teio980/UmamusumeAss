@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <cctype>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,6 +13,20 @@ namespace UmaAssistant::CareerDomain
 class CareerCalendar final
 {
 public:
+    [[nodiscard]] static bool IsSummerCamp(std::string_view turnPositionText)
+    {
+        // Observed dates are normalized to labels such as "Classic Year Early Jul".
+        // Match whole tokens so the final abbreviated month is recognized too.
+        const auto text = " " + Normalize(turnPositionText) + " ";
+        const bool eligibleYear = text.find(" classic ") != std::string::npos
+            || text.find(" senior ") != std::string::npos;
+        for (const auto month : {" jul ", " july ", " aug ", " august ",
+                 " month 7 ", " month 8 ", " 7月 ", " 8月 "})
+            if (eligibleYear && text.find(month) != std::string::npos)
+                return true;
+        return false;
+    }
+
     // Race catalog slots use the one-based index emitted by the managed
     // Career turn parser.
     [[nodiscard]] static std::optional<int> TryMapRaceSlot(

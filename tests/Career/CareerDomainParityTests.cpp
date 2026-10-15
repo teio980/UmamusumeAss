@@ -265,6 +265,35 @@ TEST_CASE("smart candidate scans follow strategy safety and scenario priorities"
     REQUIRE(!smart.ShouldScanTrainingCandidates(state, &scenario));
 }
 
+TEST_CASE("Summer Camp recovery uses the combined Rest action for normalized dates",
+    "[CareerDomainParity][SummerCamp]")
+{
+    UraScenarioModule scenario;
+    for (const auto* year : {"Junior", "Classic", "Senior"})
+        for (const auto* phase : {"Early", "Late"})
+            for (const auto* month : {"Jun", "Jul", "Aug", "Sep"})
+            {
+                auto state = StateWithEnergy(89);
+                state.turnPositionText = std::string(year) + " Year " + phase + " " + month;
+                state.mood = ObservedValue<std::string>::Make("normal", 0.96, ObservationSource::Ocr);
+                CAPTURE(state.turnPositionText);
+                const bool summer = std::string(year) != "Junior"
+                    && (std::string(month) == "Jul" || std::string(month) == "Aug");
+                CHECK(CareerCalendar::IsSummerCamp(*state.turnPositionText) == summer);
+                for (const bool smart : {false, true})
+                {
+                    const auto intent = scenario.GetTrainingOverride(state, 45, smart);
+                    REQUIRE(intent.has_value());
+                    CHECK(intent->kind == (summer ? ActionIntentKind::Rest : ActionIntentKind::Recreation));
+                    CHECK(intent->confidence == state.mood.confidence);
+                }
+                state.mood = ObservedValue<std::string>::Make("great", 0.96, ObservationSource::Ocr);
+                CHECK_FALSE(scenario.GetTrainingOverride(state, 45, true).has_value());
+                state.mood = ObservedValue<std::string>::Unknown();
+                CHECK_FALSE(scenario.GetTrainingOverride(state, 45, true).has_value());
+            }
+}
+
 TEST_CASE("URA strategy and scanner resolve one objective race distance per turn", "[CareerDomainParity]")
 {
     ScenarioInitialization initialization;

@@ -1,6 +1,7 @@
 #include "CareerFlowCoordinator.hpp"
 #include "CareerVisualResources.hpp"
 #include "CareerPersistenceStore.hpp"
+#include "UmaAssistantCore/CareerDomain/CareerCalendar.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -59,7 +60,7 @@ bool IsCommittedTurnAction(
         // only when its confirmation action is verified.
         return (source.screenKind == CareerDomain::CareerScreenKind::Recreation
                 && screenId != "recreation_selection")
-            || screenId == "recreation_confirmation";
+            || screenId == "recreation_confirmation" || screenId == "summer_rest_confirmation";
     default:
         return true;
     }
@@ -138,21 +139,7 @@ std::string DisplayValue(const std::string& value)
 
 bool IsSummerCampText(const std::string& turnPositionText)
 {
-    std::string text = turnPositionText;
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    const bool eligibleYear = text.find("classic") != std::string::npos ||
-                              text.find("senior") != std::string::npos;
-    const bool summerMonth = text.find("month 7") != std::string::npos ||
-                             text.find("month 8") != std::string::npos ||
-                             text.find("july") != std::string::npos ||
-                             text.find("august") != std::string::npos ||
-                             text.find("jul ") != std::string::npos ||
-                             text.find("aug ") != std::string::npos ||
-                             text.find("7月") != std::string::npos ||
-                             text.find("8月") != std::string::npos;
-    return eligibleYear && summerMonth;
+    return CareerDomain::CareerCalendar::IsSummerCamp(turnPositionText);
 }
 
 std::string FormatCareerStatus(

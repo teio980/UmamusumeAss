@@ -33,20 +33,7 @@ int GradeRank(const std::string& grade)
 
 bool IsSummerCamp(const CareerState& state)
 {
-    if (!state.turnPositionText.has_value())
-        return false;
-    const auto text = Lower(*state.turnPositionText);
-    const bool eligibleYear = text.find("classic") != std::string::npos ||
-                              text.find("senior") != std::string::npos;
-    const bool summerMonth = text.find("month 7") != std::string::npos ||
-                             text.find("month 8") != std::string::npos ||
-                             text.find("july") != std::string::npos ||
-                             text.find("august") != std::string::npos ||
-                             text.find("jul ") != std::string::npos ||
-                             text.find("aug ") != std::string::npos ||
-                             text.find("7月") != std::string::npos ||
-                             text.find("8月") != std::string::npos;
-    return eligibleYear && summerMonth;
+    return state.turnPositionText && CareerCalendar::IsSummerCamp(*state.turnPositionText);
 }
 
 template <typename T>
@@ -100,7 +87,8 @@ bool IsActionSource(ActionIntentKind action, const CareerObservation& source)
             || id == "infirmary_confirmation";
     case ActionIntentKind::Recreation:
         return source.screenKind == CareerScreenKind::Recreation
-            || id == "recreation_confirmation" || id == "recreation_selection";
+            || id == "recreation_confirmation" || id == "recreation_selection"
+            || id == "summer_rest_confirmation";
     case ActionIntentKind::Race:
         return source.screenKind == CareerScreenKind::MainTurn || id == "career_main"
             || source.screenKind == CareerScreenKind::RaceEntry
@@ -968,13 +956,18 @@ std::optional<ActionIntent> UraScenarioModule::GetTrainingOverride(
     if (smartStrategy && state.energy.IsReliable() && state.energy.Value() < restThreshold)
         return std::nullopt;
 
-    if (!state.mood.IsReliable() || IsSummerCamp(state))
+    if (!state.mood.IsReliable())
         return std::nullopt;
 
     const auto mood = Lower(state.mood.Value());
     const bool needsRecovery = mood == "normal" || mood == "bad" || mood == "awful";
     if (!needsRecovery)
         return std::nullopt;
+
+    if (IsSummerCamp(state))
+        return ActionIntent::MakeRest(
+            deferredReason + "Observed mood is Normal or lower; Summer Camp Rest also restores mood.",
+            state.mood.confidence, state.mood.source);
 
     return ActionIntent::MakeRecreation(
         deferredReason + "Observed mood is Normal or lower; choose Recreation.",

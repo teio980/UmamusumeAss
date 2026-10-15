@@ -540,6 +540,39 @@ TEST_CASE("Actual retry input remains unconfirmed until the runner appears and i
     CHECK(context.taps.front().first < 850);
 }
 
+TEST_CASE("Summer Camp recreation clicks the real combined Rest button and its confirmation",
+    "[CareerRuntime][SummerCamp]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("resource/hachimi/ura/screens/captures/summer_rest_current.png");
+    ActualRaceResultContext dialogContext("resource/hachimi/ura/screens/captures/summer_rest_dialog.png");
+    context.nextImage = dialogContext.image;
+    context.cancelAfterCaptures = 12;
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    const auto date = CareerObservationReader::ParseTurnPosition("Classic Year Early July");
+    REQUIRE(date.has_value());
+    main.turnPositionText = date->label;
+    const auto intent = GENERATE(ActionIntent::MakeRest(), ActionIntent::MakeRecreation());
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(intent, main, context) == ActionExecutionStatus::Success);
+    REQUIRE(executor.ConfirmCompletionFromObservation(intent, main, context));
+    const auto dialog = executor.TakeConfirmedObservation();
+    REQUIRE(dialog.has_value());
+    REQUIRE(dialog->screenId == "summer_rest_confirmation");
+    REQUIRE(executor.ExecuteForObservation(intent, *dialog, context) == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 2);
+    CHECK(context.taps.front().first >= 55);
+    CHECK(context.taps.front().first <= 245);
+    CHECK(context.taps.front().second >= 1225);
+    CHECK(context.taps.front().second <= 1310);
+    CHECK(context.taps.back().first >= 465);
+    CHECK(context.taps.back().second >= 985);
+}
+
 TEST_CASE("Normal career actions execute the authored rest and alarm-clock graphs", "[CareerRuntime][ActionReplay]")
 {
     auto config = PackagedConfig();
@@ -551,7 +584,7 @@ TEST_CASE("Normal career actions execute the authored rest and alarm-clock graph
     CAPTURE(loadDiagnostics);
     REQUIRE(resources->IsReady());
 
-    SECTION("Classic July rest resolves to the summer-rest task")
+    SECTION("Summer rest and recreation resolve to the combined summer-rest task")
     {
         CareerActionReplayContext context;
         context.SetEverything(true);
@@ -559,18 +592,31 @@ TEST_CASE("Normal career actions execute the authored rest and alarm-clock graph
         CareerObservation observation;
         observation.screenId = "career_main";
         observation.screenKind = CareerScreenKind::MainTurn;
-        observation.turnPositionText = "Classic Year Early July";
-        auto intent = ActionIntent::MakeRest("summer break");
+        const auto date = GENERATE("Classic Year Early July", "Classic Year Late Jul",
+            "Senior Year Early August", "Senior Year Late Aug");
+        const auto parsed = CareerObservationReader::ParseTurnPosition(date);
+        REQUIRE(parsed.has_value());
+        observation.turnPositionText = parsed->label;
+        auto intent = GENERATE(ActionIntent::MakeRest("summer break"), ActionIntent::MakeRecreation());
         REQUIRE(executor.ExecuteForObservation(intent, observation, context) == ActionExecutionStatus::Success);
         CHECK(std::any_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
             return FoldPath(path) == "summer_rest_action.png";
         }));
         CHECK(std::none_of(context.matchedTemplates.begin(), context.matchedTemplates.end(), [](const auto& path) {
-            return FoldPath(path) == "career_main_action_rest.png";
+            return FoldPath(path) == "career_main_action_rest.png" || FoldPath(path) == "recreation_action.png";
         }));
         CHECK(std::any_of(context.taps.begin(), context.taps.end(), [](const auto& tap) {
             return tap.first >= 55 && tap.first <= 245 && tap.second >= 1225 && tap.second <= 1310;
         }));
+        const auto handoff = executor.TakeActionHandoff();
+        REQUIRE(handoff.has_value());
+        CHECK(std::find(handoff->transition.candidates.begin(), handoff->transition.candidates.end(),
+            "summer_rest_confirmation") != handoff->transition.candidates.end());
+        observation.screenId = "summer_rest_confirmation";
+        observation.screenKind = CareerScreenKind::Rest;
+        observation.turnPositionText.reset();
+        REQUIRE(executor.ExecuteForObservation(intent, observation, context) == ActionExecutionStatus::Success);
+        CHECK(context.taps.size() == 2);
     }
 
     SECTION("Alarm-clock retry uses the enabled authored action")
