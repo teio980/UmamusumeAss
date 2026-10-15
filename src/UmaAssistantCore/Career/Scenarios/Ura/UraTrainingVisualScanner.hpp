@@ -24,7 +24,7 @@ struct UraTrainingVisualScanResult
 };
 
 // Runtime adapter for the pure UraTrainingScanner. It reads the configured
-// training screen, captures stable OCR evidence, and performs only reversible
+// training screen, retries unreadable cards, rechecks the winner, and performs only reversible
 // preview taps; the action executor owns the confirmed training tap.
 class UraTrainingVisualScanner
 {
@@ -41,7 +41,6 @@ public:
 
 private:
     struct SelectionFrame;
-    struct CandidateRead;
     struct ScanCache;
 
     [[nodiscard]] std::shared_ptr<const TaskEngine::TaskFrameSnapshot> CurrentFrame(
@@ -59,8 +58,8 @@ private:
         SelectionFrame& current,
         const std::string& trainingType,
         std::string& error) const;
-    [[nodiscard]] CandidateRead ReadCandidate(
-        TaskEngine::ITaskExecutionContext& context,
+    [[nodiscard]] CareerDomain::Ura::TrainingCandidate ReadCapturedCandidate(
+        TaskEngine::IImageRecognitionContext& recognition,
         const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
         const std::string& trainingType,
         const TaskEngine::TaskMatchResult& selectedLogo) const;

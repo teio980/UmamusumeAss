@@ -25,6 +25,49 @@ namespace UmaAssistant::TaskEngine
 namespace
 {
 
+class NativeImageRecognitionContext final : public IImageRecognitionContext
+{
+public:
+    NativeImageRecognitionContext(std::stop_token cancellation, bool windowsOcr)
+        : m_cancellation(cancellation), m_windowsOcr(windowsOcr) {}
+
+    std::vector<TaskOcrDetection> RecognizeImageText(
+        const Vision::GrayImage& image, const std::string& language) override
+    {
+        std::vector<TaskOcrDetection> result;
+        if (!m_windowsOcr || IsCancelled()) return result;
+        try
+        {
+            if (!m_ocr) m_ocr = std::make_unique<Recognition::WindowsOcrRecognizer>();
+            for (const auto& item : m_ocr->recognize(image, language).detections)
+                result.push_back({item.text, item.bounds.x, item.bounds.y,
+                    item.bounds.width, item.bounds.height, item.confidence});
+        }
+        catch (const std::exception&) { return {}; }
+        return result;
+    }
+
+    Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<Recognition::NumericOcrBatchField>& fields) override
+    {
+        if (IsCancelled() || fields.empty()) return {};
+        try
+        {
+            if (!m_numericOcr) m_numericOcr = std::make_unique<Recognition::NumericOcrBatch>();
+            return m_numericOcr->read(fields, m_cancellation);
+        }
+        catch (const std::exception&) { return {}; }
+    }
+
+    [[nodiscard]] bool IsCancelled() const override { return m_cancellation.stop_requested(); }
+
+private:
+    std::stop_token m_cancellation;
+    bool m_windowsOcr;
+    std::unique_ptr<Recognition::WindowsOcrRecognizer> m_ocr;
+    std::unique_ptr<Recognition::NumericOcrBatch> m_numericOcr;
+};
+
 int ScaleRoundEven(double value)
 {
     return static_cast<int>(std::nearbyint(value));
@@ -484,6 +527,13 @@ Recognition::NumericOcrBatchResult NativeTaskExecutionContext::RecognizeNumericI
         if (!IsCancelled()) Log("WARN", std::string("Numeric-image OCR failed: ") + error.what());
         return {};
     }
+}
+
+std::shared_ptr<IImageRecognitionContext> NativeTaskExecutionContext::CreateImageRecognitionContext()
+{
+    if (!m_image_recognition)
+        m_image_recognition = std::make_shared<NativeImageRecognitionContext>(m_cancellation, m_ocr != nullptr);
+    return m_image_recognition;
 }
 
 bool NativeTaskExecutionContext::TouchDownMatch(int x, int y, const TaskMatchResult& source)

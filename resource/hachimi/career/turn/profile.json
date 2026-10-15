@@ -60,10 +60,6 @@
           "bounds": { "x": 746, "y": 965, "width": 127, "height": 65 }
         },
         {
-          "semanticId": "training.training_level",
-          "bounds": { "x": 100, "y": 240, "width": 470, "height": 75 }
-        },
-        {
           "semanticId": "training.gain_strip",
           "bounds": { "x": 0, "y": 965, "width": 900, "height": 65 },
           "metadata": {

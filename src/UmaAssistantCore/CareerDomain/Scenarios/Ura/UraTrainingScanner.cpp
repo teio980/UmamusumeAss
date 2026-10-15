@@ -20,17 +20,13 @@ bool IsValidConfidence(double value)
     return std::isfinite(value) && value >= 0.0 && value <= 1.0;
 }
 
-template <typename T>
-std::optional<T> MergeValue(const std::optional<T>& first, const std::optional<T>& second)
+bool SameScoringValues(const TrainingCandidate& first, const TrainingCandidate& second)
 {
-    if (first.has_value() && second.has_value() && *first == *second)
-        return first;
-    return std::nullopt;
-}
-
-ObservationSource MergeSource(ObservationSource first, ObservationSource second)
-{
-    return first == second ? first : ObservationSource::Derived;
+    return first.speedGain == second.speedGain && first.staminaGain == second.staminaGain
+        && first.powerGain == second.powerGain && first.gutsGain == second.gutsGain
+        && first.witGain == second.witGain && first.skillPointGain == second.skillPointGain
+        && first.failureRatePercent == second.failureRatePercent
+        && first.unbondedSupportCount == second.unbondedSupportCount && first.hintCount == second.hintCount;
 }
 
 } // namespace
@@ -60,8 +56,7 @@ UraTrainingScannerStage UraTrainingScanner::BeginCandidateScan(
     m_careerStage = std::move(careerStage);
     m_energyPercent = energyPercent;
     m_startTurnIndex = turnIndex;
-    m_trainingTypes.assign(std::begin(kTrainingTypes), std::end(kTrainingTypes));
-    m_candidateSamples.resize(m_trainingTypes.size());
+    m_candidateSamples.resize(std::size(kTrainingTypes));
     m_stage = UraTrainingScannerStage::SamplingCandidates;
     return m_stage;
 }
@@ -77,55 +72,69 @@ bool UraTrainingScanner::SubmitCandidateSample(const TrainingCandidate& sample)
         Fail("A candidate sample had an unsupported training type.");
         return false;
     }
-    const auto type = std::find(m_trainingTypes.begin(), m_trainingTypes.end(), normalized);
-    if (type == m_trainingTypes.end())
+    const auto type = std::find(std::begin(kTrainingTypes), std::end(kTrainingTypes), normalized);
+    if (type == std::end(kTrainingTypes))
     {
         Fail("A candidate sample was not one of the five required cards.");
         return false;
     }
-    auto& pair = m_candidateSamples[static_cast<size_t>(type - m_trainingTypes.begin())];
-    TrainingCandidate normalizedSample = sample;
-    normalizedSample.trainingType = normalized;
-    if (!pair.first.has_value())
+    auto& reading = m_candidateSamples[static_cast<std::size_t>(type - std::begin(kTrainingTypes))];
+    if (reading)
     {
-        pair.first = std::move(normalizedSample);
-        return true;
-    }
-    if (!pair.second.has_value())
-    {
-        pair.second = std::move(normalizedSample);
-    }
-    else
-    {
-        Fail("A card was sampled more than twice in one scan.");
+        Fail("A card was submitted more than once in one scan.");
         return false;
     }
+    reading = sample;
+    reading->trainingType = normalized;
 
     const bool allComplete = std::all_of(m_candidateSamples.begin(), m_candidateSamples.end(),
-        [](const SamplePair& item) { return item.first.has_value() && item.second.has_value(); });
+        [](const auto& item) { return item.has_value(); });
     if (!allComplete)
         return true;
 
     m_candidates.clear();
     m_candidates.reserve(m_candidateSamples.size());
     for (const auto& item : m_candidateSamples)
-    {
-        const auto merged = MergeStable(*item.first, *item.second);
-        if (!merged.has_value())
-        {
-            Fail("A card changed type between samples.");
-            return false;
-        }
-        m_candidates.push_back(*merged);
-    }
+        m_candidates.push_back(*item);
+    m_candidateSamples.clear();
+    ScoreCandidates();
+    return m_stage != UraTrainingScannerStage::Fallback;
+}
 
+void UraTrainingScanner::ScoreCandidates()
+{
     m_decision = UraSmartTrainingScorer::Choose(m_candidates, m_distance, m_careerStage, m_energyPercent);
     if (!m_decision.IsSafe())
     {
-        Fail("No safe, stable training candidate: " + m_decision.decisionReason);
+        Fail("No safe training candidate: " + m_decision.decisionReason);
+        return;
+    }
+    m_stage = UraTrainingScannerStage::VerifyingSelection;
+}
+
+bool UraTrainingScanner::VerifySelectedCandidate(const TrainingCandidate& sample)
+{
+    if (m_stage != UraTrainingScannerStage::VerifyingSelection || !m_decision.chosenCandidate)
+        return false;
+    std::string normalized;
+    if (!TrainingTypeCatalog::TryNormalize(sample.trainingType, normalized)
+        || normalized != m_decision.chosenCandidate->trainingType)
+    {
+        Fail("The fresh candidate did not match the selected training.");
         return false;
     }
-    m_stage = UraTrainingScannerStage::ReadyToSelect;
+    const auto before = *m_decision.chosenCandidate;
+    const auto candidate = std::find_if(m_candidates.begin(), m_candidates.end(), [&](const auto& item) {
+        return item.trainingType == normalized;
+    });
+    if (candidate == m_candidates.end()) return false;
+    *candidate = sample;
+    candidate->trainingType = normalized;
+    ScoreCandidates();
+    if (m_stage == UraTrainingScannerStage::Fallback) return false;
+    if (SameScoringValues(before, *candidate) && candidate->HasReliableCoreValues()
+        && candidate->HasReliableFailureRate() && SelectedTrainingType() == normalized)
+        m_stage = UraTrainingScannerStage::ReadyToSelect;
     return true;
 }
 
@@ -177,7 +186,6 @@ void UraTrainingScanner::Reset() noexcept
     m_energyPercent.reset();
     m_startTurnIndex.reset();
     m_failureReason.clear();
-    m_trainingTypes.clear();
     m_candidates.clear();
     m_decision = {};
     m_candidateSamples.clear();
@@ -201,48 +209,6 @@ bool UraTrainingScanner::HasValidFiveMarkers(const UraTrainingMarkerEvidence& ma
         seen.push_back(std::move(normalized));
     }
     return seen.size() == 5;
-}
-
-std::optional<TrainingCandidate> UraTrainingScanner::MergeStable(
-    const TrainingCandidate& first,
-    const TrainingCandidate& second)
-{
-    std::string firstType;
-    std::string secondType;
-    if (!TrainingTypeCatalog::TryNormalize(first.trainingType, firstType) ||
-        !TrainingTypeCatalog::TryNormalize(second.trainingType, secondType) || firstType != secondType)
-        return std::nullopt;
-
-    TrainingCandidate merged;
-    merged.trainingType = firstType;
-    merged.speedGain = MergeValue(first.speedGain, second.speedGain);
-    merged.staminaGain = MergeValue(first.staminaGain, second.staminaGain);
-    merged.powerGain = MergeValue(first.powerGain, second.powerGain);
-    merged.gutsGain = MergeValue(first.gutsGain, second.gutsGain);
-    merged.witGain = MergeValue(first.witGain, second.witGain);
-    merged.skillPointGain = MergeValue(first.skillPointGain, second.skillPointGain);
-    merged.failureRatePercent = MergeValue(first.failureRatePercent, second.failureRatePercent);
-    merged.trainingLevel = MergeValue(first.trainingLevel, second.trainingLevel);
-    merged.unbondedSupportCount = MergeValue(first.unbondedSupportCount, second.unbondedSupportCount);
-    merged.hintCount = MergeValue(first.hintCount, second.hintCount);
-
-    if (IsValidConfidence(first.coreConfidence) && IsValidConfidence(second.coreConfidence))
-        merged.coreConfidence = std::min(first.coreConfidence, second.coreConfidence);
-    else
-        merged.coreConfidence = 0.0;
-    if (IsValidConfidence(first.failureRateConfidence) && IsValidConfidence(second.failureRateConfidence))
-        merged.failureRateConfidence = std::min(first.failureRateConfidence, second.failureRateConfidence);
-    else
-        merged.failureRateConfidence = 0.0;
-    if (IsValidConfidence(first.auxiliaryConfidence) && IsValidConfidence(second.auxiliaryConfidence))
-        merged.auxiliaryConfidence = std::min(first.auxiliaryConfidence, second.auxiliaryConfidence);
-    else
-        merged.auxiliaryConfidence = 0.0;
-
-    merged.coreSource = MergeSource(first.coreSource, second.coreSource);
-    merged.failureRateSource = MergeSource(first.failureRateSource, second.failureRateSource);
-    merged.auxiliarySource = MergeSource(first.auxiliarySource, second.auxiliarySource);
-    return merged;
 }
 
 void UraTrainingScanner::Fail(std::string reason)

@@ -7,6 +7,8 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <chrono>
+#include <future>
 #include <iterator>
 #include <limits>
 #include <regex>
@@ -22,9 +24,27 @@ namespace
 
 constexpr int kReferenceWidth = 900;
 constexpr int kReferenceHeight = 1600;
-constexpr int kPreviewSettleMilliseconds = 120;
 constexpr int kMaximumPreviewAttempts = 3;
 constexpr const char* kTrainingTypes[] = {"speed", "stamina", "power", "guts", "wit"};
+
+class ForegroundImageRecognitionContext final : public TaskEngine::IImageRecognitionContext
+{
+public:
+    explicit ForegroundImageRecognitionContext(TaskEngine::ITaskExecutionContext& context) : m_context(context) {}
+    std::vector<TaskEngine::TaskOcrDetection> RecognizeImageText(
+        const Vision::GrayImage& image, const std::string& language) override
+    {
+        return m_context.RecognizeImageText(image, language);
+    }
+    Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<Recognition::NumericOcrBatchField>& fields) override
+    {
+        return m_context.RecognizeNumericImages(fields);
+    }
+    [[nodiscard]] bool IsCancelled() const override { return m_context.IsCancelled(); }
+private:
+    TaskEngine::ITaskExecutionContext& m_context;
+};
 
 std::string Lower(std::string value)
 {
@@ -231,36 +251,6 @@ std::optional<int> ParseStrictValue(const std::vector<TaskEngine::TaskOcrDetecti
     return values.size() == 1 ? std::optional<int>{values.front()} : std::nullopt;
 }
 
-std::optional<int> ParseAuxiliaryValue(const std::vector<TaskEngine::TaskOcrDetection>& detections,
-    int maximum, double& confidence)
-{
-    static const std::regex numberPattern(R"(^\s*(?:[A-Za-z]+\s*)?(\d{1,3})\s*$)");
-    confidence = 1.0;
-    std::vector<int> values;
-    for (const auto& detection : detections)
-    {
-        std::smatch match;
-        if (!std::regex_match(detection.text, match, numberPattern)) continue;
-        try
-        {
-            const int value = std::stoi(match.str(1));
-            if (value < 0 || value > maximum || !std::isfinite(detection.confidence)) continue;
-            values.push_back(value);
-            confidence = std::min(confidence, std::clamp(detection.confidence, 0.0, 1.0));
-        }
-        catch (...) {}
-    }
-    std::sort(values.begin(), values.end());
-    values.erase(std::unique(values.begin(), values.end()), values.end());
-    return values.size() == 1 ? std::optional<int>{values.front()} : std::nullopt;
-}
-
-CareerDomain::ObservationSource CombineSources(CareerDomain::ObservationSource left,
-    CareerDomain::ObservationSource right)
-{
-    return left == right ? left : CareerDomain::ObservationSource::Derived;
-}
-
 } // namespace
 
 struct UraTrainingVisualScanner::SelectionFrame
@@ -276,28 +266,15 @@ struct UraTrainingVisualScanner::SelectionFrame
     }
 };
 
-struct UraTrainingVisualScanner::CandidateRead
-{
-    CareerDomain::Ura::TrainingCandidate candidate;
-    bool screenChanged{false};
-    std::string error;
-};
-
 struct UraTrainingVisualScanner::ScanCache
 {
-    struct Field
-    {
-        TaskEngine::TaskRoi roi;
-        Vision::GrayImage crop;
-        CareerDomain::ObservedValue<int> reading;
-    };
-
     int width{0};
     int height{0};
     int orientation{0};
     std::uint64_t session{0};
     std::uint64_t geometry{0};
-    std::unordered_map<std::string, Field> fields;
+    int captures{0};
+    int previewTaps{0};
     std::unordered_map<std::string, TaskEngine::TaskMatchResult> logoHints;
 
     void BindFrame(const TaskEngine::TaskFrameSnapshot& frame)
@@ -305,38 +282,12 @@ struct UraTrainingVisualScanner::ScanCache
         if (width == frame.width && height == frame.height && orientation == frame.orientation
             && session == frame.sessionGeneration && geometry == frame.geometryGeneration)
             return;
-        fields.clear();
         logoHints.clear();
         width = frame.width;
         height = frame.height;
         orientation = frame.orientation;
         session = frame.sessionGeneration;
         geometry = frame.geometryGeneration;
-    }
-
-    std::optional<CareerDomain::ObservedValue<int>> Find(
-        const std::string& key, const TaskEngine::TaskRoi& roi, const Vision::GrayImage& crop) const
-    {
-        const auto cached = fields.find(key);
-        if (cached == fields.end()) return std::nullopt;
-        const auto& field = cached->second;
-        // Compare original pixels, including color, rather than just processed
-        // glyphs or a hash. This is OCR reuse, never cached frame/click evidence.
-        if (field.roi.x != roi.x || field.roi.y != roi.y || field.roi.width != roi.width
-            || field.roi.height != roi.height || field.crop.width != crop.width
-            || field.crop.height != crop.height || field.crop.gray != crop.gray || field.crop.rgba != crop.rgba)
-            return std::nullopt;
-        return field.reading;
-    }
-
-    void Remember(const std::string& key, const TaskEngine::TaskRoi& roi,
-        const Vision::GrayImage& crop, const CareerDomain::ObservedValue<int>& reading)
-    {
-        if (reading.source == CareerDomain::ObservationSource::Ocr
-            && reading.IsReliable(CareerDomain::Ura::UraSmartTrainingScorer::MinimumCoreConfidence))
-            fields.insert_or_assign(key, Field{roi, crop, reading});
-        else
-            fields.erase(key);
     }
 };
 
@@ -353,87 +304,146 @@ UraTrainingVisualScanResult UraTrainingVisualScanner::ScanCandidates(
     std::optional<int> energyPercent,
     std::optional<int> turnIndex)
 {
-    // Each scan starts empty even when a subsequent turn renders identical values.
+    using Stage = CareerDomain::Ura::UraTrainingScannerStage;
     m_scanCache = std::make_shared<ScanCache>();
-    struct ClearCache
+    struct ScanLifetime
     {
+        TaskEngine::ITaskExecutionContext& context;
         std::shared_ptr<ScanCache>& cache;
-        ~ClearCache() { cache.reset(); }
-    } clearCache{m_scanCache};
+        std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
+        int retries{0};
+        int winnerChecks{0};
+        ~ScanLifetime()
+        {
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - started).count();
+            context.Log("DEBUG", "Smart training scan timing: mode=single-frame-recheck, total_ms="
+                + std::to_string(elapsed) + ", fresh_captures=" + std::to_string(cache->captures)
+                + ", preview_taps=" + std::to_string(cache->previewTaps)
+                + ", retries=" + std::to_string(retries) + ", winner_checks=" + std::to_string(winnerChecks));
+            cache.reset();
+        }
+    } lifetime{context, m_scanCache};
     std::string error;
     auto frame = CurrentFrame(context, error);
-    if (!frame)
-        return {scanner.Stage(), false, std::move(error)};
-
+    if (!frame) return {scanner.Stage(), false, std::move(error)};
     auto selection = DetectSelection(context, frame);
-    if (!selection.IsValid())
+    if (!selection.IsValid() || !selection.evidence.raisedTrainingType)
         return {scanner.Stage(), selection.screenChanged, selection.error.empty()
             ? "The training selection screen could not be verified." : std::move(selection.error)};
-
     scanner.BeginCandidateScan(selection.evidence, distance, careerStage, energyPercent, turnIndex);
-    if (scanner.Stage() != CareerDomain::Ura::UraTrainingScannerStage::SamplingCandidates)
+    if (scanner.Stage() != Stage::SamplingCandidates)
         return {scanner.Stage(), false, scanner.FailureReason()};
 
-    std::vector<std::string> scanOrder;
-    if (selection.evidence.raisedTrainingType.has_value())
-    {
-        std::string selected;
-        if (CareerDomain::TrainingTypeCatalog::TryNormalize(
-                *selection.evidence.raisedTrainingType, selected))
-            scanOrder.push_back(std::move(selected));
-    }
-    for (const auto* trainingType : kTrainingTypes)
-    {
-        if (std::none_of(scanOrder.begin(), scanOrder.end(), [&](const auto& current) {
-                return NormalizeSemantic(current) == NormalizeSemantic(trainingType);
-            }))
-            scanOrder.emplace_back(trainingType);
-    }
+    std::vector<std::string> scanOrder{*selection.evidence.raisedTrainingType};
+    for (const auto* type : kTrainingTypes)
+        if (scanOrder.front() != type) scanOrder.emplace_back(type);
 
-    for (const auto& trainingType : scanOrder)
-    {
-        if (!SelectPreview(context, selection, trainingType, error))
-            return {scanner.Stage(), selection.screenChanged, std::move(error)};
-
-        const auto selected = selection.logoMatches.find(trainingType);
-        if (selected == selection.logoMatches.end())
-            return {scanner.Stage(), false, "The selected training card marker is missing."};
-        auto first = ReadCandidate(context, selection.frame, trainingType, selected->second);
-        if (first.screenChanged)
-            return {scanner.Stage(), true, "The training selection screen changed during candidate sampling."};
-        if (!scanner.SubmitCandidateSample(first.candidate))
-            return {scanner.Stage(), false, scanner.FailureReason()};
-
-        context.Sleep(kPreviewSettleMilliseconds);
-        auto secondFrame = CaptureFreshFrame(context, selection.frame, error);
-        if (!secondFrame)
-            return {scanner.Stage(), false, std::move(error)};
-        auto secondSelection = DetectSelection(context, secondFrame);
-        if (!secondSelection.IsValid())
-            return {scanner.Stage(), secondSelection.screenChanged, secondSelection.error.empty()
-                ? "The training selection screen changed during candidate sampling."
-                : std::move(secondSelection.error)};
-
-        CareerDomain::Ura::TrainingCandidate secondCandidate = UnknownCandidate(trainingType);
-        if (secondSelection.evidence.raisedTrainingType.has_value() &&
-            NormalizeSemantic(*secondSelection.evidence.raisedTrainingType) == NormalizeSemantic(trainingType))
+    ForegroundImageRecognitionContext foreground(context);
+    std::vector<CareerDomain::Ura::TrainingCandidate> candidates;
+    // Only immutable saved frames reach the worker; only the foreground taps.
+    // The future is joined before reader/cache teardown, including early exits.
+    std::future<CareerDomain::Ura::TrainingCandidate> pending;
+    auto collectPending = [&]() {
+        if (!pending.valid()) return true;
+        try
         {
-            const auto secondLogo = secondSelection.logoMatches.find(trainingType);
-            if (secondLogo != secondSelection.logoMatches.end())
+            auto reading = pending.get();
+            if (context.IsCancelled())
             {
-                auto second = ReadCandidate(context, secondFrame, trainingType, secondLogo->second);
-                if (second.screenChanged)
-                    return {scanner.Stage(), true, "The training selection screen changed during candidate sampling."};
-                secondCandidate = std::move(second.candidate);
+                error = "Training candidate recognition was cancelled.";
+                return false;
             }
+            candidates.push_back(std::move(reading));
+            return true;
         }
-        if (!scanner.SubmitCandidateSample(secondCandidate))
-            return {scanner.Stage(), false, scanner.FailureReason()};
-        selection = std::move(secondSelection);
-        if (scanner.Stage() != CareerDomain::Ura::UraTrainingScannerStage::SamplingCandidates)
-            return {scanner.Stage(), false, scanner.FailureReason()};
+        catch (const std::exception& exception)
+        {
+            error = std::string("Training candidate recognition failed: ") + exception.what();
+            return false;
+        }
+    };
+    for (const auto& type : scanOrder)
+    {
+        if (!SelectPreview(context, selection, type, error))
+            return {scanner.Stage(), selection.screenChanged, std::move(error)};
+        if (!collectPending()) return {scanner.Stage(), false, std::move(error)};
+        if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
+        const auto logo = selection.logoMatches.at(type);
+        if (auto reader = context.CreateImageRecognitionContext())
+        {
+            pending = std::async(std::launch::async, [this, reader = std::move(reader), saved = selection.frame, logo, type] {
+                return ReadCapturedCandidate(*reader, saved, type, logo);
+            });
+        }
+        else
+        {
+            auto reading = ReadCapturedCandidate(foreground, selection.frame, type, logo);
+            if (!SameFrame(context, selection.frame))
+                return {scanner.Stage(), true, "Training frame changed during candidate recognition."};
+            candidates.push_back(std::move(reading));
+        }
     }
+    if (!collectPending()) return {scanner.Stage(), false, std::move(error)};
+    if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
 
+    // Switching already produces a fresh verified frame. If the card is still
+    // selected, explicitly capture again so retries/rechecks cannot reuse it.
+    auto freshPreview = [&](const std::string& type) {
+        const bool alreadySelected = selection.evidence.raisedTrainingType == type;
+        if (!SelectPreview(context, selection, type, error)) return false;
+        if (alreadySelected)
+        {
+            auto fresh = CaptureFreshFrame(context, selection.frame, error);
+            if (!fresh) return false;
+            selection = DetectSelection(context, fresh);
+        }
+        if (!selection.IsValid() || selection.evidence.raisedTrainingType != type)
+        {
+            error = "Could not verify the requested training card in a fresh frame.";
+            return false;
+        }
+        return true;
+    };
+    auto readCurrent = [&](const std::string& type) {
+        const auto reader = context.CreateImageRecognitionContext();
+        auto& recognition = reader ? *reader : static_cast<TaskEngine::IImageRecognitionContext&>(foreground);
+        return ReadCapturedCandidate(recognition, selection.frame, type, selection.logoMatches.at(type));
+    };
+    for (auto& candidate : candidates)
+    {
+        if (candidate.HasReliableCoreValues() && candidate.HasReliableFailureRate()) continue;
+        ++lifetime.retries;
+        if (!freshPreview(candidate.trainingType))
+            return {scanner.Stage(), selection.screenChanged, std::move(error)};
+        candidate = readCurrent(candidate.trainingType);
+        if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
+        if (!SameFrame(context, selection.frame))
+            return {scanner.Stage(), true, "Training frame changed during candidate retry."};
+    }
+    for (const auto& candidate : candidates)
+        if (!scanner.SubmitCandidateSample(candidate))
+            return {scanner.Stage(), false, scanner.FailureReason()};
+
+    constexpr int maximumWinnerChecks = 5;
+    while (scanner.Stage() == Stage::VerifyingSelection && lifetime.winnerChecks < maximumWinnerChecks)
+    {
+        const auto winner = *scanner.SelectedTrainingType();
+        if (!freshPreview(winner))
+            return {scanner.Stage(), selection.screenChanged, std::move(error)};
+        ++lifetime.winnerChecks;
+        const auto fresh = readCurrent(winner);
+        if (context.IsCancelled()) return {scanner.Stage(), false, "Training scan was cancelled."};
+        if (!SameFrame(context, selection.frame))
+            return {scanner.Stage(), true, "Training frame changed during winner verification."};
+        if (!scanner.VerifySelectedCandidate(fresh))
+            return {scanner.Stage(), false, scanner.FailureReason()};
+        if (scanner.Stage() == Stage::VerifyingSelection)
+            context.Log("DEBUG", "Smart training winner changed on recheck: " + winner
+                + " -> " + scanner.SelectedTrainingType().value_or("unknown") + "; checking fresh values again.");
+    }
+    if (scanner.Stage() == Stage::VerifyingSelection)
+        return {scanner.Stage(), false, "Training values did not stabilize within five winner checks."};
     return {scanner.Stage(), false, scanner.FailureReason()};
 }
 
@@ -449,6 +459,7 @@ std::shared_ptr<const TaskEngine::TaskFrameSnapshot> UraTrainingVisualScanner::C
             error = "Could not capture the training selection screen.";
             return {};
         }
+        if (m_scanCache) ++m_scanCache->captures;
         frame = context.GetCurrentFrame();
     }
     if (!frame || frame->width <= 0 || frame->height <= 0 || !MakeFrameImage(*frame).has_value())
@@ -474,6 +485,7 @@ std::shared_ptr<const TaskEngine::TaskFrameSnapshot> UraTrainingVisualScanner::C
         error = "Could not capture a fresh training selection frame.";
         return {};
     }
+    if (m_scanCache) ++m_scanCache->captures;
     auto frame = context.GetCurrentFrame();
     if (!frame || !MakeFrameImage(*frame).has_value())
     {
@@ -772,10 +784,10 @@ bool UraTrainingVisualScanner::SelectPreview(
         error = std::string("Could not tap the ") + trainingType + " preview button.";
         return false;
     }
+    if (m_scanCache) ++m_scanCache->previewTaps;
 
     for (int attempt = 0; attempt < kMaximumPreviewAttempts; ++attempt)
     {
-        context.Sleep(kPreviewSettleMilliseconds);
         auto nextFrame = CaptureFreshFrame(context, current.frame, error);
         if (!nextFrame)
             return false;
@@ -804,25 +816,19 @@ bool UraTrainingVisualScanner::SelectPreview(
     return false;
 }
 
-UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
-    TaskEngine::ITaskExecutionContext& context,
+CareerDomain::Ura::TrainingCandidate UraTrainingVisualScanner::ReadCapturedCandidate(
+    TaskEngine::IImageRecognitionContext& recognition,
     const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
     const std::string& trainingType,
     const TaskEngine::TaskMatchResult& selectedLogo) const
 {
-    CandidateRead result;
-    result.candidate = UnknownCandidate(trainingType);
-    if (!m_resources || !frame || !SameFrame(context, frame) || !MatchBelongsToFrame(selectedLogo, *frame))
-    {
-        result.screenChanged = !SameFrame(context, frame);
-        result.error = "Candidate OCR must use the captured frame and selected logo from one observation.";
+    auto result = UnknownCandidate(trainingType);
+    if (!m_resources || !frame || !MatchBelongsToFrame(selectedLogo, *frame) || recognition.IsCancelled())
         return result;
-    }
     const auto* screen = m_resources->FindScreen("training_selection");
     const auto frameImage = MakeFrameImage(*frame);
     if (!screen || !frameImage)
     {
-        result.error = "Training OCR regions or frame pixels are unavailable.";
         return result;
     }
 
@@ -841,10 +847,7 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
 
     struct PreparedField
     {
-        TaskEngine::TaskRoi roi;
-        std::optional<UmaAssistant::Vision::GrayImage> crop;
         std::optional<UmaAssistant::Vision::GrayImage> image;
-        std::optional<CareerDomain::ObservedValue<int>> cached;
         bool blank{false};
         std::vector<TaskEngine::TaskOcrDetection> detections;
     };
@@ -863,25 +866,16 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
         if (failureRate)
             roi.x = std::clamp(selectedLogo.CenterX() - roi.width / 2, 0, kReferenceWidth - roi.width);
         PreparedField preparedField;
-        preparedField.roi = roi;
         auto crop = CropReferenceRoi(*frameImage, roi);
         if (!crop)
         {
             preparedFields.emplace(field, std::move(preparedField));
             continue;
         }
-        if (m_scanCache)
-            preparedField.cached = m_scanCache->Find(trainingType + "." + field, roi, *crop);
-        preparedField.crop = std::move(crop);
-        if (preparedField.cached)
-        {
-            preparedFields.emplace(field, std::move(preparedField));
-            continue;
-        }
-        preparedField.image = UmaAssistant::Vision::prepare_numeric_glyphs(*preparedField.crop,
+        preparedField.image = UmaAssistant::Vision::prepare_numeric_glyphs(*crop,
             !failureRate, GainSeedRule());
         if (!preparedField.image.has_value())
-            preparedField.image = *preparedField.crop;
+            preparedField.image = std::move(crop);
         if (!failureRate && gainStripVisible &&
             std::all_of(preparedField.image->gray.begin(), preparedField.image->gray.end(),
                 [](std::uint8_t pixel) { return pixel >= 250; }))
@@ -903,10 +897,9 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
         numericFields.push_back({field, *preparedFields.at(field).image,
             field == "failure_rate" ? 100 : 999, field != "failure_rate"});
     const auto numericReadings = numericFields.empty() ? Recognition::NumericOcrBatchResult{}
-        : context.RecognizeNumericImages(numericFields);
-    if (context.IsCancelled())
+        : recognition.RecognizeNumericImages(numericFields);
+    if (recognition.IsCancelled())
     {
-        result.error = "Training numeric recognition was cancelled.";
         return result;
     }
     // Preserve the managed optimized reader: optional local numeric OCR reads
@@ -915,7 +908,6 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
         const auto reading = numericReadings.find(field);
         return reading != numericReadings.end() && reading->second.value.has_value();
     }), batchFields.end());
-    batchImages.clear();
     for (const auto& field : batchFields)
         batchImages.push_back(UpscaleForOcr(*preparedFields.at(field).image));
 
@@ -934,7 +926,7 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
         const auto batch = UmaAssistant::Vision::compose_gray(
             std::span<const UmaAssistant::Vision::GrayImage>(batchImages.data(), batchImages.size()),
             std::span<const UmaImageRect>(batchPlacements.data(), batchPlacements.size()), width, height);
-        const auto detections = context.RecognizeImageText(batch, "en-US");
+        const auto detections = recognition.RecognizeImageText(batch, "en-US");
         for (std::size_t row = 0; row < batchFields.size(); ++row)
         {
             auto& fieldRead = preparedFields[batchFields[row]];
@@ -953,36 +945,24 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
     using Value = CareerDomain::ObservedValue<int>;
     auto parseField = [&](const std::string& field, bool failureRate, bool gain) {
         CareerDomain::ObservedValue<int> observed = CareerDomain::ObservedValue<int>::Unknown();
-        const auto* configured = findRegion("training." + field);
-        if (!configured)
-            return observed;
-        auto roi = configured->roi;
-        if (failureRate)
-            roi.x = std::clamp(selectedLogo.CenterX() - roi.width / 2, 0, kReferenceWidth - roi.width);
         const auto fieldRead = preparedFields.find(field);
         if (fieldRead == preparedFields.end())
             return observed;
-        if (fieldRead->second.cached) return *fieldRead->second.cached;
         if (!fieldRead->second.image.has_value()) return observed;
-        auto remember = [&](const Value& reading) {
-            if (m_scanCache && fieldRead->second.crop && SameFrame(context, frame) && !context.IsCancelled())
-                m_scanCache->Remember(trainingType + "." + field, roi, *fieldRead->second.crop, reading);
-            return reading;
-        };
         if (fieldRead->second.blank)
             return CareerDomain::ObservedValue<int>::Make(0, 0.82,
                 CareerDomain::ObservationSource::ColorProbe,
                 "Authored warm gain strip plus a visibly blank field");
         const auto numeric = numericReadings.find(field);
         if (numeric != numericReadings.end() && numeric->second.value.has_value())
-            return remember(CareerDomain::ObservedValue<int>::Make(*numeric->second.value, 0.82,
-                CareerDomain::ObservationSource::Ocr, "optional native numeric OCR on the same prepared crop"));
+            return CareerDomain::ObservedValue<int>::Make(*numeric->second.value, 0.82,
+                CareerDomain::ObservationSource::Ocr, "optional native numeric OCR on the same prepared crop");
         const auto& prepared = *fieldRead->second.image;
         auto detections = fieldRead->second.detections;
         if (detections.empty())
         {
             const auto upscaled = UpscaleForOcr(prepared);
-            detections = context.RecognizeImageText(upscaled, "en-US");
+            detections = recognition.RecognizeImageText(upscaled, "en-US");
         }
         double confidence = 0.0;
         const auto value = ParseStrictValue(detections, failureRate, failureRate ? 100 : 999, confidence);
@@ -991,12 +971,12 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
             if (gain &&
                 UmaAssistant::Vision::count_ink_groups(prepared, 128) !=
                     1 + static_cast<int>(std::to_string(*value).size()))
-                return remember(observed);
+                return observed;
             observed = CareerDomain::ObservedValue<int>::Make(*value, confidence,
                 CareerDomain::ObservationSource::Ocr, "native Windows OCR on prepared training glyphs");
-            return remember(observed);
+            return observed;
         }
-        return remember(observed);
+        return observed;
     };
 
     const auto speed = parseField("speed", false, true);
@@ -1006,13 +986,13 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
     const auto wit = parseField("wit", false, true);
     const auto skill = parseField("skill_points", false, true);
     const auto failure = parseField("failure_rate", true, false);
-    result.candidate.speedGain = speed.value;
-    result.candidate.staminaGain = stamina.value;
-    result.candidate.powerGain = power.value;
-    result.candidate.gutsGain = guts.value;
-    result.candidate.witGain = wit.value;
-    result.candidate.skillPointGain = skill.value;
-    result.candidate.failureRatePercent = failure.value;
+    result.speedGain = speed.value;
+    result.staminaGain = stamina.value;
+    result.powerGain = power.value;
+    result.gutsGain = guts.value;
+    result.witGain = wit.value;
+    result.skillPointGain = skill.value;
+    result.failureRatePercent = failure.value;
 
     const std::array<Value, 6> core{speed, stamina, power, guts, wit, skill};
     double coreConfidence = 1.0;
@@ -1029,40 +1009,12 @@ UraTrainingVisualScanner::CandidateRead UraTrainingVisualScanner::ReadCandidate(
         if (value.source != coreSource)
             coreSource = CareerDomain::ObservationSource::Derived;
     }
-    result.candidate.coreConfidence = allCoreKnown ? coreConfidence : 0.0;
-    result.candidate.coreSource = allCoreKnown ? coreSource : CareerDomain::ObservationSource::Unknown;
-    result.candidate.failureRateConfidence = failure.value.has_value() ? failure.confidence : 0.0;
-    result.candidate.failureRateSource = failure.value.has_value() ? failure.source
+    result.coreConfidence = allCoreKnown ? coreConfidence : 0.0;
+    result.coreSource = allCoreKnown ? coreSource : CareerDomain::ObservationSource::Unknown;
+    result.failureRateConfidence = failure.value.has_value() ? failure.confidence : 0.0;
+    result.failureRateSource = failure.value.has_value() ? failure.source
         : CareerDomain::ObservationSource::Unknown;
 
-    if (const auto* levelRegion = findRegion("training.training_level"))
-    {
-        const auto crop = CropReferenceRoi(*frameImage, levelRegion->roi);
-        if (crop)
-        {
-            const auto key = trainingType + ".training_level";
-            auto reading = m_scanCache ? m_scanCache->Find(key, levelRegion->roi, *crop) : std::nullopt;
-            if (!reading)
-            {
-                const auto detections = context.RecognizeImageText(*crop, "en-US");
-                double confidence = 0.0;
-                const auto level = ParseAuxiliaryValue(detections, 10, confidence);
-                reading = level ? Value::Make(*level, confidence, CareerDomain::ObservationSource::Ocr)
-                    : Value::Unknown();
-                if (m_scanCache && SameFrame(context, frame) && !context.IsCancelled())
-                    m_scanCache->Remember(key, levelRegion->roi, *crop, *reading);
-            }
-            result.candidate.trainingLevel = reading->value;
-            result.candidate.auxiliaryConfidence = reading->confidence;
-            result.candidate.auxiliarySource = reading->source;
-        }
-    }
-    if (!SameFrame(context, frame))
-    {
-        result.candidate = UnknownCandidate(trainingType);
-        result.screenChanged = true;
-        result.error = "The captured training frame changed during candidate recognition.";
-    }
     return result;
 }
 

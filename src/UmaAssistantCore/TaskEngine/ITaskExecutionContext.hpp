@@ -68,6 +68,20 @@ struct TaskOcrDetection
     [[nodiscard]] int CenterY() const noexcept { return y + height / 2; }
 };
 
+// An isolated image reader owns its OCR state and cancellation token. It must
+// not access the execution context's current frame, input, or mutable caches.
+// Calls are serialized by its owner, but may run on a background thread.
+class IImageRecognitionContext
+{
+public:
+    virtual ~IImageRecognitionContext() = default;
+    virtual std::vector<TaskOcrDetection> RecognizeImageText(
+        const Vision::GrayImage& image, const std::string& language) = 0;
+    virtual Recognition::NumericOcrBatchResult RecognizeNumericImages(
+        const std::vector<Recognition::NumericOcrBatchField>& fields) = 0;
+    [[nodiscard]] virtual bool IsCancelled() const = 0;
+};
+
 class ITaskExecutionContext
 {
 public:
@@ -197,6 +211,9 @@ public:
         (void)fields;
         return {};
     }
+
+    // Hosts without an isolated reader keep the synchronous recognition path.
+    [[nodiscard]] virtual std::shared_ptr<IImageRecognitionContext> CreateImageRecognitionContext() { return {}; }
 
     virtual bool PrepareHeldTouch() { return false; }
     virtual bool TouchDownMatch(int x, int y, const TaskMatchResult& source)

@@ -14,6 +14,7 @@ enum class UraTrainingScannerStage
 {
     Idle,
     SamplingCandidates,
+    VerifyingSelection,
     ReadyToSelect,
     ReadyToTap,
     AwaitingOutcome,
@@ -43,9 +44,8 @@ struct UraTrainingCommit
     std::optional<int> turnIndex;
 };
 
-// Pure scan/action state machine. It scores stable double samples, hands the
-// selected training to the action executor, and emits one commit only after
-// a result screen or observed turn advancement.
+// Pure scan/action state machine. Five single-frame candidates are scored,
+// and the selected card must pass a fresh value check before authorization.
 class UraTrainingScanner
 {
 public:
@@ -70,11 +70,13 @@ public:
         std::optional<int> energyPercent,
         std::optional<int> turnIndex = std::nullopt);
 
-    // Call once for each independently captured card sample. Each of the five
-    // cards must produce two samples; changing or missing values stay unknown.
+    // Submit one final reading per card, after any bounded unreadable retry.
     bool SubmitCandidateSample(const TrainingCandidate& sample);
 
-    // Use the scored choice directly; the executor handles normal/raised clicks.
+    // Replace the current winner with its fresh reading and score again. A
+    // changed reading/winner stays unverified until another fresh check agrees.
+    bool VerifySelectedCandidate(const TrainingCandidate& sample);
+
     bool PrepareTrainingTap();
 
     // Call only once the executor has actually sent the authorized tap.
@@ -88,16 +90,8 @@ public:
     void Reset() noexcept;
 
 private:
-    struct SamplePair
-    {
-        std::optional<TrainingCandidate> first;
-        std::optional<TrainingCandidate> second;
-    };
-
     static bool HasValidFiveMarkers(const UraTrainingMarkerEvidence& markers);
-    static std::optional<TrainingCandidate> MergeStable(
-        const TrainingCandidate& first,
-        const TrainingCandidate& second);
+    void ScoreCandidates();
     void Fail(std::string reason);
 
     UraTrainingScannerStage m_stage{UraTrainingScannerStage::Idle};
@@ -106,10 +100,9 @@ private:
     std::optional<int> m_energyPercent;
     std::optional<int> m_startTurnIndex;
     std::string m_failureReason;
-    std::vector<std::string> m_trainingTypes;
     std::vector<TrainingCandidate> m_candidates;
     SmartTrainingDecision m_decision;
-    std::vector<SamplePair> m_candidateSamples;
+    std::vector<std::optional<TrainingCandidate>> m_candidateSamples;
 };
 
 } // namespace UmaAssistant::CareerDomain::Ura

@@ -84,6 +84,7 @@ public:
         const Vision::GrayImage& image, const std::string& language) override;
     Recognition::NumericOcrBatchResult RecognizeNumericImages(
         const std::vector<Recognition::NumericOcrBatchField>& fields) override;
+    [[nodiscard]] std::shared_ptr<IImageRecognitionContext> CreateImageRecognitionContext() override;
     bool PrepareHeldTouch() override;
     bool TouchDownMatch(int x, int y, const TaskMatchResult& source) override;
     bool TouchUp() override;
@@ -122,6 +123,7 @@ private:
     std::shared_ptr<Resources::ResourceSnapshot const> m_resources;
     Recognition::WindowsOcrRecognizer* m_ocr{nullptr};
     std::unique_ptr<Recognition::NumericOcrBatch> m_numeric_ocr;
+    std::shared_ptr<IImageRecognitionContext> m_image_recognition;
     Api::CallbackSender* m_sender{nullptr};
     std::uint64_t m_operation_id{0};
     std::stop_token m_cancellation;
