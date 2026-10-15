@@ -2,6 +2,9 @@
 
 #include "../Connection/AdbCommandRunner.hpp"
 #include "NumericImageProcessing.hpp"
+#include "NumericOcrProtocol.hpp"
+
+#include <nlohmann/json.hpp>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -14,13 +17,16 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <fstream>
 #include <limits>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <utility>
 
 namespace UmaAssistant::Recognition {
@@ -501,13 +507,158 @@ void throw_if_cancelled(std::stop_token cancellation)
 
 } // namespace
 
+struct NumericOcrBatch::WorkerState
+{
+    explicit WorkerState(WorkerFactory create) : factory(std::move(create)) {}
+
+    [[nodiscard]] std::optional<std::vector<std::string>> read(
+        std::span<Vision::GrayImage const> images, int mode, Clock::time_point deadline,
+        std::stop_token cancellation)
+    {
+        std::lock_guard lock(mutex);
+        if (unavailable) return std::nullopt;
+        if (images.size() > 64) return std::nullopt;
+        std::size_t payload_bytes = 0;
+        nlohmann::json pages = nlohmann::json::array();
+        for (auto const& image : images)
+        {
+            bool const color = image.rgba.size() == image.gray.size() * 4u;
+            auto const encoded_bytes = image.gray.size() * (color ? 6u : 2u);
+            if (encoded_bytes > NumericOcrProtocol::max_request_bytes - payload_bytes)
+                return std::nullopt;
+            payload_bytes += encoded_bytes;
+            std::vector<std::uint8_t> rgb;
+            if (color)
+            {
+                rgb.reserve(image.gray.size() * 3u);
+                for (std::size_t pixel = 0; pixel < image.gray.size(); ++pixel)
+                    for (std::size_t channel = 0; channel < 3; ++channel)
+                        rgb.push_back(image.rgba[pixel * 4u + channel]);
+            }
+            pages.push_back({{"width", image.width}, {"height", image.height},
+                {"channels", color ? 3 : 1}, {"pixels", NumericOcrProtocol::encode_pixels(
+                    color ? std::span<std::uint8_t const>(rgb) : std::span<std::uint8_t const>(image.gray))}});
+        }
+        auto const id = ++next_id;
+        auto const request = nlohmann::json{{"id", id}, {"psm", mode}, {"images", std::move(pages)}}.dump() + "\n";
+        if (request.size() > NumericOcrProtocol::max_request_bytes) return std::nullopt;
+
+        std::stop_source bounded;
+        std::stop_callback forward(cancellation, [&] { bounded.request_stop(); });
+        std::jthread timer([&](std::stop_token stop) {
+            std::mutex timer_mutex;
+            std::condition_variable_any condition;
+            std::unique_lock timer_lock(timer_mutex);
+            condition.wait_until(timer_lock, stop, deadline, [] { return false; });
+            if (!stop.stop_requested()) bounded.request_stop();
+        });
+        bool starting = false;
+        try
+        {
+            if (bounded.stop_requested())
+                throw std::runtime_error("Numeric OCR worker request was canceled or timed out.");
+            if (session && session->has_exited()) session.reset();
+            if (!session)
+            {
+                starting = true;
+                session = factory();
+                if (!session) { unavailable = true; return std::nullopt; }
+                auto const greeting = receive(deadline, bounded.get_token());
+                if (!greeting.value("ready", false) || greeting.value("protocol", 0) != 1)
+                    throw std::runtime_error("Numeric OCR worker did not initialize.");
+                starting = false;
+            }
+            if (Clock::now() >= deadline || !session->write(request, bounded.get_token()))
+                throw std::runtime_error("Numeric OCR worker request failed or timed out.");
+            auto const response = receive(deadline, bounded.get_token());
+            if (response.at("id").get<std::uint64_t>() != id)
+                throw std::runtime_error("Numeric OCR worker returned a stale response.");
+            auto texts = response.at("texts").get<std::vector<std::string>>();
+            if (texts.size() != images.size())
+                throw std::runtime_error("Numeric OCR worker returned an incomplete response.");
+            if (bounded.stop_requested() || Clock::now() >= deadline)
+                throw std::runtime_error("Numeric OCR worker request was canceled or timed out.");
+            return texts;
+        }
+        catch (...)
+        {
+            // A partial write/read cannot be reused: closing kills the isolated
+            // worker. A later frame can start a fresh one after a crash/timeout.
+            if (session) session->close();
+            session.reset();
+            throw_if_cancelled(cancellation);
+            if (starting && Clock::now() < deadline)
+            {
+                unavailable = true;
+                return std::nullopt; // Missing helper/DLL/model: preserve CLI compatibility.
+            }
+            throw;
+        }
+    }
+
+private:
+    [[nodiscard]] nlohmann::json receive(Clock::time_point deadline, std::stop_token cancellation)
+    {
+        std::string response;
+        while (!cancellation.stop_requested() && Clock::now() < deadline)
+        {
+            auto const chunk = session->read(std::chrono::milliseconds(20), cancellation);
+            if (chunk.standard_output_truncated
+                || response.size() + chunk.standard_output.size() > NumericOcrProtocol::max_response_bytes)
+                throw std::runtime_error("Numeric OCR worker response exceeded its limit.");
+            response += chunk.standard_output;
+            auto const end = response.find('\n');
+            if (end != std::string::npos)
+            {
+                if (end + 1 != response.size())
+                    throw std::runtime_error("Numeric OCR worker returned unexpected extra output.");
+                return nlohmann::json::parse(response);
+            }
+            if (session->has_exited())
+                throw std::runtime_error("Numeric OCR worker exited without a response.");
+        }
+        throw std::runtime_error("Numeric OCR worker exceeded the frame deadline.");
+    }
+
+    WorkerFactory factory;
+    std::unique_ptr<IWin32InteractiveSession> session;
+    std::mutex mutex;
+    std::uint64_t next_id{};
+    bool unavailable{};
+};
+
 NumericOcrBatch::NumericOcrBatch()
     : owned_process_(create_win32_process()), process_(owned_process_.get()), executable_(locate_executable())
 {
+    // Core DLL and installed worker live side by side. Static test runners use
+    // their executable directory instead, without searching the current folder.
+    HMODULE const module = ::GetModuleHandleW(L"UmamusumeCore.dll");
+    std::array<wchar_t, 32768> buffer{};
+    auto const length = ::GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length > 0 && length < buffer.size() && !executable_.empty())
+    {
+        auto const worker = std::filesystem::path(std::wstring(buffer.data(), length)).parent_path()
+            / L"UmaNumericOcrWorker.exe";
+        auto const executable = executable_;
+        worker_ = std::make_unique<WorkerState>([worker, executable] {
+            std::error_code error;
+            if (!std::filesystem::is_regular_file(worker, error))
+                return std::unique_ptr<IWin32InteractiveSession>{};
+            std::string reason;
+            return start_win32_interactive_session(worker, {utf8_path(executable)}, reason);
+        });
+    }
 }
 
 NumericOcrBatch::NumericOcrBatch(IWin32Process& process, std::filesystem::path executable)
     : process_(&process), executable_(std::move(executable))
+{
+}
+
+NumericOcrBatch::NumericOcrBatch(IWin32Process& process, std::filesystem::path executable,
+    WorkerFactory workerFactory)
+    : process_(&process), executable_(std::move(executable)),
+      worker_(std::make_unique<WorkerState>(std::move(workerFactory)))
 {
 }
 
@@ -576,18 +727,11 @@ NumericOcrBatchResult NumericOcrBatch::read(
     auto const deadline = Clock::now() + frame_budget;
     try
     {
-        ComApartment apartment;
-        TemporaryBatchDirectory temporary;
+        // Legacy PNG/CLI resources are allocated only if the worker is absent.
+        std::unique_ptr<ComApartment> apartment;
+        std::unique_ptr<TemporaryBatchDirectory> temporary;
         std::vector<std::filesystem::path> normal_images(fields.size());
         std::vector<std::filesystem::path> padded_images(fields.size());
-        for (std::size_t index = 0; index < fields.size(); ++index)
-        {
-            throw_if_cancelled(cancellation);
-            auto const image = resize_nearest(fields[index].crop, false,
-                fields[index].format == NumericOcrFormat::UnsignedInteger);
-            normal_images[index] = temporary.path() / ("image-" + std::to_string(index) + ".png");
-            save_png(normal_images[index], image);
-        }
 
         struct Mode { char const* psm; bool padded; };
         constexpr std::array modes{Mode{"7", false}, Mode{"8", false}, Mode{"13", false}, Mode{"7", true}};
@@ -597,51 +741,66 @@ NumericOcrBatchResult NumericOcrBatch::read(
             if (Clock::now() >= deadline) break;
 
             std::vector<std::size_t> pending;
-            std::vector<std::filesystem::path> pending_images;
+            std::vector<Vision::GrayImage> images;
             for (std::size_t index = 0; index < fields.size(); ++index)
             {
                 if (readings.at(fields[index].key).value.has_value()) continue;
                 if (mode.padded && !fields[index].validateGainGlyphs) continue;
-                if (mode.padded)
-                {
-                    if (padded_images[index].empty())
-                    {
-                        auto const image = resize_nearest(fields[index].crop, true);
-                        padded_images[index] = temporary.path()
-                            / ("image-" + std::to_string(index) + "-padded.png");
-                        save_png(padded_images[index], image);
-                    }
-                    pending_images.push_back(padded_images[index]);
-                }
-                else
-                {
-                    pending_images.push_back(normal_images[index]);
-                }
+                images.push_back(resize_nearest(fields[index].crop, mode.padded,
+                    !mode.padded && fields[index].format == NumericOcrFormat::UnsignedInteger));
                 pending.push_back(index);
             }
             if (pending.empty() || Clock::now() >= deadline) continue;
 
-            auto const list_path = temporary.path() / "batch.txt";
-            write_image_list(list_path, pending_images);
-            auto const remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now());
-            if (remaining <= std::chrono::milliseconds::zero()) break;
-            auto const result = process_->execute(executable_,
-                build_tesseract_command(executable_, list_path, mode.psm), cancellation,
-                remaining, max_tsv_bytes, false);
+            auto texts = worker_ ? worker_->read(images, std::stoi(mode.psm), deadline, cancellation)
+                                 : std::optional<std::vector<std::string>>{};
+            if (!texts)
+            {
+                if (!temporary)
+                {
+                    apartment = std::make_unique<ComApartment>();
+                    temporary = std::make_unique<TemporaryBatchDirectory>();
+                }
+                std::vector<std::filesystem::path> pending_images;
+                for (std::size_t page = 0; page < pending.size(); ++page)
+                {
+                    auto const index = pending[page];
+                    auto& path = mode.padded ? padded_images[index] : normal_images[index];
+                    if (path.empty())
+                    {
+                        path = temporary->path() / ("image-" + std::to_string(index)
+                            + (mode.padded ? "-padded.png" : ".png"));
+                        save_png(path, images[page]);
+                    }
+                    pending_images.push_back(path);
+                }
+                auto const list_path = temporary->path() / "batch.txt";
+                write_image_list(list_path, pending_images);
+                auto const remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now());
+                if (remaining <= std::chrono::milliseconds::zero()) break;
+                auto const result = process_->execute(executable_,
+                    build_tesseract_command(executable_, list_path, mode.psm), cancellation,
+                    remaining, max_tsv_bytes, false);
+                throw_if_cancelled(cancellation);
+                if (result.canceled)
+                    throw std::system_error(std::make_error_code(std::errc::operation_canceled),
+                        "The numeric OCR process was canceled.");
+                if (result.timed_out || Clock::now() >= deadline) break;
+                if (!result.started || result.exit_code != 0 || result.standard_output_truncated) continue;
+                auto const pages = parse_tsv_pages(result.standard_output, pending.size());
+                texts.emplace(pending.size());
+                for (std::size_t page = 0; page < pending.size(); ++page)
+                {
+                    auto const found = pages.find(static_cast<int>(page + 1));
+                    if (found != pages.end()) (*texts)[page] = found->second;
+                }
+            }
             throw_if_cancelled(cancellation);
-            if (result.canceled)
-                throw std::system_error(std::make_error_code(std::errc::operation_canceled),
-                    "The numeric OCR process was canceled.");
-            if (result.timed_out || Clock::now() >= deadline) break;
-            if (!result.started || result.exit_code != 0 || result.standard_output_truncated)
-                continue;
-
-            auto const pages = parse_tsv_pages(result.standard_output, pending.size());
+            if (Clock::now() >= deadline) break;
             for (std::size_t page = 0; page < pending.size(); ++page)
             {
                 auto const index = pending[page];
-                auto const found = pages.find(static_cast<int>(page + 1));
-                std::string const raw = found == pages.end() ? std::string{} : found->second;
+                auto const& raw = (*texts)[page];
                 auto& reading = readings.at(fields[index].key);
                 append_reading(reading, raw);
 

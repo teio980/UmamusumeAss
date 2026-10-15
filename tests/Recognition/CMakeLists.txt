@@ -4,6 +4,7 @@ include(Catch)
 add_executable(RecognitionTests
   RecognitionTests.cpp
   NumericOcrBatchTests.cpp
+  NumericOcrWorkerTests.cpp
 )
 
 target_include_directories(RecognitionTests
@@ -17,6 +18,7 @@ target_link_libraries(RecognitionTests
   PRIVATE
     Catch2::Catch2WithMain
     UmaAssistantOcr
+    UmaAssistantResources
     nlohmann_json::nlohmann_json
     ZLIB::ZLIBSTATIC
     bcrypt
@@ -27,6 +29,7 @@ target_compile_definitions(RecognitionTests
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     NOMINMAX
     WIN32_LEAN_AND_MEAN
+    UMA_NUMERIC_OCR_WORKER_PATH="$<TARGET_FILE:UmaNumericOcrWorker>"
 )
 
 uma_add_strict_warnings(RecognitionTests)

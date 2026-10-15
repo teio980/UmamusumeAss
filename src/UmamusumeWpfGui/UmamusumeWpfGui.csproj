@@ -102,6 +102,10 @@
           DestinationFolder="$(TargetDir)"
           SkipUnchangedFiles="true"
           Condition="Exists('$(NativeStagingDirectory)\uma_pipeline_replay.exe')" />
+    <Copy SourceFiles="$(NativeStagingDirectory)\UmaNumericOcrWorker.exe"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeStagingDirectory)\UmaNumericOcrWorker.exe')" />
     <Copy SourceFiles="$(RepositoryRoot)\version.txt"
           DestinationFolder="$(TargetDir)"
           SkipUnchangedFiles="true" />

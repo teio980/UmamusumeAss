@@ -81,6 +81,15 @@ target_link_libraries(UmaAssistantVision
 
 uma_add_strict_warnings(UmaAssistantVision)
 
+add_executable(UmaNumericOcrWorker Recognition/NumericOcrWorker.cpp)
+target_link_libraries(UmaNumericOcrWorker PRIVATE nlohmann_json::nlohmann_json)
+target_compile_definitions(UmaNumericOcrWorker PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+if(MINGW)
+  target_link_options(UmaNumericOcrWorker PRIVATE -municode)
+endif()
+uma_add_strict_warnings(UmaNumericOcrWorker)
+install(TARGETS UmaNumericOcrWorker RUNTIME DESTINATION .)
+
 add_library(UmaAssistantOcr STATIC
   Recognition/WindowsOcrRecognizer.cpp
   Recognition/NumericOcrBatch.cpp
@@ -108,6 +117,7 @@ target_compile_definitions(UmaAssistantOcr
 )
 
 uma_add_strict_warnings(UmaAssistantOcr)
+add_dependencies(UmaAssistantOcr UmaNumericOcrWorker)
 
 add_library(UmaAssistantResources STATIC
   Resources/PipelineMetadataSchema.cpp

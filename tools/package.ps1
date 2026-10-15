@@ -207,6 +207,13 @@ if (-not (Test-Path -LiteralPath $replayExe)) {
 Copy-Item -LiteralPath $replayExe -Destination $PublishDir -Force
 Write-Host "  Copied uma_pipeline_replay.exe"
 
+$numericOcrWorker = Join-Path -Path $NativeStaging -ChildPath "UmaNumericOcrWorker.exe"
+if (-not (Test-Path -LiteralPath $numericOcrWorker)) {
+    throw "Numeric OCR worker not found: $numericOcrWorker"
+}
+Copy-Item -LiteralPath $numericOcrWorker -Destination $PublishDir -Force
+Write-Host "  Copied UmaNumericOcrWorker.exe"
+
 
 & (Join-Path $PSScriptRoot 'verify-managed-output.ps1') -Directory $PublishDir -ExpectedVersion $Version
 Write-Host "  Verified managed assembly and dependency versions"
