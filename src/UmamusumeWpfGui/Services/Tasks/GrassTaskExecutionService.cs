@@ -313,9 +313,6 @@ public sealed class GrassTaskExecutionService(
                 case GameTaskEventType.TaskEntering:
                     context.TaskLogSink?.Add("Step", semantic.StartMessage, HachimiTaskLogEventKind.Info);
                     break;
-                case GameTaskEventType.ActionExecuting when semantic.SentMessage is not null:
-                    context.TaskLogSink?.Add("Action", semantic.SentMessage, HachimiTaskLogEventKind.Action);
-                    break;
                 case GameTaskEventType.TransitionVerified when semantic.SentMessage is not null:
                 case GameTaskEventType.TaskCompleted:
                     context.TaskLogSink?.Add("Step", semantic.CompletedMessage, HachimiTaskLogEventKind.Success);

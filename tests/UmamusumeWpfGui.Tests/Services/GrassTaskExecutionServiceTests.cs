@@ -374,7 +374,7 @@ public sealed class GrassTaskExecutionServiceTests
             TaskLogSink: new RecordingTaskLogSink(semanticLogs)), _ => { });
 
         Assert.True(result.Succeeded);
-        Assert.Contains(semanticLogs, item => item.Phase == "Action" && item.Message == "Career training action sent.");
+        Assert.DoesNotContain(semanticLogs, item => item.Message.Contains("action sent", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(semanticLogs, item => item.Phase == "Step" && item.Message == "Career training confirmed.");
     }
 
