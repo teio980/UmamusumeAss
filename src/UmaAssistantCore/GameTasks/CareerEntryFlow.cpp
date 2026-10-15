@@ -902,6 +902,7 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
                 result.error = "Career entry observed an unregistered screen and cannot safely hand it to the runtime: " + screen;
                 return result;
             }
+            result.runtimeObservation = observation;
             result.succeeded = true;
             return result;
         }

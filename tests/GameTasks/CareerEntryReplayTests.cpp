@@ -411,6 +411,36 @@ TEST_CASE("Entry accepts existing stable proof without a second observation", "[
     CHECK(context.taps.empty());
 }
 
+TEST_CASE("Resuming Career preserves confirmed runtime dialogs and events for startup",
+    "[GameTasks][Career][Replay][ResumeHandoffRegression]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    config.continueExistingCareer = true;
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    for (auto const* screen : {"rest_confirmation", "scenario_event", "race_runner_result"})
+    {
+        CAPTURE(screen);
+        ReplayObserver observer("home");
+        observer.stableFrameCount = 2;
+        CareerReplayContext context;
+        context.onEvent = [&](auto const& event) {
+            if (event.type != TaskEventType::TaskCompleted) return;
+            if (event.taskName == "home_home_career") observer.screenId = "career_continue";
+            if (event.taskName == "career_continue_resume") observer.screenId = screen;
+        };
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context, {"home"});
+        CAPTURE(result.error, result.lastScreenId);
+        REQUIRE(result.succeeded);
+        REQUIRE(result.runtimeObservation);
+        CHECK(result.runtimeObservation->screenId == screen);
+        CHECK(result.runtimeObservation->stableFrameCount == 2);
+        CHECK(HasTask(context, "career_continue_resume"));
+    }
+}
+
 TEST_CASE("Career entry waits through stale Support frames without repeating Start",
     "[GameTasks][Career][Replay][EntryRegression]")
 {
