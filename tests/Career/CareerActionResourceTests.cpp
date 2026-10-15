@@ -781,108 +781,112 @@ TEST_CASE("MuMu Cosmos Sho result satisfies the View Results destination marker"
     const auto config = PackagedConfig();
     CareerVisualResources resources(config);
     REQUIRE(resources.IsReady());
-    const auto* task = resources.FindExecutionTask("race_runner_view_results_tap");
+    const auto* task = resources.FindExecutionTask("race_runner_view_results_ready");
     REQUIRE(task != nullptr);
-    REQUIRE(task->transitionTemplates.size() == 2);
+    REQUIRE(task->templatePath.has_value());
+    REQUIRE(task->roi.has_value());
     const auto frame = UmaAssistant::Resources::WicImageDecoder::decode_file(
         UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR)
         / "testdata/hachimi/ura/captures/race_view_results_cosmos_sho_3rd_mumu_20261012.png");
     const auto marker = UmaAssistant::Resources::WicImageDecoder::decode_file(
-        UmaAssistant::Paths::FromUtf8(task->transitionTemplates[0]));
-    REQUIRE(task->transitionRois[0].has_value());
-    const auto& bounds = *task->transitionRois[0];
+        UmaAssistant::Paths::FromUtf8(*task->templatePath));
+    const auto& bounds = *task->roi;
     REQUIRE(bounds.size() == 4);
     const auto match = UmaAssistant::Vision::find(frame, marker,
         std::array<std::int32_t, 4>{bounds[0], bounds[1], bounds[2], bounds[3]},
-        task->transitionThreshold, task->referenceWidth, task->referenceHeight);
+        task->templateThreshold, task->referenceWidth, task->referenceHeight);
     CHECK(match.found);
-    CHECK(match.score >= task->transitionThreshold);
+    CHECK(match.score >= task->templateThreshold);
 }
 
-TEST_CASE("View Results recovers when its result marker disappears before the terminal check",
-    "[CareerRuntime][CareerRaceReadyRecovery]")
+TEST_CASE("View Results sends two blank clicks before checking Next and stops when it appears",
+    "[CareerRuntime][CareerRaceReadyRecovery][CoordinateClick]")
 {
     const auto config = PackagedConfig();
     auto resources = std::make_shared<CareerVisualResources>(config);
     REQUIRE(resources->IsReady());
-    class TransientResultContext : public ActualRaceResultContext
+    class BlankClickContext : public ActualRaceResultContext
     {
     public:
-        TransientResultContext() : ActualRaceResultContext("race_view_results_junior_debut_tap_mumu_20261015.png") {}
+        BlankClickContext()
+            : ActualRaceResultContext("resource/hachimi/ura/testdata/captures/runtime_frames/ura_final_attributes2.png"),
+              entry(image),
+              overlay(ActualRaceResultContext("race_view_results_junior_debut_tap_mumu_20261015.png").image),
+              destination(ActualRaceResultContext("race_view_results_fuyo_stakes_1st_mumu_20261012.png").image) {}
         bool CaptureScreen() override
         {
-            if (recoveryImage && captures == recoveryAfterCaptures)
-                image = *recoveryImage;
+            image = taps.empty() ? entry : taps.size() < tapsBeforeDestination ? overlay : destination;
             return ActualRaceResultContext::CaptureScreen();
+        }
+        bool Tap(int x, int y) override
+        {
+            capturesAtTap.push_back(captures);
+            return ActualRaceResultContext::Tap(x, y);
         }
         TaskMatchResult MatchTemplateAdvanced(const std::string& path, double threshold,
             const std::optional<TaskRoi>& roi, const std::string& algorithm, int width, int height,
             const std::vector<double>& scales) override
         {
-            auto match = ActualRaceResultContext::MatchTemplateAdvanced(path, threshold, roi, algorithm, width, height, scales);
-            // Reproduce a single result observation followed by the real TAP
-            // placement overlay on the next capture. Only that first observation
-            // is injected; recovery clicks and destination checks use real pixels.
-            if (captures == 1 && FoldPath(path) == "race_result_next.png")
-            {
-                match.found = true;
-                match.score = 0.99;
-            }
-            return match;
+            if (FoldPath(path) == "race_result_next.png") tapsAtNextCheck.push_back(taps.size());
+            return ActualRaceResultContext::MatchTemplateAdvanced(path, threshold, roi, algorithm, width, height, scales);
         }
-        std::optional<UmaAssistant::Vision::GrayImage> recoveryImage;
-        std::uint64_t recoveryAfterCaptures{1};
+        void Sleep(int milliseconds) override
+        {
+            sleeps.emplace_back(taps.size(), milliseconds);
+            if (cancelBetweenBlankClicks && taps.size() == 2 && milliseconds == 150) cancelled = true;
+            ActualRaceResultContext::Sleep(milliseconds);
+        }
+        bool IsCancelled() const override { return cancelled || ActualRaceResultContext::IsCancelled(); }
+        UmaAssistant::Vision::GrayImage entry, overlay, destination;
+        std::size_t tapsBeforeDestination{3}; // View Results, then two blank clicks.
+        bool cancelBetweenBlankClicks{false};
+        std::vector<std::size_t> tapsAtNextCheck;
+        std::vector<std::uint64_t> capturesAtTap;
+        std::vector<std::pair<std::size_t, int>> sleeps;
     } context;
-    ActualRaceResultContext destination("race_view_results_fuyo_stakes_1st_mumu_20261012.png");
-    context.nextImage = destination.image;
     context.cancelAfterCaptures = 30;
-    bool expectsTap = false;
     bool expectsRetry = false;
     bool expectsCancellation = false;
-    SECTION("Placement overlay is dismissed before the result appears") { expectsTap = true; }
-    SECTION("A late result marker completes without an extra tap")
+    SECTION("Next appears after the initial pair") {}
+    SECTION("Next is delayed and each subsequent check follows one extra click")
     {
-        context.recoveryImage = destination.image;
-        context.recoveryAfterCaptures = 2;
+        context.tapsBeforeDestination = 5;
     }
-    SECTION("A retry dialog is handed back without spending an alarm")
+    SECTION("A retry dialog stops blank clicks without spending an alarm")
     {
-        ActualRaceResultContext retry("race_retry_oguri_3rd_mumu_20261014.png");
-        context.recoveryImage = retry.image;
+        context.destination = ActualRaceResultContext("race_retry_oguri_3rd_mumu_20261014.png").image;
         expectsRetry = true;
     }
-    SECTION("Cancellation while awaiting the result sends no input")
+    SECTION("Cancellation between the initial pair prevents the second blank click")
     {
-        context.cancelAfterCaptures = 3;
+        context.cancelBetweenBlankClicks = true;
         expectsCancellation = true;
     }
     TaskGraphRunner runner;
-    const auto result = runner.Run(resources->GetExecutionDefinition(), "race_runner_view_results_tap", context);
+    const auto result = runner.Run(resources->GetExecutionDefinition(), "race_runner_entry_view_results_click", context);
     INFO(result.errorMessage);
+    CHECK(context.sleeps.size() == 1);
     if (expectsCancellation)
     {
         REQUIRE(result.status == TaskGraphStatus::Cancelled);
-        CHECK(context.taps.empty());
+        CHECK(context.taps.size() == 2);
+        CHECK(context.tapsAtNextCheck.empty());
+        CHECK_FALSE(context.HasRetainedMatch());
         return;
     }
-    REQUIRE((result.status == TaskGraphStatus::Success || result.status == TaskGraphStatus::Completed));
-    if (expectsRetry)
-    {
-        CHECK(result.finalTask == "race_runner_retry_pending");
-        CHECK(context.taps.empty());
-        return;
-    }
-    if (!expectsTap)
-    {
-        CHECK(result.finalTask == "race_runner_view_results_ready");
-        CHECK(context.taps.empty());
-        return;
-    }
-    REQUIRE(context.taps.size() == 1);
-    CHECK(context.taps.front().first >= 300);
-    CHECK(context.taps.front().first < 600);
-    CHECK(context.taps.front().second >= 1200);
-    CHECK(context.taps.front().second < 1450);
+    REQUIRE(result.status == TaskGraphStatus::Success);
+    CHECK(result.finalTask == (expectsRetry ? "race_runner_retry_pending" : "race_runner_view_results_ready"));
+    REQUIRE(context.taps.size() == context.tapsBeforeDestination);
+    REQUIRE(context.capturesAtTap.size() >= 3);
+    CHECK(context.capturesAtTap[0] == context.capturesAtTap[1]);
+    CHECK(context.capturesAtTap[1] == context.capturesAtTap[2]);
+    REQUIRE_FALSE(context.tapsAtNextCheck.empty());
+    CHECK(context.tapsAtNextCheck.front() == 3);
+    CHECK(std::find(context.sleeps.begin(), context.sleeps.end(), std::pair<std::size_t, int>{2, 150})
+        != context.sleeps.end());
+    for (std::size_t i = 1; i < context.taps.size(); ++i)
+        CHECK((context.taps[i] == std::pair<int, int>{450, 1300}));
+    CHECK_FALSE(context.HasRetainedMatch());
 }
 
 TEST_CASE("Direct View Results placings are recognized after the runner checkpoint", "[CareerRuntime][CareerRaceTransition]")
@@ -1015,20 +1019,71 @@ TEST_CASE("Race playback recovery stages resume the shared graph through the ret
     CHECK(confirmed->screenId == "race_retry_dialog");
 }
 
-TEST_CASE("Attributes entry prefers available View Results after configuring strategy",
+TEST_CASE("Race entry screenshots use only the local Runner checkpoint",
+    "[CareerRuntime][CareerRaceEntryRepair][CareerRunnerRecognition]")
+{
+    const auto [filename, showsRunner] = GENERATE(
+        std::pair{"resource/hachimi/ura/testdata/captures/runtime_frames/ura_prelim_attributes.png", false},
+        std::pair{"resource/hachimi/ura/testdata/captures/runtime_frames/ura_prelim_attributes2.png", false},
+        std::pair{"resource/hachimi/ura/testdata/captures/runtime_frames/ura_semifinal_attributes.png", false},
+        std::pair{"resource/hachimi/ura/testdata/captures/runtime_frames/ura_final_attributes.png", false},
+        std::pair{"resource/hachimi/ura/testdata/captures/runtime_frames/ura_final_attributes2.png", true},
+        std::pair{"testdata/hachimi/ura/captures/ura_arima_attributes.png", false});
+    CAPTURE(filename);
+    auto resources = std::make_shared<CareerVisualResources>(PackagedConfig());
+    REQUIRE(resources->IsReady());
+    REQUIRE(resources->FindScreen("race_attributes") == nullptr);
+    const auto* runner = resources->FindScreen("race_runner");
+    REQUIRE(runner != nullptr);
+    REQUIRE(runner->templates.size() == 2);
+    CHECK(FoldPath(runner->templates.front().path) == "race_runner_label.png");
+    CHECK(runner->templates.front().threshold == Catch::Approx(0.88));
+    ActualRaceResultContext context(filename);
+    bool markerVisible = showsRunner;
+    SECTION("Only the actual Runner page has a Runners label") {}
+    SECTION("The old full screenshot cannot substitute for a missing Runners label")
+    {
+        markerVisible = false;
+        REQUIRE(runner->templates.front().roi.has_value());
+        const auto& roi = *runner->templates.front().roi;
+        const int left = roi.x * context.image.width / 900;
+        const int top = roi.y * context.image.height / 1600;
+        const int right = (roi.x + roi.width) * context.image.width / 900;
+        const int bottom = (roi.y + roi.height) * context.image.height / 1600;
+        for (int y = top; y < bottom; ++y)
+            for (int x = left; x < right; ++x)
+            {
+                const auto pixel = static_cast<std::size_t>(y) * context.image.width + x;
+                context.image.gray[pixel] = 0;
+                for (std::size_t channel = 0; channel < 3; ++channel)
+                    context.image.rgba[pixel * 4 + channel] = 0;
+            }
+    }
+    REQUIRE(context.CaptureScreen());
+    const auto& marker = runner->templates.front();
+    const auto localMatch = context.MatchTemplateAdvanced(marker.path, marker.threshold, marker.roi,
+        marker.algorithm, 900, 1600, {});
+    INFO("Runners marker score " << localMatch.score << " at " << localMatch.x << "," << localMatch.y);
+    CareerScreenObserver observer(resources);
+    const auto observed = observer.ObserveScreens(context, {"race_runner"}, true);
+    CHECK(observed.screenId == (markerVisible ? "race_runner" : "unknown"));
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Runner entry prefers available View Results after configuring strategy",
     "[CareerRuntime][CareerRaceEntryRepair]")
 {
     auto config = PackagedConfig();
     config.normalLineupStrategy = "late";
     auto resources = std::make_shared<CareerVisualResources>(config);
     REQUIRE(resources->IsReady());
-    ActualRaceResultContext context("resource/hachimi/career/race/templates/runtime_frames/ura_final_attributes2.png");
+    ActualRaceResultContext context("resource/hachimi/ura/testdata/captures/runtime_frames/ura_final_attributes2.png");
     context.replayConfiguredStrategy = true;
     ActualRaceResultContext result("race_view_results_fuyo_stakes_1st_mumu_20261012.png");
     context.nextImage = result.image;
     context.cancelAfterCaptures = 10000; // Allow the bounded absent-lock probe to expire.
     CareerObservation source;
-    source.screenId = "race_attributes";
+    source.screenId = "race_runner";
     source.screenKind = CareerScreenKind::RaceExecution;
     CareerActionExecutor executor(config, resources);
     const auto status = executor.ExecuteForObservation(ActionIntent::MakeRace("finale"), source, context);
@@ -1036,7 +1091,7 @@ TEST_CASE("Attributes entry prefers available View Results after configuring str
     for (const auto& log : context.logs) diagnostics += log + "\n";
     INFO(diagnostics);
     REQUIRE(status == ActionExecutionStatus::Success);
-    REQUIRE(context.taps.size() == 1);
+    REQUIRE(context.taps.size() == 3);
     CHECK(context.taps.front().first >= 150);
     CHECK(context.taps.front().first < 450);
     executor.SetRaceRunnerResultExpected(true);

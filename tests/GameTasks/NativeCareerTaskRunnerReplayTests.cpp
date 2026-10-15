@@ -449,27 +449,42 @@ public:
 
     bool TapMatch(int x, int y, const TaskMatchResult& match) override
     {
-        // NativeGameTaskRunner permits coordinate-only ClickRect actions when
-        // the action graph supplies a specificRect. Those arrive as an
-        // unfound, frame-less match and are bound to the currently captured
-        // frame by the production context.
-        if ((!match.found && (match.frameId != 0 || !m_currentFrame))
-            || (match.frameId != 0 && m_currentFrame
+        // Coordinate actions have no visual hit but can still carry the
+        // captured source frame, just like the production native context.
+        if (!m_currentFrame
+            || (match.frameId != 0
                 && match.frameId != m_currentFrame->frameId && !IsMatchRetained(match)))
             return false;
+        if (IsMatchRetained(match))
+        {
+            if (std::pair{x, y} != m_retainedPoint) return false;
+            --m_retainedAttempts;
+            if (m_retainedAttempts == 0) ReleaseRetainedMatch();
+        }
         return Tap(x, y);
     }
 
-    bool RetainMatchForRetry(const TaskMatchResult& match, int, int, int, int) override
+    bool RetainMatchForRetry(const TaskMatchResult& match, int attempts, int lifetime,
+        int fixedX, int fixedY) override
     {
-        if (!numericProbeReplay || !match.found || !m_currentFrame) return false;
-        m_probeRetainedFrame = match.frameId;
+        if (!m_currentFrame || match.frameId == 0 || attempts < 1 || attempts > 100 || lifetime <= 0
+            || match.sessionGeneration != m_currentFrame->sessionGeneration
+            || match.geometryGeneration != m_currentFrame->geometryGeneration)
+            return false;
+        auto const point = std::pair{fixedX < 0 ? match.CenterX() : fixedX,
+            fixedY < 0 ? match.CenterY() : fixedY};
+        if (HasRetainedMatch())
+            return IsMatchRetained(match) && point == m_retainedPoint;
+        if (match.frameId != m_currentFrame->frameId) return false;
+        m_retainedFrame = match.frameId;
+        m_retainedPoint = point;
+        m_retainedAttempts = attempts;
         return true;
     }
-    bool HasRetainedMatch() const override { return m_probeRetainedFrame != 0; }
+    bool HasRetainedMatch() const override { return m_retainedFrame != 0 && m_retainedAttempts > 0; }
     bool IsMatchRetained(const TaskMatchResult& match) const override
-    { return m_probeRetainedFrame != 0 && match.frameId == m_probeRetainedFrame; }
-    void ReleaseRetainedMatch() override { m_probeRetainedFrame = 0; }
+    { return HasRetainedMatch() && match.frameId == m_retainedFrame; }
+    void ReleaseRetainedMatch() override { m_retainedFrame = 0; m_retainedAttempts = 0; }
 
     bool Swipe(int, int, int, int, int) override { ++m_swipes; return true; }
     bool InputText(const std::string&) override { return true; }
@@ -772,7 +787,9 @@ private:
     std::shared_ptr<const TaskFrameSnapshot> m_currentFrame;
     std::shared_ptr<const TaskFrameSnapshot> m_previousFrame;
     std::uint64_t m_nextFrameId{0};
-    std::uint64_t m_probeRetainedFrame{0};
+    std::uint64_t m_retainedFrame{0};
+    std::pair<int, int> m_retainedPoint{};
+    int m_retainedAttempts{0};
     std::pair<int, int> m_coordinateReference{900, 1600};
     std::vector<RaceReplayStep> m_raceSteps;
     std::size_t m_raceResultIndex{0};

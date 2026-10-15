@@ -308,12 +308,11 @@ void PushFullRaceFlow(ReplayObserver& observer)
         Screen("career_main", CareerScreenKind::MainTurn)};
 }
 
-void CheckRaceTargetReplay(const std::string& target, const std::string& runnerScreen = "race_runner")
+void CheckRaceTargetReplay(const std::string& target)
 {
     auto observer = std::make_shared<ReplayObserver>();
     auto executor = std::make_shared<ReplayExecutor>();
     PushFullRaceFlow(*observer);
-    observer->observations[4].screenId = runnerScreen;
     CareerFlowCoordinator coordinator(observer, executor,
         std::make_shared<ReplayScenario>(), std::make_shared<ReplayStrategy>(target));
     UmaAssistant::TaskEngine::Tests::MockTaskExecutionContext context;
@@ -336,7 +335,7 @@ void CheckRaceTargetReplay(const std::string& target, const std::string& runnerS
     CHECK(executor->executions[2].intent.tactic == "late");
     CHECK(executor->executions[3].source.screenId == "race_list");
     CHECK(executor->executions[3].intent.tactic == "late");
-    CHECK(executor->executions[4].source.screenId == runnerScreen);
+    CHECK(executor->executions[4].source.screenId == "race_runner");
     CHECK(executor->executions[5].source.screenId == "race_runner_result");
     CHECK(executor->executions[6].source.screenId == "career_main");
     CHECK(executor->executions[6].intent.kind == ActionIntentKind::Training);
@@ -353,10 +352,6 @@ TEST_CASE("Career race target and lineup survive the resource race flow", "[Care
     SECTION("Grade-race-count target")
     {
         CheckRaceTargetReplay("grade_race_count");
-    }
-    SECTION("Attributes view shares the runner strategy checkpoint")
-    {
-        CheckRaceTargetReplay("fans", "race_attributes");
     }
 }
 

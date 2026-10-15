@@ -380,8 +380,7 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         || observation.screenKind == CareerScreenKind::RaceResult
         || screenId == "race_day" || screenId == "race_list"
         || screenId == "race_runner" || screenId == "race_result"
-        || screenId == "race_streak_warning" || screenId == "race_details"
-        || screenId == "race_attributes")
+        || screenId == "race_streak_warning" || screenId == "race_details")
     {
         const auto text = GoalTextFromObservation(observation);
         if (observation.turnsToGoalEvidence.IsReliable())

@@ -1,5 +1,13 @@
 # Career 原生迁移回归核对
 
+## 赛前检查点统一为 Runner（2026-10-15）
+
+按用户要求删除 `race_attributes` 页面及其五个重复动作绑定。赛事详情、连赛检查、跑法状态和直接赛果续接统一使用 `race_runner`；Runners 局部模板的 ROI 与 0.88 阈值保留。五张旧整图只保存在 `ura/testdata/captures/runtime_frames/`，供 Runner 像素回归使用，不再作为运行识别模板。下方涉及旧页面及“全部绑定保留”的内容为历史记录，当前衔接以重新导出的 [全操作清单](career-flow-action-inventory.md) 为准。
+
+逐张核对发现，旧整图中 `ura_prelim_attributes.png` 是 Race Day，`ura_prelim_attributes2.png` 与 `ura_semifinal_attributes.png` 是赛前剧情，`ura_final_attributes.png` 是连接中的赛事列表；只有 `ura_final_attributes2.png` 是实际 Runner 页面。原主模板以外的这些图片本来就没有 Runners 控件，不能继续作为属性页的识别证据。实际 URA Runner 的 Runners 字样从原图 `[738, 1102, 113, 38]` 提取为小模板变体，原小模板、ROI 和阈值保留；重试后的 Runner 交接也接受这个局部变体。
+
+Release 构建及 52 个 C ABI 导出检查通过。Career **172/172**（5,045 断言）、GameTasks **54/54**（890 断言），Runner 专项包含在 Career 中，覆盖六张实际截图及局部标记消失的分支。资源检查 7 项、生产回放工具检查 9 项通过，重新生成的 72 页面／253 动作清单及 main 动作图差异审计通过；审计明确记录旧页面与任务的合并，不再把替换后的绑定描述为完全未变。本轮只进行离线验证，没有执行新的实机比赛。日志、差异报告、旧文件备份和运行文件 SHA-256 位于 `build/race-runner-unification-20261015/`。DLL 与资源已同步到 native-staging、GUI Debug 和 Release；运行中的助手需重新打开加载新版。
+
 ## 比赛播放到闹钟弹窗的实际出口核对（2026-10-14）
 
 本次日志 `05:29:57 race_playback_start.race.play` 后，`05:30:30 race_runner_playback_result_monitor` 超时。只读 ADB 现场为 Oguri Cap 第三名的 Try Again 闹钟弹窗，保存到 `testdata/hachimi/ura/captures/race_retry_oguri_3rd_mumu_20261014.png`，没有点击游戏或消耗闹钟。

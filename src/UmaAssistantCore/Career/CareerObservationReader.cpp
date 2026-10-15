@@ -972,7 +972,7 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
             // the shared Next button alone cannot identify arbitrary screens.
             if (!matched && Fold(screen.screenId) == "race_runner_result"
                 && m_raceRunnerResultExpected
-                && (Fold(m_lastScreenId) == "race_runner" || Fold(m_lastScreenId) == "race_attributes")
+                && Fold(m_lastScreenId) == "race_runner"
                 && !screen.requiredTemplates.empty())
             {
                 const auto& marker = screen.requiredTemplates.front();

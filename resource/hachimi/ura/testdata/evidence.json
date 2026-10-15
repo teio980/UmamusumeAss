@@ -35,11 +35,11 @@
       },
       {
         "from": "race_details",
-        "to": "race_attributes",
+        "to": "race_runner",
         "on": "race.confirm"
       },
       {
-        "from": "race_attributes",
+        "from": "race_runner",
         "to": "race_playback",
         "on": "race.start"
       },

@@ -34,7 +34,7 @@ bool IsUnexpectedScreenAfterDeclinedRaceRetry(const std::string& screenId)
     return id == "career_main" || id == "training_selection"
         || id == "race_runner" || id == "race_day" || id == "race_list"
         || id == "race_list_empty" || id == "race_streak_warning"
-        || id == "race_details" || id == "race_attributes"
+        || id == "race_details"
         || id == "race_playback" || id == "race_playback_start";
 }
 
@@ -256,7 +256,7 @@ void CareerFlowCoordinator::SynchronizeObservationPolicy() noexcept
     const bool armed = m_scenario && m_scenario->IsGoalCompletionProbeArmed(m_state);
     const bool runnerResultExpected = m_pendingRaceIntent.has_value()
         && m_state.raceStrategyConfigured
-        && (Fold(m_state.lastScreenId) == "race_runner" || Fold(m_state.lastScreenId) == "race_attributes");
+        && Fold(m_state.lastScreenId) == "race_runner";
     if (m_observer)
     {
         m_observer->SetGoalCompletionProbeArmed(armed);
@@ -568,7 +568,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                 m_state.raceRetryDeclined = false;
             }
         }
-        if (Fold(observation.screenId) == "race_runner" || Fold(observation.screenId) == "race_attributes")
+        if (Fold(observation.screenId) == "race_runner")
         {
             m_scenario->OnRaceStrategyConfigured(m_state);
             m_state.raceStrategyConfigured = true;
@@ -858,7 +858,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
                 "Resume the recognized resource-defined race flow.");
         }
         const auto raceScreenId = Fold(observation.screenId);
-        if ((raceScreenId == "race_list" || raceScreenId == "race_details" || raceScreenId == "race_attributes")
+        if ((raceScreenId == "race_list" || raceScreenId == "race_details" || raceScreenId == "race_runner")
             && !m_raceTurnSubmitted)
         {
             if (m_scenario->ShouldDeferRace(m_state))

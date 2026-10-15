@@ -445,7 +445,7 @@ career_main 或 career_races_ready
 → 选择当前目标赛
 → race_details
 → confirm
-→ race_attributes
+→ race_runner
 → start_playback
 → race_playback / race_playback_settings
 → race_live

@@ -652,67 +652,38 @@
       "action": "ClickSelf",
       "template": "templates/career/race/race_entry_view_results.png",
       "templThreshold": 0.82,
-      "roi": [
-        150,
-        1380,
-        360,
-        180
-      ],
+      "roi": [150, 1380, 360, 180],
       "timeoutMs": 2500,
       "pollIntervalMs": 200,
-      "postDelay": 500,
+      "postDelay": 0,
       "next": [
-        "race_runner_view_results_tap"
+        "race_runner_view_results_initial_clicks"
       ]
     },
-    "race_runner_view_results_tap": {
-      "algorithm": "MatchTemplateColor",
-      "action": "ClickSelfUntilTransition",
-      "template": "templates/career/race/race_view_results_tap.png",
-      "repeatTapUntilTransition": true,
-      "maxClickAttempts": 4,
+    "race_runner_view_results_initial_clicks": {
+      "algorithm": "JustReturn",
+      "action": "ClickRect",
+      "specificRect": [440, 1290, 20, 20],
+      "repeat": 2,
+      "repeat_delay": 150,
+      "timeoutMs": 0,
+      "next": [
+        "race_runner_view_results_wait"
+      ]
+    },
+    "race_runner_view_results_wait": {
+      "algorithm": "JustReturn",
+      "action": "ClickRect",
+      "specificRect": [440, 1290, 20, 20],
       "successTasks": [
         "race_runner_view_results_ready",
         "race_runner_retry_pending"
       ],
-      "transitionTemplates": [
-        "templates/career/race/race_result_next.png",
-        "templates/career/race/race_retry_dialog_title.png"
-      ],
-      "pollTransitionTemplatesTogether": true,
-      "transitionRoi": [
-        240,
-        1380,
-        420,
-        180
-      ],
-      "transitionRois": [
-        [
-          240,
-          1380,
-          420,
-          180
-        ],
-        [
-          320,
-          350,
-          270,
-          120
-        ]
-      ],
-      "transitionThreshold": 0.82,
-      "transitionTimeoutMs": 2500,
-      "transitionPollIntervalMs": 200,
-      "templThreshold": 0.72,
-      "roi": [
-        300,
-        1200,
-        300,
-        250
-      ],
-      "timeoutMs": 600000,
-      "pollIntervalMs": 60,
-      "postDelay": 0
+      "timeoutMs": 0,
+      "maxTimes": 300,
+      "next": [
+        "race_runner_view_results_wait"
+      ]
     },
     "race_runner_view_results_ready": {
       "algorithm": "MatchTemplateColor",
@@ -720,10 +691,9 @@
       "template": "templates/career/race/race_result_next.png",
       "templThreshold": 0.82,
       "roi": [240, 1380, 420, 180],
-      "timeoutMs": 1200,
-      "pollIntervalMs": 150,
+      "timeoutMs": 0,
       "onErrorNext": [
-        "race_runner_view_results_tap"
+        "race_runner_view_results_wait"
       ],
       "success": true
     },
@@ -778,7 +748,8 @@
       "timeoutMs": 5000,
       "pollIntervalMs": 200,
       "transitionTemplates": [
-        "templates/career/race/race_runner_label.png"
+        "templates/career/race/race_runner_label.png",
+        "templates/career/race/race_runner_label_ura.png"
       ],
       "transitionRoi": [
         700,

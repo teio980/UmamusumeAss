@@ -113,15 +113,15 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
     else if (id == "career_skills") select(Phase::RaceEntry, {"race_day"});
     else if (id == "race_day" || id == "career_races_ready" || id == "race_recommendations")
         select(Phase::RaceEntry, {"race_streak_warning", "race_recommendations", "race_list", "race_list_empty",
-            "race_day", "career_races_ready", "race_details", "race_attributes", "race_runner"});
-    else if (id == "race_list") select(Phase::RaceEntry, {"race_streak_warning", "race_details", "race_attributes", "race_runner"});
+            "race_day", "career_races_ready", "race_details", "race_runner"});
+    else if (id == "race_list") select(Phase::RaceEntry, {"race_streak_warning", "race_details", "race_runner"});
     else if (id == "race_list_empty" || (id == "race_streak_warning" && action == "race.streak.cancel"))
         select(Phase::Main, {"career_main", "race_day", "race_list"});
-    else if (id == "race_streak_warning") select(Phase::RaceEntry, {"race_recommendations", "race_list", "race_details", "race_attributes", "race_runner"});
+    else if (id == "race_streak_warning") select(Phase::RaceEntry, {"race_recommendations", "race_list", "race_details", "race_runner"});
     else if (id == "race_details")
         select(Phase::RaceEntry, action == "race.cancel"
             ? std::initializer_list<const char*>{"race_list"}
-            : std::initializer_list<const char*>{"race_attributes", "race_runner"});
+            : std::initializer_list<const char*>{"race_runner"});
     else if (id == "race_runner_result" || id == "race_result" || id == "reward" || id == "reward_support"
         || result.actionOutcome == "race.replay.completed")
     {
@@ -134,7 +134,7 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
             select(Phase::RaceOutcome, {"race_runner_result", "race_result", "goal_incomplete", "complete_career_entry"});
         else select(Phase::RaceExecution, {"race_runner", "race_runner_result", "race_result", "race_playback_start", "race_retry_dialog"});
     }
-    else if (id == "race_runner" || id == "race_attributes" || id == "race_playback"
+    else if (id == "race_runner" || id == "race_playback"
         || id == "race_playback_start" || id == "race_playback_settings" || id == "race_live" || id == "race_trophy_won")
         select(Phase::RaceExecution, {"race_runner", "race_playback", "race_playback_start", "race_playback_settings",
             "race_live", "race_runner_result", "race_result", "race_trophy_won", "race_retry_dialog"});

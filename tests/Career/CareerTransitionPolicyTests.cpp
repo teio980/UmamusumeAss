@@ -96,6 +96,21 @@ TEST_CASE("Empty races and declined retries have separate return contracts", "[C
     CHECK_FALSE(Has(accepted, "career_main"));
 }
 
+TEST_CASE("Race entry transitions share the single runner checkpoint", "[CareerTransition][CareerRunnerRecognition]")
+{
+    for (auto const& [screen, action] : std::vector<std::pair<std::string, std::string>>{
+        {"race_day", "race.open_list"}, {"career_races_ready", "action.races"},
+        {"race_recommendations", "race.recommendations.confirm"},
+        {"race_list", "race.recommended_entry"}, {"race_details", "race.confirm"},
+        {"race_streak_warning", "race.streak.confirm"}})
+    {
+        CAPTURE(screen, action);
+        const auto transition = CareerTransitionPolicy::AfterAction({}, screen, action);
+        CHECK(Has(transition, "race_runner"));
+        CHECK_FALSE(Has(transition, "race_attributes"));
+    }
+}
+
 TEST_CASE("A resumed event retains unknown turn origins within its local continuation", "[CareerTransition]")
 {
     auto resumed = CareerTransitionPolicy::FromObservation("event_choice");

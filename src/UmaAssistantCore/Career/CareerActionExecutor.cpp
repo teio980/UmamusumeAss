@@ -140,7 +140,7 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
         return returned ? ActionExecutionStatus::Success
             : context.IsCancelled() ? ActionExecutionStatus::Cancelled : ActionExecutionStatus::Failed;
     }
-    if ((observedScreen == "race_runner" || observedScreen == "race_attributes")
+    if (observedScreen == "race_runner"
         && intent.kind == CareerDomain::ActionIntentKind::Race)
     {
         auto lineup = Fold(intent.tactic);
@@ -157,7 +157,7 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
             if (strategy != ActionExecutionStatus::Success) return strategy;
             m_raceStrategyConfigured = true;
         }
-        // Both views show the same entry controls. Prefer View Results;
+        // Prefer View Results on the verified runner page;
         // only its locked state routes through entry.start and playback.
         return ExecuteAction(observation.screenId, "entry.view_results", context);
     }
@@ -653,7 +653,7 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
         if (screenId == "race_retry_dialog")
             return choose(m_config.retryFailedRaceWithAlarmClock
                 ? "retry_with_alarm_clock" : "cancel");
-        if (screenId == "race_runner" || screenId == "race_attributes")
+        if (screenId == "race_runner")
             return choose("entry.view_results");
         if (screenId == "race_details")
             return choose("race.confirm");

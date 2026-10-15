@@ -12,6 +12,15 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+RETIRED_PAGES = {"race_attributes": "race_runner"}
+REPLACED_TASKS = {
+    "race_attributes_race_start_playback": "race_runner_entry_view_results",
+    "race_playback_race_play": "race_runner_playback_start",
+    "race_playback_settings_race_playback_settings_ok": "race_runner_playback_ok",
+    "race_live_race_live_next": "race_runner_playback_result_monitor",
+    "race_result_result_next": "race_runner_result_next",
+    "race_runner_view_results_tap": "race_runner_view_results_initial_clicks",
+}
 LINKS = ("next", "onErrorNext", "exceededNext", "sub", "monitorTasks", "successTasks",
          "alternativeTemplateTasks")
 
@@ -66,19 +75,26 @@ def main():
         baseline = {path: json.loads(archive.read(path)) for path in paths}
     current = {path.relative_to(ROOT).as_posix(): json.loads(path.read_text(encoding="utf-8-sig"))
                for path in sorted((ROOT / "resource/hachimi/career").glob("**/*.json"))
-               if path.name in {"profile.json", "execution.json"}}
+               if path.name in {"profile.json", "execution.json"} and "testdata" not in path.parts}
     old_screens, old_tasks = collect(baseline)
     screens, tasks = collect(current)
-    assert old_screens.keys() <= screens.keys(), "Removed Career page"
-    assert old_tasks.keys() <= tasks.keys(), "Removed execution task"
+    assert old_screens.keys() - RETIRED_PAGES.keys() <= screens.keys(), "Removed Career page"
+    for retired, replacement in RETIRED_PAGES.items():
+        assert retired not in screens and replacement in screens, f"Unfinished page consolidation: {retired}"
+    removed_tasks = old_tasks.keys() - tasks.keys()
+    assert removed_tasks <= REPLACED_TASKS.keys(), f"Removed execution tasks without replacements: {removed_tasks - REPLACED_TASKS.keys()}"
+    for retired in removed_tasks:
+        assert REPLACED_TASKS[retired] in tasks, f"Missing replacement for {retired}"
     for name, task in tasks.items():
         assert all(target in tasks for target in references(task)), name
     loader = (ROOT / "src/UmaAssistantCore/TaskEngine/HachimiPipelineLoader.cpp").read_text()
-    supported = set(re.findall(r'"([A-Za-z][A-Za-z0-9]*)"', loader))
+    supported = set(re.findall(r'"([A-Za-z][A-Za-z0-9_]*)"', loader))
     used = {field for task in tasks.values() for field in task}
     assert used <= supported, f"Unparsed execution fields: {used - supported}"
     differences = {}
     for name, old in old_tasks.items():
+        if name in removed_tasks:
+            continue
         now = tasks[name]
         delta = {key: {"main": old.get(key), "current": now.get(key)}
                  for key in sorted(old.keys() | now.keys()) if old.get(key) != now.get(key)}
@@ -86,15 +102,18 @@ def main():
             differences[name] = delta
     recognition_changes = {sid: {"main": old["recognition"], "current": screens[sid]["recognition"]}
                            for sid, old in old_screens.items()
-                           if old.get("recognition") != screens[sid].get("recognition")}
+                           if sid not in RETIRED_PAGES and old.get("recognition") != screens[sid].get("recognition")}
     rows = []
     for sid, screen in sorted(old_screens.items()):
+        if sid in RETIRED_PAGES:
+            continue
         now = {action["semanticId"]: action["task"] for action in screens[sid].get("actions", [])}
         for action in screen.get("actions", []):
-            semantic, entry = action["semanticId"], action["task"]
+            semantic, old_entry = action["semanticId"], action["task"]
+            entry = REPLACED_TASKS.get(old_entry, old_entry)
             assert now.get(semantic) == entry, f"Changed binding: {sid}.{semantic}"
             graph = reachable(tasks, entry)
-            rows.append({"screen": sid, "action": semantic, "task": entry,
+            rows.append({"screen": sid, "action": semantic, "main_task": old_entry, "task": entry,
                          "reachable_tasks": graph,
                          "changed_tasks": [name for name in graph if name in differences],
                          "new_tasks": [name for name in graph if name not in old_tasks],
@@ -109,9 +128,11 @@ def main():
                 for name, task in sorted(tasks.items()) if task.get("algorithm") == "ParallelMonitor"}
     report = {"baseline": commit,
               "counts": {"main_pages": len(old_screens), "current_pages": len(screens),
-                         "preserved_actions": len(rows), "main_tasks": len(old_tasks),
+                         "audited_actions": len(rows), "main_tasks": len(old_tasks),
                          "current_tasks": len(tasks), "changed_tasks": len(differences)},
               "added_pages": sorted(screens.keys() - old_screens.keys()),
+              "retired_pages": {sid: replacement for sid, replacement in RETIRED_PAGES.items() if sid in old_screens},
+              "replaced_tasks": {name: REPLACED_TASKS[name] for name in sorted(removed_tasks)},
               "added_tasks": sorted(tasks.keys() - old_tasks.keys()),
               "changed_tasks": differences, "recognition_changes": recognition_changes,
               "monitors": monitors, "actions": rows,

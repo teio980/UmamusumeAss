@@ -19,10 +19,16 @@ URA 的日历、赛事、目标和事件规则仍在 `resource/hachimi/ura/`。�
 
 ## 编辑与迁移
 
+赛前属性与跑法画面统一使用 `race_runner`：只匹配右侧 Runners 的局部模板，ROI 为 `[700, 1060, 180, 140]`，阈值保持 `0.88`。保留原小模板，并从实际 URA Runner 截图提取局部字样作为兼容变体；重试成功检查复用这两个小模板。旧 `race_attributes` 页面、重复动作绑定和整图识别已删除；五张历史整图移到 `ura/testdata/captures/runtime_frames/`，只用于像素回归，不进入发布包。其中四张实际为 Race Day、赛前剧情或赛事列表，回归要求它们不能被识别成 Runner。赛事详情确认、连赛保护、跑法配置、重试及直接赛果续接都使用同一 Runner 检查点。
+
+定点空点使用通用任务节点 `algorithm: JustReturn`、`action: ClickRect` 和 `specificRect`，不依赖 TAP 模板。`ClickRect`（以及 `ClickSpecificRect`）可设置 `repeat`（默认 1，范围 1–100）和 `repeat_delay`（两次点击间的等待，毫秒，默认 0，范围 0–10000）。重复点击要求明确的四项 `specificRect`；显式 `JustReturn` 定点点击直接通过设备坐标输入通道执行，第一次点击前及重复点击之间均不截图、不做输入前视觉检查；设备会校验当前分辨率及旋转方向。带识别证据的点击继续使用原有帧凭据。失败或取消会立即终止剩余点击。
+
+View Results 使用这套通用能力：按钮点击后取消原来的 500 ms 等待，进入 `repeat: 2`、`repeat_delay: 150` 的空点节点；之后每轮先通过 `successTasks` 检查 Next 和已有重试弹窗，没有命中才补一次空点。Next 只用于退出空点阶段，下一步结果处理负责点击它。空点坐标与 Next 按钮分开，补点循环保留 `maxTimes` 上限。旧 TAP 识别节点与运行模板已删除。
+
 开发工具展示合成后的任务列表，并记录每个任务的来源。保存时回写原来的 execution 片段；未修改的模板路径保留原文，不生成一个新的合并大文件。新增任务写入当前选择的 execution 片段。
 
 迁移自定义包时，将单文件拆为片段，在 manifest 中列出这些片段，将模板路径改为片段相对路径或目录中声明的资源，并为每个画面声明 `flow`、`order` 和识别优先级。加载器会检查重复 ID、动作绑定、任务跳转、模板路径和动态资源声明，错误消息指向来源文件。
 
 保留现有设置 ID、Independent checkpoint 和 Normal 技能缓存格式。智能训练在发送提交前持久化确认记录，恢复后以实际结果或回合证据消除记录，不能因重启重复提交。
 
-main 的全部 72 个页面、254 个动作绑定及其衔接见 [Career 全操作清单](career-flow-action-inventory.md)。清单由 `CareerTests [CareerTransitionAudit]` 导出后用 `tools/GenerateCareerFlowAudit.py` 生成；动作绑定和页面缺失会使生成失败。
+当前页面、动作绑定及其与 main 的差异见 [Career 全操作清单](career-flow-action-inventory.md)。清单由 `CareerTests [CareerTransitionAudit]` 导出后用 `tools/GenerateCareerFlowAudit.py` 生成；只有已明确合并到 Runner 的旧页面允许删除，其余基线页面或动作缺失会使生成失败。
