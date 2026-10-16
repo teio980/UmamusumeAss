@@ -35,24 +35,10 @@
   <ScrollViewer HorizontalContentAlignment="Stretch"
                 HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="36,24,42,42"
+    <StackPanel Margin="36,0,42,42"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Top"
                 TextElement.FontSize="12">
-      <StackPanel Margin="0,0,0,16">
-        <TextBlock Text="{DynamicResource GrassTaskSettingsPageTitle}"
-                   FontSize="32"
-                   FontWeight="Light" />
-        <TextBlock Margin="0,6,0,0"
-                   Text="{Binding SelectedTask.Name}"
-                   FontSize="16"
-                   FontWeight="SemiBold"
-                   TextWrapping="Wrap" />
-      </StackPanel>
-      <TextBlock Margin="0,0,0,22"
-                 Text="{Binding SelectedTask.Description}"
-                 Style="{DynamicResource SettingCardDescriptionStyle}" />
-
       <!-- Simple task editors render their own SettingCard groups. Career's
            category tabs are the sole task-level navigation. -->
       <ContentControl Content="{Binding SelectedTask.Settings}"
