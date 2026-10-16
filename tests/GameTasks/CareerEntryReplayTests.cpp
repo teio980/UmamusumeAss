@@ -526,8 +526,8 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
     public:
         bool CaptureScreen() override
         {
-            static const std::array<const char*, 4> files{
-                "prompt.png", "list.png", "confirm.png", "list.png"};
+            static const std::array<const char*, 5> files{
+                "prompt.png", "list.png", "confirm.png", "result.png", "support.png"};
             if (stage >= files.size()) return false;
             const auto file = stage == 2 && !quantitySelected ? "confirm_zero.png" : files[stage];
             image = Resources::WicImageDecoder::decode_file(
@@ -561,12 +561,14 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
             if (!frame || frame->frameId != match.frameId) return false;
             if (lastMarker == "career_entry_recover_tp_min.png") quantitySelected = false;
             else if (lastMarker == "career_entry_recover_tp_plus.png") quantitySelected = !dropPlus;
+            else if (lastMarker == "career_entry_recover_tp_result_close.png" && dropClose) {}
             else ++stage;
             return Tap(x, y);
         }
         std::size_t stage{0};
         bool quantitySelected{true};
         bool dropPlus{false};
+        bool dropClose{false};
         std::string lastMarker;
         Vision::GrayImage image;
         std::shared_ptr<TaskFrameSnapshot> frame;
@@ -574,6 +576,7 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
     SECTION("Min clears the default selection and Plus selects one potion") {}
     SECTION("the dialog can initially have zero potions selected") { context.quantitySelected = false; }
     SECTION("a lost Plus tap cannot confirm the disabled OK button") { context.dropPlus = true; }
+    SECTION("a lost result Close tap cannot report recovery complete") { context.dropClose = true; }
     Career::CareerRuntimeConfig config;
     config.resourceDirectory = ResourceRoot();
     auto resources = std::make_shared<Career::CareerVisualResources>(config);
@@ -582,10 +585,11 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
     auto const observation = observer.ObserveScreens(context, {"career_tp_restore_prompt"});
     REQUIRE(observation.screenId == "career_tp_restore_prompt");
     const auto result = [&] {
-        if (!context.dropPlus)
+        if (!context.dropPlus && !context.dropClose)
             return resources->RunAction("career_tp_restore_prompt", "tp.restore", context);
         auto definition = resources->GetExecutionDefinition();
         definition.tasks.at("career_tp_restore_ok").timeoutMilliseconds = 0;
+        definition.tasks.at("career_tp_restore_support_ready").timeoutMilliseconds = 0;
         return TaskGraphRunner{}.Run(definition, "career_tp_restore_open", context);
     }();
     CAPTURE(result.errorMessage);
@@ -597,9 +601,17 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
         CHECK(context.stage == 2);
         return;
     }
+    if (context.dropClose)
+    {
+        CHECK(result.status == TaskGraphStatus::TimedOut);
+        CHECK(result.errorMessage.find("career_tp_restore_support_ready") != std::string::npos);
+        CHECK(context.taps.size() == 6);
+        CHECK(context.stage == 3);
+        return;
+    }
     REQUIRE((result.status == TaskGraphStatus::Completed || result.status == TaskGraphStatus::Success));
     REQUIRE(context.taps.size() == 6);
-    // Restore, the lower Use button, Min (zero), Plus (one), enabled OK, Close.
+    // Restore, potion Use, Min, Plus, OK, result Close, then verify Support.
     CHECK(context.taps[0].first > 470);
     CHECK(context.taps[1].second > 355);
     CHECK(context.taps[1].second < 450);
@@ -608,7 +620,9 @@ TEST_CASE("TP recovery matches real screenshots and selects the potion row",
     CHECK(context.taps[3].second > 790);
     CHECK(context.taps[3].second < 890);
     CHECK(context.taps[4].second > 1100);
-    CHECK(context.taps[5].second > 1420);
+    CHECK(context.taps[5].second > 990);
+    CHECK(context.taps[5].second < 1105);
+    CHECK(context.stage == 4);
 }
 
 TEST_CASE("Career entry refuses a match that never stabilizes", "[GameTasks][Career][Replay][EntryRegression]")

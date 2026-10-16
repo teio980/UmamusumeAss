@@ -170,7 +170,7 @@
       "templThreshold": 0.88,
       "roi": [
         300,
-        40,
+        475,
         300,
         80
       ],
@@ -179,21 +179,43 @@
       "pollIntervalMs": 250,
       "required": true,
       "next": [
-        "career_tp_restore_close"
+        "career_tp_restore_result_used"
       ]
+    },
+    "career_tp_restore_result_used": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_result_used_one.png",
+      "templThreshold": 0.88,
+      "roi": [180, 780, 125, 60],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_close"]
     },
     "career_tp_restore_close": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",
-      "template": "templates/career_entry_recover_tp_close_btn.png",
+      "template": "templates/career_entry_recover_tp_result_close.png",
       "templThreshold": 0.88,
       "roi": [
         265,
-        1420,
+        990,
         370,
         115
       ],
       "postDelay": 650,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_support_ready"]
+    },
+    "career_tp_restore_support_ready": {
+      "algorithm": "MatchTemplateColor",
+      "action": "DoNothing",
+      "template": "../modes/normal/templates/support_ready_support_start.png",
+      "templThreshold": 0.85,
+      "roi": [250, 1260, 500, 180],
       "timeoutMs": 8000,
       "pollIntervalMs": 250,
       "required": true,
