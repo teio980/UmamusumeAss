@@ -1264,7 +1264,7 @@ TEST_CASE("Rewards advances from Bond Level to Support Cards while keeping its s
     CHECK(context.taps.size() == 1);
 }
 
-TEST_CASE("Rewards only confirms stable authored content changes within the same device geometry", "[CareerRuntime][CareerRewardsTransition]")
+TEST_CASE("Rewards keeps advancing while the same verified Next page remains visible", "[CareerRuntime][CareerRewardsTransition]")
 {
     const auto config = PackagedConfig();
     auto resources = std::make_shared<CareerVisualResources>(config);
@@ -1278,25 +1278,29 @@ TEST_CASE("Rewards only confirms stable authored content changes within the same
     REQUIRE(source.screenId == "rewards");
     REQUIRE(source.pageStateEvidence);
     CareerActionExecutor executor(config, resources);
-    SECTION("An unchanged rewards page cannot confirm a successful tap") {}
-    SECTION("Animated pixels outside the group title do not count as progression") { context.animateOutsideMarker = true; }
-    SECTION("An unstable group title is not reliable progress evidence") { context.animateInsideMarker = true; }
-    SECTION("Changed content in a new screenshot geometry cannot confirm the old action")
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), source, context) == ActionExecutionStatus::Success);
+    SECTION("An unchanged rewards page is handed back for the next click") {}
+    SECTION("Animation outside the group title does not block the next click") { context.animateOutsideMarker = true; }
+    SECTION("An unstable group title does not block the next click") { context.animateInsideMarker = true; }
+    SECTION("A new screenshot geometry is observed again before the next click")
     {
         ++context.geometryGeneration;
         context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
             config.resourceDirectory / "hachimi/ura/testdata/captures/runtime_frames/ura_rewards_loaded.png");
     }
-    SECTION("Changed content in a new device session cannot confirm the old action")
+    SECTION("A new device session is observed again before the next click")
     {
         ++context.sessionGeneration;
         context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
             config.resourceDirectory / "hachimi/ura/testdata/captures/runtime_frames/ura_rewards_loaded.png");
     }
     context.cancelAfterCaptures = context.captures + 6;
-    CHECK_FALSE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context));
-    CHECK_FALSE(executor.TakeConfirmedObservation());
-    CHECK(context.taps.empty());
+    REQUIRE(executor.ConfirmCompletionFromObservation(ActionIntent::MakeAdvance(), source, context));
+    const auto confirmed = executor.TakeConfirmedObservation();
+    REQUIRE(confirmed);
+    CHECK(confirmed->screenId == "rewards");
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), *confirmed, context) == ActionExecutionStatus::Success);
+    CHECK(context.taps.size() == 2);
 }
 
 TEST_CASE("Two live Support Cards captures retain the same Rewards page marker", "[CareerRuntime][CareerRewardsTransition]")
@@ -1348,7 +1352,7 @@ TEST_CASE("Settlement retries a full unstable observation after slow capture ins
     CHECK(context.taps.size() == 1);
 }
 
-TEST_CASE("Coordinator replays the actual completed settlement through all six actions to Home", "[CareerRuntime][CareerSettlementAudit]")
+TEST_CASE("Coordinator replays the actual completed settlement through all six actions to Home", "[CareerRuntime][CareerSettlementAudit][CareerRewardsTransition]")
 {
     const auto config = PackagedConfig();
     auto resources = std::make_shared<CareerVisualResources>(config);
@@ -1364,9 +1368,13 @@ TEST_CASE("Coordinator replays the actual completed settlement through all six a
         }
         std::vector<UmaAssistant::Vision::GrayImage> stages;
     } context;
-    for (const auto* filename : {"rewards_collected_ticket_mumu_20261013.png", "rewards_ura_mumu_20261013.png",
+    const bool repeatedRewards = GENERATE(false, true);
+    std::vector<const char*> filenames{"rewards_collected_ticket_mumu_20261013.png", "rewards_ura_mumu_20261013.png",
         "event_reward_mumu_20261013.png", "rewards_event_mumu_20261013.png", "follow_trainer_limit_mumu_20261013.png",
-        "career_complete_mumu_20261013.png", "settlement_home_mumu_20261013.png"})
+        "career_complete_mumu_20261013.png", "settlement_home_mumu_20261013.png"};
+    if (repeatedRewards)
+        filenames.insert(filenames.begin() + 2, 2, "rewards_ura_mumu_20261013.png");
+    for (const auto* filename : filenames)
         context.stages.push_back(UmaAssistant::Resources::WicImageDecoder::decode_file(
             UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename));
     CareerFlowCoordinator coordinator(std::make_shared<CareerScreenObserver>(resources),
@@ -1375,7 +1383,7 @@ TEST_CASE("Coordinator replays the actual completed settlement through all six a
     const auto result = coordinator.RunToCompletion(context, 10);
     CAPTURE(result.failureReason);
     CHECK(result.status == CareerRunStatus::Completed);
-    CHECK(context.taps.size() == 6);
+    CHECK(context.taps.size() == (repeatedRewards ? 8 : 6));
 }
 
 TEST_CASE("Training selection executes single tap on raised card and does not hit rest button", "[CareerRuntime][CareerTrainingAction]")

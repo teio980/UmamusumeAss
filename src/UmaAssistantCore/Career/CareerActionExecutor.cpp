@@ -358,6 +358,16 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
         }
         if (current.screenId == observation.screenId)
         {
+            // Rewards contains several pages with the same header and Next
+            // button. Let the coordinator run the matched Next action again;
+            // neither a changed title nor a changed page signature is needed.
+            if (source == "rewards" && transition.semanticActionId == "rewards.next")
+            {
+                context.Log("INFO", "Rewards Next is still available; continuing to advance rewards.");
+                m_confirmedObservation = current;
+                if (m_actionHandoff) m_actionHandoff->observation = current;
+                return true;
+            }
             if (raceTransition && !entryRetried && current.consecutiveFramesIdentical)
             {
                 // ObserveScreens confirmed identical complete frames. The
