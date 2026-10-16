@@ -35,6 +35,7 @@ struct ScaledOptions
     std::int32_t sample_width{16};
     std::int32_t sample_height{16};
     bool full_search_on_miss{true};
+    bool refine_scale{true};
 };
 
 [[nodiscard]] MatchResult find(

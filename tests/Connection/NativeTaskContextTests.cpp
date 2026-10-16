@@ -596,3 +596,29 @@ TEST_CASE("Native task relative templates resolve UTF-8 definition directories",
     CHECK(match.referenceWidth == 900);
     CHECK(match.referenceHeight == 1600);
 }
+
+TEST_CASE("Native fast scaled matching identifies only the configured card within its slot",
+    "[phase3][context][SupportSelect]")
+{
+    Fixture fixture(900, 1600);
+    auto const root = fs::path(CMAKE_SOURCE_DIR);
+    fixture.environment.Set(L"UMA_FAKE_ADB_SCREENSHOT_PATH",
+        (root / "testdata/hachimi/ura/captures/support_ready_mumu_20261012.png").wstring());
+    REQUIRE(fixture.context->CaptureScreen());
+    auto const cards = root / "resource/uma/assets/templates/global/support_cards";
+    TaskRoi const firstSlot{55, 385, 255, 245};
+    auto const correct = fixture.context->MatchTemplateAdvanced(
+        Paths::ToUtf8(cards / "30028/card.png"), 0.80, firstSlot,
+        "MatchTemplateScaledFast", 900, 1600, {1.775});
+    REQUIRE(correct.found);
+    CHECK(correct.frameId == fixture.context->GetCurrentFrame()->frameId);
+    CHECK(correct.x >= firstSlot.x);
+    CHECK(correct.x + correct.width <= firstSlot.x + firstSlot.width);
+    CHECK_FALSE(fixture.context->MatchTemplateAdvanced(
+        Paths::ToUtf8(cards / "20013/card.png"), 0.80, firstSlot,
+        "MatchTemplateScaledFast", 900, 1600, {1.775}).found);
+    CHECK_FALSE(fixture.context->MatchTemplateAdvanced(
+        Paths::ToUtf8(cards / "30028/card.png"), 0.80, TaskRoi{325, 385, 255, 245},
+        "MatchTemplateScaledFast", 900, 1600, {1.775}).found);
+    CHECK(fixture.Taps().empty());
+}

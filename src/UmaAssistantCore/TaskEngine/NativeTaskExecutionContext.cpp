@@ -314,6 +314,12 @@ TaskMatchResult NativeTaskExecutionContext::MatchTemplateAdvanced(
     {
         Vision::ScaledOptions options;
         options.scales = scaleCandidates;
+        if (normalizedAlgorithm == "matchtemplatescaledfast")
+        {
+            options.refine_scale = false;
+            options.full_search_on_miss = false;
+            options.candidate_step = 4;
+        }
         match = Vision::find_scaled(*m_current_screen, templ->image, matchRoi, threshold,
                                     referenceWidth, referenceHeight, options);
     }

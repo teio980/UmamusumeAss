@@ -706,7 +706,7 @@ MatchResult find_scaled(
         }
     };
     for (auto scale : options.scales) evaluate(scale);
-    if (std::isfinite(best_scale))
+    if (std::isfinite(best_scale) && options.refine_scale)
     {
         auto const coarse = best_scale;
         auto const padding = std::clamp(options.candidate_step * 2, 8, 32);
