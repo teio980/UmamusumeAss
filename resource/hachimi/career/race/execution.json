@@ -363,15 +363,15 @@
       ]
     },
     "race_runner_strategy_option_front_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        645,
-        895,
-        60,
-        60
+        625,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
@@ -434,15 +434,15 @@
       ]
     },
     "race_runner_strategy_option_pace_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        450,
-        895,
-        60,
-        60
+        430,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
@@ -505,15 +505,15 @@
       ]
     },
     "race_runner_strategy_option_late_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        260,
-        895,
-        60,
-        60
+        240,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
@@ -576,15 +576,15 @@
       ]
     },
     "race_runner_strategy_option_end_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../modes/independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        70,
-        895,
-        60,
-        60
+        50,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
