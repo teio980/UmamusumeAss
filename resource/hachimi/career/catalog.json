@@ -744,6 +744,54 @@
         160
       ]
     },
+    "career.entry.support.card_face.1": {
+      "roi": [
+        55,
+        385,
+        255,
+        245
+      ]
+    },
+    "career.entry.support.card_face.2": {
+      "roi": [
+        325,
+        385,
+        255,
+        245
+      ]
+    },
+    "career.entry.support.card_face.3": {
+      "roi": [
+        590,
+        385,
+        255,
+        245
+      ]
+    },
+    "career.entry.support.card_face.4": {
+      "roi": [
+        55,
+        725,
+        255,
+        245
+      ]
+    },
+    "career.entry.support.card_face.5": {
+      "roi": [
+        325,
+        725,
+        255,
+        245
+      ]
+    },
+    "career.entry.support.card_face.6": {
+      "roi": [
+        590,
+        725,
+        255,
+        245
+      ]
+    },
     "career.entry.legacy.cell.1": {
       "roi": [
         195,
@@ -1940,6 +1988,10 @@
     }
   },
   "aliases": {
+    "templates/event_home_header.png": "settlement/templates/event_home_header.png",
+    "screens/templates/event_home_header.png": "settlement/templates/event_home_header.png",
+    "templates/event_home_cancel.png": "settlement/templates/event_home_cancel.png",
+    "screens/templates/event_home_cancel.png": "settlement/templates/event_home_cancel.png",
     "templates/career_complete_career_to_home.png": "settlement/templates/career_complete_career_to_home.png",
     "screens/templates/career_complete_career_to_home.png": "settlement/templates/career_complete_career_to_home.png",
     "templates/career_complete_close.png": "settlement/templates/career_complete_close.png",
@@ -2130,8 +2182,6 @@
     "screens/templates/support_select_support_start.png": "entry/templates/support_select_support_start.png",
     "templates/trainee_select_trainee_next.png": "entry/templates/trainee_select_trainee_next.png",
     "screens/templates/trainee_select_trainee_next.png": "entry/templates/trainee_select_trainee_next.png",
-    "templates/training_event_event_advance.png": "training/templates/training_event_event_advance.png",
-    "screens/templates/training_event_event_advance.png": "training/templates/training_event_event_advance.png",
     "templates/training_result_event_advance.png": "training/templates/training_result_event_advance.png",
     "screens/templates/training_result_event_advance.png": "training/templates/training_result_event_advance.png",
     "templates/training_selection_header.png": "training/templates/training_selection_header.png",
@@ -2952,14 +3002,8 @@
     "screens/templates/runtime_frames/senior_arima_reward.png": "race/templates/runtime_frames/senior_arima_reward.png",
     "templates/runtime_frames/senior_year_main_ready.png": "race/templates/runtime_frames/senior_year_main_ready.png",
     "screens/templates/runtime_frames/senior_year_main_ready.png": "race/templates/runtime_frames/senior_year_main_ready.png",
-    "templates/runtime_frames/support_event_result_ura.png": "race/templates/runtime_frames/support_event_result_ura.png",
-    "screens/templates/runtime_frames/support_event_result_ura.png": "race/templates/runtime_frames/support_event_result_ura.png",
-    "templates/runtime_frames/trainee_event_result_ura.png": "race/templates/runtime_frames/trainee_event_result_ura.png",
-    "screens/templates/runtime_frames/trainee_event_result_ura.png": "race/templates/runtime_frames/trainee_event_result_ura.png",
     "templates/runtime_frames/training_duel_result_ura.png": "race/templates/runtime_frames/training_duel_result_ura.png",
     "screens/templates/runtime_frames/training_duel_result_ura.png": "race/templates/runtime_frames/training_duel_result_ura.png",
-    "templates/runtime_frames/training_event_ura.png": "race/templates/runtime_frames/training_event_ura.png",
-    "screens/templates/runtime_frames/training_event_ura.png": "race/templates/runtime_frames/training_event_ura.png",
     "templates/runtime_frames/training_partner_result_ura.png": "race/templates/runtime_frames/training_partner_result_ura.png",
     "screens/templates/runtime_frames/training_partner_result_ura.png": "race/templates/runtime_frames/training_partner_result_ura.png",
     "templates/runtime_frames/training_result_ura.png": "race/templates/runtime_frames/training_result_ura.png",

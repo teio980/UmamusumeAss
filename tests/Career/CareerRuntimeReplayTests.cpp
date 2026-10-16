@@ -382,6 +382,32 @@ TEST_CASE("URA scenario return reaches the actual Finale Main without searching 
     }
 }
 
+TEST_CASE("EventHandle can finish a support event before training returns to Career Main",
+    "[CareerRuntime][CareerEventHandle]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    auto const event = root / "testdata/hachimi/ura/captures/support_event_result_ura_3.png";
+    auto const main = root / "resource/hachimi/ura/testdata/captures/runtime_frames/training_main_turn2_ura.png";
+    ScreenshotReplayContext context({event, event, event, main, main});
+    UmaAssistant::Career::CareerActionExecutor executor(config, resources);
+    UmaAssistant::CareerDomain::CareerObservation source;
+    source.screenId = "training_selection";
+    source.screenKind = UmaAssistant::CareerDomain::CareerScreenKind::TrainingSelect;
+
+    REQUIRE(executor.ConfirmCompletionFromObservation(
+        UmaAssistant::CareerDomain::ActionIntent::MakeTraining("power"), source, context));
+    auto const handoff = executor.TakeConfirmedObservation();
+    REQUIRE(handoff);
+    CHECK(handoff->screenId == "career_main");
+    CHECK(handoff->stableFrameCount == 2);
+    CHECK(context.CaptureCount() >= 5);
+    CHECK(context.tapAttempts == 0);
+}
+
 TEST_CASE("Career fixed screenshots report recognition work and elapsed time", "[CareerPerformance]")
 {
     auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
@@ -894,6 +920,8 @@ TEST_CASE("Settlement catalog recognizes every captured optional popup in its ac
         {"career_complete_mumu_20261013.png", "follow_trainer_limit", "career_complete"},
         {"settlement_home_mumu_20261013.png", "career_complete", "home"},
         {"career_complete_close.png", "rewards_collected", "career_complete_close"},
+        {"event_home_mumu_20261016.png", "career_complete_close", "event_home"},
+        {"event_home_cancelled_mumu_20261016.png", "event_home", "home"},
         {"career_story_unlocked.png", "career_complete_close", "career_story_unlocked"},
         {"career_story_unlocked_compact.png", "career_complete_close", "career_story_unlocked_compact"},
         {"career_story_unlocked_to_home.png", "career_complete_close", "career_story_unlocked_to_home"}})

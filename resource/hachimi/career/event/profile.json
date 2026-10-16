@@ -101,28 +101,6 @@
       ],
       "flow": "event",
       "order": 53
-    },
-    {
-      "screenId": "training_event",
-      "recognition": {
-        "template": "../race/templates/runtime_frames/training_event_ura.png",
-        "templates": [
-          "../race/templates/runtime_frames/support_event_result_ura.png",
-          "../race/templates/runtime_frames/trainee_event_result_ura.png"
-        ],
-        "requiredText": [
-          "Career"
-        ],
-        "priority": 1
-      },
-      "actions": [
-        {
-          "semanticId": "event.advance",
-          "task": "training_event_event_advance"
-        }
-      ],
-      "flow": "event",
-      "order": 21
     }
   ]
 }

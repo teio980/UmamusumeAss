@@ -522,6 +522,37 @@
       ],
       "flow": "settlement",
       "order": 71
+    },
+    {
+      "screenId": "event_home",
+      "recognition": {
+        "template": "templates/event_home_header.png",
+        "matchColorText": true,
+        "roi": [
+          320,
+          360,
+          260,
+          95
+        ],
+        "templThreshold": 0.9,
+        "requiredTemplate": "templates/event_home_cancel.png",
+        "requiredTemplateRoi": [
+          170,
+          1090,
+          180,
+          110
+        ],
+        "requiredTemplateThreshold": 0.9,
+        "priority": -5
+      },
+      "actions": [
+        {
+          "semanticId": "event_home.cancel",
+          "task": "event_home_cancel"
+        }
+      ],
+      "flow": "settlement",
+      "order": 72
     }
   ]
 }

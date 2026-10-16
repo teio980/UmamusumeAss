@@ -552,7 +552,7 @@ internal static class HachimiTaskLogSemantics
             "career_races_ready_action_races" => Step(
                 "Checking the required Career races",
                 "Required Career races checked"),
-            "training_result_event_advance" or "training_event_event_advance" => Step(
+            "training_result_event_advance" => Step(
                 "Continuing the Career event",
                 "Career event continued"),
             "event_choice_event_choice_first" => Step(

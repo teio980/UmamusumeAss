@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "52619a03d008ffa98e35f0529c34af5583440fa7"
-RETIRED_PAGES = {"race_attributes": "race_runner"}
+RETIRED_PAGES = {"race_attributes": "race_runner", "training_event": None}
 
 
 def git(*args):
@@ -73,7 +73,7 @@ def completion(screen, action, flow):
         return "提交仅挂起；训练结果、日期／倒计时推进、可靠必赛边界才确认一次"
     if screen in {"rest_confirmation", "summer_rest_confirmation", "infirmary_confirmation", "recreation_confirmation"}:
         return "确认按钮只发一次；目的页证明行动推进后更新回合／连赛"
-    if screen in {"event_choice", "training_event", "scenario_event", "inheritance_event", "training_result"}:
+    if screen in {"event_choice", "scenario_event", "inheritance_event", "training_result"}:
         return "事件身份／内容变化确认交接；保留原行动；GO 完成后解除继承等待"
     if flow == "settlement":
         return "局部稳定页／同页内容标志；终局后确认 Home 才计育成完成"
@@ -103,7 +103,9 @@ def main():
         sid = screen["screenId"]
         if sid in RETIRED_PAGES:
             assert sid not in current_screens, f"Retired page remains: {sid}"
-            assert RETIRED_PAGES[sid] in current_screens
+            replacement = RETIRED_PAGES[sid]
+            if replacement is not None:
+                assert replacement in current_screens
             continue
         assert sid in current_screens, f"Missing page {sid}"
         for binding in screen.get("actions", []):
@@ -126,7 +128,7 @@ def main():
                     destination += "；race.replay.completed → 赛后事件／目标／奖励"
                 if sid == "race_retry_dialog":
                     destination += "；accepted → runner/result；declined → result/settlement"
-                if sid in {"event_choice", "training_event", "scenario_event", "inheritance_event"}:
+                if sid in {"event_choice", "scenario_event", "inheritance_event"}:
                     destination += "；保留来源：训练 → training_result；赛后 → reward/reward_support；外出 → claw_machine；恢复未知来源 → 局部并集"
             previous = baseline.get((sid, action))
             binding_change = ("新增绑定" if previous is None else "绑定保留" if previous == current["task"]
@@ -141,6 +143,7 @@ def main():
         f"基线：`main@{BASE[:8]}`；原生清单来自生产 `CareerTransitionPolicy` 导出。"
         f"基线含 {len(screens)} 个页面、{action_count} 个动作绑定；当前覆盖 **{len(current_screens)} 个页面、{current_action_count} 个动作绑定**。\n\n"
         "2026-10-15：赛前画面已统一到 `race_runner`，删除旧 `race_attributes` 整图识别及重复绑定。"
+        "2026-10-16：训练／支援卡被动事件由 EventHandle 推进，移除 `training_event` 整图识别及强制 Skip 动作。"
         "其余基线页面与动作必须仍存在；任务绑定调整在表内明确列出，新增绑定也单独标注。\n\n"
         "比赛播放监视器保留到闹钟弹窗的 `race.retry.pending` 无输入交接；Cancel 的局部后继包含 `race_runner_result`，"
         "拒绝重试不启用成功目标探测。内部动作图差异可用 [AuditCareerActionGraphs.py](../tools/AuditCareerActionGraphs.py) 重建；"

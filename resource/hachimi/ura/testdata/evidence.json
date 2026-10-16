@@ -175,6 +175,21 @@
       },
       {
         "from": "career_complete_close",
+        "to": "event_home",
+        "on": "career.close"
+      },
+      {
+        "from": "career_complete",
+        "to": "event_home",
+        "on": "career.to_home"
+      },
+      {
+        "from": "event_home",
+        "to": "home",
+        "on": "event_home.cancel"
+      },
+      {
+        "from": "career_complete_close",
         "to": "home",
         "on": "career.close"
       },

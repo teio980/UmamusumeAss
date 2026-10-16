@@ -22,7 +22,9 @@ void Add(std::vector<std::string>& screens, std::initializer_list<const char*> v
 }
 void TurnDestinations(CareerTransitionContext& result)
 {
-    Add(result.candidates, {"event_choice", "training_event", "scenario_event", "inheritance_event"});
+    // EventHandle advances passive training/support events. Observe the next
+    // supported page instead of competing with it by looking for Skip.
+    Add(result.candidates, {"event_choice", "scenario_event", "inheritance_event"});
     if (result.continuation == Phase::TrainingOutcome || result.resumedEvent) Add(result.candidates, {"training_result"});
     if (result.semanticActionId == "recreation.confirm" || result.sourceScreenId == "claw_machine"
         || result.sourceScreenId == "claw_machine_result")
@@ -61,7 +63,7 @@ const std::unordered_map<std::string, std::vector<std::string>>& SettlementEdges
 bool CareerTransitionPolicy::IsEvent(const std::string& screenId)
 {
     const auto id = Fold(screenId);
-    return id == "event_choice" || id == "training_event" || id == "scenario_event"
+    return id == "event_choice" || id == "scenario_event"
         || id == "inheritance_event" || id == "training_result"
         || id == "claw_machine" || id == "claw_machine_result";
 }
@@ -141,16 +143,16 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
     else if (id == "goal_objective_complete" || id == "goal_update" || id == "goal_complete")
     {
         select(Phase::Goal, {"goal_update", "goal_complete", "career_main", "career_races_ready", "race_day",
-            "event_choice", "scenario_event", "training_event", "inheritance_event", "reward", "reward_support",
+            "event_choice", "scenario_event", "inheritance_event", "reward", "reward_support",
             "goal_incomplete", "complete_career_entry"});
     }
     else if (id == "career_intro_event")
         select(Phase::NormalStartup, {"normal_quick_mode_settings", "career_main", "career_races_ready"});
     else if (id == "career_complete" || id == "career_complete_close" || id.starts_with("career_story_unlocked")
-        || id == "home_unselected")
+        || id == "event_home" || id == "home_unselected")
     {
         select(Phase::ReturnHome, {"career_complete", "career_complete_close", "career_story_unlocked",
-            "career_story_unlocked_compact", "career_story_unlocked_to_home", "home", "home_unselected"});
+            "career_story_unlocked_compact", "career_story_unlocked_to_home", "event_home", "home", "home_unselected"});
     }
     else if (auto found = SettlementEdges().find(id); found != SettlementEdges().end())
     {

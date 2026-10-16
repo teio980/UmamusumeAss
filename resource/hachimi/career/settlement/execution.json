@@ -506,6 +506,23 @@
       "pollIntervalMs": 250,
       "required": true,
       "success": false
+    },
+    "event_home_cancel": {
+      "algorithm": "MatchTemplateColorText",
+      "action": "ClickSelf",
+      "template": "templates/event_home_cancel.png",
+      "templThreshold": 0.9,
+      "roi": [
+        170,
+        1090,
+        180,
+        110
+      ],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "success": false
     }
   }
 }

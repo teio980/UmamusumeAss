@@ -354,7 +354,7 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         m_goalCompletionProbeArmed = false;
         state.phaseId = "GoalComplete";
     }
-    else if (screenId == "career_complete" || screenId == "career_complete_close")
+    else if (screenId == "career_complete" || screenId == "career_complete_close" || screenId == "event_home")
     {
         m_isFinale = false;
         m_hasPendingRace = false;

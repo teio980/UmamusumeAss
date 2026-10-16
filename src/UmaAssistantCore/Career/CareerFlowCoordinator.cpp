@@ -26,7 +26,7 @@ bool IsTerminalScreen(const std::string& screenId)
     const auto id = Fold(screenId);
     return id == "career_complete" || id == "career_complete_close"
         || id == "career_story_unlocked" || id == "career_story_unlocked_compact"
-        || id == "career_story_unlocked_to_home";
+        || id == "career_story_unlocked_to_home" || id == "event_home";
 }
 
 bool IsUnexpectedScreenAfterDeclinedRaceRetry(const std::string& screenId)

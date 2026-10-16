@@ -9,17 +9,14 @@ public sealed class CareerEventEffectsTests
     [Theory]
     [InlineData("support_event_choice_ura.png", true)]
     [InlineData("trainee_event_choice_ura.png", false)]
-    [InlineData("training_event_ura.png", false)]
+    [InlineData("training_main_turn1_ura.png", false)]
     [InlineData("rest_event_ura.png", false)]
     public void Effects_button_identifies_a_ready_event_choice(
         string imageName,
         bool expected)
     {
         var root = CareerTestResourceResolver.FindWorkspaceRoot();
-        var framePath = imageName == "training_event_ura.png"
-            ? CareerTestResourceResolver.ResolveBuiltInUraVisualResource(
-                "templates/runtime_frames/training_event_ura.png")
-            : CareerTestResourceResolver.FindUraCapture(root, imageName);
+        var framePath = CareerTestResourceResolver.FindUraCapture(root, imageName);
         var frame = GrayImageCodec.FromFile(framePath)!;
         var effects = GrayImageCodec.FromFile(
             CareerTestResourceResolver.ResolveBuiltInUraVisualResource(

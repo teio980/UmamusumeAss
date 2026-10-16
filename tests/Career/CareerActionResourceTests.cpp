@@ -1386,6 +1386,41 @@ TEST_CASE("Coordinator replays the actual completed settlement through all six a
     CHECK(context.taps.size() == (repeatedRewards ? 8 : 6));
 }
 
+TEST_CASE("Event Home cancels through the actual settlement screenshots to Home", "[CareerRuntime][CareerSettlementAudit][CareerEventHome]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    class EventHomeContext : public ActualRaceResultContext
+    {
+    public:
+        EventHomeContext() : ActualRaceResultContext("event_home_mumu_20261016.png") {}
+        bool CaptureScreen() override
+        {
+            image = stages.at((std::min)(taps.size(), stages.size() - 1));
+            return ActualRaceResultContext::CaptureScreen();
+        }
+        std::vector<UmaAssistant::Vision::GrayImage> stages;
+    } context;
+    const bool resumeAtPopup = GENERATE(false, true);
+    std::vector<const char*> filenames{"event_home_mumu_20261016.png", "event_home_cancelled_mumu_20261016.png"};
+    if (!resumeAtPopup) filenames.insert(filenames.begin(), "career_complete_close.png");
+    for (const auto* filename : filenames)
+        context.stages.push_back(UmaAssistant::Resources::WicImageDecoder::decode_file(
+            UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename));
+    CareerFlowCoordinator coordinator(std::make_shared<CareerScreenObserver>(resources),
+        std::make_shared<CareerActionExecutor>(config, resources),
+        std::make_shared<UraScenarioModule>(), std::make_shared<DefaultTrainingStrategy>(), config);
+    const auto result = coordinator.RunToCompletion(context, 5);
+    CAPTURE(result.failureReason);
+    REQUIRE(result.status == CareerRunStatus::Completed);
+    REQUIRE(context.taps.size() == (resumeAtPopup ? 1 : 2));
+    CHECK(context.taps.back().first >= 199);
+    CHECK(context.taps.back().first < 304);
+    CHECK(context.taps.back().second >= 1132);
+    CHECK(context.taps.back().second < 1161);
+}
+
 TEST_CASE("Training selection executes single tap on raised card and does not hit rest button", "[CareerRuntime][CareerTrainingAction]")
 {
     const auto config = PackagedConfig();

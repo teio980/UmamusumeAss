@@ -145,6 +145,20 @@ TEST_CASE("Settlement transitions cover all valid consecutive screens", "[Career
     CHECK(Has(ratingUpdated, "career_result"));
 }
 
+TEST_CASE("Event Home can interrupt return home and cancel back to Home", "[CareerTransition][CareerEventHome]")
+{
+    for (const auto* source : {"career_complete", "career_complete_close", "career_story_unlocked",
+             "career_story_unlocked_compact", "career_story_unlocked_to_home", "event_home"})
+    {
+        CAPTURE(source);
+        const auto transition = CareerTransitionPolicy::AfterAction({}, source, "");
+        CHECK(transition.phase == UmaAssistant::Career::CareerTransitionPhase::ReturnHome);
+        CHECK(Has(transition, "event_home"));
+        CHECK(Has(transition, "home"));
+        CHECK_FALSE(Has(transition, "career_main"));
+    }
+}
+
 TEST_CASE("Career exports the composed action continuation inventory", "[CareerTransitionAudit]")
 {
     CareerRuntimeConfig config;
