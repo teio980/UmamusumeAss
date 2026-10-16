@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <set>
 #include <string_view>
 
 namespace UmaAssistant::GameTasks
@@ -564,50 +565,337 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
     if (config.supportDeckMode == "selected")
     {
         if (ownIds.size() != 5 && !(ownIds.size() == 6 && !friendId))
-        { result.error = "Selected support deck requires exactly five owned card IDs and one optional guest card."; return false; }
-        if (ownIds.size() == 6) friendId = ownIds.back();
-        if (!run("support.reset_if_needed")) return false;
-        auto selectExact = [&](int id, int slot, bool friendPage) {
+        {
+            result.error = "Selected support deck requires exactly five owned card IDs and one optional guest card.";
+            return false;
+        }
+        std::vector<int> targetOwnIds;
+        if (ownIds.size() == 6)
+        {
+            friendId = ownIds.back();
+            targetOwnIds.assign(ownIds.begin(), ownIds.begin() + 5);
+        }
+        else
+        {
+            targetOwnIds = ownIds;
+        }
+
+        VisualCatalog visual;
+        if (!visual.Load(config))
+        {
+            result.error = "Failed to load career visual catalog for support deck configuration.";
+            return false;
+        }
+        auto const openAsset = visual.Asset("career.entry.support.open");
+        if (openAsset.empty() || !std::filesystem::exists(openAsset))
+        {
+            result.error = "Visual asset for support.open is missing: " + Paths::ToUtf8(openAsset);
+            return false;
+        }
+        for (int i = 1; i <= 6; ++i)
+        {
+            if (!visual.Roi("career.entry.support.slot." + std::to_string(i)))
+            {
+                result.error = "Visual catalog is missing support slot region: career.entry.support.slot." + std::to_string(i);
+                return false;
+            }
+            if (!visual.Roi("career.entry.support.card_face." + std::to_string(i)))
+            {
+                result.error = "Visual catalog is missing card face region: career.entry.support.card_face." + std::to_string(i);
+                return false;
+            }
+        }
+        if (!visual.Roi("career.entry.support.friend_remove"))
+        {
+            result.error = "Visual catalog is missing region: career.entry.support.friend_remove";
+            return false;
+        }
+
+        auto validateTargetCard = [&](int id, bool isFriend) -> bool {
             auto const* card = catalogs.TryGetSupportCard(id);
             auto const path = catalogs.GetSupportCardTemplatePath(id);
-            if (!card || !card->available || path.empty())
-            { result.error = "Support card " + std::to_string(id) + " is unavailable or has no identity template."; return false; }
-            std::string const rarity = NormalizeKey(card->rarity) == "3" ? "ssr" : NormalizeKey(card->rarity) == "2" ? "sr" : NormalizeKey(card->rarity) == "1" ? "r" : "";
-            auto const type = NormalizeKey(card->type);
-            if (rarity.empty() || (type != "speed" && type != "stamina" && type != "power" && type != "guts" && type != "wit" && type != "friend"))
-            { result.error = "Support card has unrecognized rarity/type metadata: " + std::to_string(id); return false; }
-            if (friendPage)
+            if (!card || !card->available || path.empty() || !std::filesystem::exists(path))
             {
-                TaskEngine::TaskGraphRunOptions open;
-                open.searchRoiOverrides["support_select_support_open"] = {{630, 770, 160, 160}};
-                if (!run("support.open", open))
+                result.error = (isFriend ? "Friend support card " : "Support card ")
+                    + std::to_string(id) + " is unavailable or has no valid identity template.";
+                return false;
+            }
+            std::string const rarity = NormalizeKey(card->rarity) == "3" ? "ssr"
+                : NormalizeKey(card->rarity) == "2" ? "sr"
+                : NormalizeKey(card->rarity) == "1" ? "r" : "";
+            auto const type = NormalizeKey(card->type);
+            if (rarity.empty() || (type != "speed" && type != "stamina" && type != "power"
+                && type != "guts" && type != "wit" && type != "friend"))
+            {
+                result.error = "Support card has unrecognized rarity/type metadata: " + std::to_string(id);
+                return false;
+            }
+            return true;
+        };
+
+        for (int id : targetOwnIds)
+        {
+            if (!validateTargetCard(id, false)) return false;
+        }
+        if (friendId.has_value())
+        {
+            if (!validateTargetCard(*friendId, true)) return false;
+        }
+
+        static const std::vector<double> kSupportCardFaceScales{
+            1.65, 1.70, 1.725, 1.75, 1.775, 1.80, 1.85, 1.90, 1.95
+        };
+        static const std::vector<double> kSupportCardFaceFastScales{1.775};
+
+        auto getSlotRoi = [&](int slot) {
+            return *visual.Roi("career.entry.support.slot." + std::to_string(slot + 1));
+        };
+        auto getCardFaceRoi = [&](int slot) {
+            return *visual.Roi("career.entry.support.card_face." + std::to_string(slot + 1));
+        };
+
+        auto isSupportFormationScreen = [&]() -> bool {
+            auto const* sel = resources.FindScreen("support_select");
+            if (sel && !sel->templates.empty())
+            {
+                auto const& t = sel->templates.front();
+                auto m = context.MatchTemplateAdvanced(t.path, t.threshold, t.roi, t.algorithm,
+                    kReferenceWidth, kReferenceHeight, {});
+                if (m.found) return true;
+            }
+            auto const* rdy = resources.FindScreen("support_ready");
+            if (rdy && !rdy->templates.empty())
+            {
+                auto const& t = rdy->templates.front();
+                auto m = context.MatchTemplateAdvanced(t.path, t.threshold, t.roi, t.algorithm,
+                    kReferenceWidth, kReferenceHeight, {});
+                if (m.found) return true;
+            }
+            auto detections = context.RecognizeText("en-US", TaskEngine::TaskRoi{50, 200, 800, 200});
+            for (auto const& d : detections)
+            {
+                auto norm = NormalizeKey(d.text);
+                if (norm.find("supportformation") != std::string::npos
+                    || norm.find("formation") != std::string::npos)
+                    return true;
+            }
+            return false;
+        };
+
+        struct SlotEvalResult {
+            bool empty{false};
+            int cardId{0};
+            double score{0.0};
+            bool uncertain{false};
+        };
+
+        auto scanSlotsOnce = [&](std::array<SlotEvalResult, 6>& outSlots) -> bool {
+            auto const threshold = visual.Threshold("career.entry.support.open", 0.82);
+            context.SetCoordinateReference(kReferenceWidth, kReferenceHeight);
+
+            bool anyUncertain = false;
+            for (int slot = 0; slot < 6; ++slot)
+            {
+                auto const slotRoi = getSlotRoi(slot);
+                static const std::vector<double> kSupportOpenScales{1.0};
+                auto openMatch = context.MatchTemplateAdvanced(Paths::ToUtf8(openAsset), 0.65,
+                    slotRoi, "MatchTemplateScaledFast", kReferenceWidth, kReferenceHeight, kSupportOpenScales);
+                if (openMatch.found && openMatch.score >= threshold)
                 {
-                    // A filled guest slot opens its management dialog. Remove
-                    // only after OCR verifies the dialog's Remove command.
-                    if (!context.CaptureScreen()) return false;
-                    auto detections = context.RecognizeText("en-US", TaskEngine::TaskRoi{20, 140, 860, 130});
-                    auto remove = std::find_if(detections.begin(), detections.end(), [](auto const& text) {
-                        return NormalizeKey(text.text).find("remove") != std::string::npos;
-                    });
-                    if (remove == detections.end() || !TapOcrDetection(context, *remove))
-                    { result.error = "Could not verify the Remove action for an occupied guest support slot."; return false; }
-                    result.error.clear();
-                    TaskEngine::TaskGraphRunOptions reopen;
-                    reopen.searchRoiOverrides["support_select_support_open"] = {{630, 770, 160, 160}};
-                    if (!run("support.open", reopen)) return false;
+                    outSlots[slot] = SlotEvalResult{true, 0, openMatch.score, false};
+                    continue;
+                }
+
+                auto const& candidates = (slot < 5) ? targetOwnIds
+                    : (friendId.has_value() ? std::vector<int>{*friendId} : std::vector<int>{});
+                int bestId = 0;
+                double bestScore = 0.0;
+                double secondScore = 0.0;
+                auto const faceRoi = getCardFaceRoi(slot);
+                auto matchCandidates = [&](bool fast) {
+                    bestId = 0;
+                    bestScore = 0.0;
+                    secondScore = 0.0;
+                    for (int cid : candidates)
+                    {
+                        if (context.IsCancelled()) return;
+                        auto const path = catalogs.GetSupportCardTemplatePath(cid);
+                        if (path.empty()) continue;
+                        auto match = context.MatchTemplateAdvanced(Paths::ToUtf8(path), 0.0,
+                            faceRoi, fast ? "MatchTemplateScaledFast" : "MatchTemplate",
+                            kReferenceWidth, kReferenceHeight,
+                            fast ? kSupportCardFaceFastScales : kSupportCardFaceScales);
+                        if (match.found && match.score > bestScore)
+                        {
+                            secondScore = bestScore;
+                            bestScore = match.score;
+                            bestId = cid;
+                        }
+                        else if (match.found && match.score > secondScore)
+                        {
+                            secondScore = match.score;
+                        }
+                    }
+                };
+                matchCandidates(true);
+                // Most formations use the same card scale. Refine only an
+                // uncertain identity, retaining the same acceptance threshold.
+                if (!candidates.empty() && (bestScore < 0.80 || bestScore - secondScore < 0.08))
+                    matchCandidates(false);
+
+                if (bestId > 0 && bestScore >= 0.80 && bestScore - secondScore >= 0.08)
+                {
+                    outSlots[slot] = SlotEvalResult{false, bestId, bestScore, false};
+                }
+                else
+                {
+                    bool isBorderline = (openMatch.found && openMatch.score >= 0.65)
+                        || (bestId > 0 && bestScore >= 0.70);
+                    if (isBorderline) anyUncertain = true;
+                    outSlots[slot] = SlotEvalResult{false, 0, bestScore, isBorderline};
                 }
             }
-            else
+            return !anyUncertain;
+        };
+
+        auto scanAllSlots = [&](std::array<SlotEvalResult, 6>& outSlots) -> bool {
+            if (!scanSlotsOnce(outSlots))
             {
-                static const std::array<std::array<int, 4>, 5> slots{{
-                    {{90, 420, 160, 160}}, {{360, 420, 160, 160}}, {{630, 420, 160, 160}},
-                    {{90, 770, 160, 160}}, {{360, 770, 160, 160}}}};
-                if (slot < 0 || slot >= static_cast<int>(slots.size())) return false;
-                TaskEngine::TaskGraphRunOptions open;
-                auto const& roi = slots[slot];
-                open.searchRoiOverrides["support_select_support_open"] = {{roi[0], roi[1], roi[2], roi[3]}};
-                if (!run("support.open", open)) return false;
+                context.Sleep(200);
+                if (!context.CaptureScreen() || !isSupportFormationScreen())
+                    return false;
+                if (!scanSlotsOnce(outSlots))
+                {
+                    for (int slot = 0; slot < 6; ++slot)
+                    {
+                        if (!outSlots[slot].uncertain) continue;
+                        result.error = "Support slot " + std::to_string(slot + 1)
+                            + " could not be identified reliably after a second capture.";
+                        break;
+                    }
+                    return false;
+                }
             }
+            return true;
+        };
+
+        auto removeOccupiedSlot = [&](int slot) -> bool {
+            if (context.IsCancelled()) { result.cancelled = true; return false; }
+            auto const slotRoi = getSlotRoi(slot);
+            context.SetCoordinateReference(kReferenceWidth, kReferenceHeight);
+            TaskEngine::TaskMatchResult tapFrame;
+            tapFrame.referenceWidth = kReferenceWidth;
+            tapFrame.referenceHeight = kReferenceHeight;
+            auto const centerX = slotRoi.x + slotRoi.width / 2;
+            auto const centerY = slotRoi.y + slotRoi.height / 2;
+            if (!context.TapMatch(centerX, centerY, tapFrame))
+            {
+                result.error = "Could not tap occupied support slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+            context.Sleep(350);
+            if (context.IsCancelled()) { result.cancelled = true; return false; }
+            if (!context.CaptureScreen())
+            {
+                result.error = "Failed to capture screen after tapping occupied support slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+            auto removeRoi = visual.Roi("career.entry.support.friend_remove");
+            if (!removeRoi)
+            {
+                result.error = "Visual catalog is missing region: career.entry.support.friend_remove";
+                return false;
+            }
+            auto detections = context.RecognizeText("en-US", *removeRoi);
+            auto remove = std::find_if(detections.begin(), detections.end(), [](auto const& text) {
+                return NormalizeKey(text.text).find("remove") != std::string::npos;
+            });
+            if (remove == detections.end() || !TapOcrDetection(context, *remove))
+            {
+                result.error = "Could not verify the Remove action for occupied support slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+            context.Sleep(350);
+            bool returned = false;
+            for (int retry = 0; retry < 5; ++retry)
+            {
+                if (context.IsCancelled()) { result.cancelled = true; return false; }
+                if (context.CaptureScreen() && isSupportFormationScreen())
+                {
+                    returned = true;
+                    break;
+                }
+                context.Sleep(200);
+            }
+            if (!returned)
+            {
+                result.error = "UI did not return to Support Formation after removing card at slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+            return true;
+        };
+
+        auto selectExact = [&](int id, int slot, bool friendPage, bool occupied = false) -> bool {
+            auto const* card = catalogs.TryGetSupportCard(id);
+            auto const path = catalogs.GetSupportCardTemplatePath(id);
+            if (!card || !card->available || path.empty() || !std::filesystem::exists(path))
+            {
+                result.error = "Support card " + std::to_string(id) + " is unavailable or has no identity template.";
+                return false;
+            }
+            std::string const rarity = NormalizeKey(card->rarity) == "3" ? "ssr"
+                : NormalizeKey(card->rarity) == "2" ? "sr"
+                : NormalizeKey(card->rarity) == "1" ? "r" : "";
+            auto const type = NormalizeKey(card->type);
+            if (rarity.empty() || (type != "speed" && type != "stamina" && type != "power"
+                && type != "guts" && type != "wit" && type != "friend"))
+            {
+                result.error = "Support card has unrecognized rarity/type metadata: " + std::to_string(id);
+                return false;
+            }
+
+            TaskEngine::TaskGraphRunOptions open;
+            auto const slotRoi = getSlotRoi(slot);
+            open.searchRoiOverrides["support_select_support_open"] = {{slotRoi.x, slotRoi.y, slotRoi.width, slotRoi.height}};
+            // Owned slots open the card list directly, even when occupied.
+            // The Remove menu belongs to the borrowed slot only.
+            if (occupied && !friendPage)
+            {
+                if (context.IsCancelled()) { result.cancelled = true; return false; }
+                context.SetCoordinateReference(kReferenceWidth, kReferenceHeight);
+                TaskEngine::TaskMatchResult tapFrame;
+                tapFrame.referenceWidth = kReferenceWidth;
+                tapFrame.referenceHeight = kReferenceHeight;
+                if (!context.TapMatch(slotRoi.x + slotRoi.width / 2,
+                    slotRoi.y + slotRoi.height / 2, tapFrame))
+                {
+                    result.error = "Could not open occupied support slot " + std::to_string(slot + 1) + ".";
+                    return false;
+                }
+                bool listReady = false;
+                for (int retry = 0; retry < 5; ++retry)
+                {
+                    context.Sleep(250);
+                    if (context.IsCancelled()) { result.cancelled = true; return false; }
+                    if (context.CaptureScreen()
+                        && resources.MatchAsset("career.entry.support.display_settings", context).found)
+                    {
+                        listReady = true;
+                        break;
+                    }
+                }
+                if (!listReady)
+                {
+                    result.error = "Could not verify the card list for occupied support slot " + std::to_string(slot + 1) + ".";
+                    return false;
+                }
+            }
+            else if (!run("support.open", open))
+            {
+                result.error = "Could not open support card selection for slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+
             const std::array<std::string, 6> filterActions{
                 "support.ranked.display_settings", "support.ranked.filter_tab",
                 "support.ranked.filter_reset", "support.ranked.filter_" + rarity,
@@ -615,6 +903,7 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
             };
             for (auto const& action : filterActions)
                 if (!run(action)) return false;
+
             TaskEngine::TaskGraphRunOptions exact;
             exact.templateOverrides["support_select_support_card_exact"] = Paths::ToUtf8(path);
             exact.templateOverrides["support_select_support_card_exact_fallback"] = Paths::ToUtf8(path);
@@ -626,11 +915,347 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
                     exact.scaleCandidatesOverrides[task] = {0.85};
                 }
             }
-            return run("support.ranked.select_exact_card", exact);
+            if (!run("support.ranked.select_exact_card", exact))
+            {
+                result.error = "Could not select support card " + std::to_string(id) + " for slot " + std::to_string(slot + 1) + ".";
+                return false;
+            }
+            return true;
         };
-        for (std::size_t i = 0; i < 5; ++i) if (!selectExact(ownIds[i], static_cast<int>(i), false)) return false;
-        if (friendId && !selectExact(*friendId, 5, true)) return false;
-        return run("support.start");
+
+        int retainedCount = 0;
+        int replacedCount = 0;
+        int filledCount = 0;
+        bool initialCountsRecorded = false;
+        int modificationsCompleted = 0;
+        constexpr int kMaxModifications = 16;
+
+        struct PreActionState {
+            int ownEmptyCount{0};
+            bool friendEmpty{false};
+            int friendCardId{0};
+            bool friendMatched{false};
+            std::set<int> claimedOwn;
+        };
+
+        enum class LastActionType { None, OwnedReplaced, FriendRemoved, OwnedFilled, FriendFilled };
+        LastActionType lastAction = LastActionType::None;
+        int lastActionSlot = -1;
+        int lastActionCardId = 0;
+        PreActionState preAction;
+
+        for (int cycle = 0; cycle < 32; ++cycle)
+        {
+            if (context.IsCancelled()) { result.cancelled = true; return false; }
+            if (!context.CaptureScreen())
+            {
+                result.error = "Failed to capture screen for support deck inspection.";
+                return false;
+            }
+            if (!isSupportFormationScreen())
+            {
+                result.error = "Current screen is not verified as Support Formation.";
+                return false;
+            }
+
+            std::array<SlotEvalResult, 6> slotEvals;
+            if (!scanAllSlots(slotEvals))
+            {
+                if (result.error.empty()) result.error = "Support deck slot recognition was interrupted or unverified.";
+                return false;
+            }
+
+            // Post-action verification
+            if (lastAction != LastActionType::None)
+            {
+                auto verifyPostConditions = [&]() -> bool {
+                    int postOwnEmptyCount = 0;
+                    for (int s = 0; s < 5; ++s) { if (slotEvals[s].empty) ++postOwnEmptyCount; }
+
+                    if (lastAction == LastActionType::FriendRemoved)
+                    {
+                        if (!slotEvals[5].empty) return false;
+                        if (postOwnEmptyCount != preAction.ownEmptyCount) return false;
+                        for (int retainedId : preAction.claimedOwn)
+                        {
+                            bool present = false;
+                            for (int s = 0; s < 5; ++s)
+                            {
+                                if (!slotEvals[s].empty && slotEvals[s].cardId == retainedId) { present = true; break; }
+                            }
+                            if (!present) return false;
+                        }
+                        return true;
+                    }
+                    if (lastAction == LastActionType::OwnedFilled || lastAction == LastActionType::OwnedReplaced)
+                    {
+                        int const expectedEmptyCount = preAction.ownEmptyCount
+                            - (lastAction == LastActionType::OwnedFilled ? 1 : 0);
+                        if (postOwnEmptyCount != expectedEmptyCount) return false;
+                        bool cardPresent = false;
+                        for (int s = 0; s < 5; ++s)
+                        {
+                            if (!slotEvals[s].empty && slotEvals[s].cardId == lastActionCardId) { cardPresent = true; break; }
+                        }
+                        if (!cardPresent) return false;
+                        for (int retainedId : preAction.claimedOwn)
+                        {
+                            bool present = false;
+                            for (int s = 0; s < 5; ++s)
+                            {
+                                if (!slotEvals[s].empty && slotEvals[s].cardId == retainedId) { present = true; break; }
+                            }
+                            if (!present) return false;
+                        }
+                        if (friendId.has_value() && preAction.friendMatched)
+                        {
+                            if (slotEvals[5].empty || slotEvals[5].cardId != *friendId) return false;
+                        }
+                        else if (slotEvals[5].empty != preAction.friendEmpty)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    if (lastAction == LastActionType::FriendFilled)
+                    {
+                        if (slotEvals[5].empty || slotEvals[5].cardId != lastActionCardId) return false;
+                        if (postOwnEmptyCount != preAction.ownEmptyCount) return false;
+                        for (int retainedId : preAction.claimedOwn)
+                        {
+                            bool present = false;
+                            for (int s = 0; s < 5; ++s)
+                            {
+                                if (!slotEvals[s].empty && slotEvals[s].cardId == retainedId) { present = true; break; }
+                            }
+                            if (!present) return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (!verifyPostConditions())
+                {
+                    context.Sleep(300);
+                    if (!context.CaptureScreen() || !isSupportFormationScreen() || !scanAllSlots(slotEvals))
+                    {
+                        result.error = "Support deck slot recognition was interrupted after modification.";
+                        return false;
+                    }
+                }
+
+                if (!verifyPostConditions())
+                {
+                    int postOwnEmptyCount = 0;
+                    for (int s = 0; s < 5; ++s) { if (slotEvals[s].empty) ++postOwnEmptyCount; }
+
+                    if (lastAction == LastActionType::FriendRemoved)
+                    {
+                        if (!slotEvals[5].empty)
+                        {
+                            result.error = "Friend support slot 6 was not removed after Remove action.";
+                        }
+                        else
+                        {
+                            result.error = "Owned support cards were unexpectedly modified during removal of friend slot 6.";
+                        }
+                        return false;
+                    }
+                    if (lastAction == LastActionType::OwnedFilled || lastAction == LastActionType::OwnedReplaced)
+                    {
+                        int lostId = 0;
+                        for (int retainedId : preAction.claimedOwn)
+                        {
+                            bool present = false;
+                            for (int s = 0; s < 5; ++s)
+                            {
+                                if (!slotEvals[s].empty && slotEvals[s].cardId == retainedId) { present = true; break; }
+                            }
+                            if (!present) { lostId = retainedId; break; }
+                        }
+                        if (lostId > 0)
+                        {
+                            result.error = "Retained support card " + std::to_string(lostId)
+                                + " was overwritten or lost after selecting slot " + std::to_string(lastActionSlot + 1) + ".";
+                        }
+                        else if (friendId.has_value() && preAction.friendMatched && (slotEvals[5].empty || slotEvals[5].cardId != *friendId))
+                        {
+                            result.error = "Friend support slot 6 was unexpectedly modified during selection of slot "
+                                + std::to_string(lastActionSlot + 1) + ".";
+                        }
+                        else
+                        {
+                            result.error = "Support card " + std::to_string(lastActionCardId)
+                                + " was not placed into slot " + std::to_string(lastActionSlot + 1) + ".";
+                        }
+                        return false;
+                    }
+                    if (lastAction == LastActionType::FriendFilled)
+                    {
+                        if (slotEvals[5].empty || slotEvals[5].cardId != lastActionCardId)
+                        {
+                            result.error = "Friend support card " + std::to_string(lastActionCardId)
+                                + " was not placed into slot 6.";
+                        }
+                        else
+                        {
+                            result.error = "Owned support cards were unexpectedly modified during fill of friend slot 6.";
+                        }
+                        return false;
+                    }
+                }
+                lastAction = LastActionType::None;
+            }
+
+            std::vector<int> claimedSlots(5, 0);
+            std::set<int> remainingTargets(targetOwnIds.begin(), targetOwnIds.end());
+            std::set<int> currentClaimedOwn;
+            for (int i = 0; i < 5; ++i)
+            {
+                if (!slotEvals[i].empty && slotEvals[i].cardId > 0 && remainingTargets.contains(slotEvals[i].cardId))
+                {
+                    remainingTargets.erase(slotEvals[i].cardId);
+                    claimedSlots[i] = slotEvals[i].cardId;
+                    currentClaimedOwn.insert(slotEvals[i].cardId);
+                }
+            }
+
+            std::vector<int> missingOwn;
+            for (int targetId : targetOwnIds)
+            {
+                if (remainingTargets.contains(targetId))
+                    missingOwn.push_back(targetId);
+            }
+
+            std::vector<int> unwantedOwnSlots;
+            std::vector<int> emptyOwnSlots;
+            for (int i = 0; i < 5; ++i)
+            {
+                if (slotEvals[i].empty)
+                    emptyOwnSlots.push_back(i);
+                else if (claimedSlots[i] == 0)
+                    unwantedOwnSlots.push_back(i);
+            }
+
+            bool friendMatched = true;
+            bool friendNeedsRemove = false;
+            bool friendNeedsFill = false;
+            if (friendId.has_value())
+            {
+                if (slotEvals[5].empty)
+                {
+                    friendMatched = false;
+                    friendNeedsFill = true;
+                }
+                else if (slotEvals[5].cardId == *friendId)
+                {
+                    friendMatched = true;
+                }
+                else
+                {
+                    friendMatched = false;
+                    friendNeedsRemove = true;
+                }
+            }
+
+            if (!initialCountsRecorded)
+            {
+                int matchedOwnCount = 5 - static_cast<int>(missingOwn.size());
+                retainedCount = matchedOwnCount + (friendId.has_value() && friendMatched ? 1 : 0);
+                replacedCount = static_cast<int>(unwantedOwnSlots.size()) + (friendNeedsRemove ? 1 : 0);
+                filledCount = static_cast<int>(emptyOwnSlots.size()) + (friendNeedsFill ? 1 : 0);
+                initialCountsRecorded = true;
+            }
+
+            if (missingOwn.empty() && unwantedOwnSlots.empty() && emptyOwnSlots.empty() && friendMatched)
+            {
+                context.Log("INFO", "Support configuration: " + std::to_string(retainedCount) + " retained, "
+                    + std::to_string(replacedCount) + " replaced, " + std::to_string(filledCount) + " filled.");
+
+                std::string startScreen = "support_select";
+                auto const* rdy = resources.FindScreen("support_ready");
+                if (rdy && !rdy->templates.empty())
+                {
+                    auto const& t = rdy->templates.front();
+                    auto m = context.MatchTemplateAdvanced(t.path, t.threshold, t.roi, t.algorithm,
+                        kReferenceWidth, kReferenceHeight, {});
+                    if (m.found)
+                    {
+                        startScreen = "support_ready";
+                    }
+                }
+                return RunAction(result, resources, context, startScreen, "support.start");
+            }
+
+            if (modificationsCompleted >= kMaxModifications)
+            {
+                result.error = "Support deck configuration exceeded maximum modification steps.";
+                return false;
+            }
+
+            auto recordPreAction = [&]() {
+                preAction.ownEmptyCount = static_cast<int>(emptyOwnSlots.size());
+                preAction.friendEmpty = slotEvals[5].empty;
+                preAction.friendCardId = slotEvals[5].cardId;
+                preAction.friendMatched = friendMatched;
+                preAction.claimedOwn = currentClaimedOwn;
+            };
+
+            if (friendNeedsRemove)
+            {
+                lastAction = LastActionType::FriendRemoved;
+                lastActionSlot = 5;
+                lastActionCardId = slotEvals[5].cardId;
+                recordPreAction();
+                if (!removeOccupiedSlot(5)) return false;
+                ++modificationsCompleted;
+                continue;
+            }
+
+            if (!missingOwn.empty() && !unwantedOwnSlots.empty())
+            {
+                int slotToReplace = unwantedOwnSlots.front();
+                int cardId = missingOwn.front();
+                lastAction = LastActionType::OwnedReplaced;
+                lastActionSlot = slotToReplace;
+                lastActionCardId = cardId;
+                recordPreAction();
+                if (!selectExact(cardId, slotToReplace, false, true)) return false;
+                ++modificationsCompleted;
+                continue;
+            }
+
+            if (!missingOwn.empty() && !emptyOwnSlots.empty())
+            {
+                int slotToFill = emptyOwnSlots.front();
+                int cardId = missingOwn.front();
+                lastAction = LastActionType::OwnedFilled;
+                lastActionSlot = slotToFill;
+                lastActionCardId = cardId;
+                recordPreAction();
+                if (!selectExact(cardId, slotToFill, false)) return false;
+                ++modificationsCompleted;
+                continue;
+            }
+
+            if (friendNeedsFill && friendId.has_value())
+            {
+                lastAction = LastActionType::FriendFilled;
+                lastActionSlot = 5;
+                lastActionCardId = *friendId;
+                recordPreAction();
+                if (!selectExact(*friendId, 5, true)) return false;
+                ++modificationsCompleted;
+                continue;
+            }
+
+            result.error = "Support deck configuration could not resolve slot differences.";
+            return false;
+        }
+
+        result.error = "Support deck configuration exceeded maximum modification steps.";
+        return false;
     }
 
     if (config.supportDeckMode != "highest-star")

@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -994,4 +995,1112 @@ TEST_CASE("Legacy URA checkpoint flags migrate without deleting the original sav
     CHECK(needsEntry);
     CHECK(error.empty());
     CHECK(std::filesystem::exists(legacyPath));
+}
+
+class SupportScreenshotReplayContext final : public Tests::MockTaskExecutionContext
+{
+public:
+    explicit SupportScreenshotReplayContext(std::string const& filename, double scale = 1.0)
+    {
+        auto orig = Resources::WicImageDecoder::decode_file(
+            std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename);
+        if (scale == 1.0 || orig.width <= 0)
+        {
+            m_image = std::move(orig);
+        }
+        else
+        {
+            m_image.width = static_cast<int>(orig.width * scale);
+            m_image.height = static_cast<int>(orig.height * scale);
+            m_image.gray.resize(m_image.width * m_image.height);
+            m_image.rgba.resize(m_image.width * m_image.height * 4);
+            for (int y = 0; y < m_image.height; ++y)
+            {
+                int srcY = static_cast<int>(y / scale);
+                if (srcY >= orig.height) srcY = orig.height - 1;
+                for (int x = 0; x < m_image.width; ++x)
+                {
+                    int srcX = static_cast<int>(x / scale);
+                    if (srcX >= orig.width) srcX = orig.width - 1;
+                    m_image.gray[y * m_image.width + x] = orig.gray[srcY * orig.width + srcX];
+                    if (!orig.rgba.empty())
+                    {
+                        for (int c = 0; c < 4; ++c)
+                        {
+                            m_image.rgba[(y * m_image.width + x) * 4 + c] = orig.rgba[(srcY * orig.width + srcX) * 4 + c];
+                        }
+                    }
+                }
+            }
+        }
+        m_frame = std::make_shared<TaskFrameSnapshot>();
+        m_frame->width = m_image.width;
+        m_frame->height = m_image.height;
+        m_frame->frameId = 1;
+        m_frame->grayPixels = m_image.gray;
+        m_frame->rgbaPixels = m_image.rgba;
+    }
+
+    bool CaptureScreen() override
+    {
+        ++captureCount;
+        m_frame->frameId = captureCount;
+        return true;
+    }
+
+    std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return m_frame; }
+
+    void LoadScreenshot(std::string const& filename)
+    {
+        m_image = Resources::WicImageDecoder::decode_file(
+            std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename);
+        m_frame->width = m_image.width;
+        m_frame->height = m_image.height;
+        m_frame->grayPixels = m_image.gray;
+        m_frame->rgbaPixels = m_image.rgba;
+    }
+
+    bool TapMatch(int x, int y, TaskMatchResult const&) override { return Tap(x, y); }
+    bool Tap(int x, int y) override
+    {
+        taps.push_back({x, y});
+        if (onTap) onTap(x, y);
+        return true;
+    }
+
+    TaskMatchResult MatchTemplateAdvanced(
+        const std::string& path,
+        double threshold,
+        const std::optional<TaskRoi>& roi,
+        const std::string& algorithm,
+        int referenceWidth,
+        int referenceHeight,
+        const std::vector<double>& scales) override
+    {
+        TaskMatchResult result;
+        result.referenceWidth = referenceWidth;
+        result.referenceHeight = referenceHeight;
+        result.frameId = m_frame ? m_frame->frameId : 0;
+        if (!roi || m_image.gray.empty()) return result;
+
+        const auto marker = Resources::WicImageDecoder::decode_file_utf8(path);
+        if (marker.gray.empty()) return result;
+
+        if (path.find("/card.png") != std::string::npos
+            || path.find("\\card.png") != std::string::npos)
+        {
+            if (algorithm == "MatchTemplateScaledFast")
+            {
+                ++fastCardMatches;
+                if (forceFirstSlotRefinement && roi->x == 55 && roi->y == 385)
+                    return result;
+            }
+            else if (!scales.empty()) ++refinedCardMatches;
+        }
+
+        const Vision::Roi bounds = std::array<std::int32_t, 4>{roi->x, roi->y, roi->width, roi->height};
+        Vision::MatchResult match;
+        if (!scales.empty())
+        {
+            Vision::ScaledOptions opt;
+            opt.scales = scales;
+            if (algorithm == "MatchTemplateScaledFast")
+            {
+                opt.refine_scale = false;
+                opt.full_search_on_miss = false;
+                opt.candidate_step = 4;
+            }
+            match = Vision::find_scaled(m_image, marker, bounds, threshold, referenceWidth, referenceHeight, opt);
+        }
+        else if (algorithm == "MatchTemplateColor")
+        {
+            match = Vision::find_color(m_image, marker, bounds, threshold, referenceWidth, referenceHeight);
+        }
+        else
+        {
+            match = Vision::find(m_image, marker, bounds, threshold, referenceWidth, referenceHeight);
+        }
+        result.found = match.found;
+        result.score = match.score;
+        result.x = match.x;
+        result.y = match.y;
+        result.width = match.width;
+        result.height = match.height;
+        return result;
+    }
+
+    TaskTemplateCandidatesResult MatchTemplateCandidates(
+        const std::vector<std::string>& paths,
+        double threshold,
+        const std::optional<TaskRoi>& roi,
+        const std::string& algorithm,
+        int referenceWidth,
+        int referenceHeight,
+        const std::vector<double>& scales,
+        double) override
+    {
+        TaskTemplateCandidatesResult result;
+        for (auto const& p : paths)
+        {
+            auto m = MatchTemplateAdvanced(p, threshold, roi, algorithm, referenceWidth, referenceHeight, scales);
+            if (m.found) result.candidates.push_back({p, m});
+        }
+        return result;
+    }
+
+    std::vector<TaskOcrDetection> RecognizeText(
+        const std::string&, const std::optional<TaskRoi>&) override
+    {
+        std::vector<TaskOcrDetection> res;
+        res.push_back({"Support Formation", 200, 220, 400, 50, 0.99});
+        return res;
+    }
+
+    void EmitEvent(TaskExecutionEvent const& event) override
+    {
+        if (onEvent) onEvent(event);
+        if (event.type == TaskEventType::TaskEntering)
+        {
+            enteredTasks.push_back(event.taskName);
+        }
+        Tests::MockTaskExecutionContext::EmitEvent(event);
+    }
+
+    std::vector<std::string> enteredTasks;
+    std::function<void(TaskExecutionEvent const&)> onEvent;
+    bool forceFirstSlotRefinement{false};
+    std::function<void(int, int)> onTap;
+    int fastCardMatches{0};
+    int refinedCardMatches{0};
+private:
+    Vision::GrayImage m_image;
+    std::shared_ptr<TaskFrameSnapshot> m_frame;
+};
+
+class SupportSimulationContext final : public Tests::MockTaskExecutionContext
+{
+public:
+    enum class ScreenState { Formation, RemoveDialog, SelectionList };
+
+    SupportSimulationContext()
+    {
+        m_frame = std::make_shared<TaskFrameSnapshot>();
+        m_frame->width = 900;
+        m_frame->height = 1600;
+        m_frame->frameId = 1;
+    }
+
+    std::shared_ptr<const TaskFrameSnapshot> GetCurrentFrame() const override { return m_frame; }
+    bool CaptureScreen() override { ++captureCount; return true; }
+
+    std::array<int, 6> slots{0, 0, 0, 0, 0, 0};
+    ScreenState screenState{ScreenState::Formation};
+    bool reorderOnSelection{false};
+    bool removeHasNoEffect{false};
+    bool selectionHasNoEffect{false};
+    bool corruptRetainedOnFill{false};
+    bool corruptFriendOnOwnAction{false};
+    bool failStart{false};
+    bool ambiguousOwnRecognition{false};
+    std::string cancelOnTask;
+
+    std::vector<std::string> enteredTasks;
+    std::function<void(TaskExecutionEvent const&)> onEvent;
+    int removeCalls{0};
+    int fillCalls{0};
+    int startTaskEntered{0};
+    int startTaps{0};
+
+    int activeSlot{-1};
+    int pendingFillCardId{0};
+
+    int SlotFromRoi(TaskRoi const& roi) const
+    {
+        if (roi.y >= 350 && roi.y < 600)
+        {
+            if (roi.x < 250) return 0;
+            if (roi.x < 500) return 1;
+            return 2;
+        }
+        if (roi.y >= 600 && roi.y <= 1000)
+        {
+            if (roi.x < 250) return 3;
+            if (roi.x < 500) return 4;
+            return 5;
+        }
+        return -1;
+    }
+
+    int CardIdFromPath(std::string const& path) const
+    {
+        auto pos = path.find("support_cards");
+        if (pos == std::string::npos) return 0;
+        auto start = path.find_first_of("0123456789", pos);
+        if (start == std::string::npos) return 0;
+        auto end = path.find_first_not_of("0123456789", start);
+        return std::stoi(path.substr(start, end - start));
+    }
+
+    TaskMatchResult MatchTemplateAdvanced(
+        const std::string& path,
+        double,
+        const std::optional<TaskRoi>& roi,
+        const std::string&,
+        int referenceWidth,
+        int referenceHeight,
+        const std::vector<double>&) override
+    {
+        TaskMatchResult result;
+        result.referenceWidth = referenceWidth;
+        result.referenceHeight = referenceHeight;
+        result.frameId = m_frame->frameId;
+
+        if (screenState == ScreenState::Formation)
+        {
+            if (path.find("support_ready_support_start.png") != std::string::npos
+                || path.find("support_select_support_start.png") != std::string::npos)
+            {
+                if (failStart) return result;
+                result.found = true;
+                result.score = 0.95;
+                result.x = 450;
+                result.y = 1350;
+                result.width = 100;
+                result.height = 50;
+                return result;
+            }
+
+            if (path.find("support_open.png") != std::string::npos)
+            {
+                if (roi)
+                {
+                    int s = SlotFromRoi(*roi);
+                    if (s >= 0 && s < 6 && slots[s] == 0)
+                    {
+                        activeSlot = s;
+                        result.found = true;
+                        result.score = 0.98;
+                        result.x = roi->x + 10;
+                        result.y = roi->y + 10;
+                        result.width = 40;
+                        result.height = 40;
+                        return result;
+                    }
+                }
+                return result;
+            }
+
+            if (roi && roi->width > 200 && roi->height > 200)
+            {
+                int s = SlotFromRoi(*roi);
+                int cid = CardIdFromPath(path);
+                if (s >= 0 && s < 6 && cid > 0
+                    && (slots[s] == cid || (ambiguousOwnRecognition && s == 0)))
+                {
+                    result.found = true;
+                    result.score = 0.95;
+                    result.x = roi->x + 20;
+                    result.y = roi->y + 20;
+                    result.width = 60;
+                    result.height = 60;
+                    return result;
+                }
+                return result;
+            }
+        }
+        else if (screenState == ScreenState::SelectionList)
+        {
+            if (path.find("card.png") != std::string::npos)
+            {
+                pendingFillCardId = CardIdFromPath(path);
+                result.found = true;
+                result.score = 0.95;
+                result.x = roi ? roi->x + 5 : 400;
+                result.y = roi ? roi->y + 5 : 400;
+                result.width = 50;
+                result.height = 50;
+                return result;
+            }
+        }
+
+        result.found = true;
+        result.score = 0.90;
+        result.x = roi ? roi->x + 5 : 400;
+        result.y = roi ? roi->y + 5 : 400;
+        result.width = 50;
+        result.height = 50;
+        return result;
+    }
+
+    TaskTemplateCandidatesResult MatchTemplateCandidates(
+        const std::vector<std::string>& paths,
+        double threshold,
+        const std::optional<TaskRoi>& roi,
+        const std::string& algorithm,
+        int referenceWidth,
+        int referenceHeight,
+        const std::vector<double>& scales,
+        double) override
+    {
+        TaskTemplateCandidatesResult result;
+        for (auto const& p : paths)
+        {
+            auto m = MatchTemplateAdvanced(p, threshold, roi, algorithm, referenceWidth, referenceHeight, scales);
+            if (m.found) result.candidates.push_back({p, m});
+        }
+        return result;
+    }
+
+    std::vector<TaskOcrDetection> RecognizeText(
+        const std::string&, const std::optional<TaskRoi>& roi) override
+    {
+        std::vector<TaskOcrDetection> res;
+        if (screenState == ScreenState::Formation)
+        {
+            res.push_back({"Support Formation", 200, 220, 400, 50, 0.99});
+        }
+        else if (screenState == ScreenState::RemoveDialog)
+        {
+            if (roi && roi->y <= 300)
+            {
+                res.push_back({"Remove", 300, 160, 150, 50, 0.99});
+            }
+        }
+        return res;
+    }
+
+    bool TapMatch(int x, int y, const TaskMatchResult&) override
+    {
+        return Tap(x, y);
+    }
+
+    bool Tap(int x, int y) override
+    {
+        taps.push_back({x, y});
+
+        if (screenState == ScreenState::Formation)
+        {
+            if (y >= 1200)
+            {
+                ++startTaps;
+                return true;
+            }
+
+            TaskRoi r{x - 10, y - 10, 20, 20};
+            int s = SlotFromRoi(r);
+            if (s >= 0 && s < 6)
+            {
+                activeSlot = s;
+                if (s == 5 && slots[s] != 0)
+                {
+                    screenState = ScreenState::RemoveDialog;
+                }
+                else
+                {
+                    screenState = ScreenState::SelectionList;
+                }
+            }
+        }
+        else if (screenState == ScreenState::RemoveDialog)
+        {
+            if (y >= 140 && y <= 200)
+            {
+                ++removeCalls;
+                if (!removeHasNoEffect && activeSlot >= 0 && activeSlot < 6)
+                {
+                    slots[activeSlot] = 0;
+                }
+                screenState = ScreenState::Formation;
+            }
+        }
+        return true;
+    }
+
+    void EmitEvent(TaskExecutionEvent const& event) override
+    {
+        if (onEvent) onEvent(event);
+        if (event.type == TaskEventType::TaskEntering)
+        {
+            enteredTasks.push_back(event.taskName);
+            if (event.taskName == "support_ready_support_start"
+                || event.taskName == "support_select_support_start")
+            {
+                ++startTaskEntered;
+            }
+            if (!cancelOnTask.empty() && event.taskName == cancelOnTask)
+            {
+                cancelled = true;
+            }
+        }
+        if (event.type == TaskEventType::TaskCompleted)
+        {
+            if (event.taskName == "support_select_support_card_exact")
+            {
+                ++fillCalls;
+                if (!selectionHasNoEffect && activeSlot >= 0 && activeSlot < 6)
+                {
+                    slots[activeSlot] = pendingFillCardId;
+                    if (activeSlot < 5 && corruptFriendOnOwnAction) slots[5] = 0;
+                    if (corruptRetainedOnFill && activeSlot != 0)
+                    {
+                        slots[0] = 88888;
+                    }
+                    if (activeSlot < 5 && reorderOnSelection)
+                        std::rotate(slots.begin(), slots.begin() + 1, slots.begin() + 5);
+                }
+                screenState = ScreenState::Formation;
+            }
+        }
+        Tests::MockTaskExecutionContext::EmitEvent(event);
+    }
+
+private:
+    std::shared_ptr<TaskFrameSnapshot> m_frame;
+};
+
+bool HasTask(SupportScreenshotReplayContext const& context, std::string const& name)
+{
+    return std::find(context.enteredTasks.begin(), context.enteredTasks.end(), name) != context.enteredTasks.end();
+}
+
+bool HasTask(SupportSimulationContext const& context, std::string const& name)
+{
+    return std::find(context.enteredTasks.begin(), context.enteredTasks.end(), name) != context.enteredTasks.end();
+}
+
+TEST_CASE("Custom support selection starts immediately when all 6 cards match on real screenshot",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_ready");
+    SupportScreenshotReplayContext context("support_ready_mumu_20261012.png");
+    SECTION("common scale uses fast recognition") {}
+    SECTION("uncertain fast result falls back to detailed recognition")
+    {
+        context.forceFirstSlotRefinement = true;
+    }
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
+    CHECK(context.fastCardMatches == 26);
+    CHECK(context.refinedCardMatches == (context.forceFirstSlotRefinement ? 5 : 0));
+}
+
+TEST_CASE("Custom support selection accepts 5 owned cards in any permutation on real screenshot",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30022, 30029, 20020, 20013, 30028};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_ready");
+    SupportScreenshotReplayContext context("support_ready_mumu_20261012.png");
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
+}
+
+TEST_CASE("Custom support selection preserves existing friend card on full real screenshot when no friend is specified",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_ready");
+    SupportScreenshotReplayContext context("support_ready_mumu_20261012.png");
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
+}
+
+TEST_CASE("Custom support selection identifies empty friend slot and opens it on real screenshot",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportScreenshotReplayContext context("support_select_mumu_guest_empty_20261012.png");
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK(HasTask(context, "support_select_support_open"));
+    CHECK_FALSE(HasTask(context, "support_ready_support_start"));
+    CHECK_FALSE(HasTask(context, "support_select_support_start"));
+}
+
+TEST_CASE("Custom support selection supports 6 card IDs with the 6th as friend card",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022, 30016};
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_ready");
+    SupportScreenshotReplayContext context("support_ready_mumu_20261012.png");
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_ready_support_start") == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+}
+
+TEST_CASE("Custom support card face recognition matches all cards reliably on scaled real screenshot",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_ready");
+    SupportScreenshotReplayContext context("support_ready_mumu_20261012.png", 0.5);
+    bool reachedStart = false;
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskEntering &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            reachedStart = true;
+            context.cancelled = true;
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK(reachedStart);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
+}
+
+TEST_CASE("Occupied owned support opens real card list without looking for Remove",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {20009, 30145, 20013, 30028, 20020};
+    config.friendSupportCardId = 30016;
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("support_select");
+    SupportScreenshotReplayContext context("support_owned_replace_before_mumu_20261016.png");
+    context.onTap = [&](int x, int y) {
+        REQUIRE(x == 170);
+        REQUIRE(y == 850);
+        context.LoadScreenshot("support_owned_replace_list_mumu_20261016.png");
+    };
+    bool reachedFilters = false;
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskEntering
+            && event.taskName == "support_select_support_display_settings")
+        {
+            reachedFilters = true;
+            context.cancelled = true;
+        }
+    };
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    CHECK(reachedFilters);
+    CHECK(result.cancelled);
+    CHECK(context.taps.size() == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+    CHECK_FALSE(HasTask(context, "support_select_support_start"));
+}
+
+TEST_CASE("Custom support selection replaces single mismatched card and preserves retained cards",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.slots = {30028, 99999, 20020, 30029, 30022, 30016};
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 1);
+    CHECK(context.startTaps == 1);
+    CHECK(context.slots[0] == 30028);
+    CHECK(context.slots[1] == 20013);
+    CHECK(context.slots[2] == 20020);
+    CHECK(context.slots[3] == 30029);
+    CHECK(context.slots[4] == 30022);
+    CHECK(context.slots[5] == 30016);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+}
+
+TEST_CASE("Custom support selection rechecks owned card set after replacement reorders slots",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.reorderOnSelection = true;
+    context.slots = {30028, 99999, 20020, 30029, 30022, 30016};
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 1);
+    CHECK(context.startTaps == 1);
+    std::set<int> ownSet(context.slots.begin(), context.slots.begin() + 5);
+    std::set<int> expectedOwn{30028, 20013, 20020, 30029, 30022};
+    CHECK(ownSet == expectedOwn);
+    CHECK(context.slots[5] == 30016);
+}
+
+TEST_CASE("Custom support selection handles guest-only replacement or filling",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    SECTION("Guest card is different: only slot 6 replaced")
+    {
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.slots = {30028, 20013, 20020, 30029, 30022, 99999};
+        context.onEvent = [&](auto const& event) {
+            if (event.type == TaskEventType::TaskCompleted &&
+                (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+            {
+                observer.screenId = "career_final_confirmation";
+            }
+        };
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CAPTURE(result.error);
+        REQUIRE(result.succeeded);
+        CHECK(context.removeCalls == 1);
+        CHECK(context.fillCalls == 1);
+        CHECK(context.startTaps == 1);
+        CHECK(context.slots[5] == 30016);
+    }
+
+    SECTION("Guest card is empty: only slot 6 filled, 0 removes")
+    {
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.slots = {30028, 20013, 20020, 30029, 30022, 0};
+        context.onEvent = [&](auto const& event) {
+            if (event.type == TaskEventType::TaskCompleted &&
+                (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+            {
+                observer.screenId = "career_final_confirmation";
+            }
+        };
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CAPTURE(result.error);
+        REQUIRE(result.succeeded);
+        CHECK(context.removeCalls == 0);
+        CHECK(context.fillCalls == 1);
+        CHECK(context.startTaps == 1);
+        CHECK(context.slots[5] == 30016);
+    }
+}
+
+TEST_CASE("Custom support selection fills all 6 slots when all are empty",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.slots = {0, 0, 0, 0, 0, 0};
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 6);
+    CHECK(context.startTaps == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+}
+
+TEST_CASE("Custom support selection replaces all 6 cards when all mismatched",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.slots = {90001, 90002, 90003, 90004, 90005, 90006};
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(context.removeCalls == 1);
+    CHECK(context.fillCalls == 6);
+    CHECK(context.startTaps == 1);
+    CHECK_FALSE(HasTask(context, "support_select_support_reset"));
+}
+
+TEST_CASE("Custom support selection treats same character with different card ID as distinct",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30001, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.slots = {10001, 20013, 20020, 30029, 30022, 30016};
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted &&
+            (event.taskName == "support_ready_support_start" || event.taskName == "support_select_support_start"))
+        {
+            observer.screenId = "career_final_confirmation";
+        }
+    };
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CAPTURE(result.error);
+    REQUIRE(result.succeeded);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 1);
+    CHECK(context.startTaps == 1);
+    CHECK(context.slots[0] == 30001);
+}
+
+TEST_CASE("Custom support selection stops when borrowed card Remove has no effect without looping",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.removeHasNoEffect = true;
+    context.slots = {30028, 20013, 20020, 30029, 30022, 99999};
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK(result.error.find("Friend support slot 6 was not removed") != std::string::npos);
+    CHECK(context.removeCalls <= 2);
+    CHECK(context.startTaps == 0);
+}
+
+TEST_CASE("Custom support selection stops when owned replacement has no effect",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.selectionHasNoEffect = true;
+    context.slots = {30028, 99999, 20020, 30029, 30022, 30016};
+    auto const original = context.slots;
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK(result.error.find("was not placed into slot 2") != std::string::npos);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 1);
+    CHECK(context.startTaps == 0);
+    CHECK(context.slots == original);
+}
+
+TEST_CASE("Custom support selection stops and does not Start if an errant action corrupts retained card or friend slot",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    SECTION("Retained card overwritten during fill")
+    {
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.corruptRetainedOnFill = true;
+        context.slots = {30028, 0, 20020, 30029, 30022, 30016};
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.error.find("was overwritten or lost") != std::string::npos);
+        CHECK(context.startTaps == 0);
+    }
+
+    SECTION("Friend slot corrupted during owned replacement")
+    {
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.corruptFriendOnOwnAction = true;
+        context.slots = {30028, 99999, 20020, 30029, 30022, 30016};
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.error.find("Friend support slot 6 was unexpectedly modified") != std::string::npos);
+        CHECK(context.startTaps == 0);
+    }
+}
+
+TEST_CASE("Custom support selection stops safely on cancellation or missing card template",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    SECTION("Cancellation interrupts flow cleanly")
+    {
+        config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.slots = {30028, 0, 20020, 30029, 30022, 30016};
+        context.cancelOnTask = "support_select_support_open";
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.cancelled);
+        CHECK(context.startTaps == 0);
+    }
+
+    SECTION("Missing card template stops before any modifications")
+    {
+        config.supportCardIds = {30028, 20013, 20020, 30029, 999999};
+        ReplayObserver observer("support_select");
+        SupportSimulationContext context;
+        context.slots = {30028, 0, 20020, 30029, 30022, 30016};
+
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CHECK_FALSE(result.succeeded);
+        CHECK(result.error.find("unavailable") != std::string::npos);
+        CHECK(context.removeCalls == 0);
+        CHECK(context.fillCalls == 0);
+        CHECK(context.startTaps == 0);
+    }
+}
+
+TEST_CASE("Custom support selection executes Start at most once and never falls back",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi" / "ura" / "manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+
+    ReplayObserver observer("support_select");
+    SupportSimulationContext context;
+    context.failStart = true;
+    context.slots = {30028, 20013, 20020, 30029, 30022, 30016};
+
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK_FALSE(result.error.empty());
+    CHECK(context.startTaskEntered == 1);
+    CHECK(context.startTaps == 0);
+    CHECK_FALSE(HasTask(context, "support_ready_support_start"));
+}
+
+TEST_CASE("Custom support selection does not remove a card with an unresolved ambiguous identity",
+    "[GameTasks][Career][Replay][SupportSelect]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    config.supportDeckMode = "selected";
+    config.supportCardIds = {30028, 20013, 20020, 30029, 30022};
+    config.friendSupportCardId = 30016;
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("support_ready");
+    SupportSimulationContext context;
+    context.slots = {30028, 20013, 20020, 30029, 30022, 30016};
+    auto const original = context.slots;
+    context.ambiguousOwnRecognition = true;
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK(result.error.find("Support slot 1") != std::string::npos);
+    CHECK(context.slots == original);
+    CHECK(context.removeCalls == 0);
+    CHECK(context.fillCalls == 0);
+    CHECK(context.startTaps == 0);
+    CHECK(context.taps.empty());
 }
