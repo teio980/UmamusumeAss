@@ -41,6 +41,7 @@ struct TaskGraphRunResult
 struct TaskGraphRunOptions
 {
     std::unordered_map<std::string, int, CaseInsensitiveHash, CaseInsensitiveEqual> maxTimesOverrides;
+    std::unordered_map<std::string, int, CaseInsensitiveHash, CaseInsensitiveEqual> postDelayOverrides;
     std::unordered_map<std::string, std::vector<int>, CaseInsensitiveHash, CaseInsensitiveEqual> roiOverrides;
     std::unordered_map<std::string, std::vector<std::vector<int>>, CaseInsensitiveHash, CaseInsensitiveEqual> searchRoiOverrides;
     std::unordered_map<std::string, std::vector<double>, CaseInsensitiveHash, CaseInsensitiveEqual> scaleCandidatesOverrides;

@@ -20,6 +20,43 @@ using namespace UmaAssistant::TaskEngine;
 using namespace UmaAssistant::TaskEngine::Tests;
 namespace Paths = UmaAssistant::Paths;
 
+TEST_CASE("Overriding a post delay still waits for the visual successor before continuing", "[TaskEngine][CareerWait]")
+{
+    HachimiPipelineDefinition definition;
+    HachimiPipelineTask click;
+    click.algorithm = "MatchTemplate";
+    click.action = "ClickSelf";
+    click.templatePath = "source.png";
+    click.postDelay = 650;
+    click.next = {"ready"};
+    definition.tasks["click"] = click;
+    HachimiPipelineTask ready;
+    ready.algorithm = "MatchTemplate";
+    ready.action = "JustReturn";
+    ready.templatePath = "ready.png";
+    ready.pollIntervalMilliseconds = 100;
+    ready.timeoutMilliseconds = 1000;
+    ready.success = true;
+    definition.tasks["ready"] = ready;
+    MockTaskExecutionContext context;
+    context.mockTemplateResults["source.png"] = {{true, 1.0, 0, 0, 10, 10}};
+    context.mockTemplateResults["ready.png"] = {
+        {false, 0.0, 0, 0, 0, 0}, {false, 0.0, 0, 0, 0, 0}, {true, 1.0, 0, 0, 10, 10}};
+    TaskGraphRunOptions options;
+    int expectedSleep = 850;
+    SECTION("ordinary pipelines retain their authored delay") {}
+    SECTION("Career may delegate the wait to recognition")
+    {
+        options.postDelayOverrides["click"] = 0;
+        expectedSleep = 200;
+    }
+    REQUIRE(TaskGraphRunner{}.Run(definition, "click", context, options).status == TaskGraphStatus::Success);
+    CHECK(context.captureCount == 4);
+    CHECK(context.taps.size() == 1);
+    CHECK(context.totalSleepMs == expectedSleep);
+    CHECK(definition.tasks.at("click").postDelay == 650);
+}
+
 TEST_CASE("Optional visual probes use their fallback without reporting a task failure", "[TaskEngine][CareerParity]")
 {
     HachimiPipelineDefinition definition;

@@ -58,6 +58,8 @@ HachimiPipelineTask ApplyOverrides(
     const TaskGraphRunOptions& options)
 {
     HachimiPipelineTask task = source;
+    if (const auto it = options.postDelayOverrides.find(taskName); it != options.postDelayOverrides.end())
+        task.postDelay = (std::max)(0, it->second);
     if (const auto it = options.roiOverrides.find(taskName); it != options.roiOverrides.end())
         task.roi = it->second;
     if (const auto it = options.searchRoiOverrides.find(taskName); it != options.searchRoiOverrides.end())
