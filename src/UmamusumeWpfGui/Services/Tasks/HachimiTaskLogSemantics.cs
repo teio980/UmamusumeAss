@@ -216,6 +216,7 @@ internal static class HachimiTaskLogSemantics
         "CheckGameHome" => Step("Confirming game home screen", "Game home screen confirmed"),
         "CheckHomeTabOnOtherPage" => Step("Returning to game home screen", "Game home screen returned"),
         "CheckNotices" => Step("Closing game notices", "Game notices closed"),
+        "CheckRewardsCollectedClose" => Step("Closing collected rewards", "Collected rewards closed"),
         "CheckPromoSkip" => Step("Skipping game promotion", "Game promotion skipped"),
         "CheckDataDownload" => Step("Confirming data download", "Data download confirmed"),
         "CheckStartNoticeSkip" => Step("Skipping startup notice", "Startup notice skipped"),

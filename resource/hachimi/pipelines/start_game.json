@@ -9,6 +9,7 @@
         "CheckTapToStart",
         "CheckPromoSkip",
         "CheckNotices",
+        "CheckRewardsCollectedClose",
         "CheckGameHome",
         "CheckHomeTabOnOtherPage",
         "CheckStartNoticeSkip"
@@ -112,6 +113,20 @@
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 250, 1420, 400, 100 ],
+      "action": "ClickSelf",
+      "postDelay": 1000,
+      "timeoutMs": 1200,
+      "pollIntervalMs": 200,
+      "onErrorNext": [ "CheckRewardsCollectedClose" ],
+      "next": [ "CheckGameHome" ]
+    },
+    "CheckRewardsCollectedClose": {
+      "algorithm": "MatchTemplate",
+      "template": "templates/start_game/rewards_collected_close.png",
+      "templThreshold": 0.96,
+      "referenceWidth": 900,
+      "referenceHeight": 1600,
+      "roi": [ 370, 1100, 160, 100 ],
       "action": "ClickSelf",
       "postDelay": 1000,
       "timeoutMs": 1200,
