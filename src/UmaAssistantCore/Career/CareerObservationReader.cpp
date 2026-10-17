@@ -689,12 +689,17 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveTransition(
     std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed)
 {
     if (transition.candidates.empty()) return {};
-    return ObserveScreensCore(context, transition.candidates, false, std::move(seed), true);
+    const bool declinedRetryResultExpected = Fold(transition.sourceScreenId) == "race_retry_dialog"
+        && (Fold(transition.semanticActionId) == "cancel"
+            || Fold(transition.actionOutcome) == "race.retry.declined");
+    return ObserveScreensCore(context, transition.candidates, false, std::move(seed), true,
+        declinedRetryResultExpected);
 }
 
 CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
     TaskEngine::ITaskExecutionContext& context, const std::vector<std::string>& screenIds, bool allowResume,
-    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails)
+    std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails,
+    bool declinedRetryResultExpected)
 {
     CareerDomain::CareerObservation observation;
     if (!m_resources || !m_resources->IsReady())
@@ -967,12 +972,12 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
                     break;
                 }
             }
-            // View Results can bypass the Replay label. Match main's fallback
-            // only for a pending race whose configured runner was just seen;
-            // the shared Next button alone cannot identify arbitrary screens.
+            // View Results and declining a retry can both omit Replay. The
+            // visible Next marker is sufficient only within those proven race
+            // transitions; never persist this fallback into an unrelated page.
             if (!matched && Fold(screen.screenId) == "race_runner_result"
-                && m_raceRunnerResultExpected
-                && Fold(m_lastScreenId) == "race_runner"
+                && ((m_raceRunnerResultExpected && Fold(m_lastScreenId) == "race_runner")
+                    || declinedRetryResultExpected)
                 && !screen.requiredTemplates.empty())
             {
                 const auto& marker = screen.requiredTemplates.front();

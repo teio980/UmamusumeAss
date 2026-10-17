@@ -196,7 +196,8 @@ public:
 private:
     CareerDomain::CareerObservation ObserveScreensCore(TaskEngine::ITaskExecutionContext& context,
         const std::vector<std::string>& screens, bool allowResume,
-        std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails);
+        std::shared_ptr<const TaskEngine::TaskFrameSnapshot> seed, bool minimumDetails,
+        bool declinedRetryResultExpected = false);
     std::shared_ptr<CareerVisualResources> m_resources;
     bool m_diagnosticsLogged{false};
     bool m_careerStarted{false};

@@ -517,6 +517,77 @@ TEST_CASE("Actual alarm cancellation returns to the Replay checkpoint exactly on
     CHECK(context.taps.front().second < 1220);
 }
 
+TEST_CASE("Declined alarm retries recognize results without Replay only after cancellation",
+    "[CareerRuntime][CareerAlarmHandoff][CareerDeclinedResult]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_retry_declined_ura_final_3rd_mumu_20261016.png");
+    CareerScreenObserver observer(resources);
+    CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
+
+    const auto transition = CareerTransitionPolicy::AfterAction({}, "race_retry_dialog", "cancel", "race.retry.declined");
+    const auto result = observer.ObserveTransition(context, transition);
+    REQUIRE(result.screenId == "race_runner_result");
+    CHECK(context.taps.empty());
+    const auto next = resources->MatchExecutionTask("race_runner_result_next", context);
+    REQUIRE(next.found);
+    CHECK(next.CenterY() >= 1380);
+
+    // The transition-scoped fallback must not survive a subsequent screen scan.
+    CHECK(observer.ObserveScreens(context, {"race_runner_result"}).screenId == "unknown");
+    const auto accepted = CareerTransitionPolicy::AfterAction({}, "race_retry_dialog",
+        "retry_with_alarm_clock", "race.retry.accepted");
+    CHECK(observer.ObserveTransition(context, accepted).screenId == "unknown");
+
+    // Cancelling still needs current visual proof of Next, not just context.
+    std::fill(context.image.gray.begin(), context.image.gray.end(), std::uint8_t{0});
+    std::fill(context.image.rgba.begin(), context.image.rgba.end(), std::uint8_t{0});
+    CHECK(observer.ObserveTransition(context, transition).screenId == "unknown");
+}
+
+TEST_CASE("Actual alarm cancellation hands no-Replay results to the Next action",
+    "[CareerRuntime][CareerAlarmHandoff][CareerDeclinedResult]")
+{
+    auto config = PackagedConfig();
+    config.retryFailedRaceWithAlarmClock = false;
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("race_retry_oguri_3rd_mumu_20261014.png");
+    ActualRaceResultContext next("race_retry_declined_ura_final_3rd_mumu_20261016.png");
+    context.nextImage = next.image;
+    context.cancelAfterCaptures = 16;
+    CareerScreenObserver observer(resources);
+    const auto source = observer.ObserveScreens(context, {"race_retry_dialog"});
+    REQUIRE(source.screenId == "race_retry_dialog");
+    CareerActionExecutor executor(config, resources);
+    const auto intent = ActionIntent::MakeRace("finale");
+    REQUIRE(executor.ExecuteForObservation(intent, source, context) == ActionExecutionStatus::Success);
+    REQUIRE(executor.ConfirmCompletionFromObservation(intent, source, context));
+    const auto destination = executor.TakeConfirmedObservation();
+    REQUIRE(destination.has_value());
+    REQUIRE(destination->screenId == "race_runner_result");
+    const auto* action = resources->FindAction(destination->screenId, "result.next");
+    REQUIRE(action != nullptr);
+    CHECK(action->taskName == "race_runner_result_next");
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first < 450);
+
+    ActualRaceResultContext details("ura_qualifier_reward_centered_next.png");
+    context.framesAfterTap = {next.image, details.image};
+    const auto nextStatus = executor.ExecuteForObservation(intent, *destination, context);
+    std::string diagnostics;
+    for (const auto& log : context.logs) diagnostics += log + "\n";
+    INFO(diagnostics);
+    CAPTURE(context.captures, context.taps.size());
+    REQUIRE(nextStatus == ActionExecutionStatus::Success);
+    CHECK(executor.TakeLastActionOutcome() == "race.replay.completed");
+    REQUIRE(context.taps.size() == 3); // Cancel, placing Next, rewards Next.
+    CHECK(context.taps[1].second >= 1380);
+    CHECK(context.taps[2].second >= 1380);
+}
+
 TEST_CASE("Actual retry input remains unconfirmed until the runner appears and is never repeated",
     "[CareerRuntime][CareerAlarmHandoff]")
 {
