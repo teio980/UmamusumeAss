@@ -55,18 +55,22 @@ public sealed class UraSmartTrainingScanLogTests
             Assert.Equal(Expected("Smart training scan", "智能训练扫描"), entry.Step);
             Assert.Contains(date, entry.Message);
             Assert.Contains(Expected("Energy: 80%", "体力：80%"), entry.Message);
-            Assert.Contains(Expected("Speed training:", "速度训练："), entry.Message);
-            Assert.Contains(Expected("Stamina training:", "耐力训练："), entry.Message);
-            Assert.Contains(Expected("Power training:", "力量训练："), entry.Message);
-            Assert.Contains(Expected("Guts training:", "根性训练："), entry.Message);
-            Assert.Contains(Expected("Wit training:", "智力训练："), entry.Message);
-            Assert.Contains(Expected("Skill points", "技能点"), entry.Message);
-            Assert.Contains(Expected("Failure rate: Unknown", "失败率：未知"), entry.Message);
-            Assert.Contains(Expected("Excluded:", "排除："), entry.Message);
+            Assert.Contains(Expected("Speed:", "速度："), entry.Message);
+            Assert.Contains(Expected("Stamina:", "耐力："), entry.Message);
+            Assert.Contains(Expected("Power:", "力量："), entry.Message);
+            Assert.Contains(Expected("Guts:", "根性："), entry.Message);
+            Assert.Contains(Expected("Wit:", "智力："), entry.Message);
+            Assert.Contains("Pt+6", entry.Message);
+            Assert.Contains(Expected("No reliable scan data", "未扫描到可靠数据"), entry.Message);
+            Assert.Contains(Expected("Excluded", "排除"), entry.Message);
             Assert.Contains(Expected("Failure rate exceeds 5%", "失败率超过 5%"), entry.Message);
             Assert.Contains(allUnsafe
-                ? Expected("return to the Career main screen and rest", "返回主界面休息")
-                : Expected("Speed training (pending confirmation)", "速度训练（待确认）"), entry.Message);
+                ? Expected("Return to Career main screen and rest", "返回主界面休息")
+                : Expected("Choice: Speed training", "选择【速度训练】"), entry.Message);
+            if (!allUnsafe)
+            {
+                Assert.Contains(Expected("[Selected]", "[胜出]"), entry.Message);
+            }
             if (english)
             {
                 Assert.DoesNotContain(entry.Message, character => character is >= '\u4e00' and <= '\u9fff');

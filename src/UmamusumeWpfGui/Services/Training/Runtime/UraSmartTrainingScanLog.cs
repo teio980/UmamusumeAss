@@ -16,18 +16,25 @@ internal static class UraSmartTrainingScanLog
     {
         ["GrassSmartTrainingScanTitle"] = "Smart training scan",
         ["GrassSmartTrainingScanUnknown"] = "Unknown",
-        ["GrassSmartTrainingScanHeader"] = "Date: {0} | Energy: {1}",
-        ["GrassSmartTrainingScanRow"] = "{0} training: Speed {1}, Stamina {2}, Power {3}, Guts {4}, Wit {5}, Skill points {6}",
-        ["GrassSmartTrainingScanOutcome"] = "Failure rate: {0} | Score: {1} | {2}",
-        ["GrassSmartTrainingScanNotScored"] = "Not scored",
-        ["GrassSmartTrainingScanExcluded"] = "Excluded: {0}",
-        ["GrassSmartTrainingScanNoData"] = "No reliable scan data",
-        ["GrassSmartTrainingScanWinner"] = "Selected candidate",
-        ["GrassSmartTrainingScanSafe"] = "Safe candidate",
-        ["GrassSmartTrainingScanChoice"] = "Choice: {0} training (pending confirmation)",
-        ["GrassSmartTrainingScanRest"] = "Choice: no reliable safe candidate; return to the Career main screen and rest",
-        ["GrassSmartTrainingScanUnknownGains"] = "Gains are unknown, unstable or below the confidence threshold",
-        ["GrassSmartTrainingScanUnknownFailure"] = "Failure rate is unknown, unstable or below the confidence threshold",
+        ["GrassSmartTrainingScanHeader"] = "{0} | Energy: {1} -> {2}",
+        ["GrassSmartTrainingScanChoice"] = "Choice: {0} training",
+        ["GrassSmartTrainingScanRest"] = "Return to Career main screen and rest",
+        ["GrassSmartTrainingScanRow"] = "• {0}: {1}",
+        ["GrassSmartTrainingScanScoredWinner"] = "{0} | Fail {1} | Score {2} [Selected]",
+        ["GrassSmartTrainingScanScoredCandidate"] = "{0} | Fail {1} | Score {2}",
+        ["GrassSmartTrainingScanExcludedWithGains"] = "{0} | Fail {1} (Excluded: {2})",
+        ["GrassSmartTrainingScanNotScoredWithGains"] = "{0} | Fail {1} (Not scored)",
+        ["GrassSmartTrainingScanNoDataExcluded"] = "No reliable scan data (Excluded)",
+        ["GrassSmartTrainingScanNoGains"] = "No gain",
+        ["GrassSmartTrainingScanUnknownGains"] = "Gains unknown",
+        ["GrassSmartTrainingStatSpeed"] = "Spd",
+        ["GrassSmartTrainingStatStamina"] = "Sta",
+        ["GrassSmartTrainingStatPower"] = "Pwr",
+        ["GrassSmartTrainingStatGuts"] = "Gut",
+        ["GrassSmartTrainingStatWit"] = "Wit",
+        ["GrassSmartTrainingStatSkillPoints"] = "Pt",
+        ["GrassSmartTrainingScanUnknownGainsReason"] = "Gains below confidence threshold",
+        ["GrassSmartTrainingScanUnknownFailure"] = "Failure rate below confidence threshold",
         ["GrassSmartTrainingScanZeroGains"] = "Expected gains are zero",
         ["GrassSmartTrainingScanHighFailure"] = "Failure rate exceeds {0}%",
         ["GrassNormalTrainingSpeedLabel"] = "Speed",
@@ -75,8 +82,12 @@ internal static class UraSmartTrainingScanLog
             var energy = energyNode is not null ? Percent(energyNode.GetValue<int>(), text) : text["GrassSmartTrainingScanUnknown"];
             var chosen = root["chosen"]?.GetValue<string>();
 
+            var choiceText = !string.IsNullOrWhiteSpace(chosen)
+                ? Format("GrassSmartTrainingScanChoice", Name(chosen, text))
+                : text["GrassSmartTrainingScanRest"];
+
             var message = new StringBuilder();
-            message.AppendLine(Format("GrassSmartTrainingScanHeader", date, energy));
+            message.AppendLine(Format("GrassSmartTrainingScanHeader", date, energy, choiceText));
 
             var candidatesArray = root["candidates"]?.AsArray();
             var candidatesMap = new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase);
@@ -89,50 +100,59 @@ internal static class UraSmartTrainingScanLog
                 }
             }
 
-            foreach (var type in SupportedTypes)
+            for (var i = 0; i < SupportedTypes.Length; i++)
             {
+                var type = SupportedTypes[i];
                 candidatesMap.TryGetValue(type, out var candNode);
-                message.AppendLine();
-                message.AppendLine(Format("GrassSmartTrainingScanRow", Name(type, text),
-                    Gain(candNode?["speed"]?.GetValue<int?>(), text),
-                    Gain(candNode?["stamina"]?.GetValue<int?>(), text),
-                    Gain(candNode?["power"]?.GetValue<int?>(), text),
-                    Gain(candNode?["guts"]?.GetValue<int?>(), text),
-                    Gain(candNode?["wit"]?.GetValue<int?>(), text),
-                    Gain(candNode?["skill_points"]?.GetValue<int?>(), text)));
 
                 var exclusion = candNode?["exclusion_reason"]?.GetValue<string?>();
                 var score = candNode?["score"]?.GetValue<double?>();
                 var failureRate = candNode?["failure_rate"]?.GetValue<int?>();
 
-                string status;
+                string detail;
                 if (exclusion == "no_data" || candNode is null)
                 {
-                    status = Format("GrassSmartTrainingScanExcluded", text["GrassSmartTrainingScanNoData"]);
+                    detail = text["GrassSmartTrainingScanNoDataExcluded"];
                 }
                 else if (!string.IsNullOrEmpty(exclusion) && exclusion != "not_scored")
                 {
-                    status = Format("GrassSmartTrainingScanExcluded", ExclusionText(exclusion, failureRate, text));
+                    var gains = FormatGains(candNode, text);
+                    var reason = ExclusionText(exclusion, failureRate, text);
+                    detail = Format("GrassSmartTrainingScanExcludedWithGains",
+                        gains,
+                        Percent(failureRate, text),
+                        reason);
+                }
+                else if (score is null)
+                {
+                    var gains = FormatGains(candNode, text);
+                    detail = Format("GrassSmartTrainingScanNotScoredWithGains",
+                        gains,
+                        Percent(failureRate, text));
                 }
                 else if (string.Equals(type, chosen, StringComparison.OrdinalIgnoreCase))
                 {
-                    status = text["GrassSmartTrainingScanWinner"];
+                    var gains = FormatGains(candNode, text);
+                    detail = Format("GrassSmartTrainingScanScoredWinner",
+                        gains,
+                        Percent(failureRate, text),
+                        score.Value.ToString("0.00", CultureInfo.InvariantCulture));
                 }
                 else
                 {
-                    status = text["GrassSmartTrainingScanSafe"];
+                    var gains = FormatGains(candNode, text);
+                    detail = Format("GrassSmartTrainingScanScoredCandidate",
+                        gains,
+                        Percent(failureRate, text),
+                        score.Value.ToString("0.00", CultureInfo.InvariantCulture));
                 }
 
-                message.AppendLine(Format("GrassSmartTrainingScanOutcome",
-                    Percent(failureRate, text),
-                    score is { } s ? s.ToString("0.00", CultureInfo.InvariantCulture) : text["GrassSmartTrainingScanNotScored"],
-                    status));
+                var row = Format("GrassSmartTrainingScanRow", Name(type, text), detail);
+                if (i < SupportedTypes.Length - 1)
+                    message.AppendLine(row);
+                else
+                    message.Append(row);
             }
-
-            message.AppendLine();
-            message.Append(!string.IsNullOrWhiteSpace(chosen)
-                ? Format("GrassSmartTrainingScanChoice", Name(chosen, text))
-                : text["GrassSmartTrainingScanRest"]);
 
             sink.Add(text["GrassSmartTrainingScanTitle"], message.ToString(), HachimiTaskLogEventKind.Detection);
         }
@@ -164,8 +184,36 @@ internal static class UraSmartTrainingScanLog
             : application.Dispatcher.Invoke(() => Snapshot(key => application.TryFindResource(key) as string));
     }
 
-    private static string Gain(int? value, Dictionary<string, string> text) => value is { } number
-        ? "+" + number.ToString(CultureInfo.InvariantCulture) : text["GrassSmartTrainingScanUnknown"];
+    private static string FormatGains(JsonNode? node, Dictionary<string, string> text)
+    {
+        if (node is null)
+            return text["GrassSmartTrainingScanUnknownGains"];
+
+        var list = new List<string>(6);
+        void CheckStat(string key, string statLabelKey)
+        {
+            var val = node[key]?.GetValue<int?>();
+            if (val > 0)
+                list.Add($"{text[statLabelKey]}+{val.Value.ToString(CultureInfo.InvariantCulture)}");
+            else if (val < 0)
+                list.Add($"{text[statLabelKey]}{val.Value.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        CheckStat("speed", "GrassSmartTrainingStatSpeed");
+        CheckStat("stamina", "GrassSmartTrainingStatStamina");
+        CheckStat("power", "GrassSmartTrainingStatPower");
+        CheckStat("guts", "GrassSmartTrainingStatGuts");
+        CheckStat("wit", "GrassSmartTrainingStatWit");
+        CheckStat("skill_points", "GrassSmartTrainingStatSkillPoints");
+
+        if (list.Count > 0)
+            return string.Join(" ", list);
+
+        bool hasAny = node["speed"] != null || node["stamina"] != null || node["power"] != null
+            || node["guts"] != null || node["wit"] != null || node["skill_points"] != null;
+
+        return hasAny ? text["GrassSmartTrainingScanNoGains"] : text["GrassSmartTrainingScanUnknownGains"];
+    }
 
     private static string Percent(int? value, Dictionary<string, string> text) => value is { } number
         ? number.ToString(CultureInfo.InvariantCulture) + "%" : text["GrassSmartTrainingScanUnknown"];
@@ -182,7 +230,7 @@ internal static class UraSmartTrainingScanLog
 
     private static string ExclusionText(string reason, int? failureRate, Dictionary<string, string> text) => reason switch
     {
-        "core gains are unknown or below confidence threshold" => text["GrassSmartTrainingScanUnknownGains"],
+        "core gains are unknown or below confidence threshold" => text["GrassSmartTrainingScanUnknownGainsReason"],
         "failure rate is unknown or below confidence threshold" => text["GrassSmartTrainingScanUnknownFailure"],
         "expected gains are zero" => text["GrassSmartTrainingScanZeroGains"],
         _ when failureRate > 5 || reason.Contains("exceeds 5%") =>
