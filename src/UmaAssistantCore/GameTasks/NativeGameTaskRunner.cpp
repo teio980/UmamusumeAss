@@ -20,6 +20,7 @@
 #include <chrono>
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -153,9 +154,16 @@ public:
 
     bool CaptureScreen() override
     {
+        m_recoveryCheckedFrame.reset();
         if (!m_inner.CaptureScreen()) return false;
+        auto const capturedAt = std::chrono::steady_clock::now();
         auto first = DetectDialog(m_inner);
-        if (first.kind == DialogKind::none) return true;
+        if (first.kind == DialogKind::none)
+        {
+            m_recoveryCheckedFrame = m_inner.GetCurrentFrame();
+            m_recoveryCheckedAt = capturedAt;
+            return true;
+        }
         if (first.kind == DialogKind::missingTemplates)
             throw RecoveryInterruption("Date-change recovery references could not be loaded.");
 
@@ -232,6 +240,9 @@ public:
     Recognition::NumericOcrBatchResult RecognizeNumericImages(
         const std::vector<Recognition::NumericOcrBatchField>& fields) override
     { return m_inner.RecognizeNumericImages(fields); }
+    // Keep the isolated reader available for OCR while the next preview opens.
+    std::shared_ptr<IImageRecognitionContext> CreateImageRecognitionContext() override
+    { return m_inner.CreateImageRecognitionContext(); }
     bool PrepareHeldTouch() override { return m_inner.PrepareHeldTouch(); }
     bool TouchDownMatch(int x, int y, const TaskMatchResult& source) override
     {
@@ -242,6 +253,7 @@ public:
         // Held input starts on the exact frame checked by CaptureScreen. An
         // extra capture here would invalidate the matched control provenance.
         if (!CheckBeforeInput(false)) return false;
+        m_recoveryCheckedFrame.reset();
         return m_inner.TouchDownMatch(x, y, source);
     }
     bool TouchUp() override { return m_inner.TouchUp(); }
@@ -254,6 +266,7 @@ public:
 
     bool TapMatch(int x, int y, const TaskMatchResult& match) override
     {
+        if (m_inner.IsCancelled()) return false;
         // Only frame-less actions bind to the pre-input capture. Coordinate
         // actions can carry a source frame without a visual hit; retain that
         // frame below before the recovery check captures a newer screen.
@@ -269,7 +282,10 @@ public:
             return false;
         try
         {
-            if (!CheckBeforeInput())
+            // Career observation already checked this frame for recovery
+            // dialogs. Only fresh, unconsumed visual matches can reuse it;
+            // retries and older evidence keep the original pre-input capture.
+            if (!CheckBeforeInput(!CanReuseRecoveryCheck(match)))
             {
                 if (ownsLease) m_inner.ReleaseRetainedMatch();
                 return false;
@@ -440,6 +456,9 @@ public:
 private:
     void MarkActionAttemptPending()
     {
+        // A failed input may still reach the device, so every input attempt
+        // consumes the clean-frame proof before it is dispatched.
+        m_recoveryCheckedFrame.reset();
         if (m_recoveringStartup) return;
         if (IsOneOf(m_currentActionName, {"shopExchangeConfirm"}))
             m_state.pendingShop = true;
@@ -452,6 +471,19 @@ private:
 
     using DialogKind = GameRecoveryDialogKind;
     using DialogMatch = GameRecoveryDialogMatch;
+
+    bool CanReuseRecoveryCheck(TaskMatchResult const& match) const
+    {
+        if (!CaseInsensitiveEqual{}(m_rootPipelineName, "career-training") || !match.found
+            || match.frameId == 0 || match.sessionGeneration == 0 || match.geometryGeneration == 0
+            || std::chrono::steady_clock::now() - m_recoveryCheckedAt >= std::chrono::seconds(1))
+            return false;
+        auto const checked = m_recoveryCheckedFrame.lock();
+        auto const current = m_inner.GetCurrentFrame();
+        return checked && current == checked && match.frameId == current->frameId
+            && match.sessionGeneration == current->sessionGeneration
+            && match.geometryGeneration == current->geometryGeneration;
+    }
 
     DialogMatch DetectDialog(ITaskExecutionContext& context)
     {
@@ -568,6 +600,8 @@ private:
     int m_totalCareerRuns{0};
     bool m_recoveringStartup{false};
     std::string m_recoveryError;
+    std::weak_ptr<const TaskFrameSnapshot> m_recoveryCheckedFrame;
+    std::chrono::steady_clock::time_point m_recoveryCheckedAt{};
 };
 
 int ErrorCodeForContext(ITaskExecutionContext const& context, int fallback)

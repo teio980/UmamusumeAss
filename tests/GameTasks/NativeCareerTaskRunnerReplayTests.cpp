@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cctype>
 #include <cmath>
@@ -19,6 +20,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -455,13 +457,16 @@ public:
             || (match.frameId != 0
                 && match.frameId != m_currentFrame->frameId && !IsMatchRetained(match)))
             return false;
+        matchedInputFrames.emplace_back(match.frameId, m_currentFrame->frameId);
         if (IsMatchRetained(match))
         {
             if (std::pair{x, y} != m_retainedPoint) return false;
             --m_retainedAttempts;
             if (m_retainedAttempts == 0) ReleaseRetainedMatch();
         }
-        return Tap(x, y);
+        const bool tapped = Tap(x, y);
+        if (cancelAfterMatchedTap) m_cancelled = true;
+        return tapped;
     }
 
     bool RetainMatchForRetry(const TaskMatchResult& match, int attempts, int lifetime,
@@ -479,6 +484,7 @@ public:
         m_retainedFrame = match.frameId;
         m_retainedPoint = point;
         m_retainedAttempts = attempts;
+        if (onRetainMatch) onRetainMatch();
         return true;
     }
     bool HasRetainedMatch() const override { return m_retainedFrame != 0 && m_retainedAttempts > 0; }
@@ -503,12 +509,41 @@ public:
         if (numericProbeReplay && !fields.empty())
         {
             ++numericProbeCalls;
+            numericProbeThread = std::this_thread::get_id();
             m_cancelled = true;
         }
         return {};
     }
+    std::shared_ptr<IImageRecognitionContext> CreateImageRecognitionContext() override
+    {
+        if (!isolatedNumericProbeReplay) return {};
+        class ProbeReader final : public IImageRecognitionContext
+        {
+        public:
+            explicit ProbeReader(RunnerReplayContext& owner) : m_owner(owner) {}
+            std::vector<TaskOcrDetection> RecognizeImageText(
+                const UmaAssistant::Vision::GrayImage&, const std::string&) override { return {}; }
+            UmaAssistant::Recognition::NumericOcrBatchResult RecognizeNumericImages(
+                const std::vector<UmaAssistant::Recognition::NumericOcrBatchField>& fields) override
+            {
+                ++m_owner.isolatedNumericProbeCalls;
+                return m_owner.RecognizeNumericImages(fields);
+            }
+            bool IsCancelled() const override { return m_owner.IsCancelled(); }
+        private:
+            RunnerReplayContext& m_owner;
+        };
+        return std::make_shared<ProbeReader>(*this);
+    }
     bool numericProbeReplay{false};
     int numericProbeCalls{0};
+    bool isolatedNumericProbeReplay{false};
+    int isolatedNumericProbeCalls{0};
+    std::thread::id numericProbeThread;
+    bool cancelAfterMatchedTap{false};
+    std::function<void()> onActionExecuting;
+    std::function<void()> onRetainMatch;
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> matchedInputFrames;
     bool cancelOnPipelineStart{false};
     void Log(const std::string& level, const std::string& message) override
     {
@@ -519,6 +554,8 @@ public:
     void EmitEvent(const TaskExecutionEvent& event) override
     {
         m_events.push_back(event);
+        if (event.type == TaskEventType::ActionExecuting && onActionExecuting)
+            onActionExecuting();
         if (cancelOnPipelineStart && event.type == TaskEventType::PipelineStarted)
             m_cancelled = true;
         Trace("event type=" + std::to_string(static_cast<int>(event.type))
@@ -797,7 +834,7 @@ private:
     std::unordered_map<std::string, std::shared_ptr<const UmaAssistant::Vision::GrayImage>> m_templateCache;
     std::vector<std::string> m_pipelineRoots;
     std::vector<TaskExecutionEvent> m_events;
-    bool m_cancelled{false};
+    std::atomic<bool> m_cancelled{false};
     std::vector<std::string> m_templateTrace;
     std::vector<std::pair<int, int>> m_taps;
     std::vector<std::string> m_logs;
@@ -833,12 +870,53 @@ TEST_CASE("Career recovery context forwards numeric OCR used by smart training",
     REQUIRE(resources.IsReady());
     RunnerReplayContext context(resources, "career_main");
     context.numericProbeReplay = true;
+    SECTION("foreground fallback") {}
+    SECTION("isolated reader runs on the training worker") { context.isolatedNumericProbeReplay = true; }
     auto const result = NativeGameTaskRunner::Run("career-training", nlohmann::json{
         {"manifestPath", config.manifestPath}, {"traineeId", *config.traineeId},
         {"strategyId", "smart-balanced-safe"}, {"maxSteps", 4}}, context, config.resourceDirectory);
     CAPTURE(result.message);
     REQUIRE_FALSE(result.succeeded);
     CHECK(context.numericProbeCalls == 1);
+    CHECK(context.IsCancelled());
+    CHECK_FALSE(context.TrainingTapped());
+    CHECK(context.isolatedNumericProbeCalls == (context.isolatedNumericProbeReplay ? 1 : 0));
+    CHECK((context.numericProbeThread != std::this_thread::get_id()) == context.isolatedNumericProbeReplay);
+}
+
+TEST_CASE("Career recovery guard reuses fresh input frames and refreshes expired or replaced evidence",
+    "[GameTasks][NativeCareerTaskRunnerReplay][CareerInputSpeed]")
+{
+    const auto config = PackagedConfig();
+    CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    RunnerReplayContext context(resources, "rest_confirmation");
+    context.cancelAfterMatchedTap = true;
+    bool expired = false;
+    bool replaced = false;
+    SECTION("fresh confirmed frame needs no pre-input screenshot") {}
+    SECTION("expired frame still requires a pre-input screenshot") { expired = true; }
+    SECTION("replaced frame requires a new recovery check") { replaced = true; }
+    std::uint64_t actionFrame = 0;
+    context.onActionExecuting = [&] {
+        const auto frame = context.GetCurrentFrame();
+        REQUIRE(frame);
+        actionFrame = frame->frameId;
+    };
+    context.onRetainMatch = [&] {
+        if (expired) std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+        if (replaced) REQUIRE(context.CaptureScreen());
+    };
+    const auto result = NativeGameTaskRunner::Run("career-training", nlohmann::json{
+        {"manifestPath", config.manifestPath}, {"traineeId", *config.traineeId},
+        {"maxSteps", 2}}, context, config.resourceDirectory);
+    INFO(result.message);
+    CHECK_FALSE(result.succeeded);
+    REQUIRE(actionFrame != 0);
+    REQUIRE(context.matchedInputFrames.size() == 1);
+    const auto [source, current] = context.matchedInputFrames.front();
+    CHECK(source == actionFrame);
+    CHECK(current == actionFrame + (expired ? 1 : replaced ? 2 : 0));
     CHECK(context.IsCancelled());
 }
 
