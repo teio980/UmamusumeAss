@@ -1,4 +1,5 @@
 #include "CareerFlowCoordinator.hpp"
+#include "CareerFrameEvidence.hpp"
 #include "CareerVisualResources.hpp"
 #include "CareerPersistenceStore.hpp"
 #include "UmaAssistantCore/CareerDomain/CareerCalendar.hpp"
@@ -963,18 +964,10 @@ CareerRunResult CareerFlowCoordinator::RunToCompletion(
         auto stepResult = Step(context);
         if (stepResult.status != CareerRunStatus::Running)
             return stepResult;
-        // Only these turn dialogs and Recreation's intermediate selection may
-        // proceed immediately. Other screens keep their scheduling delay.
-        const auto nextId = m_nextConfirmedObservation ? Fold(m_nextConfirmedObservation->screenId) : std::string{};
-        const bool turnConfirmation = nextId == "recreation_selection" || nextId == "recreation_confirmation" || nextId == "infirmary_confirmation"
-            || nextId == "rest_confirmation" || nextId == "summer_rest_confirmation";
-        const auto now = std::chrono::steady_clock::now();
-        const bool readyConfirmation = turnConfirmation && m_nextConfirmedObservation->stableFrameCount >= 2
-            && m_nextConfirmedObservation->visualFrameEvidence
-            && now >= m_nextConfirmedObservation->visualFrameEvidence->capturedAt
-            && now - m_nextConfirmedObservation->visualFrameEvidence->capturedAt < std::chrono::seconds(1)
-            && context.GetCurrentFrame()
-            && context.GetCurrentFrame()->frameId == m_nextConfirmedObservation->visualFrameEvidence->frameId;
+        // A confirmed current frame already paid the observation/stability
+        // cost. Let the next action rematch it without another scheduling wait.
+        const bool readyConfirmation = m_nextConfirmedObservation
+            && CurrentConfirmedCareerFrame(*m_nextConfirmedObservation, context);
         if (!readyConfirmation) context.Sleep(250);
     }
     finalResult.status = CareerRunStatus::Failed;

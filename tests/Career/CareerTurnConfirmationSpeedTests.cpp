@@ -101,6 +101,7 @@ public:
             {"career_final_confirmation_header.png", "career_final_confirmation"},
             {"fan_goal_race_list_header.png", "race_list"},
             {"ura_post_finish_loaded.png", "career_rank"},
+            {"career_rank_career_next.png", "career_rank"},
             {"home_selected.png", "home"},
             {"home_home_career.png", "home"},
             {"ura_final_race_live.png", "race_live"},
@@ -236,7 +237,7 @@ TEST_CASE("Four turn confirmation dialogs rematch OK on their fresh observed fra
     CHECK(context.captureCount == static_cast<int>(expectedFrame));
     REQUIRE(context.clickedFrames.size() == 1);
     CHECK(context.clickedFrames.front() == expectedFrame);
-    CHECK(context.totalSleepMs >= 650); // Retain the authored delay after OK.
+    CHECK(context.totalSleepMs < 650); // The transition observer now owns the wait after OK.
 }
 
 TEST_CASE("Turn dialogs retain the recognized second frame through opening animation",
@@ -254,6 +255,42 @@ TEST_CASE("Turn dialogs retain the recognized second frame through opening anima
     CHECK(observation.visualFrameEvidence->frameId == 3);
     CHECK(context.captureCount == 3);
     CHECK(context.totalSleepMs == 240);
+}
+
+TEST_CASE("Settlement actions reuse confirmed frames and delegate their delay to transition recognition",
+    "[Career][CareerWait]")
+{
+    TurnConfirmationContext context;
+    context.screens = {"career_rank"};
+    CareerScreenObserver observer(TurnResources());
+    auto observation = observer.ObserveScreens(context, {"career_rank"});
+    REQUIRE(observation.screenId == "career_rank");
+    REQUIRE(observation.visualFrameEvidence);
+    REQUIRE(context.captureCount == 2);
+    std::uint64_t expectedFrame = 2;
+    SECTION("fresh confirmation requires no additional screenshot") {}
+    SECTION("expired confirmation is captured again before input")
+    {
+        observation.visualFrameEvidence->capturedAt -= std::chrono::seconds(2);
+        expectedFrame = 3;
+    }
+    SECTION("missing visual evidence requires a fresh capture")
+    {
+        observation.visualFrameEvidence.reset();
+        expectedFrame = 3;
+    }
+    SECTION("geometry changed after confirmation")
+    {
+        context.frame->geometryGeneration = 2;
+        expectedFrame = 3;
+    }
+    CareerActionExecutor executor(TurnResources());
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), observation, context)
+        == ActionExecutionStatus::Success);
+    REQUIRE(context.clickedFrames.size() == 1);
+    CHECK(context.clickedFrames.front() == expectedFrame);
+    CHECK(context.captureCount == static_cast<int>(expectedFrame));
+    CHECK(context.totalSleepMs == 120);
 }
 
 TEST_CASE("Turn dialog confirmation rejects non-independent or changed frames",
@@ -540,7 +577,7 @@ TEST_CASE("Opening the four turn dialogs avoids duplicate Main capture and fixed
     CHECK(context.captureCount == 4);
     REQUIRE(context.clickedFrames.size() == 2);
     CHECK(context.clickedFrames.back() == 4);
-    CHECK(context.totalSleepMs == 890); // Two proof gaps plus the unchanged post-OK delay.
+    CHECK(context.totalSleepMs == 240); // Only the two independent proof gaps remain.
 }
 
 TEST_CASE("Main source proof does not enable shortcuts for training",
@@ -579,7 +616,7 @@ TEST_CASE("A delayed turn dialog still falls back to the original transition pol
     CHECK(context.totalSleepMs == 730); // Main gap, dialog probe, two rolling comparisons, and 250ms retry.
 }
 
-TEST_CASE("Only a fresh proven turn dialog skips the next coordinator scheduling wait",
+TEST_CASE("Only a fresh proven Career page skips the next coordinator scheduling wait",
     "[Career][TurnConfirmationSpeed]")
 {
     class DestinationExecutor final : public UmaAssistant::Career::Tests::MockCareerActionExecutor
@@ -598,6 +635,21 @@ TEST_CASE("Only a fresh proven turn dialog skips the next coordinator scheduling
         1, 1, 1, 900, 1600, 0, std::chrono::steady_clock::now()};
     int expectedWait = 0;
     SECTION("fresh confirmed dialog") {}
+    SECTION("a fresh confirmed settlement page")
+    {
+        executor->destination.screenId = "career_rank";
+        executor->destination.screenKind = CareerScreenKind::Settlement;
+    }
+    SECTION("changed frame geometry retains the scheduling wait")
+    {
+        context.frame->geometryGeneration = 2;
+        expectedWait = 250;
+    }
+    SECTION("a single-frame observation retains the scheduling wait")
+    {
+        executor->destination.stableFrameCount = 1;
+        expectedWait = 250;
+    }
     SECTION("expired dialog retains the scheduling wait")
     {
         executor->destination.visualFrameEvidence->capturedAt -= std::chrono::seconds(2);

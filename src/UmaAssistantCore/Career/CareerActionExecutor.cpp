@@ -1,4 +1,5 @@
 #include "CareerActionExecutor.hpp"
+#include "CareerFrameEvidence.hpp"
 #include "Flows/CareerClawMachineFlow.hpp"
 #include "Flows/CareerSkillLearningFlow.hpp"
 #include "UmaAssistantCore/CareerDomain/CareerCalendar.hpp"
@@ -106,20 +107,15 @@ ActionExecutionStatus CareerActionExecutor::ExecuteForObservation(
     const bool recreationSelection = observedScreen == "recreation_selection"
         && intent.kind == CareerDomain::ActionIntentKind::Recreation;
     observedOptions.traceTurnActionTiming = turnConfirmation || openingTurnAction || recreationSelection;
-    if (observedOptions.traceTurnActionTiming && observation.stableFrameCount >= 2 && observation.visualFrameEvidence)
+    const bool reusablePage = observedScreen != "career_main" && observedScreen != "training_selection"
+        && observedScreen != "race_runner" && observedScreen != "career_skills"
+        && observedScreen.find("claw_machine") == std::string::npos;
+    if (observedOptions.traceTurnActionTiming || reusablePage)
     {
-        const auto& proof = *observation.visualFrameEvidence;
-        const auto frame = context.GetCurrentFrame();
-        const auto now = std::chrono::steady_clock::now();
-        if (frame && proof.frameId != 0 && frame->frameId == proof.frameId
-            && frame->sessionGeneration == proof.sessionGeneration
-            && frame->geometryGeneration == proof.geometryGeneration
-            && frame->width == proof.width && frame->height == proof.height
-            && frame->orientation == proof.orientation && now >= proof.capturedAt
-            && now - proof.capturedAt < std::chrono::seconds(1))
+        if (const auto frame = CurrentConfirmedCareerFrame(observation, context))
         {
             observedOptions.initialFrame = frame;
-            observedOptions.initialFrameValidUntil = proof.capturedAt + std::chrono::seconds(1);
+            observedOptions.initialFrameValidUntil = observation.visualFrameEvidence->capturedAt + std::chrono::seconds(1);
         }
     }
     if (Fold(observation.screenId) == "race_day"
@@ -223,7 +219,25 @@ ActionExecutionStatus CareerActionExecutor::ExecuteTask(
 
     context.Log("INFO", "Running profile action " + screenId + "." + semanticId
         + " (task " + taskName + ").");
-    const auto result = m_resources->RunTask(taskName, context, options);
+    auto runOptions = options;
+    const auto& definition = m_resources->GetExecutionDefinition();
+    for (const auto& [name, task] : definition.tasks)
+    {
+        if (task.postDelay != 650 && task.postDelay != 700) continue;
+        const auto next = std::find_if(task.next.begin(), task.next.end(), [&](const auto& candidate) {
+            return definition.TryGetTask(candidate) != nullptr;
+        });
+        const auto* successor = next == task.next.end() ? nullptr : definition.TryGetTask(*next);
+        // The outer Career observer confirms terminal actions. Inside a graph,
+        // only a visual successor can replace the delay; unguarded coordinate
+        // sequences still need their authored pacing.
+        const bool visualSuccessor = successor
+            && ((successor->templatePath && !successor->templatePath->empty())
+                || (successor->targetText && !successor->targetText->empty()));
+        if (!successor || visualSuccessor)
+            runOptions.postDelayOverrides.try_emplace(name, 0);
+    }
+    const auto result = m_resources->RunTask(taskName, context, runOptions);
     if (context.IsCancelled() || result.status == TaskEngine::TaskGraphStatus::Cancelled)
         return ActionExecutionStatus::Cancelled;
     if (result.status == TaskEngine::TaskGraphStatus::Success
@@ -318,6 +332,7 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
     auto seed = m_actionHandoff && std::chrono::steady_clock::now() - m_handoffCreated < std::chrono::seconds(1)
         ? m_actionHandoff->frame : std::shared_ptr<const TaskEngine::TaskFrameSnapshot>{};
     bool entryRetried = false;
+    bool unchangedRewardsSettled = false;
     int observations = 0;
     std::string lastObservedId = "unknown";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
@@ -358,11 +373,29 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
         }
         if (current.screenId == observation.screenId)
         {
+            const auto& beforePage = observation.pageStateEvidence;
+            const auto& afterPage = current.pageStateEvidence;
+            const bool pageStateChanged = beforePage && afterPage
+                && beforePage->frameWidth == afterPage->frameWidth && beforePage->frameHeight == afterPage->frameHeight
+                && beforePage->sessionGeneration == afterPage->sessionGeneration
+                && beforePage->geometryGeneration == afterPage->geometryGeneration
+                && beforePage->signature != afterPage->signature;
             // Rewards contains several pages with the same header and Next
             // button. Let the coordinator run the matched Next action again;
             // neither a changed title nor a changed page signature is needed.
             if (source == "rewards" && transition.semanticActionId == "rewards.next")
             {
+                // Identical reward pages can legitimately follow each other.
+                // If capture is fast, retain the old minimum pacing only for
+                // this ambiguous case, then verify fresh frames before retry.
+                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - m_handoffCreated).count();
+                if (!pageStateChanged && !unchangedRewardsSettled && elapsed < 650)
+                {
+                    unchangedRewardsSettled = true;
+                    context.Sleep(static_cast<int>(650 - elapsed));
+                    continue;
+                }
                 context.Log("INFO", "Rewards Next is still available; continuing to advance rewards.");
                 m_confirmedObservation = current;
                 if (m_actionHandoff) m_actionHandoff->observation = current;
@@ -387,13 +420,6 @@ bool CareerActionExecutor::ConfirmCompletionFromObservation(
             const bool eventStateChanged = observation.eventStateSignature
                 && current.eventStateSignature
                 && *observation.eventStateSignature != *current.eventStateSignature;
-            const auto& beforePage = observation.pageStateEvidence;
-            const auto& afterPage = current.pageStateEvidence;
-            const bool pageStateChanged = beforePage && afterPage
-                && beforePage->frameWidth == afterPage->frameWidth && beforePage->frameHeight == afterPage->frameHeight
-                && beforePage->sessionGeneration == afterPage->sessionGeneration
-                && beforePage->geometryGeneration == afterPage->geometryGeneration
-                && beforePage->signature != afterPage->signature;
             if (!raceTransition && (turnChanged || eventChanged || eventIdChanged || eventStateChanged || pageStateChanged))
             {
                 context.Log("INFO", "Career action state transition observed within " + current.screenId + ".");
