@@ -35,7 +35,7 @@ struct DeviceFrameMetadata
     std::int32_t width{};
     std::int32_t height{};
     std::int32_t orientation{};
-    std::uint64_t byte_count{};
+    std::uint64_t byte_count{}; // Zero until PNG export for pixel-only captures.
     double display_scale{};
     double display_offset_x{};
     double display_offset_y{};
@@ -46,6 +46,19 @@ struct DeviceFrame
     DeviceFrameMetadata metadata;
     std::vector<std::uint8_t> png;
     std::shared_ptr<const Vision::GrayImage> pixels;
+};
+
+struct DeviceOperationTimings
+{
+    std::int64_t total_ms{};
+    std::int64_t geometry_ms{};
+    std::int64_t command_ms{};
+    std::int64_t decode_ms{};
+    std::int64_t encode_ms{};
+    std::uint64_t adb_calls{};
+    std::uint32_t capture_attempts{};
+    std::string method;
+    bool png_deferred{};
 };
 
 [[nodiscard]] std::pair<int, int> MapImagePointToCanonical(
@@ -82,6 +95,7 @@ struct DeviceOperationResult
         std::string error_message;
     };
     std::optional<PackageCommand> package_command;
+    std::optional<DeviceOperationTimings> timings;
 };
 
 enum class PackageOperationKind : std::int32_t
@@ -154,6 +168,8 @@ public:
         std::stop_token cancellation);
     [[nodiscard]] DeviceOperationResult capture(
         std::stop_token cancellation, bool retain_pixels = false);
+    // Internal recognition needs pixels immediately, but can defer PNG export.
+    [[nodiscard]] DeviceOperationResult capture_pixels(std::stop_token cancellation);
     [[nodiscard]] DeviceOperationResult tap(
         std::uint64_t frame_id,
         std::int32_t canonical_x,
@@ -200,6 +216,7 @@ public:
     [[nodiscard]] std::uint64_t session_generation() const noexcept;
     [[nodiscard]] std::optional<DeviceFrameMetadata> frame_metadata(std::uint64_t frame_id) const;
     [[nodiscard]] std::shared_ptr<const Vision::GrayImage> frame_pixels(std::uint64_t frame_id) const;
+    [[nodiscard]] std::optional<std::uint64_t> frame_png_size(std::uint64_t frame_id) const noexcept;
     [[nodiscard]] bool copy_frame_png(
         std::uint64_t frame_id,
         std::uint8_t* destination,
@@ -207,6 +224,9 @@ public:
     [[nodiscard]] bool release_frame(std::uint64_t frame_id) noexcept;
 
 private:
+    [[nodiscard]] DeviceOperationResult capture_impl(
+        std::stop_token cancellation, bool retain_pixels, bool require_png);
+    [[nodiscard]] static bool ensure_frame_png(DeviceFrame& frame);
     [[nodiscard]] DeviceOperationResult tap_on_geometry(
         DeviceFrameMetadata const& source_frame,
         std::int32_t canonical_x, std::int32_t canonical_y,
@@ -298,10 +318,12 @@ private:
     std::uint64_t session_generation_{};
     DeviceSessionOptions options_;
     mutable std::mutex mutex_;
-    std::unordered_map<std::uint64_t, DeviceFrame> frames_;
+    mutable std::unordered_map<std::uint64_t, DeviceFrame> frames_;
     std::optional<Geometry> last_geometry_;
     std::uint64_t geometry_generation_{};
     std::optional<CaptureMethod> capture_method_;
+    std::optional<CaptureMethod> pixel_capture_method_;
+    std::uint64_t adb_command_count_{}; // Accessed under mutex_, like run_command().
     bool geometry_batch_supported_{true};
     std::optional<HeldTouchDevice> held_touch_;
     std::optional<DeviceFrameMetadata> held_touch_frame_;

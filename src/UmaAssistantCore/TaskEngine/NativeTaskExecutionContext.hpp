@@ -116,6 +116,7 @@ public:
     void EmitEvent(const TaskExecutionEvent& event) override;
 
 private:
+    void LogDeviceTimings(const char* operation, const DeviceOperationResult& result);
     std::filesystem::path ResolveTemplatePath(const std::string& path) const;
     bool PrepareCurrentFrameInput();
     bool ReleaseHeldTouch(HeldTouchPhase phase);

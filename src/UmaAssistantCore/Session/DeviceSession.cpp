@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <sstream>
 #include <string_view>
 #include <tuple>
@@ -32,6 +33,13 @@ constexpr std::size_t kMaxTextBytes = 64 * 1024;
 constexpr std::int32_t kCanonicalWidth = 1080;
 constexpr std::int32_t kCanonicalHeight = 1920;
 std::atomic<std::uint64_t> g_next_frame_id{1};
+
+using OperationClock = std::chrono::steady_clock;
+
+[[nodiscard]] std::int64_t elapsed_ms(OperationClock::time_point started)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(OperationClock::now() - started).count();
+}
 
 [[nodiscard]] std::optional<std::int32_t> parse_axis_max(
     std::string_view section, std::string_view axis)
@@ -674,12 +682,12 @@ struct RawScreenshot
     return output;
 }
 
-[[nodiscard]] std::optional<std::vector<std::uint8_t>> encode_raw_png(
-    RawScreenshot const& raw)
+[[nodiscard]] std::optional<std::vector<std::uint8_t>> encode_rgba_png(
+    std::int32_t width, std::int32_t height, std::span<const std::uint8_t> rgba)
 {
-    if (raw.width <= 0 || raw.height <= 0
-        || raw.rgba.size() != static_cast<std::size_t>(raw.width)
-            * static_cast<std::size_t>(raw.height) * 4)
+    if (width <= 0 || height <= 0
+        || rgba.size() != static_cast<std::size_t>(width)
+            * static_cast<std::size_t>(height) * 4)
         return std::nullopt;
     ComScope com;
     if (FAILED(com.result) && com.result != RPC_E_CHANGED_MODE) return std::nullopt;
@@ -701,22 +709,22 @@ struct RawScreenshot
     if (FAILED(result)) return std::nullopt;
     result = frame->Initialize(properties.Get());
     if (FAILED(result)) return std::nullopt;
-    result = frame->SetSize(static_cast<UINT>(raw.width), static_cast<UINT>(raw.height));
+    result = frame->SetSize(static_cast<UINT>(width), static_cast<UINT>(height));
     if (FAILED(result)) return std::nullopt;
     WICPixelFormatGUID pixel_format = GUID_WICPixelFormat32bppBGRA;
     result = frame->SetPixelFormat(&pixel_format);
     if (FAILED(result) || pixel_format != GUID_WICPixelFormat32bppBGRA)
         return std::nullopt;
-    std::vector<std::uint8_t> bgra(raw.rgba.size());
-    for (std::size_t index = 0; index < raw.rgba.size(); index += 4)
+    std::vector<std::uint8_t> bgra(rgba.size());
+    for (std::size_t index = 0; index < rgba.size(); index += 4)
     {
-        bgra[index] = raw.rgba[index + 2];
-        bgra[index + 1] = raw.rgba[index + 1];
-        bgra[index + 2] = raw.rgba[index];
-        bgra[index + 3] = raw.rgba[index + 3];
+        bgra[index] = rgba[index + 2];
+        bgra[index + 1] = rgba[index + 1];
+        bgra[index + 2] = rgba[index];
+        bgra[index + 3] = rgba[index + 3];
     }
-    auto const stride = static_cast<UINT>(raw.width) * 4;
-    result = frame->WritePixels(static_cast<UINT>(raw.height), stride,
+    auto const stride = static_cast<UINT>(width) * 4;
+    result = frame->WritePixels(static_cast<UINT>(height), stride,
         static_cast<UINT>(bgra.size()), bgra.data());
     if (FAILED(result)) return std::nullopt;
     result = frame->Commit();
@@ -830,7 +838,10 @@ std::optional<SessionFailure> DeviceSession::update_options(DeviceSessionOptions
         if (stop_failure) return stop_failure;
     }
     if (display_changed || options_.screenshot_method != options.screenshot_method)
+    {
         capture_method_.reset();
+        pixel_capture_method_.reset();
+    }
     if (display_changed)
     {
         if (interactive_touch_)
@@ -1241,13 +1252,35 @@ DeviceOperationResult DeviceSession::verify_game(
 
 DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool retain_pixels)
 {
+    return capture_impl(cancellation, retain_pixels, true);
+}
+
+DeviceOperationResult DeviceSession::capture_pixels(std::stop_token cancellation)
+{
+    return capture_impl(cancellation, true, false);
+}
+
+DeviceOperationResult DeviceSession::capture_impl(
+    std::stop_token cancellation, bool retain_pixels, bool require_png)
+{
     std::lock_guard lock(mutex_);
+    auto const started = OperationClock::now();
+    auto const commands_before = adb_command_count_;
+    DeviceOperationTimings timings;
+    auto const finish = [&](DeviceOperationResult result) {
+        timings.total_ms = elapsed_ms(started);
+        timings.adb_calls = adb_command_count_ - commands_before;
+        result.timings = timings;
+        return result;
+    };
     std::optional<SessionFailure> geometry_failure;
+    auto geometry_started = OperationClock::now();
     auto const before = current_geometry(cancellation, geometry_failure);
-    if (geometry_failure) return {.failure = std::move(geometry_failure)};
+    timings.geometry_ms += elapsed_ms(geometry_started);
+    if (geometry_failure) return finish({.failure = std::move(geometry_failure)});
     if (!before)
-        return {.failure = fail(ConnectionErrorCode::InvalidDeviceResponse,
-                                "capture", "Could not determine display geometry.")};
+        return finish({.failure = fail(ConnectionErrorCode::InvalidDeviceResponse,
+                                "capture", "Could not determine display geometry.")});
     struct CapturedImage
     {
         CaptureMethod method{};
@@ -1257,6 +1290,7 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
         std::shared_ptr<const Vision::GrayImage> pixels;
     };
     auto attempt = [&](CaptureMethod method) -> std::variant<CapturedImage, SessionFailure> {
+        ++timings.capture_attempts;
         std::vector<std::string> arguments;
         bool raw = false;
         bool gzip = false;
@@ -1300,31 +1334,62 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
             break;
         }
         std::string output;
-        auto const started = std::chrono::steady_clock::now();
+        auto const attempt_started = OperationClock::now();
         auto const command_failure = run_command(
             std::move(arguments), std::chrono::seconds(20), cancellation,
             raw ? kMaxRawFrameBytes : kMaxFrameBytes, output);
-        auto duration = std::chrono::steady_clock::now() - started;
+        timings.command_ms += elapsed_ms(attempt_started);
         if (command_failure) return *command_failure;
         if (output.empty())
             return fail(ConnectionErrorCode::InvalidDeviceResponse,
                         "capture", "Screenshot output is empty.");
         std::vector<std::uint8_t> png;
+        std::shared_ptr<Vision::GrayImage> pixels;
+        std::pair<std::int32_t, std::int32_t> dimensions;
         if (raw)
         {
+            auto const decode_started = OperationClock::now();
             auto decoded = decode_raw_payload(output, gzip);
-            duration = std::chrono::steady_clock::now() - started;
+            timings.decode_ms += elapsed_ms(decode_started);
             if (!decoded)
                 return fail(ConnectionErrorCode::InvalidDeviceResponse,
                             "capture", "ADB returned an invalid raw screenshot frame.");
             if (decoded->width != before->width || decoded->height != before->height)
                 return fail(ConnectionErrorCode::DeviceNotReady,
                             "capture", "Screenshot dimensions do not match the display geometry.");
-            auto converted = encode_raw_png(*decoded);
-            if (!converted)
-                return fail(ConnectionErrorCode::InvalidDeviceResponse,
-                            "capture", "Could not encode the raw screenshot frame.");
-            png = std::move(*converted);
+            dimensions = {decoded->width, decoded->height};
+            if (require_png)
+            {
+                auto const encode_started = OperationClock::now();
+                auto converted = encode_rgba_png(decoded->width, decoded->height, decoded->rgba);
+                timings.encode_ms += elapsed_ms(encode_started);
+                if (!converted)
+                    return fail(ConnectionErrorCode::InvalidDeviceResponse,
+                                "capture", "Could not encode the raw screenshot frame.");
+                png = std::move(*converted);
+            }
+            if (retain_pixels)
+            {
+                if (decoded->width > 10000 || decoded->height > 10000)
+                    return fail(ConnectionErrorCode::InvalidDeviceResponse,
+                                "capture", "Screenshot dimensions exceed recognition limits.");
+                auto const pixels_started = OperationClock::now();
+                pixels = std::make_shared<Vision::GrayImage>();
+                pixels->width = decoded->width;
+                pixels->height = decoded->height;
+                pixels->rgba = std::move(decoded->rgba);
+                pixels->gray.resize(pixels->rgba.size() / 4);
+                // Match decode_png() exactly, including integer truncation.
+                for (std::size_t index = 0; index < pixels->gray.size(); ++index)
+                {
+                    auto const offset = index * 4;
+                    pixels->gray[index] = static_cast<std::uint8_t>(
+                        (static_cast<std::uint32_t>(pixels->rgba[offset]) * 299u
+                            + static_cast<std::uint32_t>(pixels->rgba[offset + 1]) * 587u
+                            + static_cast<std::uint32_t>(pixels->rgba[offset + 2]) * 114u) / 1000u);
+                }
+                timings.decode_ms += elapsed_ms(pixels_started);
+            }
         }
         else
         {
@@ -1335,29 +1400,35 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
             std::transform(output.begin(), output.end(), png.begin(), [](char value) {
                 return static_cast<std::uint8_t>(static_cast<unsigned char>(value));
             });
+            auto const decode_started = OperationClock::now();
+            pixels = retain_pixels ? std::make_shared<Vision::GrayImage>() : nullptr;
+            auto const decoded_dimensions = decode_png(png, pixels.get());
+            timings.decode_ms += elapsed_ms(decode_started);
+            if (!decoded_dimensions)
+                return fail(ConnectionErrorCode::InvalidDeviceResponse,
+                            "capture", "ADB returned an invalid or unsupported screenshot frame.");
+            dimensions = *decoded_dimensions;
         }
-        auto pixels = retain_pixels ? std::make_shared<Vision::GrayImage>() : nullptr;
-        auto const dimensions = decode_png(png, pixels.get());
-        if (!dimensions)
-            return fail(ConnectionErrorCode::InvalidDeviceResponse,
-                        "capture", "ADB returned an invalid or unsupported screenshot frame.");
-        if (dimensions->first != before->width || dimensions->second != before->height)
+        if (dimensions.first != before->width || dimensions.second != before->height)
             return fail(ConnectionErrorCode::DeviceNotReady,
                         "capture", "Screenshot dimensions do not match the display geometry.");
-        return CapturedImage{method, std::move(png), duration, *dimensions, std::move(pixels)};
+        // Rank methods by the entire preparation path required by this caller.
+        auto const duration = OperationClock::now() - attempt_started;
+        return CapturedImage{method, std::move(png), duration, dimensions, std::move(pixels)};
     };
 
     std::optional<CapturedImage> captured;
     std::optional<SessionFailure> last_failure;
-    if (capture_method_)
+    auto& cached_method = require_png ? capture_method_ : pixel_capture_method_;
+    if (cached_method)
     {
-        auto cached = attempt(*capture_method_);
+        auto cached = attempt(*cached_method);
         if (auto* image = std::get_if<CapturedImage>(&cached))
             captured = std::move(*image);
         else
         {
             last_failure = std::get<SessionFailure>(std::move(cached));
-            capture_method_.reset();
+            cached_method.reset();
         }
     }
     if (!captured)
@@ -1384,6 +1455,11 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
         }
         for (auto const method : methods)
         {
+            if (cancellation.stop_requested())
+            {
+                last_failure = fail(ConnectionErrorCode::Canceled, "capture", "Capture was canceled.");
+                break;
+            }
             auto candidate = attempt(method);
             if (auto* image = std::get_if<CapturedImage>(&candidate))
             {
@@ -1397,27 +1473,36 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
         }
     }
     if (!captured)
-        return {.failure = last_failure.value_or(fail(
+        return finish({.failure = last_failure.value_or(fail(
             ConnectionErrorCode::InvalidDeviceResponse,
-            "capture", "No supported ADB screenshot method succeeded."))};
-    capture_method_ = captured->method;
+            "capture", "No supported ADB screenshot method succeeded."))});
+    cached_method = captured->method;
+    switch (captured->method)
+    {
+    case CaptureMethod::exec_raw: timings.method = "exec_raw"; break;
+    case CaptureMethod::shell_gzip_raw: timings.method = "shell_gzip_raw"; break;
+    case CaptureMethod::exec_png: timings.method = "exec_png"; break;
+    case CaptureMethod::shell_png: timings.method = "shell_png"; break;
+    }
+    timings.png_deferred = captured->png.empty();
     auto bytes = std::move(captured->png);
-    // The selected immutable PNG was fully validated in attempt(). Retain its
-    // dimensions and optional pixels instead of decoding the same bytes again.
+    // Both raw payloads and PNGs were validated in attempt().
     auto const dimensions = captured->dimensions;
+    geometry_started = OperationClock::now();
     auto const after = current_geometry(cancellation, geometry_failure);
-    if (geometry_failure) return {.failure = std::move(geometry_failure)};
+    timings.geometry_ms += elapsed_ms(geometry_started);
+    if (geometry_failure) return finish({.failure = std::move(geometry_failure)});
     if (!after || *before != *after || dimensions.first != after->width
         || dimensions.second != after->height)
     {
-        return {.failure = fail(ConnectionErrorCode::DeviceNotReady,
-                                "capture", "Display geometry changed during screenshot capture.")};
+        return finish({.failure = fail(ConnectionErrorCode::DeviceNotReady,
+                                "capture", "Display geometry changed during screenshot capture.")});
     }
 
     if (frames_.size() >= kMaxRetainedFrames)
     {
-        return {.failure = fail(ConnectionErrorCode::Busy,
-                                "capture", "Release a retained screenshot before capturing another.")};
+        return finish({.failure = fail(ConnectionErrorCode::Busy,
+                                "capture", "Release a retained screenshot before capturing another.")});
     }
 
     auto frame_id = g_next_frame_id.fetch_add(1, std::memory_order_relaxed);
@@ -1441,9 +1526,9 @@ DeviceOperationResult DeviceSession::capture(std::stop_token cancellation, bool 
     };
     auto [stored, inserted] = frames_.emplace(frame_id, std::move(frame));
     if (!inserted)
-        return {.failure = fail(ConnectionErrorCode::CommandFailed,
-                                "capture", "Could not retain screenshot frame.")};
-    return {.frame = stored->second.metadata};
+        return finish({.failure = fail(ConnectionErrorCode::CommandFailed,
+                                "capture", "Could not retain screenshot frame.")});
+    return finish({.frame = stored->second.metadata});
 }
 
 std::pair<int, int> MapImagePointToCanonical(int x, int y, const DeviceFrameMetadata& metadata)
@@ -1493,8 +1578,11 @@ DeviceOperationResult DeviceSession::tap_coordinate(
     if (reference_width <= 0 || reference_height <= 0 || x < 0 || y < 0
         || x >= reference_width || y >= reference_height)
         return {.failure = fail(ConnectionErrorCode::InvalidArgument, "tap", "Invalid coordinate-click target.")};
+    auto const started = OperationClock::now();
+    auto const commands_before = adb_command_count_;
     std::optional<SessionFailure> geometry_failure;
     const auto geometry = current_geometry(cancellation, geometry_failure);
+    auto const geometry_ms = elapsed_ms(started);
     if (geometry_failure) return {.failure = std::move(geometry_failure)};
     if (!geometry)
         return {.failure = fail(ConnectionErrorCode::DeviceNotReady, "tap", "Display geometry is unavailable.")};
@@ -1511,7 +1599,14 @@ DeviceOperationResult DeviceSession::tap_coordinate(
     const auto [canonical_x, canonical_y] = MapImagePointToCanonical(pixel_x, pixel_y, metadata);
     if (canonical_x < 0 || canonical_y < 0)
         return {.failure = fail(ConnectionErrorCode::InvalidArgument, "tap", "Coordinate cannot be mapped to the display.")};
-    return tap_on_geometry(metadata, canonical_x, canonical_y, cancellation);
+    auto result = tap_on_geometry(metadata, canonical_x, canonical_y, cancellation);
+    if (result.timings)
+    {
+        result.timings->geometry_ms = geometry_ms;
+        result.timings->total_ms = elapsed_ms(started);
+        result.timings->adb_calls = adb_command_count_ - commands_before;
+    }
+    return result;
 }
 
 DeviceOperationResult DeviceSession::tap(
@@ -1538,8 +1633,11 @@ DeviceOperationResult DeviceSession::tap(
         .canonical_y = canonical_y,
     };
 
+    auto const started = OperationClock::now();
+    auto const commands_before = adb_command_count_;
     std::optional<SessionFailure> geometry_failure;
     auto const geometry = current_geometry(cancellation, geometry_failure);
+    auto const geometry_ms = elapsed_ms(started);
     if (geometry_failure)
         return {.failure = std::move(geometry_failure), .source_frame = source_frame,
                 .requested_first_point = request};
@@ -1552,7 +1650,14 @@ DeviceOperationResult DeviceSession::tap(
                                 "tap", "Device screen geometry changed after capture."),
                 .source_frame = source_frame, .requested_first_point = request};
     }
-    return tap_on_geometry(source_frame, canonical_x, canonical_y, cancellation);
+    auto result = tap_on_geometry(source_frame, canonical_x, canonical_y, cancellation);
+    if (result.timings)
+    {
+        result.timings->geometry_ms = geometry_ms;
+        result.timings->total_ms = elapsed_ms(started);
+        result.timings->adb_calls = adb_command_count_ - commands_before;
+    }
+    return result;
 }
 
 DeviceOperationResult DeviceSession::tap_on_geometry(
@@ -1575,6 +1680,7 @@ DeviceOperationResult DeviceSession::tap_on_geometry(
                                 "tap", "Tap coordinates are outside the canonical screen."),
                 .source_frame = source_frame, .requested_first_point = request};
     }
+    auto const started = OperationClock::now();
     auto input_point = *point;
     if (options_.touch_backend != DeviceSessionOptions::TouchBackend::adb)
     {
@@ -1618,13 +1724,17 @@ DeviceOperationResult DeviceSession::tap_on_geometry(
         return {.failure = command_failure, .source_frame = source_frame,
                 .requested_first_point = request};
     }
+    DeviceOperationTimings timings;
+    timings.command_ms = elapsed_ms(started);
+    timings.method = options_.touch_backend == DeviceSessionOptions::TouchBackend::adb ? "adb"
+        : options_.touch_backend == DeviceSessionOptions::TouchBackend::minitouch ? "minitouch" : "maatouch";
     return {.source_frame = source_frame, .requested_first_point = request,
         .first_point = DeviceOperationResult::Point{
         .canonical_x = canonical_x,
         .canonical_y = canonical_y,
         .device_x = input_point.first,
         .device_y = input_point.second,
-    }};
+    }, .timings = std::move(timings)};
 }
 
 DeviceOperationResult DeviceSession::key_event(
@@ -2391,18 +2501,46 @@ std::shared_ptr<const Vision::GrayImage> DeviceSession::frame_pixels(std::uint64
     return found == frames_.end() ? nullptr : found->second.pixels;
 }
 
+bool DeviceSession::ensure_frame_png(DeviceFrame& frame)
+{
+    if (!frame.png.empty()) return true;
+    if (!frame.pixels) return false;
+    auto png = encode_rgba_png(frame.pixels->width, frame.pixels->height, frame.pixels->rgba);
+    if (!png) return false;
+    frame.png = std::move(*png);
+    frame.metadata.byte_count = frame.png.size();
+    return true;
+}
+
+std::optional<std::uint64_t> DeviceSession::frame_png_size(std::uint64_t frame_id) const noexcept
+{
+    try
+    {
+        std::lock_guard lock(mutex_);
+        auto const found = frames_.find(frame_id);
+        if (found == frames_.end() || !ensure_frame_png(found->second)) return std::nullopt;
+        return found->second.metadata.byte_count;
+    }
+    catch (...) { return std::nullopt; }
+}
+
 bool DeviceSession::copy_frame_png(
     std::uint64_t frame_id,
     std::uint8_t* destination,
     std::uint64_t capacity) const noexcept
 {
-    std::lock_guard lock(mutex_);
-    auto const found = frames_.find(frame_id);
-    if (found == frames_.end() || destination == nullptr
-        || capacity < found->second.png.size())
-        return false;
-    std::copy(found->second.png.begin(), found->second.png.end(), destination);
-    return true;
+    if (destination == nullptr) return false;
+    try
+    {
+        std::lock_guard lock(mutex_);
+        auto const found = frames_.find(frame_id);
+        if (found == frames_.end() || !ensure_frame_png(found->second)
+            || capacity < found->second.png.size())
+            return false;
+        std::copy(found->second.png.begin(), found->second.png.end(), destination);
+        return true;
+    }
+    catch (...) { return false; }
 }
 
 bool DeviceSession::release_frame(std::uint64_t frame_id) noexcept
@@ -2424,6 +2562,7 @@ std::optional<SessionFailure> DeviceSession::run_command(
         return fail(ConnectionErrorCode::Canceled, "command", "Operation was canceled.");
     if (!std::filesystem::exists(adb_path_))
         return fail(ConnectionErrorCode::AdbExecutableNotFound, "command", "ADB executable was not found.");
+    ++adb_command_count_;
     auto process = create_win32_process();
     AdbCommandRunnerWin32 runner{*process};
     auto result = runner.run(

@@ -823,7 +823,9 @@ std::int32_t get_frame_png_size(
     if (!session) return UMA_ERROR_DEVICE_NOT_READY;
     auto const frame = session->frame_metadata(frame_id);
     if (!frame) return UMA_ERROR_INVALID_ARGUMENT;
-    *size = frame->byte_count;
+    auto const png_size = session->frame_png_size(frame_id);
+    if (!png_size) return UMA_ERROR_INVALID_DEVICE_RESPONSE;
+    *size = *png_size;
     return UMA_SUCCESS;
 }
 

@@ -333,6 +333,12 @@ TEST_CASE("Native captures reuse pixels identical to the public PNG decoder", "[
         fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"raw");
         fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"10x16");
     }
+    SECTION("raw screenshot with CRLF")
+    {
+        options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::raw;
+        fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"raw-crlf");
+        fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"10x16");
+    }
     SECTION("gzip screenshot")
     {
         options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::gzip;
@@ -348,8 +354,16 @@ TEST_CASE("Native captures reuse pixels identical to the public PNG decoder", "[
     REQUIRE(metadata);
     auto const pixels = fixture.session->frame_pixels(frame->frameId);
     REQUIRE(pixels);
-    std::vector<std::uint8_t> png(static_cast<std::size_t>(metadata->byte_count));
+    if (options.screenshot_method != DeviceSessionOptions::ScreenshotMethod::png)
+        CHECK(metadata->byte_count == 0); // Recognition did not encode a PNG.
+    auto const pngSize = fixture.session->frame_png_size(frame->frameId);
+    REQUIRE(pngSize);
+    REQUIRE(*pngSize > 0);
+    std::vector<std::uint8_t> png(static_cast<std::size_t>(*pngSize));
     REQUIRE(fixture.session->copy_frame_png(frame->frameId, png.data(), png.size()));
+    auto const exported = fixture.session->frame_metadata(frame->frameId);
+    REQUIRE(exported);
+    CHECK(exported->byte_count == png.size());
     auto const expected = Resources::WicImageDecoder::decode_bytes(png);
     CHECK(pixels->width == expected.width);
     CHECK(pixels->height == expected.height);
@@ -361,12 +375,139 @@ TEST_CASE("Native captures reuse pixels identical to the public PNG decoder", "[
 
     REQUIRE(fixture.session->release_frame(frame->frameId));
     CHECK_FALSE(fixture.session->frame_pixels(frame->frameId));
+    CHECK_FALSE(fixture.session->frame_png_size(frame->frameId));
+    CHECK_FALSE(fixture.session->copy_frame_png(frame->frameId, png.data(), png.size()));
     CHECK(pixels->rgba == expected.rgba); // Immutable ownership outlives release.
     auto const external = fixture.session->capture({});
     REQUIRE_FALSE(external.failure);
     REQUIRE(external.frame);
+    CHECK(external.frame->byte_count > 0);
     CHECK_FALSE(fixture.session->frame_pixels(external.frame->id));
+    std::vector<std::uint8_t> externalPng(static_cast<std::size_t>(external.frame->byte_count));
+    REQUIRE(fixture.session->copy_frame_png(external.frame->id, externalPng.data(), externalPng.size()));
+    auto const externalImage = Resources::WicImageDecoder::decode_bytes(externalPng);
+    CHECK(externalImage.rgba == expected.rgba);
+    CHECK(externalImage.gray == expected.gray);
     REQUIRE(fixture.session->release_frame(external.frame->id));
+}
+
+TEST_CASE("Pixel captures defer PNG export while retaining geometry checks and operation timings", "[context][capture][timing]")
+{
+    Fixture fixture;
+    DeviceSessionOptions options;
+    options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::raw;
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"raw");
+    fixture.environment.Set(L"UMA_FAKE_ADB_RESOLUTION", L"10x16");
+    fixture.environment.Set(L"UMA_FAKE_ADB_DELAY_MS", L"20");
+    auto const capture = fixture.session->capture_pixels({});
+    REQUIRE_FALSE(capture.failure);
+    REQUIRE(capture.frame);
+    REQUIRE(capture.timings);
+    const auto& timing = *capture.timings;
+    CHECK(timing.method == "exec_raw");
+    CHECK(timing.png_deferred);
+    CHECK(timing.encode_ms == 0);
+    CHECK(timing.adb_calls == 3);
+    CHECK(timing.capture_attempts == 1);
+    CHECK(timing.geometry_ms > 0);
+    CHECK(timing.command_ms > 0);
+    CHECK(timing.total_ms >= timing.geometry_ms + timing.command_ms + timing.decode_ms);
+    CHECK(capture.frame->byte_count == 0);
+    auto const pixels = fixture.session->frame_pixels(capture.frame->id);
+    REQUIRE(pixels);
+    REQUIRE(pixels->rgba.size() == 10 * 16 * 4);
+    // Verify channel order and grayscale independently of the PNG exporter.
+    for (std::size_t index = 0; index < pixels->gray.size(); ++index)
+    {
+        auto const red = static_cast<std::uint8_t>((index * 31) & 0xff);
+        auto const green = static_cast<std::uint8_t>(red ^ 0x5a);
+        auto const blue = static_cast<std::uint8_t>(red ^ 0xa5);
+        REQUIRE(pixels->rgba[index * 4] == red);
+        REQUIRE(pixels->rgba[index * 4 + 1] == green);
+        REQUIRE(pixels->rgba[index * 4 + 2] == blue);
+        REQUIRE(pixels->rgba[index * 4 + 3] == 255);
+        REQUIRE(pixels->gray[index] == (299u * red + 587u * green + 114u * blue) / 1000u);
+    }
+    auto const tap = fixture.session->tap(capture.frame->id, 540, 960, {});
+    REQUIRE_FALSE(tap.failure);
+    REQUIRE(tap.timings);
+    CHECK(tap.timings->method == "adb");
+    CHECK(tap.timings->adb_calls == 2);
+    CHECK(tap.timings->geometry_ms > 0);
+    CHECK(tap.timings->command_ms > 0);
+    // Clicking must not trigger deferred PNG encoding.
+    REQUIRE(fixture.session->frame_metadata(capture.frame->id));
+    CHECK(fixture.session->frame_metadata(capture.frame->id)->byte_count == 0);
+
+    auto const pngSize = fixture.session->frame_png_size(capture.frame->id);
+    REQUIRE(pngSize);
+    std::array<std::uint8_t, 1> tooSmall{42};
+    CHECK_FALSE(fixture.session->copy_frame_png(capture.frame->id, tooSmall.data(), tooSmall.size()));
+    CHECK(tooSmall[0] == 42);
+    std::vector<std::uint8_t> png(static_cast<std::size_t>(*pngSize));
+    REQUIRE(fixture.session->copy_frame_png(capture.frame->id, png.data(), png.size()));
+    CHECK(Resources::WicImageDecoder::decode_bytes(png).rgba == pixels->rgba);
+    CHECK(fixture.session->frame_png_size(capture.frame->id) == pngSize);
+    REQUIRE(fixture.session->release_frame(capture.frame->id));
+}
+
+TEST_CASE("Pixel and PNG captures benchmark and cache their own output paths", "[context][capture][timing]")
+{
+    Fixture fixture;
+    fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", L"raw");
+    // Clear method choices populated by the fixture's initial PNG capture.
+    DeviceSessionOptions options;
+    options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::raw;
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::automatic;
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    for (bool png : {false, true})
+    {
+        CAPTURE(png);
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            auto const capture = png ? fixture.session->capture({}) : fixture.session->capture_pixels({});
+            REQUIRE_FALSE(capture.failure);
+            REQUIRE(capture.frame);
+            REQUIRE(capture.timings);
+            CHECK(capture.timings->method == "exec_raw");
+            CHECK(capture.timings->capture_attempts == (pass == 0 ? 4u : 1u));
+            CHECK(capture.timings->png_deferred == !png);
+            CHECK((capture.frame->byte_count > 0) == png);
+            REQUIRE(fixture.session->release_frame(capture.frame->id));
+        }
+    }
+}
+
+TEST_CASE("Pixel captures reject invalid raw payloads without producing a usable frame", "[context][capture]")
+{
+    Fixture fixture;
+    DeviceSessionOptions options;
+    std::wstring mode;
+    SECTION("truncated raw") { options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::raw; mode = L"raw-truncated"; }
+    SECTION("truncated gzip") { options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::gzip; mode = L"gzip-truncated"; }
+    SECTION("corrupt gzip") { options.screenshot_method = DeviceSessionOptions::ScreenshotMethod::gzip; mode = L"gzip-corrupt"; }
+    REQUIRE_FALSE(fixture.session->update_options(options));
+    fixture.environment.Set(L"UMA_FAKE_ADB_CAPTURE_MODE", mode);
+    auto const capture = fixture.session->capture_pixels({});
+    REQUIRE(capture.failure);
+    CHECK_FALSE(capture.frame);
+    REQUIRE(capture.timings);
+    CHECK(capture.timings->capture_attempts == 1);
+}
+
+TEST_CASE("Canceled pixel capture sends no device commands", "[context][capture][cancel]")
+{
+    Fixture fixture;
+    std::stop_source cancellation;
+    cancellation.request_stop();
+    auto const capture = fixture.session->capture_pixels(cancellation.get_token());
+    REQUIRE(capture.failure);
+    CHECK(capture.failure->error_code == static_cast<int>(ConnectionErrorCode::Canceled));
+    CHECK_FALSE(capture.frame);
+    REQUIRE(capture.timings);
+    CHECK(capture.timings->adb_calls == 0);
 }
 
 TEST_CASE("Native geometry batching retains both checks and falls back to original queries", "[phase3][context][capture]")

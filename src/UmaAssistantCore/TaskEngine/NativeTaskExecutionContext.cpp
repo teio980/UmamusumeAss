@@ -188,7 +188,8 @@ bool NativeTaskExecutionContext::CaptureScreen()
         m_current_frame_input_consumed = false;
     }
 
-    auto opRes = m_session->capture(m_cancellation, true);
+    auto opRes = m_session->capture_pixels(m_cancellation);
+    LogDeviceTimings("capture", opRes);
     if (opRes.failure.has_value() || !opRes.frame.has_value())
     {
         m_last_error_code = opRes.failure
@@ -243,7 +244,8 @@ bool NativeTaskExecutionContext::CaptureScreen()
 std::shared_ptr<const TaskFrameSnapshot> NativeTaskExecutionContext::CaptureInspectionFrame()
 {
     if (!m_session || m_cancellation.stop_requested()) return {};
-    auto const captured = m_session->capture(m_cancellation, true);
+    auto const captured = m_session->capture_pixels(m_cancellation);
+    LogDeviceTimings("capture_inspection", captured);
     if (captured.failure || !captured.frame) return {};
     struct ReleaseFrame
     {
@@ -567,6 +569,7 @@ bool NativeTaskExecutionContext::Tap(int x, int y)
     int const canonicalX = ScaleReferenceCoordinate(x, m_reference_width, 1080);
     int const canonicalY = ScaleReferenceCoordinate(y, m_reference_height, 1920);
     auto res = m_session->tap(m_current_frame_id, canonicalX, canonicalY, m_cancellation);
+    LogDeviceTimings("tap", res);
     m_current_frame_input_consumed = true;
     if (m_current_frame_id != m_retained_frame_id)
         static_cast<void>(m_session->release_frame(m_current_frame_id));
@@ -648,6 +651,7 @@ bool NativeTaskExecutionContext::TapCoordinate(int x, int y)
         return false;
     }
     const auto result = m_session->tap_coordinate(x, y, m_reference_width, m_reference_height, m_cancellation);
+    LogDeviceTimings("tap_coordinate", result);
     m_current_frame_input_consumed = true;
     if (m_current_frame_id != 0 && m_current_frame_id != m_retained_frame_id)
         static_cast<void>(m_session->release_frame(m_current_frame_id));
@@ -753,6 +757,7 @@ bool NativeTaskExecutionContext::TapMatch(int x, int y, const TaskMatchResult& m
             "Match coordinates cannot be mapped to the canonical screen.");
     }
     auto res = m_session->tap(frameId, canonicalX, canonicalY, m_cancellation);
+    LogDeviceTimings("tap_match", res);
     if (frameId == m_current_frame_id)
     {
         m_current_frame_input_consumed = true;
@@ -965,6 +970,22 @@ bool NativeTaskExecutionContext::IsCancelled() const
 int NativeTaskExecutionContext::GetLastErrorCode() const
 {
     return m_last_error_code;
+}
+
+void NativeTaskExecutionContext::LogDeviceTimings(const char* operation, const DeviceOperationResult& result)
+{
+    if (!result.timings) return;
+    const auto& timing = *result.timings;
+    Log("DEBUG", std::string("Device operation timing: operation=") + operation
+        + ", method=" + timing.method + ", total_ms=" + std::to_string(timing.total_ms)
+        + ", geometry_ms=" + std::to_string(timing.geometry_ms)
+        + ", command_ms=" + std::to_string(timing.command_ms)
+        + ", decode_ms=" + std::to_string(timing.decode_ms)
+        + ", encode_ms=" + std::to_string(timing.encode_ms)
+        + ", adb_calls=" + std::to_string(timing.adb_calls)
+        + ", capture_attempts=" + std::to_string(timing.capture_attempts)
+        + ", png_deferred=" + (timing.png_deferred ? "true" : "false")
+        + ", success=" + (result.failure ? "false" : "true"));
 }
 
 void NativeTaskExecutionContext::Log(const std::string& level, const std::string& message)
