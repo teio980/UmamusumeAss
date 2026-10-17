@@ -52,9 +52,10 @@ const std::unordered_map<std::string, std::vector<std::string>>& SettlementEdges
         {"career_rating_record_updated", {"career_epithet", "career_result", "follow_trainer_limit", "rewards", "event_reward", "career_complete", "career_complete_close"}},
         {"career_epithet", {"career_result", "rewards", "event_reward", "follow_trainer_limit", "career_complete", "career_complete_close"}},
         {"follow_trainer_limit", {"career_result_close", "career_rating_record_updated", "career_epithet", "career_result", "rewards", "event_reward", "career_complete", "career_complete_close"}},
-        {"rewards", {"rewards", "event_reward", "rewards_collected", "follow_trainer_limit", "career_complete", "career_complete_close"}},
-        {"event_reward", {"rewards", "event_reward", "rewards_collected", "career_complete", "career_complete_close"}},
-        {"rewards_collected", {"rewards", "event_reward", "career_complete", "career_complete_close"}}
+        {"rewards", {"rewards", "event_reward", "rewards_collected", "all_rewards_earned", "follow_trainer_limit", "career_complete", "career_complete_close"}},
+        {"event_reward", {"rewards", "event_reward", "rewards_collected", "all_rewards_earned", "career_complete", "career_complete_close"}},
+        {"rewards_collected", {"rewards", "event_reward", "all_rewards_earned", "career_complete", "career_complete_close"}},
+        {"all_rewards_earned", {"rewards", "event_reward", "rewards_collected", "follow_trainer_limit", "career_complete", "career_complete_close"}}
     };
     return edges;
 }

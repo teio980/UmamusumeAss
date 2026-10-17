@@ -744,7 +744,7 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
             return false;
         if (m_careerStarted && IsHomeScreen(screen.screenId))
             return false;
-        if ((id == "follow_trainer_limit" || id == "rewards_collected"
+        if ((id == "follow_trainer_limit" || id == "rewards_collected" || id == "all_rewards_earned"
                 || id == "career_epithet" || id == "career_rating_record_updated")
             && !m_settlementInProgress && !allowResume)
             return false;

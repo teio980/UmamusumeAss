@@ -913,6 +913,7 @@ TEST_CASE("Settlement catalog recognizes every captured optional popup in its ac
         {"ura_rewards_next.png", "rewards", "rewards", false},
         {"rewards_collected.png", "rewards", "rewards_collected"},
         {"rewards_collected_ticket_mumu_20261013.png", "rewards", "rewards_collected"},
+        {"all_rewards_earned_mumu_20261017.png", "rewards", "all_rewards_earned"},
         {"rewards_ura_mumu_20261013.png", "rewards_collected", "rewards"},
         {"event_reward_mumu_20261013.png", "rewards", "event_reward"},
         {"rewards_event_mumu_20261013.png", "event_reward", "rewards"},

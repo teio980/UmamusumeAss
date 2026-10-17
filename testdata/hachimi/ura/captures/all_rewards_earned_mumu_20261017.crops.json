@@ -1,0 +1,23 @@
+{
+  "source": "all_rewards_earned_mumu_20261017.png",
+  "capture": "ADB exec-out screencap -p; 127.0.0.1:16384",
+  "size": [
+    900,
+    1600
+  ],
+  "crops": {
+    "all_rewards_earned_text.png": [
+      203,
+      913,
+      492,
+      24
+    ],
+    "all_rewards_earned_close.png": [
+      407,
+      1027,
+      86,
+      29
+    ]
+  },
+  "processing": "Rectangular crops only; original pixels retained; no masking or background removal."
+}

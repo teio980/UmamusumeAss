@@ -1457,6 +1457,43 @@ TEST_CASE("Coordinator replays the actual completed settlement through all six a
     CHECK(context.taps.size() == (repeatedRewards ? 8 : 6));
 }
 
+TEST_CASE("All Rewards Earned closes and resumes settlement to Home", "[CareerRuntime][CareerSettlementAudit][CareerAllRewardsEarned]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    class AllRewardsContext : public ActualRaceResultContext
+    {
+    public:
+        AllRewardsContext() : ActualRaceResultContext("all_rewards_earned_mumu_20261017.png") {}
+        bool CaptureScreen() override
+        {
+            image = stages.at((std::min)(taps.size(), stages.size() - 1));
+            return ActualRaceResultContext::CaptureScreen();
+        }
+        std::vector<UmaAssistant::Vision::GrayImage> stages;
+    } context;
+    const bool resumeAtPopup = GENERATE(false, true);
+    std::vector<const char*> filenames{"all_rewards_earned_mumu_20261017.png", "rewards_event_mumu_20261013.png",
+        "follow_trainer_limit_mumu_20261013.png", "career_complete_mumu_20261013.png", "settlement_home_mumu_20261013.png"};
+    if (!resumeAtPopup) filenames.insert(filenames.begin(), "rewards_event_mumu_20261013.png");
+    for (const auto* filename : filenames)
+        context.stages.push_back(UmaAssistant::Resources::WicImageDecoder::decode_file(
+            UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures" / filename));
+    CareerFlowCoordinator coordinator(std::make_shared<CareerScreenObserver>(resources),
+        std::make_shared<CareerActionExecutor>(config, resources),
+        std::make_shared<UraScenarioModule>(), std::make_shared<DefaultTrainingStrategy>(), config);
+    const auto result = coordinator.RunToCompletion(context, 7);
+    CAPTURE(result.failureReason);
+    REQUIRE(result.status == CareerRunStatus::Completed);
+    REQUIRE(context.taps.size() == (resumeAtPopup ? 4 : 5));
+    const auto& closeTap = context.taps[resumeAtPopup ? 0 : 1];
+    CHECK(closeTap.first >= 407);
+    CHECK(closeTap.first < 493);
+    CHECK(closeTap.second >= 1027);
+    CHECK(closeTap.second < 1056);
+}
+
 TEST_CASE("Event Home cancels through the actual settlement screenshots to Home", "[CareerRuntime][CareerSettlementAudit][CareerEventHome]")
 {
     const auto config = PackagedConfig();
