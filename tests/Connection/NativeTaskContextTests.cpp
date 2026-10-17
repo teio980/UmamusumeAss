@@ -13,6 +13,8 @@
 #include <wincodec.h>
 #include <wrl/client.h>
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -59,7 +61,8 @@ private:
     std::map<std::wstring, std::wstring> previous;
 };
 
-bool WritePng(fs::path const& path, UINT width, UINT height)
+bool WritePng(fs::path const& path, UINT width, UINT height,
+    std::array<std::uint8_t, 4> bgra = {255, 255, 255, 255})
 {
     auto const initialization = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(initialization) && initialization != RPC_E_CHANGED_MODE) return false;
@@ -86,6 +89,8 @@ bool WritePng(fs::path const& path, UINT width, UINT height)
         || !IsEqualGUID(format, GUID_WICPixelFormat32bppBGRA)) return false;
     auto const stride = width * 4;
     std::vector<std::uint8_t> pixels(static_cast<std::size_t>(stride) * height, 255);
+    for (std::size_t index = 0; index < pixels.size(); index += 4)
+        std::copy(bgra.begin(), bgra.end(), pixels.begin() + static_cast<std::ptrdiff_t>(index));
     return SUCCEEDED(frame->WritePixels(height, stride, static_cast<UINT>(pixels.size()), pixels.data()))
         && SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
 }
@@ -178,6 +183,34 @@ public:
 };
 
 } // namespace
+
+TEST_CASE("Native HSV probes recognize shop checkbox green without RGB restrictions", "[context][hsv][shop]")
+{
+    for (int width : {450, 900})
+    {
+        CAPTURE(width);
+        Fixture fixture(width, width * 16 / 9);
+        auto& context = *fixture.context;
+        // White is the unchecked state. Use the same range and reference
+        // coordinates as ShopItemSelector, through the real capture path.
+        CHECK_FALSE(context.ProbeHsv(765, 762, 22, 70, 160, 0.38, 1, 0.3, 1, 0.10));
+
+        REQUIRE(WritePng(fixture.directory / "frame.png", static_cast<UINT>(width),
+            static_cast<UINT>(width * 16 / 9), {96, 200, 64, 255}));
+        REQUIRE(context.CaptureScreen());
+        CHECK(context.ProbeHsv(765, 762, 22, 70, 160, 0.38, 1, 0.3, 1, 0.10));
+        CHECK(context.ProbeHsv(765, 762, 22, 70, 160, 0.38, 1, 0.3, 1, 1.0));
+        CHECK_FALSE(context.ProbeHsv(765, 762, 22, 200, 250, 0.38, 1, 0.3, 1, 0.10));
+        CHECK_FALSE(context.ProbeHsv(765, 762, 22, 70, 160, 0.9, 1, 0.3, 1, 0.10));
+        CHECK_FALSE(context.ProbeHsv(765, 762, 22, 70, 160, 0.38, 1, 0.9, 1, 0.10));
+
+        // A colored unchecked-state miss must not be mistaken for green.
+        REQUIRE(WritePng(fixture.directory / "frame.png", static_cast<UINT>(width),
+            static_cast<UINT>(width * 16 / 9), {64, 96, 200, 255}));
+        REQUIRE(context.CaptureScreen());
+        CHECK_FALSE(context.ProbeHsv(765, 762, 22, 70, 160, 0.38, 1, 0.3, 1, 0.10));
+    }
+}
 
 TEST_CASE("Native direct coordinate clicks need no screenshot", "[phase3][context][CoordinateClick]")
 {

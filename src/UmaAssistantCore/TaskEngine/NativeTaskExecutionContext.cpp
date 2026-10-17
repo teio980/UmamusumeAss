@@ -438,6 +438,12 @@ bool NativeTaskExecutionContext::ProbeHsv(
         return false;
 
     UmaColorRule rule{};
+    // count_color applies RGB and channel-difference bounds before HSV.
+    // An HSV-only probe must leave those bounds unrestricted.
+    rule.maximum_red = rule.maximum_green = rule.maximum_blue = 255;
+    rule.minimum_red_green = rule.minimum_green_blue = -255;
+    rule.maximum_red_green = rule.maximum_green_blue = 255;
+    rule.sample_step = 1;
     rule.use_hsv = 1;
     rule.hue_min = hMin;
     rule.hue_max = hMax;
