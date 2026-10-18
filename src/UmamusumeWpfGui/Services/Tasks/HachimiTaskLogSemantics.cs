@@ -550,9 +550,6 @@ internal static class HachimiTaskLogSemantics
             "career_main_goal_details" => Step(
                 "Reviewing the Career objective",
                 "Career objective reviewed"),
-            "career_races_ready_action_races" => Step(
-                "Checking the required Career races",
-                "Required Career races checked"),
             "training_result_event_advance" => Step(
                 "Continuing the Career event",
                 "Career event continued"),

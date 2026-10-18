@@ -510,8 +510,8 @@ bool SelectLegacy(Career::CareerRuntimeConfig const& config, TaskEngine::ITaskEx
 
 bool IsRuntimeCareerScreen(std::string const& id)
 {
-    static const std::array<std::string_view, 10> known{
-        "career_main", "career_races_ready", "training_selection", "training_result",
+    static const std::array<std::string_view, 9> known{
+        "career_main", "training_selection", "training_result",
         "event_choice", "race_entry", "race_execution", "race_result", "skill_learning", "career_complete"};
     return std::any_of(known.begin(), known.end(), [&](auto const value) { return NormalizeKey(id) == value; });
 }

@@ -103,7 +103,7 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
     // admitted. A shared marker during the opening animation cannot establish
     // that a new Career has already completed an objective.
     startupScreens = {"career_intro_event", "normal_intro_event", "normal_quick_mode_settings",
-        "career_main", "career_races_ready"};
+        "career_main"};
     std::string const finalPage = "career_final_confirmation";
     if (finalConfirmation)
     {
@@ -124,7 +124,7 @@ CareerEntryResult NativeNormalCareerStartup::Run(const Career::CareerRuntimeConf
         if (observation.screenId == "resource_error")
         { result.error = "Normal Career visual resources are unavailable."; return result; }
         if (observation.screenId == "capture_failed") { context.Sleep(400); continue; }
-        if (observation.screenId == "career_main" || observation.screenId == "career_races_ready")
+        if (observation.screenId == "career_main")
         {
             result.runtimeObservation = observation;
             result.succeeded = true;

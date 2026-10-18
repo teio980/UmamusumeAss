@@ -221,7 +221,7 @@ void UraScenarioModule::OnObserve(CareerState& state, const CareerObservation& o
         m_goalCompletionProbeArmed = false;
     }
 
-    if (screenId == "race_day" || screenId == "career_races_ready"
+    if (screenId == "race_day"
         || (screenId == "race_list" && observation.turnsToGoalEvidence.IsReliable()
             && observation.turnsToGoalEvidence.Value() == 0))
         ConfirmTurnAdvance(state, observation);
@@ -848,7 +848,7 @@ void UraScenarioModule::ConfirmTurnAdvance(
         && currentTurnEvidence.Value() > *m_pendingActionTurnIndex;
     const auto screenId = Lower(observation.screenId);
     const bool mandatoryRaceReached = *m_pendingActionKind != ActionIntentKind::Race
-        && (screenId == "race_day" || screenId == "career_races_ready"
+        && (screenId == "race_day"
             || (screenId == "race_list" && observation.turnsToGoalEvidence.IsReliable()
                 && observation.turnsToGoalEvidence.Value() == 0));
     if (!calendarAdvanced && !countdownAdvanced && !mandatoryRaceReached)

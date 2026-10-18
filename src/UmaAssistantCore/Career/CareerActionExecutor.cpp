@@ -675,8 +675,6 @@ std::optional<std::string> CareerActionExecutor::ResolveSemanticAction(
                 return choose("action.finale_races");
             return choose("action.races");
         }
-        if (screenId == "career_races_ready")
-            return choose("action.races");
         if (screenId == "race_day")
             return intent.skillIds.empty() ? choose("race.open_list") : choose("skills.open");
         if (screenId == "race_list")

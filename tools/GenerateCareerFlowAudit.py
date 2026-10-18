@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "52619a03d008ffa98e35f0529c34af5583440fa7"
-RETIRED_PAGES = {"race_attributes": "race_runner", "training_event": None}
+RETIRED_PAGES = {"race_attributes": "race_runner", "training_event": None, "career_races_ready": "career_main"}
 
 
 def git(*args):
@@ -60,9 +60,9 @@ def setup_destination(screen, action):
     if action.startswith("normal.strategy."):
         return "Change → 对应 Option → Save → Return → Start"
     if action == "normal.start":
-        return "career_intro_event / normal_quick_mode_settings / career_main / career_races_ready"
+        return "career_intro_event / normal_quick_mode_settings / career_main"
     if action.startswith("normal.quick_mode."):
-        return "Shorten → Skip → Confirm → career_main / career_races_ready"
+        return "Shorten → Skip → Confirm → career_main"
     if action == "normal.post_start.skip":
         return "开场 Skip／确认 → Quick 配置 → 首个主界面"
     return "最终确认内部模式与跑法配置；不进入运行阶段或结算识别"
@@ -144,6 +144,7 @@ def main():
         f"基线含 {len(screens)} 个页面、{action_count} 个动作绑定；当前覆盖 **{len(current_screens)} 个页面、{current_action_count} 个动作绑定**。\n\n"
         "2026-10-15：赛前画面已统一到 `race_runner`，删除旧 `race_attributes` 整图识别及重复绑定。"
         "2026-10-16：训练／支援卡被动事件由 EventHandle 推进，移除 `training_event` 整图识别及强制 Skip 动作。"
+        "2026-10-18：移除旧比赛入口中间状态；普通主页由策略决策参赛，比赛日使用 Race Day 与 Race 按钮。"
         "其余基线页面与动作必须仍存在；任务绑定调整在表内明确列出，新增绑定也单独标注。\n\n"
         "比赛播放监视器保留到闹钟弹窗的 `race.retry.pending` 无输入交接；Cancel 的局部后继包含 `race_runner_result`，"
         "拒绝重试不启用成功目标探测。内部动作图差异可用 [AuditCareerActionGraphs.py](../tools/AuditCareerActionGraphs.py) 重建；"

@@ -300,7 +300,6 @@ void PushFullRaceFlow(ReplayObserver& observer)
 {
     observer.observations = {
         Screen("career_main", CareerScreenKind::MainTurn),
-        Screen("career_races_ready", CareerScreenKind::RaceEntry),
         Screen("race_day", CareerScreenKind::RaceEntry),
         Screen("race_list", CareerScreenKind::RaceEntry),
         Screen("race_runner", CareerScreenKind::RaceExecution),
@@ -317,28 +316,28 @@ void CheckRaceTargetReplay(const std::string& target)
         std::make_shared<ReplayScenario>(), std::make_shared<ReplayStrategy>(target));
     UmaAssistant::TaskEngine::Tests::MockTaskExecutionContext context;
 
-    for (int i = 0; i < 7; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
-        if (i == 4) CHECK(coordinator.GetState().raceStrategyConfigured);
+        if (i == 3) CHECK(coordinator.GetState().raceStrategyConfigured);
     }
 
-    REQUIRE(executor->executions.size() == 7);
+    REQUIRE(executor->executions.size() == 6);
     CHECK(executor->executions[0].source.screenId == "career_main");
     CHECK(executor->executions[0].intent.raceTarget == target);
-    for (std::size_t i = 1; i <= 5; ++i)
+    for (std::size_t i = 1; i <= 4; ++i)
     {
         CHECK(executor->executions[i].intent.kind == ActionIntentKind::Race);
         CHECK(executor->executions[i].intent.raceTarget == target);
     }
-    CHECK(executor->executions[2].source.screenId == "race_day");
+    CHECK(executor->executions[1].source.screenId == "race_day");
+    CHECK(executor->executions[1].intent.tactic == "late");
+    CHECK(executor->executions[2].source.screenId == "race_list");
     CHECK(executor->executions[2].intent.tactic == "late");
-    CHECK(executor->executions[3].source.screenId == "race_list");
-    CHECK(executor->executions[3].intent.tactic == "late");
-    CHECK(executor->executions[4].source.screenId == "race_runner");
-    CHECK(executor->executions[5].source.screenId == "race_runner_result");
-    CHECK(executor->executions[6].source.screenId == "career_main");
-    CHECK(executor->executions[6].intent.kind == ActionIntentKind::Training);
+    CHECK(executor->executions[3].source.screenId == "race_runner");
+    CHECK(executor->executions[4].source.screenId == "race_runner_result");
+    CHECK(executor->executions[5].source.screenId == "career_main");
+    CHECK(executor->executions[5].intent.kind == ActionIntentKind::Training);
 }
 
 } // namespace

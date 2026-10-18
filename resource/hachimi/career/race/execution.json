@@ -6,31 +6,6 @@
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
-    "career_races_ready_action_races": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/career_races_ready_action_races.png",
-      "templThreshold": 0.78,
-      "roi": [
-        580,
-        1330,
-        250,
-        170
-      ],
-      "preDelay": 0,
-      "postDelay": 650,
-      "waitMs": 0,
-      "timeoutMs": 12000,
-      "pollIntervalMs": 250,
-      "next": [],
-      "onErrorNext": [],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
-    },
     "race_streak_warning_probe": {
       "algorithm": "MatchTemplateColorText",
       "action": "JustReturn",

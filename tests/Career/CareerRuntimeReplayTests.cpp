@@ -842,6 +842,27 @@ TEST_CASE("MuMu Oguri pre-debut main remains a turn screen during startup resume
     CHECK(observation.turnsToGoal == 11);
 }
 
+TEST_CASE("Finale training main remains a decision page after a goal update",
+    "[CareerRuntime][Replay][CareerRaceEntryRegression]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    config.manifestPath = UmaAssistant::Paths::ToUtf8(config.resourceDirectory / "hachimi/ura/manifest.json");
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/career_main_oguri_finale_training_available.png"});
+    context.nativeOcr = true;
+    CareerScreenObserver observer(resources);
+    const auto transition = CareerTransitionPolicy::AfterAction({}, "goal_update", "goal.update_next");
+
+    const auto observation = observer.ObserveTransition(context, transition);
+
+    CHECK(observation.screenId == "career_main");
+    CHECK(observation.screenKind == UmaAssistant::CareerDomain::CareerScreenKind::MainTurn);
+    CHECK(observation.turnsToGoal == 1);
+}
+
 TEST_CASE("An actual single objective complete banner still advances through its authored Next",
     "[CareerRuntime][Replay][CareerStartupMainRegression]")
 {

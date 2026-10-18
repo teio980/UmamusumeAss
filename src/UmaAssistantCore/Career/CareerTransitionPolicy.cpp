@@ -30,7 +30,7 @@ void TurnDestinations(CareerTransitionContext& result)
         || result.sourceScreenId == "claw_machine_result")
         Add(result.candidates, {"claw_machine", "claw_machine_result"});
     Add(result.candidates, {"goal_objective_complete", "goal_update", "goal_complete",
-        "race_day", "career_races_ready", "career_main", "race_list", "race_list_empty",
+        "race_day", "career_main", "race_list", "race_list_empty",
         "race_recommendations", "race_streak_warning", "goal_incomplete", "complete_career_entry"});
     if (result.continuation == Phase::RaceOutcome)
         Add(result.candidates, {"reward", "reward_support", "race_result", "race_retry_dialog",
@@ -96,7 +96,7 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
         else if (action == "action.infirmary") select(Phase::TurnOutcome, {"infirmary_confirmation"});
         else if (action == "action.recreation") select(Phase::TurnOutcome, {"recreation_selection", "recreation_confirmation"});
         else if (action == "action.races" || action == "action.finale_races")
-            select(Phase::RaceEntry, {"race_day", "career_races_ready", "race_streak_warning", "race_recommendations", "race_list", "race_list_empty"});
+            select(Phase::RaceEntry, {"race_day", "race_streak_warning", "race_recommendations", "race_list", "race_list_empty"});
     }
     else if (id == "training_selection" && action == "training.back") select(Phase::Main, {"career_main"});
     else if (id == "training_selection" || id == "rest_confirmation" || id == "summer_rest_confirmation"
@@ -114,9 +114,9 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
     else if (id == "recreation_selection") select(Phase::TurnOutcome, {"recreation_confirmation"});
     else if (id == "race_day" && action == "skills.open") select(Phase::RaceEntry, {"career_skills"});
     else if (id == "career_skills") select(Phase::RaceEntry, {"race_day"});
-    else if (id == "race_day" || id == "career_races_ready" || id == "race_recommendations")
+    else if (id == "race_day" || id == "race_recommendations")
         select(Phase::RaceEntry, {"race_streak_warning", "race_recommendations", "race_list", "race_list_empty",
-            "race_day", "career_races_ready", "race_details", "race_runner"});
+            "race_day", "race_details", "race_runner"});
     else if (id == "race_list") select(Phase::RaceEntry, {"race_streak_warning", "race_details", "race_runner"});
     else if (id == "race_list_empty" || (id == "race_streak_warning" && action == "race.streak.cancel"))
         select(Phase::Main, {"career_main", "race_day", "race_list"});
@@ -143,12 +143,12 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
             "race_live", "race_runner_result", "race_result", "race_trophy_won", "race_retry_dialog"});
     else if (id == "goal_objective_complete" || id == "goal_update" || id == "goal_complete")
     {
-        select(Phase::Goal, {"goal_update", "goal_complete", "career_main", "career_races_ready", "race_day",
+        select(Phase::Goal, {"goal_update", "goal_complete", "career_main", "race_day",
             "event_choice", "scenario_event", "inheritance_event", "reward", "reward_support",
             "goal_incomplete", "complete_career_entry"});
     }
     else if (id == "career_intro_event")
-        select(Phase::NormalStartup, {"normal_quick_mode_settings", "career_main", "career_races_ready"});
+        select(Phase::NormalStartup, {"normal_quick_mode_settings", "career_main"});
     else if (id == "career_complete" || id == "career_complete_close" || id.starts_with("career_story_unlocked")
         || id == "event_home" || id == "home_unselected")
     {
@@ -162,7 +162,7 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
             if (std::find(result.candidates.begin(), result.candidates.end(), destination) == result.candidates.end())
                 result.candidates.push_back(destination);
     }
-    if (result.phase == Phase::RaceEntry && (id == "career_main" || id == "career_races_ready"
+    if (result.phase == Phase::RaceEntry && (id == "career_main"
         || id == "race_day" || id == "race_recommendations" || id == "race_list"))
     {
         result.retryUnchangedRaceEntry = true;

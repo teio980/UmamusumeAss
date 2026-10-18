@@ -69,32 +69,6 @@
       "order": 48
     },
     {
-      "screenId": "career_races_ready",
-      "recognition": {
-        "template": "templates/runtime_frames/ura_finale_main_ready.png",
-        "templates": [
-          "templates/runtime_frames/ura_prelim_races_active.png",
-          "templates/runtime_frames/ura_late_oct_goal_ready.png",
-          "templates/runtime_frames/goal2_main_ready.png",
-          "templates/runtime_frames/goal2_main_start.png",
-          "templates/runtime_frames/goal3_main_start.png",
-          "templates/runtime_frames/senior_year_main_ready.png"
-        ],
-        "requiredText": [
-          "Races"
-        ],
-        "priority": 7
-      },
-      "actions": [
-        {
-          "semanticId": "action.races",
-          "task": "career_races_ready_action_races"
-        }
-      ],
-      "flow": "race",
-      "order": 16
-    },
-    {
       "screenId": "race_day",
       "recognition": {
         "template": "templates/runtime_frames/ura_final_race_day.png",

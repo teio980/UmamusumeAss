@@ -316,7 +316,7 @@ normal.quick_mode.confirm
 安排规则：
 
 - `normal.post_start.skip` 绑定到实际显示 Skip 按钮的 Intro 页面，不挂在 `career_final_confirmation` 下。
-- `normal.start` 完成后先识别 `career_intro_event`、`career_main` 或 `career_races_ready`；不得把支援卡自动填充确认模板当作 Normal Career 的必经步骤。
+- `normal.start` 完成后先识别 `career_intro_event`、`career_main`；不得把支援卡自动填充确认模板当作 Normal Career 的必经步骤。
 - Opening Intro 的 Skip 可能需要先点击右下角白色 Skip，再点击中部确认弹窗中的绿色 Skip；确认步骤必须允许已关闭弹窗的设备直接继续。
 - `normal_quick_mode_settings` 使用 `quick_mode_header.png` 作为稳定页面识别。
 - Quick Mode 的 Shorten 和 Skip 必须先检测当前状态，避免重复执行时切换回错误状态。
@@ -439,7 +439,7 @@ career_main 或 training_result
 ### 8.5 目标赛流程
 
 ```text
-career_main 或 career_races_ready
+career_main
 → race_day
 → open race_list
 → 选择当前目标赛

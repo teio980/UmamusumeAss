@@ -99,7 +99,7 @@ TEST_CASE("Empty races and declined retries have separate return contracts", "[C
 TEST_CASE("Race entry transitions share the single runner checkpoint", "[CareerTransition][CareerRunnerRecognition]")
 {
     for (auto const& [screen, action] : std::vector<std::pair<std::string, std::string>>{
-        {"race_day", "race.open_list"}, {"career_races_ready", "action.races"},
+        {"race_day", "race.open_list"},
         {"race_recommendations", "race.recommendations.confirm"},
         {"race_list", "race.recommended_entry"}, {"race_details", "race.confirm"},
         {"race_streak_warning", "race.streak.confirm"}})

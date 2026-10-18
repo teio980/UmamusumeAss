@@ -268,7 +268,7 @@ bool CareerFlowCoordinator::CheckAndConfirmTrainingConsumed(
     const auto id = Fold(observation.screenId);
     const bool resultShown = observation.screenKind == CareerDomain::CareerScreenKind::TrainingResult
         || id == "training_result";
-    const bool mandatoryRaceReached = id == "race_day" || id == "career_races_ready"
+    const bool mandatoryRaceReached = id == "race_day"
         || (id == "race_list" && observation.turnsToGoalEvidence.IsReliable()
             && observation.turnsToGoalEvidence.Value() == 0);
     const bool finaleCountdownAdvanced = id == "career_main"
@@ -431,7 +431,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         m_state.goalText.clear();
     }
     if (m_restoredSmartTrainingConfirmation && m_pendingTraining
-        && (Fold(observation.screenId) == "training_result" || Fold(observation.screenId) == "race_day" || Fold(observation.screenId) == "career_races_ready"
+        && (Fold(observation.screenId) == "training_result" || Fold(observation.screenId) == "race_day"
             || (Fold(observation.screenId) == "race_list" && observation.turnsToGoalEvidence.IsReliable()
                 && observation.turnsToGoalEvidence.Value() == 0)))
     {

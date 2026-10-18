@@ -784,8 +784,7 @@ private:
             m_screen = "career_main";
         }
         else if (m_graphRoot == "career_main_action_races"
-            || m_graphRoot == "career_main_action_finale_races") m_screen = "career_races_ready";
-        else if (m_graphRoot == "career_races_ready_action_races") m_screen = "race_day";
+            || m_graphRoot == "career_main_action_finale_races") m_screen = "race_list";
         else if (m_graphRoot == "race_day_race_open_list") m_screen = "race_list";
         else if (m_graphRoot == "race_list_race_recommended_entry"
             || m_graphRoot == "race_list_race_fans_entry"
