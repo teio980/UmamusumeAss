@@ -228,14 +228,13 @@ ActionExecutionStatus CareerActionExecutor::ExecuteTask(
             return definition.TryGetTask(candidate) != nullptr;
         });
         const auto* successor = next == task.next.end() ? nullptr : definition.TryGetTask(*next);
-        // The outer Career observer confirms terminal actions. Inside a graph,
-        // only a visual successor can replace the delay; unguarded coordinate
-        // sequences still need their authored pacing.
+        // Keep 300 ms for the UI to settle before visual transition recognition.
+        // Unguarded coordinate sequences still need their authored pacing.
         const bool visualSuccessor = successor
             && ((successor->templatePath && !successor->templatePath->empty())
                 || (successor->targetText && !successor->targetText->empty()));
         if (!successor || visualSuccessor)
-            runOptions.postDelayOverrides.try_emplace(name, 0);
+            runOptions.postDelayOverrides.try_emplace(name, 300);
     }
     const auto result = m_resources->RunTask(taskName, context, runOptions);
     if (context.IsCancelled() || result.status == TaskEngine::TaskGraphStatus::Cancelled)

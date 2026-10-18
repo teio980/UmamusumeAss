@@ -1305,6 +1305,26 @@ TEST_CASE("Packaged rank and Sparks captures remain distinct during settlement",
     CHECK(context.taps.empty());
 }
 
+TEST_CASE("Race rewards advance through the visible Next lettering", "[CareerRuntime][CareerRewardsTransition][CareerResourceCleanup]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto* action = resources->FindAction("reward", "reward.next");
+    REQUIRE(action != nullptr);
+    ActualRaceResultContext context("rewards_support_mumu_20261013.png");
+
+    const auto result = resources->RunTask(action->taskName, context);
+
+    INFO(result.errorMessage);
+    REQUIRE((result.status == TaskGraphStatus::Completed || result.status == TaskGraphStatus::Success));
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first > 380);
+    CHECK(context.taps.front().first < 520);
+    CHECK(context.taps.front().second > 1440);
+    CHECK(context.taps.front().second < 1510);
+}
+
 TEST_CASE("Rewards advances from Bond Level to Support Cards while keeping its screen ID", "[CareerRuntime][CareerRewardsTransition]")
 {
     const auto config = PackagedConfig();

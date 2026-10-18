@@ -6,31 +6,6 @@
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
-    "reward_reward_next": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/reward_reward_next.png",
-      "templThreshold": 0.78,
-      "roi": [
-        270,
-        1410,
-        360,
-        115
-      ],
-      "preDelay": 0,
-      "postDelay": 650,
-      "waitMs": 0,
-      "timeoutMs": 12000,
-      "pollIntervalMs": 250,
-      "next": [],
-      "onErrorNext": [],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
-    },
     "reward_support_reward_next": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",

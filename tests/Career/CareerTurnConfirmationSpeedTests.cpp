@@ -237,7 +237,7 @@ TEST_CASE("Four turn confirmation dialogs rematch OK on their fresh observed fra
     CHECK(context.captureCount == static_cast<int>(expectedFrame));
     REQUIRE(context.clickedFrames.size() == 1);
     CHECK(context.clickedFrames.front() == expectedFrame);
-    CHECK(context.totalSleepMs < 650); // The transition observer now owns the wait after OK.
+    CHECK(context.totalSleepMs == 420); // Independent proof gap plus 300 ms after OK.
 }
 
 TEST_CASE("Turn dialogs retain the recognized second frame through opening animation",
@@ -257,7 +257,7 @@ TEST_CASE("Turn dialogs retain the recognized second frame through opening anima
     CHECK(context.totalSleepMs == 240);
 }
 
-TEST_CASE("Settlement actions reuse confirmed frames and delegate their delay to transition recognition",
+TEST_CASE("Settlement actions reuse confirmed frames with a 300 ms post-click delay",
     "[Career][CareerWait]")
 {
     TurnConfirmationContext context;
@@ -290,7 +290,7 @@ TEST_CASE("Settlement actions reuse confirmed frames and delegate their delay to
     REQUIRE(context.clickedFrames.size() == 1);
     CHECK(context.clickedFrames.front() == expectedFrame);
     CHECK(context.captureCount == static_cast<int>(expectedFrame));
-    CHECK(context.totalSleepMs == 120);
+    CHECK(context.totalSleepMs == 420); // Independent proof gap plus 300 ms after the click.
 }
 
 TEST_CASE("Turn dialog confirmation rejects non-independent or changed frames",
@@ -577,7 +577,7 @@ TEST_CASE("Opening the four turn dialogs avoids duplicate Main capture and fixed
     CHECK(context.captureCount == 4);
     REQUIRE(context.clickedFrames.size() == 2);
     CHECK(context.clickedFrames.back() == 4);
-    CHECK(context.totalSleepMs == 240); // Only the two independent proof gaps remain.
+    CHECK(context.totalSleepMs == 540); // Two independent proof gaps plus 300 ms after OK.
 }
 
 TEST_CASE("Main source proof does not enable shortcuts for training",

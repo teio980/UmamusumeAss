@@ -567,7 +567,7 @@ internal static class HachimiTaskLogSemantics
             "race_runner_result_next" or "race_runner_last_next" => Step(
                 "Continuing past the race result",
                 "Race result continued"),
-            "reward_reward_next" or "reward_support_reward_next" => Step(
+            "rewards_rewards_next" or "reward_support_reward_next" => Step(
                 "Continuing past the race reward",
                 "Race reward continued"),
             "goal_update_goal_update_next" => Step(

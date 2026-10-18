@@ -43,7 +43,7 @@
       "actions": [
         {
           "semanticId": "reward.next",
-          "task": "reward_reward_next"
+          "task": "rewards_rewards_next"
         }
       ],
       "flow": "race",
@@ -487,9 +487,7 @@
       "recognition": {
         "template": "templates/runtime_frames/ura_final_runner_ready2.png",
         "templates": [
-          "templates/runtime_frames/ura_prelim_runner_ready.png",
           "templates/runtime_frames/ura_prelim_runner_ready2.png",
-          "templates/runtime_frames/ura_semifinal_runner_ready.png",
           "templates/runtime_frames/ura_semifinal_runner_ready2.png"
         ],
         "requiredText": [

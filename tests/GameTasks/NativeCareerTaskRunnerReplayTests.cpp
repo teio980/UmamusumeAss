@@ -806,7 +806,7 @@ private:
         else if (m_graphRoot == "goal_complete_goal_next")
             m_screen = m_screen == "goal_complete" ? "scenario_event" : "goal_update";
         else if (m_graphRoot == "scenario_event_event_advance") m_screen = "career_main";
-        else if (m_graphRoot == "reward_reward_next") m_screen = "reward_support";
+        else if (m_graphRoot == "rewards_rewards_next" && previousScreen == "reward") m_screen = "reward_support";
         else if (m_graphRoot == "reward_support_reward_next")
             m_screen = m_raceResultIndex >= m_raceSteps.size() ? "career_complete" : "career_main";
         else if (m_graphRoot == "career_complete_career_to_home") m_screen = "home";
@@ -1016,7 +1016,7 @@ TEST_CASE("Native runner replays the packaged normal objective chain through URA
         != context.PipelineRoots().end());
     CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "scenario_event_event_advance")
         != context.PipelineRoots().end());
-    CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "reward_reward_next")
+    CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "rewards_rewards_next")
         != context.PipelineRoots().end());
     CHECK(std::find(context.PipelineRoots().begin(), context.PipelineRoots().end(), "reward_support_reward_next")
         != context.PipelineRoots().end());
