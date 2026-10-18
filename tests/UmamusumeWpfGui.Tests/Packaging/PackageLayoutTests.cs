@@ -159,7 +159,7 @@ public sealed class PackageLayoutTests : IDisposable
         "UmamusumeCore.dll",
         "Umamusume.CoreBridge.dll",
         "resource/hachimi/pipelines/daily_race.json",
-        "resource/hachimi/pipelines/templates/daily_race/daily_program.png",
+        "resource/hachimi/pipelines/templates/daily_race/daily_program_button.png",
         "resource/hachimi/ura/manifest.json",
         "resource/hachimi/career/catalog.json",
         "resource/hachimi/career/race/profile.json",

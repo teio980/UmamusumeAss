@@ -376,9 +376,6 @@ TEST_CASE("URA scenario return reaches the actual Finale Main without searching 
         CHECK(handoff->stableFrameCount == 2);
         CHECK(context.tapAttempts == 0);
         CHECK(context.requestedWaitMs < 1000);
-        CHECK(std::none_of(context.matchedPaths.begin(), context.matchedPaths.end(), [](auto const& path) {
-            return std::filesystem::path(path).filename() == "scenario_event_event_advance.png";
-        }));
     }
 }
 

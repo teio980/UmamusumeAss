@@ -109,8 +109,7 @@
         "template": "../race/templates/runtime_frames/training_result_ura.png",
         "templates": [
           "../race/templates/runtime_frames/training_turn2_result_ura.png",
-          "../race/templates/runtime_frames/training_partner_result_ura.png",
-          "../race/templates/runtime_frames/training_duel_result_ura.png"
+          "../race/templates/runtime_frames/training_partner_result_ura.png"
         ],
         "requiredText": [
           "Training"

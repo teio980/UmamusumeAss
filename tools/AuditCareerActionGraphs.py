@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RETIRED_PAGES = {"race_attributes": "race_runner", "career_races_ready": "career_main"}
 REPLACED_TASKS = {
+    "reward_reward_next": "rewards_rewards_next",
     "career_races_ready_action_races": "career_main_action_races",
     "race_attributes_race_start_playback": "race_runner_entry_view_results",
     "race_playback_race_play": "race_runner_playback_start",
