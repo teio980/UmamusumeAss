@@ -110,14 +110,17 @@
                                                                Foreground="{Binding DisplayStatus, Converter={StaticResource TaskStatusBrush}}" />
                                                 </StackPanel>
                                                 <!-- Settings / Configure button -->
-                                                <Button Grid.Column="1" VerticalAlignment="Center" Margin="6,0" Padding="6,4"
+                                                <Button Grid.Column="1" VerticalAlignment="Center" Margin="4,0" Padding="0"
+                                                        Width="24" Height="24" MinWidth="0" MinHeight="0"
                                                         Command="{Binding #Root.((vm:TasksViewModel)DataContext).OpenTaskSettingsCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource GrassConfigure}">
-                                                    <ui:SymbolIcon Symbol="Setting" FontSize="12" />
+                                                    <ui:SymbolIcon Symbol="Setting" FontSize="14" />
                                                 </Button>
                                                 <CheckBox Grid.Column="2" IsChecked="{Binding IsEnabled}"
-                                                          VerticalAlignment="Center" ToolTip.Tip="{DynamicResource GrassEnqueue}" />
+                                                          Width="24" Height="24" Padding="0"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          ToolTip.Tip="{DynamicResource GrassEnqueue}" />
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -323,9 +326,14 @@
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="4,0,4,16" VerticalAlignment="Center">
                 <Button Grid.Column="0" Command="{Binding CloseTaskSettingsCommand}" Padding="8,5" Margin="0,0,12,0"
                         ToolTip.Tip="{DynamicResource GrassBackToQueueToolTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Back" FontSize="14" />
-                        <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12" />
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Back" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12"
+                                   VerticalAlignment="Center">
+                            <TextBlock.RenderTransform>
+                                <TranslateTransform Y="1.5" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
                     </StackPanel>
                 </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
