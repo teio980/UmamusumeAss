@@ -1749,7 +1749,14 @@ UmaStartResult start_run_pipeline(
                 try
                 {
                     std::optional<TaskEngine::HachimiPipelineDefinition> def;
-                    if (std::filesystem::exists(pipeline_str))
+                    std::error_code ec;
+                    bool is_file = false;
+                    if (pipeline_str.find('{') == std::string::npos && pipeline_str.size() < 1024)
+                    {
+                        is_file = std::filesystem::exists(pipeline_str, ec) && !ec;
+                    }
+
+                    if (is_file)
                     {
                         def = TaskEngine::HachimiPipelineLoader::LoadFromFile(pipeline_str);
                     }

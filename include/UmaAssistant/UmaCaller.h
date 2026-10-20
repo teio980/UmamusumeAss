@@ -11,7 +11,11 @@
 #  endif
 #else
 #  define UMA_CALL
-#  define UMA_API_PORT
+#  if defined(UMA_DLL_EXPORTS)
+#    define UMA_API_PORT __attribute__((visibility("default")))
+#  else
+#    define UMA_API_PORT
+#  endif
 #endif
 
 #define UMA_API UMA_API_PORT UMA_CALL

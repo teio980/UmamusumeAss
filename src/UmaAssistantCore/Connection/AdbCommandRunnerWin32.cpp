@@ -17,12 +17,18 @@ AdbCommandResult AdbCommandRunnerWin32::run(
     std::stop_token           cancellation,
     std::size_t               max_standard_output_bytes)
 {
+#if defined(_WIN32)
     auto const cmdline = build_windows_command_line(
         invocation.executable, invocation.arguments);
 
     auto const proc_result = process_.execute(
         invocation.executable, cmdline, cancellation, timeout,
         max_standard_output_bytes, invocation.leave_children_running_on_success);
+#else
+    auto const proc_result = process_.execute_args(
+        invocation.executable, invocation.arguments, cancellation, timeout,
+        max_standard_output_bytes, invocation.leave_children_running_on_success);
+#endif
 
     AdbCommandResult result;
     result.exit_code       = proc_result.exit_code;

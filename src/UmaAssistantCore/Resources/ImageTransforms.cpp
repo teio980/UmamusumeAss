@@ -79,7 +79,7 @@ std::vector<Kernel> kernels(int source, int target)
         double sum = 0;
         for (int point = left; point <= right; ++point)
         {
-            double const value = cubic(static_cast<float>((point - center) / scale));
+            double const value = static_cast<double>(cubic(static_cast<float>((point - center) / scale)));
             values.push_back(value);
             sum += value;
         }
@@ -230,7 +230,7 @@ Vision::GrayImage resize_nearest(Vision::GrayImage const& image, int width, int 
     validate(image);
     if (width <= 0 || height <= 0 || width > 10000 || height > 10000)
         throw std::invalid_argument("Resize dimensions are outside supported limits");
-    Vision::GrayImage result{width, height};
+    Vision::GrayImage result{width, height, {}, {}};
     result.gray.resize(static_cast<std::size_t>(width) * height);
     if (!image.rgba.empty()) result.rgba.resize(result.gray.size() * 4);
     for (int y = 0; y < height; ++y)

@@ -325,7 +325,11 @@ std::filesystem::path NativeCareerTaskRunner::ResolveManifestPath(
     const Career::CareerRuntimeConfig& config, const std::filesystem::path& resourceRoot)
 {
     auto const configured = Paths::FromUtf8(config.manifestPath);
-    if (configured.is_absolute()) return configured.lexically_normal();
+    bool const hasWindowsDrive = config.manifestPath.size() >= 3 &&
+        std::isalpha(static_cast<unsigned char>(config.manifestPath[0])) &&
+        config.manifestPath[1] == ':' &&
+        (config.manifestPath[2] == '/' || config.manifestPath[2] == '\\');
+    if (configured.is_absolute() || hasWindowsDrive) return configured.lexically_normal();
     auto relative = configured.lexically_normal();
     if (!relative.empty() && *relative.begin() == "resource")
         relative = relative.lexically_relative("resource");

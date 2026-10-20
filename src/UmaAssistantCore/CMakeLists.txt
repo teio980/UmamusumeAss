@@ -1,12 +1,18 @@
-add_library(UmaAssistantConnection STATIC
+set(UmaAssistantConnection_SOURCES
   Connection/ConnectionProfile.cpp
   Connection/AdbCommandLine.cpp
-  Connection/RealWin32Process.cpp
   Connection/AdbCommandRunnerWin32.cpp
   Connection/EmulatorConnector.cpp
   Connection/EmulatorConnector_ResolveTarget.cpp
   Connection/SmokeCliParser.cpp
 )
+if(WIN32)
+  list(APPEND UmaAssistantConnection_SOURCES Connection/RealWin32Process.cpp)
+else()
+  list(APPEND UmaAssistantConnection_SOURCES Connection/PosixProcess.cpp)
+endif()
+
+add_library(UmaAssistantConnection STATIC ${UmaAssistantConnection_SOURCES})
 
 target_include_directories(UmaAssistantConnection
   PUBLIC
@@ -33,13 +39,26 @@ target_include_directories(UmaAssistantDevice
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(UmaAssistantDevice
-  PUBLIC
-    UmaAssistantConnection
-    windowscodecs
-    windowsapp
-    ZLIB::ZLIBSTATIC
-)
+if(WIN32)
+  target_link_libraries(UmaAssistantDevice
+    PUBLIC
+      UmaAssistantConnection
+      windowscodecs
+      windowsapp
+      ZLIB::ZLIBSTATIC
+  )
+else()
+  target_link_libraries(UmaAssistantDevice
+    PUBLIC
+      UmaAssistantConnection
+      UmaAssistantResources
+      "-framework CoreFoundation"
+      "-framework CoreGraphics"
+      "-framework ImageIO"
+      "-framework Accelerate"
+      ZLIB::ZLIBSTATIC
+  )
+endif()
 
 uma_add_strict_warnings(UmaAssistantDevice)
 
@@ -82,7 +101,7 @@ target_link_libraries(UmaAssistantVision
 uma_add_strict_warnings(UmaAssistantVision)
 
 add_executable(UmaNumericOcrWorker Recognition/NumericOcrWorker.cpp)
-target_link_libraries(UmaNumericOcrWorker PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(UmaNumericOcrWorker PRIVATE nlohmann_json::nlohmann_json libtesseract)
 target_compile_definitions(UmaNumericOcrWorker PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 if(MINGW)
   target_link_options(UmaNumericOcrWorker PRIVATE -municode)
@@ -106,8 +125,7 @@ target_link_libraries(UmaAssistantOcr
   PUBLIC
     UmaAssistantVision
     UmaAssistantConnection
-    windowsapp
-    windowscodecs
+    libtesseract
 )
 
 target_compile_definitions(UmaAssistantOcr
@@ -119,12 +137,18 @@ target_compile_definitions(UmaAssistantOcr
 uma_add_strict_warnings(UmaAssistantOcr)
 add_dependencies(UmaAssistantOcr UmaNumericOcrWorker)
 
-add_library(UmaAssistantResources STATIC
+set(UmaAssistantResources_SOURCES
   Resources/PipelineMetadataSchema.cpp
   Resources/ResourceSnapshot.cpp
-  Resources/WicImageDecoder.cpp
   Resources/ImageTransforms.cpp
 )
+if(WIN32)
+  list(APPEND UmaAssistantResources_SOURCES Resources/WicImageDecoder.cpp)
+else()
+  list(APPEND UmaAssistantResources_SOURCES Resources/ImageIOImageDecoder.cpp)
+endif()
+
+add_library(UmaAssistantResources STATIC ${UmaAssistantResources_SOURCES})
 
 target_include_directories(UmaAssistantResources
   PUBLIC
@@ -132,13 +156,25 @@ target_include_directories(UmaAssistantResources
     ${CMAKE_SOURCE_DIR}/include
 )
 
-target_link_libraries(UmaAssistantResources
-  PUBLIC
-    UmaAssistantVision
-    nlohmann_json::nlohmann_json
-    windowscodecs
-    windowsapp
-)
+if(WIN32)
+  target_link_libraries(UmaAssistantResources
+    PUBLIC
+      UmaAssistantVision
+      nlohmann_json::nlohmann_json
+      windowscodecs
+      windowsapp
+  )
+else()
+  target_link_libraries(UmaAssistantResources
+    PUBLIC
+      UmaAssistantVision
+      nlohmann_json::nlohmann_json
+      "-framework CoreFoundation"
+      "-framework CoreGraphics"
+      "-framework ImageIO"
+      "-framework Accelerate"
+  )
+endif()
 
 uma_add_strict_warnings(UmaAssistantResources)
 

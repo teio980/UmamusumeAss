@@ -1,10 +1,15 @@
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 #include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 static constexpr std::array<char const*, 52> kExpectedExports = {
     "UmaGetVersion",
@@ -63,6 +68,7 @@ static constexpr std::array<char const*, 52> kExpectedExports = {
 
 
 
+#if defined(_WIN32)
 static void const* rva_ptr(void const* base, DWORD image_size, DWORD rva, DWORD size)
 {
     if (rva >= image_size) return nullptr;
@@ -326,3 +332,59 @@ int wmain(int argc, wchar_t const* const* argv)
     std::printf("PASS: exactly %zu undecorated C ABI exports\n", kExpectedExports.size());
     return 0;
 }
+#else
+int main(int argc, char const* const* argv)
+{
+    if (argc != 2)
+    {
+        std::puts("usage: UmaExportVerification <lib-path>");
+        return 2;
+    }
+
+    void* handle = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+    if (!handle)
+    {
+        std::printf("FAIL: cannot dlopen '%s': %s\n", argv[1], dlerror());
+        return 1;
+    }
+
+    bool valid = true;
+    for (char const* expected : kExpectedExports)
+    {
+        void* sym = dlsym(handle, expected);
+        if (!sym)
+        {
+            std::printf("FAIL: missing symbol '%s'\n", expected);
+            valid = false;
+        }
+    }
+
+    dlclose(handle);
+
+    std::string cmd = std::string("/usr/bin/nm -gU \"") + argv[1] + "\"";
+    FILE* fp = popen(cmd.c_str(), "r");
+    if (fp)
+    {
+        char line[512];
+        std::size_t umaExportCount = 0;
+        while (fgets(line, sizeof(line), fp))
+        {
+            if (strstr(line, " _Uma"))
+            {
+                ++umaExportCount;
+            }
+        }
+        pclose(fp);
+        if (umaExportCount != kExpectedExports.size())
+        {
+            std::printf("FAIL: expected %zu Uma exports, found %zu\n", kExpectedExports.size(), umaExportCount);
+            valid = false;
+        }
+    }
+
+    if (!valid) return 1;
+
+    std::printf("PASS: exactly %zu undecorated C ABI exports\n", kExpectedExports.size());
+    return 0;
+}
+#endif

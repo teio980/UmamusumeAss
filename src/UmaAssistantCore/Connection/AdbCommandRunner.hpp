@@ -70,7 +70,17 @@ public:
         std::chrono::milliseconds    timeout,
         std::size_t                  max_standard_output_bytes,
         bool                         leave_children_running_on_success) = 0;
+
+    [[nodiscard]] virtual Result execute_args(
+        std::filesystem::path const& executable,
+        std::vector<std::string> const& arguments,
+        std::stop_token              cancellation,
+        std::chrono::milliseconds    timeout,
+        std::size_t                  max_standard_output_bytes,
+        bool                         leave_children_running_on_success);
 };
+
+using IProcessRunner = IWin32Process;
 
 class IWin32InteractiveSession
 {

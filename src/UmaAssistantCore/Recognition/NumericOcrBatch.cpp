@@ -6,12 +6,20 @@
 
 #include <nlohmann/json.hpp>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -32,12 +40,15 @@
 namespace UmaAssistant::Recognition {
 namespace {
 
+#if defined(_WIN32)
 using Microsoft::WRL::ComPtr;
+#endif
 using Clock = std::chrono::steady_clock;
 
 constexpr auto frame_budget = std::chrono::seconds(5);
 constexpr std::size_t max_tsv_bytes = 4u * 1024u * 1024u;
 
+#if defined(_WIN32)
 class ComApartment
 {
 public:
@@ -60,6 +71,13 @@ public:
 private:
     bool owns_initialization_{};
 };
+#else
+class ComApartment
+{
+public:
+    ComApartment() = default;
+};
+#endif
 
 class TemporaryBatchDirectory
 {
@@ -71,7 +89,12 @@ public:
         for (int attempt = 0; attempt < 32; ++attempt)
         {
             auto const id = next_id.fetch_add(1, std::memory_order_relaxed);
-            path_ = base / ("uma-numeric-ocr-" + std::to_string(::GetCurrentProcessId())
+#if defined(_WIN32)
+            auto const pid = ::GetCurrentProcessId();
+#else
+            auto const pid = getpid();
+#endif
+            path_ = base / ("uma-numeric-ocr-" + std::to_string(pid)
                 + "-" + std::to_string(id));
             std::error_code error;
             if (std::filesystem::create_directory(path_, error)) return;
@@ -147,6 +170,7 @@ private:
     return resized;
 }
 
+#if defined(_WIN32)
 void save_png(std::filesystem::path const& path, Vision::GrayImage const& image)
 {
     auto const pixel_count = static_cast<std::size_t>(image.width) * image.height;
@@ -200,6 +224,43 @@ void save_png(std::filesystem::path const& path, Vision::GrayImage const& image)
     status = encoder->Commit();
     if (FAILED(status)) throw std::runtime_error("Could not commit the numeric OCR PNG file.");
 }
+#else
+void save_png(std::filesystem::path const& path, Vision::GrayImage const& image)
+{
+    auto const pixel_count = static_cast<std::size_t>(image.width) * image.height;
+    std::vector<std::uint8_t> rgba(pixel_count * 4u);
+    const bool color = image.rgba.size() == pixel_count * 4u;
+    for (std::size_t index = 0; index < pixel_count; ++index)
+    {
+        auto const offset = index * 4u;
+        rgba[offset] = color ? image.rgba[offset] : image.gray[index];
+        rgba[offset + 1] = color ? image.rgba[offset + 1] : image.gray[index];
+        rgba[offset + 2] = color ? image.rgba[offset + 2] : image.gray[index];
+        rgba[offset + 3] = 255;
+    }
+    std::string const u8path = path.string();
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+        reinterpret_cast<UInt8 const*>(u8path.data()), static_cast<CFIndex>(u8path.size()), false);
+    if (!url) throw std::runtime_error("Could not create URL for save_png");
+    CGImageDestinationRef dest = CGImageDestinationCreateWithURL(url, CFSTR("public.png"), 1, nullptr);
+    CFRelease(url);
+    if (!dest) throw std::runtime_error("Could not create CGImageDestination for save_png");
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(rgba.data(), image.width, image.height, 8, image.width * 4,
+        colorSpace, static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
+    CGImageRef img = ctx ? CGBitmapContextCreateImage(ctx) : nullptr;
+    if (ctx) CGContextRelease(ctx);
+    CGColorSpaceRelease(colorSpace);
+
+    if (!img) { CFRelease(dest); throw std::runtime_error("Could not create CGImage for save_png"); }
+    CGImageDestinationAddImage(dest, img, nullptr);
+    bool const ok = CGImageDestinationFinalize(dest);
+    CFRelease(img);
+    CFRelease(dest);
+    if (!ok) throw std::runtime_error("Could not finalize PNG in save_png");
+}
+#endif
 
 [[nodiscard]] std::string utf8_path(std::filesystem::path const& path)
 {
@@ -632,20 +693,43 @@ NumericOcrBatch::NumericOcrBatch()
 {
     // Core DLL and installed worker live side by side. Static test runners use
     // their executable directory instead, without searching the current folder.
+    std::filesystem::path worker_path;
+#if defined(_WIN32)
     HMODULE const module = ::GetModuleHandleW(L"UmamusumeCore.dll");
     std::array<wchar_t, 32768> buffer{};
     auto const length = ::GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
-    if (length > 0 && length < buffer.size() && !executable_.empty())
+    if (length > 0 && length < buffer.size())
     {
-        auto const worker = std::filesystem::path(std::wstring(buffer.data(), length)).parent_path()
+        worker_path = std::filesystem::path(std::wstring(buffer.data(), length)).parent_path()
             / L"UmaNumericOcrWorker.exe";
+    }
+#elif defined(__APPLE__)
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<void*>(&create_win32_process), &info) && info.dli_fname)
+    {
+        auto dylib_dir = std::filesystem::path(info.dli_fname).parent_path();
+        if (std::filesystem::exists(dylib_dir / "UmaNumericOcrWorker"))
+            worker_path = dylib_dir / "UmaNumericOcrWorker";
+        else if (std::filesystem::exists(dylib_dir.parent_path() / "MacOS" / "UmaNumericOcrWorker"))
+            worker_path = dylib_dir.parent_path() / "MacOS" / "UmaNumericOcrWorker";
+    }
+    if (worker_path.empty() || !std::filesystem::exists(worker_path))
+    {
+        if (std::filesystem::exists(std::filesystem::current_path() / "UmaNumericOcrWorker"))
+            worker_path = std::filesystem::current_path() / "UmaNumericOcrWorker";
+    }
+#endif
+    if (!worker_path.empty())
+    {
         auto const executable = executable_;
-        worker_ = std::make_unique<WorkerState>([worker, executable] {
+        worker_ = std::make_unique<WorkerState>([worker_path, executable] {
             std::error_code error;
-            if (!std::filesystem::is_regular_file(worker, error))
+            if (!std::filesystem::is_regular_file(worker_path, error))
                 return std::unique_ptr<IWin32InteractiveSession>{};
             std::string reason;
-            return start_win32_interactive_session(worker, {utf8_path(executable)}, reason);
+            std::vector<std::string> args;
+            if (!executable.empty()) args.push_back(utf8_path(executable));
+            return start_win32_interactive_session(worker_path, args, reason);
         });
     }
 }
@@ -668,6 +752,7 @@ NumericOcrBatch& NumericOcrBatch::operator=(NumericOcrBatch&&) noexcept = defaul
 
 std::filesystem::path NumericOcrBatch::locate_executable()
 {
+#if defined(_WIN32)
     std::array<wchar_t, 32768> buffer{};
     auto const path_length = ::GetEnvironmentVariableW(L"PATH", buffer.data(), static_cast<DWORD>(buffer.size()));
     if (path_length > 0 && path_length < buffer.size())
@@ -702,6 +787,29 @@ std::filesystem::path NumericOcrBatch::locate_executable()
         if (std::filesystem::is_regular_file(candidate, error)) return candidate;
     }
     return {};
+#else
+    char const* path_env = std::getenv("PATH");
+    if (path_env)
+    {
+        std::string_view path_view(path_env);
+        std::size_t start = 0;
+        while (start <= path_view.size())
+        {
+            auto end = path_view.find(':', start);
+            if (end == std::string_view::npos) end = path_view.size();
+            auto directory = path_view.substr(start, end - start);
+            if (!directory.empty())
+            {
+                auto candidate = std::filesystem::path(directory) / "tesseract";
+                std::error_code error;
+                if (std::filesystem::is_regular_file(candidate, error)) return candidate;
+            }
+            if (end == path_view.size()) break;
+            start = end + 1;
+        }
+    }
+    return {};
+#endif
 }
 
 NumericOcrBatchResult NumericOcrBatch::read(

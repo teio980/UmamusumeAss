@@ -909,8 +909,6 @@ nlohmann::json InspectCareerPackage(
     const std::filesystem::path& resourceRoot,
     const std::vector<CareerJsonOverride>& overrides)
 {
-    using Json = nlohmann::json;
-
     if (Paths::ToUtf8(manifestPath).find('\0') != std::string::npos
         || Paths::ToUtf8(resourceRoot).find('\0') != std::string::npos)
     {

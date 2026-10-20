@@ -1,199 +1,154 @@
 #include "WindowsOcrRecognizer.hpp"
 
-#include <objbase.h>
-
-#include <winrt/Windows.Globalization.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Graphics.Imaging.h>
-#include <winrt/Windows.Media.Ocr.h>
-#include <winrt/Windows.Storage.Streams.h>
-#include <winrt/base.h>
+#include <tesseract/baseapi.h>
+#include <tesseract/ocrclass.h>
 
 #include <algorithm>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <future>
-#include <limits>
-#include <map>
+#include <array>
+#include <cctype>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
 #include <mutex>
-#include <stdexcept>
 #include <string>
-#include <utility>
+#include <string_view>
+#include <vector>
+
+#if defined(__APPLE__)
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 namespace UmaAssistant::Recognition {
 namespace {
 
-using namespace winrt::Windows::Globalization;
-using namespace winrt::Windows::Graphics::Imaging;
-using namespace winrt::Windows::Media::Ocr;
-using namespace winrt::Windows::Storage::Streams;
-
-[[nodiscard]] bool is_space(wchar_t value) noexcept
+std::filesystem::path locate_tessdata_path()
 {
-    auto const code = static_cast<std::uint32_t>(value);
-    return (code >= 0x0009 && code <= 0x000D)
-        || code == 0x0020 || code == 0x0085 || code == 0x00A0 || code == 0x1680
-        || (code >= 0x2000 && code <= 0x200A) || code == 0x2028 || code == 0x2029
-        || code == 0x202F || code == 0x205F || code == 0x3000;
-}
-
-[[nodiscard]] std::string trim_line(winrt::hstring const& text)
-{
-    auto value = std::wstring(text.c_str(), text.size());
-    auto first = value.begin();
-    auto last = value.end();
-    while (first != last && is_space(*first)) ++first;
-    while (first != last && is_space(*(last - 1))) --last;
-    auto const trimmed = std::wstring(first, last);
-    return winrt::to_string(winrt::hstring(trimmed.c_str(),
-        static_cast<winrt::hstring::size_type>(trimmed.size())));
-}
-
-[[nodiscard]] std::string trim_request(std::string_view requested)
-{
-    auto const utf16 = std::wstring(winrt::to_hstring(requested));
-    auto first = utf16.begin();
-    auto last = utf16.end();
-    while (first != last && is_space(*first)) ++first;
-    while (first != last && is_space(*(last - 1))) --last;
-    auto const trimmed = std::wstring(first, last);
-    return winrt::to_string(winrt::hstring(trimmed.c_str(),
-        static_cast<winrt::hstring::size_type>(trimmed.size())));
-}
-
-[[nodiscard]] std::string resolve_language(std::string_view requested, std::vector<std::string> const& available)
-{
-    auto const request = trim_request(requested);
-    if (!request.empty())
+    char const* env = std::getenv("TESSDATA_PREFIX");
+    if (env && *env)
     {
-        for (auto const& language : available)
-            if (_stricmp(language.c_str(), request.c_str()) == 0) return language;
-        auto const base_start = request.find_first_not_of('-');
-        if (base_start != std::string::npos)
+        std::filesystem::path p(env);
+        std::error_code ec;
+        if (std::filesystem::is_directory(p, ec) && std::filesystem::exists(p / "eng.traineddata", ec))
+            return p;
+        if (std::filesystem::is_directory(p / "tessdata", ec) && std::filesystem::exists(p / "tessdata" / "eng.traineddata", ec))
+            return p / "tessdata";
+    }
+
+    std::vector<std::filesystem::path> candidates;
+
+    // Check application bundle and binary location on macOS
+#if defined(__APPLE__)
+    char exe_buf[1024];
+    uint32_t size = sizeof(exe_buf);
+    if (_NSGetExecutablePath(exe_buf, &size) == 0)
+    {
+        std::filesystem::path exe_dir = std::filesystem::path(exe_buf).parent_path();
+        for (std::filesystem::path cur = exe_dir; !cur.empty(); cur = cur.parent_path())
         {
-            auto const base_end = request.find('-', base_start);
-            auto const base = request.substr(base_start, base_end - base_start);
-            for (auto const& language : available)
-            {
-                auto const language_start = language.find_first_not_of('-');
-                if (language_start == std::string::npos) continue;
-                auto const language_end = language.find('-', language_start);
-                if (_stricmp(language.substr(language_start, language_end - language_start).c_str(), base.c_str()) == 0)
-                    return language;
-            }
+            candidates.push_back(cur / "resource" / "tessdata");
+            candidates.push_back(cur / "tessdata");
+            candidates.push_back(cur / "Resources" / "resource" / "tessdata");
+            candidates.push_back(cur / "Resources" / "tessdata");
+            if (cur == cur.parent_path()) break;
         }
     }
-    for (auto const& language : available)
-        if (language.size() >= 2 && _strnicmp(language.c_str(), "en", 2) == 0) return language;
-    if (!available.empty()) return available.front();
-    return request.empty() ? "en-US" : request;
-}
-
-class ApartmentScope
-{
-public:
-    ApartmentScope()
+#elif defined(_WIN32)
+    std::array<wchar_t, 32768> buffer{};
+    auto const len = ::GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (len > 0 && len < buffer.size())
     {
-        const auto status = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        if (status == RPC_E_CHANGED_MODE)
-            return;
-        winrt::check_hresult(status);
-        initialized = true;
-    }
-    ApartmentScope(ApartmentScope const&) = delete;
-    ApartmentScope& operator=(ApartmentScope const&) = delete;
-    ~ApartmentScope() { if (initialized) ::CoUninitialize(); }
-    [[nodiscard]] bool IsMta() const noexcept { return initialized; }
-
-private:
-    bool initialized{};
-};
-
-// C++/WinRT caches activation factories across recognizer instances. Keep the
-// MTA alive across short-lived calls and worker threads until those factories
-// are released, instead of tearing it down between OCR operations.
-class OcrRuntimeLifetime
-{
-public:
-    OcrRuntimeLifetime() { winrt::check_hresult(::CoIncrementMTAUsage(&m_cookie)); }
-    ~OcrRuntimeLifetime()
-    {
-        winrt::clear_factory_cache();
-        if (m_cookie) static_cast<void>(::CoDecrementMTAUsage(m_cookie));
-    }
-private:
-    CO_MTA_USAGE_COOKIE m_cookie{};
-};
-
-void EnsureOcrRuntime()
-{
-    static OcrRuntimeLifetime lifetime;
-}
-
-[[nodiscard]] SoftwareBitmap make_bitmap(Vision::GrayImage const& image)
-{
-    if (image.width <= 0 || image.height <= 0 || image.width > 10000 || image.height > 10000)
-        throw std::invalid_argument("Windows OCR image dimensions exceed 10000 pixels");
-    auto const pixelCount = static_cast<std::size_t>(image.width) * image.height;
-    auto const required = pixelCount * 4u;
-    bool const grayOnly = image.rgba.empty() && image.gray.size() == pixelCount;
-    if (!grayOnly && image.rgba.size() != required)
-        throw std::invalid_argument("Windows OCR requires valid grayscale or straight RGBA8 pixels");
-    if (required > (std::numeric_limits<std::uint32_t>::max)())
-        throw std::invalid_argument("Windows OCR image buffer exceeds the WinRT buffer limit");
-
-    Buffer buffer(static_cast<std::uint32_t>(required));
-    buffer.Length(static_cast<std::uint32_t>(required));
-    auto* destination = buffer.data();
-    if (destination == nullptr)
-        throw std::runtime_error("WinRT returned a null OCR input buffer");
-    if (grayOnly)
-        for (std::size_t index = 0; index < pixelCount; ++index)
+        std::filesystem::path exe_dir = std::filesystem::path(std::wstring(buffer.data(), len)).parent_path();
+        for (std::filesystem::path cur = exe_dir; !cur.empty(); cur = cur.parent_path())
         {
-            auto const offset = index * 4u;
-            destination[offset] = image.gray[index];
-            destination[offset + 1] = image.gray[index];
-            destination[offset + 2] = image.gray[index];
-            destination[offset + 3] = 255;
+            candidates.push_back(cur / "resource" / "tessdata");
+            candidates.push_back(cur / "tessdata");
+            if (cur == cur.parent_path()) break;
         }
-    else
-        std::memcpy(destination, image.rgba.data(), required);
-    return SoftwareBitmap::CreateCopyFromBuffer(buffer, BitmapPixelFormat::Rgba8,
-        image.width, image.height, BitmapAlphaMode::Ignore);
+    }
+#endif
+
+    // Walk up from current working directory
+    for (std::filesystem::path cur = std::filesystem::current_path(); !cur.empty(); cur = cur.parent_path())
+    {
+        candidates.push_back(cur / "resource" / "tessdata");
+        candidates.push_back(cur / "tessdata");
+        if (cur == cur.parent_path()) break;
+    }
+
+#if defined(CMAKE_SOURCE_DIR)
+    candidates.push_back(std::filesystem::path(CMAKE_SOURCE_DIR) / "resource" / "tessdata");
+#endif
+
+    for (auto const& candidate : candidates)
+    {
+        std::error_code ec;
+        if (std::filesystem::is_directory(candidate, ec) &&
+            std::filesystem::exists(candidate / "eng.traineddata", ec))
+        {
+            return candidate;
+        }
+    }
+
+    return std::filesystem::current_path() / "resource" / "tessdata";
 }
 
-}
+} // namespace
 
 struct WindowsOcrRecognizer::Impl
 {
-    struct Engine
+    tesseract::TessBaseAPI api;
+    bool initialized = false;
+    std::string current_language;
+    std::mutex mutex;
+
+    void ensure_initialized(std::string_view requested_language)
     {
-        explicit Engine(std::string const& tag)
-            : value(OcrEngine::TryCreateFromLanguage(Language(winrt::to_hstring(tag))))
+        std::string lang = "eng";
+        if (!requested_language.empty())
         {
-            if (!value) throw std::runtime_error("Windows OCR language is not installed: " + tag);
+            if (requested_language.starts_with("en") || requested_language.starts_with("EN"))
+            {
+                lang = "eng";
+            }
         }
-        OcrEngine value{nullptr};
-        std::mutex gate;
-    };
 
-    std::mutex engines_gate;
-    std::map<std::string, std::shared_ptr<Engine>, std::less<>> engines;
+        if (initialized && current_language == lang)
+        {
+            return;
+        }
 
-    [[nodiscard]] std::shared_ptr<Engine> get_engine(std::string const& tag)
-    {
-        std::lock_guard lock(engines_gate);
-        auto const found = engines.find(tag);
-        if (found != engines.end()) return found->second;
-        auto engine = std::make_shared<Engine>(tag);
-        engines.emplace(tag, engine);
-        return engine;
+        auto const data_path = locate_tessdata_path();
+        int res = api.Init(data_path.string().c_str(), lang.c_str());
+        if (res != 0 && lang != "eng")
+        {
+            res = api.Init(data_path.string().c_str(), "eng");
+            if (res == 0) lang = "eng";
+        }
+
+        if (res != 0)
+        {
+            initialized = false;
+            return;
+        }
+
+        api.SetVariable("debug_file", "/dev/null");
+        api.SetPageSegMode(tesseract::PSM_AUTO);
+        initialized = true;
+        current_language = lang;
     }
 };
 
-WindowsOcrRecognizer::WindowsOcrRecognizer() : impl_(std::make_unique<Impl>()) { EnsureOcrRuntime(); }
+WindowsOcrRecognizer::WindowsOcrRecognizer()
+    : impl_(std::make_unique<Impl>())
+{
+}
+
 WindowsOcrRecognizer::~WindowsOcrRecognizer() = default;
 WindowsOcrRecognizer::WindowsOcrRecognizer(WindowsOcrRecognizer&&) noexcept = default;
 WindowsOcrRecognizer& WindowsOcrRecognizer::operator=(WindowsOcrRecognizer&&) noexcept = default;
@@ -202,65 +157,93 @@ TextRecognitionResult WindowsOcrRecognizer::recognize(
     Vision::GrayImage const& image,
     std::string_view requested_language)
 {
-    // Handles can be created and destroyed on different threads. Balance COM
-    // initialization on the thread that actually performs recognition.
-    ApartmentScope apartment;
-    if (!apartment.IsMta())
-    {
-        // WinRT's synchronous async wait is forbidden on an STA caller (for
-        // example a WPF dispatcher). Keep the public synchronous ABI while
-        // performing recognition and its COM lifetime on an MTA worker.
-        return std::async(std::launch::async, [&] {
-            return recognize(image, requested_language);
-        }).get();
-    }
-    std::vector<std::string> available;
-    auto const language_view = OcrEngine::AvailableRecognizerLanguages();
-    available.reserve(language_view.Size());
-    for (std::uint32_t index = 0; index < language_view.Size(); ++index)
-        available.push_back(winrt::to_string(language_view.GetAt(index).LanguageTag()));
-    auto const selected = resolve_language(requested_language, available);
-    auto const engine = impl_->get_engine(selected);
-    auto bitmap = make_bitmap(image);
-    auto const ocr = [&]() {
-        std::lock_guard lock(engine->gate);
-        return engine->value.RecognizeAsync(bitmap).get();
-    }();
-
-    TextRecognitionResult result;
-    result.language = selected;
+    TextRecognitionResult result{};
     result.width = image.width;
     result.height = image.height;
-    auto const lines = ocr.Lines();
-    result.detections.reserve(lines.Size());
-    for (auto const& line : lines)
+    result.language = "eng";
+
+    if (image.width <= 0 || image.height <= 0)
     {
-        auto const text = trim_line(line.Text());
-        auto const words = line.Words();
-        if (text.empty() || words.Size() == 0) continue;
-        double left = (std::numeric_limits<double>::max)();
-        double top = (std::numeric_limits<double>::max)();
-        double right = (std::numeric_limits<double>::lowest)();
-        double bottom = (std::numeric_limits<double>::lowest)();
-        for (auto const& word : words)
-        {
-            auto const bounds = word.BoundingRect();
-            left = (std::min)(left, static_cast<double>(bounds.X));
-            top = (std::min)(top, static_cast<double>(bounds.Y));
-            right = (std::max)(right, static_cast<double>(bounds.X) + bounds.Width);
-            bottom = (std::max)(bottom, static_cast<double>(bounds.Y) + bounds.Height);
-        }
-        auto const x = static_cast<int>(std::floor(left));
-        auto const y = static_cast<int>(std::floor(top));
-        auto const right_edge = static_cast<int>(std::ceil(right));
-        auto const bottom_edge = static_cast<int>(std::ceil(bottom));
-        result.detections.push_back({text,
-            {std::clamp(x, 0, image.width), std::clamp(y, 0, image.height),
-                std::clamp(right_edge - x, 0, image.width),
-                std::clamp(bottom_edge - y, 0, image.height)},
-            1.0});
+        return result;
     }
+
+    std::size_t const expected_rgba = static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4;
+    std::size_t const expected_gray = static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height);
+
+    bool const has_rgba = !image.rgba.empty();
+    bool const has_gray = !image.gray.empty();
+
+    if (has_rgba && image.rgba.size() != expected_rgba)
+    {
+        throw std::invalid_argument("Malformed RGBA plane buffer size");
+    }
+    if (has_gray && image.gray.size() != expected_gray)
+    {
+        throw std::invalid_argument("Malformed gray plane buffer size");
+    }
+    if (!has_rgba && !has_gray)
+    {
+        return result;
+    }
+
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    impl_->ensure_initialized(requested_language);
+    if (!impl_->initialized)
+    {
+        return result;
+    }
+    result.language = impl_->current_language;
+
+    if (image.rgba.size() == expected_rgba)
+    {
+        impl_->api.SetImage(image.rgba.data(), image.width, image.height, 4, image.width * 4);
+    }
+    else if (image.gray.size() == expected_gray)
+    {
+        impl_->api.SetImage(image.gray.data(), image.width, image.height, 1, image.width);
+    }
+
+    if (impl_->api.Recognize(nullptr) != 0)
+    {
+        impl_->api.Clear();
+        return result;
+    }
+
+    std::unique_ptr<tesseract::ResultIterator> ri(impl_->api.GetIterator());
+    if (ri && !ri->Empty(tesseract::RIL_TEXTLINE))
+    {
+        tesseract::PageIteratorLevel const level = tesseract::RIL_TEXTLINE;
+        do
+        {
+            std::unique_ptr<char[]> text(ri->GetUTF8Text(level));
+            if (!text) continue;
+
+            std::string line(text.get());
+            while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ' || line.back() == '\t'))
+                line.pop_back();
+            std::size_t start = 0;
+            while (start < line.size() && (line[start] == ' ' || line[start] == '\t' || line[start] == '\r' || line[start] == '\n'))
+                ++start;
+            if (start > 0) line = line.substr(start);
+            if (line.empty()) continue;
+
+            int left = 0, top = 0, right = 0, bottom = 0;
+            ri->BoundingBox(level, &left, &top, &right, &bottom);
+            float const conf = ri->Confidence(level);
+
+            TextDetection detection;
+            detection.text = std::move(line);
+            detection.bounds.x = left;
+            detection.bounds.y = top;
+            detection.bounds.width = right - left;
+            detection.bounds.height = bottom - top;
+            detection.confidence = static_cast<double>(std::clamp(conf, 0.0f, 100.0f)) / 100.0;
+            result.detections.push_back(std::move(detection));
+        } while (ri->Next(level));
+    }
+
+    impl_->api.Clear();
     return result;
 }
 
-}
+} // namespace UmaAssistant::Recognition

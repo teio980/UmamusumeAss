@@ -3,71 +3,138 @@
 #include "NumericOcrProtocol.hpp"
 #include "../Common/PathEncoding.hpp"
 
-#include <Windows.h>
+#include <tesseract/baseapi.h>
+#include <tesseract/ocrclass.h>
 #include <nlohmann/json.hpp>
 
 #include <array>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
+
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 
 using nlohmann::json;
 namespace Protocol = UmaAssistant::Recognition::NumericOcrProtocol;
 
-class TesseractEngine
+std::filesystem::path locate_tessdata(std::filesystem::path const& hint)
 {
-public:
-    explicit TesseractEngine(std::filesystem::path const& executable)
+    char const* env = std::getenv("TESSDATA_PREFIX");
+    if (env && *env)
     {
-        // This setting belongs only to this isolated worker, never the GUI.
-        ::SetEnvironmentVariableW(L"OMP_THREAD_LIMIT", L"1");
-        auto const directory = std::filesystem::absolute(executable).parent_path();
-        for (auto const* name : {L"libtesseract-5.dll", L"tesseract55.dll", L"tesseract54.dll",
-                L"tesseract53.dll", L"tesseract50.dll", L"tesseract.dll"})
+        std::filesystem::path p(env);
+        std::error_code ec;
+        if (std::filesystem::is_directory(p, ec) && std::filesystem::exists(p / "eng.traineddata", ec))
+            return p;
+        if (std::filesystem::is_directory(p / "tessdata", ec) && std::filesystem::exists(p / "tessdata" / "eng.traineddata", ec))
+            return p / "tessdata";
+    }
+
+    std::vector<std::filesystem::path> candidates;
+
+    if (!hint.empty())
+    {
+        auto const dir = std::filesystem::absolute(hint).parent_path();
+        candidates.push_back(dir / "tessdata");
+        candidates.push_back(dir / "resource" / "tessdata");
+        candidates.push_back(hint);
+    }
+
+#if defined(__APPLE__)
+    char exe_buf[1024];
+    uint32_t size = sizeof(exe_buf);
+    if (_NSGetExecutablePath(exe_buf, &size) == 0)
+    {
+        std::filesystem::path exe_dir = std::filesystem::path(exe_buf).parent_path();
+        for (std::filesystem::path cur = exe_dir; !cur.empty(); cur = cur.parent_path())
         {
-            library_ = ::LoadLibraryExW((directory / name).c_str(), nullptr,
-                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-            if (library_) break;
+            candidates.push_back(cur / "resource" / "tessdata");
+            candidates.push_back(cur / "tessdata");
+            candidates.push_back(cur / "Resources" / "resource" / "tessdata");
+            candidates.push_back(cur / "Resources" / "tessdata");
+            if (cur == cur.parent_path()) break;
         }
-        if (!library_) throw std::runtime_error("The installed Tesseract C API is unavailable.");
-        try
+    }
+#elif defined(_WIN32)
+    std::array<wchar_t, 32768> buffer{};
+    auto const len = ::GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (len > 0 && len < buffer.size())
+    {
+        std::filesystem::path exe_dir = std::filesystem::path(std::wstring(buffer.data(), len)).parent_path();
+        for (std::filesystem::path cur = exe_dir; !cur.empty(); cur = cur.parent_path())
         {
-            auto const create = bind<void* (*)()>("TessBaseAPICreate");
-            destroy_ = bind<void (*)(void*)>("TessBaseAPIDelete");
-            auto const initialize = bind<int (*)(void*, char const*, char const*)>("TessBaseAPIInit3");
-            set_mode_ = bind<void (*)(void*, int)>("TessBaseAPISetPageSegMode");
-            set_image_ = bind<void (*)(void*, unsigned char const*, int, int, int, int)>("TessBaseAPISetImage");
-            recognize_ = bind<int (*)(void*, void*)>("TessBaseAPIRecognize");
-            get_text_ = bind<char* (*)(void*)>("TessBaseAPIGetUTF8Text");
-            delete_text_ = bind<void (*)(char const*)>("TessDeleteText");
-            clear_ = bind<void (*)(void*)>("TessBaseAPIClear");
-            clear_adaptive_ = bind<void (*)(void*)>("TessBaseAPIClearAdaptiveClassifier");
-            auto const set_variable = bind<int (*)(void*, char const*, char const*)>("TessBaseAPISetVariable");
-            handle_ = create();
-            if (!handle_) throw std::runtime_error("Could not create the Tesseract engine.");
-            std::array<wchar_t, 32768> prefix{};
-            auto const length = ::GetEnvironmentVariableW(L"TESSDATA_PREFIX", prefix.data(),
-                static_cast<DWORD>(prefix.size()));
-            auto const data = length > 0 && length < prefix.size()
-                ? std::filesystem::path(std::wstring(prefix.data(), length)) : directory / L"tessdata";
-            auto const path = UmaAssistant::Paths::ToUtf8(data);
-            if (initialize(handle_, path.c_str(), "eng") != 0)
-                throw std::runtime_error("Could not load the Tesseract English model.");
-            (void)set_variable(handle_, "classify_enable_learning", "0");
-            (void)set_variable(handle_, "debug_file", "NUL");
+            candidates.push_back(cur / "resource" / "tessdata");
+            candidates.push_back(cur / "tessdata");
+            if (cur == cur.parent_path()) break;
         }
-        catch (...)
+    }
+#endif
+
+    for (std::filesystem::path cur = std::filesystem::current_path(); !cur.empty(); cur = cur.parent_path())
+    {
+        candidates.push_back(cur / "resource" / "tessdata");
+        candidates.push_back(cur / "tessdata");
+        if (cur == cur.parent_path()) break;
+    }
+
+#if defined(CMAKE_SOURCE_DIR)
+    candidates.push_back(std::filesystem::path(CMAKE_SOURCE_DIR) / "resource" / "tessdata");
+#endif
+
+    for (auto const& candidate : candidates)
+    {
+        std::error_code ec;
+        if (std::filesystem::is_directory(candidate, ec) &&
+            std::filesystem::exists(candidate / "eng.traineddata", ec))
         {
-            release();
-            throw;
+            return candidate;
         }
     }
 
-    ~TesseractEngine() { release(); }
+    return std::filesystem::current_path() / "resource" / "tessdata";
+}
+
+class TesseractEngine
+{
+public:
+    explicit TesseractEngine(std::filesystem::path const& hint)
+    {
+#if defined(_WIN32)
+        ::SetEnvironmentVariableW(L"OMP_THREAD_LIMIT", L"1");
+#else
+        setenv("OMP_THREAD_LIMIT", "1", 1);
+#endif
+        auto const data_path = locate_tessdata(hint);
+        if (api_.Init(data_path.string().c_str(), "eng") != 0)
+        {
+            throw std::runtime_error("Could not load the Tesseract English model from " + data_path.string());
+        }
+        api_.SetVariable("classify_enable_learning", "0");
+#if defined(_WIN32)
+        api_.SetVariable("debug_file", "NUL");
+#else
+        api_.SetVariable("debug_file", "/dev/null");
+#endif
+    }
+
+    ~TesseractEngine()
+    {
+        api_.End();
+    }
+
     TesseractEngine(TesseractEngine const&) = delete;
     TesseractEngine& operator=(TesseractEngine const&) = delete;
 
@@ -79,60 +146,32 @@ public:
         if (width <= 0 || height <= 0 || width > 10000 || height > 10000
             || (channels != 1 && channels != 3))
             throw std::runtime_error("Invalid numeric OCR image dimensions.");
+
         auto const size = static_cast<std::size_t>(width) * static_cast<std::size_t>(height)
             * static_cast<std::size_t>(channels);
         auto const pixels = Protocol::decode_pixels(image.at("pixels").get_ref<std::string const&>(), size);
-        clear_(handle_);
-        clear_adaptive_(handle_);
-        set_mode_(handle_, mode);
-        set_image_(handle_, pixels.data(), width, height, channels, width * channels);
-        if (recognize_(handle_, nullptr) != 0)
+
+        api_.Clear();
+        api_.ClearAdaptiveClassifier();
+        api_.SetPageSegMode(static_cast<tesseract::PageSegMode>(mode));
+        api_.SetImage(pixels.data(), width, height, channels, width * channels);
+        if (api_.Recognize(nullptr) != 0)
             return {};
-        auto* text = get_text_(handle_);
+
+        std::unique_ptr<char[]> text(api_.GetUTF8Text());
         if (!text) return {};
-        struct TextGuard { char* text; void (*free)(char const*); ~TextGuard() { free(text); } } guard{text, delete_text_};
-        return text;
+        return text.get();
     }
 
 private:
-    template<class Function> [[nodiscard]] Function bind(char const* name)
-    {
-        auto const address = ::GetProcAddress(library_, name);
-        if (!address) throw std::runtime_error("The installed Tesseract C API is incomplete.");
-        Function result{};
-        static_assert(sizeof(result) == sizeof(address));
-        std::memcpy(&result, &address, sizeof(result));
-        return result;
-    }
-
-    void release() noexcept
-    {
-        if (handle_ && destroy_) destroy_(handle_);
-        handle_ = nullptr;
-        if (library_) ::FreeLibrary(library_);
-        library_ = nullptr;
-    }
-
-    HMODULE library_{};
-    void* handle_{};
-    void (*destroy_)(void*){};
-    void (*set_mode_)(void*, int){};
-    void (*set_image_)(void*, unsigned char const*, int, int, int, int){};
-    int (*recognize_)(void*, void*){};
-    char* (*get_text_)(void*){};
-    void (*delete_text_)(char const*){};
-    void (*clear_)(void*){};
-    void (*clear_adaptive_)(void*){};
+    tesseract::TessBaseAPI api_;
 };
 
-} // namespace
-
-int wmain(int argc, wchar_t* argv[])
+int run_worker(std::filesystem::path const& hint)
 {
     try
     {
-        if (argc != 2) return 2;
-        TesseractEngine engine{std::filesystem::path(argv[1])};
+        TesseractEngine engine{hint};
         std::cout << json{{"ready", true}, {"protocol", 1}}.dump() << '\n' << std::flush;
         std::string line;
         while (std::getline(std::cin, line))
@@ -157,3 +196,27 @@ int wmain(int argc, wchar_t* argv[])
         return 1;
     }
 }
+
+} // namespace
+
+#if defined(_WIN32) && !defined(__MINGW32__)
+int wmain(int argc, wchar_t* argv[])
+{
+    std::filesystem::path hint;
+    if (argc >= 2 && argv[1])
+    {
+        hint = argv[1];
+    }
+    return run_worker(hint);
+}
+#else
+int main(int argc, char* argv[])
+{
+    std::filesystem::path hint;
+    if (argc >= 2 && argv[1])
+    {
+        hint = argv[1];
+    }
+    return run_worker(hint);
+}
+#endif

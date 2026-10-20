@@ -45,8 +45,14 @@ bool CoreRuntime::load_resource(std::string const& base_path)
         return false;
     }
 
-    auto const json_path = *decoded_base / "resource" / "connection.json";
-    auto resources = std::make_shared<Resources::ResourceSnapshot const>(*decoded_base / "resource");
+    auto resource_path = *decoded_base;
+    if (std::filesystem::exists(*decoded_base / "resource" / "connection.json")
+        || (std::filesystem::is_directory(*decoded_base / "resource") && !std::filesystem::exists(*decoded_base / "connection.json")))
+    {
+        resource_path = *decoded_base / "resource";
+    }
+    auto const json_path = resource_path / "connection.json";
+    auto resources = std::make_shared<Resources::ResourceSnapshot const>(resource_path);
 
 
 

@@ -210,7 +210,7 @@ std::pair<int, int> ResolveActionTapPoint(
     return {x, y};
 }
 
-std::optional<TaskRoi> ResolveRoi(const std::optional<std::vector<int>>& value)
+[[maybe_unused]] std::optional<TaskRoi> ResolveRoi(const std::optional<std::vector<int>>& value)
 {
     if (!value || value->size() < 4)
         return std::nullopt;

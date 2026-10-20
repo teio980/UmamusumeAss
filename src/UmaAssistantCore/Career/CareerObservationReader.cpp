@@ -822,38 +822,47 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
                  "career.skill.exit.title"})
         {
             if (!isEligible(skillRecoveryScreen)) break;
-            if (const auto match = MatchCatalogAsset(
+            auto match = MatchCatalogAsset(
                     context, sample.frame, *m_resources, marker, marker);
-                match && match->found)
+            bool markerFound = match && match->found;
+            if (!markerFound && std::string_view(marker) == "career.skill.confirmation.title")
+            {
+                const auto* titleRegion = m_resources->FindRegion("career.skill.confirmation.title");
+                if (titleRegion && titleRegion->contains("roi"))
+                {
+                    const auto bounds = (*titleRegion)["roi"].get<std::vector<int>>();
+                    if (bounds.size() == 4)
+                    {
+                        const auto text = context.RecognizeText("en-US", ToRoi(bounds));
+                        if (std::any_of(text.begin(), text.end(), [](auto const& d) {
+                            return NormalizeText(d.text).find("confirmation") != std::string::npos;
+                        }))
+                        {
+                            markerFound = true;
+                        }
+                    }
+                }
+            }
+            if (markerFound)
             {
                 // "Confirmation" is shared with Final Confirmation. It only
                 // identifies a skill purchase together with its Learn button.
                 if (std::string_view(marker) == "career.skill.confirmation.title")
                 {
-                    const auto learn = MatchCatalogAsset(context, sample.frame, *m_resources,
-                        "career.skill.confirmation.learn", "career.skill.confirmation.learn");
+                    const auto detections = context.RecognizeText("en-US");
                     if (!SameFrame(context, sample.frame))
                     {
                         sample.frameChanged = true;
                         return sample;
                     }
-                    if (!learn || !learn->found) continue;
-                    const auto* learnRegion = m_resources->FindRegion("career.skill.confirmation.learn");
-                    if (!learnRegion || !learnRegion->contains("roi")) continue;
-                    const auto bounds = (*learnRegion)["roi"].get<std::vector<int>>();
-                    if (bounds.size() != 4) continue;
-                    const auto text = context.RecognizeText("en-US", ToRoi(bounds));
-                    if (!SameFrame(context, sample.frame))
-                    {
-                        sample.frameChanged = true;
-                        return sample;
-                    }
-                    if (std::none_of(text.begin(), text.end(), [](auto const& detection) {
-                        return NormalizeText(detection.text) == "learn";
-                    })) continue;
+                    const bool isSkillConfirm = std::any_of(detections.begin(), detections.end(), [](auto const& detection) {
+                        auto const norm = NormalizeText(detection.text);
+                        return norm.find("learn") != std::string::npos || norm.find("skill") != std::string::npos;
+                    });
+                    if (!isSkillConfirm) continue;
                 }
                 sample.screen = &skillRecoveryScreen;
-                sample.score = match->score;
+                sample.score = match ? match->score : 1.0;
                 return sample;
             }
             if (!SameFrame(context, sample.frame))
@@ -1081,10 +1090,20 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
                     sample.frameChanged = true;
                     return sample;
                 }
-                if (Fold(screen.screenId) != "career_main"
-                    && !std::all_of(screen.requiredText.begin(), screen.requiredText.end(),
-                        [&](const auto& text) { return ContainsExpectedText(detections, text); }))
-                    continue;
+                if (Fold(screen.screenId) != "career_main")
+                {
+                    bool allMatch = std::all_of(screen.requiredText.begin(), screen.requiredText.end(),
+                        [&](const auto& text) { return ContainsExpectedText(detections, text); });
+                    if (!allMatch && Fold(screen.screenId) == "career_skills")
+                    {
+                        allMatch = ContainsExpectedText(detections, "Obtained")
+                            || ContainsExpectedText(detections, "Learn")
+                            || ContainsExpectedText(detections, "Skill")
+                            || ContainsExpectedText(detections, "Hint Lvl")
+                            || ContainsExpectedText(detections, "OFF");
+                    }
+                    if (!allMatch) continue;
+                }
             }
 
             sample.screen = &screen;

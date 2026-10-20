@@ -60,7 +60,7 @@ std::optional<ActionIntent> ScenarioOverride(
         : scenario->GetTrainingOverride(state, restThreshold, smartStrategy);
 }
 
-bool IsRacePriority(const std::optional<ActionIntent>& intent) noexcept
+[[maybe_unused]] bool IsRacePriority(const std::optional<ActionIntent>& intent) noexcept
 {
     return intent.has_value() && (intent->kind == ActionIntentKind::Race || intent->kind == ActionIntentKind::DoNothing);
 }

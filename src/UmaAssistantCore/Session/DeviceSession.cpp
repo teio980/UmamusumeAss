@@ -14,14 +14,31 @@
 #include <span>
 #include <sstream>
 #include <string_view>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <variant>
 
+#if defined(_WIN32)
 #include <objidl.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+#else
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
+#include "Resources/WicImageDecoder.hpp"
+#endif
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundef"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#endif
 #include <zlib.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace UmaAssistant {
 namespace {
@@ -427,7 +444,7 @@ struct TouchHandshake
     auto parse_number = [](std::string_view value) -> std::optional<std::int32_t> {
         while (!value.empty()
             && (value.front() == ' ' || value.front() == '\t'
-                || value.front() == '\r' || value.front() == '\n'))
+                || value.front() == '\r' || value.front() == '\n' || value.front() == '='))
             value.remove_prefix(1);
         auto const token_end = value.find_first_of(" \t\r\n,;)]}");
         auto const token = value.substr(0, token_end);
@@ -440,27 +457,77 @@ struct TouchHandshake
         return parsed_value;
     };
 
-    for (auto const marker : {"SurfaceOrientation:", "mCurrentOrientation=", "mCurrentOrientation ="})
+    for (auto const marker : {"SurfaceOrientation:", "mCurrentOrientation=", "mCurrentOrientation =", "orientation="})
     {
         auto const position = output.find(marker);
         if (position == std::string_view::npos) continue;
         auto value = output.substr(position + std::char_traits<char>::length(marker));
         auto const orientation = parse_number(value);
         if (!orientation || *orientation < 0 || *orientation > 3)
-            return std::nullopt;
+            continue;
         return orientation;
     }
+
+    auto const rot_enum_pos = output.find("Orientation: ORIENTATION_");
+    if (rot_enum_pos != std::string_view::npos)
+    {
+        auto value = output.substr(rot_enum_pos + std::string_view{"Orientation: ORIENTATION_"}.size());
+        auto const degrees = parse_number(value);
+        if (degrees)
+        {
+            if (*degrees == 0) return 0;
+            if (*degrees == 90) return 1;
+            if (*degrees == 180) return 2;
+            if (*degrees == 270) return 3;
+        }
+    }
+
+    auto const direct_orient_pos = output.find("Orientation: ");
+    if (direct_orient_pos != std::string_view::npos)
+    {
+        auto value = output.substr(direct_orient_pos + std::string_view{"Orientation: "}.size());
+        auto const orientation = parse_number(value);
+        if (orientation && *orientation >= 0 && *orientation <= 3)
+            return orientation;
+    }
+
     auto const rotation_position = output.find("rotation=ROTATION_");
     if (rotation_position != std::string_view::npos)
     {
         auto value = output.substr(rotation_position + std::string_view{"rotation=ROTATION_"}.size());
         auto const degrees = parse_number(value);
-        if (!degrees) return std::nullopt;
-        if (*degrees == 0) return 0;
-        if (*degrees == 90) return 1;
-        if (*degrees == 180) return 2;
-        if (*degrees == 270) return 3;
+        if (degrees)
+        {
+            if (*degrees == 0) return 0;
+            if (*degrees == 90) return 1;
+            if (*degrees == 180) return 2;
+            if (*degrees == 270) return 3;
+        }
     }
+
+    auto const rot_token_pos = output.find("ROT_");
+    if (rot_token_pos != std::string_view::npos)
+    {
+        auto value = output.substr(rot_token_pos + std::string_view{"ROT_"}.size());
+        auto const degrees = parse_number(value);
+        if (degrees)
+        {
+            if (*degrees == 0) return 0;
+            if (*degrees == 90) return 1;
+            if (*degrees == 180) return 2;
+            if (*degrees == 270) return 3;
+        }
+    }
+
+    auto const rotation_space_pos = output.find("rotation ");
+    if (rotation_space_pos != std::string_view::npos)
+    {
+        auto value = output.substr(rotation_space_pos + std::string_view{"rotation "}.size());
+        auto const orientation = parse_number(value);
+        if (orientation && *orientation >= 0 && *orientation <= 3)
+            return orientation;
+    }
+
     return std::nullopt;
 }
 
@@ -599,6 +666,7 @@ struct DisplayTransform
                      std::clamp(display_y, 0, height - 1)};
 }
 
+#if defined(_WIN32)
 struct ComScope
 {
     HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -608,6 +676,7 @@ struct ComScope
         if (initialized) CoUninitialize();
     }
 };
+#endif
 
 struct RawScreenshot
 {
@@ -654,7 +723,7 @@ struct RawScreenshot
     z_stream stream{};
     stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
     stream.avail_in = static_cast<uInt>(compressed.size());
-    if (inflateInit2(&stream, MAX_WBITS + 16) != Z_OK) return std::nullopt;
+    if (inflateInit2_(&stream, MAX_WBITS + 16, ZLIB_VERSION, static_cast<int>(sizeof(z_stream))) != Z_OK) return std::nullopt;
     struct InflateGuard
     {
         z_stream& stream;
@@ -689,6 +758,7 @@ struct RawScreenshot
         || rgba.size() != static_cast<std::size_t>(width)
             * static_cast<std::size_t>(height) * 4)
         return std::nullopt;
+#if defined(_WIN32)
     ComScope com;
     if (FAILED(com.result) && com.result != RPC_E_CHANGED_MODE) return std::nullopt;
     Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
@@ -747,6 +817,51 @@ struct RawScreenshot
     std::vector<std::uint8_t> encoded(data, data + size);
     ::GlobalUnlock(handle);
     return encoded;
+#else
+    CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    if (!data) return std::nullopt;
+    CGImageDestinationRef dest = CGImageDestinationCreateWithData(
+        data, CFSTR("public.png"), 1, nullptr);
+    if (!dest) { CFRelease(data); return std::nullopt; }
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(
+        const_cast<std::uint8_t*>(rgba.data()),
+        static_cast<size_t>(width),
+        static_cast<size_t>(height),
+        8,
+        static_cast<size_t>(width * 4),
+        colorSpace,
+        static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
+
+    CGImageRef img = ctx ? CGBitmapContextCreateImage(ctx) : nullptr;
+    if (ctx) CGContextRelease(ctx);
+    CGColorSpaceRelease(colorSpace);
+
+    if (!img)
+    {
+        CFRelease(dest);
+        CFRelease(data);
+        return std::nullopt;
+    }
+
+    CGImageDestinationAddImage(dest, img, nullptr);
+    bool const success = CGImageDestinationFinalize(dest);
+    CFRelease(img);
+    CFRelease(dest);
+
+    if (!success)
+    {
+        CFRelease(data);
+        return std::nullopt;
+    }
+
+    auto const length = static_cast<std::size_t>(CFDataGetLength(data));
+    std::vector<std::uint8_t> encoded(length);
+    CFDataGetBytes(data, CFRangeMake(0, static_cast<CFIndex>(length)), encoded.data());
+    CFRelease(data);
+    return encoded;
+#endif
 }
 
 [[nodiscard]] std::optional<RawScreenshot> decode_raw_payload(
@@ -2710,6 +2825,7 @@ std::optional<std::pair<std::int32_t, std::int32_t>> DeviceSession::decode_png(
 {
     if (!valid_png_chunks(bytes)) return std::nullopt;
 
+#if defined(_WIN32)
     ComScope com;
     if (FAILED(com.result) && com.result != RPC_E_CHANGED_MODE) return std::nullopt;
     HGLOBAL memory = ::GlobalAlloc(GMEM_MOVEABLE, bytes.size());
@@ -2786,6 +2902,25 @@ std::optional<std::pair<std::int32_t, std::int32_t>> DeviceSession::decode_png(
         }
     }
     return std::pair{static_cast<std::int32_t>(width), static_cast<std::int32_t>(height)};
+#else
+    try
+    {
+        auto decoded = UmaAssistant::Resources::WicImageDecoder::decode_bytes(
+            std::span<const std::uint8_t>(bytes.data(), bytes.size()));
+        if (decoded.width <= 0 || decoded.height <= 0 || decoded.width > 16384 || decoded.height > 16384)
+            return std::nullopt;
+        if (pixels)
+        {
+            if (decoded.width > 10000 || decoded.height > 10000) return std::nullopt;
+            *pixels = std::move(decoded);
+        }
+        return std::pair{decoded.width, decoded.height};
+    }
+    catch (...)
+    {
+        return std::nullopt;
+    }
+#endif
 }
 
 }
