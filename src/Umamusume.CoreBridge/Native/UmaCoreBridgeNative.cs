@@ -6,7 +6,74 @@ namespace Umamusume.CoreBridge;
 
 internal sealed unsafe partial class UmaCoreBridgeNative : IUmaNativeApi
 {
-    private const string LibraryName = "UmamusumeCore.dll";
+    private const string LibraryName = "UmamusumeCore";
+
+    static UmaCoreBridgeNative()
+    {
+        NativeLibrary.SetDllImportResolver(typeof(UmaCoreBridgeNative).Assembly, ResolveNativeLibrary);
+    }
+
+    private static IntPtr ResolveNativeLibrary(string libraryName, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName is "UmamusumeCore" or "UmamusumeCore.dll" or "UmamusumeCore.dylib" or "libUmamusumeCore.dylib")
+        {
+            string[] candidateFiles = OperatingSystem.IsWindows()
+                ? ["UmamusumeCore.dll"]
+                : OperatingSystem.IsMacOS()
+                    ? ["UmamusumeCore.dylib", "libUmamusumeCore.dylib"]
+                    : ["libUmamusumeCore.so", "UmamusumeCore.so"];
+
+            string? envPath = Environment.GetEnvironmentVariable("UMA_CORE_LIB_PATH");
+            if (!string.IsNullOrEmpty(envPath) && File.Exists(envPath))
+            {
+                if (NativeLibrary.TryLoad(envPath, out IntPtr hEnv)) return hEnv;
+            }
+
+            string baseDir = AppContext.BaseDirectory;
+            foreach (var candidate in candidateFiles)
+            {
+                string probe = Path.Combine(baseDir, candidate);
+                if (File.Exists(probe) && NativeLibrary.TryLoad(probe, out IntPtr hProbe))
+                    return hProbe;
+
+                string frameworkProbe = Path.Combine(baseDir, "..", "Frameworks", candidate);
+                if (File.Exists(frameworkProbe) && NativeLibrary.TryLoad(frameworkProbe, out IntPtr hFw))
+                    return hFw;
+            }
+
+            for (DirectoryInfo? dir = new DirectoryInfo(baseDir); dir != null; dir = dir.Parent)
+            {
+                foreach (var candidate in candidateFiles)
+                {
+                    string probe = Path.Combine(dir.FullName, candidate);
+                    if (File.Exists(probe) && NativeLibrary.TryLoad(probe, out IntPtr hProbe))
+                        return hProbe;
+                    string sub = Path.Combine(dir.FullName, "src", "UmaAssistantCore", candidate);
+                    if (File.Exists(sub) && NativeLibrary.TryLoad(sub, out IntPtr hSub))
+                        return hSub;
+                    string cmake1 = Path.Combine(dir.FullName, "build", "test-cmake", "src", "UmaAssistantCore", candidate);
+                    if (File.Exists(cmake1) && NativeLibrary.TryLoad(cmake1, out IntPtr hCmake1))
+                        return hCmake1;
+                    string cmake2 = Path.Combine(dir.FullName, "build", "osx-arm64-debug", "src", "UmaAssistantCore", candidate);
+                    if (File.Exists(cmake2) && NativeLibrary.TryLoad(cmake2, out IntPtr hCmake2))
+                        return hCmake2;
+                    string cmake3 = Path.Combine(dir.FullName, "build", "osx-arm64", "src", "UmaAssistantCore", candidate);
+                    if (File.Exists(cmake3) && NativeLibrary.TryLoad(cmake3, out IntPtr hCmake3))
+                        return hCmake3;
+                    string winStaging = Path.Combine(dir.FullName, "build", "native-staging", candidate);
+                    if (File.Exists(winStaging) && NativeLibrary.TryLoad(winStaging, out IntPtr hWin))
+                        return hWin;
+                }
+            }
+
+            foreach (var candidate in candidateFiles)
+            {
+                if (NativeLibrary.TryLoad(candidate, assembly, searchPath, out IntPtr handle))
+                    return handle;
+            }
+        }
+        return IntPtr.Zero;
+    }
 
     internal static RecognitionImage? PrepareNumericGlyphs(RecognitionImage source, bool warmGain,
         RecognitionColorRule rule)

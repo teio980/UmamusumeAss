@@ -275,7 +275,7 @@ internal static class CallbackParser
             envelope.Sequence,
             RequiredInt32(p, "event_type", envelope.OperationId),
             RequiredString(p, "task_name", envelope.OperationId),
-            RequiredString(p, "pipeline_name", envelope.OperationId),
+            RequiredStringAllowEmpty(p, "pipeline_name", envelope.OperationId),
             RequiredInt32(p, "step_index", envelope.OperationId),
             p.TryGetProperty("succeeded", out var succ) && succ.GetBoolean(),
             p.TryGetProperty("score", out var sc) ? sc.GetDouble() : 0.0,

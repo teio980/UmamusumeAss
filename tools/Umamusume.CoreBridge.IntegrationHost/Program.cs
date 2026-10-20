@@ -9,7 +9,7 @@ using Umamusume.CoreBridge;
 
 namespace Umamusume.CoreBridge.IntegrationHost;
 
-internal static class Program
+internal static partial class Program
 {
     private static int _validatedNativeOcrCases;
 
@@ -253,13 +253,30 @@ internal static class Program
 
     private static bool ProbeLoad()
     {
-        if (!NativeLibrary.TryLoad("UmamusumeCore.dll", out IntPtr handle))
+        string[] candidates = OperatingSystem.IsWindows()
+            ? ["UmamusumeCore.dll"]
+            : OperatingSystem.IsMacOS()
+                ? ["UmamusumeCore.dylib", "libUmamusumeCore.dylib"]
+                : ["libUmamusumeCore.so", "UmamusumeCore.so"];
+
+        string baseDir = AppContext.BaseDirectory;
+        foreach (var candidate in candidates)
         {
-            return false;
+            string probePath = Path.Combine(baseDir, candidate);
+            if (File.Exists(probePath) && NativeLibrary.TryLoad(probePath, out IntPtr handle))
+            {
+                NativeLibrary.Free(handle);
+                return true;
+            }
+
+            if (NativeLibrary.TryLoad(candidate, typeof(Program).Assembly, null, out IntPtr h))
+            {
+                NativeLibrary.Free(h);
+                return true;
+            }
         }
 
-        NativeLibrary.Free(handle);
-        return true;
+        return false;
     }
 
     private static async Task<bool> ExpectCorruptResourceFailure()
@@ -328,8 +345,8 @@ internal static class Program
         string appData = CreateTemporaryDirectory();
         string? previousResolution = Environment.GetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION");
         string? previousOrientation = Environment.GetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION");
-        Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", "900x1600");
-        Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", "0");
+        SetEnv("UMA_FAKE_ADB_RESOLUTION", "900x1600");
+        SetEnv("UMA_FAKE_ADB_ORIENTATION", "0");
         try
         {
             await using var service = new UmaService(new InlineEventDispatcher());
@@ -371,8 +388,8 @@ internal static class Program
         }
         finally
         {
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", previousResolution);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", previousResolution);
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
             Directory.Delete(appData, recursive: true);
         }
     }
@@ -608,15 +625,15 @@ internal static class Program
         UmaService? service = null;
         try
         {
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", "900x1600");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_SERIAL", "test-serial");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_MODE", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
+            SetEnv("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", null);
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", null);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", "900x1600");
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DEVICES_SERIAL", "test-serial");
+            SetEnv("UMA_FAKE_ADB_DEVICES_MODE", null);
+            SetEnv("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
 
             service = new UmaService(new InlineEventDispatcher());
             await service.InitializeAsync(FindRepositoryResourceBaseDirectory(), appData);
@@ -645,7 +662,7 @@ internal static class Program
 
             // Reuse the exact image captured by the connected FakeAdb session so both
             // native WIC decoding and template matching exercise the same full frame.
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", templatePath);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", templatePath);
 
             var progress = new ConcurrentQueue<GameTaskProgressEvent>();
             var published = new ConcurrentQueue<ConnectionEvent>();
@@ -695,7 +712,7 @@ internal static class Program
                     string.Join(" | ", successfulTaps));
             }
 
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", "1");
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", "1");
             int terminalsBeforeFailure = published.Count(
                 static item => item is GameTaskCompletedEvent or GameTaskFailedEvent);
             GameTaskRunResult failure = await service.RunGameTaskAsync(
@@ -712,7 +729,7 @@ internal static class Program
                     $"terminals=[{string.Join(" | ", failureTerminals.Select(static item => item.ToString()))}].");
             }
 
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", null);
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", null);
             await WriteGameTaskDefinition(
                 definitionPath, templatePath, screenshotWidth, screenshotHeight, cancellationWait: true);
             var waitReached = new TaskCompletionSource<GameTaskProgressEvent>(
@@ -771,15 +788,15 @@ internal static class Program
                 await service.DisposeAsync();
             }
 
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", previousScreenshot);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", previousInputFail);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_COMMANDS_FILE", previousCommandsFile);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", previousResolution);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DISPLAY_ORIENTATION", previousDisplayOrientation);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_SERIAL", previousDevicesSerial);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_MODE", previousDevicesMode);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_OFFLINE_THEN_READY", previousOfflineThenReady);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", previousScreenshot);
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", previousInputFail);
+            SetEnv("UMA_FAKE_ADB_COMMANDS_FILE", previousCommandsFile);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", previousResolution);
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
+            SetEnv("UMA_FAKE_ADB_DISPLAY_ORIENTATION", previousDisplayOrientation);
+            SetEnv("UMA_FAKE_ADB_DEVICES_SERIAL", previousDevicesSerial);
+            SetEnv("UMA_FAKE_ADB_DEVICES_MODE", previousDevicesMode);
+            SetEnv("UMA_FAKE_ADB_OFFLINE_THEN_READY", previousOfflineThenReady);
             Directory.Delete(appData, recursive: true);
         }
     }
@@ -802,15 +819,15 @@ internal static class Program
         UmaService? service = null;
         try
         {
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", "900x1600");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_SERIAL", "test-serial");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_MODE", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
+            SetEnv("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", null);
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", null);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", "900x1600");
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DEVICES_SERIAL", "test-serial");
+            SetEnv("UMA_FAKE_ADB_DEVICES_MODE", null);
+            SetEnv("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
 
             service = new UmaService(new InlineEventDispatcher());
             await service.InitializeAsync(FindRepositoryResourceBaseDirectory(), appData);
@@ -835,7 +852,7 @@ internal static class Program
                     cancellationWait: false);
             }
 
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", templatePath);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", templatePath);
 
             string? catalogJson = await service.GetCatalogJsonAsync();
             if (string.IsNullOrEmpty(catalogJson))
@@ -952,15 +969,15 @@ internal static class Program
                 await service.DisposeAsync();
             }
 
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", previousScreenshot);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", previousInputFail);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_COMMANDS_FILE", previousCommandsFile);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", previousResolution);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DISPLAY_ORIENTATION", previousDisplayOrientation);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_SERIAL", previousDevicesSerial);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_MODE", previousDevicesMode);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_OFFLINE_THEN_READY", previousOfflineThenReady);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", previousScreenshot);
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", previousInputFail);
+            SetEnv("UMA_FAKE_ADB_COMMANDS_FILE", previousCommandsFile);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", previousResolution);
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", previousOrientation);
+            SetEnv("UMA_FAKE_ADB_DISPLAY_ORIENTATION", previousDisplayOrientation);
+            SetEnv("UMA_FAKE_ADB_DEVICES_SERIAL", previousDevicesSerial);
+            SetEnv("UMA_FAKE_ADB_DEVICES_MODE", previousDevicesMode);
+            SetEnv("UMA_FAKE_ADB_OFFLINE_THEN_READY", previousOfflineThenReady);
             Directory.Delete(appData, recursive: true);
         }
     }
@@ -1065,16 +1082,16 @@ internal static class Program
         try
         {
             await WriteDurableJson(checkpointPath, JsonSerializer.Serialize(checkpoint));
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_SCREENSHOT_PATH", homeScreenshotPath);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_CAPTURE_MODE", "png");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_INPUT_FAIL", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_RESOLUTION", "900x1600");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_SERIAL", serial);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_DEVICES_MODE", null);
-            Environment.SetEnvironmentVariable("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
+            SetEnv("UMA_FAKE_ADB_SCREENSHOT_PATH", homeScreenshotPath);
+            SetEnv("UMA_FAKE_ADB_COMMANDS_FILE", commandLogPath);
+            SetEnv("UMA_FAKE_ADB_CAPTURE_MODE", "png");
+            SetEnv("UMA_FAKE_ADB_INPUT_FAIL", null);
+            SetEnv("UMA_FAKE_ADB_RESOLUTION", "900x1600");
+            SetEnv("UMA_FAKE_ADB_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DISPLAY_ORIENTATION", "0");
+            SetEnv("UMA_FAKE_ADB_DEVICES_SERIAL", serial);
+            SetEnv("UMA_FAKE_ADB_DEVICES_MODE", null);
+            SetEnv("UMA_FAKE_ADB_OFFLINE_THEN_READY", null);
 
             service = new UmaService(new InlineEventDispatcher());
             await service.InitializeAsync(resourceRoot, appData);
@@ -1149,7 +1166,7 @@ internal static class Program
             {
                 foreach ((string name, string? value) in previousEnvironment)
                 {
-                    Environment.SetEnvironmentVariable(name, value);
+                    SetEnv(name, value);
                 }
 
                 Directory.Delete(appData, recursive: true);
@@ -1288,6 +1305,24 @@ internal static class Program
 
     private static void WriteResult(string scenario, bool success, string message, int? validatedCases = null) =>
         Console.Write(JsonSerializer.Serialize(new { scenario, success, message, validatedCases }));
+
+    [LibraryImport("libc", EntryPoint = "setenv", StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int libc_setenv(string name, string value, int overwrite);
+
+    [LibraryImport("libc", EntryPoint = "unsetenv", StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int libc_unsetenv(string name);
+
+    private static void SetEnv(string name, string? value)
+    {
+        Environment.SetEnvironmentVariable(name, value);
+        if (!OperatingSystem.IsWindows())
+        {
+            if (value is not null)
+                _ = libc_setenv(name, value, 1);
+            else
+                _ = libc_unsetenv(name);
+        }
+    }
 
     private sealed class InlineEventDispatcher : IEventDispatcher
     {

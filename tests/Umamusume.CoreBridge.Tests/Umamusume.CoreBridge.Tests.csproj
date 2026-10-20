@@ -20,7 +20,11 @@
   </ItemGroup>
   <Target Name="CopyNativeRuntimeForBridgeTests" AfterTargets="Build">
     <PropertyGroup>
-      <NativeCoreDll>$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeDllPath)' != ''">$(NativeDllPath)</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;Windows&quot;))'">$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'">$(MSBuildProjectDirectory)\..\..\build\osx-arm64-debug\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
     </PropertyGroup>
     <Copy SourceFiles="$(NativeCoreDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeCoreDll)')" />
     <Delete Files="$(TargetDir)testhost.exe" Condition="Exists('$(TargetDir)testhost.exe')" />
