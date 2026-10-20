@@ -6,13 +6,10 @@
              x:DataType="vm:SettingsViewModel">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="32,24,32,36" Spacing="20" MaxWidth="900" HorizontalAlignment="Stretch">
-
-            <!-- Header -->
-            <TextBlock Text="{DynamicResource Ui_e976eab5d83f}" FontSize="24" FontWeight="SemiBold"
+        <StackPanel Margin="36,24,42,42" Spacing="12" HorizontalAlignment="Stretch">
+            <TextBlock Text="{DynamicResource Ui_e976eab5d83f}" FontSize="32" FontWeight="Light"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
-            <!-- InfoBar Notification -->
             <ui:InfoBar IsOpen="{Binding IsNotificationOpen}"
                         Title="{Binding NotificationTitle}"
                         Message="{Binding NotificationMessage}"
@@ -20,204 +17,279 @@
                         IsClosable="True"
                         CloseButtonCommand="{Binding DismissNotificationCommand}" />
 
-            <!-- Group 1: Appearance & Personalization -->
-            <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource Ui_22d575781845}" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="2,0,0,2" TextWrapping="Wrap" />
+            <TabControl Margin="0,10,0,0" SelectedIndex="0">
+                <!-- Connection: same grouping as the Windows settings page. -->
+                <TabItem Header="{DynamicResource SettingsNavConnection}">
+                    <StackPanel Spacing="18" Margin="4,14,4,0">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{DynamicResource SettingsConnectionTitle}" FontSize="16" FontWeight="SemiBold" />
 
-                <!-- Theme Selector -->
-                <ui:SettingsExpander Header="{DynamicResource Ui_fac085e35661}"
-                                     Description="{DynamicResource Ui_cf0311efb8c2}">
-                    <ui:SettingsExpander.IconSource>
-                        <ui:SymbolIconSource Symbol="DarkTheme" />
-                    </ui:SettingsExpander.IconSource>
-                    <ui:SettingsExpander.Footer>
-                        <ComboBox ItemsSource="{Binding AvailableThemes}"
-                                  SelectedItem="{Binding SelectedTheme}"
-                                  Width="180" />
-                    </ui:SettingsExpander.Footer>
-                </ui:SettingsExpander>
+                            <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="16,13">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource SettingsConnectionStatus}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ConnectionStatus}" FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <Button Content="{DynamicResource SettingsConnect}" Command="{Binding ConnectDeviceCommand}"
+                                                Classes="accent" IsEnabled="{Binding !IsConnectionBusy}"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                Margin="0,0,8,0" />
+                                        <Button Content="{DynamicResource SettingsCancel}" Command="{Binding CancelConnectionCommand}"
+                                                IsVisible="{Binding IsConnecting}" Margin="0,0,8,0" />
+                                        <Button Content="{DynamicResource SettingsDisconnect}" Command="{Binding DisconnectDeviceCommand}"
+                                                IsEnabled="{Binding IsConnected}" />
+                                    </WrapPanel>
+                                </Grid>
+                            </Border>
 
-                <!-- Language Selector -->
-                <ui:SettingsExpander Header="{DynamicResource Ui_4d8a37136c21}"
-                                     Description="{DynamicResource Ui_416f3a48495b}">
-                    <ui:SettingsExpander.IconSource>
-                        <ui:SymbolIconSource Symbol="Font" />
-                    </ui:SettingsExpander.IconSource>
-                    <ui:SettingsExpander.Footer>
-                        <ComboBox ItemsSource="{Binding AvailableLanguages}"
-                                  SelectedItem="{Binding SelectedLanguage}"
-                                  Width="180" />
-                    </ui:SettingsExpander.Footer>
-                </ui:SettingsExpander>
-            </StackPanel>
+                            <ui:SettingsExpander Header="{DynamicResource Ui_d4cf9c709fd3}"
+                                                 Description="{Binding AdbPath}" IsExpanded="True">
+                                <ui:SettingsExpander.IconSource>
+                                    <ui:SymbolIconSource Symbol="Repair" />
+                                </ui:SettingsExpander.IconSource>
+                                <ui:SettingsExpander.Footer>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBox Text="{Binding AdbPath}" Width="260" />
+                                        <Button Command="{Binding AutoDetectAdbCommand}" Content="{DynamicResource SettingsFindAdb}" />
+                                        <Button Command="{Binding BrowseAdbCommand}" Content="{DynamicResource Ui_01463dd05cfd}" />
+                                    </StackPanel>
+                                </ui:SettingsExpander.Footer>
 
-            <!-- Group 2: Connection & ADB Environment -->
-            <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource Ui_71e5e42ca950}" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="2,0,0,2" TextWrapping="Wrap" />
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_a1bc8acb222d}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <TextBox Text="{Binding DeviceAddress}" Width="220" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_b39ee457e37d}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ComboBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding SelectedProfile}" Width="190" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_588850944730}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ui:NumberBox Value="{Binding TimeoutSeconds}" Minimum="1" Maximum="300" Width="120" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_826e5a6864a1}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding AutoDetectConnection}" OnContent="{DynamicResource Ui_256783b7d4ea}"
+                                                      OffContent="{DynamicResource Ui_6c14bd7f6f9e}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_8ca6c0b1393f}"
+                                                         Description="{DynamicResource Ui_feb9e2b63399}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding AlwaysAutoDetectConnection}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                            </ui:SettingsExpander>
 
-                <!-- ADB Settings Expander -->
-                <ui:SettingsExpander Header="{DynamicResource Ui_d4cf9c709fd3}"
-                                     Description="{Binding AdbPath}"
-                                     IsExpanded="True">
-                    <ui:SettingsExpander.IconSource>
-                        <ui:SymbolIconSource Symbol="Repair" />
-                    </ui:SettingsExpander.IconSource>
-                    <ui:SettingsExpander.Footer>
-                        <Button Command="{Binding AutoDetectAdbCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <ui:SymbolIcon Symbol="Find" FontSize="14" />
-                                <TextBlock Text="{DynamicResource Ui_00ab1b885808}" TextWrapping="Wrap" />
+                            <ui:SettingsExpander Header="{DynamicResource Ui_f6af33bc4369}"
+                                                 Description="{DynamicResource Ui_6d3175742986}" IsExpanded="True">
+                                <ui:SettingsExpander.IconSource>
+                                    <ui:SymbolIconSource Symbol="Games" />
+                                </ui:SettingsExpander.IconSource>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_5ee7241a3a03}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding AutoStartEmulator}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_70e65060d1af}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBox Text="{Binding EmulatorExecutablePath}" Width="240" />
+                                            <Button Content="{DynamicResource Ui_01463dd05cfd}" Command="{Binding BrowseEmulatorCommand}" />
+                                        </StackPanel>
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_9d65b5f15ef1}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ui:NumberBox Value="{Binding AutoStartEmulatorWaitSeconds}" Minimum="0" Maximum="300" Width="120" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_ab5b803dd3f2}"
+                                                         Description="{DynamicResource Ui_f915139f866f}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <TextBox Text="{Binding TargetPackageIds}" Width="300" AcceptsReturn="True" MinHeight="70"
+                                                 Watermark="com.cygames.umamusume" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_35b6930c834b}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <TextBox Text="{Binding TargetActivityName}" Width="300" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                            </ui:SettingsExpander>
+
+                            <StackPanel IsVisible="{Binding IsConnected}" Spacing="8">
+                                <TextBlock Text="{DynamicResource Ui_eebb0ea6233e}" FontSize="16" FontWeight="SemiBold" />
+                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                        CornerRadius="8" Padding="16,13">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="{DynamicResource SettingsSerial}" Margin="0,0,10,8"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding ConnectedDevice.Serial}" Margin="0,0,10,8" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="2" Text="Android ID" Margin="0,0,10,8"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding ConnectedDevice.AndroidId}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1" Text="{DynamicResource Ui_fbb9d1e29411}" Margin="0,0,10,0"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectedDevice.AndroidVersion}" Margin="0,0,10,0" />
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource SettingsResolution}" Margin="0,0,10,0"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding ConnectedDeviceResolution}" />
+                                    </Grid>
+                                </Border>
                             </StackPanel>
-                        </Button>
-                    </ui:SettingsExpander.Footer>
+                        </StackPanel>
+                    </StackPanel>
+                </TabItem>
 
-                    <!-- Device Address -->
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_a1bc8acb222d}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <TextBox Text="{Binding DeviceAddress}" Width="180" />
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
+                <!-- Language and appearance -->
+                <TabItem Header="{DynamicResource SettingsNavLanguage}">
+                    <StackPanel Spacing="10" Margin="4,14,4,0">
+                        <TextBlock Text="{DynamicResource Ui_4d8a37136c21}" FontSize="16" FontWeight="SemiBold" />
+                        <ui:SettingsExpander Header="{DynamicResource Ui_fac085e35661}"
+                                             Description="{DynamicResource Ui_cf0311efb8c2}">
+                            <ui:SettingsExpander.IconSource>
+                                <ui:SymbolIconSource Symbol="DarkTheme" />
+                            </ui:SettingsExpander.IconSource>
+                            <ui:SettingsExpander.Footer>
+                                <ComboBox ItemsSource="{Binding AvailableThemes}" SelectedItem="{Binding SelectedTheme}" Width="190" />
+                            </ui:SettingsExpander.Footer>
+                        </ui:SettingsExpander>
+                        <ui:SettingsExpander Header="{DynamicResource Ui_4d8a37136c21}"
+                                             Description="{DynamicResource Ui_416f3a48495b}">
+                            <ui:SettingsExpander.IconSource>
+                                <ui:SymbolIconSource Symbol="Font" />
+                            </ui:SettingsExpander.IconSource>
+                            <ui:SettingsExpander.Footer>
+                                <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding SelectedLanguage}" Width="220" />
+                            </ui:SettingsExpander.Footer>
+                        </ui:SettingsExpander>
+                    </StackPanel>
+                </TabItem>
 
-                    <!-- Profile Preset -->
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_b39ee457e37d}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <ComboBox ItemsSource="{Binding AvailableProfiles}"
-                                      SelectedItem="{Binding SelectedProfile}"
-                                      Width="180" />
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
+                <!-- System/runtime and update information -->
+                <TabItem Header="{DynamicResource SettingsNavSystem}">
+                    <StackPanel Spacing="18" Margin="4,14,4,0">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{DynamicResource SettingsSystemTitle}" FontSize="16" FontWeight="SemiBold" />
+                            <ui:SettingsExpander Header="{DynamicResource Ui_1a3b8eb8e6d7}"
+                                                 Description="{Binding NativeCoreStatus}" IsExpanded="True">
+                                <ui:SettingsExpander.IconSource>
+                                    <ui:SymbolIconSource Symbol="Folder" />
+                                </ui:SettingsExpander.IconSource>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_78d3907a35d1}"
+                                                         Description="{Binding ResourceDirectory}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <Button Command="{Binding OpenResourceDirectoryCommand}" Content="{DynamicResource Ui_031c10557843}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_7263734fff4e}"
+                                                         Description="{Binding UserDataDirectory}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <Button Command="{Binding OpenUserDataDirectoryCommand}" Content="{DynamicResource Ui_031c10557843}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                            </ui:SettingsExpander>
 
-                    <!-- Timeout -->
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_588850944730}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <ui:NumberBox Value="{Binding TimeoutSeconds}" Minimum="1" Maximum="300" Width="120" />
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
+                            <ui:SettingsExpander Header="{DynamicResource Ui_55342cf0f49f}" Description="{Binding CoreVersion}">
+                                <ui:SettingsExpander.IconSource>
+                                    <ui:SymbolIconSource Symbol="Important" />
+                                </ui:SettingsExpander.IconSource>
+                                <ui:SettingsExpander.Footer>
+                                    <Button Command="{Binding OpenGitHubCommand}" Content="{DynamicResource SettingsRepository}" />
+                                </ui:SettingsExpander.Footer>
+                                <ui:SettingsExpanderItem Content="{DynamicResource SettingsPlatform}" Description="{Binding PlatformInfo}" />
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_37c8a09aa9c9}"
+                                                         Description="Avalonia 11.2 + FluentAvalonia 2.2" />
+                            </ui:SettingsExpander>
+                        </StackPanel>
 
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_826e5a6864a1}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <ToggleSwitch IsChecked="{Binding AutoDetectConnection}" OnContent="{DynamicResource Ui_256783b7d4ea}" OffContent="{DynamicResource Ui_6c14bd7f6f9e}" />
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_9daf8f66d2ad}"><ui:SettingsExpanderItem.Footer><ToggleSwitch IsChecked="{Binding AlwaysAutoDetectConnection}" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_a3317ffc551e}"><ui:SettingsExpanderItem.Footer><Button Content="{DynamicResource Ui_01463dd05cfd}" Command="{Binding BrowseAdbCommand}" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                </ui:SettingsExpander>
-                <ui:SettingsExpander Header="{DynamicResource Ui_f6af33bc4369}" Description="{DynamicResource Ui_4f0cf0718abd}" IsExpanded="True">
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_5ee7241a3a03}"><ui:SettingsExpanderItem.Footer><ToggleSwitch IsChecked="{Binding AutoStartEmulator}" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_70e65060d1af}">
-                        <ui:SettingsExpanderItem.Footer><StackPanel Orientation="Horizontal" Spacing="8"><TextBox Text="{Binding EmulatorExecutablePath}" Width="230" /><Button Content="{DynamicResource Ui_01463dd05cfd}" Command="{Binding BrowseEmulatorCommand}" /></StackPanel></ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_9d65b5f15ef1}"><ui:SettingsExpanderItem.Footer><ui:NumberBox Value="{Binding AutoStartEmulatorWaitSeconds}" Minimum="0" Maximum="300" Width="120" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_ab5b803dd3f2}" Description="{DynamicResource Ui_f915139f866f}">
-                        <ui:SettingsExpanderItem.Footer><TextBox Text="{Binding TargetPackageIds}" Width="280" AcceptsReturn="True" MinHeight="70" Watermark="com.cygames.umamusume" /></ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_35b6930c834b}"><ui:SettingsExpanderItem.Footer><TextBox Text="{Binding TargetActivityName}" Width="280" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                </ui:SettingsExpander>
-            </StackPanel>
-
-            <!-- Group 3: Native Runtime & Storage Paths -->
-            <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource Ui_f6023838e359}" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="2,0,0,2" TextWrapping="Wrap" />
-
-                <ui:SettingsExpander Header="{DynamicResource Ui_1a3b8eb8e6d7}"
-                                     Description="{Binding NativeCoreStatus}"
-                                     IsExpanded="True">
-                    <ui:SettingsExpander.IconSource>
-                        <ui:SymbolIconSource Symbol="Folder" />
-                    </ui:SettingsExpander.IconSource>
-
-                    <!-- Resource Dir -->
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_78d3907a35d1}"
-                                             Description="{Binding ResourceDirectory}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <Button Command="{Binding OpenResourceDirectoryCommand}">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Folder" FontSize="14" />
-                                    <TextBlock Text="{DynamicResource Ui_031c10557843}" TextWrapping="Wrap" />
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{DynamicResource SettingsUpdatesTitle}" FontSize="16" FontWeight="SemiBold" />
+                            <ui:SettingsExpander Header="{DynamicResource Ui_b616b5345aaf}" Description="{Binding UpdateStatus}" IsExpanded="True">
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_213f55e5e5f3}">
+                                    <ui:SettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding StartupUpdateCheck}" />
+                                    </ui:SettingsExpanderItem.Footer>
+                                </ui:SettingsExpanderItem>
+                                <StackPanel Spacing="10" Margin="16">
+                                    <WrapPanel>
+                                        <Button Content="{DynamicResource Ui_a6df38586d84}" Command="{Binding CheckUpdatesCommand}"
+                                                IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
+                                        <Button Content="{DynamicResource Ui_0acaae8c8cdd}" Command="{Binding OpenReleasesCommand}" Margin="0,0,8,8" />
+                                        <Button Content="{DynamicResource Ui_19f1c08251e9}" Command="{Binding DownloadUpdateCommand}"
+                                                IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
+                                        <Button Content="{DynamicResource Ui_b0d08cd6b4fd}" Command="{Binding SkipVersionCommand}"
+                                                IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
+                                        <Button Content="{DynamicResource Ui_4d0b4688c787}" Command="{Binding CancelUpdateCommand}"
+                                                IsVisible="{Binding IsUpdating}" Margin="0,0,8,8" />
+                                    </WrapPanel>
+                                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsUpdating}" Height="3" />
                                 </StackPanel>
-                            </Button>
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
+                            </ui:SettingsExpander>
+                        </StackPanel>
+                    </StackPanel>
+                </TabItem>
 
-                    <!-- User Data Dir -->
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_7263734fff4e}"
-                                             Description="{Binding UserDataDirectory}">
-                        <ui:SettingsExpanderItem.Footer>
-                            <Button Command="{Binding OpenUserDataDirectoryCommand}">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Folder" FontSize="14" />
-                                    <TextBlock Text="{DynamicResource Ui_031c10557843}" TextWrapping="Wrap" />
-                                </StackPanel>
-                            </Button>
-                        </ui:SettingsExpanderItem.Footer>
-                    </ui:SettingsExpanderItem>
-                </ui:SettingsExpander>
-            </StackPanel>
+                <!-- Hachimi shop options are shared with the Windows client. -->
+                <TabItem Header="{DynamicResource SettingsNavHachimi}">
+                    <StackPanel Spacing="10" Margin="4,14,4,0">
+                        <TextBlock Text="{DynamicResource Ui_65f4453f5abb}" FontSize="16" FontWeight="SemiBold" />
+                        <ui:SettingsExpander Header="{DynamicResource SettingsShopTitle}"
+                                             Description="{DynamicResource Ui_1ed86303ff2c}" IsExpanded="True">
+                            <ui:SettingsExpander.IconSource>
+                                <ui:SymbolIconSource Symbol="Shop" />
+                            </ui:SettingsExpander.IconSource>
+                            <ui:SettingsExpanderItem Content="{DynamicResource SettingsShopEnabled}">
+                                <ui:SettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding ShopEnabled}" />
+                                </ui:SettingsExpanderItem.Footer>
+                            </ui:SettingsExpanderItem>
+                            <ui:SettingsExpanderItem Content="{DynamicResource Ui_15eef27ca060}"
+                                                     Description="{DynamicResource Ui_e8302b4999f0}">
+                                <ui:SettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding ShopSelectAll}" />
+                                </ui:SettingsExpanderItem.Footer>
+                            </ui:SettingsExpanderItem>
+                            <ui:SettingsExpanderItem Content="{DynamicResource SettingsShopItemsTitle}">
+                                <ui:SettingsExpanderItem.Footer>
+                                    <StackPanel Spacing="8" HorizontalAlignment="Right">
+                                        <CheckBox Content="{DynamicResource SettingsBuyStarPieces}" IsChecked="{Binding BuyStarPieces}" />
+                                        <CheckBox Content="{DynamicResource SettingsBuyAlarmClock}" IsChecked="{Binding BuyAlarmClock}" />
+                                        <CheckBox Content="{DynamicResource SettingsBuyParfait}" IsChecked="{Binding BuyPleasingParfait}" />
+                                        <CheckBox Content="{DynamicResource SettingsBuyShoes}" IsChecked="{Binding BuyShoes}" />
+                                        <CheckBox Content="{DynamicResource SettingsBuySupportPoints}" IsChecked="{Binding BuySupportPoints}" />
+                                        <CheckBox Content="{DynamicResource SettingsBuyFlags}" IsChecked="{Binding BuyFlags}" />
+                                    </StackPanel>
+                                </ui:SettingsExpanderItem.Footer>
+                            </ui:SettingsExpanderItem>
+                        </ui:SettingsExpander>
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
 
-            <!-- Group 4: About & Repository -->
-            <StackPanel Spacing="10">
-                <TextBlock Text="{DynamicResource Ui_b6772206c440}" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="2,0,0,2" TextWrapping="Wrap" />
-
-                <ui:SettingsExpander Header="{DynamicResource Ui_55342cf0f49f}"
-                                     Description="{Binding CoreVersion}"
-                                     IsExpanded="False">
-                    <ui:SettingsExpander.IconSource>
-                        <ui:SymbolIconSource Symbol="Important" />
-                    </ui:SettingsExpander.IconSource>
-                    <ui:SettingsExpander.Footer>
-                        <Button Command="{Binding OpenGitHubCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <ui:SymbolIcon Symbol="Link" FontSize="14" />
-                                <TextBlock Text="{DynamicResource Ui_5447bc5166e9}" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Button>
-                    </ui:SettingsExpander.Footer>
-
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_ce751e2efc78}"
-                                             Description="{Binding PlatformInfo}" />
-
-                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_37c8a09aa9c9}"
-                                             Description="Avalonia 11.2 + FluentAvalonia 2.2 (WinUI 3 Fluent 2 Design System)" />
-                </ui:SettingsExpander>
-            </StackPanel>
-
-            <ui:SettingsExpander Header="{DynamicResource Ui_b616b5345aaf}" Description="{Binding UpdateStatus}" IsExpanded="True">
-                <ui:SettingsExpanderItem Content="{DynamicResource Ui_213f55e5e5f3}"><ui:SettingsExpanderItem.Footer><ToggleSwitch IsChecked="{Binding StartupUpdateCheck}" /></ui:SettingsExpanderItem.Footer></ui:SettingsExpanderItem>
-                <StackPanel Spacing="10" Margin="16">
-                    <WrapPanel>
-                        <Button Content="{DynamicResource Ui_a6df38586d84}" Command="{Binding CheckUpdatesCommand}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
-                        <Button Content="{DynamicResource Ui_0acaae8c8cdd}" Command="{Binding OpenReleasesCommand}" Margin="0,0,8,8" />
-                        <Button Content="{DynamicResource Ui_19f1c08251e9}" Command="{Binding DownloadUpdateCommand}" IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
-                        <Button Content="{DynamicResource Ui_b0d08cd6b4fd}" Command="{Binding SkipVersionCommand}" IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
-                        <Button Content="{DynamicResource Ui_4d0b4688c787}" Command="{Binding CancelUpdateCommand}" IsVisible="{Binding IsUpdating}" Margin="0,0,8,8" />
-                    </WrapPanel>
-                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsUpdating}" Height="3" />
-                </StackPanel>
-            </ui:SettingsExpander>
-            <!-- Action Bar -->
             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,10,0,0">
-                <Button Command="{Binding SaveSettingsCommand}"
-                        Classes="accent"
-                        Padding="24,10">
+                <Button Command="{Binding SaveSettingsCommand}" Classes="accent" Padding="24,10">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ui:SymbolIcon Symbol="Save" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_a9174def1fa1}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="{DynamicResource Ui_a9174def1fa1}" FontWeight="SemiBold" />
                     </StackPanel>
                 </Button>
-
-                <Button Command="{Binding ResetDefaultsCommand}"
-                        Padding="18,10">
+                <Button Command="{Binding ResetDefaultsCommand}" Padding="18,10">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ui:SymbolIcon Symbol="Refresh" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_0b2e8750286d}" TextWrapping="Wrap" />
+                        <TextBlock Text="{DynamicResource Ui_0b2e8750286d}" />
                     </StackPanel>
                 </Button>
             </StackPanel>
-
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -3,7 +3,16 @@
              xmlns:sty="using:FluentAvalonia.Styling"
              x:Class="Umamusume.Avalonia.App"
              RequestedThemeVariant="Default">
+    <Application.Resources>
+        <DataTemplate x:Key="CompactTabHeaderTemplate">
+            <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" />
+        </DataTemplate>
+    </Application.Resources>
+
     <Application.Styles>
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
+        <Style Selector="TabItem">
+            <Setter Property="HeaderTemplate" Value="{StaticResource CompactTabHeaderTemplate}" />
+        </Style>
     </Application.Styles>
 </Application>

@@ -20,6 +20,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly ReleaseUpdateService _updates = new();
     private ReleaseDownload? _availableRelease;
     private CancellationTokenSource? _updateCts;
+    private CancellationTokenSource? _connectionCts;
     private bool _isUpdatingLanguage;
 
     private enum UpdateState
@@ -67,6 +68,20 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _updateStatus = string.Empty;
     [ObservableProperty] private bool _isUpdating;
     [ObservableProperty] private bool _hasUpdate;
+    [ObservableProperty] private bool _isConnected;
+    [ObservableProperty] private bool _isConnecting;
+    [ObservableProperty] private bool _isConnectionBusy;
+    [ObservableProperty] private string _connectionStatus = string.Empty;
+    [ObservableProperty] private ConnectedDeviceInfo? _connectedDevice;
+    [ObservableProperty] private string _connectedDeviceResolution = string.Empty;
+    [ObservableProperty] private bool _shopEnabled = true;
+    [ObservableProperty] private bool _shopSelectAll;
+    [ObservableProperty] private bool _buyStarPieces;
+    [ObservableProperty] private bool _buyAlarmClock;
+    [ObservableProperty] private bool _buyPleasingParfait;
+    [ObservableProperty] private bool _buyShoes;
+    [ObservableProperty] private bool _buySupportPoints;
+    [ObservableProperty] private bool _buyFlags;
 
     public IReadOnlyList<string> AvailableProfiles { get; } = ConnectionSettings.SupportedConnectConfigs;
     public event Action? ConnectionSettingsSaved;
@@ -84,6 +99,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         var settings = settingsService.Load();
         _localizationService.CurrentLanguage = settings.Language;
         UiLocalization.Apply(settings.Language);
+        LoadHachimiShopSettings(settings.Hachimi.Shop);
+
+        RefreshConnectionStatus();
+        automationService.StatusChanged += _ => RunOnUI(RefreshConnectionStatus);
+        automationService.BusyChanged += _ => RunOnUI(RefreshConnectionStatus);
 
         UpdateLocalizedTexts(settings.Theme);
         ApplyTheme();
@@ -200,6 +220,74 @@ public sealed partial class SettingsViewModel : ViewModelBase
         AutoStartEmulatorWaitSeconds = settings.AutoStartEmulatorWaitSeconds; TimeoutSeconds = settings.ConnectionTimeoutSeconds;
     }
 
+    private void LoadHachimiShopSettings(HachimiShopSettings shop)
+    {
+        ShopEnabled = shop.Enabled;
+        ShopSelectAll = shop.SelectAll;
+        BuyStarPieces = shop.BuyStarPieces;
+        BuyAlarmClock = shop.BuyAlarmClock;
+        BuyPleasingParfait = shop.BuyPleasingParfait;
+        BuyShoes = shop.BuyShoes;
+        BuySupportPoints = shop.BuySupportPoints;
+        BuyFlags = shop.BuyFlags;
+    }
+
+    private void RefreshConnectionStatus()
+    {
+        IsConnected = _automationService.IsConnected;
+        IsConnectionBusy = _automationService.IsBusy;
+        ConnectionStatus = _automationService.CurrentStatus;
+        ConnectedDevice = _automationService.CurrentDevice;
+        ConnectedDeviceResolution = ConnectedDevice is { } device ? $"{device.Width} × {device.Height}" : string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task ConnectDeviceAsync()
+    {
+        if (_automationService.IsBusy) return;
+        if (string.IsNullOrWhiteSpace(AdbPath) || string.IsNullOrWhiteSpace(DeviceAddress))
+        {
+            ShowNotification(
+                IsEnglish ? "Connection settings required" : "请填写连接配置",
+                IsEnglish ? "Enter an ADB path and device address before connecting." : "连接前请填写 ADB 路径和设备地址。",
+                InfoBarSeverity.Warning);
+            return;
+        }
+
+        using var cts = new CancellationTokenSource();
+        _connectionCts = cts;
+        IsConnecting = true;
+        RefreshConnectionStatus();
+        try
+        {
+            bool connected = await _automationService.ConnectAsync(
+                AdbPath.Trim(), DeviceAddress.Trim(), SelectedProfile, cts.Token);
+            RefreshConnectionStatus();
+            if (!connected)
+                ShowNotification(IsEnglish ? "Connection failed" : "连接失败", ConnectionStatus, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            if (ReferenceEquals(_connectionCts, cts)) _connectionCts = null;
+            IsConnecting = false;
+            RefreshConnectionStatus();
+        }
+    }
+
+    [RelayCommand]
+    private void CancelConnection()
+    {
+        _connectionCts?.Cancel();
+        _automationService.CancelCurrentOperation();
+    }
+
+    [RelayCommand]
+    private async Task DisconnectDeviceAsync()
+    {
+        await _automationService.DisconnectAsync();
+        RefreshConnectionStatus();
+    }
+
     partial void OnSelectedThemeChanged(string value)
     {
         if (_isUpdatingLanguage) return;
@@ -263,11 +351,19 @@ public sealed partial class SettingsViewModel : ViewModelBase
             settings.EmulatorExecutablePath = EmulatorExecutablePath; settings.AutoStartEmulatorWaitSeconds = AutoStartEmulatorWaitSeconds;
             settings.TargetPackageIds = TargetPackageIds.Split(['\r', '\n', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.Ordinal).ToList();
             settings.TargetActivityName = TargetActivityName.Trim(); settings.StartupUpdateCheck = StartupUpdateCheck;
+            settings.Hachimi.Shop.Enabled = ShopEnabled;
+            settings.Hachimi.Shop.SelectAll = ShopSelectAll;
+            settings.Hachimi.Shop.BuyStarPieces = BuyStarPieces;
+            settings.Hachimi.Shop.BuyAlarmClock = BuyAlarmClock;
+            settings.Hachimi.Shop.BuyPleasingParfait = BuyPleasingParfait;
+            settings.Hachimi.Shop.BuyShoes = BuyShoes;
+            settings.Hachimi.Shop.BuySupportPoints = BuySupportPoints;
+            settings.Hachimi.Shop.BuyFlags = BuyFlags;
             _settingsService.Save(settings);
             ConnectionSettingsSaved?.Invoke();
             ShowNotification(
                 IsEnglish ? "Settings saved" : "设置已保存",
-                IsEnglish ? "Connection, startup, appearance, and update preferences saved." : "连接、启动、外观和更新偏好已保存。",
+                IsEnglish ? "Connection, startup, appearance, update, and shop settings saved." : "连接、启动、外观、更新和商店设置已保存。",
                 InfoBarSeverity.Success);
         }
         catch (Exception ex) { ShowNotification(IsEnglish ? "Failed to save" : "保存失败", ex.Message, InfoBarSeverity.Error); }
@@ -280,6 +376,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
         TimeoutSeconds = 15; AutoDetectConnection = true; AlwaysAutoDetectConnection = false; AutoStartEmulator = false;
         EmulatorExecutablePath = ""; AutoStartEmulatorWaitSeconds = 5; TargetPackageIds = ""; TargetActivityName = ""; StartupUpdateCheck = true;
         SelectedTheme = AvailableThemes.Count > 2 ? AvailableThemes[2] : (IsEnglish ? "System" : "跟随系统 (System)");
+        ShopEnabled = true; ShopSelectAll = false;
+        BuyStarPieces = false; BuyAlarmClock = false; BuyPleasingParfait = false;
+        BuyShoes = false; BuySupportPoints = false; BuyFlags = false;
         ShowNotification(
             IsEnglish ? "Defaults restored" : "默认值已填入",
             IsEnglish ? "Click Save Settings to apply." : "点击保存配置后生效。",
