@@ -1,6 +1,10 @@
+#if defined(_WIN32)
 #define UMA_FIXTURE_EXPORT __declspec(dllexport)
-
 #define UMA_FIXTURE_FUNCTION(name) UMA_FIXTURE_EXPORT void __stdcall name(void) {}
+#else
+#define UMA_FIXTURE_EXPORT __attribute__((visibility("default")))
+#define UMA_FIXTURE_FUNCTION(name) UMA_FIXTURE_EXPORT void name(void) {}
+#endif
 
 UMA_FIXTURE_FUNCTION(UmaGetVersionX)
 UMA_FIXTURE_FUNCTION(UmaGetApiVersion)

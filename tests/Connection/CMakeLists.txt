@@ -22,8 +22,10 @@ target_link_libraries(ConnectionProfileTests
   PRIVATE
     Catch2::Catch2WithMain
     UmaAssistantConnection
-    ws2_32
 )
+if(WIN32)
+  target_link_libraries(ConnectionProfileTests PRIVATE ws2_32)
+endif()
 
 target_compile_definitions(ConnectionProfileTests
   PRIVATE
@@ -77,8 +79,10 @@ target_link_libraries(CoreRuntimeResourceTests
   PRIVATE
     Catch2::Catch2WithMain
     UmaAssistantCoreRuntime
-    windowsapp
 )
+if(WIN32)
+  target_link_libraries(CoreRuntimeResourceTests PRIVATE windowsapp)
+endif()
 
 target_compile_definitions(CoreRuntimeResourceTests
   PRIVATE
@@ -111,9 +115,12 @@ target_link_libraries(UmaCallerTests
     Catch2::Catch2WithMain
     UmaAssistantCore
     nlohmann_json::nlohmann_json
-    windowscodecs
-    windowsapp
 )
+if(WIN32)
+  target_link_libraries(UmaCallerTests PRIVATE windowscodecs windowsapp)
+else()
+  target_link_libraries(UmaCallerTests PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+endif()
 
 target_compile_definitions(UmaCallerTests
   PRIVATE
@@ -127,6 +134,9 @@ uma_add_strict_warnings(UmaCallerTests)
 
 add_executable(NativeTaskContextTests NativeTaskContextTests.cpp)
 target_link_libraries(NativeTaskContextTests PRIVATE Catch2::Catch2WithMain UmaAssistantGameTasks)
+if(APPLE)
+  target_link_libraries(NativeTaskContextTests PRIVATE "-framework CoreFoundation" "-framework CoreGraphics" "-framework ImageIO")
+endif()
 target_compile_definitions(NativeTaskContextTests PRIVATE
   CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
   UMA_FAKE_ADB_PATH="$<TARGET_FILE:UmaFakeAdb>"

@@ -18,6 +18,7 @@
 #include "TaskEngine/TaskFrameSnapshot.hpp"
 #include "../TaskEngine/MockTaskExecutionContext.hpp"
 
+#include <iostream>
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -949,3 +950,4 @@ TEST_CASE("Failed preflight recovery and launcher failures return without replay
         CHECK(result.totalUnits == 1);
     }
 }
+

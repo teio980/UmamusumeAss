@@ -9,9 +9,70 @@
 
 #include <nlohmann/json.hpp>
 
+#if defined(_WIN32)
 #include <windows.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+inline uint32_t current_process_id() { return ::GetCurrentProcessId(); }
+#else
+#include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
+inline uint32_t current_process_id() { return static_cast<uint32_t>(getpid()); }
+#define GetCurrentProcessId current_process_id
+using UINT = unsigned int;
+using DWORD = uint32_t;
+
+inline int SetEnvironmentVariableW(wchar_t const* name, wchar_t const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        std::filesystem::path p_val(value);
+        return setenv(s_name.c_str(), p_val.string().c_str(), 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline int SetEnvironmentVariableW(wchar_t const* name, char const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        return setenv(s_name.c_str(), value, 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline DWORD GetEnvironmentVariableW(wchar_t const* name, wchar_t* buffer, DWORD size)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    char const* val = std::getenv(p_name.string().c_str());
+    if (!val) return 0;
+    std::filesystem::path p_val(val);
+    std::wstring w_val = p_val.wstring();
+    if (buffer == nullptr || size == 0)
+    {
+        return static_cast<DWORD>(w_val.size() + 1);
+    }
+    if (w_val.size() < size)
+    {
+        std::copy(w_val.begin(), w_val.end(), buffer);
+        buffer[w_val.size()] = L'\0';
+        return static_cast<DWORD>(w_val.size());
+    }
+    return static_cast<DWORD>(w_val.size() + 1);
+}
+#endif
 
 #include <algorithm>
 #include <array>
@@ -61,6 +122,7 @@ private:
     std::map<std::wstring, std::wstring> previous;
 };
 
+#if defined(_WIN32)
 bool WritePng(fs::path const& path, UINT width, UINT height,
     std::array<std::uint8_t, 4> bgra = {255, 255, 255, 255})
 {
@@ -94,6 +156,38 @@ bool WritePng(fs::path const& path, UINT width, UINT height,
     return SUCCEEDED(frame->WritePixels(height, stride, static_cast<UINT>(pixels.size()), pixels.data()))
         && SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
 }
+#else
+bool WritePng(fs::path const& path, unsigned int width, unsigned int height,
+    std::array<std::uint8_t, 4> bgra = {255, 255, 255, 255})
+{
+    std::string const u8path = path.string();
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+        reinterpret_cast<UInt8 const*>(u8path.data()), static_cast<CFIndex>(u8path.size()), false);
+    if (!url) return false;
+    CGImageDestinationRef dest = CGImageDestinationCreateWithURL(url, CFSTR("public.png"), 1, nullptr);
+    CFRelease(url);
+    if (!dest) return false;
+
+    auto const stride = width * 4;
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(stride) * height, 255);
+    for (std::size_t index = 0; index < pixels.size(); index += 4)
+        std::copy(bgra.begin(), bgra.end(), pixels.begin() + static_cast<std::ptrdiff_t>(index));
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(pixels.data(), width, height, 8, stride,
+        colorSpace, static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGBitmapByteOrder32Little) | static_cast<uint32_t>(kCGImageAlphaPremultipliedFirst)));
+    CGImageRef img = ctx ? CGBitmapContextCreateImage(ctx) : nullptr;
+    if (ctx) CGContextRelease(ctx);
+    CGColorSpaceRelease(colorSpace);
+
+    if (!img) { CFRelease(dest); return false; }
+    CGImageDestinationAddImage(dest, img, nullptr);
+    bool const ok = CGImageDestinationFinalize(dest);
+    CFRelease(img);
+    CFRelease(dest);
+    return ok;
+}
+#endif
 
 class Fixture final
 {

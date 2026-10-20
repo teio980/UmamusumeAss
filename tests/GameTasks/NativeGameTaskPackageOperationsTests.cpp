@@ -1,7 +1,65 @@
 #include "GameTasks/NativeGameTaskPackageOperations.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+
+#if defined(_WIN32)
 #include <windows.h>
+inline uint32_t current_process_id() { return ::GetCurrentProcessId(); }
+#else
+#include <unistd.h>
+inline uint32_t current_process_id() { return static_cast<uint32_t>(getpid()); }
+#define GetCurrentProcessId current_process_id
+using DWORD = uint32_t;
+
+inline int SetEnvironmentVariableW(wchar_t const* name, wchar_t const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        std::filesystem::path p_val(value);
+        return setenv(s_name.c_str(), p_val.string().c_str(), 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline int SetEnvironmentVariableW(wchar_t const* name, char const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        return setenv(s_name.c_str(), value, 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline DWORD GetEnvironmentVariableW(wchar_t const* name, wchar_t* buffer, DWORD size)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    char const* val = std::getenv(p_name.string().c_str());
+    if (!val) return 0;
+    std::filesystem::path p_val(val);
+    std::wstring w_val = p_val.wstring();
+    if (buffer == nullptr || size == 0)
+    {
+        return static_cast<DWORD>(w_val.size() + 1);
+    }
+    if (w_val.size() < size)
+    {
+        std::copy(w_val.begin(), w_val.end(), buffer);
+        buffer[w_val.size()] = L'\0';
+        return static_cast<DWORD>(w_val.size());
+    }
+    return static_cast<DWORD>(w_val.size() + 1);
+}
+#endif
 
 #include <chrono>
 #include <filesystem>

@@ -23,9 +23,76 @@
 #include <type_traits>
 #include <vector>
 
+#if defined(_WIN32)
 #include <windows.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+inline uint32_t current_process_id() { return ::GetCurrentProcessId(); }
+#else
+#include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
+inline uint32_t current_process_id() { return static_cast<uint32_t>(getpid()); }
+#define GetCurrentProcessId current_process_id
+using UINT = unsigned int;
+using DWORD = uint32_t;
+
+inline int SetEnvironmentVariableW(wchar_t const* name, wchar_t const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        std::filesystem::path p_val(value);
+        return setenv(s_name.c_str(), p_val.string().c_str(), 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline int SetEnvironmentVariableW(wchar_t const* name, char const* value)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    std::string s_name = p_name.string();
+    if (value && *value)
+    {
+        return setenv(s_name.c_str(), value, 1) == 0 ? 1 : 0;
+    }
+    else
+    {
+        return unsetenv(s_name.c_str()) == 0 ? 1 : 0;
+    }
+}
+
+inline int SetEnvironmentVariableW(wchar_t const* name, std::nullptr_t)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    return unsetenv(p_name.string().c_str()) == 0 ? 1 : 0;
+}
+
+inline DWORD GetEnvironmentVariableW(wchar_t const* name, wchar_t* buffer, DWORD size)
+{
+    std::filesystem::path p_name(name ? name : L"");
+    char const* val = std::getenv(p_name.string().c_str());
+    if (!val) return 0;
+    std::filesystem::path p_val(val);
+    std::wstring w_val = p_val.wstring();
+    if (buffer == nullptr || size == 0)
+    {
+        return static_cast<DWORD>(w_val.size() + 1);
+    }
+    if (w_val.size() < size)
+    {
+        std::copy(w_val.begin(), w_val.end(), buffer);
+        buffer[w_val.size()] = L'\0';
+        return static_cast<DWORD>(w_val.size());
+    }
+    return static_cast<DWORD>(w_val.size() + 1);
+}
+#endif
 
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
@@ -390,6 +457,7 @@ private:
     return {std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
 }
 
+#if defined(_WIN32)
 [[nodiscard]] bool write_solid_png(fs::path const& path, UINT width, UINT height)
 {
     HRESULT const com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -479,6 +547,74 @@ private:
         return std::nullopt;
     return pixels;
 }
+#else
+[[nodiscard]] bool write_solid_png(fs::path const& path, UINT width, UINT height)
+{
+    std::error_code ec;
+    fs::create_directories(path.parent_path(), ec);
+    std::string const u8path = path.string();
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+        reinterpret_cast<UInt8 const*>(u8path.data()), static_cast<CFIndex>(u8path.size()), false);
+    if (!url) return false;
+    CGImageDestinationRef dest = CGImageDestinationCreateWithURL(url, CFSTR("public.png"), 1, nullptr);
+    CFRelease(url);
+    if (!dest) return false;
+
+    std::size_t const stride = static_cast<std::size_t>(width) * 4;
+    std::vector<std::uint8_t> pixels(stride * height, 0xff);
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(pixels.data(), width, height, 8, stride,
+        colorSpace, static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGBitmapByteOrder32Little) | static_cast<uint32_t>(kCGImageAlphaPremultipliedFirst)));
+    CGImageRef img = ctx ? CGBitmapContextCreateImage(ctx) : nullptr;
+    if (ctx) CGContextRelease(ctx);
+    CGColorSpaceRelease(colorSpace);
+
+    if (!img) { CFRelease(dest); return false; }
+    CGImageDestinationAddImage(dest, img, nullptr);
+    bool const ok = CGImageDestinationFinalize(dest);
+    CFRelease(img);
+    CFRelease(dest);
+    return ok;
+}
+
+[[nodiscard]] std::optional<std::vector<std::uint8_t>> decode_png_bgra(
+    std::vector<std::uint8_t> const& bytes, UINT& width, UINT& height)
+{
+    CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        bytes.data(), static_cast<CFIndex>(bytes.size()), kCFAllocatorNull);
+    if (!data) return std::nullopt;
+    CGImageSourceRef src = CGImageSourceCreateWithData(data, nullptr);
+    CFRelease(data);
+    if (!src) return std::nullopt;
+    CGImageRef img = CGImageSourceCreateImageAtIndex(src, 0, nullptr);
+    CFRelease(src);
+    if (!img) return std::nullopt;
+
+    width = static_cast<UINT>(CGImageGetWidth(img));
+    height = static_cast<UINT>(CGImageGetHeight(img));
+    auto const stride = static_cast<std::size_t>(width) * 4;
+    auto const byte_count = stride * height;
+    if (byte_count > 64 * 1024 * 1024)
+    {
+        CFRelease(img);
+        return std::nullopt;
+    }
+    std::vector<std::uint8_t> pixels(byte_count);
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef ctx = CGBitmapContextCreate(pixels.data(), width, height, 8, stride,
+        colorSpace, static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGBitmapByteOrder32Little) | static_cast<uint32_t>(kCGImageAlphaPremultipliedFirst)));
+    if (ctx)
+    {
+        CGContextDrawImage(ctx, CGRectMake(0, 0, width, height), img);
+        CGContextRelease(ctx);
+    }
+    CGColorSpaceRelease(colorSpace);
+    CFRelease(img);
+    return pixels;
+}
+#endif
 
 class UmaHandleGuard
 {
@@ -538,7 +674,10 @@ private:
 
 [[nodiscard]] fs::path test_artifact(std::wstring const& name)
 {
-    return fs::path(source_root()) / "build" / "msvc-debug" / name;
+    auto dir = fs::path(source_root()) / "build" / "test-artifacts";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir / name;
 }
 
 [[nodiscard]] UmaHandle make_handle(Collector& collector)

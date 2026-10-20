@@ -22,12 +22,42 @@
 #include <thread>
 #include <vector>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <winsock2.h>
 #include <windows.h>
 #include <tlhelp32.h>
+#else
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cerrno>
+
+using DWORD = uint32_t;
+using SOCKET = int;
+constexpr int INVALID_SOCKET = -1;
+constexpr int SOCKET_ERROR = -1;
+inline int closesocket(int s) { return ::close(s); }
+constexpr DWORD WAIT_OBJECT_0 = 0;
+constexpr DWORD WAIT_TIMEOUT = 0x00000102L;
+constexpr DWORD WAIT_FAILED = 0xFFFFFFFFL;
+
+struct ScopedWinsock { int const result{0}; };
+#endif
+
+inline uint32_t current_process_id() noexcept
+{
+#if defined(_WIN32)
+    return ::GetCurrentProcessId();
+#else
+    return static_cast<uint32_t>(getpid());
+#endif
+}
 
 #include "Connection/AdbCommandRunner.hpp"
 
@@ -183,6 +213,7 @@ public:
     ScopedEnvironment(char const* name, std::string value)
         : name_{name}
     {
+#if defined(_WIN32)
         char* previous = nullptr;
         std::size_t size = 0;
         if (_dupenv_s(&previous, &size, name) == 0 && previous != nullptr)
@@ -192,11 +223,31 @@ public:
             existed_ = true;
         }
         _putenv_s(name, value.c_str());
+#else
+        char const* val = std::getenv(name);
+        if (val != nullptr)
+        {
+            previous_ = val;
+            existed_ = true;
+        }
+        setenv(name, value.c_str(), 1);
+#endif
     }
 
     ~ScopedEnvironment()
     {
+#if defined(_WIN32)
         _putenv_s(name_.c_str(), existed_ ? previous_.c_str() : "");
+#else
+        if (existed_)
+        {
+            setenv(name_.c_str(), previous_.c_str(), 1);
+        }
+        else
+        {
+            unsetenv(name_.c_str());
+        }
+#endif
     }
 
     ScopedEnvironment(ScopedEnvironment const&) = delete;
@@ -208,12 +259,14 @@ private:
     bool existed_{};
 };
 
+#if defined(_WIN32)
 struct ScopedWinsock
 {
     WSADATA data{};
     int const result{::WSAStartup(MAKEWORD(2, 2), &data)};
     ~ScopedWinsock() { if (result == 0) ::WSACleanup(); }
 };
+#endif
 
 [[nodiscard]] std::optional<std::uint16_t> find_free_tcp_port()
 {
@@ -221,18 +274,22 @@ struct ScopedWinsock
     if (listener == INVALID_SOCKET) return std::nullopt;
     sockaddr_in address{};
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     address.sin_port = 0;
     if (::bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR)
     {
         ::closesocket(listener);
         return std::nullopt;
     }
+#if defined(_WIN32)
     int address_size = sizeof(address);
+#else
+    socklen_t address_size = sizeof(address);
+#endif
     auto const result = ::getsockname(listener,
         reinterpret_cast<sockaddr*>(&address), &address_size);
     ::closesocket(listener);
-    return result == 0 ? std::optional{::ntohs(address.sin_port)} : std::nullopt;
+    return result == 0 ? std::optional{ntohs(address.sin_port)} : std::nullopt;
 }
 
 [[nodiscard]] bool tcp_port_is_listening(std::uint16_t port)
@@ -241,8 +298,8 @@ struct ScopedWinsock
     if (probe == INVALID_SOCKET) return false;
     sockaddr_in address{};
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
-    address.sin_port = ::htons(port);
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = htons(port);
     bool const listening = ::connect(probe,
         reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0;
     ::closesocket(probe);
@@ -268,13 +325,13 @@ struct IsolatedAdbServerCleanup
 [[nodiscard]] std::filesystem::path child_pid_file()
 {
     return std::filesystem::temp_directory_path()
-        / ("uma-adb-runner-child-" + std::to_string(::GetCurrentProcessId()) + ".pid");
+        / ("uma-adb-runner-child-" + std::to_string(current_process_id()) + ".pid");
 }
 
 [[nodiscard]] std::filesystem::path interactive_child_pid_file()
 {
     return std::filesystem::path{CMAKE_SOURCE_DIR} / "build"
-        / ("uma-interactive-child-" + std::to_string(::GetCurrentProcessId()) + ".pid");
+        / ("uma-interactive-child-" + std::to_string(current_process_id()) + ".pid");
 }
 
 [[nodiscard]] std::optional<DWORD> read_child_pid(std::filesystem::path const& pid_path)
@@ -305,6 +362,7 @@ void terminate_child_from_pid_file(std::filesystem::path const& pid_path) noexce
     {
         auto const pid = read_child_pid(pid_path);
         if (!pid) return;
+#if defined(_WIN32)
         HANDLE process = ::OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, *pid);
         if (process == nullptr) return;
         if (::WaitForSingleObject(process, 0) == WAIT_TIMEOUT)
@@ -313,6 +371,9 @@ void terminate_child_from_pid_file(std::filesystem::path const& pid_path) noexce
             (void)::WaitForSingleObject(process, 5000);
         }
         ::CloseHandle(process);
+#else
+        kill(static_cast<pid_t>(*pid), SIGKILL);
+#endif
     }
     catch (...) {}
 }
@@ -336,6 +397,7 @@ struct ScopedChildProcessCleanup
 {
     auto const pid = read_child_pid(pid_path);
     if (!pid) return WAIT_FAILED;
+#if defined(_WIN32)
     HANDLE process = ::OpenProcess(SYNCHRONIZE, FALSE, *pid);
     if (process == nullptr)
     {
@@ -352,6 +414,18 @@ struct ScopedChildProcessCleanup
     auto const result = ::WaitForSingleObject(process, 5000);
     ::CloseHandle(process);
     return result;
+#else
+    auto const deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(5000);
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        if (kill(static_cast<pid_t>(*pid), 0) == -1 && errno == ESRCH)
+        {
+            return WAIT_OBJECT_0;
+        }
+        std::this_thread::sleep_for(10ms);
+    }
+    return (kill(static_cast<pid_t>(*pid), 0) == -1 && errno == ESRCH) ? WAIT_OBJECT_0 : WAIT_TIMEOUT;
+#endif
 }
 
 }
@@ -522,7 +596,7 @@ TEST_CASE("Win32 interactive process flushes each command and stays open between
     "[AdbCommandRunner][win32][interactive]")
 {
     auto const input_path = std::filesystem::path{CMAKE_SOURCE_DIR} / "build"
-        / ("uma-interactive-input-" + std::to_string(::GetCurrentProcessId()) + ".log");
+        / ("uma-interactive-input-" + std::to_string(current_process_id()) + ".log");
     std::error_code error;
     std::filesystem::remove(input_path, error);
 
@@ -744,14 +818,23 @@ TEST_CASE("Real Win32 ADB cancellation terminates the parent and its child proce
 TEST_CASE("cold ADB server launched on an isolated port survives client cleanup",
     "[.AdbCommandRunner][win32][adb-server]")
 {
+    std::string adb_value;
+#if defined(_WIN32)
     char* configured_adb = nullptr;
     std::size_t configured_adb_size = 0;
     auto const environment_result = _dupenv_s(
         &configured_adb, &configured_adb_size, "UMA_REAL_ADB_PATH");
     if (environment_result != 0 || configured_adb == nullptr)
         SKIP("Set UMA_REAL_ADB_PATH to an adb.exe to run the isolated cold-server check");
-    std::unique_ptr<char, decltype(&std::free)> adb_value{configured_adb, &std::free};
-    std::filesystem::path const adb_path{adb_value.get()};
+    adb_value = configured_adb;
+    std::free(configured_adb);
+#else
+    char const* configured_adb = std::getenv("UMA_REAL_ADB_PATH");
+    if (configured_adb == nullptr)
+        SKIP("Set UMA_REAL_ADB_PATH to an adb.exe to run the isolated cold-server check");
+    adb_value = configured_adb;
+#endif
+    std::filesystem::path const adb_path{adb_value};
     REQUIRE(std::filesystem::is_regular_file(adb_path));
 
     // Leave host selection at adb's local default: some bundled adb builds

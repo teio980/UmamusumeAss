@@ -5,7 +5,9 @@
 #include "Resources/WicImageDecoder.hpp"
 #include "Vision/NumericImageProcessing.hpp"
 
+#if defined(_WIN32)
 #include <Windows.h>
+#endif
 #include <catch2/catch_all.hpp>
 #include <nlohmann/json.hpp>
 

@@ -21,8 +21,10 @@ target_link_libraries(RecognitionTests
     UmaAssistantResources
     nlohmann_json::nlohmann_json
     ZLIB::ZLIBSTATIC
-    bcrypt
 )
+if(WIN32)
+  target_link_libraries(RecognitionTests PRIVATE bcrypt)
+endif()
 
 target_compile_definitions(RecognitionTests
   PRIVATE

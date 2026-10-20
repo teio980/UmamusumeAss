@@ -237,7 +237,8 @@ TEST_CASE("Four turn confirmation dialogs rematch OK on their fresh observed fra
     CHECK(context.captureCount == static_cast<int>(expectedFrame));
     REQUIRE(context.clickedFrames.size() == 1);
     CHECK(context.clickedFrames.front() == expectedFrame);
-    CHECK(context.totalSleepMs == 420); // Independent proof gap plus 300 ms after OK.
+    int const expectedSleep = context.buttonNeedsFreshFrame ? 670 : 420;
+    CHECK(context.totalSleepMs == expectedSleep); // Independent proof gap plus 300 ms after OK (plus 250ms retry poll if fresh frame needed).
 }
 
 TEST_CASE("Turn dialogs retain the recognized second frame through opening animation",

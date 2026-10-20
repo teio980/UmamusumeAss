@@ -1,11 +1,24 @@
 #include "WindowsOcrRecognizer.hpp"
 
+#if defined(_WIN32)
 #include <Windows.h>
 #include <objbase.h>
 #include <bcrypt.h>
+#elif defined(__APPLE__)
+#include <CommonCrypto/CommonDigest.h>
+#endif
 #include <catch2/catch_all.hpp>
 #include <nlohmann/json.hpp>
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundef"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#endif
 #include <zlib.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #include <algorithm>
 #include <array>
@@ -35,6 +48,7 @@ using UmaAssistant::Recognition::WindowsOcrRecognizer;
         | (static_cast<std::uint32_t>(bytes[offset + 3]) << 24);
 }
 
+#if defined(_WIN32)
 [[nodiscard]] std::string sha256(std::vector<std::uint8_t> const& bytes)
 {
     BCRYPT_ALG_HANDLE algorithm{};
@@ -65,6 +79,22 @@ using UmaAssistant::Recognition::WindowsOcrRecognizer;
     }
     return output;
 }
+#elif defined(__APPLE__)
+[[nodiscard]] std::string sha256(std::vector<std::uint8_t> const& bytes)
+{
+    unsigned char hash[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(bytes.data(), static_cast<CC_LONG>(bytes.size()), hash);
+    constexpr char digits[] = "0123456789ABCDEF";
+    std::string output;
+    output.reserve(64);
+    for (auto byte : hash)
+    {
+        output.push_back(digits[byte >> 4]);
+        output.push_back(digits[byte & 15]);
+    }
+    return output;
+}
+#endif
 
 [[nodiscard]] bool equals_hash(std::string left, std::string right)
 {
@@ -187,10 +217,14 @@ void compare_case(WindowsOcrRecognizer& recognizer, nlohmann::json const& record
 
 TEST_CASE("Windows OCR preserves installed-language fallback and line bounds", "[ocr][golden]")
 {
+#if defined(_WIN32)
     char* configured = nullptr;
     std::size_t configured_size = 0;
     static_cast<void>(_dupenv_s(&configured, &configured_size, "UMA_OCR_GOLDEN_PATH"));
     std::unique_ptr<char, decltype(&std::free)> configured_guard(configured, &std::free);
+#else
+    char const* configured = std::getenv("UMA_OCR_GOLDEN_PATH");
+#endif
     auto const trace_path = configured == nullptr
         ? std::filesystem::path(CMAKE_SOURCE_DIR) / "build/supervisor-ocr-baseline/ocr-golden.jsonl"
         : root_path(configured);
@@ -263,9 +297,11 @@ TEST_CASE("Windows OCR accepts processed grayscale and rejects malformed planes"
     CHECK(workerResult.language == grayResult.language);
     CHECK(workerResult.detections.empty());
     const auto staResult = std::async(std::launch::async, [&] {
+#if defined(_WIN32)
         const auto status = ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
         if (FAILED(status)) throw std::runtime_error("Could not initialize the OCR test STA.");
         struct ApartmentRelease { ~ApartmentRelease() { ::CoUninitialize(); } } apartment;
+#endif
         return recognizer.recognize(gray, "en-US");
     }).get();
     CHECK(staResult.width == grayResult.width);

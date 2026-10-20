@@ -5,20 +5,39 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <fcntl.h>
-#include <io.h>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <vector>
-#include <windows.h>
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundef"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#endif
 #include <zlib.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+#endif
 
 namespace {
 
 [[nodiscard]] std::string environment_value(char const* name)
 {
+#if defined(_WIN32)
     char* raw = nullptr;
     std::size_t size = 0;
     if (_dupenv_s(&raw, &size, name) != 0 || raw == nullptr)
@@ -27,6 +46,10 @@ namespace {
     }
     std::unique_ptr<char, decltype(&std::free)> value(raw, &std::free);
     return value.get();
+#else
+    char const* val = std::getenv(name);
+    return val ? std::string(val) : std::string{};
+#endif
 }
 
 void record_arguments(std::vector<std::string> const& args)
@@ -42,6 +65,7 @@ void record_arguments(std::vector<std::string> const& args)
     output << '\n';
 }
 
+#if defined(_WIN32)
 [[nodiscard]] std::string to_utf8(std::wstring_view value)
 {
     if (value.empty()) return {};
@@ -56,6 +80,7 @@ void record_arguments(std::vector<std::string> const& args)
     if (written != required) return {};
     return result;
 }
+#endif
 
 [[nodiscard]] bool offline_then_ready_enabled()
 {
@@ -123,15 +148,14 @@ void record_arguments(std::vector<std::string> const& args)
 
 void apply_delay()
 {
-    char* raw = nullptr;
-    std::size_t size = 0;
-    if (_dupenv_s(&raw, &size, "UMA_FAKE_ADB_DELAY_MS") != 0 || raw == nullptr)
+    auto const val = environment_value("UMA_FAKE_ADB_DELAY_MS");
+    if (val.empty()) return;
+    try
     {
-        return;
+        auto const delay = std::stoi(val);
+        if (delay > 0) std::this_thread::sleep_for(std::chrono::milliseconds(delay));
     }
-    std::unique_ptr<char, decltype(&std::free)> value(raw, &std::free);
-    auto const delay = std::stoi(value.get());
-    if (delay > 0) std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+    catch (...) {}
 }
 
 [[nodiscard]] bool contains(std::vector<std::string> const& args, std::string const& value)
@@ -199,8 +223,9 @@ void apply_delay()
 [[nodiscard]] std::string gzip_compress(std::string const& input)
 {
     z_stream stream{};
-    if (deflateInit2(&stream, Z_BEST_SPEED, Z_DEFLATED,
-                     MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+    if (deflateInit2_(&stream, Z_BEST_SPEED, Z_DEFLATED,
+                      MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY,
+                      ZLIB_VERSION, static_cast<int>(sizeof(z_stream))) != Z_OK)
         return {};
     auto const bound = deflateBound(&stream, static_cast<uLong>(input.size()));
     std::string output(static_cast<std::size_t>(bound), '\0');
@@ -216,12 +241,18 @@ void apply_delay()
     return output;
 }
 
+inline void sleep_ms(int ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
 [[nodiscard]] bool spawn_pipe_child(
     bool wait_for_child,
     bool continuous_writer = false,
     std::string const& pid_path_override = {},
     bool inherit_handles = true)
 {
+#if defined(_WIN32)
     wchar_t executable[MAX_PATH]{};
     auto const length = ::GetModuleFileNameW(nullptr, executable, MAX_PATH);
     if (length == 0 || length >= MAX_PATH) return false;
@@ -265,10 +296,48 @@ void apply_delay()
         ::CloseHandle(process.hProcess);
     }
     return true;
+#else
+    char executable[PATH_MAX]{};
+#if defined(__APPLE__)
+    uint32_t size = sizeof(executable);
+    if (_NSGetExecutablePath(executable, &size) != 0) return false;
+#else
+    ssize_t len = readlink("/proc/self/exe", executable, sizeof(executable) - 1);
+    if (len <= 0) return false;
+    executable[len] = '\0';
+#endif
+    pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0)
+    {
+        if (!inherit_handles)
+        {
+            close(STDIN_FILENO);
+        }
+        char const* flag = continuous_writer ? "--test-pipe-child-continuous" : "--test-pipe-child";
+        char* const args[] = {executable, const_cast<char*>(flag), nullptr};
+        execv(executable, args);
+        _exit(1);
+    }
+    auto const pid_path = pid_path_override.empty()
+        ? environment_value("UMA_FAKE_ADB_CHILD_PID_FILE") : pid_path_override;
+    if (!pid_path.empty())
+    {
+        std::ofstream pid_file(pid_path, std::ios::out | std::ios::trunc);
+        pid_file << pid;
+    }
+    if (wait_for_child)
+    {
+        int status = 0;
+        waitpid(pid, &status, 0);
+    }
+    return true;
+#endif
 }
 
 }
 
+#if defined(_WIN32)
 int wmain(int argc, wchar_t** argv)
 {
     _setmode(_fileno(stdout), _O_BINARY);
@@ -280,6 +349,16 @@ int wmain(int argc, wchar_t** argv)
     for (int index = 1; index < argc; ++index)
         args.push_back(to_utf8(argv[index]));
     record_arguments(args);
+#else
+int main(int argc, char** argv)
+{
+    apply_delay();
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc > 0 ? argc - 1 : 0));
+    for (int index = 1; index < argc; ++index)
+        args.push_back(argv[index]);
+    record_arguments(args);
+#endif
 
     auto const touch_mode = environment_value("UMA_FAKE_ADB_INTERACTIVE_TOUCH_MODE");
     if (!touch_mode.empty() && contains(args, "shell") && contains(args, "sh")
@@ -295,7 +374,7 @@ int wmain(int argc, wchar_t** argv)
                 std::ofstream marker(started, std::ios::out | std::ios::trunc);
                 marker << '1';
             }
-            ::Sleep(150);
+            sleep_ms(150);
             std::cerr << "__UMA_TOUCH_PID=42424:123456\n";
             std::cerr.flush();
         }
@@ -303,10 +382,10 @@ int wmain(int argc, wchar_t** argv)
         {
             std::cout << "^ 10 4000";
             std::cout.flush();
-            ::Sleep(20);
+            sleep_ms(20);
             std::cerr << "__UMA_TOUCH_PID=42424:123456\nowner diagnostic chunk\n";
             std::cerr.flush();
-            ::Sleep(20);
+            sleep_ms(20);
             std::cout << " 3000 0\n$ 255\n";
         }
         else if (touch_mode == "stdout-handshake")
@@ -324,7 +403,7 @@ int wmain(int argc, wchar_t** argv)
             std::cerr << "__UMA_TOUCH_PID=42424:123456\n";
             std::cerr << "^ 10 4000";
             std::cerr.flush();
-            ::Sleep(20);
+            sleep_ms(20);
             std::cerr << " 3000 0\n$ 0\n";
         }
         std::cerr.flush();
@@ -350,7 +429,7 @@ int wmain(int argc, wchar_t** argv)
     {
         std::cerr << "^ 10 4095";
         std::cerr.flush();
-        ::Sleep(25);
+        sleep_ms(25);
         std::cerr << " 4095 255\n$ 0\n";
         std::cerr.flush();
         auto const configured = args.size() > 1
@@ -380,9 +459,13 @@ int wmain(int argc, wchar_t** argv)
         if (!spawn_pipe_child(false, false, pid_path, false)) return 4;
         std::cerr << "^ 10 4095 4095 255\n$ 0\n";
         std::cerr.flush();
+#if defined(_WIN32)
         auto const input = ::GetStdHandle(STD_INPUT_HANDLE);
         if (input && input != INVALID_HANDLE_VALUE) ::CloseHandle(input);
         ::SetStdHandle(STD_INPUT_HANDLE, nullptr);
+#else
+        close(STDIN_FILENO);
+#endif
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
     }
@@ -400,7 +483,7 @@ int wmain(int argc, wchar_t** argv)
         {
             std::cout.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
             std::cout.flush();
-            ::Sleep(1);
+            sleep_ms(1);
         }
     }
     if (contains(args, "--test-binary-output"))

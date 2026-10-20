@@ -226,7 +226,11 @@ private:
 
 [[nodiscard]] fs::path valid_adb_path()
 {
+#if defined(_WIN32)
     return "C:\\Windows\\System32\\cmd.exe";
+#else
+    return "/bin/sh";
+#endif
 }
 
 
@@ -293,8 +297,13 @@ TEST_CASE("connector rejects non-exe ADB path", "[EmulatorConnector][preflight]"
     ScriptedRunner runner{{}};
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
+#if defined(_WIN32)
+    auto const adb_path = R"(C:\adb\adb.bat)";
+#else
+    auto const adb_path = "/etc/hosts";
+#endif
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.bat)",
+        .adb_path = adb_path,
         .serial   = "127.0.0.1:5555",
     });
 
@@ -311,7 +320,7 @@ TEST_CASE("connector rejects empty serial", "[EmulatorConnector][preflight]")
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.exe)",
+        .adb_path = valid_adb_path(),
         .serial   = "",
     });
 
@@ -328,7 +337,7 @@ TEST_CASE("connector rejects control-character serial", "[EmulatorConnector][pre
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.exe)",
+        .adb_path = valid_adb_path(),
         .serial   = "127.0.0.1:5555\n",
     });
 
@@ -344,7 +353,7 @@ TEST_CASE("connector rejects empty profile name", "[EmulatorConnector][preflight
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path     = R"(C:\adb\adb.exe)",
+        .adb_path     = valid_adb_path(),
         .serial       = "127.0.0.1:5555",
         .profile_name = "",
     });

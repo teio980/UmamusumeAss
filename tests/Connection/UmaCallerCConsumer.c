@@ -56,8 +56,12 @@ static void UMA_CALL consumer_callback(
     if (ctx->first_message_id == 0 && details_json)
     {
         ctx->first_message_id = message;
+#if defined(_WIN32)
         strncpy_s(ctx->first_json, sizeof(ctx->first_json),
                   details_json, _TRUNCATE);
+#else
+        snprintf(ctx->first_json, sizeof(ctx->first_json), "%s", details_json);
+#endif
     }
 
     if (message == UMA_MSG_CONNECTION_SUCCEEDED

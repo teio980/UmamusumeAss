@@ -1,10 +1,23 @@
 #include "TemplateMatcher.hpp"
 
+#if defined(_WIN32)
 #include <Windows.h>
 #include <bcrypt.h>
+#elif defined(__APPLE__)
+#include <CommonCrypto/CommonDigest.h>
+#endif
 #include <catch2/catch_all.hpp>
 #include <nlohmann/json.hpp>
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundef"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#endif
 #include <zlib.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #include <algorithm>
 #include <array>
@@ -47,6 +60,7 @@ struct GoldenImage
         | (static_cast<std::uint32_t>(data[offset + 3]) << 24);
 }
 
+#if defined(_WIN32)
 [[nodiscard]] std::string sha256(std::vector<std::uint8_t> const& bytes)
 {
     BCRYPT_ALG_HANDLE algorithm{};
@@ -91,6 +105,22 @@ struct GoldenImage
     }
     return result;
 }
+#elif defined(__APPLE__)
+[[nodiscard]] std::string sha256(std::vector<std::uint8_t> const& bytes)
+{
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(bytes.data(), static_cast<CC_LONG>(bytes.size()), digest);
+    constexpr char digits[] = "0123456789ABCDEF";
+    std::string result;
+    result.reserve(64);
+    for (auto byte : digest)
+    {
+        result.push_back(digits[byte >> 4]);
+        result.push_back(digits[byte & 0x0f]);
+    }
+    return result;
+}
+#endif
 
 [[nodiscard]] std::vector<std::uint8_t> read_gzip(std::filesystem::path const& path)
 {
