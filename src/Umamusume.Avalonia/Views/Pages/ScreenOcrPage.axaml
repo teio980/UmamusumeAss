@@ -1,0 +1,238 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Umamusume.Avalonia.Views.Pages.ScreenOcrPage"
+             x:DataType="vm:ScreenOcrViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*" Margin="32,24,32,24">
+
+        <!-- Top Command Bar -->
+        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12,10" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+                <!-- Capture Button -->
+                <Button Grid.Column="0" Command="{Binding CaptureScreenshotCommand}"
+                        IsEnabled="{Binding IsConnected}"
+                        Classes="accent"
+                        Padding="14,7" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Camera" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_514f0e57db47}" FontWeight="Medium" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Run OCR Button -->
+                <Button Grid.Column="1" Command="{Binding RunOcrCommand}"
+                        IsEnabled="{Binding HasScreenshot}"
+                        Padding="14,7" Margin="0,0,14,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Find" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_e8b09b937108}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Language Selector -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <TextBlock Text="{DynamicResource Ui_da27ac613471}" FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <ComboBox ItemsSource="{Binding AvailableLanguages}"
+                              SelectedItem="{Binding OcrLanguage}"
+                              Width="80" Height="32" />
+                </StackPanel>
+
+                <Button Grid.Column="3" Click="OnImportScreenshotClick" Padding="12,7" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="OpenFile" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_0d355ab7b4bc}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="4" Click="OnExportScreenshotClick" IsEnabled="{Binding HasScreenshot}"
+                        Padding="12,7" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_30e7d4f32896}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="5" Click="OnSaveCropClick" IsEnabled="{Binding HasCropRegion}"
+                        Padding="12,7" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Crop" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_fd20f53478e2}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Clear Button -->
+                <Button Grid.Column="6" Command="{Binding ClearAllCommand}"
+                        Padding="12,7">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Delete" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_7b15e5e8e7bd}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Metadata Indicators -->
+                <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{DynamicResource Ui_896178794f39}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding ScreenshotDimensionsText}" FontSize="12" FontWeight="Medium"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{DynamicResource Ui_b6cd19b531a7}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding ScreenshotTimestampText}" FontSize="12" FontWeight="Medium"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Notification InfoBar -->
+        <ui:InfoBar Grid.Row="1"
+                    IsOpen="{Binding IsNotificationOpen}"
+                    Title="{Binding NotificationTitle}"
+                    Message="{Binding NotificationMessage}"
+                    Severity="{Binding NotificationSeverity}"
+                    IsClosable="True"
+                    CloseButtonCommand="{Binding DismissNotificationCommand}"
+                    Margin="0,0,0,14" />
+
+        <!-- Split Workspace Area -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,380">
+            <!-- Left: Screenshot Preview Card -->
+            <Border Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Margin="0,0,12,0" ClipToBounds="True">
+                <Panel>
+                    <Image Source="{Binding ScreenshotBitmap}"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="8" />
+
+                    <!-- Empty State Placeholder -->
+                    <StackPanel IsVisible="{Binding !HasScreenshot}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Spacing="10">
+                        <ui:SymbolIcon Symbol="Camera" FontSize="48"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                       HorizontalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_49d53254fd13}" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Text="{DynamicResource Ui_b9f95095c112}" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   HorizontalAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            CornerRadius="5" Padding="8,4" IsVisible="{Binding HasCropRegion}">
+                        <TextBlock Text="{Binding CropRegionText}" FontSize="11" />
+                    </Border>
+
+                    <Canvas x:Name="ScreenshotCanvas" Background="#01000000"
+                            PointerPressed="OnScreenshotPointerPressed"
+                            PointerMoved="OnScreenshotPointerMoved"
+                            PointerReleased="OnScreenshotPointerReleased">
+                        <Border x:Name="CropSelection" Width="0" Height="0" IsHitTestVisible="False"
+                                IsVisible="{Binding HasCropRegion}"
+                                BorderBrush="{DynamicResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                                Background="#263B82F6" />
+                    </Canvas>
+
+                    <!-- Capturing Progress -->
+                    <ProgressBar IsIndeterminate="True"
+                                 IsVisible="{Binding IsCapturing}"
+                                 Width="180" Height="4"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Panel>
+            </Border>
+
+            <!-- Right: OCR Results Inspector Card -->
+            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="16">
+                <ScrollViewer ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <Grid RowDefinitions="Auto,220,Auto,180,Auto,Auto" MinHeight="500">
+                    <!-- Section 1 Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Ui_b2317ec564a7}" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Border Grid.Column="1" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                CornerRadius="4" Padding="8,2">
+                            <TextBlock Text="{Binding DetectionCount, StringFormat='{}{0} 项'}" FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </Border>
+                    </Grid>
+
+                    <!-- Detections List -->
+                    <ListBox Grid.Row="1" ItemsSource="{Binding OcrDetections}"
+                             Background="{DynamicResource ControlFillColorDefaultBrush}"
+                             CornerRadius="6" Padding="4">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:OcrItemViewModel">
+                                <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1" Padding="4,6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{Binding Text}" FontSize="12" FontWeight="Medium"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding BoundsText}" FontSize="10"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding ConfidenceText}" FontSize="11"
+                                                   FontWeight="SemiBold" Foreground="#107C41"
+                                                   VerticalAlignment="Center" Margin="6,0,0,0" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Section 2 Header -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,12,0,8">
+                        <TextBlock Text="{DynamicResource Ui_d5be29b99b19}" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1" Text="{Binding OcrResultLanguageText}" FontSize="11"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- Raw Text Box -->
+                    <TextBox Grid.Row="3" Text="{Binding AllRecognizedText}"
+                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                             Background="{DynamicResource ControlFillColorDefaultBrush}"
+                             FontSize="12" FontFamily="Menlo, Monaco, Consolas, Courier New, monospace" />
+
+                    <TextBlock Grid.Row="4" Text="{DynamicResource Ui_8b8221e79a8e}" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,14,0,6" TextWrapping="Wrap" />
+                    <StackPanel Grid.Row="5" Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding TemplateImagePath}" Watermark="{DynamicResource Ui_9c411261e80c}" />
+                            <Button Grid.Column="1" Click="OnChooseTemplateClick" Content="{DynamicResource Ui_ef23ea67b002}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,100,Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="{DynamicResource Ui_60f424bf4ef4}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableTemplateMatchMethods}"
+                                      SelectedItem="{Binding TemplateMatchMethod}" />
+                            <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBox Grid.Column="3" Text="{Binding TemplateMatchThreshold}" />
+                            <Button Grid.Column="4" Command="{Binding MatchTemplateCommand}"
+                                    IsEnabled="{Binding !IsMatchingTemplate}" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <ui:SymbolIcon Symbol="Find" FontSize="13" />
+                                    <TextBlock Text="{DynamicResource Ui_0b5d7ed54bee}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{Binding TemplateMatchResultText}" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

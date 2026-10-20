@@ -1,0 +1,99 @@
+<wnd:AppWindow xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:wnd="using:FluentAvalonia.UI.Windowing"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+               xmlns:pages="using:Umamusume.Avalonia.Views.Pages"
+               xmlns:conv="using:Umamusume.Avalonia.Converters"
+               x:Class="Umamusume.Avalonia.Views.MainWindow"
+               x:DataType="vm:MainWindowViewModel"
+               Title="UmamusumeAss"
+               Icon="avares://Umamusume.Avalonia/Assets/teio-logo.png"
+               Width="1120" Height="750"
+               MinWidth="980" MinHeight="640"
+               WindowStartupLocation="CenterScreen">
+
+    <wnd:AppWindow.Resources>
+        <conv:ConnectionStateToBrushConverter x:Key="ConnBrush" />
+    </wnd:AppWindow.Resources>
+
+    <wnd:AppWindow.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:TasksViewModel}">
+            <pages:TasksPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ScreenOcrViewModel}">
+            <pages:ScreenOcrPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DeveloperToolsViewModel}">
+            <pages:DeveloperToolsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LogsViewModel}">
+            <pages:LogsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <pages:SettingsPage />
+        </DataTemplate>
+    </wnd:AppWindow.DataTemplates>
+
+    <!-- Seamless Navigation Shell with macOS Traffic-light Inset -->
+    <ui:NavigationView x:Name="NavView"
+                       PaneDisplayMode="Left"
+                       IsSettingsVisible="True"
+                       IsBackButtonVisible="False"
+                       IsPaneToggleButtonVisible="False"
+                       OpenPaneLength="215"
+                       CompactPaneLength="52"
+                       SelectionChanged="OnNavSelectionChanged">
+
+        <!-- Subtle Top Spacer for macOS Traffic Lights -->
+        <ui:NavigationView.PaneHeader>
+            <Border Height="10" />
+        </ui:NavigationView.PaneHeader>
+
+        <!-- Navigation Menu Items -->
+        <ui:NavigationView.MenuItems>
+            <ui:NavigationViewItem Content="Hachimi~" Tag="Hachimi">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Home" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_c7db2bd48902}" Tag="ScreenOcr">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Camera" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_6d5d7228c9c4}" Tag="DeveloperTools">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Setting" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_a8ce402665f3}" Tag="Logs">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Document" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+        </ui:NavigationView.MenuItems>
+
+        <!-- Pane Footer: Show Connected Device pill ONLY when connected -->
+        <ui:NavigationView.PaneFooter>
+            <Border IsVisible="{Binding IsConnected}"
+                    Margin="10,4,10,8" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="6" Padding="10,7">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Fill="#107C41" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding DeviceSerial}" FontSize="11" FontWeight="Medium"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </ui:NavigationView.PaneFooter>
+
+        <!-- Active Content View -->
+        <ui:NavigationView.Content>
+            <TransitioningContentControl Content="{Binding CurrentPage}" />
+        </ui:NavigationView.Content>
+    </ui:NavigationView>
+</wnd:AppWindow>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Umamusume.AppCore</RootNamespace>
+    <AssemblyName>Umamusume.AppCore</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umamusume.AppCore.Tests" />
+    <InternalsVisibleTo Include="Umamusume.Avalonia" />
+  </ItemGroup>
+</Project>
