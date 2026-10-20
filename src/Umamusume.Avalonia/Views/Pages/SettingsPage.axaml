@@ -6,18 +6,19 @@
              x:DataType="vm:SettingsViewModel">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="36,24,42,42" Spacing="12" HorizontalAlignment="Stretch">
+        <StackPanel Margin="36,24,42,42" Spacing="8" HorizontalAlignment="Stretch">
             <TextBlock Text="{DynamicResource Ui_e976eab5d83f}" FontSize="32" FontWeight="Light"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
             <ui:InfoBar IsOpen="{Binding IsNotificationOpen}"
+                        IsVisible="{Binding IsNotificationOpen}"
                         Title="{Binding NotificationTitle}"
                         Message="{Binding NotificationMessage}"
                         Severity="{Binding NotificationSeverity}"
                         IsClosable="True"
                         CloseButtonCommand="{Binding DismissNotificationCommand}" />
 
-            <TabControl Margin="0,10,0,0" SelectedIndex="0">
+            <TabControl SelectedIndex="0">
                 <!-- Connection: same grouping as the Windows settings page. -->
                 <TabItem Header="{DynamicResource SettingsNavConnection}">
                     <StackPanel Spacing="18" Margin="4,14,4,0">

@@ -10,7 +10,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentAvalonia.UI.Controls;
 using Umamusume.AppCore.Models;
+using Umamusume.AppCore.Platform;
 using Umamusume.AppCore.Services;
+using Umamusume.Avalonia.Services;
 
 namespace Umamusume.Avalonia.ViewModels;
 
@@ -22,7 +24,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly ILocalizationService _localizationService;
     private CancellationTokenSource? _queueCancellation;
-    private IReadOnlyList<TaskQueueItemViewModel> _runningTasks = [];
+    private List<TaskQueueItemViewModel> _runningTasks = [];
     private readonly EventHandler _connectionStateChangedHandler;
     private readonly Action<bool> _automationBusyChangedHandler;
     private readonly Action _languageChangedHandler;
@@ -94,7 +96,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
 
     public bool IsNotShopSelected => !IsShopSelected;
 
-    public bool CanStartQueue => !IsRunning && !IsAutomationBusy && IsConnected
+    public bool CanStartQueue => !IsRunning && !IsAutomationBusy
         && Tasks.Any(task => task.IsEnabled)
         && Tasks.Where(task => task.IsEnabled).All(task => task.SettingsEditor.IsValid);
 
@@ -109,8 +111,6 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
                 return $"{invalid.Name}：{invalid.SettingsEditor.ValidationMessage}";
             if (IsAutomationBusy && !IsRunning)
                 return IsEnglish ? "Another operation is running. Wait for it to stop before starting the queue." : "另一个自动化操作正在运行，完成或停止后才能启动任务队列。";
-            if (!IsConnected)
-                return IsEnglish ? "Connect a device first." : "请先连接设备。";
             return Tasks.Any(task => task.IsEnabled) ? string.Empty : IsEnglish ? "Enable at least one task." : "至少启用一个任务后才能启动队列。";
         }
     }
@@ -139,7 +139,9 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         _selectedTaskType = AvailableTaskTypes.Count > 0 ? AvailableTaskTypes[0] : null;
         ShopSettings = new ShopTaskSettingsViewModel(settingsService);
         HachimiTaskLog = new HachimiTaskLogViewModel(localizationService);
-        _statusText = IsEnglish ? "Add tasks and connect a device to start queue." : "添加任务并连接设备后即可开始队列。";
+        _statusText = IsEnglish
+            ? "Add tasks and start the queue. The configured connection will be attempted automatically."
+            : "添加任务后即可启动队列；未连接时会按配置尝试连接设备。";
 
         _connectionStateChangedHandler = (_, _) => Dispatcher.UIThread.Post(() =>
         {
@@ -335,6 +337,54 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
 
         try
         {
+            if (!_automationService.IsConnected)
+            {
+                StatusText = IsEnglish ? "Connecting to the configured emulator..." : "正在连接已配置的模拟器…";
+                AddLog(StatusText);
+
+                var connectionError = await ConnectForQueueAsync(_queueCancellation.Token);
+                if (connectionError is not null)
+                {
+                    for (var index = 0; index < enabled.Count; index++)
+                    {
+                        enabled[index].SetStatus(TaskItemStatus.Skipped);
+                        if (index < HachimiTaskLog.Tasks.Count)
+                        {
+                            var logTask = HachimiTaskLog.Tasks[index];
+                            logTask.SetStatus(IsEnglish ? "Skipped" : "已跳过", false, false, false, false);
+                            logTask.AddEntry(
+                                IsEnglish ? "Connection" : "连接",
+                                connectionError,
+                                LogEntryKind.Warning);
+                        }
+                    }
+
+                    var failedRun = new UmaTaskQueueRunResult(
+                        Succeeded: false,
+                        Canceled: false,
+                        SucceededTasks: 0,
+                        FailedTasks: 0,
+                        SkippedTasks: enabled.Count,
+                        Message: connectionError);
+                    HachimiTaskLog.AddQueueEntry(
+                        IsEnglish ? "Connection Failed" : "连接失败",
+                        connectionError,
+                        LogEntryKind.Error);
+                    HachimiTaskLog.EndRun(failedRun);
+                    StatusText = IsEnglish ? "Queue was not run because the device could not connect." : "设备连接失败，队列未执行。";
+                    ErrorText = connectionError;
+                    AddLog(StatusText);
+                    ShowNotification(
+                        IsEnglish ? "Connection failed" : "连接失败",
+                        connectionError,
+                        InfoBarSeverity.Error);
+                    return;
+                }
+
+                IsConnected = _automationService.IsConnected;
+                RaiseQueueCommandStates();
+            }
+
             var result = await _automationService.RunTaskQueueAsync(
                 requests,
                 OnQueueEvent,
@@ -361,6 +411,13 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         catch (OperationCanceledException)
         {
             StatusText = IsEnglish ? "Task queue canceled." : "任务队列已取消。";
+            HachimiTaskLog.EndRun(new UmaTaskQueueRunResult(
+                Succeeded: false,
+                Canceled: true,
+                SucceededTasks: 0,
+                FailedTasks: 0,
+                SkippedTasks: _runningTasks.Count,
+                Message: StatusText));
             AddLog(StatusText);
             ShowNotification(IsEnglish ? "Queue Canceled" : "任务队列已取消", IsEnglish ? "Stop request sent to Native UmaCore." : "已向 Native UmaCore 发送停止请求。", InfoBarSeverity.Warning);
         }
@@ -488,6 +545,55 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
     private bool CanMoveTaskUp() => CanMoveSelectedTaskUp;
 
     private bool CanMoveTaskDown() => CanMoveSelectedTaskDown;
+
+    private async Task<string?> ConnectForQueueAsync(CancellationToken cancellationToken)
+    {
+        var settings = _settingsService.Load();
+        var adbPath = PlatformPaths.FindAdbExecutable(settings.AdbPath);
+        if (string.IsNullOrWhiteSpace(settings.ConnectAddress))
+            return IsEnglish ? "A device address is not configured in Settings." : "设置中没有配置设备地址。";
+
+        if (settings.AutoStartEmulator)
+        {
+            try
+            {
+                DesktopActions.StartEmulator(settings.EmulatorExecutablePath);
+            }
+            catch (Exception exception)
+            {
+                return IsEnglish
+                    ? $"Could not start the configured emulator: {exception.Message}"
+                    : $"无法启动设置中的模拟器：{exception.Message}";
+            }
+
+            var wait = Math.Clamp(
+                settings.AutoStartEmulatorWaitSeconds,
+                0,
+                ConnectionSettings.MaxAutoStartEmulatorWaitSeconds);
+            if (wait > 0)
+            {
+                StatusText = IsEnglish
+                    ? $"Waiting {wait} seconds for the emulator to start..."
+                    : $"等待模拟器启动（{wait} 秒）…";
+                AddLog(StatusText);
+                await Task.Delay(TimeSpan.FromSeconds(wait), cancellationToken);
+            }
+        }
+
+        StatusText = IsEnglish ? "Connecting to the device..." : "正在连接设备…";
+        AddLog(StatusText);
+        var connected = await _automationService.ConnectAsync(
+            adbPath,
+            settings.ConnectAddress.Trim(),
+            settings.ConnectConfig,
+            cancellationToken);
+
+        return connected && _automationService.IsConnected
+            ? null
+            : string.IsNullOrWhiteSpace(_automationService.CurrentStatus)
+                ? (IsEnglish ? "The configured device could not be connected." : "无法连接已配置的设备。")
+                : _automationService.CurrentStatus;
+    }
 
     private void RestoreQueue()
     {
@@ -621,7 +727,9 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         foreach (var task in Tasks)
             task.RefreshLabels();
         if (!IsRunning)
-            StatusText = IsEnglish ? "Add tasks and connect a device to start queue." : "添加任务并连接设备后即可开始队列。";
+            StatusText = IsEnglish
+                ? "Add tasks and start the queue. The configured connection will be attempted automatically."
+                : "添加任务后即可启动队列；未连接时会按配置尝试连接设备。";
         OnPropertyChanged(nameof(QueueSummary));
         OnPropertyChanged(nameof(QueueValidationMessage));
     });
