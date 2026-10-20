@@ -111,16 +111,21 @@
                                                 </StackPanel>
                                                 <!-- Settings / Configure button -->
                                                 <Button Grid.Column="1" VerticalAlignment="Center" Margin="4,0" Padding="0"
-                                                        Width="24" Height="24" MinWidth="0" MinHeight="0"
+                                                        Width="26" Height="26" MinWidth="0" MinHeight="0"
                                                         Command="{Binding #Root.((vm:TasksViewModel)DataContext).OpenTaskSettingsCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource GrassConfigure}">
-                                                    <ui:SymbolIcon Symbol="Setting" FontSize="14" />
+                                                    <ui:SymbolIcon Symbol="Setting" FontSize="16" />
                                                 </Button>
                                                 <CheckBox Grid.Column="2" IsChecked="{Binding IsEnabled}"
-                                                          Width="24" Height="24" Padding="0"
+                                                          Width="26" Height="26" Padding="0"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                          ToolTip.Tip="{DynamicResource GrassEnqueue}" />
+                                                          RenderTransformOrigin="0.5,0.5"
+                                                          ToolTip.Tip="{DynamicResource GrassEnqueue}">
+                                                    <CheckBox.RenderTransform>
+                                                        <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
+                                                    </CheckBox.RenderTransform>
+                                                </CheckBox>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
