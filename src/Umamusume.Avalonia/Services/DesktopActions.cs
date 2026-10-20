@@ -26,6 +26,15 @@ internal static class DesktopActions
         return (await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = title, SuggestedFileName = suggestedName, ShowOverwritePrompt = true }))?.TryGetLocalPath();
     }
 
+    public static async Task<bool> SetClipboardTextAsync(string text)
+    {
+        if ((Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.Clipboard is not { } clipboard)
+            return false;
+
+        await clipboard.SetTextAsync(text);
+        return true;
+    }
+
     public static void Open(string path)
     {
         var start = OperatingSystem.IsMacOS()

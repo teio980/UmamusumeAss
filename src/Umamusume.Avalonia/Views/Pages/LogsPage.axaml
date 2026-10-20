@@ -41,6 +41,15 @@
                     </StackPanel>
                 </Button>
 
+                <!-- Copy Logs -->
+                <Button Command="{Binding CopyLogsCommand}"
+                        Padding="12,7" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:SymbolIcon Symbol="Copy" FontSize="14" />
+                        <TextBlock Text="{DynamicResource Ui_4edd1d00875d}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
                 <!-- Export Logs -->
                 <Button Grid.Column="3" Command="{Binding ExportLogsCommand}"
                         Padding="12,7">

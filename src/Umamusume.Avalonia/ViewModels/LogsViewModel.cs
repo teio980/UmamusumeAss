@@ -141,6 +141,33 @@ public sealed partial class LogsViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task CopyLogsAsync()
+    {
+        var logs = FilteredLogs.Reverse().ToArray();
+        if (logs.Length == 0)
+        {
+            ShowNotification("没有可复制的日志", "当前筛选条件下没有日志记录。", InfoBarSeverity.Informational);
+            return;
+        }
+
+        try
+        {
+            var text = string.Join(Environment.NewLine, logs.Select(FormatLogEntry));
+            if (!await DesktopActions.SetClipboardTextAsync(text))
+            {
+                ShowNotification("复制失败", "无法访问系统剪贴板。", InfoBarSeverity.Error);
+                return;
+            }
+
+            ShowNotification("日志已复制", $"已复制 {logs.Length} 条当前筛选的日志。", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowNotification("复制失败", ex.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    [RelayCommand]
     private async Task ExportLogsAsync()
     {
         try
@@ -153,7 +180,7 @@ public sealed partial class LogsViewModel : ViewModelBase
             sb.AppendLine(new string('-', 60));
             foreach (var log in FilteredLogs.Reverse().ToArray())
             {
-                sb.AppendLine(CultureInfo.InvariantCulture, $"[{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{log.Kind,-7}] [{log.Category}] {log.Message}");
+                sb.AppendLine(FormatLogEntry(log));
             }
 
             await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
@@ -165,6 +192,9 @@ public sealed partial class LogsViewModel : ViewModelBase
             ShowNotification("导出失败", ex.Message, InfoBarSeverity.Error);
         }
     }
+
+    private static string FormatLogEntry(LogEntry log) =>
+        FormattableString.Invariant($"[{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{log.Kind,-7}] [{log.Category}] {log.Message}");
 
     [RelayCommand]
     private void DismissNotification()
