@@ -5,20 +5,27 @@ MaaAssistantArknights/
 .worktrees/
 
 # Build output
-build/
+[Bb]uild/
+[Bb]uild-*/
 /build.bat
 artifacts/
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
 publish/
 dist/
-[Bb]uild/
-[Bb]in/
 [Dd]ebug/
 [Rr]elease/
+temp_publish_avalonia/
 *.user
 *.suo
 *.sln.docstates
+*.DotSettings.user
+
+# macOS App Bundles & Packages
+*.app/
+*.app.zip
+*.dmg
+*.pkg
 
 # .NET
 *.nupkg
@@ -49,13 +56,22 @@ coverage.xml
 
 # Temp / runner files
 /temp/
+test_output/
 tempCodeRunnerFile*
 *.tmp
 *.log
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+*.ips
+*.crash
+*.diag
 
 # WPF build temp projects
 *_wpftmp.csproj
@@ -82,6 +98,8 @@ CMakeCache.txt
 cmake_install.cmake
 compile_commands.json
 Testing/
+CTestTestfile.cmake
+CMakeUserPresets.json
 
 update-private.pem
 version.txt

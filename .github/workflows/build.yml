@@ -1,14 +1,7 @@
-# Phase 6 CI workflow: build, test, package, and upload artifact.
+# Cross-platform CI workflow: Windows (x64) and macOS (ARM64).
 #
-# This workflow runs on every push and pull_request to main/master.
-# It builds the native C++20 DLL and the managed .NET 10 WPF app,
-# runs all CTest tests (including the managed bridge and WPF GUI
-# tests), validates the portable ZIP layout, and uploads the final
-# artifact.
-#
-# The real-emulator hardware smoke test is a separate documented
-# release gate run on a controlled Windows machine — it is NOT
-# part of this CI workflow.
+# Windows runs native C++ core, WPF GUI client (UmamusumeWpfGui), and tests.
+# macOS runs native C++ core, Avalonia macOS client (Umamusume.Avalonia), and packages .app bundle ZIP.
 
 name: Build, Test, and Package
 
@@ -19,9 +12,8 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
-    # The project targets the Visual Studio 17 2022 CMake generator.
-    # Keep the runner pinned so windows-latest image migrations cannot remove it.
+  build-windows:
+    name: Windows x64 (Native Core + WPF GUI)
     runs-on: windows-2022
 
     steps:
@@ -45,8 +37,12 @@ jobs:
         run: ctest --test-dir build/release -C Release --output-on-failure
         shell: pwsh
 
-      - name: Run Package Layout Tests
-        run: dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
+      - name: Run Managed Unit Tests
+        run: |
+          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release
+          dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
+          dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
+          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
         shell: pwsh
 
       - name: Install Inno Setup
@@ -67,13 +63,11 @@ jobs:
           if ($null -eq $installer) {
             throw "Windows installer not found in dist"
           }
-          Write-Host "ZIP exists and is ready for upload: $zip"
-          Write-Host "Installer exists and is ready for upload: $($installer.FullName)"
+          Write-Host "WPF ZIP exists: $zip"
+          Write-Host "Installer exists: $($installer.FullName)"
         shell: pwsh
 
-      # Upload the final artifact even if some steps above failed
-      # (e.g. a test failure), so the ZIP can be inspected.
-      - name: Upload Artifact
+      - name: Upload Windows Artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -81,4 +75,62 @@ jobs:
           path: |
             dist/UmamusumeAss-win-x64.zip
             dist/*-setup.exe
+          retention-days: 7
+
+  build-macos:
+    name: macOS ARM64 (Native Core + Avalonia .app)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install Build Tools (Ninja)
+        run: brew install ninja
+        shell: bash
+
+      - name: Configure CMake (Release)
+        run: cmake --preset osx-arm64
+        shell: bash
+
+      - name: Build CMake (Release)
+        run: cmake --build --preset osx-arm64 -j$(sysctl -n hw.ncpu)
+        shell: bash
+
+      - name: Run CTest (Release)
+        run: ctest --test-dir build/osx-arm64 --output-on-failure -E "LiveBlueStacks"
+        shell: bash
+
+      - name: Run Managed Unit Tests
+        run: |
+          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release
+          dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
+          dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
+        shell: bash
+
+      - name: Package macOS .app Bundle ZIP
+        run: ./tools/package_macos.sh "$GITHUB_WORKSPACE/build/osx-arm64"
+        shell: bash
+
+      - name: Verify macOS Packages Exist
+        run: |
+          if [ ! -f "dist/UmamusumeAss-osx-arm64.app.zip" ]; then
+            echo "Error: dist/UmamusumeAss-osx-arm64.app.zip not found" >&2
+            exit 1
+          fi
+          echo "macOS ARM64 .app ZIP generated successfully:"
+          ls -lh dist/UmamusumeAss-osx-arm64.app.zip
+        shell: bash
+
+      - name: Upload macOS Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: UmamusumeAss-osx-arm64
+          path: dist/UmamusumeAss-osx-arm64.app.zip
           retention-days: 7

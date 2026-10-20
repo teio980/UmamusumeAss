@@ -64,9 +64,64 @@ set(CATCH_INSTALL_DOCS      OFF CACHE BOOL "" FORCE)
 set(CATCH_INSTALL_HELPERS   OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Catch2)
 
+set(BUILD_PROG OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(ENABLE_ZLIB OFF CACHE BOOL "" FORCE)
+set(ENABLE_PNG OFF CACHE BOOL "" FORCE)
+set(ENABLE_GIF OFF CACHE BOOL "" FORCE)
+set(ENABLE_JPEG OFF CACHE BOOL "" FORCE)
+set(ENABLE_TIFF OFF CACHE BOOL "" FORCE)
+set(ENABLE_WEBP OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPENJPEG OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+  leptonica
+  URL      https://github.com/DanBloomberg/leptonica/archive/refs/tags/1.85.0.tar.gz
+  URL_HASH SHA256=c01376bce0379d4ea4bc2ec5d5cbddaa49e2f06f88242619ab8c059e21adf233
+)
+FetchContent_MakeAvailable(leptonica)
+target_include_directories(leptonica PUBLIC
+  $<BUILD_INTERFACE:${leptonica_SOURCE_DIR}/src>
+  $<BUILD_INTERFACE:${leptonica_BINARY_DIR}/src>
+)
+
+file(WRITE "${CMAKE_BINARY_DIR}/cmake/Leptonica/LeptonicaConfig.cmake" "
+set(Leptonica_VERSION \"1.85.0\")
+set(Leptonica_FOUND TRUE)
+set(Leptonica_LIBRARIES leptonica)
+set(Leptonica_INCLUDE_DIRS \"${leptonica_SOURCE_DIR}/src;${leptonica_BINARY_DIR}/src\")
+")
+file(WRITE "${CMAKE_BINARY_DIR}/cmake/Leptonica/LeptonicaConfigVersion.cmake" "
+set(PACKAGE_VERSION \"1.85.0\")
+set(PACKAGE_VERSION_COMPATIBLE TRUE)
+set(PACKAGE_VERSION_EXACT TRUE)
+")
+set(Leptonica_DIR "${CMAKE_BINARY_DIR}/cmake/Leptonica" CACHE PATH "" FORCE)
+
+set(BUILD_TRAINING_TOOLS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GRAPHICS_DISABLED ON CACHE BOOL "" FORCE)
+set(DISABLE_TIFF ON CACHE BOOL "" FORCE)
+set(DISABLE_ARCHIVE ON CACHE BOOL "" FORCE)
+set(DISABLE_CURL ON CACHE BOOL "" FORCE)
+set(INSTALL_CONFIGS OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+  tesseract
+  URL      https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz
+  URL_HASH SHA256=f2fb34ca035b6d087a42875a35a7a5c4155fa9979c6132365b1e5a28ebc3fc11
+)
+FetchContent_MakeAvailable(tesseract)
+target_include_directories(libtesseract PUBLIC
+  $<BUILD_INTERFACE:${tesseract_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${tesseract_BINARY_DIR}/include>
+)
+
 
 add_subdirectory(src/UmaAssistantCore)
-add_subdirectory(src/UmamusumeAssUpdater)
+if(WIN32)
+  add_subdirectory(src/UmamusumeAssUpdater)
+endif()
 add_subdirectory(tools)
 
 

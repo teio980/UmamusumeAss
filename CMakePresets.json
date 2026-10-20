@@ -37,6 +37,28 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name":          "osx-arm64",
+      "displayName":   "macOS ARM64 Release",
+      "description":   "macOS ARM64 Apple Silicon build using Ninja / Make.",
+      "generator":     "Ninja",
+      "binaryDir":     "${sourceDir}/build/osx-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name":          "osx-arm64-debug",
+      "displayName":   "macOS ARM64 Debug",
+      "description":   "macOS ARM64 Apple Silicon Debug build.",
+      "generator":     "Ninja",
+      "binaryDir":     "${sourceDir}/build/osx-arm64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -56,6 +78,14 @@
       "name": "release",
       "configurePreset": "release",
       "configuration": "Release"
+    },
+    {
+      "name": "osx-arm64",
+      "configurePreset": "osx-arm64"
+    },
+    {
+      "name": "osx-arm64-debug",
+      "configurePreset": "osx-arm64-debug"
     }
   ],
   "testPresets": [
@@ -81,6 +111,20 @@
       "name": "release",
       "configurePreset": "release",
       "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "osx-arm64",
+      "configurePreset": "osx-arm64",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "osx-arm64-debug",
+      "configurePreset": "osx-arm64-debug",
       "output": {
         "outputOnFailure": true
       }
