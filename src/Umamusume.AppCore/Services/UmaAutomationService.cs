@@ -622,15 +622,19 @@ public sealed class UmaAutomationService : IUmaAutomationService
                     break;
 
                 case RuntimeDiagnosticEvent diagnostic when AcceptOperation(diagnostic.OperationId):
-                    if (currentTaskIndex >= 0 && currentTaskIndex < requests.Count)
+                    var diagnosticKind = diagnostic.Level switch
                     {
-                        Report(new(
-                            currentTaskIndex,
-                            requests[currentTaskIndex].TaskId,
-                            UmaTaskQueueEventKind.Progress,
-                            TaskName: diagnostic.Level.ToString(),
-                            Message: diagnostic.Message));
-                    }
+                        RuntimeDiagnosticLevel.Warning => LogEntryKind.Warning,
+                        RuntimeDiagnosticLevel.Error => LogEntryKind.Error,
+                        _ => LogEntryKind.Normal,
+                    };
+                    var taskLabel = string.IsNullOrWhiteSpace(diagnostic.TaskId)
+                        ? string.Empty
+                        : $" [{diagnostic.TaskId}]";
+                    _logger.Log(
+                        $"[{diagnostic.Level.ToString().ToUpperInvariant()}]{taskLabel} {diagnostic.Message}",
+                        diagnosticKind,
+                        "TaskRuntime");
                     break;
 
                 case TaskCompletedEvent completed
