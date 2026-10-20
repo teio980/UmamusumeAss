@@ -1,4 +1,5 @@
 {
+  "name": "start_game",
   "start": "StartupMonitor",
   "tasks": {
     "StartupMonitor": {
@@ -25,9 +26,9 @@
       "onErrorNext": [ "CheckDataDownload" ]
     },
     "CheckGameHome": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/game_home_selected.png",
-      "templThreshold": 0.86,
+      "templThreshold": 0.80,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 250, 1400, 400, 200 ],
@@ -37,9 +38,9 @@
       "success": true
     },
     "CheckHomeTabOnOtherPage": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/game_home_unselected.png",
-      "templThreshold": 0.86,
+      "templThreshold": 0.80,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 250, 1400, 400, 200 ],
@@ -78,24 +79,24 @@
       "next": [ "CheckLogoSkip" ]
     },
     "CheckDataDownload": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/data_download.png",
-      "templThreshold": 0.97,
+      "templThreshold": 0.85,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 240, 440, 420, 150 ],
       "action": "ClickRect",
       "specificRect": [ 470, 990, 355, 105 ],
-      "postDelay": 1000,
+      "postDelay": 2000,
       "timeoutMs": 1200,
       "pollIntervalMs": 200,
       "onErrorNext": [ "CheckPromoSkip" ],
       "next": [ "CheckGameHome" ]
     },
     "CheckPromoSkip": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/promo_skip.png",
-      "templThreshold": 0.97,
+      "templThreshold": 0.88,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 750, 1440, 150, 160 ],
@@ -107,14 +108,14 @@
       "next": [ "CheckGameHome" ]
     },
     "CheckNotices": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/notices_close.png",
-      "templThreshold": 0.96,
+      "templThreshold": 0.75,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 250, 1420, 400, 100 ],
       "action": "ClickSelf",
-      "postDelay": 1000,
+      "postDelay": 1500,
       "timeoutMs": 1200,
       "pollIntervalMs": 200,
       "onErrorNext": [ "CheckRewardsCollectedClose" ],
@@ -123,7 +124,7 @@
     "CheckRewardsCollectedClose": {
       "algorithm": "MatchTemplate",
       "template": "templates/start_game/rewards_collected_close.png",
-      "templThreshold": 0.96,
+      "templThreshold": 0.85,
       "referenceWidth": 900,
       "referenceHeight": 1600,
       "roi": [ 370, 1100, 160, 100 ],
@@ -135,15 +136,15 @@
       "next": [ "CheckGameHome" ]
     },
     "CheckTapToStart": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "template": "templates/start_game/tap_to_start.png",
-      "templThreshold": 0.84,
+      "templThreshold": 0.82,
       "referenceWidth": 900,
       "referenceHeight": 1600,
-      "roi": [ 80, 1000, 740, 220 ],
+      "roi": [ 80, 1000, 740, 500 ],
       "action": "TapToStart",
       "specificRect": [ 0, 0, 900, 1600 ],
-      "postDelay": 1500,
+      "postDelay": 4000,
       "timeoutMs": 1500,
       "pollIntervalMs": 200,
       "onErrorNext": [ "WaitForStartup" ],
