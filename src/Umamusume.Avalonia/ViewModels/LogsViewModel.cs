@@ -64,7 +64,7 @@ public sealed partial class LogsViewModel : ViewModelBase
         _localizationService = localizationService;
         _selectedLevel = T("全部", "All");
         _localizationService.LanguageChanged += OnLanguageChanged;
-        _allLogs.AddRange(logService.Entries.Reverse());
+        _allLogs.AddRange(logService.Entries);
         TotalCount = _allLogs.Count;
         ApplyFilter();
 
@@ -72,19 +72,19 @@ public sealed partial class LogsViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
-                _allLogs.Insert(0, entry);
+                _allLogs.Add(entry);
                 while (_allLogs.Count > 1500)
                 {
-                    _allLogs.RemoveAt(_allLogs.Count - 1);
+                    _allLogs.RemoveAt(0);
                 }
                 TotalCount = _allLogs.Count;
 
                 if (MatchesFilter(entry))
                 {
-                    FilteredLogs.Insert(0, entry);
+                    FilteredLogs.Add(entry);
                     while (FilteredLogs.Count > 1000)
                     {
-                        FilteredLogs.RemoveAt(FilteredLogs.Count - 1);
+                        FilteredLogs.RemoveAt(0);
                     }
                     FilteredCount = FilteredLogs.Count;
                 }
@@ -149,7 +149,7 @@ public sealed partial class LogsViewModel : ViewModelBase
     [RelayCommand]
     private async Task CopyLogsAsync()
     {
-        var logs = FilteredLogs.Reverse().ToArray();
+        var logs = FilteredLogs.ToArray();
         if (logs.Length == 0)
         {
             ShowNotification(T("没有可复制的日志", "No logs to copy"), T("当前筛选条件下没有日志记录。", "There are no log entries for the current filters."), InfoBarSeverity.Informational);
@@ -186,7 +186,7 @@ public sealed partial class LogsViewModel : ViewModelBase
             var sb = new StringBuilder();
             sb.AppendLine(CultureInfo.InvariantCulture, $"Umamusume Assistant Log Export - {DateTime.Now}");
             sb.AppendLine(new string('-', 60));
-            foreach (var log in FilteredLogs.Reverse().ToArray())
+            foreach (var log in FilteredLogs.ToArray())
             {
                 sb.AppendLine(FormatLogEntry(log));
             }

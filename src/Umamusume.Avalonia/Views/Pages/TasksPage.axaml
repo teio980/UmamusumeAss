@@ -226,7 +226,9 @@
                         </Grid>
 
                         <!-- Scrollable Grouped Execution Log -->
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer x:Name="TaskLogScrollViewer" Grid.Row="1"
+                                      ScrollChanged="OnTaskLogScrollChanged"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel Spacing="10" Margin="0,0,4,10">
 
                                 <!-- Empty Log Prompt (Clean & unobtrusive 1:1 like Win WPF) -->

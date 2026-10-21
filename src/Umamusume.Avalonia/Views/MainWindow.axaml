@@ -80,20 +80,6 @@
             </ui:NavigationViewItem>
         </ui:NavigationView.MenuItems>
 
-        <!-- Pane Footer: Show Connected Device pill ONLY when connected -->
-        <ui:NavigationView.PaneFooter>
-            <Border IsVisible="{Binding IsConnected}"
-                    Margin="10,4,10,8" Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    CornerRadius="6" Padding="10,7">
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="#107C41" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding DeviceSerial}" FontSize="11" FontWeight="Medium"
-                               Foreground="{DynamicResource ConnectedDeviceTextBrush}"
-                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                </StackPanel>
-            </Border>
-        </ui:NavigationView.PaneFooter>
-
         <!-- Active Content View -->
         <ui:NavigationView.Content>
             <Grid x:Name="ContentHost">

@@ -141,9 +141,6 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
             Tasks.Add(new HachimiTaskLogGroupViewModel(task.TaskId, task.Name, _localizationService));
         }
 
-        AddQueueEntry(IsEnglish ? "Task Queue" : "任务队列",
-                      IsEnglish ? $"Queue started with {tasks.Count} task(s)." : $"已启动队列，共 {tasks.Count} 项任务。",
-                      LogEntryKind.Normal);
         OnPropertyChanged(nameof(HasContent));
         OnPropertyChanged(nameof(IsEmpty));
         _durationTimer.Start();
