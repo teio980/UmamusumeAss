@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -19,10 +20,12 @@ public partial class MainWindow : AppWindow
         if (OperatingSystem.IsMacOS())
         {
             ExtendClientAreaToDecorationsHint = true;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome |
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome |
                                           ExtendClientAreaChromeHints.OSXThickTitleBar;
             ExtendClientAreaTitleBarHeightHint = -1;
         }
+
+        Opened += (_, _) => RemoveMacTitleBarSeparator();
 
         TitleBar.ExtendsContentIntoTitleBar = true;
         TitleBar.TitleBarHitTestType = TitleBarHitTestType.Complex;
@@ -47,6 +50,50 @@ public partial class MainWindow : AppWindow
     private void UpdateSettingsLabel(MainWindowViewModel vm)
     {
         if (NavView.SettingsItem is NavigationViewItem item) item.Content = vm.SettingsNavigationLabel;
+    }
+
+    private void RemoveMacTitleBarSeparator()
+    {
+        if (!OperatingSystem.IsMacOS() || TryGetPlatformHandle() is not { HandleDescriptor: "NSWindow" } handle)
+            return;
+
+        MacWindowChrome.RemoveTitleBarSeparator(handle.Handle);
+    }
+
+    private static class MacWindowChrome
+    {
+        private const string ObjectiveCRuntime = "/usr/lib/libobjc.A.dylib";
+
+        [DllImport(ObjectiveCRuntime, EntryPoint = "sel_registerName")]
+        private static extern IntPtr RegisterSelectorNative(IntPtr selectorName);
+
+        [DllImport(ObjectiveCRuntime, EntryPoint = "objc_msgSend")]
+        private static extern byte SendBoolReturningMessage(IntPtr receiver, IntPtr selector, IntPtr argument);
+
+        [DllImport(ObjectiveCRuntime, EntryPoint = "objc_msgSend")]
+        private static extern void SendIntegerMessage(IntPtr receiver, IntPtr selector, nint value);
+
+        private static IntPtr RegisterSelector(string selectorName)
+        {
+            var utf8Name = Marshal.StringToCoTaskMemUTF8(selectorName);
+            try
+            {
+                return RegisterSelectorNative(utf8Name);
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(utf8Name);
+            }
+        }
+
+        public static void RemoveTitleBarSeparator(IntPtr window)
+        {
+            var respondsToSelector = RegisterSelector("respondsToSelector:");
+            var setSeparatorStyle = RegisterSelector("setTitlebarSeparatorStyle:");
+
+            if (SendBoolReturningMessage(window, respondsToSelector, setSeparatorStyle) != 0)
+                SendIntegerMessage(window, setSeparatorStyle, 1); // NSTitlebarSeparatorStyleNone
+        }
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
