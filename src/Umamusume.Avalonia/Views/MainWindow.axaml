@@ -11,7 +11,10 @@
                Icon="avares://Umamusume.Avalonia/Assets/teio-logo.png"
                Width="1120" Height="750"
                MinWidth="980" MinHeight="640"
-               WindowStartupLocation="CenterScreen">
+               WindowStartupLocation="CenterScreen"
+               ExtendClientAreaToDecorationsHint="True"
+               ExtendClientAreaChromeHints="PreferSystemChrome, OSXThickTitleBar"
+               ExtendClientAreaTitleBarHeightHint="-1">
 
     <wnd:AppWindow.Resources>
         <conv:ConnectionStateToBrushConverter x:Key="ConnBrush" />
@@ -45,9 +48,9 @@
                        CompactPaneLength="52"
                        SelectionChanged="OnNavSelectionChanged">
 
-        <!-- Subtle Top Spacer for macOS Traffic Lights -->
+        <!-- Seamless Top Drag Region & Spacer for macOS Traffic Lights -->
         <ui:NavigationView.PaneHeader>
-            <Border Height="10" />
+            <Border Height="38" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" />
         </ui:NavigationView.PaneHeader>
 
         <!-- Navigation Menu Items -->
