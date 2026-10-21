@@ -251,6 +251,7 @@ StartGameMonitorResult StartGameMonitor::Run(
     auto const started = now();
     auto firstIteration = true;
     int chainIndex = -1;
+    std::chrono::steady_clock::time_point chainStepStarted{};
     int step = 0;
     MatchMap lastMatches;
 
@@ -287,6 +288,20 @@ StartGameMonitorResult StartGameMonitor::Run(
             }
 
             std::vector<Candidate> activeCandidates;
+            if (chainIndex >= 0)
+            {
+                auto const* current = triggerChain[static_cast<std::size_t>(chainIndex)];
+                auto const stepTimeout = std::chrono::milliseconds(
+                    std::clamp(current->task->timeoutMilliseconds, 0, 600000));
+                // Startup logos can disappear between captures. Do not let a
+                // missed chain step hide TapToStart until the global deadline.
+                if (now() - chainStepStarted >= stepTimeout)
+                {
+                    context.Log("WARN", "Startup trigger chain timed out waiting for " + current->name
+                        + "; resuming all startup monitor checks.");
+                    chainIndex = -1;
+                }
+            }
             if (chainIndex >= 0)
             {
                 for (auto const* candidate : successCandidates) activeCandidates.push_back(*candidate);
@@ -347,6 +362,7 @@ StartGameMonitorResult StartGameMonitor::Run(
                         return {false, false, "Startup trigger chain action failed: " + current->name};
                     ++chainIndex;
                     if (chainIndex >= static_cast<int>(triggerChain.size())) chainIndex = -1;
+                    else chainStepStarted = now();
                     continue;
                 }
             }
@@ -360,6 +376,7 @@ StartGameMonitorResult StartGameMonitor::Run(
                         if (!RunMonitorAction(context, *triggerCandidate, *match))
                             return {false, false, "Startup trigger action failed: " + triggerCandidate->name};
                         chainIndex = triggerChain.empty() ? -1 : 0;
+                        if (chainIndex >= 0) chainStepStarted = now();
                         continue;
                     }
                 }

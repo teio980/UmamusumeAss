@@ -437,6 +437,44 @@ TEST_CASE("Packaged startup monitor runs its ordered trigger chain before accept
     CHECK(context.taps[1] == (std::pair<int, int>{215, 215}));
 }
 
+TEST_CASE("Startup monitor resumes TapToStart when a transient logo was missed", "[game-tasks]")
+{
+    MonitorContext context;
+    int tapToStartObservedAt = -1;
+    context.onCapture = [&] {
+        if (context.captureCount > 80) context.cancelled = true;
+    };
+    context.matcher = [&](std::string const& path, std::uint64_t frame) {
+        if (path.find("startnotice_skip.png") != std::string::npos && frame == 1)
+            return HitAt(100);
+        // The next screenshot already shows the title screen, with no logo
+        // splash left to click. It stays there until TapToStart executes.
+        if (path.find("tap_to_start.png") != std::string::npos && context.taps.size() == 1)
+        {
+            tapToStartObservedAt = context.totalSleepMs;
+            return HitAt(200);
+        }
+        if (path.find("game_home_selected.png") != std::string::npos && context.taps.size() >= 2)
+            return HitAt(300);
+        return TaskMatchResult{};
+    };
+    auto const clock = [&] {
+        return std::chrono::steady_clock::time_point{}
+            + std::chrono::milliseconds(context.totalSleepMs);
+    };
+
+    auto const result = GameTasks::StartGameMonitor::Run(context, ResourceRoot(), clock);
+    CHECK(result.succeeded);
+    CHECK(result.homeDetected);
+    REQUIRE(context.taps.size() == 2);
+    CHECK(context.taps[0] == (std::pair<int, int>{115, 215}));
+    CHECK(context.taps[1] == (std::pair<int, int>{450, 800}));
+    CHECK(tapToStartObservedAt == 3500); // 500 ms after notice + 3000 ms logo deadline.
+    CHECK(std::any_of(context.logs.begin(), context.logs.end(), [](std::string const& log) {
+        return log.find("timed out waiting for CheckLogoSkip") != std::string::npos;
+    }));
+}
+
 TEST_CASE("Startup timeout bounds continuous capture failure and repeated trigger hits", "[game-tasks]")
 {
     SECTION("capture keeps failing")
