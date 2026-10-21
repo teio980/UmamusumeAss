@@ -82,7 +82,7 @@
 
         <!-- Active Content View -->
         <ui:NavigationView.Content>
-            <Grid x:Name="ContentHost">
+            <Grid x:Name="ContentHost" Background="Transparent">
                 <TransitioningContentControl Content="{Binding CurrentPage}" />
             </Grid>
         </ui:NavigationView.Content>

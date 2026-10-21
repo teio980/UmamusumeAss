@@ -3,8 +3,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
@@ -25,7 +27,7 @@ public partial class MainWindow : AppWindow
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome |
                                           ExtendClientAreaChromeHints.OSXThickTitleBar;
             ExtendClientAreaTitleBarHeightHint = -1;
-            ContentHost.AddHandler(InputElement.PointerPressedEvent, OnContentPointerPressed,
+            AddHandler(InputElement.PointerPressedEvent, OnWindowPointerPressed,
                 RoutingStrategies.Tunnel, handledEventsToo: true);
         }
 
@@ -102,8 +104,11 @@ public partial class MainWindow : AppWindow
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (e.Handled) return;
+
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+            e.Handled = true;
             if (e.ClickCount == 2)
             {
                 WindowState = WindowState == WindowState.Maximized
@@ -117,11 +122,24 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    private void OnContentPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(ContentHost).Properties.IsLeftButtonPressed ||
-            e.GetPosition(ContentHost).Y >= 38 ||
-            IsInsideFocusableControl(e.Source as Visual))
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var pos = e.GetPosition(this);
+        var paneWidth = NavView.IsPaneOpen ? NavView.OpenPaneLength : NavView.CompactPaneLength;
+
+        // In the workspace content area: only allow dragging in the top titlebar / header area (<= 75 DIPs)
+        if (pos.X >= paneWidth && (pos.Y < 0 || pos.Y > 75))
+        {
+            return;
+        }
+
+        // Do not drag if clicking inside an interactive control (button, textbox, combobox, etc.)
+        if (IsInsideInteractiveControl(e.Source as Visual))
         {
             return;
         }
@@ -129,11 +147,33 @@ public partial class MainWindow : AppWindow
         OnTitleBarPointerPressed(sender, e);
     }
 
-    private static bool IsInsideFocusableControl(Visual? source)
+    internal static bool IsInsideInteractiveControl(Visual? source)
     {
-        for (var visual = source; visual is not null; visual = visual.GetVisualParent())
+        for (var visual = source; visual is not null && visual is not MainWindow; visual = visual.GetVisualParent() ?? (visual as ILogical)?.LogicalParent as Visual)
         {
-            if (visual is InputElement { Focusable: true }) return true;
+            if (visual is Button
+                or TextBox
+                or ComboBox
+                or CheckBox
+                or ToggleSwitch
+                or Slider
+                or ListBox
+                or ListBoxItem
+                or TabItem
+                or ScrollBar
+                or GridSplitter
+                or NumericUpDown
+                or NavigationViewItem
+                or MenuItem)
+            {
+                return true;
+            }
+
+            if (visual is InputElement { Focusable: true }
+                and not (Window or AppWindow or UserControl or ContentControl or Panel or Border))
+            {
+                return true;
+            }
         }
 
         return false;
