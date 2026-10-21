@@ -57,25 +57,25 @@
         <ui:NavigationView.MenuItems>
             <ui:NavigationViewItem Content="Hachimi~" Tag="Hachimi">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Home" />
+                    <ui:SymbolIconSource Symbol="Home" FontSize="22" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
 
             <ui:NavigationViewItem Content="{DynamicResource Ui_c7db2bd48902}" Tag="ScreenOcr">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Camera" />
+                    <ui:SymbolIconSource Symbol="Camera" FontSize="22" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
 
             <ui:NavigationViewItem Content="{DynamicResource Ui_6d5d7228c9c4}" Tag="DeveloperTools">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Setting" />
+                    <ui:SymbolIconSource Symbol="Repair" FontSize="22" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
 
             <ui:NavigationViewItem Content="{DynamicResource Ui_a8ce402665f3}" Tag="Logs">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Document" />
+                    <ui:SymbolIconSource Symbol="List" FontSize="22" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
         </ui:NavigationView.MenuItems>
@@ -96,7 +96,9 @@
 
         <!-- Active Content View -->
         <ui:NavigationView.Content>
-            <TransitioningContentControl Content="{Binding CurrentPage}" />
+            <Grid x:Name="ContentHost">
+                <TransitioningContentControl Content="{Binding CurrentPage}" />
+            </Grid>
         </ui:NavigationView.Content>
     </ui:NavigationView>
 </wnd:AppWindow>

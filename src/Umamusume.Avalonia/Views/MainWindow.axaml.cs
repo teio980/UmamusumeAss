@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 using Umamusume.Avalonia.ViewModels;
@@ -23,6 +25,8 @@ public partial class MainWindow : AppWindow
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome |
                                           ExtendClientAreaChromeHints.OSXThickTitleBar;
             ExtendClientAreaTitleBarHeightHint = -1;
+            ContentHost.AddHandler(InputElement.PointerPressedEvent, OnContentPointerPressed,
+                RoutingStrategies.Tunnel, handledEventsToo: true);
         }
 
         Opened += (_, _) => RemoveMacTitleBarSeparator();
@@ -111,6 +115,28 @@ public partial class MainWindow : AppWindow
                 BeginMoveDrag(e);
             }
         }
+    }
+
+    private void OnContentPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(ContentHost).Properties.IsLeftButtonPressed ||
+            e.GetPosition(ContentHost).Y >= 38 ||
+            IsInsideFocusableControl(e.Source as Visual))
+        {
+            return;
+        }
+
+        OnTitleBarPointerPressed(sender, e);
+    }
+
+    private static bool IsInsideFocusableControl(Visual? source)
+    {
+        for (var visual = source; visual is not null; visual = visual.GetVisualParent())
+        {
+            if (visual is InputElement { Focusable: true }) return true;
+        }
+
+        return false;
     }
 
     private void OnNavSelectionChanged(object? sender, NavigationViewSelectionChangedEventArgs e)
