@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Umamusume.Avalonia.Tests;
 
-public sealed class SettingsViewModelTests
+public sealed partial class SettingsViewModelTests
 {
     private static readonly string[] EnglishThemes = ["Dark", "Light", "System"];
     private static readonly string[] ChineseThemes = ["深色模式 (Dark)", "浅色模式 (Light)", "跟随系统 (System)"];
@@ -45,6 +45,8 @@ public sealed class SettingsViewModelTests
 
         Assert.False(ContainsChinese(vm.UpdateStatus), $"UpdateStatus leaked Chinese: {vm.UpdateStatus}");
         Assert.Equal("Not checked", vm.UpdateStatus);
+        Assert.Equal("Delete old resources", vm.DeleteOldResourcesLabel);
+        Assert.Contains("Removes downloaded updates", vm.DeleteOldResourcesDescription, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -63,6 +65,8 @@ public sealed class SettingsViewModelTests
         Assert.StartsWith("程序 ", vm.CoreVersion);
         Assert.Contains("尚未初始化", vm.NativeCoreStatus);
         Assert.Equal("尚未检查", vm.UpdateStatus);
+        Assert.Equal("删除旧资源", vm.DeleteOldResourcesLabel);
+        Assert.Contains("删除已下载的更新", vm.DeleteOldResourcesDescription, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,8 +130,10 @@ public sealed class SettingsViewModelTests
         public bool IsInitialized => false;
         public bool IsConnected => false;
         public bool IsBusy => false;
+        public bool RequiresRestartForMaintenance { get; set; }
         public string? NativeCoreVersion => "1.0.0";
         public string? ResourcePath => null;
+        public Umamusume.AppCore.Platform.ResourceWorkspace? ActiveResourceWorkspace => null;
         public DeviceSessionIdentity? ActiveDeviceIdentity => null;
         public IUmaService CoreService => throw new NotImplementedException();
         public string CurrentStatus => string.Empty;
@@ -137,7 +143,12 @@ public sealed class SettingsViewModelTests
         public event Action<string>? StatusChanged;
         public event Action<bool>? BusyChanged;
         public event Action<CapturedScreenshot>? ScreenshotCaptured;
+        public event Action<string>? ResourcesChanged;
 #pragma warning restore CS0067
+
+        public int MaintenanceCallCount { get; private set; }
+        public TaskCompletionSource<bool>? MaintenanceEntered { get; set; }
+        public TaskCompletionSource<bool>? MaintenanceRelease { get; set; }
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public string ResolveActiveResourcePath(string sourcePath) => sourcePath;
@@ -149,6 +160,16 @@ public sealed class SettingsViewModelTests
         public Task<TextRecognitionResult?> RecognizeOcrAsync(CapturedScreenshot? screenshot = null, string language = "eng", CancellationToken cancellationToken = default) => Task.FromResult<TextRecognitionResult?>(null);
         public Task<bool> StartGameAndRecognizeHomeAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<T> RunExclusiveAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default) => operation(cancellationToken);
+        public async Task<T> RunMaintenanceWhenIdleAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default)
+        {
+            MaintenanceCallCount++;
+            MaintenanceEntered?.TrySetResult(true);
+            if (MaintenanceRelease is not null)
+                await MaintenanceRelease.Task.WaitAsync(cancellationToken);
+            return await operation(cancellationToken);
+        }
+        public void ActivateResourceWorkspace(Umamusume.AppCore.Platform.ResourceWorkspace workspace) { }
+        public void RequireRestartAfterMaintenanceFailure(string reason) { }
         public Task<UmaTaskQueueRunResult> RunTaskQueueAsync(IReadOnlyList<UmaTaskRequest> requests, Action<UmaTaskQueueEvent>? progress = null, CancellationToken cancellationToken = default) => Task.FromResult(new UmaTaskQueueRunResult(true, false, 0, 0, 0, ""));
         public void CancelCurrentOperation() { }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
