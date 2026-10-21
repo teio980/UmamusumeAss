@@ -49,13 +49,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
     private bool _isRunning;
 
     [ObservableProperty]
-    private double _progressValue;
-
-    [ObservableProperty]
     private string _statusText = string.Empty;
-
-    [ObservableProperty]
-    private string _progressText = "0 / 0";
 
     [ObservableProperty]
     private string _errorText = string.Empty;
@@ -139,9 +133,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         _selectedTaskType = AvailableTaskTypes.Count > 0 ? AvailableTaskTypes[0] : null;
         ShopSettings = new ShopTaskSettingsViewModel(settingsService);
         HachimiTaskLog = new HachimiTaskLogViewModel(localizationService);
-        _statusText = IsEnglish
-            ? "Add tasks and start the queue. The configured connection will be attempted automatically."
-            : "添加任务后即可启动队列；未连接时会按配置尝试连接设备。";
+        _statusText = string.Empty;
 
         _connectionStateChangedHandler = (_, _) => Dispatcher.UIThread.Post(() =>
         {
@@ -325,8 +317,6 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         _queueCancellation?.Dispose();
         _queueCancellation = new CancellationTokenSource();
         IsRunning = true;
-        ProgressValue = 0;
-        ProgressText = $"0 / {enabled.Count}";
         ErrorText = string.Empty;
         ExecutionSteps.Clear();
         HachimiTaskLog.BeginRun(enabled);
@@ -438,7 +428,6 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
             }
             _runningTasks = [];
             IsRunning = false;
-            ProgressValue = Math.Max(ProgressValue, 0);
             _queueCancellation?.Dispose();
             _queueCancellation = null;
             RaiseQueueCommandStates();
@@ -473,22 +462,12 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
                         var suffix = string.IsNullOrEmpty(taskProgress) ? null : taskProgress.TrimStart(' ', '·');
                         task.SetStatus(TaskItemStatus.Running, suffix);
                     }
-                    if (runningTasks.Count > 0)
-                    {
-                        var fraction = update.TotalUnits is > 0 && update.CompletedUnits is { } units
-                            ? Math.Clamp((double)units / update.TotalUnits.Value, 0, 1)
-                            : 0;
-                        ProgressValue = Math.Clamp((update.TaskIndex + fraction) / runningTasks.Count * 100, 0, 100);
-                        ProgressText = $"{update.TaskIndex + 1} / {runningTasks.Count}";
-                    }
                     StatusText = update.Message is { Length: > 0 } message
                         ? $"{taskName}：{message}"
                         : (IsEnglish ? $"Running: {taskName}{taskProgress}" : $"正在执行：{taskName}{taskProgress}");
                     break;
                 case UmaTaskQueueEventKind.Completed:
                     task?.SetStatus(TaskItemStatus.Completed);
-                    ProgressValue = Math.Clamp((update.TaskIndex + 1d) / runningTasks.Count * 100, 0, 100);
-                    ProgressText = $"{update.TaskIndex + 1} / {runningTasks.Count}";
                     StatusText = update.Message is { Length: > 0 } completedMessage
                         ? $"{taskName}：{completedMessage}"
                         : (IsEnglish ? $"Completed: {taskName}" : $"已完成：{taskName}");
@@ -727,9 +706,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         foreach (var task in Tasks)
             task.RefreshLabels();
         if (!IsRunning)
-            StatusText = IsEnglish
-                ? "Add tasks and start the queue. The configured connection will be attempted automatically."
-                : "添加任务后即可启动队列；未连接时会按配置尝试连接设备。";
+            StatusText = string.Empty;
         OnPropertyChanged(nameof(QueueSummary));
         OnPropertyChanged(nameof(QueueValidationMessage));
     });
