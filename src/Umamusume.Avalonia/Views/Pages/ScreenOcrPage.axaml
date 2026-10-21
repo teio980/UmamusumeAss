@@ -5,7 +5,7 @@
              x:Class="Umamusume.Avalonia.Views.Pages.ScreenOcrPage"
              x:DataType="vm:ScreenOcrViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,*" Margin="32,24,32,24">
+    <Grid RowDefinitions="Auto,Auto,*" Margin="32,28,32,24">
 
         <!-- Top Command Bar -->
         <Border Grid.Row="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
@@ -16,59 +16,59 @@
                 <Button Grid.Column="0" Command="{Binding CaptureScreenshotCommand}"
                         IsEnabled="{Binding IsConnected}"
                         Classes="accent"
-                        Padding="14,7" Margin="0,0,8,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Camera" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_514f0e57db47}" FontWeight="Medium" TextWrapping="Wrap" />
+                        Padding="14,7" Margin="0,0,8,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Camera" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_514f0e57db47}" FontWeight="Medium" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
                 <!-- Run OCR Button -->
                 <Button Grid.Column="1" Command="{Binding RunOcrCommand}"
                         IsEnabled="{Binding HasScreenshot}"
-                        Padding="14,7" Margin="0,0,14,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Find" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_e8b09b937108}" TextWrapping="Wrap" />
+                        Padding="14,7" Margin="0,0,14,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Find" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_e8b09b937108}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
                 <!-- Language Selector -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,14,0">
                     <TextBlock Text="{DynamicResource Ui_da27ac613471}" FontSize="12"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                     <ComboBox ItemsSource="{Binding AvailableLanguages}"
                               SelectedItem="{Binding OcrLanguage}"
-                              Width="80" Height="32" />
+                              Width="80" Height="32" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <Button Grid.Column="3" Click="OnImportScreenshotClick" Padding="12,7" Margin="0,0,6,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="OpenFile" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_0d355ab7b4bc}" TextWrapping="Wrap" />
+                <Button Grid.Column="3" Click="OnImportScreenshotClick" Padding="12,7" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="OpenFile" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_0d355ab7b4bc}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button Grid.Column="4" Click="OnExportScreenshotClick" IsEnabled="{Binding HasScreenshot}"
-                        Padding="12,7" Margin="0,0,6,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_30e7d4f32896}" TextWrapping="Wrap" />
+                        Padding="12,7" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Save" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_30e7d4f32896}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button Grid.Column="5" Click="OnSaveCropClick" IsEnabled="{Binding HasCropRegion}"
-                        Padding="12,7" Margin="0,0,6,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Crop" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_fd20f53478e2}" TextWrapping="Wrap" />
+                        Padding="12,7" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Crop" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_fd20f53478e2}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
                 <!-- Clear Button -->
                 <Button Grid.Column="6" Command="{Binding ClearAllCommand}"
-                        Padding="12,7">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <ui:SymbolIcon Symbol="Delete" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_7b15e5e8e7bd}" TextWrapping="Wrap" />
+                        Padding="12,7" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Delete" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_7b15e5e8e7bd}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -162,9 +162,10 @@
                         <TextBlock Grid.Column="0" Text="{DynamicResource Ui_b2317ec564a7}" FontSize="14" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                         <Border Grid.Column="1" Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                CornerRadius="4" Padding="8,2">
+                                CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
                             <TextBlock Text="{Binding DetectionCount, StringFormat='{}{0} 项'}" FontSize="11"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Border>
                     </Grid>
 
@@ -214,16 +215,16 @@
                             <Button Grid.Column="1" Click="OnChooseTemplateClick" Content="{DynamicResource Ui_ef23ea67b002}" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,100,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="{DynamicResource Ui_60f424bf4ef4}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Grid.Column="0" Text="{DynamicResource Ui_60f424bf4ef4}" VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableTemplateMatchMethods}"
-                                      SelectedItem="{Binding TemplateMatchMethod}" />
-                            <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                            <TextBox Grid.Column="3" Text="{Binding TemplateMatchThreshold}" />
+                                      SelectedItem="{Binding TemplateMatchMethod}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="3" Text="{Binding TemplateMatchThreshold}" VerticalAlignment="Center" />
                             <Button Grid.Column="4" Command="{Binding MatchTemplateCommand}"
-                                    IsEnabled="{Binding !IsMatchingTemplate}" Padding="10,5">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <ui:SymbolIcon Symbol="Find" FontSize="13" />
-                                    <TextBlock Text="{DynamicResource Ui_0b5d7ed54bee}" TextWrapping="Wrap" />
+                                    IsEnabled="{Binding !IsMatchingTemplate}" Padding="10,5" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <ui:SymbolIcon Symbol="Find" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Ui_0b5d7ed54bee}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>

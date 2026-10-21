@@ -6,7 +6,7 @@
              x:DataType="vm:SettingsViewModel">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="36,24,42,42" Spacing="8" HorizontalAlignment="Stretch">
+        <StackPanel Margin="36,28,42,42" Spacing="8" HorizontalAlignment="Stretch">
             <TextBlock Text="{DynamicResource Ui_e976eab5d83f}" FontSize="32" FontWeight="Light"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
@@ -53,10 +53,10 @@
                                     <ui:SymbolIconSource Symbol="Repair" />
                                 </ui:SettingsExpander.IconSource>
                                 <ui:SettingsExpander.Footer>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBox Text="{Binding AdbPath}" Width="260" />
-                                        <Button Command="{Binding AutoDetectAdbCommand}" Content="{DynamicResource SettingsFindAdb}" />
-                                        <Button Command="{Binding BrowseAdbCommand}" Content="{DynamicResource Ui_01463dd05cfd}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBox Text="{Binding AdbPath}" Width="260" VerticalAlignment="Center" />
+                                        <Button Command="{Binding AutoDetectAdbCommand}" Content="{DynamicResource SettingsFindAdb}" VerticalAlignment="Center" />
+                                        <Button Command="{Binding BrowseAdbCommand}" Content="{DynamicResource Ui_01463dd05cfd}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </ui:SettingsExpander.Footer>
 
@@ -101,9 +101,9 @@
                                 </ui:SettingsExpanderItem>
                                 <ui:SettingsExpanderItem Content="{DynamicResource Ui_70e65060d1af}">
                                     <ui:SettingsExpanderItem.Footer>
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBox Text="{Binding EmulatorExecutablePath}" Width="240" />
-                                            <Button Content="{DynamicResource Ui_01463dd05cfd}" Command="{Binding BrowseEmulatorCommand}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <TextBox Text="{Binding EmulatorExecutablePath}" Width="240" VerticalAlignment="Center" />
+                                            <Button Content="{DynamicResource Ui_01463dd05cfd}" Command="{Binding BrowseEmulatorCommand}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </ui:SettingsExpanderItem.Footer>
                                 </ui:SettingsExpanderItem>
@@ -278,16 +278,16 @@
             </TabControl>
 
             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,10,0,0">
-                <Button Command="{Binding SaveSettingsCommand}" Classes="accent" Padding="24,10">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_a9174def1fa1}" FontWeight="SemiBold" />
+                <Button Command="{Binding SaveSettingsCommand}" Classes="accent" Padding="24,10" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Save" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_a9174def1fa1}" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding ResetDefaultsCommand}" Padding="18,10">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Refresh" FontSize="14" />
-                        <TextBlock Text="{DynamicResource Ui_0b2e8750286d}" />
+                <Button Command="{Binding ResetDefaultsCommand}" Padding="18,10" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Refresh" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_0b2e8750286d}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

@@ -5,7 +5,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="Umamusume.Avalonia.Views.Pages.DeveloperToolsPage"
              x:DataType="vm:DeveloperToolsViewModel">
-  <Grid RowDefinitions="Auto,*" Margin="32,24,32,24">
+  <Grid RowDefinitions="Auto,*" Margin="32,28,32,24">
     <Border Grid.Row="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
             CornerRadius="8" Padding="18,14" Margin="0,0,0,14">
@@ -13,10 +13,10 @@
         <TextBlock Text="{DynamicResource Ui_ac1367cb8fbf}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
         <TextBlock Grid.Column="1" Text="{Binding ResourceStatusText}" VerticalAlignment="Center"
                    FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="12,0" />
-        <Button Grid.Column="2" Command="{Binding ReloadNativeResourcesCommand}" Padding="12,7">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <ui:SymbolIcon Symbol="Refresh" FontSize="14" />
-            <TextBlock Text="{DynamicResource Ui_27bce1339e25}" TextWrapping="Wrap" />
+        <Button Grid.Column="2" Command="{Binding ReloadNativeResourcesCommand}" Padding="12,7" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <ui:SymbolIcon Symbol="Refresh" FontSize="14" VerticalAlignment="Center" />
+            <TextBlock Text="{DynamicResource Ui_27bce1339e25}" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
       </Grid>
@@ -29,22 +29,22 @@
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                   CornerRadius="8" Padding="10" Margin="0,0,0,12">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-              <Button Command="{Binding CaptureScreenshotCommand}" IsEnabled="{Binding IsConnected}" Padding="12,7">
-                <StackPanel Orientation="Horizontal" Spacing="5"><ui:SymbolIcon Symbol="Camera" /><TextBlock Text="{DynamicResource Ui_f72990bec4d2}" TextWrapping="Wrap" /></StackPanel>
+              <Button Command="{Binding CaptureScreenshotCommand}" IsEnabled="{Binding IsConnected}" Padding="12,7" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><ui:SymbolIcon Symbol="Camera" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Ui_f72990bec4d2}" VerticalAlignment="Center" /></StackPanel>
               </Button>
-              <Button Grid.Column="1" Click="OnImportScreenshotClick" Padding="12,7">
-                <StackPanel Orientation="Horizontal" Spacing="5"><ui:SymbolIcon Symbol="OpenFile" /><TextBlock Text="{DynamicResource Ui_0d355ab7b4bc}" TextWrapping="Wrap" /></StackPanel>
+              <Button Grid.Column="1" Click="OnImportScreenshotClick" Padding="12,7" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><ui:SymbolIcon Symbol="OpenFile" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Ui_0d355ab7b4bc}" VerticalAlignment="Center" /></StackPanel>
               </Button>
-              <Button Grid.Column="2" Click="OnExportScreenshotClick" IsEnabled="{Binding HasScreenshot}" Padding="12,7">
-                <StackPanel Orientation="Horizontal" Spacing="5"><ui:SymbolIcon Symbol="Save" /><TextBlock Text="{DynamicResource Ui_30e7d4f32896}" TextWrapping="Wrap" /></StackPanel>
+              <Button Grid.Column="2" Click="OnExportScreenshotClick" IsEnabled="{Binding HasScreenshot}" Padding="12,7" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><ui:SymbolIcon Symbol="Save" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Ui_30e7d4f32896}" VerticalAlignment="Center" /></StackPanel>
               </Button>
-              <Button Grid.Column="3" Click="OnSaveCropClick" IsEnabled="{Binding HasCropRegion}" Padding="12,7">
-                <StackPanel Orientation="Horizontal" Spacing="5"><ui:SymbolIcon Symbol="Crop" /><TextBlock Text="{DynamicResource Ui_fd20f53478e2}" TextWrapping="Wrap" /></StackPanel>
+              <Button Grid.Column="3" Click="OnSaveCropClick" IsEnabled="{Binding HasCropRegion}" Padding="12,7" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><ui:SymbolIcon Symbol="Crop" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Ui_fd20f53478e2}" VerticalAlignment="Center" /></StackPanel>
               </Button>
               <TextBlock Grid.Column="4" Text="{Binding ScreenshotInfoText}" VerticalAlignment="Center"
                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" />
               <Button Grid.Column="5" Command="{Binding ClearCropCommand}" IsEnabled="{Binding HasCropRegion}"
-                      Content="{DynamicResource Ui_9f961bf6877e}" Padding="10,6" />
+                      Content="{DynamicResource Ui_9f961bf6877e}" Padding="10,6" VerticalAlignment="Center" />
             </Grid>
           </Border>
 
@@ -103,12 +103,12 @@
                 <Button Grid.Column="1" Click="OnChooseTemplateClick" Content="{DynamicResource Ui_ef23ea67b002}" />
               </Grid>
               <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,100,Auto">
-                <TextBlock Text="{DynamicResource Ui_b77e2ac8f4d1}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableMatchMethods}" SelectedItem="{Binding MatchMethod}" />
-                <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Value="{Binding MatchThreshold}" />
+                <TextBlock Text="{DynamicResource Ui_b77e2ac8f4d1}" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableMatchMethods}" SelectedItem="{Binding MatchMethod}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Value="{Binding MatchThreshold}" VerticalAlignment="Center" />
                 <Button Grid.Column="4" Command="{Binding MatchImageCommand}" IsEnabled="{Binding !IsMatchingImage}"
-                        Content="{DynamicResource Ui_f941a68c1b1a}" Padding="10,6" />
+                        Content="{DynamicResource Ui_f941a68c1b1a}" Padding="10,6" VerticalAlignment="Center" />
               </Grid>
               <TextBlock Grid.Row="4" Text="{Binding ImageMatchStatus}" TextWrapping="Wrap" FontSize="12"
                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -132,25 +132,25 @@
           <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="10">
             <Grid ColumnDefinitions="Auto,*,Auto,190,Auto,Auto,Auto,Auto,Auto">
-              <TextBlock Text="{DynamicResource Ui_e840cd6f1e21}" VerticalAlignment="Center" TextWrapping="Wrap" />
-              <ComboBox Grid.Column="1" ItemsSource="{Binding PipelineTaskNames}" SelectedItem="{Binding SelectedPipelineTaskName}" />
-              <Button Grid.Column="2" Command="{Binding AddPipelineTaskCommand}" Content="{DynamicResource Ui_94191ce210d3}" />
-              <Button Grid.Column="3" Command="{Binding RemovePipelineTaskCommand}" Content="{DynamicResource Ui_f7920748264e}" />
-              <Button Grid.Column="4" Command="{Binding UseCropAsPipelineRoiCommand}" Content="{DynamicResource Ui_2c662639f852}" />
-              <Button Grid.Column="5" Command="{Binding SavePipelineTemplateCommand}" IsEnabled="{Binding CanSavePipelineTemplate}" Content="{Binding PipelineTemplateSaveLabel}" />
-              <Button Grid.Column="6" Command="{Binding EditPipelineTemplateCommand}" IsEnabled="{Binding CanEditPipelineTemplate}" Content="{DynamicResource Ui_af5a5bd865cd}" />
-              <Button Grid.Column="7" Command="{Binding UndoPipelineCommand}" IsEnabled="{Binding CanUndoPipeline}" Content="{DynamicResource Ui_9fcefd8dc81e}" />
-              <Button Grid.Column="8" Command="{Binding RedoPipelineCommand}" IsEnabled="{Binding CanRedoPipeline}" Content="{DynamicResource Ui_1238f0d36361}" />
+              <TextBlock Text="{DynamicResource Ui_e840cd6f1e21}" VerticalAlignment="Center" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding PipelineTaskNames}" SelectedItem="{Binding SelectedPipelineTaskName}" VerticalAlignment="Center" />
+              <Button Grid.Column="2" Command="{Binding AddPipelineTaskCommand}" Content="{DynamicResource Ui_94191ce210d3}" VerticalAlignment="Center" />
+              <Button Grid.Column="3" Command="{Binding RemovePipelineTaskCommand}" Content="{DynamicResource Ui_f7920748264e}" VerticalAlignment="Center" />
+              <Button Grid.Column="4" Command="{Binding UseCropAsPipelineRoiCommand}" Content="{DynamicResource Ui_2c662639f852}" VerticalAlignment="Center" />
+              <Button Grid.Column="5" Command="{Binding SavePipelineTemplateCommand}" IsEnabled="{Binding CanSavePipelineTemplate}" Content="{Binding PipelineTemplateSaveLabel}" VerticalAlignment="Center" />
+              <Button Grid.Column="6" Command="{Binding EditPipelineTemplateCommand}" IsEnabled="{Binding CanEditPipelineTemplate}" Content="{DynamicResource Ui_af5a5bd865cd}" VerticalAlignment="Center" />
+              <Button Grid.Column="7" Command="{Binding UndoPipelineCommand}" IsEnabled="{Binding CanUndoPipeline}" Content="{DynamicResource Ui_9fcefd8dc81e}" VerticalAlignment="Center" />
+              <Button Grid.Column="8" Command="{Binding RedoPipelineCommand}" IsEnabled="{Binding CanRedoPipeline}" Content="{DynamicResource Ui_1238f0d36361}" VerticalAlignment="Center" />
             </Grid>
           </Border>
           <Border Grid.Row="2" Grid.ColumnSpan="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="9">
             <Grid ColumnDefinitions="Auto,*,Auto,220">
-              <TextBlock Text="{DynamicResource Ui_095325d6a143}" VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap" />
-              <TextBox Grid.Column="1" Text="{Binding PipelineEntryTask}" Watermark="{DynamicResource Ui_99402f75fa92}" />
-              <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a2273aee08de}" VerticalAlignment="Center" Margin="8,0" TextWrapping="Wrap" />
-              <ComboBox Grid.Column="3" ItemsSource="{Binding TemplateDirectories}" SelectedItem="{Binding SelectedTemplateDirectory}">
-                <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" /></DataTemplate></ComboBox.ItemTemplate>
+              <TextBlock Text="{DynamicResource Ui_095325d6a143}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBox Grid.Column="1" Text="{Binding PipelineEntryTask}" Watermark="{DynamicResource Ui_99402f75fa92}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a2273aee08de}" VerticalAlignment="Center" Margin="8,0" />
+              <ComboBox Grid.Column="3" ItemsSource="{Binding TemplateDirectories}" SelectedItem="{Binding SelectedTemplateDirectory}" VerticalAlignment="Center">
+                <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
               </ComboBox>
             </Grid>
           </Border>
@@ -176,15 +176,15 @@
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="9">
             <Grid RowDefinitions="Auto,*">
               <Grid ColumnDefinitions="Auto,*,Auto,220,Auto,Auto,Auto">
-                <TextBlock Text="{DynamicResource Ui_b6c61846bbeb}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding ReplayFixtures}" SelectedItem="{Binding SelectedReplayFixture}">
-                  <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" /></DataTemplate></ComboBox.ItemTemplate>
+                <TextBlock Text="{DynamicResource Ui_b6c61846bbeb}" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding ReplayFixtures}" SelectedItem="{Binding SelectedReplayFixture}" VerticalAlignment="Center">
+                  <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
                 </ComboBox>
-                <Button Grid.Column="2" Click="OnChooseReplayFixtureClick" Content="{DynamicResource Ui_ef23ea67b002}" />
-                <Button Grid.Column="3" Command="{Binding PreviewPipelineCommand}" Content="{DynamicResource Ui_f17bfa9ad736}" />
-                <Button Grid.Column="4" Command="{Binding RunPipelineCommand}" IsEnabled="{Binding CanRunPipeline}" Content="{DynamicResource Ui_c1f05b9d30e1}" />
-                <Button Grid.Column="5" Command="{Binding RunOfflineReplayCommand}" IsEnabled="{Binding !IsPipelineRunning}" Content="{DynamicResource Ui_f2f0d04e0b72}" />
-                <Button Grid.Column="6" Command="{Binding StopPipelineCommand}" IsEnabled="{Binding IsPipelineRunning}" Content="{DynamicResource Ui_a17f70a8d3d6}" />
+                <Button Grid.Column="2" Click="OnChooseReplayFixtureClick" Content="{DynamicResource Ui_ef23ea67b002}" VerticalAlignment="Center" />
+                <Button Grid.Column="3" Command="{Binding PreviewPipelineCommand}" Content="{DynamicResource Ui_f17bfa9ad736}" VerticalAlignment="Center" />
+                <Button Grid.Column="4" Command="{Binding RunPipelineCommand}" IsEnabled="{Binding CanRunPipeline}" Content="{DynamicResource Ui_c1f05b9d30e1}" VerticalAlignment="Center" />
+                <Button Grid.Column="5" Command="{Binding RunOfflineReplayCommand}" IsEnabled="{Binding !IsPipelineRunning}" Content="{DynamicResource Ui_f2f0d04e0b72}" VerticalAlignment="Center" />
+                <Button Grid.Column="6" Command="{Binding StopPipelineCommand}" IsEnabled="{Binding IsPipelineRunning}" Content="{DynamicResource Ui_a17f70a8d3d6}" VerticalAlignment="Center" />
               </Grid>
               <Grid Grid.Row="1" ColumnDefinitions="*,*">
                 <TextBlock Text="{Binding PipelineRunStatusText}" TextWrapping="Wrap" FontSize="12" />

@@ -37,10 +37,10 @@
                 <Border Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="12,6" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Ellipse Width="8" Height="8" Fill="{Binding IsConnected, Converter={StaticResource ConnBrush}}" />
-                        <TextBlock Text="{DynamicResource Ui_9f107c369768}" IsVisible="{Binding IsConnected}" FontWeight="Medium" FontSize="12" />
-                        <TextBlock Text="{DynamicResource Ui_c0480032a3a8}" IsVisible="{Binding !IsConnected}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse Width="8" Height="8" Fill="{Binding IsConnected, Converter={StaticResource ConnBrush}}" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_9f107c369768}" IsVisible="{Binding IsConnected}" FontWeight="Medium" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_c0480032a3a8}" IsVisible="{Binding !IsConnected}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -58,8 +58,8 @@
                 <Border Grid.Column="0" Margin="0,0,8,0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="14">
-                    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,2,12">
+                    <DockPanel LastChildFill="True">
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,12">
                             <TextBlock Text="{DynamicResource GrassTaskQueueTitle}" FontSize="15" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <TextBlock Grid.Column="1" Text="{Binding QueueSummary}" FontSize="11"
@@ -67,7 +67,7 @@
                         </Grid>
 
                         <!-- Add Task Row -->
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
                             <ComboBox ItemsSource="{Binding AvailableTaskTypes}"
                                       SelectedIndex="{Binding SelectedTaskTypeIndex, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
@@ -92,8 +92,55 @@
                             </Button>
                         </Grid>
 
-                        <!-- Tasks List -->
-                        <Border Grid.Row="2" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        <!-- Bottom controls stay together at the bottom of the queue card -->
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <!-- Queue Manipulation Toolbar -->
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+                                <Button Grid.Column="0" Command="{Binding SelectAllTasksCommand}" Padding="8,5" Content="{DynamicResource Ui_6bc71e03428d}" ToolTip.Tip="{DynamicResource GrassSelectAll}" />
+                                <Button Grid.Column="1" Command="{Binding InvertTaskSelectionCommand}" Padding="8,5" Content="{DynamicResource Ui_ae0588041180}" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassInvertSelection}" />
+                                <Button Grid.Column="3" Command="{Binding CopyTaskCommand}" Padding="8,5" ToolTip.Tip="{DynamicResource GrassCopyTask}">
+                                    <ui:SymbolIcon Symbol="Copy" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="4" Command="{Binding RemoveTaskCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassDeleteTask}">
+                                    <ui:SymbolIcon Symbol="Delete" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="5" Command="{Binding MoveTaskUpCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskUp}">
+                                    <ui:SymbolIcon Symbol="ChevronUp" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="6" Command="{Binding MoveTaskDownCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskDown}">
+                                    <ui:SymbolIcon Symbol="ChevronDown" FontSize="13" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Run / Stop Controls -->
+                            <Grid ColumnDefinitions="*,*" Margin="0,10,0,0">
+                                <Button Grid.Column="0" Command="{Binding StartQueueCommand}" IsEnabled="{Binding CanStartQueue}"
+                                        Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="0,9">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Play" FontSize="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_c273276937bc}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Command="{Binding StopQueueCommand}" IsEnabled="{Binding CanStopQueue}"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="0,9">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Stop" FontSize="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_a17f70a8d3d6}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- Status Indicator -->
+                            <StackPanel Spacing="6" Margin="0,10,0,0">
+                                <TextBlock Text="{Binding StatusText}" FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding QueueValidationMessage}" FontSize="11" Foreground="#D13438"
+                                           TextWrapping="Wrap" IsVisible="{Binding !CanStartQueue}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Tasks List fills the space above the bottom controls -->
+                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
                                 CornerRadius="6" Padding="4">
                             <ListBox ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
                                      Background="Transparent" BorderThickness="0"
@@ -132,56 +179,7 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </Border>
-
-                        <!-- Queue Manipulation Toolbar -->
-                        <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
-                            <Button Grid.Column="0" Command="{Binding SelectAllTasksCommand}" Padding="8,5" Content="{DynamicResource Ui_6bc71e03428d}" ToolTip.Tip="{DynamicResource GrassSelectAll}" />
-                            <Button Grid.Column="1" Command="{Binding InvertTaskSelectionCommand}" Padding="8,5" Content="{DynamicResource Ui_ae0588041180}" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassInvertSelection}" />
-                            <Button Grid.Column="3" Command="{Binding CopyTaskCommand}" Padding="8,5" ToolTip.Tip="{DynamicResource GrassCopyTask}">
-                                <ui:SymbolIcon Symbol="Copy" FontSize="13" />
-                            </Button>
-                            <Button Grid.Column="4" Command="{Binding RemoveTaskCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassDeleteTask}">
-                                <ui:SymbolIcon Symbol="Delete" FontSize="13" />
-                            </Button>
-                            <Button Grid.Column="5" Command="{Binding MoveTaskUpCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskUp}">
-                                <ui:SymbolIcon Symbol="ChevronUp" FontSize="13" />
-                            </Button>
-                            <Button Grid.Column="6" Command="{Binding MoveTaskDownCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskDown}">
-                                <ui:SymbolIcon Symbol="ChevronDown" FontSize="13" />
-                            </Button>
-                        </Grid>
-
-                        <!-- Run / Stop Controls -->
-                        <Grid Grid.Row="4" ColumnDefinitions="*,*" Margin="0,10,0,0">
-                            <Button Grid.Column="0" Command="{Binding StartQueueCommand}" IsEnabled="{Binding CanStartQueue}"
-                                    Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="0,9">
-                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                    <ui:SymbolIcon Symbol="Play" FontSize="14" />
-                                    <TextBlock Text="{DynamicResource Ui_c273276937bc}" FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="1" Command="{Binding StopQueueCommand}" IsEnabled="{Binding CanStopQueue}"
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="0,9">
-                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                    <ui:SymbolIcon Symbol="Stop" FontSize="14" />
-                                    <TextBlock Text="{DynamicResource Ui_a17f70a8d3d6}" />
-                                </StackPanel>
-                            </Button>
-                        </Grid>
-
-                        <!-- Progress & Status Indicator -->
-                        <StackPanel Grid.Row="5" Spacing="6" Margin="0,10,0,0">
-                            <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="4" />
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding StatusText}" FontSize="11" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Grid.Column="1" Text="{Binding ProgressText}" FontSize="11"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="8,0,0,0" />
-                            </Grid>
-                            <TextBlock Text="{Binding QueueValidationMessage}" FontSize="11" Foreground="#D13438"
-                                       TextWrapping="Wrap" IsVisible="{Binding !CanStartQueue}" />
-                        </StackPanel>
-                    </Grid>
+                    </DockPanel>
                 </Border>
 
                 <!-- Right Column: REAL-TIME EXECUTION LOG (1:1 with Win WPF version) -->
@@ -207,8 +205,9 @@
                                        FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
                             <Border Grid.Row="0" Grid.Column="1"
                                     Background="{Binding HachimiTaskLog.RunStatus, Converter={StaticResource TaskStatusBrush}}"
-                                    CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding HachimiTaskLog.RunStatus}" Foreground="White" FontSize="11" FontWeight="SemiBold" />
+                                    CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HachimiTaskLog.RunStatus}" Foreground="White" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center" />
                             </Border>
 
                             <!-- Row 1: Duration on Left, Clear button on Right (Visible when log has content) -->
@@ -216,14 +215,14 @@
                                   IsVisible="{Binding HachimiTaskLog.HasContent}">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <TextBlock Text="{DynamicResource GrassTaskLogTotalRunDuration}" FontSize="11"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding HachimiTaskLog.TotalRunDurationText}" FontWeight="SemiBold" FontSize="11" />
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding HachimiTaskLog.TotalRunDurationText}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <Button HorizontalAlignment="Right" Command="{Binding ClearHistoryCommand}"
-                                        Padding="8,3" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <ui:SymbolIcon Symbol="Delete" FontSize="11" />
-                                        <TextBlock Text="{DynamicResource Ui_84fcd70d4280}" FontSize="11" />
+                                        Padding="8,4" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Delete" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_84fcd70d4280}" FontSize="11" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -254,10 +253,11 @@
                                                     <TextBlock Grid.Column="1" Text="{Binding Step}" Margin="10,0,0,0"
                                                                FontWeight="SemiBold" FontSize="11"
                                                                Foreground="{Binding Kind, Converter={StaticResource LogBrush}}"
-                                                               VerticalAlignment="Top" />
+                                                               VerticalAlignment="Center" />
                                                     <TextBlock Grid.Column="2" Text="{Binding Message}" Margin="8,0,0,0"
                                                                FontSize="12" TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -278,9 +278,10 @@
                                                                    FontWeight="SemiBold" FontSize="13" />
                                                         <Border Grid.Column="1"
                                                                 Background="{Binding DisplayStatus, Converter={StaticResource TaskStatusBrush}}"
-                                                                CornerRadius="4" Padding="6,2">
+                                                                CornerRadius="4" Padding="7,3" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding DisplayStatus}"
-                                                                       Foreground="White" FontSize="10" FontWeight="SemiBold" />
+                                                                       Foreground="White" FontSize="10" FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
                                                         </Border>
                                                     </Grid>
 
@@ -302,10 +303,11 @@
                                                                         <TextBlock Grid.Column="1" Text="{Binding Step}" Margin="8,0,0,0"
                                                                                    FontWeight="SemiBold" FontSize="10"
                                                                                    Foreground="{Binding Kind, Converter={StaticResource LogBrush}}"
-                                                                                   VerticalAlignment="Top" />
+                                                                                   VerticalAlignment="Center" />
                                                                         <TextBlock Grid.Column="2" Text="{Binding Message}" Margin="6,0,0,0"
                                                                                    FontSize="11" TextWrapping="Wrap"
-                                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                                                   VerticalAlignment="Center" />
                                                                     </Grid>
                                                                 </Border>
                                                             </DataTemplate>
@@ -330,15 +332,12 @@
             <!-- Header with Back Button and Task Title -->
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="4,0,4,16" VerticalAlignment="Center">
                 <Button Grid.Column="0" Command="{Binding CloseTaskSettingsCommand}" Padding="8,5" Margin="0,0,12,0"
+                        VerticalAlignment="Center"
                         ToolTip.Tip="{DynamicResource GrassBackToQueueToolTip}">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <ui:SymbolIcon Symbol="Back" FontSize="14" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12"
-                                   VerticalAlignment="Center">
-                            <TextBlock.RenderTransform>
-                                <TranslateTransform Y="1.5" />
-                            </TextBlock.RenderTransform>
-                        </TextBlock>
+                                   VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
