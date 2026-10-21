@@ -11,28 +11,40 @@ if [ ! -d "$DEFAULT_BUILD_DIR" ]; then
     DEFAULT_BUILD_DIR="$REPO_ROOT/build/test-cmake"
 fi
 BUILD_DIR="${1:-$DEFAULT_BUILD_DIR}"
-DIST_DIR="$REPO_ROOT/dist"
+DIST_DIR="${2:-$REPO_ROOT/dist}"
 APP_NAME="UmamusumeAss.app"
 APP_DIR="$DIST_DIR/$APP_NAME"
 TEMP_PUBLISH="$REPO_ROOT/build/temp_publish_avalonia"
+TEMP_HELPER="$REPO_ROOT/build/temp_publish_mac_updater"
+BUNDLED_RESOURCE_VERSION="${UMA_BUNDLED_RESOURCE_VERSION:-0.0.0.0}"
 
 mkdir -p "$DIST_DIR"
-rm -rf "$APP_DIR" "$TEMP_PUBLISH"
+rm -rf "$APP_DIR" "$TEMP_PUBLISH" "$TEMP_HELPER"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Frameworks"
 mkdir -p "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/Helpers"
 
 echo "1. Publishing .NET Avalonia application..."
 dotnet publish "$REPO_ROOT/src/Umamusume.Avalonia/Umamusume.Avalonia.csproj" \
     -c Release \
     -r osx-arm64 \
     --self-contained true \
+    -p:PublishSingleFile=true \
     --disable-build-servers \
     -p:UseSharedCompilation=false \
     -o "$TEMP_PUBLISH"
 
 echo "2. Populating Contents/MacOS..."
-cp -R "$TEMP_PUBLISH/"* "$APP_DIR/Contents/MacOS/"
+find "$TEMP_PUBLISH" -mindepth 1 -maxdepth 1 ! -name '*.pdb' -exec cp -R {} "$APP_DIR/Contents/MacOS/" \;
+dotnet publish "$REPO_ROOT/src/Umamusume.MacUpdater/Umamusume.MacUpdater.csproj" \
+    -c Release -r osx-arm64 --self-contained true \
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+    --disable-build-servers -p:UseSharedCompilation=false -o "$TEMP_HELPER"
+cp "$TEMP_HELPER/Umamusume.MacUpdater" "$APP_DIR/Contents/Helpers/Umamusume.MacUpdater"
+chmod +x "$APP_DIR/Contents/Helpers/Umamusume.MacUpdater"
+cp "$REPO_ROOT/version.txt" "$APP_DIR/Contents/Resources/version.txt"
+printf '%s\n' "$BUNDLED_RESOURCE_VERSION" > "$APP_DIR/Contents/Resources/resource-version.txt"
 chmod +x "$APP_DIR/Contents/MacOS/Umamusume.Avalonia"
 
 echo "3. Copying native UmamusumeCore.dylib & worker..."
@@ -102,7 +114,7 @@ cat << EOF > "$APP_DIR/Contents/Info.plist"
     <key>CFBundleVersion</key>
     <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
+    <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
@@ -113,11 +125,17 @@ EOF
 
 echo -n "APPL????" > "$APP_DIR/Contents/PkgInfo"
 
-echo "6. Applying ad-hoc codesign..."
-codesign --force --deep -s - "$APP_DIR"
+echo "6. Signing Mach-O files inside-out, then sealing the app bundle..."
+while IFS= read -r -d '' BINARY_PATH; do
+    if file -b "$BINARY_PATH" | grep -q 'Mach-O'; then
+        codesign --force --sign - "$BINARY_PATH"
+    fi
+done < <(find "$APP_DIR/Contents" -type f -print0)
+codesign --force --sign - "$APP_DIR"
+codesign --verify --deep --strict "$APP_DIR"
 
 echo "7. Creating .app ZIP distribution..."
 (cd "$DIST_DIR" && rm -f "UmamusumeAss-osx-arm64.app.zip" && zip -q -r -y "UmamusumeAss-osx-arm64.app.zip" "$APP_NAME")
 
 echo "=== Packaging complete: $DIST_DIR/UmamusumeAss-osx-arm64.app.zip ==="
-rm -rf "$TEMP_PUBLISH"
+rm -rf "$TEMP_PUBLISH" "$TEMP_HELPER"

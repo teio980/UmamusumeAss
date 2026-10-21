@@ -79,7 +79,9 @@ jobs:
 
   build-macos:
     name: macOS ARM64 (Native Core + Avalonia .app)
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
 
     steps:
       - name: Checkout repository
@@ -95,7 +97,7 @@ jobs:
         shell: bash
 
       - name: Configure CMake (Release)
-        run: cmake --preset osx-arm64
+        run: cmake --preset osx-arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
         shell: bash
 
       - name: Build CMake (Release)
@@ -108,9 +110,10 @@ jobs:
 
       - name: Run Managed Unit Tests
         run: |
-          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release
+          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release --filter 'FullyQualifiedName!~LiveDeviceVerificationTests'
           dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
           dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
+          dotnet test tests/Umamusume.MacUpdater.Tests/Umamusume.MacUpdater.Tests.csproj -c Release
         shell: bash
 
       - name: Package macOS .app Bundle ZIP
@@ -123,6 +126,7 @@ jobs:
             echo "Error: dist/UmamusumeAss-osx-arm64.app.zip not found" >&2
             exit 1
           fi
+          ./tools/verify_macos_package.sh "dist/UmamusumeAss-osx-arm64.app.zip"
           echo "macOS ARM64 .app ZIP generated successfully:"
           ls -lh dist/UmamusumeAss-osx-arm64.app.zip
         shell: bash
