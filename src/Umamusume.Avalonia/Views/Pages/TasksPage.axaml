@@ -329,25 +329,21 @@
               IsVisible="{Binding IsTaskSettingsOpen}">
 
             <!-- Header with Back Button and Task Title -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="4,0,4,16" VerticalAlignment="Center">
-                <Button Grid.Column="0" Command="{Binding CloseTaskSettingsCommand}" Padding="8,5" Margin="0,0,12,0"
-                        VerticalAlignment="Center"
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="4,0,4,16" VerticalAlignment="Center">
+                <Button Grid.Column="0" Command="{Binding CloseTaskSettingsCommand}" Classes="accent"
+                        Padding="8,5" Margin="0,0,12,0" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center"
                         ToolTip.Tip="{DynamicResource GrassBackToQueueToolTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <ui:SymbolIcon Symbol="Back" FontSize="14" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12"
+                        <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12" FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource GrassTaskSettingsTitle}" FontSize="20" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding SelectedTask.Name, StringFormat='— {0}'}" FontSize="14"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                 </StackPanel>
-                <ToggleSwitch Grid.Column="2" IsChecked="{Binding SelectedTask.IsEnabled}"
-                              OnContent="{DynamicResource Ui_d4e9ca3dd494}" OffContent="{DynamicResource Ui_d989e55188c9}"
-                              VerticalAlignment="Center" />
             </Grid>
 
             <!-- Task settings use the same expander rows as the main Settings page. -->
