@@ -61,7 +61,7 @@ public partial class App : Application
                                 }
                                 catch (Exception reportError)
                                 {
-                                    logger.Log($"无法写入更新健康结果：{reportError.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning);
+                                    logger.Log($"{UiText.Get(loc, "无法写入更新健康结果", "Could not write update health result")}: {reportError.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning);
                                 }
                                 throw;
                             }
@@ -73,9 +73,9 @@ public partial class App : Application
                         {
                             autoService.RequireRestartAfterMaintenanceFailure(ex.Message);
                             try { await MacUpdateHealth.ReportAsync(false, ex.Message); }
-                            catch (Exception reportError) { logger.Log($"无法写入更新健康结果：{reportError.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning); }
+                            catch (Exception reportError) { logger.Log($"{UiText.Get(loc, "无法写入更新健康结果", "Could not write update health result")}: {reportError.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning); }
                         }
-                        logger.Log($"更新后健康检查失败：{ex.Message}", Umamusume.AppCore.Models.LogEntryKind.Error);
+                        logger.Log($"{UiText.Get(loc, "更新后健康检查失败", "Post-update health check failed")}: {ex.Message}", Umamusume.AppCore.Models.LogEntryKind.Error);
                     }
                 }
                 else
@@ -98,7 +98,7 @@ public partial class App : Application
                 vm.DeveloperTools.Dispose();
                 vm.ScreenOcr.ClearAllCommand.Execute(null);
                 try { await coreService.DisposeAsync(TimeSpan.FromSeconds(3)); }
-                catch (Exception ex) { logger.Log($"核心关闭失败：{ex.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning); }
+                catch (Exception ex) { logger.Log($"{UiText.Get(loc, "核心关闭失败", "Failed to shut down Core")}: {ex.Message}", Umamusume.AppCore.Models.LogEntryKind.Warning); }
                 shutdownCompleted.TrySetResult();
                 desktop.MainWindow.Close();
             };

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Umamusume.AppCore.Services;
 
 namespace Umamusume.Avalonia.Services;
 
@@ -46,10 +47,12 @@ internal static class DesktopActions
         using var process = Process.Start(start);
     }
 
-    public static void StartEmulator(string path)
+    public static void StartEmulator(string path, ILocalizationService? localizationService = null)
     {
         if (string.IsNullOrWhiteSpace(path) || (!File.Exists(path) && !Directory.Exists(path)))
-            throw new FileNotFoundException("请选择有效的模拟器应用或可执行文件。", path);
+            throw new FileNotFoundException(UiText.Get(localizationService,
+                "请选择有效的模拟器应用或可执行文件。",
+                "Select a valid emulator application or executable."), path);
         if (OperatingSystem.IsMacOS() && path.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
         {
             var start = new ProcessStartInfo("open");

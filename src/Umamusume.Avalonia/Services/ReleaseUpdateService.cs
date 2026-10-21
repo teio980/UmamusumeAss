@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using Umamusume.AppCore.Services;
 
 namespace Umamusume.Avalonia.Services;
 
@@ -13,7 +14,13 @@ public sealed class ReleaseUpdateService
     public const string ReleasesUrl = "https://github.com/teio980/UmamusumeAss/releases";
     private static readonly HttpClient SharedHttp = CreateClient();
     private readonly HttpClient _http;
-    public ReleaseUpdateService(HttpClient? httpClient = null) => _http = httpClient ?? SharedHttp;
+    private readonly ILocalizationService? _localizationService;
+
+    public ReleaseUpdateService(HttpClient? httpClient = null, ILocalizationService? localizationService = null)
+    {
+        _http = httpClient ?? SharedHttp;
+        _localizationService = localizationService;
+    }
 
     private static HttpClient CreateClient()
     {
@@ -40,9 +47,9 @@ public sealed class ReleaseUpdateService
 
     public async Task<string> DownloadAsync(ReleaseDownload release, string directory, CancellationToken cancellationToken = default)
     {
-        if (!IsGitHubUrl(release.DownloadUrl)) throw new InvalidDataException("更新包 URL 无效。");
+        if (!IsGitHubUrl(release.DownloadUrl)) throw new InvalidDataException(UiText.Get(_localizationService, "更新包 URL 无效。", "The update package URL is invalid."));
         if (release.Digest == null || !release.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("此发布没有 SHA-256 摘要，请从发布页面下载并核验。");
+            throw new InvalidDataException(UiText.Get(_localizationService, "此发布没有 SHA-256 摘要，请从发布页面下载并核验。", "This release has no SHA-256 digest. Download it from the release page and verify it manually."));
         Directory.CreateDirectory(directory);
         var target = Path.Combine(directory, Path.GetFileName(release.FileName));
         var temporary = target + "." + Guid.NewGuid().ToString("N") + ".part";
@@ -52,7 +59,8 @@ public sealed class ReleaseUpdateService
             await using (var output = File.Create(temporary)) await input.CopyToAsync(output, cancellationToken);
             await using var verify = File.OpenRead(temporary);
             var digest = Convert.ToHexString(await SHA256.HashDataAsync(verify, cancellationToken));
-            if (!digest.Equals(release.Digest[7..], StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("更新包 SHA-256 校验失败。");
+            if (!digest.Equals(release.Digest[7..], StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(UiText.Get(_localizationService, "更新包 SHA-256 校验失败。", "Update package SHA-256 verification failed."));
             verify.Close();
             File.Move(temporary, target, true);
             return target;
