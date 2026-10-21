@@ -10,9 +10,14 @@
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
             CornerRadius="8" Padding="18,14" Margin="0,0,0,14">
       <Grid ColumnDefinitions="*,Auto,Auto">
-        <TextBlock Text="{DynamicResource Ui_ac1367cb8fbf}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
-        <TextBlock Grid.Column="1" Text="{Binding ResourceStatusText}" VerticalAlignment="Center"
-                   FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="12,0" />
+        <TextBlock Text="{DynamicResource Ui_ac1367cb8fbf}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <Border Grid.Column="1" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="10,5" VerticalAlignment="Center" Margin="12,0"
+                IsVisible="{Binding ResourceStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock Text="{Binding ResourceStatusText}" VerticalAlignment="Center"
+                     FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Border>
         <Button Grid.Column="2" Command="{Binding ReloadNativeResourcesCommand}" Padding="12,7" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <ui:SymbolIcon Symbol="Refresh" FontSize="14" VerticalAlignment="Center" />
@@ -58,13 +63,13 @@
                           VerticalAlignment="Center" Spacing="8">
                 <ui:SymbolIcon Symbol="Camera" FontSize="40" HorizontalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                <TextBlock Text="{DynamicResource Ui_9180b10219b3}" FontSize="14" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="{DynamicResource Ui_9180b10219b3}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </StackPanel>
               <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12"
                       Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                       BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                       CornerRadius="5" Padding="8,4" IsVisible="{Binding HasCropRegion}">
-                <TextBlock Text="{Binding CropRegionText}" FontSize="11" />
+                <TextBlock Text="{Binding CropRegionText}" FontSize="11" VerticalAlignment="Center" />
               </Border>
               <Canvas x:Name="ScreenshotCanvas" Background="#01000000"
                       PointerPressed="OnScreenshotPointerPressed"
@@ -82,13 +87,13 @@
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                   CornerRadius="8" Padding="14">
             <Grid RowDefinitions="Auto,*,Auto,Auto,Auto">
-              <TextBlock Text="{DynamicResource Ui_2a9b1f950ccc}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <Grid Grid.Row="1" ColumnDefinitions="*,150">
+              <TextBlock Text="{DynamicResource Ui_2a9b1f950ccc}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Grid Grid.Row="1" ColumnDefinitions="*,150" Margin="0,8,0,0">
                 <ListBox ItemsSource="{Binding TemplateImages}" SelectedItem="{Binding SelectedTemplateImage}"
                          Background="{DynamicResource ControlFillColorDefaultBrush}">
                   <ListBox.ItemTemplate>
                     <DataTemplate DataType="svc:DeveloperResourceFile">
-                      <TextBlock Text="{Binding RelativePath}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding RelativePath}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
@@ -98,20 +103,25 @@
                   <Image Source="{Binding TemplatePreviewBitmap}" Stretch="Uniform" Margin="6" />
                 </Border>
               </Grid>
-              <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-                <TextBox Text="{Binding TemplatePath}" Watermark="{DynamicResource Ui_1f54702c37ae}" />
-                <Button Grid.Column="1" Click="OnChooseTemplateClick" Content="{DynamicResource Ui_ef23ea67b002}" />
+              <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,8,0,8">
+                <TextBox Text="{Binding TemplatePath}" Watermark="{DynamicResource Ui_1f54702c37ae}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Click="OnChooseTemplateClick" Content="{DynamicResource Ui_ef23ea67b002}" VerticalAlignment="Center" Margin="8,0,0,0" />
               </Grid>
-              <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,100,Auto">
-                <TextBlock Text="{DynamicResource Ui_b77e2ac8f4d1}" VerticalAlignment="Center" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableMatchMethods}" SelectedItem="{Binding MatchMethod}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" />
-                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Value="{Binding MatchThreshold}" VerticalAlignment="Center" />
+              <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,100,Auto" Margin="0,0,0,8">
+                <TextBlock Text="{DynamicResource Ui_b77e2ac8f4d1}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableMatchMethods}" SelectedItem="{Binding MatchMethod}" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="2" Text="{DynamicResource Ui_a05320e189cb}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Value="{Binding MatchThreshold}" VerticalAlignment="Center" Margin="0,0,8,0" />
                 <Button Grid.Column="4" Command="{Binding MatchImageCommand}" IsEnabled="{Binding !IsMatchingImage}"
                         Content="{DynamicResource Ui_f941a68c1b1a}" Padding="10,6" VerticalAlignment="Center" />
               </Grid>
-              <TextBlock Grid.Row="4" Text="{Binding ImageMatchStatus}" TextWrapping="Wrap" FontSize="12"
-                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              <Border Grid.Row="4" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                      BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                      CornerRadius="6" Padding="10,6" Margin="0,4,0,0"
+                      IsVisible="{Binding ImageMatchStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ImageMatchStatus}" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+              </Border>
             </Grid>
           </Border>
         </Grid>
@@ -119,15 +129,15 @@
 
       <TabItem Header="{DynamicResource Ui_72e394b9863b}">
         <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnDefinitions="220,*" Margin="6,14,6,0">
-          <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Center" Margin="0,0,0,6">
-            <ComboBox ItemsSource="{Binding PipelineFiles}" SelectedItem="{Binding SelectedPipelineFile}" Width="200" Margin="0,0,6,4">
-              <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" /></DataTemplate></ComboBox.ItemTemplate>
+          <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Center" Margin="0,0,0,8">
+            <ComboBox ItemsSource="{Binding PipelineFiles}" SelectedItem="{Binding SelectedPipelineFile}" Width="200" Margin="0,0,6,4" VerticalAlignment="Center">
+              <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
-            <Button Command="{Binding RefreshResourcesCommand}" Content="{DynamicResource Ui_38108eaa1d32}" Margin="0,0,6,4" />
-            <Button Command="{Binding NewPipelineCommand}" Content="{DynamicResource Ui_0cda8d1c7182}" Margin="0,0,6,4" />
-            <Button Click="OnOpenPipelineClick" Content="{DynamicResource Ui_38820b3dc3d7}" Margin="0,0,6,4" />
-            <Button Click="OnSavePipelineClick" Content="{DynamicResource Ui_fadf24dbc5a9}" Margin="0,0,6,4" />
-            <Button Command="{Binding ValidatePipelineCommand}" Content="{DynamicResource Ui_65b2d378fb5d}" Margin="0,0,0,4" />
+            <Button Command="{Binding RefreshResourcesCommand}" Content="{DynamicResource Ui_38108eaa1d32}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Command="{Binding NewPipelineCommand}" Content="{DynamicResource Ui_0cda8d1c7182}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Click="OnOpenPipelineClick" Content="{DynamicResource Ui_38820b3dc3d7}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Click="OnSavePipelineClick" Content="{DynamicResource Ui_fadf24dbc5a9}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Command="{Binding ValidatePipelineCommand}" Content="{DynamicResource Ui_65b2d378fb5d}" Margin="0,0,0,4" VerticalAlignment="Center" />
           </WrapPanel>
           <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="10">
@@ -157,7 +167,7 @@
           <Border Grid.Row="3" Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,0,0">
             <Grid RowDefinitions="Auto,*">
-              <TextBlock Text="{DynamicResource Ui_d031bb3a348b}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{DynamicResource Ui_d031bb3a348b}" FontWeight="SemiBold" VerticalAlignment="Center" />
               <ScrollViewer Grid.Row="1">
                 <TextBlock Text="{Binding PipelineGraphText}" FontFamily="Menlo, Monaco, Consolas, Courier New, monospace"
                            FontSize="11" TextWrapping="Wrap" />
@@ -170,8 +180,13 @@
                      AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" FontSize="12"
                      FontFamily="Menlo, Monaco, Consolas, Courier New, monospace" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" />
           </Border>
-          <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding PipelineStatusText}" TextWrapping="Wrap" FontSize="12"
-                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+          <Border Grid.Row="4" Grid.ColumnSpan="2" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                  BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6"
+                  Padding="10,6" Margin="0,6,0,6"
+                  IsVisible="{Binding PipelineStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding PipelineStatusText}" TextWrapping="Wrap" FontSize="12"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+          </Border>
           <Border Grid.Row="5" Grid.ColumnSpan="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="9">
             <Grid RowDefinitions="Auto,*">
@@ -186,8 +201,11 @@
                 <Button Command="{Binding RunOfflineReplayCommand}" IsEnabled="{Binding !IsPipelineRunning}" Content="{DynamicResource Ui_f2f0d04e0b72}" VerticalAlignment="Center" Margin="0,0,6,4" />
                 <Button Command="{Binding StopPipelineCommand}" IsEnabled="{Binding IsPipelineRunning}" Content="{DynamicResource Ui_a17f70a8d3d6}" VerticalAlignment="Center" Margin="0,0,0,4" />
               </WrapPanel>
-              <Grid Grid.Row="1" ColumnDefinitions="*,*">
-                <TextBlock Text="{Binding PipelineRunStatusText}" TextWrapping="Wrap" FontSize="12" />
+              <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,8,0,0">
+                <Border Margin="0,0,6,0" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6">
+                  <TextBlock Text="{Binding PipelineRunStatusText}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center" />
+                </Border>
                 <TextBox Grid.Column="1" Text="{Binding ReplayOutputText}" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="Wrap" FontSize="11" ScrollViewer.VerticalScrollBarVisibility="Auto" />
               </Grid>
@@ -198,19 +216,19 @@
 
       <TabItem Header="{DynamicResource Ui_dabcd1432134}">
         <Grid RowDefinitions="Auto,*,Auto,*" ColumnDefinitions="260,*" Margin="6,14,6,0">
-          <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Center" Margin="0,0,0,6">
-            <ComboBox ItemsSource="{Binding ScenarioManifests}" SelectedItem="{Binding SelectedScenarioManifest}" Width="220" Margin="0,0,6,4">
-              <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" /></DataTemplate></ComboBox.ItemTemplate>
+          <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Center" Margin="0,0,0,8">
+            <ComboBox ItemsSource="{Binding ScenarioManifests}" SelectedItem="{Binding SelectedScenarioManifest}" Width="220" Margin="0,0,6,4" VerticalAlignment="Center">
+              <ComboBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
-            <Button Click="OnOpenScenarioManifestClick" Content="{DynamicResource Ui_927d9db596c0}" Margin="0,0,6,4" />
-            <Button Command="{Binding RefreshResourcesCommand}" Content="{DynamicResource Ui_bf36576952eb}" Margin="0,0,6,4" />
-            <Button Command="{Binding ValidateScenarioPackageCommand}" IsEnabled="{Binding !IsScenarioBusy}" Content="{DynamicResource Ui_09a9e3c8b47c}" Margin="0,0,0,4" />
+            <Button Click="OnOpenScenarioManifestClick" Content="{DynamicResource Ui_927d9db596c0}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Command="{Binding RefreshResourcesCommand}" Content="{DynamicResource Ui_bf36576952eb}" Margin="0,0,6,4" VerticalAlignment="Center" />
+            <Button Command="{Binding ValidateScenarioPackageCommand}" IsEnabled="{Binding !IsScenarioBusy}" Content="{DynamicResource Ui_09a9e3c8b47c}" Margin="0,0,0,4" VerticalAlignment="Center" />
           </WrapPanel>
           <Border Grid.Row="1" Grid.Column="0" Grid.RowSpan="3" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="7" Padding="8">
             <ListBox ItemsSource="{Binding ScenarioPackageFiles}" SelectedItem="{Binding SelectedScenarioFile}"
                      Background="{DynamicResource ControlFillColorDefaultBrush}">
-              <ListBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" FontSize="11" TextTrimming="CharacterEllipsis" /></DataTemplate></ListBox.ItemTemplate>
+              <ListBox.ItemTemplate><DataTemplate DataType="svc:DeveloperResourceFile"><TextBlock Text="{Binding RelativePath}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" /></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
           </Border>
           <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
@@ -219,10 +237,14 @@
                      AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" FontSize="12"
                      FontFamily="Menlo, Monaco, Consolas, Courier New, monospace" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" />
           </Border>
-          <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto,Auto">
-            <TextBlock Text="{Binding ScenarioStatusText}" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12" />
-            <Button Grid.Column="1" Command="{Binding SaveScenarioFileCommand}" Content="{DynamicResource Ui_0dbfdf5ad341}" />
-            <Button Grid.Column="2" Command="{Binding ValidateScenarioPackageCommand}" Content="{DynamicResource Ui_577775d3afd7}" />
+          <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,8">
+            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="10,6" Margin="0,0,8,0" VerticalAlignment="Center">
+              <TextBlock Text="{Binding ScenarioStatusText}" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12" />
+            </Border>
+            <Button Grid.Column="1" Command="{Binding SaveScenarioFileCommand}" Content="{DynamicResource Ui_0dbfdf5ad341}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <Button Grid.Column="2" Command="{Binding ValidateScenarioPackageCommand}" Content="{DynamicResource Ui_577775d3afd7}" VerticalAlignment="Center" />
           </Grid>
           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ScenarioInspectionText}" IsReadOnly="True"
                    AcceptsReturn="True" TextWrapping="Wrap" FontSize="11" ScrollViewer.VerticalScrollBarVisibility="Auto" Background="{DynamicResource ControlFillColorDefaultBrush}" />
@@ -236,8 +258,8 @@
                   CornerRadius="8" Padding="10" Margin="0,0,12,0">
             <Grid RowDefinitions="Auto,*">
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                <TextBox Text="{Binding UmaImageSearchText, UpdateSourceTrigger=PropertyChanged}" Watermark="{DynamicResource Ui_b0c6564d9483}" />
-                <Button Grid.Column="1" Command="{Binding RefreshUmaDatabaseImagesCommand}" Content="{DynamicResource Ui_38108eaa1d32}" />
+                <TextBox Text="{Binding UmaImageSearchText, UpdateSourceTrigger=PropertyChanged}" Watermark="{DynamicResource Ui_b0c6564d9483}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Button Grid.Column="1" Command="{Binding RefreshUmaDatabaseImagesCommand}" Content="{DynamicResource Ui_38108eaa1d32}" VerticalAlignment="Center" />
               </Grid>
               <ListBox Grid.Row="1" ItemsSource="{Binding FilteredUmaDatabaseImages}" SelectedItem="{Binding SelectedUmaImage}"
                        Background="{DynamicResource ControlFillColorDefaultBrush}">
@@ -249,9 +271,9 @@
                         <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
                       </Border>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding ImagePath}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                       </StackPanel>
                     </Grid>
                   </DataTemplate>
@@ -275,16 +297,21 @@
                 <TextBlock Text="{Binding ScreenshotInfoText}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <TextBlock Text="{Binding CropRegionText}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
               </StackPanel>
-              <WrapPanel Grid.Row="2" VerticalAlignment="Center">
+              <WrapPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,6,0,0">
                 <Button Command="{Binding UseSelectedUmaImageAsCropSourceCommand}" IsEnabled="{Binding HasSelectedUmaImage}"
-                        Content="{DynamicResource Ui_38fba6de7101}" Margin="0,0,6,4" />
+                        Content="{DynamicResource Ui_38fba6de7101}" Margin="0,0,6,4" VerticalAlignment="Center" />
                 <Button Command="{Binding SaveSystemReferenceCommand}" IsEnabled="{Binding CanSaveSystemReference}"
-                        Content="{DynamicResource Ui_6add104a3d97}" Margin="0,0,6,4" />
+                        Content="{DynamicResource Ui_6add104a3d97}" Margin="0,0,6,4" VerticalAlignment="Center" />
                 <Button Command="{Binding TestSystemReferenceMatchCommand}" IsEnabled="{Binding CanTestSystemReferenceMatch}"
-                        Content="{DynamicResource Ui_c812227b6fba}" Margin="0,0,0,4" />
+                        Content="{DynamicResource Ui_c812227b6fba}" Margin="0,0,0,4" VerticalAlignment="Center" />
               </WrapPanel>
-              <TextBlock Grid.Row="3" Text="{Binding SystemReferenceStatus}" Margin="0,8,0,0" TextWrapping="Wrap"
-                         FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+              <Border Grid.Row="3" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                      BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                      CornerRadius="6" Padding="10,6" Margin="0,8,0,0"
+                      IsVisible="{Binding SystemReferenceStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding SystemReferenceStatus}" TextWrapping="Wrap"
+                           FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+              </Border>
             </Grid>
           </Border>
         </Grid>
