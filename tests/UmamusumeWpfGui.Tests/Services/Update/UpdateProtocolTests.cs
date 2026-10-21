@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Update;
+using Umamusume.UpdateCore;
 
 namespace UmamusumeWpfGui.Tests.Services.Update;
 
@@ -312,8 +313,11 @@ public sealed class UpdateProtocolTests
             root, "src", "UmamusumeWpfGui", "Services", "Update", "ManifestVerifier.cs"));
         var signerSource = File.ReadAllText(Path.Combine(
             root, "tools", "UpdateSigner", "Program.cs"));
-        Assert.Equal(expected, ExtractConstant(verifierSource, "EmbeddedPublicKey"));
-        Assert.Equal(expected, ExtractConstant(signerSource, "expectedPublicKey"));
+        Assert.Equal(expected, UpdateSigningKey.EmbeddedPublicKeyBase64);
+        Assert.Contains("UpdateSigningKey.EmbeddedPublicKeyBase64", verifierSource, StringComparison.Ordinal);
+        Assert.Contains("UpdateSigningKey.EmbeddedPublicKeyBase64", signerSource, StringComparison.Ordinal);
+        using (var embeddedVerifier = ECDsa.Create())
+            embeddedVerifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(UpdateSigningKey.EmbeddedPublicKeyBase64), out _);
 
         var nativeSource = File.ReadAllText(Path.Combine(
             root, "src", "UmamusumeAssUpdater", "main.cpp"));

@@ -18,6 +18,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
+    <ProjectReference Include="..\..\src\Umamusume.UpdateCore\Umamusume.UpdateCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Models\UpdateModels.cs" />
+    <Compile Remove="Services\Update\ManifestVerifier.cs" />
+    <Compile Remove="Services\Update\PackageStager.cs" />
+    <Compile Remove="Services\Update\GitHubReleaseClient.cs" />
+    <Compile Remove="Services\Update\UpdateCoordinator.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -122,7 +122,7 @@ public sealed class UpdateCoordinator : IUpdateService
                 rawManifest,
                 signature,
                 progress,
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (scope == UpdateScope.Program)
         {

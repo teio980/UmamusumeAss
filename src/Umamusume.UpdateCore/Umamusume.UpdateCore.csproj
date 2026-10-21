@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Umamusume.UpdateCore</RootNamespace>
+    <AssemblyName>Umamusume.UpdateCore</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UmamusumeWpfGui.Tests" />
+    <InternalsVisibleTo Include="Umamusume.UpdateCore.Tests" />
+    <InternalsVisibleTo Include="Umamusume.Avalonia.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\update-public.txt" LogicalName="Umamusume.UpdateCore.update-public.txt" />
+    <Compile Include="..\UmamusumeWpfGui\Models\UpdateModels.cs" Link="Models\UpdateModels.cs" />
+    <Compile Include="..\UmamusumeWpfGui\Services\Update\ManifestVerifier.cs" Link="Services\ManifestVerifier.cs" />
+    <Compile Include="..\UmamusumeWpfGui\Services\Update\PackageStager.cs" Link="Services\PackageStager.cs" />
+    <Compile Include="..\UmamusumeWpfGui\Services\Update\GitHubReleaseClient.cs" Link="Services\GitHubReleaseClient.cs" />
+    <Compile Include="..\UmamusumeWpfGui\Services\Update\UpdateCoordinator.cs" Link="Services\UpdateSelector.cs" />
+  </ItemGroup>
+</Project>

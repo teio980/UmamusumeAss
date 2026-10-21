@@ -21,12 +21,12 @@ public sealed class GitHubReleaseClient
     private readonly HttpClient _http;
     private readonly string _releaseCacheDirectory;
 
-    public GitHubReleaseClient(HttpClient? httpClient = null)
+    public GitHubReleaseClient(HttpClient? httpClient = null, string? releaseCacheDirectory = null)
     {
         _http = httpClient ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
-        _releaseCacheDirectory = Path.Combine(
+        _releaseCacheDirectory = Path.GetFullPath(releaseCacheDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "UmamusumeAss", "update-checks");
+            "UmamusumeAss", "update-checks"));
         if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("UmamusumeAss-Updater/0.2");
     }

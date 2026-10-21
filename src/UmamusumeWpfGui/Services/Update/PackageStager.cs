@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
 using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Update;
@@ -30,6 +31,9 @@ public sealed class PackageStager
         ReadOnlyMemory<byte> manifestBytes,
         ReadOnlyMemory<byte> signature,
         IProgress<UpdateProgress>? progress = null,
+        string expectedTargetOs = "windows",
+        string expectedTargetArch = "x64",
+        bool allowDeltas = true,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -43,7 +47,8 @@ public sealed class PackageStager
         if (!signedManifest.ReleaseTag.Equals(plan.ReleaseTag, StringComparison.Ordinal)
             || !signedManifest.Version.Equals(plan.Manifest.Version, StringComparison.Ordinal)
             || !signedManifest.Kind.Equals(expectedKind, StringComparison.Ordinal)
-            || !ManifestVerifier.IsCanonicalManifest(signedManifest, plan.ReleaseTag)
+            || !ManifestVerifier.IsCanonicalManifest(
+                signedManifest, plan.ReleaseTag, expectedTargetOs, expectedTargetArch, allowDeltas)
             || signedAsset is null
             || !asset.Name.Equals(signedAsset.AssetName, StringComparison.Ordinal)
             || asset.Size != signedAsset.Size
@@ -52,7 +57,7 @@ public sealed class PackageStager
             throw new InvalidDataException("Selected update asset does not match signed manifest.");
         // All later operations use the signed object, never a caller-supplied
         // copy that only happened to share its name and package hash.
-        plan = plan with { Asset = signedAsset };
+        plan = plan with { Manifest = signedManifest, Asset = signedAsset };
         var operationId = Guid.NewGuid().ToString("N");
         var operationRoot = Path.Combine(_updatesRoot, operationId);
         var payloadRoot = Path.Combine(operationRoot, "payload");
@@ -82,7 +87,11 @@ public sealed class PackageStager
             if (plan.Asset.Size > 0 && new FileInfo(packagePath).Length != plan.Asset.Size)
                 throw new InvalidDataException("Release package size did not match its manifest.");
 
-            var extractedPaths = await ExtractSafeAsync(packagePath, payloadRoot, cancellationToken)
+            var extractedPaths = await ExtractSafeAsync(
+                    packagePath,
+                    payloadRoot,
+                    expectedTargetOs.Equals("macos", StringComparison.OrdinalIgnoreCase),
+                    cancellationToken)
                 .ConfigureAwait(false);
             var expectedPaths = plan.Asset.Files.Select(file => file.Path)
                 .ToHashSet(StringComparer.Ordinal);
@@ -128,7 +137,10 @@ public sealed class PackageStager
     public StagedUpdate? TryRestore(
         string operationId,
         UpdateScope scope,
-        string assetName)
+        string assetName,
+        string expectedTargetOs = "windows",
+        string expectedTargetArch = "x64",
+        bool allowDeltas = true)
     {
         if (!Guid.TryParseExact(operationId, "N", out _)
             || scope == UpdateScope.All
@@ -151,7 +163,8 @@ public sealed class PackageStager
             var manifest = ManifestVerifier.Deserialize(manifestBytes);
             var expectedKind = scope == UpdateScope.Resource ? "resource" : "program";
             if (!manifest.Kind.Equals(expectedKind, StringComparison.Ordinal)
-                || !ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag))
+                || !ManifestVerifier.IsCanonicalManifest(
+                    manifest, manifest.ReleaseTag, expectedTargetOs, expectedTargetArch, allowDeltas))
                 return null;
 
             var asset = manifest.Assets.FirstOrDefault(item =>
@@ -243,10 +256,13 @@ public sealed class PackageStager
     private static async Task<HashSet<string>> ExtractSafeAsync(
         string packagePath,
         string destination,
+        bool preserveUnixPermissions,
         CancellationToken cancellationToken)
     {
         using var archive = ZipFile.OpenRead(packagePath);
         var extractedPaths = new HashSet<string>(StringComparer.Ordinal);
+        var occupiedPaths = new Dictionary<string, (string Spelling, bool IsDirectory)>(StringComparer.OrdinalIgnoreCase);
+        var explicitEntries = new HashSet<string>(StringComparer.Ordinal);
         if (archive.Entries.Count > UpdatePathSafety.MaxFiles)
             throw new InvalidDataException("Update package contains too many files.");
         long total = 0;
@@ -254,13 +270,42 @@ public sealed class PackageStager
         {
             cancellationToken.ThrowIfCancellationRequested();
             var name = entry.FullName.Replace('\\', '/');
-            if (name.EndsWith('/'))
+            var unixMode = (entry.ExternalAttributes >> 16) & 0xFFFF;
+            var fileType = unixMode & 0xF000;
+            var isDirectory = name.EndsWith('/');
+            var normalizedName = isDirectory ? name.TrimEnd('/') : name;
+            UpdatePathSafety.ValidateRelative(normalizedName);
+            var components = normalizedName.Split('/');
+            var prefix = string.Empty;
+            for (var index = 0; index < components.Length; index++)
             {
-                UpdatePathSafety.ValidateRelative(name.TrimEnd('/'));
-                Directory.CreateDirectory(UpdatePathSafety.ResolveUnderRoot(destination, name.TrimEnd('/')));
+                prefix = prefix.Length == 0 ? components[index] : prefix + "/" + components[index];
+                var componentIsDirectory = index < components.Length - 1 || isDirectory;
+                var canonicalPrefix = string.Join('/', components.Take(index + 1)
+                    .Select(component => component.Normalize(NormalizationForm.FormD)));
+                if (occupiedPaths.TryGetValue(canonicalPrefix, out var existing))
+                {
+                    if (!existing.Spelling.Equals(prefix, StringComparison.Ordinal))
+                        throw new InvalidDataException($"Update package contains case-colliding paths: {name}");
+                    if (existing.IsDirectory != componentIsDirectory)
+                        throw new InvalidDataException($"Update package has a file/directory path conflict: {name}");
+                }
+                else
+                {
+                    occupiedPaths.Add(canonicalPrefix, (prefix, componentIsDirectory));
+                }
+            }
+            if (!explicitEntries.Add(normalizedName))
+                throw new InvalidDataException($"Update package contains duplicate path: {name}");
+            if (isDirectory)
+            {
+                if (preserveUnixPermissions && fileType is not (0 or 0x4000))
+                    throw new InvalidDataException($"Update package contains a non-directory entry: {name}");
+                Directory.CreateDirectory(UpdatePathSafety.ResolveUnderRoot(destination, normalizedName));
                 continue;
             }
-            UpdatePathSafety.ValidateRelative(name);
+            if (preserveUnixPermissions && fileType is not (0 or 0x8000))
+                throw new InvalidDataException($"Update package contains a symlink or special file: {name}");
             if (entry.Length > UpdatePathSafety.MaxFileBytes)
                 throw new InvalidDataException("Update package contains an oversized file.");
             total = checked(total + entry.Length);
@@ -269,10 +314,22 @@ public sealed class PackageStager
             var target = UpdatePathSafety.ResolveUnderRoot(destination, name);
             if (!extractedPaths.Add(name))
                 throw new InvalidDataException($"Update package contains duplicate file: {name}");
+            if (preserveUnixPermissions && (unixMode & 0x0E00) != 0)
+                throw new InvalidDataException($"Update package contains unsafe file permissions: {name}");
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             await using var input = entry.Open();
             await using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None);
             await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            if (preserveUnixPermissions)
+            {
+                var safeMode = (UnixFileMode)(unixMode & 0x01FF);
+                if (safeMode == 0)
+                    safeMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                        | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
+                if (OperatingSystem.IsWindows())
+                    throw new PlatformNotSupportedException("Unix permissions cannot be restored on Windows.");
+                File.SetUnixFileMode(target, safeMode);
+            }
         }
         return extractedPaths;
     }
