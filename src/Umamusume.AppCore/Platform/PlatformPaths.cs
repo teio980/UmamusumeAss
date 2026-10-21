@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Umamusume.AppCore.Platform;
 
@@ -8,6 +10,7 @@ public static class PlatformPaths
     private static readonly object ResourcePathLock = new();
     private static string? _activeResourceDirectory;
     private static string? _sourceResourceDirectory;
+    private static readonly List<string> PreviousResourceDirectories = [];
 
     /// <summary>The writable resource tree currently loaded by the native core.</summary>
     public static string GetActiveResourceDirectory()
@@ -25,10 +28,24 @@ public static class PlatformPaths
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceDirectory);
         lock (ResourcePathLock)
         {
+            var previousActive = _activeResourceDirectory;
+            var previousSource = _sourceResourceDirectory;
             _activeResourceDirectory = Path.GetFullPath(resourceDirectory);
             _sourceResourceDirectory = string.IsNullOrWhiteSpace(sourceResourceDirectory)
                 ? null
                 : Path.GetFullPath(sourceResourceDirectory);
+            AddPreviousDirectory(previousActive);
+            AddPreviousDirectory(previousSource);
+
+            void AddPreviousDirectory(string? path)
+            {
+                if (path is null || path.Equals(_activeResourceDirectory, PathComparison)
+                    || path.Equals(_sourceResourceDirectory, PathComparison)) return;
+                if (!PreviousResourceDirectories.Contains(path, PathComparer))
+                    PreviousResourceDirectories.Add(path);
+                if (PreviousResourceDirectories.Count > 64)
+                    PreviousResourceDirectories.RemoveAt(0);
+            }
         }
     }
 
@@ -42,10 +59,14 @@ public static class PlatformPaths
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         string activeRoot;
         string sourceRoot;
+        string bundledRoot;
+        string[] previousRoots;
         lock (ResourcePathLock)
         {
             activeRoot = _activeResourceDirectory ?? GetDefaultResourceDirectory();
             sourceRoot = _sourceResourceDirectory ?? GetDefaultResourceDirectory();
+            bundledRoot = GetDefaultResourceDirectory();
+            previousRoots = PreviousResourceDirectories.ToArray();
         }
 
         if (!Path.IsPathFullyQualified(sourcePath))
@@ -61,6 +82,13 @@ public static class PlatformPaths
             return fullPath;
         if (TryGetRelativePath(sourceRoot, fullPath, out var resourceRelativePath))
             return Path.GetFullPath(Path.Combine(activeRoot, resourceRelativePath));
+        if (TryGetRelativePath(bundledRoot, fullPath, out resourceRelativePath))
+            return Path.GetFullPath(Path.Combine(activeRoot, resourceRelativePath));
+        foreach (var previousRoot in previousRoots)
+        {
+            if (TryGetRelativePath(previousRoot, fullPath, out resourceRelativePath))
+                return Path.GetFullPath(Path.Combine(activeRoot, resourceRelativePath));
+        }
         return fullPath;
     }
 
@@ -70,9 +98,14 @@ public static class PlatformPaths
         return relativePath != "."
             && !Path.IsPathRooted(relativePath)
             && relativePath != ".."
-            && !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            && !relativePath.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal);
+            && !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, PathComparison)
+            && !relativePath.StartsWith(".." + Path.AltDirectorySeparatorChar, PathComparison);
     }
+
+    private static StringComparison PathComparison => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+        ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     public static string GetDefaultUserDataDirectory()
     {

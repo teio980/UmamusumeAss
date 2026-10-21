@@ -23,8 +23,10 @@ public interface IUmaAutomationService : IAsyncDisposable
     bool IsInitialized { get; }
     bool IsConnected { get; }
     bool IsBusy { get; }
+    bool RequiresRestartForMaintenance { get; }
     string? NativeCoreVersion { get; }
     string? ResourcePath { get; }
+    ResourceWorkspace? ActiveResourceWorkspace { get; }
     DeviceSessionIdentity? ActiveDeviceIdentity { get; }
     IUmaService CoreService { get; }
     string CurrentStatus { get; }
@@ -33,6 +35,7 @@ public interface IUmaAutomationService : IAsyncDisposable
     event Action<string>? StatusChanged;
     event Action<bool>? BusyChanged;
     event Action<CapturedScreenshot>? ScreenshotCaptured;
+    event Action<string>? ResourcesChanged;
 
     Task InitializeAsync(CancellationToken cancellationToken = default);
     string ResolveActiveResourcePath(string sourcePath);
@@ -45,6 +48,9 @@ public interface IUmaAutomationService : IAsyncDisposable
     Task<bool> StartGameAndRecognizeHomeAsync(CancellationToken cancellationToken = default);
     /// <summary>Runs an arbitrary native operation under the same device-operation gate as task queues and screenshots.</summary>
     Task<T> RunExclusiveAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
+    Task<T> RunMaintenanceWhenIdleAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default);
+    void ActivateResourceWorkspace(ResourceWorkspace workspace);
+    void RequireRestartAfterMaintenanceFailure(string reason);
     Task<UmaTaskQueueRunResult> RunTaskQueueAsync(
         IReadOnlyList<UmaTaskRequest> requests,
         Action<UmaTaskQueueEvent>? progress = null,
@@ -71,16 +77,23 @@ public sealed class UmaAutomationService : IUmaAutomationService
     private string _currentStatus = "Idle";
     private ConnectedDeviceInfo? _currentDevice;
     private CancellationTokenSource? _activeOperationCts;
+    private TaskCompletionSource _activeOperationDrained = CompletedSignal();
+    private bool _maintenanceReserved;
+    private string? _pendingResourcesChanged;
+    private string? _maintenanceFailureReason;
+    private readonly IResourceSourceProvider? _resourceSourceProvider;
     private CapturedScreenshot? _lastScreenshot;
     private DeviceSessionIdentity? _activeDeviceIdentity;
 
     public bool IsInitialized => _isInitialized;
     public bool IsConnected => _currentDevice != null && _connectionState.State == ConnectionState.Connected;
     public bool IsBusy => Volatile.Read(ref _isBusy) != 0;
+    public bool RequiresRestartForMaintenance => _maintenanceFailureReason is not null;
     public string? NativeCoreVersion => _umaService.CoreVersion;
     public string? ResourcePath => _resourceWorkspace?.ActiveResourceRoot
         ?? _umaService.ResourcePath
         ?? PlatformPaths.GetDefaultResourceDirectory();
+    public ResourceWorkspace? ActiveResourceWorkspace => _resourceWorkspace;
     public string ResolveActiveResourcePath(string sourcePath) => PlatformPaths.ResolveActiveResourcePath(sourcePath);
     public DeviceSessionIdentity? ActiveDeviceIdentity => _activeDeviceIdentity;
     public IUmaService CoreService => _umaService;
@@ -90,18 +103,21 @@ public sealed class UmaAutomationService : IUmaAutomationService
     public event Action<string>? StatusChanged;
     public event Action<bool>? BusyChanged;
     public event Action<CapturedScreenshot>? ScreenshotCaptured;
+    public event Action<string>? ResourcesChanged;
 
     public UmaAutomationService(
         ILogService logger,
         IConnectionStateService connectionState,
         IUmaService? umaService = null,
         ISettingsService? settingsService = null,
-        ResourceWorkspace? resourceWorkspace = null)
+        ResourceWorkspace? resourceWorkspace = null,
+        IResourceSourceProvider? resourceSourceProvider = null)
     {
         _logger = logger;
         _connectionState = connectionState;
         _settingsService = settingsService;
         _resourceWorkspace = resourceWorkspace;
+        _resourceSourceProvider = resourceSourceProvider;
         _umaService = umaService ?? new UmaService(new ImmediateEventDispatcher());
 
         _umaService.DiagnosticReceived += diag =>
@@ -128,7 +144,11 @@ public sealed class UmaAutomationService : IUmaAutomationService
 
         if (_resourceWorkspace is not null || _umaService is UmaService)
         {
-            _resourceWorkspace ??= await ResourceWorkspace.PrepareAsync(resourceDir, appDataDir, cancellationToken)
+            var sourceResourceRoot = _resourceSourceProvider is null
+                ? resourceDir
+                : await _resourceSourceProvider.GetPreferredResourceSourceRootAsync(
+                    resourceDir, appDataDir, cancellationToken).ConfigureAwait(false) ?? resourceDir;
+            _resourceWorkspace ??= await ResourceWorkspace.PrepareAsync(sourceResourceRoot, appDataDir, cancellationToken)
                 .ConfigureAwait(false);
             PlatformPaths.SetActiveResourceDirectory(
                 _resourceWorkspace.ActiveResourceRoot,
@@ -514,6 +534,72 @@ public sealed class UmaAutomationService : IUmaAutomationService
         }
     }
 
+    public async Task<T> RunMaintenanceWhenIdleAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        Task drained;
+        bool notifyBusy;
+        lock (_stateLock)
+        {
+            if (_maintenanceReserved)
+                throw new InvalidOperationException("Another maintenance operation is already reserved.");
+            _maintenanceReserved = true;
+            drained = _activeOperationCts is null ? Task.CompletedTask : _activeOperationDrained.Task;
+            notifyBusy = _isBusy == 0;
+            Volatile.Write(ref _isBusy, 1);
+        }
+
+        if (notifyBusy)
+            RaiseBusyChanged(true);
+
+        try
+        {
+            await drained.WaitAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await operation(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            bool stateChanged;
+            bool remainsBusy;
+            string? resourcesChanged;
+            lock (_stateLock)
+            {
+                _maintenanceReserved = false;
+                remainsBusy = _activeOperationCts is not null;
+                int wasBusy = Interlocked.Exchange(ref _isBusy, remainsBusy ? 1 : 0);
+                stateChanged = wasBusy != (remainsBusy ? 1 : 0);
+                resourcesChanged = _pendingResourcesChanged;
+                _pendingResourcesChanged = null;
+            }
+            if (stateChanged)
+                RaiseBusyChanged(remainsBusy);
+            if (resourcesChanged is not null)
+                NotifyResourcesChanged(resourcesChanged);
+        }
+    }
+
+    public void ActivateResourceWorkspace(ResourceWorkspace workspace)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        lock (_stateLock)
+        {
+            if (!_maintenanceReserved)
+                throw new InvalidOperationException("A resource workspace can only change during reserved maintenance.");
+            _resourceWorkspace = workspace;
+            PlatformPaths.SetActiveResourceDirectory(workspace.ActiveResourceRoot, workspace.SourceResourceRoot);
+            _pendingResourcesChanged = workspace.ActiveResourceRoot;
+        }
+    }
+
+    public void RequireRestartAfterMaintenanceFailure(string reason)
+    {
+        _maintenanceFailureReason = string.IsNullOrWhiteSpace(reason) ? "Resource recovery failed." : reason;
+        SetStatus($"Resource recovery failed. Restart the application before using the native core. {_maintenanceFailureReason}");
+    }
+
     public async Task<UmaTaskQueueRunResult> RunTaskQueueAsync(
         IReadOnlyList<UmaTaskRequest> requests,
         Action<UmaTaskQueueEvent>? progress = null,
@@ -838,7 +924,12 @@ public sealed class UmaAutomationService : IUmaAutomationService
         var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         lock (_stateLock)
         {
-            if (_isBusy != 0)
+            if (_maintenanceFailureReason is not null)
+            {
+                linked.Dispose();
+                throw new InvalidOperationException("The native core is disabled until the application restarts because resource recovery failed.");
+            }
+            if (_isBusy != 0 || _maintenanceReserved)
             {
                 linked.Dispose();
                 throw new InvalidOperationException("Another device operation is already running.");
@@ -846,6 +937,7 @@ public sealed class UmaAutomationService : IUmaAutomationService
 
             Volatile.Write(ref _isBusy, 1);
             _activeOperationCts = linked;
+            _activeOperationDrained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         RaiseBusyChanged(true);
@@ -858,13 +950,23 @@ public sealed class UmaAutomationService : IUmaAutomationService
         lock (_stateLock)
         {
             if (ReferenceEquals(_activeOperationCts, linked))
+            {
                 _activeOperationCts = null;
-            becameIdle = Interlocked.Exchange(ref _isBusy, 0) != 0;
+                _activeOperationDrained.TrySetResult();
+            }
+            becameIdle = !_maintenanceReserved && Interlocked.Exchange(ref _isBusy, 0) != 0;
         }
 
         linked.Dispose();
         if (becameIdle)
             RaiseBusyChanged(false);
+    }
+
+    private static TaskCompletionSource CompletedSignal()
+    {
+        var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.SetResult();
+        return source;
     }
 
     private void RaiseBusyChanged(bool isBusy)
@@ -882,6 +984,20 @@ public sealed class UmaAutomationService : IUmaAutomationService
             catch (Exception exception)
             {
                 _logger.Log($"Busy-state observer failed: {exception.Message}", LogEntryKind.Warning);
+            }
+        }
+    }
+
+    private void NotifyResourcesChanged(string path)
+    {
+        var handlers = ResourcesChanged;
+        if (handlers is null) return;
+        foreach (Action<string> handler in handlers.GetInvocationList())
+        {
+            try { handler(path); }
+            catch (Exception exception)
+            {
+                _logger.Log($"Resource-change observer failed: {exception.Message}", LogEntryKind.Warning);
             }
         }
     }

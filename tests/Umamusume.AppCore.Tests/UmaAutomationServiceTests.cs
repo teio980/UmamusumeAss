@@ -537,6 +537,37 @@ public class UmaAutomationServiceTests
     }
 
     [Fact]
+    public async Task CancelingMaintenanceReservationKeepsRunningOperationBusy()
+    {
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var automation = new UmaAutomationService(new LogService(), new ConnectionStateService(), new FakeUmaService());
+
+        var current = automation.RunExclusiveAsync(async _ =>
+        {
+            operationStarted.TrySetResult();
+            await releaseOperation.Task;
+            return true;
+        });
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using var maintenanceCancellation = new CancellationTokenSource();
+        var maintenance = automation.RunMaintenanceWhenIdleAsync(
+            _ => Task.FromResult(true), maintenanceCancellation.Token);
+        Assert.True(automation.IsBusy);
+        maintenanceCancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => maintenance);
+
+        Assert.True(automation.IsBusy);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            automation.RunExclusiveAsync(_ => Task.FromResult(true)));
+
+        releaseOperation.TrySetResult();
+        Assert.True(await current);
+        Assert.False(automation.IsBusy);
+    }
+
+    [Fact]
     public async Task ReconnectAdvancesSessionAndStaleDisconnectDoesNotClearNewSession()
     {
         var fake = new FakeUmaService();

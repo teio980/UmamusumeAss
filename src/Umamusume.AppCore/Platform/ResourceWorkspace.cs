@@ -9,6 +9,15 @@ using System.Threading.Tasks;
 
 namespace Umamusume.AppCore.Platform;
 
+/// <summary>Chooses a validated, versioned resource source before the writable view is prepared.</summary>
+public interface IResourceSourceProvider
+{
+    Task<string?> GetPreferredResourceSourceRootAsync(
+        string bundledSourceRoot,
+        string userDataRoot,
+        CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// A writable, versioned copy of the shipped resource tree. Native resource
 /// writes are redirected into per-user overrides so an app bundle stays intact.
