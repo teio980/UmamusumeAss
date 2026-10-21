@@ -34,6 +34,11 @@ packages/
 *.nuget.targets
 TestResults/
 coverage.xml
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+*.binlog
 
 # Local environment files
 .env
@@ -100,6 +105,7 @@ compile_commands.json
 Testing/
 CTestTestfile.cmake
 CMakeUserPresets.json
+_deps/
 
 update-private.pem
 version.txt
