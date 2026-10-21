@@ -16,6 +16,7 @@ using FluentAvalonia.UI.Controls;
 using Umamusume.AppCore.Models;
 using Umamusume.AppCore.Services;
 using Umamusume.CoreBridge;
+using Umamusume.Avalonia.Services;
 
 namespace Umamusume.Avalonia.ViewModels;
 
@@ -24,9 +25,11 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
     private readonly IUmaAutomationService _automationService;
     private readonly ILogService _logService;
     private readonly IConnectionStateService _connectionStateService;
+    private readonly ILocalizationService _localizationService;
     private readonly IUmaService? _coreService;
     private CapturedScreenshot? _currentScreenshot;
     private ImageCropRegion? _cropRegion;
+    private string? _recognizedLanguage;
 
     private static readonly TemplateMatchMethod[] TemplateMatchMethods =
         Enum.GetValues<TemplateMatchMethod>();
@@ -65,10 +68,10 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
     private TemplateMatchMethod _templateMatchMethod = TemplateMatchMethod.Gray;
 
     [ObservableProperty]
-    private string _templateMatchResultText = "选择模板图像后可测试当前截图。";
+    private string _templateMatchResultText = "Select a template image to test the current screenshot.";
 
     [ObservableProperty]
-    private string _cropRegionText = "未选择裁剪区域";
+    private string _cropRegionText = "No crop selected";
 
     [ObservableProperty]
     private bool _hasCropRegion;
@@ -77,7 +80,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
     private string _ocrLanguage = "eng";
 
     [ObservableProperty]
-    private string _ocrResultLanguageText = "当前原生 OCR 资源仅支持 eng。";
+    private string _ocrResultLanguageText = "Native OCR resources currently support eng only.";
 
     [ObservableProperty]
     private string _allRecognizedText = string.Empty;
@@ -87,6 +90,10 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _detectionCount;
+
+    public string DetectionCountText => $"{DetectionCount} {T("项", "items")}";
+
+    partial void OnDetectionCountChanged(int value) => OnPropertyChanged(nameof(DetectionCountText));
 
     // In-page Notification (InfoBar)
     [ObservableProperty]
@@ -111,12 +118,15 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         IUmaAutomationService automationService,
         ILogService logService,
         IConnectionStateService connectionStateService,
+        ILocalizationService localizationService,
         IUmaService? coreService = null)
     {
         _automationService = automationService;
         _logService = logService;
         _connectionStateService = connectionStateService;
+        _localizationService = localizationService;
         _coreService = coreService;
+        _localizationService.LanguageChanged += OnLanguageChanged;
         IsConnected = _connectionStateService.State == ConnectionState.Connected;
 
         _connectionStateService.StateChanged += (s, e) =>
@@ -145,13 +155,14 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
                 using var ms = new MemoryStream(captured.PngBytes);
                 ScreenshotBitmap?.Dispose();
                 ScreenshotBitmap = new Bitmap(ms);
-                ScreenshotDimensionsText = $"{captured.Width} × {captured.Height} 像素";
+                ScreenshotDimensionsText = $"{captured.Width} × {captured.Height} {T("像素", "pixels")}";
                 ScreenshotTimestampText = captured.CapturedAt.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
                 _currentScreenshot = captured;
                 HasScreenshot = true;
                 SetCropRegion(null);
                 OcrDetections.Clear();
-                OcrResultLanguageText = "当前原生 OCR 资源仅支持 eng。";
+                _recognizedLanguage = null;
+                OcrResultLanguageText = T("当前原生 OCR 资源仅支持 eng。", "Native OCR resources currently support eng only.");
                 AllRecognizedText = string.Empty;
                 HasOcrDetections = false;
                 DetectionCount = 0;
@@ -159,7 +170,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _logService.Log($"解码截图图像位图失败: {ex.Message}", LogEntryKind.Error);
+            _logService.Log($"{T("解码截图图像位图失败", "Failed to decode screenshot bitmap")}: {ex.Message}", LogEntryKind.Error);
         }
     }
 
@@ -172,7 +183,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
             RecognitionImage? decoded = RecognitionImageDecoder.DecodeBytes(bytes);
             if (decoded is null)
             {
-                ShowNotification("导入失败", "无法解码此图像文件。", InfoBarSeverity.Error);
+                ShowNotification(T("导入失败", "Import failed"), T("无法解码此图像文件。", "This image file could not be decoded."), InfoBarSeverity.Error);
                 return;
             }
 
@@ -188,12 +199,12 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
                 decoded.Height,
                 File.GetLastWriteTime(path));
             UpdateScreenshot(_currentScreenshot);
-            ShowNotification("图像已导入", $"{Path.GetFileName(path)} ({decoded.Width}×{decoded.Height})", InfoBarSeverity.Success);
+            ShowNotification(T("图像已导入", "Image imported"), $"{Path.GetFileName(path)} ({decoded.Width}×{decoded.Height})", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowNotification("导入截图失败", ex.Message, InfoBarSeverity.Error);
-            _logService.Log($"导入截图失败: {ex}", LogEntryKind.Error);
+            ShowNotification(T("导入截图失败", "Failed to import screenshot"), ex.Message, InfoBarSeverity.Error);
+            _logService.Log($"{T("导入截图失败", "Failed to import screenshot")}: {ex}", LogEntryKind.Error);
         }
     }
 
@@ -201,25 +212,25 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (_currentScreenshot is null)
-            throw new InvalidOperationException("当前没有可导出的截图。");
+            throw new InvalidOperationException(T("当前没有可导出的截图。", "There is no screenshot to export."));
 
         await File.WriteAllBytesAsync(path, _currentScreenshot.PngBytes, cancellationToken);
-        ShowNotification("截图已导出", path, InfoBarSeverity.Success);
+        ShowNotification(T("截图已导出", "Screenshot exported"), path, InfoBarSeverity.Success);
     }
 
     public async Task SaveCropAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (_currentScreenshot is null || _cropRegion is not { } crop)
-            throw new InvalidOperationException("请先选择一个有效的截图裁剪区域。");
+            throw new InvalidOperationException(T("请先选择一个有效的截图裁剪区域。", "Select a valid screenshot crop region first."));
 
         cancellationToken.ThrowIfCancellationRequested();
         var source = RecognitionImageDecoder.DecodeBytes(_currentScreenshot.PngBytes)
-            ?? throw new InvalidDataException("当前截图无法解码。");
+            ?? throw new InvalidDataException(T("当前截图无法解码。", "The current screenshot could not be decoded."));
         var cropped = RecognitionImageDecoder.Transform(source, new RecognitionImageTransform(
             crop.X, crop.Y, crop.Width, crop.Height));
         if (cropped.RgbaPixels is not { } rgba || rgba.Length != checked(cropped.Width * cropped.Height * 4))
-            throw new InvalidDataException("裁剪图像没有可保存的 RGBA 像素数据。");
+            throw new InvalidDataException(T("裁剪图像没有可保存的 RGBA 像素数据。", "The cropped image has no RGBA pixel data to save."));
 
         using var bitmap = new WriteableBitmap(
             new PixelSize(cropped.Width, cropped.Height),
@@ -240,7 +251,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
             bitmap.Save(output);
             await output.FlushAsync(cancellationToken);
         }
-        ShowNotification("裁剪图像已保存", path, InfoBarSeverity.Success);
+        ShowNotification(T("裁剪图像已保存", "Crop saved"), path, InfoBarSeverity.Success);
     }
 
     public void SetCropRegion(int x, int y, int width, int height)
@@ -265,7 +276,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         HasCropRegion = region is { Width: > 0, Height: > 0 };
         CropRegionText = region is { } crop
             ? $"X {crop.X}, Y {crop.Y} · {crop.Width} × {crop.Height} px"
-            : "未选择裁剪区域";
+            : T("未选择裁剪区域", "No crop selected");
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Avalonia binds this instance property as the ComboBox item source.")]
@@ -277,14 +288,14 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         if (_coreService is null || _currentScreenshot is null || IsMatchingTemplate)
         {
             TemplateMatchResultText = _coreService is null
-                ? "原生 Core 服务不可用。"
-                : "请先捕获或导入截图。";
+                ? T("原生 Core 服务不可用。", "The native Core service is unavailable.")
+                : T("请先捕获或导入截图。", "Capture or import a screenshot first.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(TemplateImagePath) || !File.Exists(TemplateImagePath))
         {
-            TemplateMatchResultText = "请选择存在的模板图像文件。";
+            TemplateMatchResultText = T("请选择存在的模板图像文件。", "Select an existing template image file.");
             return;
         }
 
@@ -293,7 +304,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         {
             if (!double.TryParse(TemplateMatchThreshold, NumberStyles.Float, CultureInfo.InvariantCulture, out double threshold)
                 || threshold is < 0 or > 1)
-                throw new ArgumentOutOfRangeException(nameof(TemplateMatchThreshold), "匹配阈值应介于 0 与 1 之间。");
+                throw new ArgumentOutOfRangeException(nameof(TemplateMatchThreshold), T("匹配阈值应介于 0 与 1 之间。", "The match threshold must be between 0 and 1."));
             var screenshot = _currentScreenshot;
             string templatePath = TemplateImagePath;
             string activeTemplatePath = templatePath;
@@ -306,23 +317,23 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
                 {
                 ct.ThrowIfCancellationRequested();
                 var screen = RecognitionImageDecoder.DecodeBytes(screenshot.PngBytes)
-                    ?? throw new InvalidDataException("当前截图无法解码。");
+                    ?? throw new InvalidDataException(T("当前截图无法解码。", "The current screenshot could not be decoded."));
                 var template = _coreService.LoadTemplateImage(activeTemplatePath)
-                    ?? throw new InvalidDataException("原生 Core 无法加载模板图像。");
+                    ?? throw new InvalidDataException(T("原生 Core 无法加载模板图像。", "Native Core could not load the template image."));
                 return _coreService.MatchTemplate(screen, template, new TemplateMatchOptions(
                     method, null, threshold, screen.Width, screen.Height));
                 }, ct);
             });
             TemplateImagePath = activeTemplatePath;
             TemplateMatchResultText = result.Found
-                ? $"找到模板 · 得分 {result.Score:0.000} · X {result.X}, Y {result.Y} · {result.Width} × {result.Height} px"
-                : $"未找到模板 · 最佳得分 {result.Score:0.000}，阈值 {threshold:0.000}";
-            _logService.Log($"模板匹配：{TemplateMatchResultText}", result.Found ? LogEntryKind.Success : LogEntryKind.Normal);
+                ? $"{T("找到模板", "Template found")} · Score {result.Score:0.000} · X {result.X}, Y {result.Y} · {result.Width} × {result.Height} px"
+                : $"{T("未找到模板", "Template not found")} · Best score {result.Score:0.000} · Threshold {threshold:0.000}";
+            _logService.Log($"{T("模板匹配", "Template match")}: {TemplateMatchResultText}", result.Found ? LogEntryKind.Success : LogEntryKind.Normal);
         }
         catch (Exception ex)
         {
-            TemplateMatchResultText = $"模板匹配失败：{ex.Message}";
-            _logService.Log($"模板匹配失败: {ex}", LogEntryKind.Error);
+            TemplateMatchResultText = $"{T("模板匹配失败", "Template match failed")}: {ex.Message}";
+            _logService.Log($"{T("模板匹配失败", "Template match failed")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -343,17 +354,17 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
             if (captured != null)
             {
                 UpdateScreenshot(captured);
-                ShowNotification("截屏成功", $"已成功从设备抓取画面 ({captured.Width}×{captured.Height})", InfoBarSeverity.Success);
+                ShowNotification(T("截屏成功", "Screenshot captured"), $"{T("已成功从设备抓取画面", "Captured from device")} ({captured.Width}×{captured.Height})", InfoBarSeverity.Success);
             }
             else
             {
-                ShowNotification("截屏失败", "设备返回了空画面数据，请检查 ADB 连接状态。", InfoBarSeverity.Warning);
+                ShowNotification(T("截屏失败", "Screenshot failed"), T("设备返回了空画面数据，请检查 ADB 连接状态。", "The device returned an empty frame. Check the ADB connection."), InfoBarSeverity.Warning);
             }
         }
         catch (Exception ex)
         {
-            ShowNotification("截屏异常", ex.Message, InfoBarSeverity.Error);
-            _logService.Log($"截屏异常: {ex}", LogEntryKind.Error);
+            ShowNotification(T("截屏异常", "Screenshot error"), ex.Message, InfoBarSeverity.Error);
+            _logService.Log($"{T("截屏异常", "Screenshot error")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -368,7 +379,7 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
 
         IsRecognizing = true;
         DismissNotification();
-        _logService.Log($"启动 OCR 文本识别 (语言: {OcrLanguage})...", LogEntryKind.Normal);
+        _logService.Log($"{T("启动 OCR 文本识别", "Starting OCR recognition")} (language: {OcrLanguage})...", LogEntryKind.Normal);
 
         try
         {
@@ -378,7 +389,8 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
             if (result != null)
             {
                 OcrDetections.Clear();
-                OcrResultLanguageText = $"原生识别语言：{result.Language}";
+                _recognizedLanguage = result.Language;
+                OcrResultLanguageText = $"{T("原生识别语言", "Native OCR language")}: {result.Language}";
                 var textLines = new List<string>();
 
                 foreach (var det in result.Detections)
@@ -398,18 +410,18 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
                 DetectionCount = OcrDetections.Count;
                 HasOcrDetections = DetectionCount > 0;
 
-                ShowNotification("OCR 识别完毕", $"Core 实际使用 {result.Language} · 共检测到 {DetectionCount} 条文本行", InfoBarSeverity.Success);
-                _logService.Log($"OCR 识别完毕，Core 实际语言 {result.Language}，检测到 {DetectionCount} 个文本元素", LogEntryKind.Success);
+                ShowNotification(T("OCR 识别完毕", "OCR complete"), $"Core used {result.Language} · {DetectionCount} text line(s) detected", InfoBarSeverity.Success);
+                _logService.Log($"OCR complete · Core language {result.Language} · {DetectionCount} text element(s) detected", LogEntryKind.Success);
             }
             else
             {
-                ShowNotification("未检测到文本", "OCR 引擎未在此画面中检测到可识别的文字。", InfoBarSeverity.Informational);
+                ShowNotification(T("未检测到文本", "No text detected"), T("OCR 引擎未在此画面中检测到可识别的文字。", "The OCR engine did not find readable text in this image."), InfoBarSeverity.Informational);
             }
         }
         catch (Exception ex)
         {
-            ShowNotification("OCR 识别异常", ex.Message, InfoBarSeverity.Error);
-            _logService.Log($"OCR 异常: {ex}", LogEntryKind.Error);
+            ShowNotification(T("OCR 识别异常", "OCR error"), ex.Message, InfoBarSeverity.Error);
+            _logService.Log($"OCR error: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -445,6 +457,22 @@ public sealed partial class ScreenOcrViewModel : ViewModelBase
         NotificationMessage = message;
         NotificationSeverity = severity;
         IsNotificationOpen = true;
+    }
+
+    private string T(string chinese, string english) => UiText.Get(_localizationService, chinese, english);
+
+    public string Localize(string chinese, string english) => T(chinese, english);
+
+    private void OnLanguageChanged()
+    {
+        OnPropertyChanged(nameof(DetectionCountText));
+        if (_currentScreenshot is { } screenshot)
+            ScreenshotDimensionsText = $"{screenshot.Width} × {screenshot.Height} {T("像素", "pixels")}";
+        _recognizedLanguage = null;
+        OcrResultLanguageText = T("当前原生 OCR 资源仅支持 eng。", "Native OCR resources currently support eng only.");
+        TemplateMatchResultText = T("选择模板图像后可测试当前截图。", "Select a template image to test the current screenshot.");
+        SetCropRegion(_cropRegion);
+        DismissNotification();
     }
 
     public void ShowError(string title, string message) =>

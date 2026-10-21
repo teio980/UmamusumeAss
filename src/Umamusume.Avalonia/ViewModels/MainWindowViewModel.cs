@@ -7,6 +7,7 @@ using FluentAvalonia.UI.Controls;
 using Umamusume.AppCore.Models;
 using Umamusume.AppCore.Services;
 using Umamusume.CoreBridge;
+using Umamusume.Avalonia.Services;
 
 namespace Umamusume.Avalonia.ViewModels;
 
@@ -68,14 +69,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _connectionStateService = connectionStateService;
         _localizationService = localizationService;
 
+        // Apply the saved language before child view models initialize their
+        // default labels, filters, and status text.
+        var startupLanguage = settingsService.Load().Language;
+        _localizationService.CurrentLanguage = startupLanguage;
+        UiLocalization.Apply(startupLanguage);
+
         _platformInfo = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
 
         // Initialize child ViewModels
         Tasks = new TasksViewModel(automationService, logService, connectionStateService, localizationService, settingsService);
-        ScreenOcr = new ScreenOcrViewModel(automationService, logService, connectionStateService, coreService);
-        Logs = new LogsViewModel(logService);
+        ScreenOcr = new ScreenOcrViewModel(automationService, logService, connectionStateService, localizationService, coreService);
+        Logs = new LogsViewModel(logService, localizationService);
         Settings = new SettingsViewModel(settingsService, logService, localizationService, automationService);
-        DeveloperTools = new DeveloperToolsViewModel(automationService, coreService, logService, connectionStateService);
+        DeveloperTools = new DeveloperToolsViewModel(automationService, coreService, logService, connectionStateService, localizationService);
 
         // Default to Tasks page
         _currentPage = Tasks;

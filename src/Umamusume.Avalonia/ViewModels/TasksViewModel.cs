@@ -131,7 +131,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         }
         _selectedTaskTypeIndex = 0;
         _selectedTaskType = AvailableTaskTypes.Count > 0 ? AvailableTaskTypes[0] : null;
-        ShopSettings = new ShopTaskSettingsViewModel(settingsService);
+        ShopSettings = new ShopTaskSettingsViewModel(settingsService, localizationService);
         HachimiTaskLog = new HachimiTaskLogViewModel(localizationService);
         _statusText = string.Empty;
 
@@ -532,11 +532,37 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
         if (string.IsNullOrWhiteSpace(settings.ConnectAddress))
             return IsEnglish ? "A device address is not configured in Settings." : "设置中没有配置设备地址。";
 
+        // Try the configured ADB target first. Windows reuses an available
+        // emulator and only launches one after discovery finds no usable device.
+        // The Avalonia queue used to launch unconditionally when auto-start was
+        // enabled, then wait the full configured delay.
+        var connected = await _automationService.ConnectAsync(
+            adbPath,
+            settings.ConnectAddress.Trim(),
+            settings.ConnectConfig,
+            cancellationToken);
+        if (connected && _automationService.IsConnected)
+        {
+            StatusText = IsEnglish
+                ? "Using the already connected emulator."
+                : "模拟器已连接，直接执行任务。";
+            AddLog(StatusText);
+            _logService.Log(StatusText, LogEntryKind.Normal);
+            return null;
+        }
+
+        if (!settings.AutoStartEmulator)
+        {
+            return string.IsNullOrWhiteSpace(_automationService.CurrentStatus)
+                ? (IsEnglish ? "The configured device could not be connected." : "无法连接已配置的设备。")
+                : _automationService.CurrentStatus;
+        }
+
         if (settings.AutoStartEmulator)
         {
             try
             {
-                DesktopActions.StartEmulator(settings.EmulatorExecutablePath);
+                DesktopActions.StartEmulator(settings.EmulatorExecutablePath, _localizationService);
             }
             catch (Exception exception)
             {
@@ -561,7 +587,7 @@ public sealed partial class TasksViewModel : ViewModelBase, IDisposable
 
         StatusText = IsEnglish ? "Connecting to the device..." : "正在连接设备…";
         AddLog(StatusText);
-        var connected = await _automationService.ConnectAsync(
+        connected = await _automationService.ConnectAsync(
             adbPath,
             settings.ConnectAddress.Trim(),
             settings.ConnectConfig,

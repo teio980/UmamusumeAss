@@ -19,7 +19,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly ILogService _logService;
     private readonly ILocalizationService _localizationService;
     private readonly IUmaAutomationService _automationService;
-    private readonly ReleaseUpdateService _updates = new();
+    private readonly ReleaseUpdateService _updates;
     private readonly MacUpdateService _macUpdates;
     private readonly MacResourceStore _macResourceStore;
     private readonly IMacUpdateCacheCleanupService _macCacheCleanup;
@@ -124,6 +124,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     {
         _settingsService = settingsService; _logService = logService;
         _localizationService = localizationService; _automationService = automationService;
+        _updates = new ReleaseUpdateService(localizationService: localizationService);
         _macResourceStore = macResourceStore ?? new MacResourceStore();
         _macUpdates = macUpdates ?? new MacUpdateService(userDataRoot: _macResourceStore.UserDataRoot);
         _macCacheCleanup = macCacheCleanup ?? new MacUpdateCacheCleanupService(_macResourceStore.UserDataRoot);

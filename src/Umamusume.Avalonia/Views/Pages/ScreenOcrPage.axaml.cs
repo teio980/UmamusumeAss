@@ -21,22 +21,22 @@ public partial class ScreenOcrPage : UserControl
 
     private async void OnImportScreenshotClick(object? sender, RoutedEventArgs e)
     {
-        var path = await PickImageAsync("导入截图");
-        if (path is not null && DataContext is ScreenOcrViewModel vm)
-            vm.ImportScreenshot(path);
+        if (DataContext is not ScreenOcrViewModel vm) return;
+        var path = await PickImageAsync(vm.Localize("导入截图", "Import screenshot"));
+        if (path is not null) vm.ImportScreenshot(path);
     }
 
     private async void OnChooseTemplateClick(object? sender, RoutedEventArgs e)
     {
-        var path = await PickImageAsync("选择模板图像");
-        if (path is not null && DataContext is ScreenOcrViewModel vm)
-            vm.TemplateImagePath = path;
+        if (DataContext is not ScreenOcrViewModel vm) return;
+        var path = await PickImageAsync(vm.Localize("选择模板图像", "Select template image"));
+        if (path is not null) vm.TemplateImagePath = path;
     }
 
     private async void OnExportScreenshotClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ScreenOcrViewModel vm) return;
-        var path = await PickSaveAsync("导出截图", "screenshot.png");
+        var path = await PickSaveAsync(vm.Localize("导出截图", "Export screenshot"), "screenshot.png");
         if (path is null) return;
         try
         {
@@ -44,14 +44,14 @@ public partial class ScreenOcrPage : UserControl
         }
         catch (Exception ex)
         {
-            vm.ShowError("导出截图失败", ex.Message);
+            vm.ShowError(vm.Localize("导出截图失败", "Failed to export screenshot"), ex.Message);
         }
     }
 
     private async void OnSaveCropClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ScreenOcrViewModel vm) return;
-        var path = await PickSaveAsync("保存裁剪图像", "screenshot-crop.png");
+        var path = await PickSaveAsync(vm.Localize("保存裁剪图像", "Save cropped image"), "screenshot-crop.png");
         if (path is null) return;
         try
         {
@@ -59,7 +59,7 @@ public partial class ScreenOcrPage : UserControl
         }
         catch (Exception ex)
         {
-            vm.ShowError("保存裁剪图像失败", ex.Message);
+            vm.ShowError(vm.Localize("保存裁剪图像失败", "Failed to save crop"), ex.Message);
         }
     }
 
@@ -144,7 +144,8 @@ public partial class ScreenOcrPage : UserControl
         {
             Title = title,
             AllowMultiple = false,
-            FileTypeFilter = [new FilePickerFileType("图像文件")
+            FileTypeFilter = [new FilePickerFileType(DataContext is ScreenOcrViewModel vm
+                ? vm.Localize("图像文件", "Image files") : "Image files")
             {
                 Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.tif", "*.tiff"]
             }]
@@ -161,7 +162,8 @@ public partial class ScreenOcrPage : UserControl
             Title = title,
             SuggestedFileName = suggestedName,
             DefaultExtension = "png",
-            FileTypeChoices = [new FilePickerFileType("PNG 图片") { Patterns = ["*.png"] }]
+            FileTypeChoices = [new FilePickerFileType(DataContext is ScreenOcrViewModel vm
+                ? vm.Localize("PNG 图片", "PNG image") : "PNG image") { Patterns = ["*.png"] }]
         });
         return file?.TryGetLocalPath();
     }

@@ -194,7 +194,7 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
                     group.SetStatus(IsEnglish ? "Failed" : "失败", isWaiting: false, isRunning: false, isCompleted: false, isFailed: true);
                     group.AddEntry(stepName, msg.Length > 0 ? msg : (IsEnglish ? "Task failed" : "任务执行失败"), LogEntryKind.Error);
                 }
-                AddQueueEntry(IsEnglish ? "Task Failed" : "任务失败", $"{stepName}：{msg}", LogEntryKind.Error);
+                AddQueueEntry(IsEnglish ? "Task Failed" : "任务失败", IsEnglish ? $"{stepName}: {msg}" : $"{stepName}：{msg}", LogEntryKind.Error);
                 break;
 
             case UmaTaskQueueEventKind.Canceled:

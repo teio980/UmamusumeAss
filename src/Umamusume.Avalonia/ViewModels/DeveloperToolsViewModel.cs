@@ -25,6 +25,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     private readonly IUmaAutomationService _automationService;
     private readonly ILogService _logService;
     private readonly IConnectionStateService _connectionStateService;
+    private readonly ILocalizationService _localizationService;
     private readonly DeveloperToolsService _tools;
     private readonly Stack<string> _pipelineUndo = new();
     private readonly Stack<string> _pipelineRedo = new();
@@ -61,14 +62,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _isCapturing;
     [ObservableProperty] private Bitmap? _screenshotBitmap;
-    [ObservableProperty] private string _screenshotInfoText = "先捕获设备画面或导入图片。";
+    [ObservableProperty] private string _screenshotInfoText = string.Empty;
     [ObservableProperty] private bool _hasScreenshot;
     [ObservableProperty] private bool _hasCropRegion;
-    [ObservableProperty] private string _cropRegionText = "未选择裁剪区域";
+    [ObservableProperty] private string _cropRegionText = string.Empty;
     [ObservableProperty] private string _templatePath = string.Empty;
     [ObservableProperty] private double _matchThreshold = 0.86;
     [ObservableProperty] private TemplateMatchMethod _matchMethod = TemplateMatchMethod.Gray;
-    [ObservableProperty] private string _imageMatchStatus = "选择模板图像并捕获截图以运行原生匹配。";
+    [ObservableProperty] private string _imageMatchStatus = string.Empty;
     [ObservableProperty] private bool _isMatchingImage;
     [ObservableProperty] private string _resourceStatusText;
     [ObservableProperty] private DeveloperResourceFile? _selectedTemplateImage;
@@ -80,23 +81,23 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _replayOutputText = "No offline replay has run.";
     [ObservableProperty] private DeveloperResourceFile? _selectedReplayFixture;
     [ObservableProperty] private string _pipelineJsonText = string.Empty;
-    [ObservableProperty] private string _pipelineStatusText = "选择或创建一个 Pipeline JSON。";
+    [ObservableProperty] private string _pipelineStatusText = string.Empty;
     [ObservableProperty] private string _pipelineEntryTask = string.Empty;
-    [ObservableProperty] private string _pipelineRunStatusText = "尚未运行。";
+    [ObservableProperty] private string _pipelineRunStatusText = string.Empty;
     [ObservableProperty] private bool _isPipelineRunning;
     [ObservableProperty] private bool _isPipelineBusy;
     [ObservableProperty] private bool _isPipelineDirty;
     [ObservableProperty] private DeveloperResourceFile? _selectedScenarioManifest;
     [ObservableProperty] private DeveloperResourceFile? _selectedScenarioFile;
     [ObservableProperty] private string _scenarioJsonText = string.Empty;
-    [ObservableProperty] private string _scenarioStatusText = "选择一个场景包清单以查看其 JSON 文件。";
+    [ObservableProperty] private string _scenarioStatusText = string.Empty;
     [ObservableProperty] private string _scenarioInspectionText = "Native Inspector has not run.";
     [ObservableProperty] private bool _isScenarioBusy;
     [ObservableProperty] private string _umaImageSearchText = string.Empty;
     [ObservableProperty] private UmaDatabaseImageItem? _selectedUmaImage;
     [ObservableProperty] private Bitmap? _selectedUmaImagePreviewBitmap;
-    [ObservableProperty] private string _umaImageGalleryStatus = "正在读取 UmaDatabase 图像资源。";
-    [ObservableProperty] private string _systemReferenceStatus = "选择角色图像后，可将当前截图裁剪保存为 system reference。";
+    [ObservableProperty] private string _umaImageGalleryStatus = string.Empty;
+    [ObservableProperty] private string _systemReferenceStatus = string.Empty;
 
     public IReadOnlyList<TemplateMatchMethod> AvailableMatchMethods { get; } = Enum.GetValues<TemplateMatchMethod>();
     public ImageCropRegion? CropRegion => _cropRegion;
@@ -112,24 +113,31 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         && HasScreenshot && HasCropRegion && !IsPipelineBusy;
     public bool CanEditPipelineTemplate => SelectedPipelineFile is not null && !string.IsNullOrWhiteSpace(SelectedPipelineTaskName)
         && GetSelectedPipelineTemplatePath() is { } path && File.Exists(path) && !IsPipelineBusy;
-    public string PipelineTemplateSaveLabel => _pipelineTemplateEditPath is null ? "保存裁剪为节点模板" : "替换节点模板（保留 ROI）";
+    public string PipelineTemplateSaveLabel => _pipelineTemplateEditPath is null
+        ? T("保存裁剪为节点模板", "Save crop as node template")
+        : T("替换节点模板（保留 ROI）", "Replace node template (keep ROI)");
 
     public DeveloperToolsViewModel(
         IUmaAutomationService automationService,
         IUmaService coreService,
         ILogService logService,
-        IConnectionStateService connectionStateService)
+        IConnectionStateService connectionStateService,
+        ILocalizationService localizationService)
     {
         ArgumentNullException.ThrowIfNull(automationService);
         ArgumentNullException.ThrowIfNull(coreService);
         ArgumentNullException.ThrowIfNull(logService);
         ArgumentNullException.ThrowIfNull(connectionStateService);
+        ArgumentNullException.ThrowIfNull(localizationService);
         _automationService = automationService;
         _logService = logService;
         _connectionStateService = connectionStateService;
+        _localizationService = localizationService;
         _tools = new DeveloperToolsService(automationService, coreService);
         _resourceRoot = _tools.ResourceRoot;
-        _resourceStatusText = $"Resource: {_tools.ResourceRoot}";
+        _resourceStatusText = $"{T("Resource", "Resource")}: {_tools.ResourceRoot}";
+        RefreshLocalizedDefaults();
+        _localizationService.LanguageChanged += OnLanguageChanged;
         IsConnected = connectionStateService.State == ConnectionState.Connected;
         _connectionStateService.StateChanged += OnConnectionStateChanged;
         _automationService.ScreenshotCaptured += OnScreenshotCaptured;
@@ -156,17 +164,19 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                     SetScreenshot(DeveloperToolsImageCodec.LoadAsScreenshot(value.ImagePath));
                     _galleryCropSourcePath = value.ImagePath;
                 }
-                UmaImageGalleryStatus = $"已选择 {value.DisplayName} · reference: {value.ReferencePath}";
+                UmaImageGalleryStatus = $"{T("已选择", "Selected")} {value.DisplayName} · reference: {value.ReferencePath}";
             }
             else
             {
-                UmaImageGalleryStatus = $"{UmaDatabaseImages.Count} 张图像 · 选择一张以查看预览。";
+                UmaImageGalleryStatus = IsEnglish
+                    ? $"{UmaDatabaseImages.Count} image(s) · Select one to preview."
+                    : $"{UmaDatabaseImages.Count} 张图像 · 选择一张以查看预览。";
             }
         }
         catch (Exception ex)
         {
-            UmaImageGalleryStatus = $"无法读取所选图像：{ex.Message}";
-            _logService.Log($"UmaDatabase 图像预览失败: {ex}", LogEntryKind.Warning);
+            UmaImageGalleryStatus = $"{T("无法读取所选图像", "Could not read the selected image")}: {ex.Message}";
+            _logService.Log($"{T("UmaDatabase 图像预览失败", "UmaDatabase image preview failed")}: {ex}", LogEntryKind.Warning);
         }
         NotifyImageCommands();
     }
@@ -215,12 +225,12 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             ScenarioJsonText = _scenarioDrafts.TryGetValue(value.Path, out string? draft)
                 ? draft
                 : DeveloperToolsService.ReadText(value.Path);
-            ScenarioStatusText = $"已加载 {value.RelativePath}";
+            ScenarioStatusText = $"{T("已加载", "Loaded")} {value.RelativePath}";
         }
         catch (Exception ex)
         {
             ScenarioJsonText = string.Empty;
-            ScenarioStatusText = $"读取失败：{ex.Message}";
+            ScenarioStatusText = $"{T("读取失败", "Read failed")}: {ex.Message}";
         }
         finally
         {
@@ -245,7 +255,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            ImageMatchStatus = $"模板预览失败：{ex.Message}";
+            ImageMatchStatus = $"{T("模板预览失败", "Template preview failed")}: {ex.Message}";
         }
     }
 
@@ -354,14 +364,16 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 _ = LoadScenarioManifestAsync(selectedManifest);
             _resourceRoot = _tools.ResourceRoot;
             _resourcesInitialized = true;
-            ResourceStatusText = $"{PipelineFiles.Count} pipelines · {TemplateImages.Count} 模板图像 · {ScenarioManifests.Count} 场景包";
+            ResourceStatusText = IsEnglish
+                ? $"{PipelineFiles.Count} pipeline(s) · {TemplateImages.Count} template image(s) · {ScenarioManifests.Count} scenario package(s)"
+                : $"{PipelineFiles.Count} pipelines · {TemplateImages.Count} 模板图像 · {ScenarioManifests.Count} 场景包";
             if (firstResourceScan || resourceRootChanged)
                 RefreshUmaDatabaseImages();
         }
         catch (Exception ex)
         {
-            ResourceStatusText = $"资源扫描失败：{ex.Message}";
-            _logService.Log($"DeveloperTools 资源扫描失败: {ex}", LogEntryKind.Error);
+            ResourceStatusText = $"{T("资源扫描失败", "Resource scan failed")}: {ex.Message}";
+            _logService.Log($"DeveloperTools {T("资源扫描失败", "resource scan failed")}: {ex}", LogEntryKind.Error);
         }
     }
 
@@ -383,7 +395,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             {
                 Bitmap? thumbnail = null;
                 try { thumbnail = DeveloperToolsImageCodec.LoadBitmap(item.ImagePath, 96); }
-                catch (Exception ex) { _logService.Log($"跳过无法预览的图库图像 {item.ImagePath}: {ex.Message}", LogEntryKind.Warning); }
+                catch (Exception ex) { _logService.Log($"{T("跳过无法预览的图库图像", "Skipped unpreviewable gallery image")} {item.ImagePath}: {ex.Message}", LogEntryKind.Warning); }
                 UmaDatabaseImages.Add(item with { Thumbnail = thumbnail });
             }
             FilterUmaDatabaseImages();
@@ -391,12 +403,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 ? null
                 : UmaDatabaseImages.FirstOrDefault(item => item.Key == selectedKey);
             if (SelectedUmaImage is null)
-                UmaImageGalleryStatus = $"已读取 {UmaDatabaseImages.Count} 张角色图像。";
+                UmaImageGalleryStatus = IsEnglish
+                    ? $"Loaded {UmaDatabaseImages.Count} trainee image(s)."
+                    : $"已读取 {UmaDatabaseImages.Count} 张角色图像。";
         }
         catch (Exception ex)
         {
-            UmaImageGalleryStatus = $"读取 UmaDatabase 图像失败：{ex.Message}";
-            _logService.Log($"读取 UmaDatabase 图像失败: {ex}", LogEntryKind.Error);
+            UmaImageGalleryStatus = $"{T("读取 UmaDatabase 图像失败", "Failed to load UmaDatabase images")}: {ex.Message}";
+            _logService.Log($"{T("读取 UmaDatabase 图像失败", "Failed to load UmaDatabase images")}: {ex}", LogEntryKind.Error);
         }
         OnPropertyChanged(nameof(CanSaveSystemReference));
         OnPropertyChanged(nameof(CanTestSystemReferenceMatch));
@@ -416,8 +430,12 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             FilteredUmaDatabaseImages.Add(item);
         }
         UmaImageGalleryStatus = query.Length == 0
-            ? $"{FilteredUmaDatabaseImages.Count} 张图像 · 可搜索 trainee 名称、ID 或类型。"
-            : $"筛选结果：{FilteredUmaDatabaseImages.Count} / {UmaDatabaseImages.Count} 张图像。";
+            ? (IsEnglish
+                ? $"{FilteredUmaDatabaseImages.Count} image(s) · Search by trainee name, ID, or type."
+                : $"{FilteredUmaDatabaseImages.Count} 张图像 · 可搜索 trainee 名称、ID 或类型。")
+            : (IsEnglish
+                ? $"Showing {FilteredUmaDatabaseImages.Count} of {UmaDatabaseImages.Count} image(s)."
+                : $"筛选结果：{FilteredUmaDatabaseImages.Count} / {UmaDatabaseImages.Count} 张图像。");
     }
 
     [RelayCommand]
@@ -428,12 +446,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         {
             SetScreenshot(DeveloperToolsImageCodec.LoadAsScreenshot(item.ImagePath));
             _galleryCropSourcePath = item.ImagePath;
-            UmaImageGalleryStatus = $"已载入 {item.DisplayName} 作为裁剪源。返回截图页拖动选择区域，再保存为 system reference。";
+            UmaImageGalleryStatus = IsEnglish
+                ? $"Loaded {item.DisplayName} as the crop source. Drag to select an area on the Capture tab, then save it as a system reference."
+                : $"已载入 {item.DisplayName} 作为裁剪源。返回截图页拖动选择区域，再保存为 system reference。";
         }
         catch (Exception ex)
         {
-            UmaImageGalleryStatus = $"无法载入图库图像：{ex.Message}";
-            _logService.Log($"UmaDatabase 图像载入失败: {ex}", LogEntryKind.Error);
+            UmaImageGalleryStatus = $"{T("无法载入图库图像", "Could not load gallery image")}: {ex.Message}";
+            _logService.Log($"{T("UmaDatabase 图像载入失败", "Failed to load UmaDatabase image")}: {ex}", LogEntryKind.Error);
         }
         NotifyImageCommands();
     }
@@ -455,24 +475,24 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 string backupPath = CreateImageBackupPath(targetPath);
                 bool savedBackup = await _automationService.SaveResourceBytesAsync(backupPath, backupBytes);
                 if (!savedBackup && IsUnderResourceRoot(backupPath))
-                    throw new IOException("无法在 resource-overrides 中备份现有系统参考图像。");
+                throw new IOException(T("无法在 resource-overrides 中备份现有系统参考图像。", "Could not back up the existing system reference image under resource-overrides."));
             }
 
             byte[] imageBytes = DeveloperToolsImageCodec.EncodeScreenshotCrop(screenshot, crop.X, crop.Y, crop.Width, crop.Height, ".webp");
             bool tracked = await _automationService.SaveResourceBytesAsync(targetPath, imageBytes);
             if (!tracked && IsUnderResourceRoot(targetPath))
-                throw new IOException("系统参考图像没有写入活动资源视图。");
+            throw new IOException(T("系统参考图像没有写入活动资源视图。", "The system reference image was not written to the active resource view."));
 
             string description = item.IsLiveOutfit ? "live outfit system reference" : "race outfit system reference";
             SystemReferenceStatus = backupBytes is null
-                ? $"已创建 {description}: {targetPath}"
-                : $"已更新 {description}: {targetPath} · 原图已备份。";
+            ? $"{T("已创建", "Created")} {description}: {targetPath}"
+            : $"{T("已更新", "Updated")} {description}: {targetPath} · {T("原图已备份。", "The original image was backed up.")}";
             _logService.Log(SystemReferenceStatus, LogEntryKind.Success);
             SetCropRegion(null);
         }
         catch (Exception ex)
         {
-            SystemReferenceStatus = $"系统参考图像保存失败：{ex.Message}";
+            SystemReferenceStatus = $"{T("系统参考图像保存失败", "Failed to save system reference image")}: {ex.Message}";
             _logService.Log(SystemReferenceStatus, LogEntryKind.Error);
         }
         finally
@@ -497,20 +517,20 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             {
                 ct.ThrowIfCancellationRequested();
                 var screen = RecognitionImageDecoder.DecodeBytes(screenshot.PngBytes)
-                    ?? throw new InvalidDataException("当前预览图像无法解码。");
+            ?? throw new InvalidDataException(T("当前预览图像无法解码。", "The current preview image could not be decoded."));
                 var template = _tools.LoadTemplateImage(path)
-                    ?? throw new InvalidDataException("原生 Core 无法加载 system reference 图像。");
+            ?? throw new InvalidDataException(T("原生 Core 无法加载 system reference 图像。", "Native Core could not load the system reference image."));
                 return _tools.MatchTemplate(screen, template, new TemplateMatchOptions(
                     MatchMethod, null, threshold, screen.Width, screen.Height));
             }, ct));
             SystemReferenceStatus = result.Found
-                ? $"原生匹配通过 · score {result.Score:0.000} · {result.X},{result.Y} {result.Width}×{result.Height}"
-                : $"未匹配 · best score {result.Score:0.000} / threshold {threshold:0.000}";
+            ? $"{T("原生匹配通过", "Native match succeeded")} · score {result.Score:0.000} · {result.X},{result.Y} {result.Width}×{result.Height}"
+            : $"{T("未匹配", "No match")} · best score {result.Score:0.000} / threshold {threshold:0.000}";
             _logService.Log(SystemReferenceStatus, result.Found ? LogEntryKind.Success : LogEntryKind.Normal);
         }
         catch (Exception ex)
         {
-            SystemReferenceStatus = $"原生匹配失败：{ex.Message}";
+            SystemReferenceStatus = $"{T("原生匹配失败", "Native match failed")}: {ex.Message}";
             _logService.Log(SystemReferenceStatus, LogEntryKind.Error);
         }
         finally
@@ -538,13 +558,13 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         {
             var captured = await _automationService.CaptureScreenshotAsync();
             if (captured is null)
-                SetImageStatus("原生截图操作没有返回画面。", LogEntryKind.Error);
+            SetImageStatus(T("原生截图操作没有返回画面。", "The native screenshot operation returned no image."), LogEntryKind.Error);
             else
                 SetScreenshot(captured);
         }
         catch (Exception ex)
         {
-            SetImageStatus($"截图失败：{ex.Message}", LogEntryKind.Error);
+            SetImageStatus($"{T("截图失败", "Screenshot failed")}: {ex.Message}", LogEntryKind.Error);
         }
         finally
         {
@@ -558,7 +578,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         {
             byte[] bytes = File.ReadAllBytes(path);
             var decoded = RecognitionImageDecoder.DecodeBytes(bytes)
-                ?? throw new InvalidDataException("原生图像解码器无法读取该文件。");
+                ?? throw new InvalidDataException(T("原生图像解码器无法读取该文件。", "The native image decoder could not read this file."));
             using var input = new MemoryStream(bytes, writable: false);
             using var bitmap = new Bitmap(input);
             using var png = new MemoryStream();
@@ -567,7 +587,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            SetImageStatus($"导入图像失败：{ex.Message}", LogEntryKind.Error);
+            SetImageStatus($"{T("导入图像失败", "Image import failed")}: {ex.Message}", LogEntryKind.Error);
         }
     }
 
@@ -579,27 +599,27 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
 
     public async Task ExportScreenshotAsync(string path, CancellationToken cancellationToken = default)
     {
-        if (_screenshot is null) throw new InvalidOperationException("当前没有可导出的截图。");
+        if (_screenshot is null) throw new InvalidOperationException(T("当前没有可导出的截图。", "There is no screenshot to export."));
         await File.WriteAllBytesAsync(path, _screenshot.PngBytes, cancellationToken);
-        SetImageStatus($"截图已导出：{path}", LogEntryKind.Success);
+        SetImageStatus($"{T("截图已导出", "Screenshot exported")}: {path}", LogEntryKind.Success);
     }
 
     public async Task SaveCropAsync(string path, CancellationToken cancellationToken = default)
     {
         if (_screenshot is null || _cropRegion is not { } crop)
-            throw new InvalidOperationException("请先选择一个有效的裁剪区域。");
+            throw new InvalidOperationException(T("请先选择一个有效的裁剪区域。", "Select a valid crop region first."));
         cancellationToken.ThrowIfCancellationRequested();
         var source = RecognitionImageDecoder.DecodeBytes(_screenshot.PngBytes)
-            ?? throw new InvalidDataException("当前截图无法解码。");
+            ?? throw new InvalidDataException(T("当前截图无法解码。", "The current screenshot could not be decoded."));
         var result = RecognitionImageDecoder.Transform(source,
             new RecognitionImageTransform(crop.X, crop.Y, crop.Width, crop.Height));
         if (result.RgbaPixels is not { } rgba)
-            throw new InvalidDataException("裁剪图像没有 RGBA 像素数据。");
+            throw new InvalidDataException(T("裁剪图像没有 RGBA 像素数据。", "The cropped image has no RGBA pixel data."));
         using var bitmap = CreateBitmap(result.Width, result.Height, rgba);
         await using var stream = File.Create(path);
         bitmap.Save(stream);
         await stream.FlushAsync(cancellationToken);
-        SetImageStatus($"裁剪已保存：{path}", LogEntryKind.Success);
+        SetImageStatus($"{T("裁剪已保存", "Crop saved")}: {path}", LogEntryKind.Success);
     }
 
     public void SetCropRegion(int x, int y, int width, int height)
@@ -628,7 +648,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             : SelectedTemplateImage?.Path ?? string.Empty;
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            SetImageStatus("请选择存在的模板图像文件。", LogEntryKind.Error);
+            SetImageStatus(T("请选择存在的模板图像文件。", "Select an existing template image file."), LogEntryKind.Error);
             return;
         }
 
@@ -642,20 +662,20 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             {
                 ct.ThrowIfCancellationRequested();
                 var screen = RecognitionImageDecoder.DecodeBytes(captured.PngBytes)
-                    ?? throw new InvalidDataException("当前截图无法解码。");
+                    ?? throw new InvalidDataException(T("当前截图无法解码。", "The current screenshot could not be decoded."));
                 var template = _tools.LoadTemplateImage(path)
-                    ?? throw new InvalidDataException("原生 Core 无法加载模板图像。");
+                    ?? throw new InvalidDataException(T("原生 Core 无法加载模板图像。", "Native Core could not load the template image."));
                 return _tools.MatchTemplate(screen, template, new TemplateMatchOptions(
                     method, null, threshold, screen.Width, screen.Height));
             }, ct));
             SetImageStatus(result.Found
-                ? $"找到模板 · score {result.Score:0.000} · {result.X},{result.Y} {result.Width}×{result.Height}"
-                : $"未找到模板 · best score {result.Score:0.000} / threshold {threshold:0.000}",
+                ? $"{T("找到模板", "Template found")} · score {result.Score:0.000} · {result.X},{result.Y} {result.Width}×{result.Height}"
+                : $"{T("未找到模板", "Template not found")} · best score {result.Score:0.000} / threshold {threshold:0.000}",
                 result.Found ? LogEntryKind.Success : LogEntryKind.Normal);
         }
         catch (Exception ex)
         {
-            SetImageStatus($"原生模板匹配失败：{ex.Message}", LogEntryKind.Error);
+            SetImageStatus($"{T("原生模板匹配失败", "Native template match failed")}: {ex.Message}", LogEntryKind.Error);
         }
         finally
         {
@@ -674,7 +694,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         _pipelineUndo.Clear();
         _pipelineRedo.Clear();
         IsPipelineDirty = true;
-        PipelineStatusText = "新 Pipeline 草稿；保存到 JSON 文件后才能运行。";
+        PipelineStatusText = T("新 Pipeline 草稿；保存到 JSON 文件后才能运行。", "New pipeline draft. Save it to a JSON file before running it.");
         NotifyHistory();
     }
 
@@ -708,9 +728,9 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             };
             PipelineJsonText = root.ToJsonString(IndentedJsonOptions);
             SelectedPipelineTaskName = name;
-            PipelineStatusText = $"已添加节点 {name}。";
+            PipelineStatusText = $"{T("已添加节点", "Added node")} {name}.";
         }
-        catch (Exception ex) { PipelineStatusText = $"无法添加节点：{ex.Message}"; }
+        catch (Exception ex) { PipelineStatusText = $"{T("无法添加节点", "Could not add node")}: {ex.Message}"; }
     }
 
     [RelayCommand]
@@ -723,9 +743,9 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             if (root["tasks"] is not JsonObject tasks || !tasks.Remove(SelectedPipelineTaskName)) return;
             PipelineJsonText = root.ToJsonString(IndentedJsonOptions);
             SelectedPipelineTaskName = PipelineTaskNames.FirstOrDefault() ?? string.Empty;
-            PipelineStatusText = "已删除选中节点。";
+            PipelineStatusText = T("已删除选中节点。", "Selected node removed.");
         }
-        catch (Exception ex) { PipelineStatusText = $"无法删除节点：{ex.Message}"; }
+        catch (Exception ex) { PipelineStatusText = $"{T("无法删除节点", "Could not remove node")}: {ex.Message}"; }
     }
 
     [RelayCommand]
@@ -733,7 +753,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     {
         if (_cropRegion is not { } crop || string.IsNullOrWhiteSpace(SelectedPipelineTaskName))
         {
-            PipelineStatusText = "先在图像页框选区域，并选择一个 Pipeline 节点。";
+            PipelineStatusText = T("先在图像页框选区域，并选择一个 Pipeline 节点。", "Select a crop region on the image tab and choose a pipeline node.");
             return;
         }
         try
@@ -741,12 +761,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             var root = JsonNode.Parse(PipelineJsonText)?.AsObject()
                 ?? throw new InvalidDataException("Pipeline JSON root must be an object.");
             if (root["tasks"] is not JsonObject tasks || tasks[SelectedPipelineTaskName] is not JsonObject task)
-                throw new InvalidDataException("所选节点不存在。");
+                throw new InvalidDataException(T("所选节点不存在。", "The selected node does not exist."));
             task["roi"] = new JsonArray(crop.X, crop.Y, crop.Width, crop.Height);
             PipelineJsonText = root.ToJsonString(IndentedJsonOptions);
-            PipelineStatusText = $"已将截图裁剪区域应用到 {SelectedPipelineTaskName}.roi。";
+            PipelineStatusText = IsEnglish
+                ? $"Applied the screenshot crop region to {SelectedPipelineTaskName}.roi."
+                : $"已将截图裁剪区域应用到 {SelectedPipelineTaskName}.roi。";
         }
-        catch (Exception ex) { PipelineStatusText = $"应用 ROI 失败：{ex.Message}"; }
+        catch (Exception ex) { PipelineStatusText = $"{T("应用 ROI 失败", "Failed to apply ROI")}: {ex.Message}"; }
     }
 
     [RelayCommand]
@@ -814,13 +836,17 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(CanEditPipelineTemplate));
             SetCropRegion(null);
             PipelineStatusText = replacing
-                ? $"已替换节点 {taskName} 的模板图像；现有 ROI 保持不变。"
-                : $"已保存节点模板 {Path.GetRelativePath(pipelineDirectory, targetPath).Replace(Path.DirectorySeparatorChar, '/')}，并写入该节点 template 路径。";
+                ? (IsEnglish
+                    ? $"Replaced the template image for node {taskName}; the existing ROI was kept."
+                    : $"已替换节点 {taskName} 的模板图像；现有 ROI 保持不变。")
+                : (IsEnglish
+                    ? $"Saved node template {Path.GetRelativePath(pipelineDirectory, targetPath).Replace(Path.DirectorySeparatorChar, '/')} and updated the node's template path."
+                    : $"已保存节点模板 {Path.GetRelativePath(pipelineDirectory, targetPath).Replace(Path.DirectorySeparatorChar, '/')}，并写入该节点 template 路径。");
             _logService.Log(PipelineStatusText, LogEntryKind.Success);
         }
         catch (Exception ex)
         {
-            PipelineStatusText = $"保存节点模板失败：{ex.Message}";
+            PipelineStatusText = $"{T("保存节点模板失败", "Failed to save node template")}: {ex.Message}";
             _logService.Log(PipelineStatusText, LogEntryKind.Error);
         }
     }
@@ -832,20 +858,20 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         try
         {
             string templatePath = GetSelectedPipelineTemplatePath()
-                ?? throw new InvalidDataException("当前节点没有 template 路径。");
+                ?? throw new InvalidDataException(T("当前节点没有 template 路径。", "The current node has no template path."));
             if (!File.Exists(templatePath))
-                throw new FileNotFoundException("当前节点模板文件不存在。", templatePath);
+                throw new FileNotFoundException(T("当前节点模板文件不存在。", "The current node template file does not exist."), templatePath);
             SetScreenshot(DeveloperToolsImageCodec.LoadAsScreenshot(templatePath));
             _pipelineTemplateEditPath = templatePath;
             _pipelineTemplateEditTask = SelectedPipelineTaskName;
-            PipelineStatusText = "已载入当前节点模板；在截图页框选新区域后保存，系统会备份旧图并保留现有 ROI。";
+            PipelineStatusText = T("已载入当前节点模板；在截图页框选新区域后保存，系统会备份旧图并保留现有 ROI。", "Loaded the current node template. Select a new crop on the Capture tab and save it; the original image will be backed up and the existing ROI kept.");
             OnPropertyChanged(nameof(PipelineTemplateSaveLabel));
             OnPropertyChanged(nameof(CanSavePipelineTemplate));
             OnPropertyChanged(nameof(CanEditPipelineTemplate));
         }
         catch (Exception ex)
         {
-            PipelineStatusText = $"无法编辑当前节点模板：{ex.Message}";
+            PipelineStatusText = $"{T("无法编辑当前节点模板", "Could not edit the current node template")}: {ex.Message}";
             _logService.Log(PipelineStatusText, LogEntryKind.Error);
         }
     }
@@ -857,7 +883,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         _pipelineTemplateEditTask = null;
         OnPropertyChanged(nameof(PipelineTemplateSaveLabel));
         OnPropertyChanged(nameof(CanEditPipelineTemplate));
-        PipelineStatusText = "已取消模板替换模式。";
+        PipelineStatusText = T("已取消模板替换模式。", "Template replacement canceled.");
     }
 
     private string? GetSelectedPipelineTemplatePath()
@@ -888,7 +914,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     {
         if (SelectedPipelineFile is null)
         {
-            PipelineRunStatusText = "先保存或选择一个 Pipeline 文件。";
+            PipelineRunStatusText = T("先保存或选择一个 Pipeline 文件。", "Save or select a pipeline file first.");
             return;
         }
         try { await InitializeCoreForDiagnosticsAsync(); }
@@ -901,7 +927,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         }
         if (SelectedPipelineFile is null || SelectedReplayFixture is null)
         {
-            PipelineRunStatusText = "选择一个 replay fixture JSON。";
+            PipelineRunStatusText = T("选择一个 replay fixture JSON。", "Select a replay fixture JSON file.");
             return;
         }
         string pipelineSourcePath = SelectedPipelineFile.Path;
@@ -919,7 +945,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 _pipelineCancellation.Token);
             if (validationError is not null)
             {
-                PipelineRunStatusText = $"Replay 已阻止：{validationError}";
+                PipelineRunStatusText = $"{T("Replay 已阻止", "Replay blocked")}: {validationError}";
                 return;
             }
             string activePipelinePath = _tools.ResolveResourcePath(pipelineSourcePath);
@@ -1003,15 +1029,15 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             IsPipelineDirty = false;
             PipelineEntryTask = ReadDefaultEntryTask(json);
             RefreshPipelineDetails(json);
-            PipelineStatusText = $"已加载 {SelectedPipelineFile.RelativePath}";
+            PipelineStatusText = $"{T("已加载", "Loaded")} {SelectedPipelineFile.RelativePath}";
             NotifyHistory();
         }
         catch (Exception ex)
         {
             _loadingPipeline = false;
             _restoringPipelineHistory = false;
-            PipelineStatusText = $"加载失败：{ex.Message}";
-            _logService.Log($"加载 Pipeline 失败: {ex}", LogEntryKind.Error);
+            PipelineStatusText = $"{T("加载失败", "Load failed")}: {ex.Message}";
+            _logService.Log($"{T("加载 Pipeline 失败", "Failed to load pipeline")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1024,7 +1050,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     {
         if (SelectedPipelineFile is null)
         {
-            PipelineStatusText = "新 Pipeline 需要使用“另存为”选择文件路径。";
+            PipelineStatusText = T("新 Pipeline 需要使用“另存为”选择文件路径。", "Use Save As to choose a file path for the new pipeline.");
             return;
         }
         await SavePipelineToAsync(SelectedPipelineFile.Path);
@@ -1035,7 +1061,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         try { await InitializeCoreForDiagnosticsAsync(); }
         catch (Exception ex)
         {
-            PipelineStatusText = $"无法初始化原生 Core，未保存 Pipeline：{ex.Message}";
+            PipelineStatusText = $"{T("无法初始化原生 Core，未保存 Pipeline", "Could not initialize native Core; pipeline was not saved")}: {ex.Message}";
             _logService.Log(PipelineStatusText, LogEntryKind.Error);
             return;
         }
@@ -1047,7 +1073,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 ct => Task.Run(() => _tools.ValidatePipelineJson(json), ct));
             if (validationError is not null)
             {
-                PipelineStatusText = $"保存已阻止；原生 Core 校验失败：{validationError}";
+                PipelineStatusText = $"{T("保存已阻止；原生 Core 校验失败", "Save blocked; native Core validation failed")}: {validationError}";
                 _logService.Log(PipelineStatusText, LogEntryKind.Error);
                 return;
             }
@@ -1065,14 +1091,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             _pipelineHistoryBaseline = json;
             _pipelineSavedText = json;
             IsPipelineDirty = false;
-            PipelineStatusText = $"已保存 {file.Path}";
-            _logService.Log($"Pipeline JSON 已保存：{file.Path}", LogEntryKind.Success);
+            PipelineStatusText = $"{T("已保存", "Saved")} {file.Path}";
+            _logService.Log($"Pipeline JSON {T("已保存", "saved")}: {file.Path}", LogEntryKind.Success);
         }
         catch (Exception ex)
         {
             _loadingPipeline = false;
-            PipelineStatusText = $"保存失败：{ex.Message}";
-            _logService.Log($"保存 Pipeline 失败: {ex}", LogEntryKind.Error);
+            PipelineStatusText = $"{T("保存失败", "Save failed")}: {ex.Message}";
+            _logService.Log($"{T("保存 Pipeline 失败", "Failed to save pipeline")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1086,7 +1112,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         try { await InitializeCoreForDiagnosticsAsync(); }
         catch (Exception ex)
         {
-            PipelineStatusText = $"原生 Core 初始化失败：{ex.Message}";
+            PipelineStatusText = $"{T("原生 Core 初始化失败", "Native Core initialization failed")}: {ex.Message}";
             _logService.Log(PipelineStatusText, LogEntryKind.Error);
             return;
         }
@@ -1097,14 +1123,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             string? error = await RunCoreExclusiveAsync(
                 ct => Task.Run(() => _tools.ValidatePipelineJson(json), ct));
             PipelineStatusText = error is null
-                ? "原生 Core 校验通过。"
-                : $"原生 Core 校验失败：{error}";
+                ? T("原生 Core 校验通过。", "Native Core validation passed.")
+                : $"{T("原生 Core 校验失败", "Native Core validation failed")}: {error}";
             _logService.Log(PipelineStatusText, error is null ? LogEntryKind.Success : LogEntryKind.Error);
         }
         catch (Exception ex)
         {
-            PipelineStatusText = $"原生 Core 校验失败：{ex.Message}";
-            _logService.Log($"Pipeline 原生校验失败: {ex}", LogEntryKind.Error);
+            PipelineStatusText = $"{T("原生 Core 校验失败", "Native Core validation failed")}: {ex.Message}";
+            _logService.Log($"{T("Pipeline 原生校验失败", "Pipeline native validation failed")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1134,13 +1160,13 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         if (!CanRunPipeline || SelectedPipelineFile is null) return;
         if (_automationService.IsBusy)
         {
-            PipelineRunStatusText = "另一个自动化操作正在运行。";
+            PipelineRunStatusText = T("另一个自动化操作正在运行。", "Another automation operation is running.");
             return;
         }
         try { await InitializeCoreForDiagnosticsAsync(); }
         catch (Exception ex)
         {
-            PipelineRunStatusText = $"原生 Core 初始化失败：{ex.Message}";
+            PipelineRunStatusText = $"{T("原生 Core 初始化失败", "Native Core initialization failed")}: {ex.Message}";
             _logService.Log(PipelineRunStatusText, LogEntryKind.Error);
             return;
         }
@@ -1148,7 +1174,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             return;
         if (IsPipelineDirty)
         {
-            PipelineRunStatusText = "先保存编辑，再运行已保存的文件。";
+            PipelineRunStatusText = T("先保存编辑，再运行已保存的文件。", "Save your edits before running the saved file.");
             return;
         }
 
@@ -1158,7 +1184,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         string pipelineJson = PipelineJsonText;
         string? entryTask = string.IsNullOrWhiteSpace(PipelineEntryTask) ? null : PipelineEntryTask;
         IsPipelineRunning = true;
-        PipelineRunStatusText = "正在运行原生 Pipeline…";
+        PipelineRunStatusText = T("正在运行原生 Pipeline…", "Running native pipeline…");
         try
         {
             string? validationError = await RunCoreExclusiveAsync(
@@ -1166,7 +1192,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                 _pipelineCancellation.Token);
             if (validationError is not null)
             {
-                PipelineRunStatusText = $"运行已阻止：{validationError}";
+                PipelineRunStatusText = $"{T("运行已阻止", "Run blocked")}: {validationError}";
                 return;
             }
             var result = await RunCoreExclusiveAsync(
@@ -1176,19 +1202,23 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                     ct),
                 _pipelineCancellation.Token);
             PipelineRunStatusText = result.Succeeded
-                ? $"Pipeline 完成：{result.TotalSteps} 步，结束于 {result.FinalTask}。"
-                : $"Pipeline 失败：{result.FinalTask} — {result.Message ?? "Core 返回失败结果。"}";
+                ? (IsEnglish
+                    ? $"Pipeline completed: {result.TotalSteps} step(s), ended at {result.FinalTask}."
+                    : $"Pipeline 完成：{result.TotalSteps} 步，结束于 {result.FinalTask}。")
+                : (IsEnglish
+                    ? $"Pipeline failed at {result.FinalTask} — {result.Message ?? "Core returned a failed result."}"
+                    : $"Pipeline 失败：{result.FinalTask} — {result.Message ?? "Core 返回失败结果。"}");
             _logService.Log(PipelineRunStatusText, result.Succeeded ? LogEntryKind.Success : LogEntryKind.Error);
         }
         catch (OperationCanceledException)
         {
-            PipelineRunStatusText = "Pipeline 已取消。";
+            PipelineRunStatusText = T("Pipeline 已取消。", "Pipeline canceled.");
             _logService.Log(PipelineRunStatusText, LogEntryKind.Warning);
         }
         catch (Exception ex)
         {
-            PipelineRunStatusText = $"Pipeline 运行失败：{ex.Message}";
-            _logService.Log($"Pipeline 运行失败: {ex}", LogEntryKind.Error);
+            PipelineRunStatusText = $"{T("Pipeline 运行失败", "Pipeline run failed")}: {ex.Message}";
+            _logService.Log($"{T("Pipeline 运行失败", "Pipeline run failed")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1202,7 +1232,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     private void StopPipeline()
     {
         if (!IsPipelineRunning) return;
-        PipelineRunStatusText = "正在请求原生 Core 停止 Pipeline…";
+        PipelineRunStatusText = T("正在请求原生 Core 停止 Pipeline…", "Requesting native Core to stop the pipeline…");
         _pipelineCancellation?.Cancel();
     }
 
@@ -1215,7 +1245,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         {
             await InitializeCoreForDiagnosticsAsync();
             if (SelectedScenarioFile is null || SelectedScenarioManifest is null)
-                throw new InvalidOperationException("请先选择场景包文件。");
+                throw new InvalidOperationException(T("请先选择场景包文件。", "Select a scenario package file first."));
             await LoadScenarioManifestAsync(SelectedScenarioManifest);
             string selectedPath = SelectedScenarioFile.Path;
             string manifestPath = SelectedScenarioManifest.Path;
@@ -1229,7 +1259,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             var inspection = await _tools.InspectScenarioPackageAsync(manifestPath, drafts);
             if (!inspection.Available)
             {
-                ScenarioStatusText = "保存已阻止；Native Inspector unavailable: " + inspection.StandardError;
+                ScenarioStatusText = T("保存已阻止；Native Inspector unavailable: ", "Save blocked; Native Inspector unavailable: ") + inspection.StandardError;
                 ScenarioInspectionText = ScenarioStatusText;
                 _logService.Log(ScenarioStatusText, LogEntryKind.Warning);
                 return;
@@ -1248,22 +1278,24 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
                     ? string.Join(Environment.NewLine, diagnosticArray.EnumerateArray().Select(item => item.ToString()))
                     : inspection.StandardOutput.Trim();
                 ScenarioInspectionText = $"Native Inspector rejected the package (exit {inspection.ExitCode}).{Environment.NewLine}{diagnostics}{Environment.NewLine}{inspection.StandardError}".Trim();
-                ScenarioStatusText = "保存已阻止；Native Inspector 未接受场景包。原文件未修改。";
+                ScenarioStatusText = T("保存已阻止；Native Inspector 未接受场景包。原文件未修改。", "Save blocked; Native Inspector rejected the scenario package. The original file was not changed.");
                 _logService.Log(ScenarioStatusText, LogEntryKind.Error);
                 return;
             }
 
             await _tools.SaveResourceTextAsync(selectedPath, scenarioJson);
             _scenarioDrafts.Remove(selectedPath);
-            ScenarioStatusText = $"已保存 {Path.GetRelativePath(_tools.ResourceRoot, selectedPath)} · Native Inspector 校验通过";
+            ScenarioStatusText = IsEnglish
+                ? $"Saved {Path.GetRelativePath(_tools.ResourceRoot, selectedPath)} · Native Inspector validation passed"
+                : $"已保存 {Path.GetRelativePath(_tools.ResourceRoot, selectedPath)} · Native Inspector 校验通过";
             ScenarioInspectionText = JsonSerializer.Serialize(parsedInspection.RootElement, IndentedJsonOptions);
-            _logService.Log($"场景包 JSON 已保存：{selectedPath}", LogEntryKind.Success);
+            _logService.Log($"{T("场景包 JSON 已保存", "Scenario package JSON saved")}: {selectedPath}", LogEntryKind.Success);
             RefreshResources();
         }
         catch (Exception ex)
         {
-            ScenarioStatusText = $"保存失败：{ex.Message}";
-            _logService.Log($"场景包 JSON 保存失败: {ex}", LogEntryKind.Error);
+            ScenarioStatusText = $"{T("保存失败", "Save failed")}: {ex.Message}";
+            _logService.Log($"{T("场景包 JSON 保存失败", "Failed to save scenario package JSON")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1315,8 +1347,8 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            ScenarioStatusText = $"场景包检查失败：{ex.Message}";
-            _logService.Log($"场景包检查失败: {ex}", LogEntryKind.Error);
+            ScenarioStatusText = $"{T("场景包检查失败", "Scenario package validation failed")}: {ex.Message}";
+            _logService.Log($"{T("场景包检查失败", "Scenario package validation failed")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1339,8 +1371,8 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            ResourceStatusText = $"资源重载失败：{ex.Message}";
-            _logService.Log($"重载原生资源失败: {ex}", LogEntryKind.Error);
+            ResourceStatusText = $"{T("资源重载失败", "Failed to reload resources")}: {ex.Message}";
+            _logService.Log($"{T("重载原生资源失败", "Failed to reload native resources")}: {ex}", LogEntryKind.Error);
         }
     }
 
@@ -1358,12 +1390,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             SelectedScenarioFile = ScenarioPackageFiles.FirstOrDefault(file => currentScenarioPath is not null
                 && PathEquals(file.Path, currentScenarioPath))
                 ?? ScenarioPackageFiles.FirstOrDefault();
-            ScenarioStatusText = $"已加载 {manifest.RelativePath} · {ScenarioPackageFiles.Count} 个 JSON 文件";
+            ScenarioStatusText = IsEnglish
+                ? $"Loaded {manifest.RelativePath} · {ScenarioPackageFiles.Count} JSON file(s)"
+                : $"已加载 {manifest.RelativePath} · {ScenarioPackageFiles.Count} 个 JSON 文件";
         }
         catch (Exception ex)
         {
-            ScenarioStatusText = $"读取场景包失败：{ex.Message}";
-            _logService.Log($"读取场景包失败: {ex}", LogEntryKind.Error);
+            ScenarioStatusText = $"{T("读取场景包失败", "Failed to read scenario package")}: {ex.Message}";
+            _logService.Log($"{T("读取场景包失败", "Failed to read scenario package")}: {ex}", LogEntryKind.Error);
         }
         finally
         {
@@ -1421,14 +1455,14 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
             HasScreenshot = true;
             SetCropRegion(null);
             ScreenshotInfoText = $"{captured.Width}×{captured.Height} px · {captured.CapturedAt:HH:mm:ss.fff}";
-            ImageMatchStatus = "截图就绪；选择模板图像后运行原生匹配。";
+            ImageMatchStatus = T("截图就绪；选择模板图像后运行原生匹配。", "Screenshot ready. Select a template image to run native matching.");
             OnPropertyChanged(nameof(PipelineTemplateSaveLabel));
             OnPropertyChanged(nameof(CanEditPipelineTemplate));
             NotifyImageCommands();
         }
         catch (Exception ex)
         {
-            ScreenshotInfoText = $"截图图像无法显示：{ex.Message}";
+            ScreenshotInfoText = $"{T("截图图像无法显示", "Could not display screenshot image")}: {ex.Message}";
         }
     }
 
@@ -1439,7 +1473,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         HasCropRegion = crop is { Width: > 0, Height: > 0 };
         CropRegionText = crop is { } region
             ? $"X {region.X}, Y {region.Y} · {region.Width} × {region.Height} px"
-            : "未选择裁剪区域";
+            : T("未选择裁剪区域", "No crop selected");
         OnPropertyChanged(nameof(CanSavePipelineTemplate));
         NotifyImageCommands();
     }
@@ -1589,11 +1623,43 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     private void OnConnectionStateChanged(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() => IsConnected = _connectionStateService.State == ConnectionState.Connected);
 
+    private bool IsEnglish => UiText.IsEnglish(_localizationService);
+
+    private string T(string chinese, string english) => UiText.Get(_localizationService, chinese, english);
+
+    public string Localize(string chinese, string english) => T(chinese, english);
+
+    private void RefreshLocalizedDefaults()
+    {
+        ScreenshotInfoText = _screenshot is { } screenshot
+            ? $"{screenshot.Width}×{screenshot.Height} px · {screenshot.CapturedAt:HH:mm:ss.fff}"
+            : T("先捕获设备画面或导入图片。", "Capture a device screen or import an image first.");
+        CropRegionText = _cropRegion is { } crop
+            ? $"X {crop.X}, Y {crop.Y} · {crop.Width} × {crop.Height} px"
+            : T("未选择裁剪区域", "No crop selected");
+        ImageMatchStatus = T("选择模板图像并捕获截图以运行原生匹配。", "Select a template image and capture a screenshot to run native matching.");
+        PipelineStatusText = T("选择或创建一个 Pipeline JSON。", "Select or create a pipeline JSON file.");
+        PipelineRunStatusText = T("尚未运行。", "Not run yet.");
+        ScenarioStatusText = T("选择一个场景包清单以查看其 JSON 文件。", "Select a scenario package manifest to view its JSON files.");
+        UmaImageGalleryStatus = T("正在读取 UmaDatabase 图像资源。", "Loading UmaDatabase image resources.");
+        SystemReferenceStatus = T("选择角色图像后，可将当前截图裁剪保存为 system reference。", "Select a trainee image, then crop the current screenshot and save it as a system reference.");
+        OnPropertyChanged(nameof(PipelineTemplateSaveLabel));
+    }
+
+    private void OnLanguageChanged()
+    {
+        RefreshLocalizedDefaults();
+        ResourceStatusText = IsEnglish
+            ? $"{PipelineFiles.Count} pipeline(s) · {TemplateImages.Count} template image(s) · {ScenarioManifests.Count} scenario package(s)"
+            : $"{PipelineFiles.Count} pipelines · {TemplateImages.Count} 模板图像 · {ScenarioManifests.Count} 场景包";
+    }
+
     public void Dispose()
     {
         _connectionStateService.StateChanged -= OnConnectionStateChanged;
         _automationService.ScreenshotCaptured -= OnScreenshotCaptured;
         _automationService.ResourcesChanged -= OnResourcesChanged;
+        _localizationService.LanguageChanged -= OnLanguageChanged;
         _pipelineCancellation?.Cancel();
         _pipelineCancellation?.Dispose();
         _pipelineCancellation = null;

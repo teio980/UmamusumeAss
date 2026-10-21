@@ -23,22 +23,22 @@ public partial class DeveloperToolsPage : UserControl
 
     private async void OnImportScreenshotClick(object? sender, RoutedEventArgs e)
     {
-        string? path = await PickOpenFileAsync("导入截图", ImageFileTypes);
-        if (path is not null && DataContext is DeveloperToolsViewModel vm)
-            vm.ImportScreenshot(path);
+        if (DataContext is not DeveloperToolsViewModel vm) return;
+        string? path = await PickOpenFileAsync(vm.Localize("导入截图", "Import screenshot"), ImageFileTypes);
+        if (path is not null) vm.ImportScreenshot(path);
     }
 
     private async void OnChooseTemplateClick(object? sender, RoutedEventArgs e)
     {
-        string? path = await PickOpenFileAsync("选择模板图像", ImageFileTypes);
-        if (path is not null && DataContext is DeveloperToolsViewModel vm)
-            vm.TemplatePath = path;
+        if (DataContext is not DeveloperToolsViewModel vm) return;
+        string? path = await PickOpenFileAsync(vm.Localize("选择模板图像", "Select template image"), ImageFileTypes);
+        if (path is not null) vm.TemplatePath = path;
     }
 
     private async void OnExportScreenshotClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not DeveloperToolsViewModel vm) return;
-        string? path = await PickSaveFileAsync("导出截图", "screenshot.png", "PNG 图片", ["*.png"]);
+        string? path = await PickSaveFileAsync(vm.Localize("导出截图", "Export screenshot"), "screenshot.png", vm.Localize("PNG 图片", "PNG image"), ["*.png"]);
         if (path is null) return;
         try
         {
@@ -46,14 +46,14 @@ public partial class DeveloperToolsPage : UserControl
         }
         catch (Exception ex)
         {
-            vm.ShowError("导出截图失败", ex.Message);
+            vm.ShowError(vm.Localize("导出截图失败", "Failed to export screenshot"), ex.Message);
         }
     }
 
     private async void OnSaveCropClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not DeveloperToolsViewModel vm) return;
-        string? path = await PickSaveFileAsync("保存截图裁剪", "crop.png", "PNG 图片", ["*.png"]);
+        string? path = await PickSaveFileAsync(vm.Localize("保存截图裁剪", "Save screenshot crop"), "crop.png", vm.Localize("PNG 图片", "PNG image"), ["*.png"]);
         if (path is null) return;
         try
         {
@@ -61,14 +61,14 @@ public partial class DeveloperToolsPage : UserControl
         }
         catch (Exception ex)
         {
-            vm.ShowError("保存裁剪失败", ex.Message);
+            vm.ShowError(vm.Localize("保存裁剪失败", "Failed to save crop"), ex.Message);
         }
     }
 
     private async void OnOpenPipelineClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not DeveloperToolsViewModel vm) return;
-        string? path = await PickOpenFileAsync("打开 Pipeline JSON", JsonFileTypes);
+        string? path = await PickOpenFileAsync(vm.Localize("打开 Pipeline JSON", "Open pipeline JSON"), JsonFileTypes);
         if (path is null) return;
         var file = new DeveloperResourceFile(Path.GetFullPath(path), Path.GetFileName(path));
         if (!vm.PipelineFiles.Any(existing => PathEquals(existing.Path, file.Path)))
@@ -81,7 +81,7 @@ public partial class DeveloperToolsPage : UserControl
         if (DataContext is not DeveloperToolsViewModel vm) return;
         string? path = vm.SelectedPipelineFile?.Path;
         if (path is null)
-            path = await PickSaveFileAsync("保存 Pipeline JSON", "pipeline.json", "JSON 文件", ["*.json"]);
+            path = await PickSaveFileAsync(vm.Localize("保存 Pipeline JSON", "Save pipeline JSON"), "pipeline.json", vm.Localize("JSON 文件", "JSON files"), ["*.json"]);
         if (path is null) return;
         await vm.SavePipelineToAsync(path);
     }
@@ -89,7 +89,7 @@ public partial class DeveloperToolsPage : UserControl
     private async void OnChooseReplayFixtureClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not DeveloperToolsViewModel vm) return;
-        string? path = await PickOpenFileAsync("选择离线回放 Fixture", JsonFileTypes);
+        string? path = await PickOpenFileAsync(vm.Localize("选择离线回放 Fixture", "Select offline replay fixture"), JsonFileTypes);
         if (path is null) return;
         var file = new DeveloperResourceFile(Path.GetFullPath(path), Path.GetFileName(path));
         if (!vm.ReplayFixtures.Any(existing => PathEquals(existing.Path, file.Path)))
@@ -100,7 +100,7 @@ public partial class DeveloperToolsPage : UserControl
     private async void OnOpenScenarioManifestClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not DeveloperToolsViewModel vm) return;
-        string? path = await PickOpenFileAsync("打开场景包 manifest", JsonFileTypes);
+        string? path = await PickOpenFileAsync(vm.Localize("打开场景包 manifest", "Open scenario package manifest"), JsonFileTypes);
         if (path is null) return;
         var file = new DeveloperResourceFile(Path.GetFullPath(path), Path.GetFileName(path));
         if (!vm.ScenarioManifests.Any(existing => PathEquals(existing.Path, file.Path)))
@@ -209,13 +209,15 @@ public partial class DeveloperToolsPage : UserControl
     private static bool PathEquals(string left, string right) =>
         string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
 
-    private static readonly FilePickerFileType[] ImageFileTypes =
+    private FilePickerFileType[] ImageFileTypes =>
     [
-        new("图像文件") { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.tif", "*.tiff"] }
+        new(DataContext is DeveloperToolsViewModel vm ? vm.Localize("图像文件", "Image files") : "Image files")
+        { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.tif", "*.tiff"] }
     ];
 
-    private static readonly FilePickerFileType[] JsonFileTypes =
+    private FilePickerFileType[] JsonFileTypes =>
     [
-        new("JSON 文件") { Patterns = ["*.json"] }
+        new(DataContext is DeveloperToolsViewModel vm ? vm.Localize("JSON 文件", "JSON files") : "JSON files")
+        { Patterns = ["*.json"] }
     ];
 }
