@@ -23,6 +23,8 @@ public partial class MainWindow : AppWindow
 
         if (OperatingSystem.IsMacOS())
         {
+            Width = 1040;
+            Height = 700;
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome |
                                           ExtendClientAreaChromeHints.OSXThickTitleBar;
