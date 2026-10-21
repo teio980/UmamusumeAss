@@ -75,6 +75,69 @@ public sealed partial class IndependentAgendaRaceItemViewModel : ObservableObjec
     }
 }
 
+public sealed partial class IndependentSkillOptionViewModel : ObservableObject
+{
+    private readonly Action _onToggled;
+
+    public SkillCatalogItem Skill { get; }
+    public bool IsExecutable { get; }
+    public string Label => IsExecutable
+        ? Skill.IndependentDisplayName
+        : $"{Skill.IndependentDisplayName} · unavailable in Add Skills";
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public IndependentSkillOptionViewModel(
+        SkillCatalogItem skill,
+        bool isExecutable,
+        bool isSelected,
+        Action onToggled)
+    {
+        Skill = skill;
+        IsExecutable = isExecutable;
+        _isSelected = isSelected && isExecutable;
+        _onToggled = onToggled;
+    }
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (value && !IsExecutable)
+        {
+            IsSelected = false;
+            return;
+        }
+        _onToggled();
+    }
+}
+
+public sealed partial class FriendSupportCardOptionViewModel : ObservableObject
+{
+    private readonly Action<int, bool> _onToggled;
+
+    public SupportCardCatalogItem Card { get; }
+    public int SupportCardId => Card.SupportCardId;
+    public string Label => string.IsNullOrWhiteSpace(Card.NameEn)
+        ? $"Support card {Card.SupportCardId.ToString(CultureInfo.InvariantCulture)}"
+        : Card.NameEn;
+    public string Type => string.IsNullOrWhiteSpace(Card.Type) ? "type unknown" : Card.Type.Trim();
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public FriendSupportCardOptionViewModel(
+        SupportCardCatalogItem card,
+        bool isSelected,
+        Action<int, bool> onToggled)
+    {
+        Card = card;
+        _isSelected = isSelected;
+        _onToggled = onToggled;
+    }
+
+    partial void OnIsSelectedChanged(bool value) => _onToggled(SupportCardId, value);
+}
+
 /// <summary>
 /// Typed controls for the settings used by the WPF task modules, backed by the
 /// same JSON payload so unknown/newer fields survive edits and round trips.
@@ -91,6 +154,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     private string _rawSettingsJson;
     private string _jsonErrorText = string.Empty;
     private bool _isUpdating;
+    private bool _isSyncingIndependentSkills;
+    private bool _isSyncingFriendCardOptions;
 
     private bool IsEnglish => _task.LocalizationService?.CurrentLanguage?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
     private string T(string chinese, string english) => UiText.Get(_task.LocalizationService, chinese, english);
@@ -147,8 +212,24 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         : [new("front", "逃马"), new("pace", "先行"), new("late", "差行"), new("end", "追马")];
 
     public IReadOnlyList<TaskSettingOption> NormalTrainingStrategyOptions => IsEnglish
-        ? [new("smart-balanced-safe", "Smart Balanced (Recommended)"), new("custom-ratio", "Custom Attribute Ratios")]
-        : [new("smart-balanced-safe", "智能均衡策略（推荐）"), new("custom-ratio", "自定义五维训练比例")];
+        ? [
+            new("smart-balanced-safe", "Smart balanced · safe"),
+            new("default-speed-medium", "Speed focus"),
+            new("default-stamina-medium", "Stamina focus"),
+            new("default-power-medium", "Power focus"),
+            new("default-guts-medium", "Guts focus"),
+            new("default-wit-medium", "Wit focus"),
+            new("custom-ratio", "Custom training ratio"),
+          ]
+        : [
+            new("smart-balanced-safe", "智能均衡策略（推荐）"),
+            new("default-speed-medium", "速度专注"),
+            new("default-stamina-medium", "耐力专注"),
+            new("default-power-medium", "力量专注"),
+            new("default-guts-medium", "毅力专注"),
+            new("default-wit-medium", "智力专注"),
+            new("custom-ratio", "自定义训练比例"),
+          ];
 
     public void RefreshLanguage()
     {
@@ -185,8 +266,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(AgendaGradeFilters));
         OnPropertyChanged(nameof(RatioCyclePreview));
         OnPropertyChanged(nameof(SelectedSupportCardCountText));
+        OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
         OnPropertyChanged(nameof(TargetNormalSkillCountText));
-        OnPropertyChanged(nameof(TargetIndependentSkillCountText));
+        OnPropertyChanged(nameof(SelectedIndependentSkillCountText));
         OnPropertyChanged(nameof(SelectedAgendaRaceCountText));
         OnPropertyChanged(nameof(ValidationMessage));
         OnPropertyChanged(nameof(IsValid));
@@ -261,9 +343,13 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public IReadOnlyList<TaskCatalogOption> SkillOptions { get; } = AllSkillOptions;
     public IReadOnlyList<TaskCatalogOption> IndependentRaceOptions { get; } = AllIndependentRaceOptions;
 
-    public IReadOnlyList<string> SupportCardTypeFilters => IsEnglish
-        ? ["All", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"]
-        : ["全部", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"];
+    public IReadOnlyList<string> SupportCardTypeFilters => new[] { IsEnglish ? "All" : "全部" }
+        .Concat(UmaCatalogService.SupportCards
+            .Where(card => card.IsAvailable && !string.IsNullOrWhiteSpace(card.Type))
+            .Select(card => card.Type.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(type => type, StringComparer.OrdinalIgnoreCase))
+        .ToArray();
 
     public IReadOnlyList<string> AgendaYearFilters => BuildAgendaFilters(race => race.Year);
 
@@ -328,14 +414,15 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     private List<TraineeCatalogItem> _richFilteredTrainees = [];
     private List<SupportCardCatalogItem> _richFilteredSupportCards = [];
-    private List<SupportCardCatalogItem> _richFilteredFriendCards = [];
+    private List<FriendSupportCardOptionViewModel> _richFilteredFriendCards = [];
     private List<SkillCatalogItem> _richFilteredNormalSkills = [];
-    private List<SkillCatalogItem> _richFilteredIndependentSkills = [];
+    private List<IndependentSkillOptionViewModel> _richFilteredIndependentSkills = [];
     private List<IndependentAgendaRaceItemViewModel> _richFilteredAgendaRaces = [];
+    private readonly List<IndependentSkillOptionViewModel> _allIndependentSkillOptions = [];
+    private readonly List<FriendSupportCardOptionViewModel> _allFriendCardOptions = [];
 
     public ObservableCollection<SupportCardCatalogItem> SelectedSupportCards { get; } = [];
     public ObservableCollection<SkillCatalogItem> TargetNormalSkills { get; } = [];
-    public ObservableCollection<SkillCatalogItem> TargetIndependentSkills { get; } = [];
 
     [ObservableProperty]
     private SkillCatalogItem? _selectedAvailableNormalSkill;
@@ -343,27 +430,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     [ObservableProperty]
     private SkillCatalogItem? _selectedTargetNormalSkill;
 
-    [ObservableProperty]
-    private SkillCatalogItem? _selectedAvailableIndependentSkill;
-
-    partial void OnSelectedAvailableIndependentSkillChanged(SkillCatalogItem? value)
-    {
-        OnPropertyChanged(nameof(CanAddIndependentSkill));
-        AddSelectedIndependentSkillCommand.NotifyCanExecuteChanged();
-    }
-
-    [ObservableProperty]
-    private SkillCatalogItem? _selectedTargetIndependentSkill;
-
     public string TaskId => _task.TaskId;
-    public bool IsStartGame => TaskId == "start-game";
     public bool IsCareerTraining => TaskId == "career-training";
     public bool IsDailyRace => TaskId == "daily-race";
     public bool IsTeamRace => TaskId == "team-race";
     public bool IsDefinitionTask => IsDailyRace || IsTeamRace || TaskId is "mail-collection" or "mission-collection";
-    public bool IsSimpleCollectionTask => TaskId is "mail-collection" or "mission-collection";
     public bool IsMailCollection => TaskId == "mail-collection";
-    public bool IsMissionCollection => TaskId == "mission-collection";
     public bool IsNormalCareer => IsCareerTraining && CareerMode == "normal";
     public bool IsIndependentCareer => IsCareerTraining && CareerMode == "independent";
 
@@ -374,11 +446,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     public IReadOnlyList<TraineeCatalogItem> RichFilteredTrainees => _richFilteredTrainees;
     public IReadOnlyList<SupportCardCatalogItem> RichFilteredSupportCards => _richFilteredSupportCards;
-    public IReadOnlyList<SupportCardCatalogItem> RichFilteredFriendCards => _richFilteredFriendCards;
+    public IReadOnlyList<FriendSupportCardOptionViewModel> RichFilteredFriendCards => _richFilteredFriendCards;
     public IReadOnlyList<SkillCatalogItem> RichFilteredNormalSkills => _richFilteredNormalSkills;
-    public IReadOnlyList<SkillCatalogItem> RichFilteredIndependentSkills => _richFilteredIndependentSkills;
+    public IReadOnlyList<IndependentSkillOptionViewModel> RichFilteredIndependentSkills => _richFilteredIndependentSkills;
     public IReadOnlyList<IndependentAgendaRaceItemViewModel> RichFilteredAgendaRaces => _richFilteredAgendaRaces;
-    public bool CanAddIndependentSkill => SelectedAvailableIndependentSkill?.IsIndependentSelectable == true;
 
     public string TraineeSearchText
     {
@@ -687,7 +758,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     public TraineeCatalogItem? SelectedTraineeItem
     {
-        get => UmaCatalogService.FindTrainee(TraineeIdText);
+        get => UmaCatalogService.FindTrainee(TraineeIdText) is { IsAvailable: true, HasRunnerTemplate: true } trainee
+            ? trainee
+            : null;
         set
         {
             TraineeIdText = value?.TraineeId.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -740,7 +813,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     public SupportCardCatalogItem? SelectedFriendCard
     {
-        get => UmaCatalogService.FindSupportCard(FriendSupportCardIdText);
+        get => UmaCatalogService.FindSupportCard(FriendSupportCardIdText) is { IsAvailable: true } card ? card : null;
         set
         {
             FriendSupportCardIdText = value?.SupportCardId.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -811,13 +884,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     public string NormalTrainingStrategy
     {
-        get => ReadString("normalTrainingStrategy", "smart-balanced-safe");
-        set
-        {
-            SetString("normalTrainingStrategy", value);
-            OnPropertyChanged(nameof(IsCustomNormalTrainingStrategy));
-            OnPropertyChanged(nameof(SelectedNormalTrainingStrategyOption));
-        }
+        get => StrategyId;
+        set => StrategyId = value;
     }
 
     public TaskSettingOption? SelectedNormalTrainingStrategyOption
@@ -1019,7 +1087,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         set
         {
             SetIntArray("independentSkillIds", value);
-            SyncTargetIndependentSkills();
+            SyncIndependentSkillOptions();
         }
     }
 
@@ -1067,7 +1135,21 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => ReadString("supportDeckMode", "auto");
         set
         {
-            SetString("supportDeckMode", value);
+            var normalized = SupportDeckModeOptions.Any(option => option.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
+                ? value
+                : "auto";
+            if (SupportDeckMode.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+                return;
+            SetString("supportDeckMode", normalized);
+            if (!IsManualSupportDeck && ParseParts(SupportCardIdsText).Length > 0)
+                SupportCardIdsText = string.Empty;
+            if (SupportDeckMode == "highest-star"
+                && SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
+            {
+                SupportDeckPreset = SupportDeckPresets
+                    .First(option => !option.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
+                    .Value;
+            }
             OnPropertyChanged(nameof(IsManualSupportDeck));
             OnPropertyChanged(nameof(IsSupportPresetMode));
             OnPropertyChanged(nameof(SelectedSupportDeckModeOption));
@@ -1085,7 +1167,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     }
 
     public bool IsManualSupportDeck => SupportDeckMode == "selected";
-    public bool IsSupportPresetMode => SupportDeckMode != "selected";
+    public bool IsSupportPresetMode => SupportDeckMode != "auto";
 
     public string SupportDeckPreset
     {
@@ -1103,6 +1185,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         set
         {
             SetNullableInt("friendSupportCardId", value);
+            SyncFriendCardOptions();
             OnPropertyChanged(nameof(SelectedFriendCard));
             OnPropertyChanged(nameof(SelectedFriendSupportCardOption));
         }
@@ -1119,8 +1202,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     }
 
     public string SelectedSupportCardCountText => IsEnglish
-        ? $"Support cards selected: {SelectedSupportCards.Count} / 6"
-        : $"已选支援卡：{SelectedSupportCards.Count} / 6";
+        ? $"Support cards selected: {SelectedSupportCards.Count} / 5"
+        : $"已选支援卡：{SelectedSupportCards.Count} / 5";
+
+    public string SelectedFriendSupportCardCountText => IsEnglish
+        ? $"Selected {(_allFriendCardOptions.Any(option => option.IsSelected) ? 1 : 0)}/1"
+        : $"已选好友支援卡：{(_allFriendCardOptions.Any(option => option.IsSelected) ? 1 : 0)}/1";
 
     public bool PauseOnUnknownOutcome
     {
@@ -1254,9 +1341,28 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SparkChaser));
     }
 
+    private void MigrateLegacyNormalTrainingStrategySetting()
+    {
+        if (!_task.Settings.ContainsKey("normalTrainingStrategy"))
+            return;
+
+        var legacyStrategy = ReadString("normalTrainingStrategy", string.Empty);
+        var currentStrategy = ReadString("strategyId", "default-speed-medium");
+        var strategyIdWasUnsetOrDefault = !_task.Settings.ContainsKey("strategyId")
+            || currentStrategy.Equals("default-speed-medium", StringComparison.OrdinalIgnoreCase);
+        if (strategyIdWasUnsetOrDefault
+            && NormalTrainingStrategyOptions.Any(option => option.Value.Equals(legacyStrategy, StringComparison.OrdinalIgnoreCase)))
+        {
+            _task.Settings["strategyId"] = JsonValue.Create(legacyStrategy);
+        }
+
+        _task.Settings.Remove("normalTrainingStrategy");
+    }
+
     public TaskSettingsViewModel(TaskQueueItemViewModel task)
     {
         _task = task;
+        MigrateLegacyNormalTrainingStrategySetting();
         _friendCardTypeFilter = IsEnglish ? "All" : "全部";
         _manualSupportCardTypeFilter = IsEnglish ? "All" : "全部";
         _agendaYearFilter = IsEnglish ? "All" : "全部";
@@ -1271,13 +1377,15 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
         FilterRichTrainees();
         FilterRichSupportCards();
+        InitializeFriendCardOptions();
         FilterRichFriendCards();
         FilterRichNormalSkills();
+        InitializeIndependentSkillOptions();
         FilterRichIndependentSkills();
         FilterRichAgendaRaces();
         SyncSelectedSupportCards();
         SyncTargetNormalSkills();
-        SyncTargetIndependentSkills();
+        NormalizeTraineeSelection();
     }
 
     public void Refresh()
@@ -1287,8 +1395,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(RawSettingsJson));
         NotifyAllTypedProperties();
         SyncSelectedSupportCards();
+        SyncFriendCardOptions();
         SyncTargetNormalSkills();
-        SyncTargetIndependentSkills();
+        SyncIndependentSkillOptions();
         RefreshAgendaRaceSelection();
         _isUpdating = false;
     }
@@ -1297,8 +1406,14 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     [RelayCommand]
     public void AddSupportCard(SupportCardCatalogItem card)
     {
-        var currentIds = ParseParts(SupportCardIdsText).ToList();
-        if (!currentIds.Contains(card.SupportCardId.ToString(CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase))
+        if (!card.IsAvailable)
+            return;
+        var currentIds = ParseParts(SupportCardIdsText)
+            .Where(id => SupportCardOptions.Any(option => option.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (currentIds.Count < 5
+            && !currentIds.Contains(card.SupportCardId.ToString(CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase))
         {
             currentIds.Add(card.SupportCardId.ToString(CultureInfo.InvariantCulture));
             SupportCardIdsText = string.Join(", ", currentIds);
@@ -1314,12 +1429,6 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void ClearFriendCard()
-    {
-        SelectedFriendCard = null;
-    }
-
-    [RelayCommand]
     public void ClearTrainee()
     {
         SelectedTraineeItem = null;
@@ -1331,11 +1440,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var currentIds = ParseParts(SupportCardIdsText);
         foreach (var id in currentIds)
         {
-            var card = UmaCatalogService.FindSupportCard(id) ??
-                (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SupportCardCatalogItem(parsedId, IsEnglish ? $"Support Card #{parsedId}" : $"支援卡 #{parsedId}", T("未知", "Unknown"), "SSR", string.Empty)
-                    : null);
-            if (card is not null)
+            var card = UmaCatalogService.FindSupportCard(id);
+            if (card is { IsAvailable: true })
                 SelectedSupportCards.Add(card);
         }
         OnPropertyChanged(nameof(SelectedSupportCardCountText));
@@ -1345,7 +1451,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     [RelayCommand]
     public void AddSelectedNormalSkill()
     {
-        if (SelectedAvailableNormalSkill is not { } skill) return;
+        if (SelectedAvailableNormalSkill is not { IsIndependentSelectable: true } skill) return;
         var current = ParseParts(NormalSkillIdsText).ToList();
         if (!current.Contains(skill.SkillId.ToString(CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase))
         {
@@ -1401,11 +1507,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var currentIds = ParseParts(NormalSkillIdsText);
         foreach (var id in currentIds)
         {
-            var skill = UmaCatalogService.FindSkill(id) ??
-                (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SkillCatalogItem(parsedId, IsEnglish ? $"Skill #{parsedId}" : $"技能 #{parsedId}", T("常规", "Career"), null, string.Empty)
-                    : null);
-            if (skill is not null)
+            var skill = UmaCatalogService.FindSkill(id);
+            if (skill is { IsIndependentSelectable: true })
                 TargetNormalSkills.Add(skill);
         }
         OnPropertyChanged(nameof(TargetNormalSkillCountText));
@@ -1416,78 +1519,57 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         : $"已选目标技能：{TargetNormalSkills.Count}";
 
     // Independent Skills commands
-    [RelayCommand(CanExecute = nameof(CanAddIndependentSkill))]
-    public void AddSelectedIndependentSkill()
-    {
-        if (SelectedAvailableIndependentSkill is not { IsIndependentSelectable: true } skill) return;
-        var current = ParseParts(IndependentSkillIdsText).ToList();
-        if (!current.Contains(skill.SkillId.ToString(CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase))
-        {
-            current.Add(skill.SkillId.ToString(CultureInfo.InvariantCulture));
-            IndependentSkillIdsText = string.Join(", ", current);
-        }
-    }
-
     [RelayCommand]
-    public void RemoveSelectedIndependentSkill()
+    public void ResetIndependentSkills()
     {
-        if (SelectedTargetIndependentSkill is not { } skill) return;
-        var current = ParseParts(IndependentSkillIdsText).ToList();
-        current.RemoveAll(id => id.Equals(skill.SkillId.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase));
-        IndependentSkillIdsText = string.Join(", ", current);
+        IndependentSkillIdsText = string.Empty;
+        IndependentSkillSearchText = string.Empty;
     }
 
-    [RelayCommand]
-    public void MoveIndependentSkillUp()
+    private void InitializeIndependentSkillOptions()
     {
-        if (SelectedTargetIndependentSkill is not { } skill) return;
-        var idx = TargetIndependentSkills.IndexOf(skill);
-        if (idx > 0)
+        _allIndependentSkillOptions.Clear();
+        foreach (var skill in UmaCatalogService.Skills
+                     .Where(item => item.SkillId > 0 && !string.IsNullOrWhiteSpace(item.Name))
+                     .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.SkillId))
         {
-            var current = ParseParts(IndependentSkillIdsText).ToList();
-            var item = current[idx];
-            current.RemoveAt(idx);
-            current.Insert(idx - 1, item);
-            IndependentSkillIdsText = string.Join(", ", current);
-            SelectedTargetIndependentSkill = skill;
+            _allIndependentSkillOptions.Add(new IndependentSkillOptionViewModel(
+                skill,
+                skill.IsIndependentSelectable,
+                false,
+                OnIndependentSkillToggled));
         }
+        SyncIndependentSkillOptions();
     }
 
-    [RelayCommand]
-    public void MoveIndependentSkillDown()
+    private void OnIndependentSkillToggled()
     {
-        if (SelectedTargetIndependentSkill is not { } skill) return;
-        var idx = TargetIndependentSkills.IndexOf(skill);
-        if (idx >= 0 && idx < TargetIndependentSkills.Count - 1)
-        {
-            var current = ParseParts(IndependentSkillIdsText).ToList();
-            var item = current[idx];
-            current.RemoveAt(idx);
-            current.Insert(idx + 1, item);
-            IndependentSkillIdsText = string.Join(", ", current);
-            SelectedTargetIndependentSkill = skill;
-        }
+        if (_isSyncingIndependentSkills)
+            return;
+
+        IndependentSkillIdsText = string.Join(", ", _allIndependentSkillOptions
+            .Where(item => item.IsSelected)
+            .Select(item => item.Skill.SkillId.ToString(CultureInfo.InvariantCulture)));
     }
 
-    private void SyncTargetIndependentSkills()
+    private void SyncIndependentSkillOptions()
     {
-        TargetIndependentSkills.Clear();
-        var currentIds = ParseParts(IndependentSkillIdsText);
-        foreach (var id in currentIds)
-        {
-            var skill = UmaCatalogService.FindSkill(id) ??
-                (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SkillCatalogItem(parsedId, IsEnglish ? $"Skill #{parsedId}" : $"技能 #{parsedId}", T("独立", "Independent"), null, string.Empty)
-                    : null);
-            if (skill is not null)
-                TargetIndependentSkills.Add(skill);
-        }
-        OnPropertyChanged(nameof(TargetIndependentSkillCountText));
+        var selectedIds = ParseParts(IndependentSkillIdsText)
+            .Select(id => int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId) ? parsedId : 0)
+            .Where(id => id > 0)
+            .ToHashSet();
+
+        _isSyncingIndependentSkills = true;
+        foreach (var option in _allIndependentSkillOptions)
+            option.IsSelected = selectedIds.Contains(option.Skill.SkillId) && option.IsExecutable;
+        _isSyncingIndependentSkills = false;
+        OnPropertyChanged(nameof(SelectedIndependentSkillCountText));
     }
 
-    public string TargetIndependentSkillCountText => IsEnglish
-        ? $"Target skills selected: {TargetIndependentSkills.Count}"
-        : $"已选目标技能：{TargetIndependentSkills.Count}";
+    public string SelectedIndependentSkillCountText => IsEnglish
+        ? $"Skills to add: {_allIndependentSkillOptions.Count(item => item.IsSelected)}"
+        : $"待添加技能：{_allIndependentSkillOptions.Count(item => item.IsSelected)}";
 
     // Independent Agenda commands
     [RelayCommand]
@@ -1538,9 +1620,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     {
         var query = TraineeSearchText.Trim();
         _richFilteredTrainees = UmaCatalogService.Trainees
+            .Where(t => t.IsAvailable && t.HasRunnerTemplate)
             .Where(t => string.IsNullOrWhiteSpace(query)
                 || t.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || t.NameJp.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.NameEn, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(t => t.TraineeId)
             .ToList();
     }
 
@@ -1549,8 +1634,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var query = SupportCardSearchText.Trim();
         var type = ManualSupportCardTypeFilter;
         _richFilteredSupportCards = UmaCatalogService.SupportCards
+            .Where(c => c.IsAvailable)
             .Where(c => (string.IsNullOrWhiteSpace(query) || c.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
                 && (IsAllFilter(type) || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(c => c.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.NameEn, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.SupportCardId)
             .ToList();
     }
 
@@ -1558,28 +1647,101 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     {
         var query = FriendCardSearchText.Trim();
         var type = FriendCardTypeFilter;
-        _richFilteredFriendCards = UmaCatalogService.SupportCards
-            .Where(c => (string.IsNullOrWhiteSpace(query) || c.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                && (IsAllFilter(type) || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
+        _richFilteredFriendCards = _allFriendCardOptions
+            .Where(option => (string.IsNullOrWhiteSpace(query)
+                    || option.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || option.SupportCardId.ToString(CultureInfo.InvariantCulture).Contains(query, StringComparison.OrdinalIgnoreCase))
+                && (IsAllFilter(type) || option.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
             .ToList();
+    }
+
+    private void InitializeFriendCardOptions()
+    {
+        _allFriendCardOptions.Clear();
+        foreach (var card in UmaCatalogService.SupportCards
+                     .Where(item => item.IsAvailable)
+                     .OrderBy(item => item.Type, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.NameEn, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.SupportCardId))
+        {
+            _allFriendCardOptions.Add(new FriendSupportCardOptionViewModel(
+                card,
+                false,
+                OnFriendCardOptionToggled));
+        }
+        if (!string.IsNullOrWhiteSpace(FriendSupportCardIdText)
+            && !_allFriendCardOptions.Any(option => option.SupportCardId.ToString(CultureInfo.InvariantCulture) == FriendSupportCardIdText))
+        {
+            FriendSupportCardIdText = string.Empty;
+        }
+        else
+        {
+            SyncFriendCardOptions();
+        }
+    }
+
+    private void NormalizeTraineeSelection()
+    {
+        if (!IsCareerTraining && !IsDailyRace)
+            return;
+        if (!string.IsNullOrWhiteSpace(TraineeIdText)
+            && !UmaCatalogService.Trainees.Any(item => item.TraineeId.ToString(CultureInfo.InvariantCulture) == TraineeIdText
+                && item.IsAvailable && item.HasRunnerTemplate))
+        {
+            TraineeIdText = string.Empty;
+        }
+    }
+
+    private void OnFriendCardOptionToggled(int supportCardId, bool isSelected)
+    {
+        if (_isSyncingFriendCardOptions)
+            return;
+
+        if (isSelected)
+        {
+            FriendSupportCardIdText = supportCardId.ToString(CultureInfo.InvariantCulture);
+        }
+        else if (int.TryParse(FriendSupportCardIdText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selectedId)
+                 && selectedId == supportCardId)
+        {
+            FriendSupportCardIdText = string.Empty;
+        }
+    }
+
+    private void SyncFriendCardOptions()
+    {
+        var hasSelection = int.TryParse(FriendSupportCardIdText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selectedId)
+            && selectedId > 0
+            && _allFriendCardOptions.Any(option => option.SupportCardId == selectedId);
+        _isSyncingFriendCardOptions = true;
+        foreach (var option in _allFriendCardOptions)
+            option.IsSelected = hasSelection && option.SupportCardId == selectedId;
+        _isSyncingFriendCardOptions = false;
+        OnPropertyChanged(nameof(SelectedFriendSupportCardCountText));
     }
 
     private void FilterRichNormalSkills()
     {
         var query = NormalSkillSearchText.Trim();
         _richFilteredNormalSkills = UmaCatalogService.Skills
-            .Where(s => string.IsNullOrWhiteSpace(query) || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(s => s.IsIndependentSelectable)
+            .Where(s => string.IsNullOrWhiteSpace(query)
+                || s.IndependentDisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || s.SkillId.ToString(CultureInfo.InvariantCulture).Contains(query, StringComparison.OrdinalIgnoreCase)
+                || s.SearchTerms.Any(term => term.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.SkillId)
             .ToList();
     }
 
     private void FilterRichIndependentSkills()
     {
         var query = IndependentSkillSearchText.Trim();
-        _richFilteredIndependentSkills = UmaCatalogService.Skills
-            .Where(s => string.IsNullOrWhiteSpace(query)
-                || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || s.SkillId.ToString(CultureInfo.InvariantCulture).Contains(query, StringComparison.OrdinalIgnoreCase)
-                || s.SearchTerms.Any(term => term.Contains(query, StringComparison.OrdinalIgnoreCase)))
+        _richFilteredIndependentSkills = _allIndependentSkillOptions
+            .Where(option => string.IsNullOrWhiteSpace(query)
+                || option.Skill.IndependentDisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Skill.SkillId.ToString(CultureInfo.InvariantCulture).Contains(query, StringComparison.OrdinalIgnoreCase)
+                || option.Skill.SearchTerms.Any(term => term.Contains(query, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
@@ -1792,9 +1954,6 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     {
         if (!HasValidFieldTypes())
             return T("配置中有字段类型不正确，请检查高级 JSON。", "A setting has an invalid type. Check the advanced JSON.");
-        if (IsStartGame && string.IsNullOrWhiteSpace(PackageId))
-            return T("请输入游戏包名。", "Enter the game package ID.");
-
         if (IsDefinitionTask && !IsResourceFile(DefinitionPath))
             return T("管线文件不存在或路径无效。", "The pipeline file does not exist or the path is invalid.");
 
@@ -1922,9 +2081,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             nameof(FriendSupportCardIdText), nameof(SelectedFriendCard), nameof(SupportCardIdsText),
             nameof(PauseOnUnknownOutcome), nameof(AllowOptionalRaces), nameof(LegacySelectionMode),
             nameof(IsManualLegacySelection), nameof(UseLegacyGuest), nameof(UseCachedLegacy),
-            nameof(LegacyAttributeSparksText), nameof(LegacyAptitudeSparksText), nameof(IsStartGame),
+            nameof(LegacyAttributeSparksText), nameof(LegacyAptitudeSparksText),
             nameof(IsCareerTraining), nameof(IsDailyRace), nameof(IsTeamRace), nameof(IsDefinitionTask),
-            nameof(IsSimpleCollectionTask), nameof(SelectedTraineeOption), nameof(SelectedNormalSkillOption),
+            nameof(SelectedTraineeOption), nameof(SelectedNormalSkillOption),
             nameof(SelectedIndependentSkillOption), nameof(SelectedSupportCardOption),
             nameof(SelectedFriendSupportCardOption), nameof(SelectedIndependentAgendaRaceOption),
             nameof(SelectedSupportDeckPreset), nameof(FilteredTraineeOptions),
@@ -1932,8 +2091,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             nameof(FilteredIndependentRaceOptions), nameof(RichFilteredTrainees),
             nameof(RichFilteredSupportCards), nameof(RichFilteredFriendCards),
             nameof(RichFilteredNormalSkills), nameof(RichFilteredIndependentSkills),
-            nameof(RichFilteredAgendaRaces), nameof(SelectedSupportCardCountText),
-            nameof(TargetNormalSkillCountText), nameof(TargetIndependentSkillCountText),
+            nameof(RichFilteredAgendaRaces), nameof(SelectedSupportCardCountText), nameof(SelectedFriendSupportCardCountText),
+            nameof(TargetNormalSkillCountText), nameof(SelectedIndependentSkillCountText),
             nameof(SelectedAgendaRaceCountText), nameof(SelectedCareerModeOption),
             nameof(SelectedSupportDeckModeOption), nameof(SelectedLegacySelectionModeOption),
             nameof(SelectedNormalTrainingStrategyOption), nameof(SelectedNormalLineupStrategyOption),

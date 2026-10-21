@@ -22,6 +22,8 @@ public sealed record TraineeCatalogItem(
     private Bitmap? _thumbnail;
     private bool _attemptedLoad;
 
+    public bool IsAvailable { get; init; }
+    public bool HasRunnerTemplate { get; init; }
     public string DisplayName => $"{NameEn} (#{TraineeId})";
     public string Subtitle => string.IsNullOrWhiteSpace(NameJp) ? $"#{TraineeId}" : $"{NameJp} · #{TraineeId}";
 
@@ -58,7 +60,9 @@ public sealed record SupportCardCatalogItem(
     private Bitmap? _thumbnail;
     private bool _attemptedLoad;
 
+    public bool IsAvailable { get; init; }
     public string DisplayName => $"{NameEn} (#{SupportCardId})";
+    public string DisplayType => string.IsNullOrWhiteSpace(Type) ? "Unknown" : Type;
 
     public Bitmap? Thumbnail
     {
@@ -282,6 +286,8 @@ public static class UmaCatalogService
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
                 return [];
 
+            var maintenanceUmaRoot = Path.Combine(ResolveMaintenanceResourceRoot(root), "uma");
+            var activeUmaRoot = Path.Combine(root, "uma");
             var results = new List<TraineeCatalogItem>();
             foreach (var item in doc.RootElement.EnumerateArray())
             {
@@ -300,6 +306,12 @@ public static class UmaCatalogService
                 if (!File.Exists(fallbackImg))
                     fallbackImg = Path.Combine(root, "uma", "system_reference", $"{baseCharId}_live.webp");
 
+                var hasRunnerTemplate = File.Exists(Path.Combine(maintenanceUmaRoot, "system_reference", $"{traineeId}.webp"))
+                    || File.Exists(Path.Combine(activeUmaRoot, "system_reference", $"{traineeId}.webp"))
+                    || File.Exists(primaryImg)
+                    || File.Exists(Path.Combine(maintenanceUmaRoot, "system_reference", $"{baseCharId}_live.webp"))
+                    || File.Exists(Path.Combine(root, "uma", "assets", "images", "global", "live_outfits", $"{baseCharId}.png"));
+
                 results.Add(new TraineeCatalogItem(
                     traineeId,
                     baseCharId,
@@ -307,7 +319,11 @@ public static class UmaCatalogService
                     nameJp,
                     rarity,
                     primaryImg,
-                    fallbackImg));
+                    fallbackImg)
+                {
+                    IsAvailable = ReadBool(item, "available"),
+                    HasRunnerTemplate = hasRunnerTemplate,
+                });
             }
 
             return results.OrderBy(t => t.BaseCharacterId).ThenBy(t => t.TraineeId).ToList();
@@ -338,7 +354,9 @@ public static class UmaCatalogService
                     continue;
 
                 string nameEn = item.TryGetProperty("name_en", out var enProp) ? enProp.GetString() ?? string.Empty : string.Empty;
-                string type = item.TryGetProperty("type", out var typeProp) ? typeProp.GetString() ?? "Unknown" : "Unknown";
+                string type = item.TryGetProperty("type", out var typeProp) && typeProp.ValueKind == JsonValueKind.String
+                    ? typeProp.GetString()?.Trim() ?? string.Empty
+                    : string.Empty;
                 string rarity = item.TryGetProperty("rarity", out var rarProp) ? rarProp.GetString() ?? "1" : "1";
                 string imgPath = Path.Combine(root, "uma", "assets", "images", "global", "support_cards", $"{cardId}.webp");
 
@@ -347,7 +365,10 @@ public static class UmaCatalogService
                     nameEn,
                     type,
                     rarity,
-                    imgPath));
+                    imgPath)
+                {
+                    IsAvailable = ReadBool(item, "available"),
+                });
             }
 
             return results.OrderBy(c => c.SupportCardId).ToList();
@@ -427,6 +448,24 @@ public static class UmaCatalogService
 
     private static bool ReadBool(JsonElement element, string property) =>
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static string ResolveMaintenanceResourceRoot(string runtimeResourceRoot)
+    {
+        var runtimeBaseDirectory = Directory.GetParent(runtimeResourceRoot)?.FullName
+            ?? runtimeResourceRoot;
+        for (var directory = new DirectoryInfo(runtimeBaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            var sourceResourceRoot = Path.Combine(directory.FullName, "resource");
+            var sourceDatabaseDirectory = Path.Combine(sourceResourceRoot, "uma", "database", "global");
+            var sourceProjectDirectory = Path.Combine(directory.FullName, "src", "UmamusumeWpfGui");
+            if (Directory.Exists(sourceDatabaseDirectory) && Directory.Exists(sourceProjectDirectory))
+                return sourceResourceRoot;
+        }
+
+        return runtimeResourceRoot;
+    }
 
     private static List<IndependentRaceCatalogItem> LoadIndependentRaces()
     {

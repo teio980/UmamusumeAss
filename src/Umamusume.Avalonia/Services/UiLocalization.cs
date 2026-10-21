@@ -759,7 +759,7 @@ internal static class UiLocalization
         ["GrassIndependentAgendaTrackLabel"] = ("赛道", "Track"),
         ["GrassIndependentAgendaDirectionLabel"] = ("方向", "Direction"),
         ["GrassIndependentAgendaGradeLabel"] = ("等级", "Grade"),
-        ["GrassIndependentSkillLabel"] = ("独立育成技能目标", "Independent Skills"),
+        ["GrassIndependentSkillLabel"] = ("独立育成技能", "Independent Skills"),
         ["GrassIndependentSkillSearchPlaceholder"] = ("搜索独立技能…", "Search skills…"),
         ["GrassMailCollectionSettingsTitle"] = ("邮箱奖励领取", "Mailbox pipeline"),
         ["GrassMailCollectionSettingsHint"] = ("领取游戏邮箱中的可用奖励。", "Collect available rewards from the in-game mailbox."),
