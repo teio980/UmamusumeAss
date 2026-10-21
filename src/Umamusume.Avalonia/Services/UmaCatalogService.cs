@@ -86,11 +86,58 @@ public sealed record SkillCatalogItem(
     string Name,
     string Type,
     int? NeedSkillPoint,
-    string EffectSummary)
+    string EffectSummary,
+    string OriginalName = "",
+    int Rarity = 0,
+    int GradeValue = 0,
+    string SkillCategory = "",
+    string SearchText = "",
+    int SearchResultRow = 0,
+    bool GameSearchMapped = false,
+    IReadOnlyList<string>? Aliases = null,
+    bool AvailableInGlobal = false,
+    string AvailabilitySource = "",
+    bool SingleModeEnabled = false,
+    int SkillCategoryId = 0,
+    string OtherTiers = "")
 {
     public string DisplayName => NeedSkillPoint is { } cost
         ? $"{Name} ({cost} Pt · #{SkillId})"
         : $"{Name} (#{SkillId})";
+
+    public bool IsIndependentSelectable => AvailableInGlobal
+        && SingleModeEnabled
+        && NeedSkillPoint is > 0
+        && !string.IsNullOrWhiteSpace(string.IsNullOrWhiteSpace(SearchText) ? Name : SearchText);
+
+    public string IndependentPickerDisplayName => IsIndependentSelectable
+        ? IndependentDisplayName
+        : $"{IndependentDisplayName} · unavailable in Add Skills";
+
+    public IEnumerable<string> SearchTerms => new[] { Name, OriginalName, SearchText }
+        .Concat(Aliases ?? [])
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    public string IndependentDisplayName
+    {
+        get
+        {
+            var tier = Rarity switch
+            {
+                1 => "Normal",
+                2 => "Rare",
+                3 => "Unique",
+                _ => "Skill",
+            };
+            var details = new List<string> { Name, tier };
+            if (NeedSkillPoint is > 0)
+                details.Add($"{NeedSkillPoint} SP");
+            if (!string.IsNullOrWhiteSpace(EffectSummary))
+                details.Add(EffectSummary);
+            return string.Join(" · ", details);
+        }
+    }
 }
 
 public sealed record IndependentRaceCatalogItem(
@@ -102,10 +149,44 @@ public sealed record IndependentRaceCatalogItem(
     string Surface,
     string Distance,
     string LengthM,
-    string Track)
+    string Track,
+    string Location = "",
+    int RaceId = 0,
+    int Month = 0,
+    int Day = 0,
+    string TimeName = "",
+    string HalfName = "",
+    bool IsGameAvailable = false,
+    int GameDistance = 0,
+    string GameGround = "")
 {
     public string DisplayName => $"{Year} · {Turn} · {RaceName} ({Grade}, {LengthM}, {Surface})";
     public string ShortDisplayName => $"{RaceName} ({Grade}) · {Track} {LengthM} {Surface}";
+    public string EffectiveSurface => string.IsNullOrWhiteSpace(GameGround) ? Surface.Trim() : GameGround.Trim();
+    public string Half => Turn.EndsWith("_02", StringComparison.OrdinalIgnoreCase)
+        ? "Second Half"
+        : Turn.EndsWith("_01", StringComparison.OrdinalIgnoreCase)
+            ? "First Half"
+            : string.Empty;
+    public string Direction => Location.Contains('\u21d2')
+        ? "Right"
+        : Location.Contains('\u21d0')
+            ? "Left"
+            : "Unknown";
+    public string PickerHeaderTarget
+    {
+        get
+        {
+            var track = Track.Trim();
+            var ground = EffectiveSurface;
+            if (track.Length == 0 || ground.Length == 0 || GameDistance <= 0 || Direction == "Unknown")
+                return string.Empty;
+
+            var distance = GameDistance.ToString(CultureInfo.InvariantCulture) + "m";
+            var length = string.IsNullOrWhiteSpace(Distance) ? string.Empty : $" ({Distance.Trim()})";
+            return $"{track} {ground} {distance}{length} {Direction}";
+        }
+    }
 }
 
 public static class UmaCatalogService
@@ -297,11 +378,35 @@ public static class UmaCatalogService
                     continue;
 
                 string name = item.TryGetProperty("skillName", out var nameProp) ? nameProp.GetString() ?? string.Empty : string.Empty;
+                string originalName = ReadString(item, "originalName");
                 string type = item.TryGetProperty("skillType", out var typeProp) ? typeProp.GetString() ?? "Normal" : "Normal";
                 int? needPt = item.TryGetProperty("needSkillPoint", out var ptProp) && ptProp.TryGetInt32(out int pt) ? pt : null;
                 string effect = item.TryGetProperty("effectSummary", out var effProp) ? effProp.GetString() ?? string.Empty : string.Empty;
+                int rarity = ReadInt(item, "rarity");
+                int gradeValue = ReadInt(item, "gradeValue");
+                string skillCategory = ReadString(item, "skillCategory");
+                string searchText = ReadString(item, "searchText");
+                int searchResultRow = ReadInt(item, "searchResultRow");
+                bool gameSearchMapped = ReadBool(item, "gameSearchMapped");
+                bool availableInGlobal = ReadBool(item, "availableInGlobal");
+                string availabilitySource = ReadString(item, "availabilitySource");
+                bool singleModeEnabled = ReadBool(item, "singleModeEnabled");
+                int skillCategoryId = ReadInt(item, "skillCategoryId");
+                string otherTiers = ReadString(item, "otherTiers");
+                var aliases = item.TryGetProperty("aliases", out var aliasesElement)
+                    && aliasesElement.ValueKind == JsonValueKind.Array
+                    ? aliasesElement.EnumerateArray()
+                        .Where(alias => alias.ValueKind == JsonValueKind.String)
+                        .Select(alias => alias.GetString()?.Trim() ?? string.Empty)
+                        .Where(alias => alias.Length > 0)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()
+                    : [];
 
-                results.Add(new SkillCatalogItem(skillId, name, type, needPt, effect));
+                results.Add(new SkillCatalogItem(
+                    skillId, name, type, needPt, effect, originalName, rarity, gradeValue,
+                    skillCategory, searchText, searchResultRow, gameSearchMapped, aliases,
+                    availableInGlobal, availabilitySource, singleModeEnabled, skillCategoryId, otherTiers));
             }
 
             return results.OrderBy(s => s.Name).ToList();
@@ -311,6 +416,17 @@ public static class UmaCatalogService
             return [];
         }
     }
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()?.Trim() ?? string.Empty
+            : string.Empty;
+
+    private static int ReadInt(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.TryGetInt32(out var result) ? result : 0;
+
+    private static bool ReadBool(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
 
     private static List<IndependentRaceCatalogItem> LoadIndependentRaces()
     {
@@ -336,6 +452,17 @@ public static class UmaCatalogService
                 string distance = item.TryGetProperty("length", out var distProp) ? distProp.GetString() ?? "Medium" : "Medium";
                 string lengthM = item.TryGetProperty("lengthM", out var lenProp) ? lenProp.GetString() ?? string.Empty : string.Empty;
                 string track = item.TryGetProperty("gameTrack", out var trProp) ? trProp.GetString() ?? string.Empty : string.Empty;
+                string location = item.TryGetProperty("location", out var locationProp) ? locationProp.GetString() ?? string.Empty : string.Empty;
+                int raceId = item.TryGetProperty("raceId", out var raceIdProp) && raceIdProp.TryGetInt32(out var parsedRaceId)
+                    ? parsedRaceId : 0;
+                bool gameAvailable = item.TryGetProperty("gameAvailable", out var availableProp)
+                    && availableProp.ValueKind == JsonValueKind.True;
+                int gameDistance = ReadInt(item, "gameDistance");
+                string gameGround = ReadString(item, "gameGround");
+                int month = ScheduleInteger(item, "month");
+                int day = ScheduleInteger(item, "day");
+                string timeName = ScheduleString(item, "timeName");
+                string halfName = ScheduleString(item, "halfName");
 
                 string key = $"{year}|{turn}|{raceName}";
                 results.Add(new IndependentRaceCatalogItem(
@@ -347,7 +474,16 @@ public static class UmaCatalogService
                     surface,
                     distance,
                     lengthM,
-                    track));
+                    track,
+                    location,
+                    raceId,
+                    month,
+                    day,
+                    timeName,
+                    halfName,
+                    gameAvailable,
+                    gameDistance,
+                    gameGround));
             }
 
             return results;
@@ -356,5 +492,63 @@ public static class UmaCatalogService
         {
             return [];
         }
+    }
+
+    public static string? FindIndependentRaceCardPath(IndependentRaceCatalogItem race)
+    {
+        if (race.RaceId <= 0)
+            return null;
+
+        var path = Path.Combine(
+            PlatformPaths.GetActiveResourceDirectory(),
+            "hachimi", "career", "modes", "independent", "templates", "independent", "race_cards",
+            $"{race.RaceId.ToString(CultureInfo.InvariantCulture)}.png");
+        return File.Exists(path) ? path : null;
+    }
+
+    public static bool IsIndependentRaceExecutable(IndependentRaceCatalogItem race)
+    {
+        if (!race.IsGameAvailable || race.RaceId <= 0 || string.IsNullOrWhiteSpace(race.PickerHeaderTarget))
+            return false;
+
+        var slotRaces = IndependentRaces.Where(item => item.IsGameAvailable
+            && item.Year.Equals(race.Year, StringComparison.OrdinalIgnoreCase)
+            && item.Turn.Equals(race.Turn, StringComparison.OrdinalIgnoreCase));
+        return slotRaces.Any(item => item.RaceId == race.RaceId
+                && item.PickerHeaderTarget.Equals(race.PickerHeaderTarget, StringComparison.OrdinalIgnoreCase))
+            && !slotRaces.Any(item => item.RaceId != race.RaceId
+                && item.PickerHeaderTarget.Equals(race.PickerHeaderTarget, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int ScheduleInteger(JsonElement race, string property)
+    {
+        if (!race.TryGetProperty("gameSchedules", out var schedules) || schedules.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        foreach (var schedule in schedules.EnumerateArray())
+        {
+            if (schedule.TryGetProperty(property, out var value)
+                && value.TryGetInt32(out var result)
+                && (property == "month" ? result is >= 1 and <= 12 : result > 0))
+                return result;
+        }
+
+        return 0;
+    }
+
+    private static string ScheduleString(JsonElement race, string property)
+    {
+        if (!race.TryGetProperty("gameSchedules", out var schedules) || schedules.ValueKind != JsonValueKind.Array)
+            return string.Empty;
+
+        foreach (var schedule in schedules.EnumerateArray())
+        {
+            if (schedule.TryGetProperty(property, out var value)
+                && value.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(value.GetString()))
+                return value.GetString()!.Trim();
+        }
+
+        return string.Empty;
     }
 }

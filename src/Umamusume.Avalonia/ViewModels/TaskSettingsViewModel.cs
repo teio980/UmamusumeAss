@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Umamusume.AppCore.Platform;
@@ -16,20 +17,60 @@ namespace Umamusume.Avalonia.ViewModels;
 public sealed partial class IndependentAgendaRaceItemViewModel : ObservableObject
 {
     private readonly Action<string, bool> _onToggled;
+    private readonly string? _raceCardImagePath;
+    private Bitmap? _raceCardImage;
+    private bool _attemptedRaceCardLoad;
     public IndependentRaceCatalogItem Race { get; }
+    public bool IsExecutable { get; }
+    public bool HasRaceCardImage => !string.IsNullOrWhiteSpace(_raceCardImagePath);
+    public string Label => IsExecutable ? Race.DisplayName : $"{Race.DisplayName} · no Race ID card asset";
+    public string CardMatchHint => HasRaceCardImage
+        ? $"Card match · Race ID {Race.RaceId}"
+        : $"Card unavailable · Race ID {Race.RaceId}";
+    public Bitmap? RaceCardImage
+    {
+        get
+        {
+            if (_attemptedRaceCardLoad)
+                return _raceCardImage;
+            _attemptedRaceCardLoad = true;
+            try
+            {
+                if (_raceCardImagePath is not null)
+                    _raceCardImage = DeveloperToolsImageCodec.LoadBitmap(_raceCardImagePath, 136);
+            }
+            catch
+            {
+                _raceCardImage = null;
+            }
+            return _raceCardImage;
+        }
+    }
 
     [ObservableProperty]
     private bool _isSelected;
 
-    public IndependentAgendaRaceItemViewModel(IndependentRaceCatalogItem race, bool isSelected, Action<string, bool> onToggled)
+    public IndependentAgendaRaceItemViewModel(
+        IndependentRaceCatalogItem race,
+        bool isSelected,
+        bool isExecutable,
+        string? raceCardImagePath,
+        Action<string, bool> onToggled)
     {
         Race = race;
-        _isSelected = isSelected;
+        IsExecutable = isExecutable;
+        _raceCardImagePath = raceCardImagePath;
+        _isSelected = isSelected && isExecutable;
         _onToggled = onToggled;
     }
 
     partial void OnIsSelectedChanged(bool value)
     {
+        if (value && !IsExecutable)
+        {
+            IsSelected = false;
+            return;
+        }
         _onToggled(Race.Key, value);
     }
 }
@@ -41,6 +82,7 @@ public sealed partial class IndependentAgendaRaceItemViewModel : ObservableObjec
 public sealed partial class TaskSettingsViewModel : ObservableObject
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly string[] AgendaDistanceCategoryOrder = ["Sprint", "Mile", "Medium", "Long"];
     private static readonly TaskCatalogOption[] AllTraineeOptions = TaskCatalogData.LoadTrainees();
     private static readonly TaskCatalogOption[] AllSupportCardOptions = TaskCatalogData.LoadSupportCards();
     private static readonly TaskCatalogOption[] AllSkillOptions = TaskCatalogData.LoadSkills();
@@ -131,8 +173,15 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedNormalTrainingStrategyOption));
         OnPropertyChanged(nameof(SupportCardTypeFilters));
         OnPropertyChanged(nameof(AgendaYearFilters));
+        OnPropertyChanged(nameof(AgendaMonthFilters));
+        OnPropertyChanged(nameof(AgendaTurnFilters));
+        OnPropertyChanged(nameof(AgendaDayFilters));
+        OnPropertyChanged(nameof(AgendaTimeFilters));
+        OnPropertyChanged(nameof(AgendaHalfFilters));
         OnPropertyChanged(nameof(AgendaSurfaceFilters));
         OnPropertyChanged(nameof(AgendaDistanceFilters));
+        OnPropertyChanged(nameof(AgendaTrackFilters));
+        OnPropertyChanged(nameof(AgendaDirectionFilters));
         OnPropertyChanged(nameof(AgendaGradeFilters));
         OnPropertyChanged(nameof(RatioCyclePreview));
         OnPropertyChanged(nameof(SelectedSupportCardCountText));
@@ -145,14 +194,28 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         _friendCardTypeFilter = LocalizeAllFilter(_friendCardTypeFilter);
         _manualSupportCardTypeFilter = LocalizeAllFilter(_manualSupportCardTypeFilter);
         _agendaYearFilter = LocalizeAllFilter(_agendaYearFilter);
+        _agendaMonthFilter = LocalizeAllFilter(_agendaMonthFilter);
+        _agendaTurnFilter = LocalizeAllFilter(_agendaTurnFilter);
+        _agendaDayFilter = LocalizeAllFilter(_agendaDayFilter);
+        _agendaTimeFilter = LocalizeAllFilter(_agendaTimeFilter);
+        _agendaHalfFilter = LocalizeAllFilter(_agendaHalfFilter);
         _agendaSurfaceFilter = LocalizeAllFilter(_agendaSurfaceFilter);
         _agendaDistanceFilter = LocalizeAllFilter(_agendaDistanceFilter);
+        _agendaTrackFilter = LocalizeAllFilter(_agendaTrackFilter);
+        _agendaDirectionFilter = LocalizeAllFilter(_agendaDirectionFilter);
         _agendaGradeFilter = LocalizeAllFilter(_agendaGradeFilter);
         OnPropertyChanged(nameof(FriendCardTypeFilter));
         OnPropertyChanged(nameof(ManualSupportCardTypeFilter));
         OnPropertyChanged(nameof(AgendaYearFilter));
+        OnPropertyChanged(nameof(AgendaMonthFilter));
+        OnPropertyChanged(nameof(AgendaTurnFilter));
+        OnPropertyChanged(nameof(AgendaDayFilter));
+        OnPropertyChanged(nameof(AgendaTimeFilter));
+        OnPropertyChanged(nameof(AgendaHalfFilter));
         OnPropertyChanged(nameof(AgendaSurfaceFilter));
         OnPropertyChanged(nameof(AgendaDistanceFilter));
+        OnPropertyChanged(nameof(AgendaTrackFilter));
+        OnPropertyChanged(nameof(AgendaDirectionFilter));
         OnPropertyChanged(nameof(AgendaGradeFilter));
         FilterRichSupportCards();
         FilterRichFriendCards();
@@ -168,6 +231,29 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     private static bool IsAllFilter(string value) => value is "全部" or "All";
 
+    private string[] BuildAgendaFilters(Func<IndependentRaceCatalogItem, string> selector)
+    {
+        var all = IsEnglish ? "All" : "全部";
+        return new[] { all }.Concat(UmaCatalogService.IndependentRaces
+                .Select(selector)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+    private string[] BuildAgendaNumericFilters(Func<IndependentRaceCatalogItem, int> selector)
+    {
+        var all = IsEnglish ? "All" : "全部";
+        return new[] { all }.Concat(UmaCatalogService.IndependentRaces
+                .Select(selector)
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .Select(value => value.ToString(CultureInfo.InvariantCulture)))
+            .ToArray();
+    }
+
     public IReadOnlyList<string> EventHandlingModes { get; } = ["default"];
 
     public IReadOnlyList<TaskCatalogOption> TraineeOptions { get; } = AllTraineeOptions;
@@ -179,21 +265,33 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         ? ["All", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"]
         : ["全部", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"];
 
-    public IReadOnlyList<string> AgendaYearFilters => IsEnglish
-        ? ["All", "First Year", "Classic Year", "Senior Year"]
-        : ["全部", "First Year", "Classic Year", "Senior Year"];
+    public IReadOnlyList<string> AgendaYearFilters => BuildAgendaFilters(race => race.Year);
 
-    public IReadOnlyList<string> AgendaSurfaceFilters => IsEnglish
-        ? ["All", "Turf", "Dirt"]
-        : ["全部", "Turf", "Dirt"];
+    public IReadOnlyList<string> AgendaMonthFilters => BuildAgendaNumericFilters(race => race.Month);
+    public IReadOnlyList<string> AgendaTurnFilters => BuildAgendaFilters(race => race.Turn);
+    public IReadOnlyList<string> AgendaDayFilters => BuildAgendaNumericFilters(race => race.Day);
+    public IReadOnlyList<string> AgendaTimeFilters => BuildAgendaFilters(race => race.TimeName);
+    public IReadOnlyList<string> AgendaHalfFilters => BuildAgendaFilters(race => race.Half);
 
-    public IReadOnlyList<string> AgendaDistanceFilters => IsEnglish
-        ? ["All", "Sprint", "Mile", "Medium", "Long"]
-        : ["全部", "Sprint", "Mile", "Medium", "Long"];
+    public IReadOnlyList<string> AgendaSurfaceFilters => BuildAgendaFilters(race => race.EffectiveSurface);
 
-    public IReadOnlyList<string> AgendaGradeFilters => IsEnglish
-        ? ["All", "G1", "G2", "G3", "OP", "Pre-OP"]
-        : ["全部", "G1", "G2", "G3", "OP", "Pre-OP"];
+    public IReadOnlyList<string> AgendaDistanceFilters
+    {
+        get
+        {
+            var available = UmaCatalogService.IndependentRaces
+                .Select(race => race.Distance)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var all = IsEnglish ? "All" : "全部";
+            return new[] { all }.Concat(AgendaDistanceCategoryOrder.Where(available.Contains))
+                .ToArray();
+        }
+    }
+
+    public IReadOnlyList<string> AgendaTrackFilters => BuildAgendaFilters(race => race.Track);
+    public IReadOnlyList<string> AgendaDirectionFilters => BuildAgendaFilters(race => race.Direction);
+
+    public IReadOnlyList<string> AgendaGradeFilters => BuildAgendaFilters(race => race.Grade);
 
     private TaskCatalogOption[] _filteredTraineeOptions = [];
     private TaskCatalogOption[] _filteredSupportCardOptions = [];
@@ -213,10 +311,20 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     private string _independentSkillSearchText = string.Empty;
 
     private string _agendaYearFilter = "All";
+    private string _agendaMonthFilter = "All";
+    private string _agendaTurnFilter = "All";
+    private string _agendaDayFilter = "All";
+    private string _agendaTimeFilter = "All";
+    private string _agendaHalfFilter = "All";
     private string _agendaSurfaceFilter = "All";
     private string _agendaDistanceFilter = "All";
+    private string _agendaTrackFilter = "All";
+    private string _agendaDirectionFilter = "All";
     private string _agendaGradeFilter = "All";
     private string _agendaSearchText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAgendaFilterOpen;
 
     private List<TraineeCatalogItem> _richFilteredTrainees = [];
     private List<SupportCardCatalogItem> _richFilteredSupportCards = [];
@@ -238,6 +346,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     [ObservableProperty]
     private SkillCatalogItem? _selectedAvailableIndependentSkill;
 
+    partial void OnSelectedAvailableIndependentSkillChanged(SkillCatalogItem? value)
+    {
+        OnPropertyChanged(nameof(CanAddIndependentSkill));
+        AddSelectedIndependentSkillCommand.NotifyCanExecuteChanged();
+    }
+
     [ObservableProperty]
     private SkillCatalogItem? _selectedTargetIndependentSkill;
 
@@ -248,6 +362,8 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public bool IsTeamRace => TaskId == "team-race";
     public bool IsDefinitionTask => IsDailyRace || IsTeamRace || TaskId is "mail-collection" or "mission-collection";
     public bool IsSimpleCollectionTask => TaskId is "mail-collection" or "mission-collection";
+    public bool IsMailCollection => TaskId == "mail-collection";
+    public bool IsMissionCollection => TaskId == "mission-collection";
     public bool IsNormalCareer => IsCareerTraining && CareerMode == "normal";
     public bool IsIndependentCareer => IsCareerTraining && CareerMode == "independent";
 
@@ -262,6 +378,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public IReadOnlyList<SkillCatalogItem> RichFilteredNormalSkills => _richFilteredNormalSkills;
     public IReadOnlyList<SkillCatalogItem> RichFilteredIndependentSkills => _richFilteredIndependentSkills;
     public IReadOnlyList<IndependentAgendaRaceItemViewModel> RichFilteredAgendaRaces => _richFilteredAgendaRaces;
+    public bool CanAddIndependentSkill => SelectedAvailableIndependentSkill?.IsIndependentSelectable == true;
 
     public string TraineeSearchText
     {
@@ -380,45 +497,75 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public string AgendaYearFilter
     {
         get => _agendaYearFilter;
-        set
-        {
-            if (!SetProperty(ref _agendaYearFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
-            FilterRichAgendaRaces();
-            OnPropertyChanged(nameof(RichFilteredAgendaRaces));
-        }
+        set => SetAgendaFilter(ref _agendaYearFilter, value, nameof(AgendaYearFilter));
+    }
+
+    public string AgendaMonthFilter
+    {
+        get => _agendaMonthFilter;
+        set => SetAgendaFilter(ref _agendaMonthFilter, value, nameof(AgendaMonthFilter));
+    }
+
+    public string AgendaTurnFilter
+    {
+        get => _agendaTurnFilter;
+        set => SetAgendaFilter(ref _agendaTurnFilter, value, nameof(AgendaTurnFilter));
+    }
+
+    public string AgendaDayFilter
+    {
+        get => _agendaDayFilter;
+        set => SetAgendaFilter(ref _agendaDayFilter, value, nameof(AgendaDayFilter));
+    }
+
+    public string AgendaTimeFilter
+    {
+        get => _agendaTimeFilter;
+        set => SetAgendaFilter(ref _agendaTimeFilter, value, nameof(AgendaTimeFilter));
+    }
+
+    public string AgendaHalfFilter
+    {
+        get => _agendaHalfFilter;
+        set => SetAgendaFilter(ref _agendaHalfFilter, value, nameof(AgendaHalfFilter));
     }
 
     public string AgendaSurfaceFilter
     {
         get => _agendaSurfaceFilter;
-        set
-        {
-            if (!SetProperty(ref _agendaSurfaceFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
-            FilterRichAgendaRaces();
-            OnPropertyChanged(nameof(RichFilteredAgendaRaces));
-        }
+        set => SetAgendaFilter(ref _agendaSurfaceFilter, value, nameof(AgendaSurfaceFilter));
     }
 
     public string AgendaDistanceFilter
     {
         get => _agendaDistanceFilter;
-        set
-        {
-            if (!SetProperty(ref _agendaDistanceFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
-            FilterRichAgendaRaces();
-            OnPropertyChanged(nameof(RichFilteredAgendaRaces));
-        }
+        set => SetAgendaFilter(ref _agendaDistanceFilter, value, nameof(AgendaDistanceFilter));
+    }
+
+    public string AgendaTrackFilter
+    {
+        get => _agendaTrackFilter;
+        set => SetAgendaFilter(ref _agendaTrackFilter, value, nameof(AgendaTrackFilter));
+    }
+
+    public string AgendaDirectionFilter
+    {
+        get => _agendaDirectionFilter;
+        set => SetAgendaFilter(ref _agendaDirectionFilter, value, nameof(AgendaDirectionFilter));
     }
 
     public string AgendaGradeFilter
     {
         get => _agendaGradeFilter;
-        set
-        {
-            if (!SetProperty(ref _agendaGradeFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
-            FilterRichAgendaRaces();
-            OnPropertyChanged(nameof(RichFilteredAgendaRaces));
-        }
+        set => SetAgendaFilter(ref _agendaGradeFilter, value, nameof(AgendaGradeFilter));
+    }
+
+    private void SetAgendaFilter(ref string field, string? value, string propertyName)
+    {
+        if (!SetProperty(ref field, value ?? (IsEnglish ? "All" : "全部"), propertyName))
+            return;
+        FilterRichAgendaRaces();
+        OnPropertyChanged(nameof(RichFilteredAgendaRaces));
     }
 
     public string RawSettingsJson
@@ -1269,10 +1416,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         : $"已选目标技能：{TargetNormalSkills.Count}";
 
     // Independent Skills commands
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAddIndependentSkill))]
     public void AddSelectedIndependentSkill()
     {
-        if (SelectedAvailableIndependentSkill is not { } skill) return;
+        if (SelectedAvailableIndependentSkill is not { IsIndependentSelectable: true } skill) return;
         var current = ParseParts(IndependentSkillIdsText).ToList();
         if (!current.Contains(skill.SkillId.ToString(CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase))
         {
@@ -1349,6 +1496,26 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         IndependentAgendaSelectionsText = string.Empty;
     }
 
+    [RelayCommand]
+    public void ToggleAgendaFilter() => IsAgendaFilterOpen = !IsAgendaFilterOpen;
+
+    [RelayCommand]
+    public void ResetAgendaFilters()
+    {
+        var all = IsEnglish ? "All" : "全部";
+        AgendaYearFilter = all;
+        AgendaMonthFilter = all;
+        AgendaTurnFilter = all;
+        AgendaDayFilter = all;
+        AgendaTimeFilter = all;
+        AgendaHalfFilter = all;
+        AgendaSurfaceFilter = all;
+        AgendaDistanceFilter = all;
+        AgendaTrackFilter = all;
+        AgendaDirectionFilter = all;
+        AgendaGradeFilter = all;
+    }
+
     private void OnAgendaRaceToggled(string raceKey, bool isSelected)
     {
         var current = ParseParts(IndependentAgendaSelectionsText).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -1409,29 +1576,76 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     {
         var query = IndependentSkillSearchText.Trim();
         _richFilteredIndependentSkills = UmaCatalogService.Skills
-            .Where(s => string.IsNullOrWhiteSpace(query) || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(s => string.IsNullOrWhiteSpace(query)
+                || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || s.SkillId.ToString(CultureInfo.InvariantCulture).Contains(query, StringComparison.OrdinalIgnoreCase)
+                || s.SearchTerms.Any(term => term.Contains(query, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
     private void FilterRichAgendaRaces()
     {
         var query = AgendaSearchText.Trim();
-        var year = AgendaYearFilter;
-        var surface = AgendaSurfaceFilter;
-        var dist = AgendaDistanceFilter;
-        var grade = AgendaGradeFilter;
-
         var selectedKeys = ParseParts(IndependentAgendaSelectionsText).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         _richFilteredAgendaRaces = UmaCatalogService.IndependentRaces
-            .Where(r => (string.IsNullOrWhiteSpace(query) || r.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                && (IsAllFilter(year) || r.Year.Equals(year, StringComparison.OrdinalIgnoreCase))
-                && (IsAllFilter(surface) || r.Surface.Equals(surface, StringComparison.OrdinalIgnoreCase))
-                && (IsAllFilter(dist) || r.Distance.Equals(dist, StringComparison.OrdinalIgnoreCase))
-                && (IsAllFilter(grade) || r.Grade.Equals(grade, StringComparison.OrdinalIgnoreCase)))
-            .Select(r => new IndependentAgendaRaceItemViewModel(r, selectedKeys.Contains(r.Key), OnAgendaRaceToggled))
+            .Where(r => MatchesAgendaSearch(r, query)
+                && MatchesAgendaFilter(AgendaYearFilter, r.Year)
+                && MatchesAgendaFilter(AgendaMonthFilter, r.Month.ToString(CultureInfo.InvariantCulture))
+                && MatchesAgendaFilter(AgendaTurnFilter, r.Turn)
+                && MatchesAgendaFilter(AgendaDayFilter, r.Day.ToString(CultureInfo.InvariantCulture))
+                && MatchesAgendaFilter(AgendaTimeFilter, r.TimeName)
+                && MatchesAgendaFilter(AgendaHalfFilter, r.Half)
+                && MatchesAgendaFilter(AgendaSurfaceFilter, r.EffectiveSurface)
+                && MatchesAgendaFilter(AgendaDistanceFilter, r.Distance)
+                && MatchesAgendaFilter(AgendaTrackFilter, r.Track)
+                && MatchesAgendaFilter(AgendaDirectionFilter, r.Direction)
+                && MatchesAgendaFilter(AgendaGradeFilter, r.Grade))
+            .OrderBy(r => r.Year, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.Turn, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.RaceName, StringComparer.OrdinalIgnoreCase)
+            .Select(r =>
+            {
+                var hasPickerEntry = UmaCatalogService.IsIndependentRaceExecutable(r);
+                var raceCardPath = hasPickerEntry ? UmaCatalogService.FindIndependentRaceCardPath(r) : null;
+                var isExecutable = raceCardPath is not null;
+                return new IndependentAgendaRaceItemViewModel(
+                    r,
+                    selectedKeys.Contains(r.Key),
+                    isExecutable,
+                    raceCardPath,
+                    OnAgendaRaceToggled);
+            })
             .ToList();
     }
+
+    private static bool MatchesAgendaSearch(IndependentRaceCatalogItem race, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return true;
+
+        return new[]
+            {
+                race.DisplayName,
+                race.Key,
+                race.Month.ToString(CultureInfo.InvariantCulture),
+                race.Distance,
+                race.RaceId.ToString(CultureInfo.InvariantCulture),
+                race.Day.ToString(CultureInfo.InvariantCulture),
+                race.TimeName,
+                race.EffectiveSurface,
+                race.Direction,
+                race.Track,
+                race.LengthM,
+                race.Grade,
+                race.Half,
+            }
+            .Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool MatchesAgendaFilter(string selected, string actual) =>
+        IsAllFilter(selected)
+        || actual.Equals(selected, StringComparison.OrdinalIgnoreCase);
 
     private static string AppendId(string existing, string id)
     {
