@@ -130,13 +130,6 @@
                                 </Button>
                             </Grid>
 
-                            <!-- Status Indicator -->
-                            <StackPanel Spacing="6" Margin="0,10,0,0">
-                                <TextBlock Text="{Binding StatusText}" FontSize="11" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{Binding QueueValidationMessage}" FontSize="11" Foreground="#D13438"
-                                           TextWrapping="Wrap" IsVisible="{Binding !CanStartQueue}" />
-                            </StackPanel>
                         </StackPanel>
 
                         <!-- Tasks List fills the space above the bottom controls -->
