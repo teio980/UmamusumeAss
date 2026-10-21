@@ -1,4 +1,12 @@
 add_subdirectory(Connection)
+add_subdirectory(Vision)
+add_subdirectory(Recognition)
+add_subdirectory(Resources)
+add_subdirectory(TaskEngine)
+add_subdirectory(GameTasks)
+add_subdirectory(Career)
+add_subdirectory(Runtime)
+add_subdirectory(GameData)
 
 find_program(DOTNET_EXECUTABLE dotnet REQUIRED)
 add_test(
@@ -16,11 +24,23 @@ add_test(
 )
 
 add_test(
-  NAME WpfGuiTests
+  NAME AppCoreTests
   COMMAND "${CMAKE_COMMAND}" -E env
-    "DOTNET_CLI_TELEMETRY_OPTOUT=1"
     "${DOTNET_EXECUTABLE}" test
-    "${CMAKE_SOURCE_DIR}/tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj"
+    "${CMAKE_SOURCE_DIR}/tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj"
     -c Release
+    "--property:NativeDllPath=$<TARGET_FILE:UmaAssistantCore>"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+if(WIN32)
+  add_test(
+    NAME WpfGuiTests
+    COMMAND "${CMAKE_COMMAND}" -E env
+      "DOTNET_CLI_TELEMETRY_OPTOUT=1"
+      "${DOTNET_EXECUTABLE}" test
+      "${CMAKE_SOURCE_DIR}/tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj"
+      -c Release
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+endif()

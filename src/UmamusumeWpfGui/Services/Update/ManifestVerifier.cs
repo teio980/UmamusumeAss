@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using UmamusumeWpfGui.Models;
+using Umamusume.UpdateCore;
 
 namespace UmamusumeWpfGui.Services.Update;
 
@@ -12,10 +13,7 @@ public sealed class ManifestVerifier
         PropertyNameCaseInsensitive = true,
     };
 
-    // P-256 SPKI public key. Release signing is performed only by the
-    // protected release environment; this value is never downloaded.
-    private const string EmbeddedPublicKey =
-        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEXSfrguQVvVr+DJuU3j8ZN0/mZgOvf94JVT9uCeuScWtBYZtubqOEJK0ESOP8PgCzSkih8yjGnWjY1W04//QxqQ==";
+    private static readonly string EmbeddedPublicKey = UpdateSigningKey.EmbeddedPublicKeyBase64;
 
     private readonly byte[] _publicKey;
 
@@ -60,7 +58,12 @@ public sealed class ManifestVerifier
     public static string Sha256Bytes(ReadOnlySpan<byte> bytes) =>
         Convert.ToHexString(SHA256.HashData(bytes));
 
-    public static bool IsCanonicalManifest(UpdateManifest manifest, string expectedTag)
+    public static bool IsCanonicalManifest(
+        UpdateManifest manifest,
+        string expectedTag,
+        string expectedTargetOs = "windows",
+        string expectedTargetArch = "x64",
+        bool allowDeltas = true)
     {
         var expectedKind = expectedTag.StartsWith("resource-v", StringComparison.Ordinal)
             ? "resource" : "program";
@@ -69,8 +72,10 @@ public sealed class ManifestVerifier
             || !manifest.Kind.Equals(expectedKind, StringComparison.Ordinal)
             || !manifest.Channel.Equals("stable", StringComparison.Ordinal)
             || !manifest.ReleaseTag.Equals(expectedTag, StringComparison.Ordinal)
-            || !manifest.TargetOs.Equals("windows", StringComparison.OrdinalIgnoreCase)
-            || !manifest.TargetArch.Equals("x64", StringComparison.OrdinalIgnoreCase)
+            || !manifest.TargetOs.Equals(expectedTargetOs, StringComparison.OrdinalIgnoreCase)
+            || !manifest.TargetArch.Equals(expectedTargetArch, StringComparison.OrdinalIgnoreCase)
+            || (expectedTargetOs.Equals("macos", StringComparison.OrdinalIgnoreCase)
+                && (!Version.TryParse(manifest.MinOsVersion, out var minimumOs) || minimumOs < new Version(14, 0)))
             || manifest.Assets.Count == 0
             || (expectedKind == "program"
                 ? !GitHubReleaseClient.IsProgramTag(expectedTag)
@@ -81,6 +86,7 @@ public sealed class ManifestVerifier
         foreach (var asset in manifest.Assets)
         {
             if (asset.Type is not ("full" or "delta")
+                || (!allowDeltas && !asset.Type.Equals("full", StringComparison.OrdinalIgnoreCase))
                 || string.IsNullOrWhiteSpace(asset.AssetName)
                 || asset.AssetName.Contains('/') || asset.AssetName.Contains('\\')
                 || !seenAssets.Add(asset.AssetName)
@@ -114,6 +120,11 @@ public sealed class ManifestVerifier
                     || file.Size > UpdatePathSafety.MaxExpandedBytes - total)
                     return false;
                 total += file.Size;
+            }
+            if (expectedTargetOs.Equals("macos", StringComparison.OrdinalIgnoreCase))
+            {
+                try { UpdatePathSafety.ValidateUniquePaths(asset.Files.Select(file => file.Path), macOS: true); }
+                catch (InvalidDataException) { return false; }
             }
             var seenDeletes = new HashSet<string>(StringComparer.Ordinal);
             foreach (var deleted in asset.Deletes)
@@ -173,6 +184,42 @@ public static class UpdatePathSafety
         {
             if (component is "" or "." or "..")
                 throw new InvalidDataException($"Illegal update path: {relativePath}");
+        }
+    }
+
+    /// <summary>Rejects paths that alias on a case-insensitive, Unicode-normalizing macOS volume.</summary>
+    public static void ValidateUniquePaths(IEnumerable<string> paths, bool macOS)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var comparer = macOS ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var occupied = new Dictionary<string, (string Spelling, bool IsDirectory)>(comparer);
+        var files = new HashSet<string>(comparer);
+        foreach (string path in paths)
+        {
+            ValidateRelative(path);
+            string[] components = path.Replace('\\', '/').Split('/');
+            string prefix = string.Empty;
+            for (int index = 0; index < components.Length; index++)
+            {
+                prefix = prefix.Length == 0 ? components[index] : prefix + "/" + components[index];
+                bool isDirectory = index < components.Length - 1;
+                string key = string.Join('/', components.Take(index + 1).Select(component =>
+                    macOS ? component.Normalize(NormalizationForm.FormD) : component));
+                if (occupied.TryGetValue(key, out var existing))
+                {
+                    if (!existing.Spelling.Equals(prefix, StringComparison.Ordinal))
+                        throw new InvalidDataException($"Update inventory contains colliding paths: {path}");
+                    if (existing.IsDirectory != isDirectory)
+                        throw new InvalidDataException($"Update inventory has a file/directory conflict: {path}");
+                }
+                else
+                {
+                    occupied.Add(key, (prefix, isDirectory));
+                }
+            }
+            string fileKey = macOS ? path.Normalize(NormalizationForm.FormD) : path;
+            if (!files.Add(fileKey))
+                throw new InvalidDataException($"Update inventory contains duplicate paths: {path}");
         }
     }
 

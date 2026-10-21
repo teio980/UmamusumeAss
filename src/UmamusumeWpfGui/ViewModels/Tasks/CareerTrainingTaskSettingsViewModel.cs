@@ -9,6 +9,8 @@ using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
 
+public sealed record UraTrainingStrategyOption(string Value, string Label);
+
 /// <summary>
 /// Composition root for Career task settings. Flat properties remain as
 /// forwarding properties so existing task profiles and bindings keep working
@@ -18,7 +20,7 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
 {
     public const string DefaultManifestPath = HachimiResourcePaths.UraManifest;
     public const string DefaultStrategyId = "default-speed-medium";
-    public const string DefaultEventHandling = CareerEventHandlingModes.Default;
+    public const string DefaultEventHandling = "default";
     public const string NormalCareerMode = "normal";
     public const string IndependentCareerMode = "independent";
     public const string IndependentTrainingFocusBalanced = "balanced";
@@ -39,16 +41,23 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     private bool _allowOptionalRaces;
     private string _status = string.Empty;
     private bool _disposed;
+    private readonly IUmaDatabaseService? _umaDatabase;
+    private IReadOnlyList<UraTrainingStrategyOption> _normalTrainingStrategyOptions =
+        [new(DefaultStrategyId, "Default")];
 
     public CareerTrainingTaskSettingsViewModel(
         IUmaDatabaseService? umaDatabase = null,
         ILocalizationService? localizationService = null)
     {
+        _umaDatabase = umaDatabase;
         Entry = new CareerEntrySettingsViewModel(umaDatabase);
         SupportDeck = new SupportDeckSettingsViewModel(umaDatabase);
-        Independent = new IndependentTrainingSettingsViewModel();
-        NormalSkills = new NormalCareerSkillSettingsViewModel();
+        Independent = new IndependentTrainingSettingsViewModel(umaDatabase);
+        NormalSkills = new NormalCareerSkillSettingsViewModel(umaDatabase);
         NormalTrainingRatio = new NormalTrainingRatioSettingsViewModel(localizationService);
+        RefreshNormalTrainingStrategies();
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         Independent.IsCareerModeActive = IsIndependentCareer;
         NormalSkills.IsCareerModeActive = IsNormalCareer;
 
@@ -134,8 +143,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    public IReadOnlyList<UraTrainingStrategyOption> NormalTrainingStrategyOptions { get; } =
-        UraStrategyRegistry.AvailableStrategies;
+    public IReadOnlyList<UraTrainingStrategyOption> NormalTrainingStrategyOptions =>
+        _normalTrainingStrategyOptions;
 
     public string NormalTrainingStrategy
     {
@@ -195,6 +204,12 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
     {
         get => Entry.DeleteExistingCareerData;
         set => Entry.DeleteExistingCareerData = value;
+    }
+
+    public bool AutoRestoreTp
+    {
+        get => Entry.AutoRestoreTp;
+        set => Entry.AutoRestoreTp = value;
     }
 
     // Keep the old in-memory property available for callers compiled against
@@ -326,7 +341,8 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         && RunCount > 0
         && (IsIndependentCareer
             || (!string.IsNullOrWhiteSpace(StrategyId)
-                && UraStrategyRegistry.IsRegistered(StrategyId)
+                && NormalTrainingStrategyOptions.Any(item =>
+                    item.Value.Equals(StrategyId, StringComparison.OrdinalIgnoreCase))
                 && (!IsCustomNormalTrainingStrategy || NormalTrainingRatio.IsValid)
                 && CareerStrategyCatalog.TryGetLineupStrategyUiMapping(
                     NormalLineupStrategy,
@@ -356,7 +372,11 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         NormalTrainingRatio.PropertyChanged -= OnChildPropertyChanged;
         Entry.Dispose();
         SupportDeck.Dispose();
+        Independent.Dispose();
+        NormalSkills.Dispose();
         NormalTrainingRatio.Dispose();
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded -= OnDatabaseLoaded;
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -408,6 +428,30 @@ public sealed class CareerTrainingTaskSettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsIndependentTrainingSettingsValid));
         OnPropertyChanged(nameof(IsValid));
     }
+
+    private void OnDatabaseLoaded(object? sender, EventArgs args) => RefreshNormalTrainingStrategies();
+
+    private void RefreshNormalTrainingStrategies()
+    {
+        var strategies = _umaDatabase?.Catalog.Strategies
+            .Select(row => new UraTrainingStrategyOption(
+                ReadCatalogString(row, "value", "id"),
+                ReadCatalogString(row, "label", "name")))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value))
+            .ToArray() ?? [];
+        _normalTrainingStrategyOptions = strategies.Length > 0
+            ? strategies
+            : [new UraTrainingStrategyOption(DefaultStrategyId, "Default")];
+        OnPropertyChanged(nameof(NormalTrainingStrategyOptions));
+        OnPropertyChanged(nameof(IsValid));
+    }
+
+    private static string ReadCatalogString(System.Text.Json.JsonElement row, string first, string second) =>
+        row.TryGetProperty(first, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String
+            ? value.GetString()?.Trim() ?? string.Empty
+            : row.TryGetProperty(second, out value) && value.ValueKind == System.Text.Json.JsonValueKind.String
+                ? value.GetString()?.Trim() ?? string.Empty
+                : string.Empty;
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "name": "offline-transition",
+  "start": "Entry",
+  "tasks": {
+    "Entry": {
+      "template": "entry.png",
+      "action": "ClickSelf",
+      "transitionTemplates": ["next.png"],
+      "transitionTimeoutMs": 100,
+      "transitionPollIntervalMs": 1,
+      "success": true
+    }
+  }
+}

@@ -12,6 +12,10 @@
 #include <thread>
 #include <vector>
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 namespace UmaAssistant {
 
 namespace {
@@ -142,6 +146,7 @@ std::optional<ConnectionFailure> EmulatorConnector::validate_request(
             "ADB executable not found: " + request.adb_path.string()
         };
     }
+#if defined(_WIN32)
     auto const ext = request.adb_path.extension().wstring();
     bool is_executable_extension = ext.size() == 4;
     if (is_executable_extension)
@@ -158,6 +163,15 @@ std::optional<ConnectionFailure> EmulatorConnector::validate_request(
             "ADB path is not an .exe: " + request.adb_path.string()
         };
     }
+#else
+    if (::access(request.adb_path.c_str(), X_OK) != 0)
+    {
+        return ConnectionFailure{
+            ConnectionErrorCode::AdbExecutableNotFound, "preflight",
+            "ADB path is not executable: " + request.adb_path.string()
+        };
+    }
+#endif
     return std::nullopt;
 }
 

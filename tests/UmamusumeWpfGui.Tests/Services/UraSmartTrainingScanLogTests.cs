@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Xml.Linq;
 using UmamusumeWpfGui.Models;
@@ -28,49 +29,53 @@ public sealed class UraSmartTrainingScanLogTests
             "Pending", "Running", "Completed", "Failed", "Canceled", "Skipped", "Queue started");
         try
         {
-            var state = new UraCareerSessionState
-            {
-                TurnPositionLabel = "Classic July, first half",
-                Energy = UraObservedValueFactory.FromObservation(80, 1),
-            };
+            var date = "Classic July, first half";
+            var energy = 80;
             var failure = allUnsafe ? 28 : 0;
-            UraTrainingCandidate[] candidates =
-            [
-                UraTrainingCandidate.Reliable("speed", 21, 0, 9, 0, 0, 6, failure),
-                UraTrainingCandidate.Reliable("stamina", 0, 13, 0, 7, 0, 4, failure),
-                new("power", null, null, null, null, null, null, null),
-                UraTrainingCandidate.Reliable("guts", 12, 0, 9, 16, 0, 7, failure),
-                UraTrainingCandidate.Reliable("wit", 4, 0, 0, 0, 12, 5, 6),
-            ];
-            var decision = UraSmartTrainingScorer.Choose(candidates, UraTrainingDistance.Mile, "classic", 80);
-            UraSmartTrainingScanLog.Write(log.ForTask("career"), state, decision, localization.GetString);
+            var payload = new
+            {
+                date,
+                energy,
+                chosen = allUnsafe ? null : "speed",
+                candidates = new object[]
+                {
+                    new { type = "speed", speed = 21, stamina = 0, power = 9, guts = 0, wit = 0, skill_points = 6, failure_rate = failure, score = allUnsafe ? (double?)null : 36.5, exclusion_reason = allUnsafe ? "failure rate exceeds 5%" : null },
+                    new { type = "stamina", speed = 0, stamina = 13, power = 0, guts = 7, wit = 0, skill_points = 4, failure_rate = failure, score = allUnsafe ? (double?)null : 24.0, exclusion_reason = allUnsafe ? "failure rate exceeds 5%" : null },
+                    new { type = "power", speed = (int?)null, stamina = (int?)null, power = (int?)null, guts = (int?)null, wit = (int?)null, skill_points = (int?)null, failure_rate = (int?)null, score = (double?)null, exclusion_reason = "no_data" },
+                    new { type = "guts", speed = 12, stamina = 0, power = 9, guts = 16, wit = 0, skill_points = 7, failure_rate = failure, score = allUnsafe ? (double?)null : 35.0, exclusion_reason = allUnsafe ? "failure rate exceeds 5%" : null },
+                    new { type = "wit", speed = 4, stamina = 0, power = 0, guts = 0, wit = 12, skill_points = 5, failure_rate = 6, score = (double?)null, exclusion_reason = "failure rate exceeds 5%" },
+                }
+            };
+            var json = JsonSerializer.Serialize(payload);
+
+            UraSmartTrainingScanLog.WriteJson(log.ForTask("career"), json, localization);
 
             var entry = Assert.Single(Assert.Single(log.Tasks).Entries);
             Assert.Equal(HachimiTaskLogEventKind.Detection, entry.Kind);
             Assert.Equal(Expected("Smart training scan", "智能训练扫描"), entry.Step);
-            Assert.Contains(state.TurnPositionLabel, entry.Message);
+            Assert.Contains(date, entry.Message);
             Assert.Contains(Expected("Energy: 80%", "体力：80%"), entry.Message);
-            Assert.Contains(Expected("Speed training:", "速度训练："), entry.Message);
-            Assert.Contains(Expected("Stamina training:", "耐力训练："), entry.Message);
-            Assert.Contains(Expected("Power training:", "力量训练："), entry.Message);
-            Assert.Contains(Expected("Guts training:", "根性训练："), entry.Message);
-            Assert.Contains(Expected("Wit training:", "智力训练："), entry.Message);
-            Assert.Contains(Expected("Skill points", "技能点"), entry.Message);
-            Assert.Contains(Expected("Failure rate: Unknown", "失败率：未知"), entry.Message);
-            Assert.Contains(Expected("Excluded:", "排除："), entry.Message);
+            Assert.Contains(Expected("Speed:", "速度："), entry.Message);
+            Assert.Contains(Expected("Stamina:", "耐力："), entry.Message);
+            Assert.Contains(Expected("Power:", "力量："), entry.Message);
+            Assert.Contains(Expected("Guts:", "根性："), entry.Message);
+            Assert.Contains(Expected("Wit:", "智力："), entry.Message);
+            Assert.Contains("Pt+6", entry.Message);
+            Assert.Contains(Expected("No reliable scan data", "未扫描到可靠数据"), entry.Message);
+            Assert.Contains(Expected("Excluded", "排除"), entry.Message);
             Assert.Contains(Expected("Failure rate exceeds 5%", "失败率超过 5%"), entry.Message);
             Assert.Contains(allUnsafe
-                ? Expected("return to the Career main screen and rest", "返回主界面休息")
-                : Expected("Speed training (pending confirmation)", "速度训练（待确认）"), entry.Message);
+                ? Expected("Return to Career main screen and rest", "返回主界面休息")
+                : Expected("Choice: Speed training", "选择【速度训练】"), entry.Message);
+            if (!allUnsafe)
+            {
+                Assert.Contains(Expected("[Selected]", "[胜出]"), entry.Message);
+            }
             if (english)
             {
                 Assert.DoesNotContain(entry.Message, character => character is >= '\u4e00' and <= '\u9fff');
                 Assert.DoesNotContain("GrassSmartTraining", entry.Message);
             }
-            // Logging must not turn a selection into an executed training or advance a turn.
-            Assert.False(state.TrainingTurnCommitPending);
-            Assert.Null(state.TrainingClickIssuedType);
-            Assert.Equal(0, state.TurnIndex);
         }
         finally
         {
@@ -89,15 +94,23 @@ public sealed class UraSmartTrainingScanLogTests
         try
         {
             var sink = log.ForTask("career");
-            var state = new UraCareerSessionState();
-            var decision = UraSmartTrainingScorer.Choose(
-                [UraTrainingCandidate.Reliable("speed", 17, 0, 10, 0, 0, 6, 0)],
-                UraTrainingDistance.Mile, "classic", 80);
-            UraSmartTrainingScanLog.Write(sink, state, decision, localization.GetString);
+            var json = JsonSerializer.Serialize(new
+            {
+                date = "Classic Year",
+                energy = 80,
+                chosen = "speed",
+                candidates = new[]
+                {
+                    new { type = "speed", speed = 17, stamina = 0, power = 10, guts = 0, wit = 0, skill_points = 6, failure_rate = 0, score = (double?)28.5, exclusion_reason = (string?)null }
+                }
+            });
+
+            UraSmartTrainingScanLog.WriteJson(sink, json, localization);
             localization.SwitchLanguage("zh-CN");
-            UraSmartTrainingScanLog.Write(sink, state, decision, localization.GetString);
+            UraSmartTrainingScanLog.WriteJson(sink, json, localization);
             localization.SwitchLanguage("en-US");
-            UraSmartTrainingScanLog.Write(sink, state, decision, localization.GetString);
+            UraSmartTrainingScanLog.WriteJson(sink, json, localization);
+
             var entries = Assert.Single(log.Tasks).Entries;
             Assert.Equal(3, entries.Count);
             Assert.Equal("Smart training scan", entries[0].Step);
@@ -118,11 +131,15 @@ public sealed class UraSmartTrainingScanLogTests
             "Pending", "Running", "Completed", "Failed", "Canceled", "Skipped", "Queue started");
         try
         {
-            var decision = UraSmartTrainingScorer.Choose([], UraTrainingDistance.Mile, "classic", null);
-            UraSmartTrainingScanLog.Write(log.ForTask("career"), new UraCareerSessionState
+            var json = JsonSerializer.Serialize(new
             {
-                Energy = UraObservedValueFactory.Unknown<int>(),
-            }, decision, key => key);
+                date = (string?)null,
+                energy = (int?)null,
+                chosen = (string?)null,
+                candidates = Array.Empty<object>()
+            });
+
+            UraSmartTrainingScanLog.WriteJson(log.ForTask("career"), json, null, key => key);
             var entry = Assert.Single(Assert.Single(log.Tasks).Entries);
             Assert.Equal("Smart training scan", entry.Step);
             Assert.Contains("Energy: Unknown", entry.Message);

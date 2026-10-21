@@ -30,7 +30,6 @@
         "requiredText": [
           "Career"
         ],
-        "stable": true,
         "priority": 0
       },
       "actions": [
@@ -54,7 +53,6 @@
         ],
         "templThreshold": 0.9,
         "matchAlphaTemplate": true,
-        "stable": true,
         "priority": -3
       },
       "actions": [
@@ -73,7 +71,6 @@
         "requiredText": [
           "Main Scenario Event"
         ],
-        "stable": true,
         "priority": 2
       },
       "ocrRegions": [
@@ -104,29 +101,6 @@
       ],
       "flow": "event",
       "order": 53
-    },
-    {
-      "screenId": "training_event",
-      "recognition": {
-        "template": "../race/templates/runtime_frames/training_event_ura.png",
-        "templates": [
-          "../race/templates/runtime_frames/support_event_result_ura.png",
-          "../race/templates/runtime_frames/trainee_event_result_ura.png"
-        ],
-        "requiredText": [
-          "Career"
-        ],
-        "stable": true,
-        "priority": 1
-      },
-      "actions": [
-        {
-          "semanticId": "event.advance",
-          "task": "training_event_event_advance"
-        }
-      ],
-      "flow": "event",
-      "order": 21
     }
   ]
 }

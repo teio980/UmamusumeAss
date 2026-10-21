@@ -121,13 +121,14 @@ if (Test-Path -LiteralPath $NativeStaging) {
 }
 New-Item -ItemType Directory -Path $NativeStaging -Force | Out-Null
 
-$proc = Start-Process -FilePath "cmake" -ArgumentList @(
+$installArgs = @(
     "--install", $BuildDir,
     "--config", "Release",
     "--prefix", $NativeStaging
-) -WorkingDirectory $SolutionRoot -NoNewWindow -Wait -PassThru
-if ($proc.ExitCode -ne 0) {
-    throw "cmake --install failed with exit code $($proc.ExitCode)"
+)
+& cmake @installArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "cmake --install failed with exit code $LASTEXITCODE"
 }
 Write-Host "OK"
 Write-Host ""
@@ -140,15 +141,18 @@ if (Test-Path -LiteralPath $PublishDir) {
 }
 
 $project = Join-Path -Path $SolutionRoot -ChildPath "src\UmamusumeWpfGui\UmamusumeWpfGui.csproj"
-$proc = Start-Process -FilePath "dotnet" -ArgumentList @(
+$publishArgs = @(
     "publish", $project,
     "--configuration", "Release",
     "--runtime", "win-x64",
     "--self-contained", "true",
     "--output", $PublishDir
-) -WorkingDirectory $SolutionRoot -NoNewWindow -Wait -PassThru
-if ($proc.ExitCode -ne 0) {
-    throw "dotnet publish failed with exit code $($proc.ExitCode)"
+)
+# Invoke directly so redirected test runs wait for dotnet itself rather than
+# a Start-Process process-tree wait that can retain an idle console host.
+& dotnet @publishArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
 $uraPublish = Join-Path $PublishDir "resource\hachimi\ura"
@@ -195,6 +199,20 @@ if (-not (Test-Path -LiteralPath $updaterExe)) {
 }
 Copy-Item -LiteralPath $updaterExe -Destination $PublishDir -Force
 Write-Host "  Copied UmamusumeAss.Updater.exe"
+
+$replayExe = Join-Path -Path $NativeStaging -ChildPath "uma_pipeline_replay.exe"
+if (-not (Test-Path -LiteralPath $replayExe)) {
+    throw "Offline replay artifact not found: $replayExe"
+}
+Copy-Item -LiteralPath $replayExe -Destination $PublishDir -Force
+Write-Host "  Copied uma_pipeline_replay.exe"
+
+$numericOcrWorker = Join-Path -Path $NativeStaging -ChildPath "UmaNumericOcrWorker.exe"
+if (-not (Test-Path -LiteralPath $numericOcrWorker)) {
+    throw "Numeric OCR worker not found: $numericOcrWorker"
+}
+Copy-Item -LiteralPath $numericOcrWorker -Destination $PublishDir -Force
+Write-Host "  Copied UmaNumericOcrWorker.exe"
 
 
 & (Join-Path $PSScriptRoot 'verify-managed-output.ps1') -Directory $PublishDir -ExpectedVersion $Version

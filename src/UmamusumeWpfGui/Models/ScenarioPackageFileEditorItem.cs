@@ -14,11 +14,13 @@ public sealed class ScenarioPackageFileEditorItem : INotifyPropertyChanged
     public ScenarioPackageFileEditorItem(
         string relativePath,
         string fullPath,
-        string jsonText)
+        string jsonText,
+        bool isExecution = false)
     {
         RelativePath = relativePath;
         FullPath = fullPath;
         _jsonText = jsonText;
+        IsExecution = isExecution;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -29,7 +31,7 @@ public sealed class ScenarioPackageFileEditorItem : INotifyPropertyChanged
 
     public string FileName => Path.GetFileName(RelativePath);
 
-    public bool IsExecution => FileName.Equals("execution.json", StringComparison.OrdinalIgnoreCase);
+    public bool IsExecution { get; }
 
     public bool IsScreenProfile => FileName.Equals("profile.json", StringComparison.OrdinalIgnoreCase);
 

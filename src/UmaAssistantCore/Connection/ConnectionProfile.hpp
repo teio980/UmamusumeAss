@@ -20,6 +20,9 @@ struct AdbInvocation
 {
     std::filesystem::path   executable;
     std::vector<std::string> arguments;
+    // `adb devices` may cold-start the persistent local adb server. Ordinary
+    // commands still own and terminate their process tree on return.
+    bool leave_children_running_on_success{};
 };
 
 

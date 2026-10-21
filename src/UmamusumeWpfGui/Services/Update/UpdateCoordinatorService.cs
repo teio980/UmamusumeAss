@@ -122,7 +122,7 @@ public sealed class UpdateCoordinator : IUpdateService
                 rawManifest,
                 signature,
                 progress,
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (scope == UpdateScope.Program)
         {
@@ -372,12 +372,12 @@ public sealed class UpdateCoordinator : IUpdateService
         var oldDirectory = _resources.ActiveCompositeBaseDirectory;
         try
         {
-            await _database.LoadAsync(
-                    Path.Combine(candidate.CompositeDirectory, "resource"),
-                    cancellationToken)
-                .ConfigureAwait(false);
             await _uma.ReloadResourceAsync(candidate.CompositeDirectory, cancellationToken)
                 .ConfigureAwait(false);
+            var catalog = await _uma.GetCatalogAsync("all", cancellationToken).ConfigureAwait(false);
+            _database.LoadFromCoreCatalog(
+                catalog,
+                _uma.ResourcePath ?? Path.Combine(candidate.CompositeDirectory, "resource"));
             await _resources.CommitAsync(candidate, cancellationToken).ConfigureAwait(false);
             var resourceManifestPath = Path.Combine(
                 _appDataRoot, "resources", "current-manifest.json");
@@ -405,9 +405,11 @@ public sealed class UpdateCoordinator : IUpdateService
             {
                 if (Directory.Exists(oldDirectory))
                 {
-                    await _database.LoadAsync(Path.Combine(oldDirectory, "resource"), cancellationToken)
-                        .ConfigureAwait(false);
                     await _uma.ReloadResourceAsync(oldDirectory, cancellationToken).ConfigureAwait(false);
+                    var catalog = await _uma.GetCatalogAsync("all", cancellationToken).ConfigureAwait(false);
+                    _database.LoadFromCoreCatalog(
+                        catalog,
+                        _uma.ResourcePath ?? Path.Combine(oldDirectory, "resource"));
                 }
             }
             catch

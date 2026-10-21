@@ -5,66 +5,15 @@ namespace UmamusumeWpfGui.Services.Tasks;
 
 public sealed class ShopTaskModule : IGrassTaskModule
 {
-    private const string DefinitionPath = HachimiResourcePaths.ShopTaskDefinition;
-    private readonly HachimiJsonPipelineRunner _runner;
-
-    public ShopTaskModule(HachimiJsonPipelineRunner runner)
-    {
-        ArgumentNullException.ThrowIfNull(runner);
-        _runner = runner;
-        Settings = new object();
-    }
+    public object Settings { get; } = new();
 
     public GrassTaskDefinition Definition { get; } = new(
-        "shop-purchase",
-        "GrassTaskFriendsShop",
-        "GrassTaskFriendsShopDescription",
-        "Friends & Shop",
-        "Open the shop and purchase the configured items");
-
-    public object Settings { get; }
+        "shop-purchase", "GrassTaskFriendsShop", "GrassTaskFriendsShopDescription",
+        "Friends & Shop", "Open the shop and purchase configured items");
 
     public JsonObject ExportSettings() => new();
 
     public void ImportSettings(JsonObject settings) => ArgumentNullException.ThrowIfNull(settings);
 
-    public IGrassTaskModule CreateInstance() => new ShopTaskModule(_runner);
-
-    public bool CanExecute(GrassTaskExecutionContext context) => context.Connection is not null;
-
-    public async Task<GrassTaskExecutionResult> ExecuteAsync(
-        GrassTaskExecutionContext context,
-        CancellationToken cancellationToken = default)
-    {
-        if (context.Connection is not { } connection)
-        {
-            context.TaskLogSink?.Add("Validation", "Connect a device before opening the shop.", HachimiTaskLogEventKind.Failure);
-            return new(false, false, "Connect a device before opening the shop.");
-        }
-
-        var result = await _runner.RunAsync(
-                connection,
-                DefinitionPath,
-                "home",
-                options: new HachimiPipelineRunOptions
-                {
-                    TaskLogSink = context.TaskLogSink,
-                    SemanticProfile = HachimiTaskLogProfile.Shop,
-                },
-                logSink: context.LogSink,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        context.TaskLogSink?.Add(
-            "Result",
-            result.Succeeded
-                ? "Shop flow completed."
-                : HachimiTaskLogSemantics.ToUserFacingFailure(result.Message),
-            result.Succeeded ? HachimiTaskLogEventKind.Success : HachimiTaskLogEventKind.Failure);
-        return new(result.Succeeded, false, result.Message);
-    }
-
-    public Task<GrassTaskExecutionResult> StopAsync(
-        GrassTaskExecutionContext context,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new GrassTaskExecutionResult(true, false, "Stop requested."));
+    public IGrassTaskModule CreateInstance() => new ShopTaskModule();
 }

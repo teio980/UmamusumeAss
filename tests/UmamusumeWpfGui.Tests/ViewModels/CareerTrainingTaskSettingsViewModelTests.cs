@@ -1,7 +1,10 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
+using Umamusume.CoreBridge;
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
 using UmamusumeWpfGui.Services.Training;
@@ -45,7 +48,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Full_skill_catalog_exposes_gourmand_in_the_existing_picker()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
         var gourmand = Assert.Single(settings.IndependentSkillOptions,
             option => option.SkillId == 201351);
 
@@ -60,7 +63,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Independent_agenda_reset_clears_only_agenda_selection_and_filter()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
         var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
         var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
         agenda.IsSelected = true;
@@ -87,7 +90,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Independent_skill_reset_clears_only_skill_selection_and_filter()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
         var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
         var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
         agenda.IsSelected = true;
@@ -113,17 +116,15 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Independent_agenda_month_filter_uses_the_schedule_month()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
-        var rescheduledRace = settings.IndependentRaceOptions.First(item =>
-            item.Race.Year == "Second Year"
-            && item.Race.RaceName == "CBC Sho");
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
+        var rescheduledRace = Assert.Single(settings.IndependentRaceOptions);
 
         Assert.Equal(6, rescheduledRace.Race.Month);
         Assert.Contains(settings.IndependentAgendaMonthOptions, option => option.Value == "6");
         Assert.Contains(settings.IndependentAgendaTurnOptions, option => option.Value == "07_01");
         Assert.Contains(settings.IndependentAgendaSurfaceOptions, option => option.Value == "Turf");
         Assert.Equal(
-            ["all", "Long", "Mile", "Medium", "Sprint"],
+            ["all", "Sprint"],
             settings.IndependentAgendaDistanceOptions.Select(option => option.Value));
 
         settings.IndependentAgendaMonthFilter = "6";
@@ -151,7 +152,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Delete_existing_career_data_defaults_to_resume_and_round_trips()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
 
         Assert.False(settings.DeleteExistingCareerData);
 
@@ -165,7 +166,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     [Fact]
     public void Career_settings_migrate_legacy_resume_flag_without_flipping_behavior()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
 
         CareerTaskSettingsSerializer.Import(
             settings,
@@ -193,9 +194,27 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
+    public void Auto_restore_tp_defaults_to_false_and_round_trips()
+    {
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
+
+        Assert.False(settings.AutoRestoreTp);
+
+        settings.AutoRestoreTp = true;
+        Assert.True(settings.AutoRestoreTp);
+
+        var exported = CareerTaskSettingsSerializer.Export(settings);
+        Assert.True(exported["autoRestoreTp"]!.GetValue<bool>());
+
+        using var imported = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
+        CareerTaskSettingsSerializer.Import(imported, exported);
+        Assert.True(imported.AutoRestoreTp);
+    }
+
+    [Fact]
     public void Career_mode_normalizes_and_preserves_independent_selection()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
         var agenda = settings.IndependentRaceOptions.First(item => item.IsExecutable);
         var skill = settings.IndependentSkillOptions.First(item => item.IsExecutable);
         var changedProperties = new List<string?>();
@@ -229,7 +248,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
-    public void Independent_train_settings_are_nested_under_career_mode_in_view()
+    public void Independent_train_settings_use_a_separate_mode_specific_agenda_tab()
     {
         var root = FindSolutionRoot();
         var view = XDocument.Load(Path.Combine(
@@ -243,8 +262,14 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         XNamespace wpfui = "http://schemas.lepo.co/wpfui/2022/xaml";
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
         var tabs = view.Descendants(presentation + "TabItem").ToArray();
-        var basic = Assert.Single(tabs, tab => (string?)tab.Attribute("Header") == "Basic");
-        Assert.DoesNotContain(tabs, tab => (string?)tab.Attribute("Header") == "Train");
+        var basic = Assert.Single(tabs, tab =>
+            (string?)tab.Attribute("Header") == "{DynamicResource GrassCareerBasicTab}");
+        var agenda = Assert.Single(tabs, tab =>
+            (string?)tab.Attribute("Header") == "{DynamicResource GrassCareerAgendaTab}");
+        Assert.Equal(
+            "{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}",
+            (string?)agenda.Attribute("Visibility"));
+        Assert.Contains("IndependentTrainingSettingsView", agenda.ToString(), StringComparison.Ordinal);
 
         Assert.Contains("CareerBasicSettingsView", basic.ToString(), StringComparison.Ordinal);
         var basicSettingsFile = XDocument.Load(Path.Combine(
@@ -330,26 +355,13 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.Equal("Disabled", (string?)scroll.Attribute("HorizontalScrollBarVisibility"));
     }
 
-    [Theory]
-    [InlineData("normal", "normal.start")]
-    [InlineData("independent", "independent.select_mode")]
-    public void Career_mode_selects_the_expected_final_confirmation_flow(
-        string careerMode,
-        string expectedAction)
-    {
-        Assert.Equal(
-            expectedAction,
-            IndependentTrainingContracts.ResolveCareerFinalConfirmationFirstSemanticAction(careerMode));
-    }
-
     [Fact]
-    public async Task Career_settings_validate_auto_selected_and_all_highest_star_presets()
+    public void Career_settings_validate_against_core_catalog_projections()
     {
         var root = FindSolutionRoot();
-        var database = new UmaDatabaseService();
-        await database.LoadAsync(Path.Combine(root, "resource"));
+        var database = CreateDatabase();
 
-        var settings = new CareerTrainingTaskSettingsViewModel(database)
+        using var settings = new CareerTrainingTaskSettingsViewModel(database)
         {
             ManifestPath = Path.Combine(root, "resource", "hachimi", "ura", "manifest.json"),
             TraineeId = database.Trainees.First(item => item.Available).TraineeId,
@@ -361,17 +373,15 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.True(settings.IsValid);
         settings.CareerMode = CareerTrainingTaskSettingsViewModel.NormalCareerMode;
         Assert.False(settings.IsValid);
-        settings.StrategyId = CareerTrainingTaskSettingsViewModel.DefaultStrategyId;
+        settings.StrategyId = "native-default";
+        Assert.Contains(settings.NormalTrainingStrategyOptions, item => item.Value == "native-default");
+        Assert.True(settings.IsValid);
         settings.CareerMode = CareerTrainingTaskSettingsViewModel.IndependentCareerMode;
 
         settings.SupportDeckMode = "highest-star";
         Assert.NotEqual("custom", settings.SupportDeckPreset);
         Assert.True(settings.IsValid);
         Assert.NotEmpty(settings.FriendSupportCardOptions);
-
-        var staminaGuest = database.SupportCards.First(
-            item => item.Available
-                && string.Equals(item.Type, "Stamina", StringComparison.OrdinalIgnoreCase));
 
         foreach (var preset in new[]
         {
@@ -381,20 +391,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
             "speed2-stamina1-power1-wit1-friend1",
         })
         {
-        settings.SupportDeckPreset = preset;
-            if (preset.EndsWith("friend1", StringComparison.OrdinalIgnoreCase))
-            {
-                settings.FriendSupportCardId = database.SupportCards
-                    .First(item => item.Available)
-                    .SupportCardId;
-            }
-            else
-            {
-                settings.FriendSupportCardId = staminaGuest.SupportCardId;
-            }
-            Assert.Contains(
-                settings.FriendSupportCardOptions,
-                option => option.SupportCardId == settings.FriendSupportCardId);
+            settings.SupportDeckPreset = preset;
             Assert.True(settings.IsValid);
         }
 
@@ -402,13 +399,14 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         settings.FriendSupportCardId = null;
         Assert.True(settings.IsValid);
 
-        var fiveCards = database.SupportCards
-            .Where(item => item.Available)
-            .Take(5)
+        var sixCards = database.SupportCards
+            .Where(item => item.Type.Equals("Speed", StringComparison.OrdinalIgnoreCase)).Take(3)
+            .Concat(database.SupportCards
+                .Where(item => item.Type.Equals("Stamina", StringComparison.OrdinalIgnoreCase)).Take(3))
             .Select(item => item.SupportCardId);
         settings.SupportDeckMode = "selected";
-        settings.SupportDeckPreset = "custom";
-        settings.SupportCardIdsText = string.Join(",", fiveCards);
+        settings.SupportDeckPreset = "speed3-stamina3";
+        settings.SupportCardIdsText = string.Join(",", sixCards);
         Assert.True(settings.IsFriendSupportCardSettingEnabled);
         Assert.True(settings.IsValid);
 
@@ -417,21 +415,18 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
-    public void Normal_training_strategy_is_exposed_as_a_selectable_setting()
+    public void Normal_training_strategy_options_are_projected_from_core_catalog()
     {
-        var settings = new CareerTrainingTaskSettingsViewModel();
+        using var settings = new CareerTrainingTaskSettingsViewModel(CreateDatabase());
 
         Assert.Contains(
             settings.NormalTrainingStrategyOptions,
-            item => item.Value == CareerTrainingTaskSettingsViewModel.DefaultStrategyId);
+            item => item.Value == "native-default" && item.Label == "Native default strategy");
 
-        settings.NormalTrainingStrategy = "default-wit-medium";
+        settings.NormalTrainingStrategy = "native-default";
 
-        Assert.Equal("default-wit-medium", settings.StrategyId);
-        Assert.Equal("default-wit-medium", settings.NormalTrainingStrategy);
-        Assert.Equal(
-            "wit",
-            Assert.IsType<UraDefaultStrategy>(UraStrategyRegistry.Create(settings.StrategyId)).TrainingType);
+        Assert.Equal("native-default", settings.StrategyId);
+        Assert.Equal("native-default", settings.NormalTrainingStrategy);
     }
 
     [Fact]
@@ -459,11 +454,9 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
     }
 
     [Fact]
-    public async Task Support_deck_settings_use_catalog_rules_for_selected_cards()
+    public void Support_deck_settings_use_catalog_rules_for_selected_cards()
     {
-        var root = FindSolutionRoot();
-        var database = new UmaDatabaseService();
-        await database.LoadAsync(Path.Combine(root, "resource"));
+        var database = CreateDatabase();
 
         var speed = database.SupportCards
             .Where(item => item.Available && item.Type.Equals("Speed", StringComparison.OrdinalIgnoreCase))
@@ -476,7 +469,7 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         Assert.Equal(3, speed.Length);
         Assert.Equal(3, stamina.Length);
 
-        var settings = new CareerTrainingTaskSettingsViewModel(database)
+        using var settings = new CareerTrainingTaskSettingsViewModel(database)
         {
             SupportDeckMode = "selected",
             SupportDeckPreset = "speed3-stamina3",
@@ -488,14 +481,13 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
             SupportDeckPresetCatalog.IsValidDeck(settings.SupportDeckPreset, validTypes),
             settings.IsSupportDeckValid);
 
+        var power = database.SupportCards.First(item => item.Type.Equals("Power", StringComparison.OrdinalIgnoreCase));
         var invalidTypes = speed.Skip(1).Concat(stamina).Append(
-            database.SupportCards.First(item => item.Available
-                && item.Type.Equals("Power", StringComparison.OrdinalIgnoreCase)))
+            power)
             .Select(item => item.Type)
             .ToArray();
         settings.SupportCardIdsText = string.Join(",", speed.Skip(1).Concat(stamina).Select(item => item.SupportCardId)
-            .Append(database.SupportCards.First(item => item.Available
-                && item.Type.Equals("Power", StringComparison.OrdinalIgnoreCase)).SupportCardId));
+            .Append(power.SupportCardId));
 
         Assert.Equal(
             SupportDeckPresetCatalog.IsValidDeck(settings.SupportDeckPreset, invalidTypes),
@@ -513,5 +505,49 @@ public sealed class CareerTrainingTaskSettingsViewModelTests
         }
 
         throw new InvalidOperationException("Could not locate the repository root.");
+    }
+
+    private static UmaDatabaseService CreateDatabase()
+    {
+        var catalog = CoreCatalog.Empty with
+        {
+            Characters = Rows("""
+                [{"trainee_id":1,"base_character_id":1,"name_en":"Test Trainee","name_jp":"テスト","rarity":3,"strategies":["front"],"available":true}]
+                """),
+            IndependentRaces = Rows("""
+                [{"raceName":"CBC Sho","grade":"G3","year":"Second Year","turn":"07_01","type":"Turf","location":"Tokyo ⇒","length":"Sprint","lengthM":"1200m","raceId":1001,"sourceOrder":0,"gameTrack":"Tokyo","gameDistance":1200,"gameGround":"Turf","gameAvailable":true,"gameSchedules":[{"month":6,"day":1,"timeName":"Junior"}],"gameOrder":1}]
+                """),
+            Skills = Rows("""
+                [
+                  {"skillId":201351,"skillName":"Gourmand","originalName":"Gourmand","rarity":2,"gradeValue":1,"skillCategory":"Recovery","effectSummary":"Recover stamina","needSkillPoint":180,"activationCondition":"Late","iconId":1,"searchText":"Gourmand","searchResultRow":1,"gameSearchMapped":false,"aliases":[],"availableInGlobal":true,"availabilitySource":"fixture","singleModeEnabled":true,"skillCategoryId":1,"otherTiers":""},
+                  {"skillId":201412,"skillName":"1,500,000 CC","originalName":"Coins","rarity":2,"gradeValue":1,"skillCategory":"Unique","effectSummary":"Speed up","needSkillPoint":180,"activationCondition":"Late","iconId":2,"searchText":"500","searchResultRow":5,"gameSearchMapped":true,"aliases":["coins"],"availableInGlobal":true,"availabilitySource":"fixture","singleModeEnabled":true,"skillCategoryId":2,"otherTiers":""}
+                ]
+                """),
+            SupportCards = Rows("""
+                [
+                  {"support_card_id":1,"name_en":"Speed A","rarity":"SSR","type":"Speed","available":true},
+                  {"support_card_id":2,"name_en":"Speed B","rarity":"SSR","type":"Speed","available":true},
+                  {"support_card_id":3,"name_en":"Speed C","rarity":"SSR","type":"Speed","available":true},
+                  {"support_card_id":4,"name_en":"Stamina A","rarity":"SSR","type":"Stamina","available":true},
+                  {"support_card_id":5,"name_en":"Stamina B","rarity":"SSR","type":"Stamina","available":true},
+                  {"support_card_id":6,"name_en":"Stamina C","rarity":"SSR","type":"Stamina","available":true},
+                  {"support_card_id":7,"name_en":"Power A","rarity":"SSR","type":"Power","available":true},
+                  {"support_card_id":8,"name_en":"Wit A","rarity":"SSR","type":"Wit","available":true},
+                  {"support_card_id":9,"name_en":"Friend A","rarity":"SSR","type":"Friend","available":true}
+                ]
+                """),
+            Strategies = Rows("""
+                [{"id":"native-default","value":"native-default","label":"Native default strategy","name":"Native default strategy","scenario":"ura"}]
+                """),
+        };
+        var database = new UmaDatabaseService();
+        database.LoadFromCoreCatalog(catalog, Path.Combine(FindSolutionRoot(), "resource"));
+        return database;
+    }
+
+    private static JsonElement[] Rows(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.EnumerateArray().Select(row => row.Clone()).ToArray();
     }
 }

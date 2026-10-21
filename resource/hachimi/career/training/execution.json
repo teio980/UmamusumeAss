@@ -479,31 +479,6 @@
       "maxTimes": 0,
       "required": true,
       "success": false
-    },
-    "training_event_event_advance": {
-      "algorithm": "MatchTemplate",
-      "action": "ClickSelf",
-      "template": "templates/training_event_event_advance.png",
-      "templThreshold": 0.78,
-      "roi": [
-        225,
-        1510,
-        200,
-        70
-      ],
-      "preDelay": 0,
-      "postDelay": 650,
-      "waitMs": 0,
-      "timeoutMs": 12000,
-      "pollIntervalMs": 250,
-      "next": [],
-      "onErrorNext": [],
-      "exceededNext": [],
-      "sub": [],
-      "monitorTasks": [],
-      "maxTimes": 0,
-      "required": true,
-      "success": false
     }
   }
 }

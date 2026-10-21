@@ -23,6 +23,7 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly IAdbRuntime? _adbRuntime;
     private readonly IActivityRegistry? _activityRegistry;
+    private readonly IGrassTaskExecutionService _taskExecutionService;
     private GrassTaskItemViewModel? _selectedTask;
     private GrassTaskItemViewModel? _runningTask;
     private string? _runningTaskLogId;
@@ -69,7 +70,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         ISettingsService? settingsService,
         SettingsViewModel? settingsViewModel,
         IAdbRuntime? adbRuntime = null,
-        IActivityRegistry? activityRegistry = null)
+        IActivityRegistry? activityRegistry = null,
+        IGrassTaskExecutionService? taskExecutionService = null)
     {
         ArgumentNullException.ThrowIfNull(logViewModel);
         _logViewModel = logViewModel;
@@ -82,6 +84,8 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _settingsViewModel = settingsViewModel;
         _adbRuntime = adbRuntime;
         _activityRegistry = activityRegistry;
+        _taskExecutionService = taskExecutionService
+            ?? new GrassTaskExecutionService();
         // Settings owns the global Hachimi editor when the application is
         // running. Reuse that instance so a migration and subsequent edits
         // are reflected on both pages immediately. The fallback keeps the
@@ -392,19 +396,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _stopRequested = false;
         IsQueueOperationInProgress = true;
         _logViewModel.Clear();
-        AddScriptLog(
-            Localize("GrassScriptQueue", "Task queue"),
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassScriptPreparing", "Preparing {0} task(s)"),
-                queuedTasks.Count));
-        HachimiTaskLog.AddQueueStep(
-            Localize("GrassTaskLogQueue", "Queue"),
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassScriptPreparing", "Preparing {0} task(s)"),
-                queuedTasks.Count),
-            HachimiTaskLogEventKind.Info);
         foreach (var task in queuedTasks)
         {
             task.SetExecutionProgress(null);
@@ -415,12 +406,14 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
 
         var queueSucceeded = false;
         var queueOutcomeRecorded = false;
+        IReadOnlyList<GrassTaskRunRequest>? requests = null;
 
         try
         {
 
 
 
+            requests = _taskExecutionService.Capture(queuedTasks.Select(task => task.Module).ToArray());
             var currentConnection = _connectionState?.LastVerifiedConnection;
             var cachedConnectionReady = currentConnection is not null
                 && await IsCachedConnectionReadyAsync(currentConnection)
@@ -536,106 +529,32 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 return;
             }
 
-            for (var taskIndex = 0; taskIndex < queuedTasks.Count; taskIndex++)
-            {
-                var task = queuedTasks[taskIndex];
-                var taskLogId = GetTaskLogId(taskIndex, task);
-                operationCts.Token.ThrowIfCancellationRequested();
-
-                _runningTask = task;
-                _runningTaskLogId = taskLogId;
-                IsQueueRunning = true;
-                task.Status = Localize("GrassTaskRunning", "Running");
-                HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Running);
-                AddScriptLog(
-                    task.Name,
-                    Localize("GrassScriptTaskRunning", "Running task"));
-
-                try
-                {
-                    var taskContext = CreateContext(
-                        HachimiTaskLog.ForTask(taskLogId),
-                        progress =>
-                        {
-                            task.SetExecutionProgress(progress);
-                            HachimiTaskLog.SetTaskProgress(taskLogId, progress);
-                        });
-                    if (!task.Module.CanExecute(taskContext))
+            var queueResult = await _taskExecutionService.RunAsync(
+                requests,
+                index => CreateContext(
+                    HachimiTaskLog.ForTask(GetTaskLogId(index, queuedTasks[index])),
+                    progress =>
                     {
-                        task.Status = Localize("GrassTaskError", "Error");
-                        var reason = task.Module is IGrassTaskPreflightDiagnostics diagnostics
-                            ? diagnostics.GetCannotExecuteReason(taskContext)
-                            : null;
-                        var details = Localize(
-                            "GrassScriptTaskCannotExecute",
-                            "Task cannot execute with the current configuration");
-                        if (!string.IsNullOrWhiteSpace(reason))
-                            details += $": {reason}";
-                        AddScriptLog(
-                            task.Name,
-                            details,
-                            LogEntryKind.Failure);
-                        HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Failed);
-                        HachimiTaskLog.AddTaskStep(
-                            taskLogId,
-                            Localize("GrassTaskLogValidation", "Validation"),
-                            details,
-                            HachimiTaskLogEventKind.Failure);
-                        continue;
-                    }
-
-                    var result = await task.Module.ExecuteAsync(
-                        taskContext,
-                        operationCts.Token).ConfigureAwait(true);
-                    operationCts.Token.ThrowIfCancellationRequested();
-                    task.Status = result.Succeeded
-                        ? Localize("GrassTaskCompleted", "Completed")
-                        : Localize("GrassTaskError", "Error");
-                    HachimiTaskLog.SetTaskStatus(
-                        taskLogId,
-                        result.Succeeded
-                            ? HachimiTaskLogStatus.Completed
-                            : HachimiTaskLogStatus.Failed);
-                    HachimiTaskLog.AddTaskStep(
-                        taskLogId,
-                        Localize("GrassTaskLogResult", "Result"),
-                        HachimiTaskLogSemantics.ToUserFacingFailure(result.Message),
-                        result.Succeeded
-                            ? HachimiTaskLogEventKind.Success
-                            : HachimiTaskLogEventKind.Failure);
-                    AddScriptLog(
-                        task.Name,
-                        result.Message,
-                        result.Succeeded ? LogEntryKind.Success : LogEntryKind.Failure);
-
-                    if (!result.Succeeded)
-                        continue;
-
-                    AddScriptLog(
-                        task.Name,
-                        Localize("GrassScriptTaskCompleted", "Task completed"),
-                        LogEntryKind.Success);
-                }
-                catch (OperationCanceledException) when (operationCts.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    task.Status = Localize("GrassTaskError", "Error");
-                    HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Failed);
-                    HachimiTaskLog.AddTaskStep(
-                        taskLogId,
-                        Localize("GrassTaskLogResult", "Result"),
-                        HachimiTaskLogSemantics.ToUserFacingFailure(exception.Message),
-                        HachimiTaskLogEventKind.Failure);
-                    AddScriptLog(task.Name, exception.Message, LogEntryKind.Failure);
-                }
+                        queuedTasks[index].SetExecutionProgress(progress);
+                        HachimiTaskLog.SetTaskProgress(GetTaskLogId(index, queuedTasks[index]), progress);
+                    }),
+                update => ApplyQueueEvent(queuedTasks, update),
+                operationCts.Token).ConfigureAwait(true);
+            queueSucceeded = queueResult.Succeeded;
+            if (queueResult.StopReason != GrassTaskQueueStopReason.None)
+            {
+                var canceled = queueResult.StopReason == GrassTaskQueueStopReason.Canceled;
+                HachimiTaskLog.SetRunStatus(canceled
+                    ? Localize("GrassTaskLogQueueCanceled", "Queue canceled")
+                    : Localize("GrassTaskLogQueueFailed", "Queue failed"));
+                queueOutcomeRecorded = true;
+                AddScriptLog(
+                    Localize("GrassScriptQueue", "Task queue"),
+                    canceled
+                        ? Localize("GrassScriptCanceled", "Task queue canceled")
+                        : Localize("GrassScriptConnectionFailedDetails", "The device disconnected during the task queue"),
+                    LogEntryKind.Failure);
             }
-
-            queueSucceeded = queuedTasks.Count > 0
-                && queuedTasks.All(task =>
-                    task.Status == Localize("GrassTaskCompleted", "Completed"));
         }
         catch (OperationCanceledException)
         {
@@ -744,6 +663,60 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
                 operationCts.Dispose();
             }
             RaiseQueueCommandStateChanged();
+        }
+    }
+
+    private void ApplyQueueEvent(List<GrassTaskItemViewModel> tasks, GrassTaskQueueEvent update)
+    {
+        var task = tasks[update.TaskIndex];
+        var taskLogId = GetTaskLogId(update.TaskIndex, task);
+        if (update.Progress is not null)
+        {
+            task.SetExecutionProgress(update.Progress);
+            HachimiTaskLog.SetTaskProgress(taskLogId, update.Progress);
+        }
+        switch (update.Kind)
+        {
+            case GrassTaskQueueEventKind.Started:
+                _runningTask = task;
+                _runningTaskLogId = taskLogId;
+                IsQueueRunning = true;
+                task.Status = Localize("GrassTaskRunning", "Running");
+                HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Running);
+                AddScriptLog(task.Name, Localize("GrassScriptTaskRunning", "Running task"));
+                break;
+            case GrassTaskQueueEventKind.Completed:
+            case GrassTaskQueueEventKind.Failed:
+                var completed = update.Kind == GrassTaskQueueEventKind.Completed;
+                task.Status = completed
+                    ? Localize("GrassTaskCompleted", "Completed") : Localize("GrassTaskError", "Error");
+                HachimiTaskLog.SetTaskStatus(taskLogId,
+                    completed ? HachimiTaskLogStatus.Completed : HachimiTaskLogStatus.Failed);
+                var message = update.Result?.Message ?? update.Message ?? string.Empty;
+                HachimiTaskLog.AddTaskStep(taskLogId,
+                    Localize("GrassTaskLogResult", "Result"),
+                    HachimiTaskLogSemantics.ToUserFacingFailure(message),
+                    completed ? HachimiTaskLogEventKind.Success : HachimiTaskLogEventKind.Failure);
+                AddScriptLog(task.Name, message, completed ? LogEntryKind.Success : LogEntryKind.Failure);
+                if (completed)
+                    AddScriptLog(task.Name, Localize("GrassScriptTaskCompleted", "Task completed"), LogEntryKind.Success);
+                break;
+            case GrassTaskQueueEventKind.Canceled:
+                task.Status = Localize("GrassTaskIdle", "Idle");
+                HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Canceled);
+                HachimiTaskLog.AddTaskStep(taskLogId,
+                    Localize("GrassTaskLogPhase", "Phase"),
+                    Localize("GrassTaskLogCanceledMessage", "Task canceled"), HachimiTaskLogEventKind.Warning);
+                break;
+            case GrassTaskQueueEventKind.Skipped:
+                HachimiTaskLog.SetTaskStatus(taskLogId, HachimiTaskLogStatus.Skipped);
+                HachimiTaskLog.AddTaskStep(taskLogId,
+                    Localize("GrassTaskLogQueue", "Queue"),
+                    update.Message == "Canceled"
+                        ? Localize("GrassTaskLogSkippedAfterCancel", "Skipped because the queue was canceled")
+                        : Localize("GrassTaskLogSkippedAfterDisconnect", "Skipped because the device disconnected"),
+                    HachimiTaskLogEventKind.Warning);
+                break;
         }
     }
 

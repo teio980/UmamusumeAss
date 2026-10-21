@@ -2,9 +2,20 @@
   "version": 8,
   "configurePresets": [
     {
+      "name":          "msvc-debug",
+      "displayName":   "MSVC x64 Debug",
+      "description":   "Debug build using Visual Studio 17 2022 and MSVC.",
+      "generator":     "Visual Studio 17 2022",
+      "architecture":  "x64",
+      "binaryDir":     "${sourceDir}/build/msvc-debug",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
       "name":          "mingw-debug",
       "displayName":   "MinGW x64 Debug",
-      "description":   "Debug build using MinGW-w64 (UCRT64) — the only locally-verified preset",
+      "description":   "Optional Debug build using MinGW-w64 (UCRT64); the MSVC Debug preset is the verified acceptance path.",
       "generator":     "MinGW Makefiles",
       "binaryDir":     "${sourceDir}/build/mingw-debug",
       "environment": {
@@ -26,9 +37,38 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name":          "osx-arm64",
+      "displayName":   "macOS ARM64 Release",
+      "description":   "macOS ARM64 Apple Silicon build using Ninja / Make.",
+      "generator":     "Ninja",
+      "binaryDir":     "${sourceDir}/build/osx-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name":          "osx-arm64-debug",
+      "displayName":   "macOS ARM64 Debug",
+      "description":   "macOS ARM64 Apple Silicon Debug build.",
+      "generator":     "Ninja",
+      "binaryDir":     "${sourceDir}/build/osx-arm64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
+    {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug"
+    },
     {
       "name": "mingw-debug",
       "configurePreset": "mingw-debug",
@@ -40,9 +80,25 @@
       "name": "release",
       "configurePreset": "release",
       "configuration": "Release"
+    },
+    {
+      "name": "osx-arm64",
+      "configurePreset": "osx-arm64"
+    },
+    {
+      "name": "osx-arm64-debug",
+      "configurePreset": "osx-arm64-debug"
     }
   ],
   "testPresets": [
+    {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
     {
       "name": "mingw-debug",
       "configurePreset": "mingw-debug",
@@ -57,6 +113,20 @@
       "name": "release",
       "configurePreset": "release",
       "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "osx-arm64",
+      "configurePreset": "osx-arm64",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "osx-arm64-debug",
+      "configurePreset": "osx-arm64-debug",
       "output": {
         "outputOnFailure": true
       }

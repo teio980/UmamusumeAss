@@ -1,0 +1,742 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+             xmlns:svc="using:Umamusume.Avalonia.Services"
+             xmlns:conv="using:Umamusume.Avalonia.Converters"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Umamusume.Avalonia.Views.Pages.TaskSettingsEditorView"
+             x:Name="Root"
+             x:DataType="vm:TaskSettingsViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="10" Margin="4,0,4,20">
+
+            <!-- 2. Daily Race Task Editor -->
+            <ui:SettingsExpander IsVisible="{Binding IsDailyRace}"
+                                 Header="{DynamicResource Ui_cd545839e297}" IsExpanded="True">
+                <ui:SettingsExpanderItem Content="{DynamicResource Ui_d7c9bb13b2fc}">
+                    <ui:SettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding DailyRaceModeOptions}"
+                                  SelectedItem="{Binding SelectedDailyRaceModeOption}" Width="240">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+                <ui:SettingsExpanderItem Content="{DynamicResource Ui_205aff990bc5}">
+                    <ui:SettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding DailyRaceDifficultyOptions}"
+                                  SelectedItem="{Binding SelectedDailyRaceDifficultyOption}" Width="240">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+                <ui:SettingsExpanderItem Content="{DynamicResource Ui_52192f7cd970}"
+                                         Description="{DynamicResource GrassDailyRaceCountHint}">
+                    <ui:SettingsExpanderItem.Footer>
+                        <TextBox Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+
+                <!-- Trainee Picker for Daily Race -->
+                <ui:SettingsExpander Header="{DynamicResource GrassCareerTraineeLabel}"
+                                     Description="{DynamicResource GrassDailyRaceTraineeHint}" IsExpanded="True">
+                    <StackPanel Spacing="8" Margin="16,8">
+
+                            <!-- Selected Trainee Preview -->
+                            <Border IsVisible="{Binding SelectedTraineeItem, Converter={x:Static conv:NotNullToBoolConverter.Instance}}"
+                                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1" CornerRadius="6" Padding="8">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Column="0" Width="44" Height="44" CornerRadius="4" ClipToBounds="True" Background="#20808080">
+                                        <Image Source="{Binding SelectedTraineeItem.Thumbnail}" Stretch="UniformToFill" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SelectedTraineeItem.DisplayName}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{Binding SelectedTraineeItem.Subtitle}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" VerticalAlignment="Center" Padding="8,4"
+                                            Command="{Binding ClearTraineeCommand}" Content="{DynamicResource GrassRemove}" />
+                                </Grid>
+                            </Border>
+
+                            <TextBox Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="{DynamicResource Ui_3ff5a78c5dc2}" />
+
+                            <ListBox ItemsSource="{Binding RichFilteredTrainees}"
+                                     SelectedItem="{Binding SelectedTraineeItem, Mode=TwoWay}"
+                                     MaxHeight="150" BorderThickness="1"
+                                     CornerRadius="6" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="svc:TraineeCatalogItem">
+                                        <Grid ColumnDefinitions="Auto,*" Margin="2">
+                                            <Border Grid.Column="0" Width="30" Height="30" CornerRadius="3" ClipToBounds="True" Background="#20808080">
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Medium" />
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                    </StackPanel>
+                </ui:SettingsExpander>
+            </ui:SettingsExpander>
+
+            <!-- 3. Team Race Task Editor -->
+            <ui:SettingsExpander IsVisible="{Binding IsTeamRace}"
+                                 Header="{DynamicResource Ui_b8e69f24855e}" IsExpanded="True">
+                <ui:SettingsExpanderItem Content="{DynamicResource Ui_34490cdf739b}"
+                                         Description="{DynamicResource GrassTeamRaceCountHint}">
+                    <ui:SettingsExpanderItem.Footer>
+                        <TextBox Text="{Binding RaceCountText, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+                <ui:SettingsExpanderItem Content="{DynamicResource Ui_ebc8826d42fb}">
+                    <ui:SettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding StopWhenTicketsEmpty}"
+                                      OnContent="{DynamicResource Ui_ebc8826d42fb}"
+                                      OffContent="{DynamicResource Ui_a18fc7fc4837}" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+            </ui:SettingsExpander>
+
+            <!-- 4. Mail Collection Task Editor -->
+            <StackPanel IsVisible="{Binding IsMailCollection}" Spacing="10">
+                <ui:SettingsExpander IsVisible="{Binding IsMailCollection}"
+                                     Header="{DynamicResource GrassMailCollectionSettingsTitle}"
+                                     Description="{DynamicResource GrassMailCollectionSettingsHint}" IsExpanded="True" />
+            </StackPanel>
+
+            <!-- 5. Career Training Task Editor (7 FluentAvalonia Tabs) -->
+            <ui:SettingsExpander IsVisible="{Binding IsCareerTraining}"
+                                 Header="{DynamicResource Ui_5b07af8d3781}" IsExpanded="True">
+                <StackPanel Spacing="8">
+                    <!-- 7-Tab Navigation -->
+                    <TabControl>
+
+                        <!-- Tab 1: Basic Settings (基础设置) -->
+                        <TabItem Header="{DynamicResource GrassCareerBasicTab}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+
+                                <!-- Career Mode Card -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{DynamicResource GrassCareerModeLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <ComboBox ItemsSource="{Binding CareerModeOptions}"
+                                                  SelectedItem="{Binding SelectedCareerModeOption}"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Trainee Picker Card -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{DynamicResource GrassCareerTraineeLabel}" FontWeight="SemiBold" FontSize="14" />
+
+                                        <!-- Selected Trainee Info Banner -->
+                                        <Border IsVisible="{Binding SelectedTraineeItem, Converter={x:Static conv:NotNullToBoolConverter.Instance}}"
+                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1" CornerRadius="6" Padding="10">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <Border Grid.Column="0" Width="52" Height="52" CornerRadius="6" ClipToBounds="True" Background="#20808080">
+                                                    <Image Source="{Binding SelectedTraineeItem.Thumbnail}" Stretch="UniformToFill" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding SelectedTraineeItem.DisplayName}" FontWeight="SemiBold" FontSize="14" />
+                                                    <TextBlock Text="{Binding SelectedTraineeItem.Subtitle}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBox Text="{Binding TraineeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="{DynamicResource Ui_3ff5a78c5dc2}" />
+
+                                        <ListBox ItemsSource="{Binding RichFilteredTrainees}"
+                                                 SelectedItem="{Binding SelectedTraineeItem, Mode=TwoWay}"
+                                                 Height="170" BorderThickness="1"
+                                                 CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="svc:TraineeCatalogItem">
+                                                    <Grid ColumnDefinitions="Auto,*" Margin="2">
+                                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="4" ClipToBounds="True" Background="#20808080">
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Medium" />
+                                                            <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Execution & Run Options Card -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{DynamicResource GrassCareerRunCountLabel}" FontWeight="SemiBold" FontSize="13" />
+                                            <TextBox Width="140" HorizontalAlignment="Left"
+                                                     Text="{Binding RunCountText, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <ToggleSwitch IsChecked="{Binding DeleteExistingCareerData}"
+                                                      OnContent="{DynamicResource GrassCareerDeleteExistingLabel}"
+                                                      OffContent="{DynamicResource GrassCareerDeleteExistingLabel}" />
+                                        <ToggleSwitch IsChecked="{Binding AutoRestoreTp}"
+                                                      OnContent="{DynamicResource GrassCareerRestoreTpLabel}"
+                                                      OffContent="{DynamicResource GrassCareerRestoreTpLabel}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 2: Legacy Settings (继承因子) -->
+                        <TabItem Header="{DynamicResource GrassCareerLegacyTab}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{DynamicResource GrassCareerLegacyModeLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <ComboBox ItemsSource="{Binding LegacySelectionModeOptions}"
+                                                  SelectedItem="{Binding SelectedLegacySelectionModeOption}"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="20" Margin="0,4,0,0">
+                                            <ToggleSwitch IsChecked="{Binding UseCachedLegacy}"
+                                                          OnContent="{DynamicResource GrassCareerUseCachedLegacyLabel}"
+                                                          OffContent="{DynamicResource GrassCareerUseCachedLegacyLabel}" />
+                                            <ToggleSwitch IsChecked="{Binding UseLegacyGuest}"
+                                                          OnContent="{DynamicResource GrassCareerUseLegacyGuestLabel}"
+                                                          OffContent="{DynamicResource GrassCareerUseLegacyGuestLabel}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Attribute Sparks (5 Dimensions) -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14"
+                                        IsEnabled="{Binding IsManualLegacySelection}">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{DynamicResource GrassCareerAttributeSparksLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <WrapPanel Orientation="Horizontal">
+                                            <CheckBox Content="{DynamicResource Ui_f2fdffbb9ed5}" IsChecked="{Binding SparkSpeed}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_e1b1cb94d76d}" IsChecked="{Binding SparkStamina}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_043b41ab7d67}" IsChecked="{Binding SparkPower}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_3d9442ff4787}" IsChecked="{Binding SparkGuts}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_5c154ec00a60}" IsChecked="{Binding SparkWit}" Margin="0,0,16,8" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Aptitude Sparks (10 Aptitudes) -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14"
+                                        IsEnabled="{Binding IsManualLegacySelection}">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{DynamicResource GrassCareerAptitudeSparksLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <WrapPanel Orientation="Horizontal">
+                                            <CheckBox Content="{DynamicResource GrassSparkTurf}" IsChecked="{Binding SparkTurf}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkDirt}" IsChecked="{Binding SparkDirt}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkSprint}" IsChecked="{Binding SparkShort}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkMile}" IsChecked="{Binding SparkMile}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkMedium}" IsChecked="{Binding SparkMedium}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkLong}" IsChecked="{Binding SparkLong}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkRunner}" IsChecked="{Binding SparkRunner}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkLeader}" IsChecked="{Binding SparkLeader}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkBetweener}" IsChecked="{Binding SparkBetweener}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkChaser}" IsChecked="{Binding SparkChaser}" Margin="0,0,16,8" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 3: Support Deck Settings (支援卡组) -->
+                        <TabItem Header="{DynamicResource GrassCareerCardsTab}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{DynamicResource GrassCareerSupportDeckModeLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <ComboBox ItemsSource="{Binding SupportDeckModeOptions}"
+                                                  SelectedItem="{Binding SelectedSupportDeckModeOption}"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <StackPanel IsVisible="{Binding IsSupportPresetMode}" Spacing="6" Margin="0,4,0,0">
+                                            <TextBlock Text="{DynamicResource GrassCareerSupportDeckPresetLabel}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <ComboBox ItemsSource="{Binding SupportDeckPresets}"
+                                                      SelectedItem="{Binding SelectedSupportDeckPreset}"
+                                                      HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                        <TextBlock Text="{Binding Label}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Friend Support Card Section -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14"
+                                        IsEnabled="{Binding IsSupportPresetMode}">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{DynamicResource GrassCareerFriendCardLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <TextBlock Text="{Binding SelectedFriendSupportCardCountText}" FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                        <Grid ColumnDefinitions="*,130">
+                                            <TextBox Grid.Column="0" Text="{Binding FriendCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Watermark="{DynamicResource GrassCareerSearchCardsPlaceholder}" Margin="0,0,8,0" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding SupportCardTypeFilters}"
+                                                      SelectedItem="{Binding FriendCardTypeFilter}" HorizontalAlignment="Stretch" />
+                                        </Grid>
+
+                                        <ListBox ItemsSource="{Binding RichFilteredFriendCards}"
+                                                 Height="150" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:FriendSupportCardOptionViewModel">
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                                                        <Grid ColumnDefinitions="Auto,*" Margin="2">
+                                                            <Border Grid.Column="0" Width="30" Height="38" CornerRadius="3" ClipToBounds="True" Background="#20808080">
+                                                                <Image Source="{Binding Card.Thumbnail}" Stretch="UniformToFill" />
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="Medium" />
+                                                                <TextBlock Text="{Binding Type}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Manual Selected Support Cards Section -->
+                                <Border IsVisible="{Binding IsManualSupportDeck}"
+                                        Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{DynamicResource GrassCareerManualSupportCardsLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <TextBlock Text="{Binding SelectedSupportCardCountText}" FontWeight="Medium" FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                        <!-- Selected Cards Flow -->
+                                        <ItemsControl ItemsSource="{Binding SelectedSupportCards}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="svc:SupportCardCatalogItem">
+                                                    <Border Width="124" Margin="0,0,8,8" Padding="8"
+                                                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                            BorderThickness="1" CornerRadius="6">
+                                                        <StackPanel Spacing="4">
+                                                            <Border Width="80" Height="100" CornerRadius="4" ClipToBounds="True"
+                                                                    HorizontalAlignment="Center" Background="#20808080">
+                                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                            </Border>
+                                                            <TextBlock Text="{Binding NameEn}" FontWeight="Medium" FontSize="11"
+                                                                       TextTrimming="CharacterEllipsis" MaxHeight="30" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding DisplayType}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                            <Button Content="{DynamicResource GrassRemove}" HorizontalAlignment="Stretch" Padding="0,3"
+                                                                    FontSize="11"
+                                                                    Command="{Binding #Root.((vm:TaskSettingsViewModel)DataContext).RemoveSupportCardCommand}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Grid ColumnDefinitions="*,130">
+                                            <TextBox Grid.Column="0" Text="{Binding SupportCardSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Watermark="{DynamicResource GrassCareerSearchCardsPlaceholder}" Margin="0,0,8,0" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding SupportCardTypeFilters}"
+                                                      SelectedItem="{Binding ManualSupportCardTypeFilter}" HorizontalAlignment="Stretch" />
+                                        </Grid>
+
+                                        <ListBox ItemsSource="{Binding RichFilteredSupportCards}"
+                                                 Height="170" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="svc:SupportCardCatalogItem">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="2">
+                                                        <Border Grid.Column="0" Width="30" Height="38" CornerRadius="3" ClipToBounds="True" Background="#20808080">
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Medium" />
+                                                            <TextBlock Text="{Binding DisplayType}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="2" Content="{DynamicResource Ui_94191ce210d3}" VerticalAlignment="Center" Padding="8,4"
+                                                                Command="{Binding #Root.((vm:TaskSettingsViewModel)DataContext).AddSupportCardCommand}"
+                                                                CommandParameter="{Binding}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 4: Training Strategy (训练策略) -->
+                        <TabItem Header="{DynamicResource GrassCareerTrainingTab}"
+                                 IsVisible="{Binding IsNormalCareer}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{DynamicResource GrassNormalTrainingStrategyLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <ComboBox ItemsSource="{Binding NormalTrainingStrategyOptions}"
+                                                  SelectedItem="{Binding SelectedNormalTrainingStrategyOption}"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <!-- Custom Training Ratio Controls -->
+                                        <Border IsVisible="{Binding IsCustomNormalTrainingStrategy}"
+                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,6,0,0">
+                                            <StackPanel Spacing="10">
+                                                <TextBlock Text="{DynamicResource GrassNormalTrainingRatioLabel}" FontWeight="SemiBold" FontSize="13" />
+
+                                                <Grid ColumnDefinitions="80,100,70" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                                    <!-- Speed -->
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Ui_f2fdffbb9ed5}" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBox Grid.Row="0" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingSpeedText, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding SpeedPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
+
+                                                    <!-- Stamina -->
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Ui_e1b1cb94d76d}" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingStaminaText, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding StaminaPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
+
+                                                    <!-- Power -->
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Ui_043b41ab7d67}" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBox Grid.Row="2" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingPowerText, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding PowerPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
+
+                                                    <!-- Guts -->
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Ui_3d9442ff4787}" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingGutsText, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding GutsPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
+
+                                                    <!-- Wit -->
+                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Ui_5c154ec00a60}" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBox Grid.Row="4" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingWitText, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding WitPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
+                                                </Grid>
+
+                                                <StackPanel Spacing="3" Margin="0,6,0,0">
+                                                    <TextBlock Text="{DynamicResource GrassNormalTrainingCycleLabel}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                    <TextBlock Text="{Binding RatioCyclePreview}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                                </StackPanel>
+
+                                                <TextBlock IsVisible="{Binding IsRatioInvalid}"
+                                                           Text="{DynamicResource GrassNormalTrainingRatioInvalid}"
+                                                           Foreground="#D13438" FontSize="12" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <StackPanel Spacing="6" Margin="0,4,0,0">
+                                            <TextBlock Text="{DynamicResource GrassNormalEventHandlingLabel}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <ComboBox ItemsSource="{Binding EventHandlingModes}"
+                                                      SelectedItem="{Binding NormalEventHandling}"
+                                                      HorizontalAlignment="Stretch" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 5: Race Settings (比赛设置) -->
+                        <TabItem Header="{DynamicResource GrassCareerRacesTab}"
+                                 IsVisible="{Binding IsNormalCareer}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{DynamicResource GrassNormalLineupStrategyLabel}" FontWeight="SemiBold" FontSize="14" />
+                                        <ComboBox ItemsSource="{Binding LineupStrategyOptions}"
+                                                  SelectedItem="{Binding SelectedNormalLineupStrategyOption}"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <ToggleSwitch IsChecked="{Binding RetryFailedRaceWithAlarmClock}"
+                                                      OnContent="{DynamicResource GrassNormalRaceAlarmRetryLabel}"
+                                                      OffContent="{DynamicResource GrassNormalRaceAlarmRetryLabel}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 6: Skills Settings (技能学习) -->
+                        <TabItem Header="{DynamicResource GrassCareerSkillsTab}"
+                                 IsVisible="{Binding IsNormalCareer}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{DynamicResource GrassNormalCareerSkillsLabel}" FontWeight="SemiBold" FontSize="14" />
+
+                                        <TextBox Text="{Binding NormalSkillSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="{DynamicResource GrassNormalCareerSkillSearchPlaceholder}" />
+
+                                        <ListBox ItemsSource="{Binding RichFilteredNormalSkills}"
+                                                 SelectedItem="{Binding SelectedAvailableNormalSkill, Mode=TwoWay}"
+                                                 Height="170" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="svc:SkillCatalogItem">
+                                                    <TextBlock Text="{Binding IndependentDisplayName}"
+                                                               FontSize="12" Margin="2" TextWrapping="Wrap" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                        <Button Content="{DynamicResource GrassNormalCareerSkillAddTarget}"
+                                                Command="{Binding AddSelectedNormalSkillCommand}"
+                                                HorizontalAlignment="Right" Padding="12,5" />
+
+                                        <TextBlock Text="{Binding TargetNormalSkillCountText}" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,0" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <ListBox Grid.Column="0" ItemsSource="{Binding TargetNormalSkills}"
+                                                     SelectedItem="{Binding SelectedTargetNormalSkill, Mode=TwoWay}"
+                                                     Height="150" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="svc:SkillCatalogItem">
+                                                        <TextBlock Text="{Binding IndependentDisplayName}" FontSize="12" Margin="2" />
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="6" VerticalAlignment="Center">
+                                                <Button Content="{DynamicResource GrassMoveUp}" Command="{Binding MoveNormalSkillUpCommand}" Padding="10,4" />
+                                                <Button Content="{DynamicResource GrassMoveDown}" Command="{Binding MoveNormalSkillDownCommand}" Padding="10,4" />
+                                                <Button Content="{DynamicResource GrassRemove}" Command="{Binding RemoveSelectedNormalSkillCommand}" Padding="10,4" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                        <!-- Tab 7: Independent Training Agenda & Skills (独立日程) -->
+                        <TabItem Header="{DynamicResource GrassCareerAgendaTab}"
+                                 IsVisible="{Binding IsIndependentCareer}">
+                            <StackPanel Spacing="16" Margin="4,12,4,4">
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <Grid ColumnDefinitions="*,*">
+                                        <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,6,0">
+                                            <TextBlock Text="{DynamicResource GrassIndependentLineupStrategyLabel}" FontWeight="Medium" FontSize="12" />
+                                            <ComboBox ItemsSource="{Binding LineupStrategyOptions}"
+                                                      SelectedItem="{Binding SelectedIndependentLineupStrategyOption}"
+                                                      HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                        <TextBlock Text="{Binding Label}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6" Margin="6,0,0,0">
+                                            <TextBlock Text="{DynamicResource GrassIndependentTrainingFocusLabel}" FontWeight="Medium" FontSize="12" />
+                                            <ComboBox ItemsSource="{Binding TrainingFocusOptions}"
+                                                      SelectedItem="{Binding SelectedIndependentTrainingFocusOption}"
+                                                      HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:TaskSettingOption">
+                                                        <TextBlock Text="{Binding Label}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Agenda Races Multi-filter Selection -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{Binding SelectedAgendaRaceCountText}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="{DynamicResource GrassReset}"
+                                                    Command="{Binding ResetAgendaCommand}" Padding="10,4" />
+                                        </Grid>
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBox Text="{Binding AgendaSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Watermark="{DynamicResource GrassIndependentAgendaSearchPlaceholder}" />
+                                            <Button Grid.Column="1" Content="{DynamicResource GrassIndependentAgendaFilterButton}"
+                                                    Command="{Binding ToggleAgendaFilterCommand}" Padding="10,4" />
+                                        </Grid>
+
+                                        <Border IsVisible="{Binding IsAgendaFilterOpen}"
+                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1" CornerRadius="6" Padding="10">
+                                            <StackPanel Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="{DynamicResource GrassIndependentAgendaFilterTitle}"
+                                                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="1" Content="{DynamicResource GrassIndependentAgendaFilterClear}"
+                                                            Command="{Binding ResetAgendaFiltersCommand}" Padding="8,3" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="3" Margin="0,0,6,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaYearLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaYearFilters}" SelectedItem="{Binding AgendaYearFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="3" Margin="6,0,0,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaMonthLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaMonthFilters}" SelectedItem="{Binding AgendaMonthFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="3" Margin="0,0,6,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaTurnLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaTurnFilters}" SelectedItem="{Binding AgendaTurnFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="3" Margin="6,0,0,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaDayLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaDayFilters}" SelectedItem="{Binding AgendaDayFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="3" Margin="0,0,6,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaTimeLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaTimeFilters}" SelectedItem="{Binding AgendaTimeFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="3" Margin="6,0,0,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaHalfLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaHalfFilters}" SelectedItem="{Binding AgendaHalfFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="3" Margin="0,0,6,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaSurfaceLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaSurfaceFilters}" SelectedItem="{Binding AgendaSurfaceFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="3" Margin="6,0,0,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaDistanceLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaDistanceFilters}" SelectedItem="{Binding AgendaDistanceFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="3" Margin="0,0,6,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaTrackLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaTrackFilters}" SelectedItem="{Binding AgendaTrackFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="3" Margin="6,0,0,6">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaDirectionLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaDirectionFilters}" SelectedItem="{Binding AgendaDirectionFilter}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="5" Grid.Column="0" Spacing="3" Margin="0,0,6,0">
+                                                        <TextBlock Text="{DynamicResource GrassIndependentAgendaGradeLabel}" FontSize="11" />
+                                                        <ComboBox ItemsSource="{Binding AgendaGradeFilters}" SelectedItem="{Binding AgendaGradeFilter}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <ListBox ItemsSource="{Binding RichFilteredAgendaRaces}"
+                                                 Height="230" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:IndependentAgendaRaceItemViewModel">
+                                                    <CheckBox IsEnabled="{Binding IsExecutable}"
+                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="2">
+                                                        <Grid ColumnDefinitions="74,*">
+                                                            <Border Grid.Column="0" Width="68" Height="34" Margin="0,0,8,0"
+                                                                    ClipToBounds="True" CornerRadius="3" Background="#20808080"
+                                                                    IsVisible="{Binding HasRaceCardImage}">
+                                                                <Image Source="{Binding RaceCardImage}" Stretch="UniformToFill" />
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Label}" FontSize="12" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding CardMatchHint}" FontSize="10"
+                                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                           TextWrapping="Wrap" IsVisible="{Binding HasRaceCardImage}" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Independent Skills Section -->
+                                <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="14">
+                                    <StackPanel Spacing="10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{DynamicResource GrassIndependentSkillLabel}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="{DynamicResource GrassReset}"
+                                                    Command="{Binding ResetIndependentSkillsCommand}" Padding="10,4" />
+                                        </Grid>
+                                        <TextBox Text="{Binding IndependentSkillSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="{DynamicResource GrassIndependentSkillSearchPlaceholder}" />
+
+                                        <TextBlock Text="{Binding SelectedIndependentSkillCountText}" FontSize="12" Margin="0,2,0,0" />
+
+                                        <ListBox ItemsSource="{Binding RichFilteredIndependentSkills}"
+                                                 Height="280" BorderThickness="1" CornerRadius="6" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:IndependentSkillOptionViewModel">
+                                                    <CheckBox IsEnabled="{Binding IsExecutable}"
+                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              HorizontalAlignment="Stretch">
+                                                        <TextBlock Text="{Binding Label}" FontSize="12" TextWrapping="Wrap" />
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </TabItem>
+
+                    </TabControl>
+                </StackPanel>
+            </ui:SettingsExpander>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

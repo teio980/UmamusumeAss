@@ -96,7 +96,7 @@
         160
       ],
       "preDelay": 0,
-      "postDelay": 650,
+      "postDelay": 0,
       "waitMs": 0,
       "timeoutMs": 15000,
       "retryTimes": 2,
@@ -124,7 +124,7 @@
         240,
         100
       ],
-      "postDelay": 650,
+      "postDelay": 0,
       "timeoutMs": 15000,
       "retryTimes": 2,
       "retryDelayMs": 750,
@@ -142,7 +142,7 @@
         300,
         380
       ],
-      "postDelay": 650,
+      "postDelay": 0,
       "timeoutMs": 12000,
       "pollIntervalMs": 250,
       "required": true
@@ -174,7 +174,7 @@
         190,
         85
       ],
-      "postDelay": 650,
+      "postDelay": 0,
       "timeoutMs": 15000,
       "retryTimes": 2,
       "retryDelayMs": 750,
@@ -192,7 +192,7 @@
         300,
         62
       ],
-      "postDelay": 650,
+      "postDelay": 0,
       "timeoutMs": 15000,
       "pollIntervalMs": 250,
       "required": true,

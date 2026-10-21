@@ -29,6 +29,7 @@ public enum HachimiTaskLogEventKind
 public enum HachimiTaskLogProfile
 {
     None,
+    StartGame,
     TeamRace,
     DailyRace,
     MailCollection,

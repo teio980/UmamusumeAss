@@ -18,7 +18,6 @@
           "Fans",
           "Items"
         ],
-        "stable": true,
         "priority": 20
       },
       "ocrRegions": [
@@ -44,7 +43,7 @@
       "actions": [
         {
           "semanticId": "reward.next",
-          "task": "reward_reward_next"
+          "task": "rewards_rewards_next"
         }
       ],
       "flow": "race",
@@ -58,7 +57,6 @@
           "REWARDS",
           "Support Cards"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -69,33 +67,6 @@
       ],
       "flow": "race",
       "order": 48
-    },
-    {
-      "screenId": "career_races_ready",
-      "recognition": {
-        "template": "templates/runtime_frames/ura_finale_main_ready.png",
-        "templates": [
-          "templates/runtime_frames/ura_prelim_races_active.png",
-          "templates/runtime_frames/ura_late_oct_goal_ready.png",
-          "templates/runtime_frames/goal2_main_ready.png",
-          "templates/runtime_frames/goal2_main_start.png",
-          "templates/runtime_frames/goal3_main_start.png",
-          "templates/runtime_frames/senior_year_main_ready.png"
-        ],
-        "requiredText": [
-          "Races"
-        ],
-        "stable": true,
-        "priority": 7
-      },
-      "actions": [
-        {
-          "semanticId": "action.races",
-          "task": "career_races_ready_action_races"
-        }
-      ],
-      "flow": "race",
-      "order": 16
     },
     {
       "screenId": "race_day",
@@ -115,7 +86,6 @@
         "requiredText": [
           "Race Day"
         ],
-        "stable": true,
         "priority": 8
       },
       "ocrRegions": [
@@ -162,7 +132,6 @@
           85
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": -1
       },
       "actions": [
@@ -194,7 +163,6 @@
           90
         ],
         "requiredTemplateThreshold": 0.94,
-        "stable": true,
         "priority": -2
       },
       "ocrRegions": [
@@ -233,7 +201,6 @@
           150
         ],
         "templThreshold": 0.94,
-        "stable": true,
         "priority": 10
       },
       "actions": [
@@ -260,10 +227,13 @@
         "requiredText": [
           "Race List"
         ],
-        "stable": true,
         "priority": 11
       },
       "ocrRegions": [
+        {
+          "semanticId": "race.day_status",
+          "bounds": {"x": 15, "y": 135, "width": 160, "height": 65}
+        },
         {
           "semanticId": "objective.title",
           "bounds": {
@@ -328,7 +298,6 @@
           650,
           150
         ],
-        "stable": true,
         "templThreshold": 0.9,
         "priority": 11
       },
@@ -351,7 +320,6 @@
           260,
           180
         ],
-        "stable": true,
         "templThreshold": 0.92,
         "priority": 12
       },
@@ -382,7 +350,6 @@
           100
         ],
         "requiredTemplateThreshold": 0.88,
-        "stable": true,
         "templThreshold": 0.88,
         "priority": -2
       },
@@ -417,7 +384,6 @@
           180
         ],
         "requiredTemplateThreshold": 0.82,
-        "stable": true,
         "templThreshold": 0.82,
         "priority": 13
       },
@@ -434,13 +400,15 @@
       "screenId": "race_runner",
       "recognition": {
         "template": "templates/career/race/race_runner_label.png",
+        "templates": [
+          "templates/career/race/race_runner_label_ura.png"
+        ],
         "roi": [
           700,
           1060,
           180,
           140
         ],
-        "stable": true,
         "templThreshold": 0.88,
         "priority": 14
       },
@@ -488,7 +456,6 @@
           "Race Details",
           "Enter race?"
         ],
-        "stable": true,
         "priority": 10
       },
       "ocrRegions": [
@@ -516,57 +483,16 @@
       "order": 41
     },
     {
-      "screenId": "race_attributes",
-      "recognition": {
-        "template": "templates/runtime_frames/ura_final_attributes2.png",
-        "templates": [
-          "templates/runtime_frames/ura_prelim_attributes.png",
-          "templates/runtime_frames/ura_prelim_attributes2.png",
-          "templates/runtime_frames/ura_semifinal_attributes.png",
-          "templates/runtime_frames/ura_final_attributes.png"
-        ],
-        "requiredText": [
-          "Attributes",
-          "Stats",
-          "Aptitude"
-        ],
-        "stable": true,
-        "priority": 16
-      },
-      "ocrRegions": [
-        {
-          "semanticId": "race.runner_attributes",
-          "bounds": {
-            "x": 430,
-            "y": 215,
-            "width": 450,
-            "height": 770
-          }
-        }
-      ],
-      "actions": [
-        {
-          "semanticId": "race.start_playback",
-          "task": "race_attributes_race_start_playback"
-        }
-      ],
-      "flow": "race",
-      "order": 42
-    },
-    {
       "screenId": "race_playback",
       "recognition": {
         "template": "templates/runtime_frames/ura_final_runner_ready2.png",
         "templates": [
-          "templates/runtime_frames/ura_prelim_runner_ready.png",
           "templates/runtime_frames/ura_prelim_runner_ready2.png",
-          "templates/runtime_frames/ura_semifinal_runner_ready.png",
           "templates/runtime_frames/ura_semifinal_runner_ready2.png"
         ],
         "requiredText": [
           "Race!"
         ],
-        "stable": true,
         "priority": 18
       },
       "ocrRegions": [
@@ -583,7 +509,7 @@
       "actions": [
         {
           "semanticId": "race.play",
-          "task": "race_playback_race_play"
+          "task": "race_runner_playback_start"
         }
       ],
       "flow": "race",
@@ -597,13 +523,12 @@
           "Race Playback",
           "OK"
         ],
-        "stable": true,
         "priority": 17
       },
       "actions": [
         {
           "semanticId": "race.playback_settings_ok",
-          "task": "race_playback_settings_race_playback_settings_ok"
+          "task": "race_runner_playback_ok"
         }
       ],
       "flow": "race",
@@ -622,13 +547,12 @@
           "START",
           "FINISH"
         ],
-        "stable": false,
         "priority": 20
       },
       "actions": [
         {
           "semanticId": "race.live_next",
-          "task": "race_live_race_live_next"
+          "task": "race_runner_playback_result_monitor"
         }
       ],
       "flow": "race",
@@ -647,7 +571,6 @@
         "requiredText": [
           "1st"
         ],
-        "stable": true,
         "priority": 20
       },
       "ocrRegions": [
@@ -673,7 +596,7 @@
       "actions": [
         {
           "semanticId": "result.next",
-          "task": "race_result_result_next"
+          "task": "race_runner_result_next"
         }
       ],
       "flow": "race",
@@ -691,7 +614,6 @@
         ],
         "templThreshold": 0.88,
         "matchColorText": true,
-        "stable": true,
         "priority": 3
       },
       "actions": [
@@ -707,6 +629,10 @@
       "screenId": "goal_objective_complete",
       "recognition": {
         "template": "../settlement/templates/goal_complete_header.png",
+        "requiredTemplate": "../settlement/templates/goal_complete_goal_next.png",
+        "requiredTemplateRoi": [240, 1320, 420, 150],
+        "requiredTemplateThreshold": 0.78,
+        "matchColorText": true,
         "roi": [
           288,
           315,
@@ -714,7 +640,6 @@
           114
         ],
         "templThreshold": 0.78,
-        "stable": true,
         "priority": 3
       },
       "actions": [
@@ -741,7 +666,6 @@
         "requiredText": [
           "All goals achieved!"
         ],
-        "stable": true,
         "priority": 2
       },
       "ocrRegions": [

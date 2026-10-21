@@ -70,7 +70,8 @@ public:
     Result run(
         AdbInvocation const&      invocation,
         std::chrono::milliseconds  ,
-        std::stop_token            ) override
+        std::stop_token            ,
+        std::size_t                ) override
     {
 
         recorded_commands_.push_back(invocation.executable.string());
@@ -85,6 +86,8 @@ public:
         {
             return results_[next_++];
         }
+
+        if (fallback_result_) return *fallback_result_;
 
         return Result{};
     }
@@ -148,12 +151,18 @@ public:
         invocation_hook_ = std::move(hook);
     }
 
+    void set_fallback_result(Result result)
+    {
+        fallback_result_ = std::move(result);
+    }
+
 private:
     std::vector<Result>                  results_;
     std::size_t                          next_ = 0;
     std::size_t                          invocation_count_ = 0;
     std::vector<std::string> recorded_commands_;
     std::function<void(AdbInvocation const&)> invocation_hook_;
+    std::optional<Result> fallback_result_;
 };
 
 
@@ -217,7 +226,11 @@ private:
 
 [[nodiscard]] fs::path valid_adb_path()
 {
+#if defined(_WIN32)
     return "C:\\Windows\\System32\\cmd.exe";
+#else
+    return "/bin/sh";
+#endif
 }
 
 
@@ -284,8 +297,13 @@ TEST_CASE("connector rejects non-exe ADB path", "[EmulatorConnector][preflight]"
     ScriptedRunner runner{{}};
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
+#if defined(_WIN32)
+    auto const adb_path = R"(C:\adb\adb.bat)";
+#else
+    auto const adb_path = "/etc/hosts";
+#endif
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.bat)",
+        .adb_path = adb_path,
         .serial   = "127.0.0.1:5555",
     });
 
@@ -302,7 +320,7 @@ TEST_CASE("connector rejects empty serial", "[EmulatorConnector][preflight]")
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.exe)",
+        .adb_path = valid_adb_path(),
         .serial   = "",
     });
 
@@ -319,7 +337,7 @@ TEST_CASE("connector rejects control-character serial", "[EmulatorConnector][pre
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path = R"(C:\adb\adb.exe)",
+        .adb_path = valid_adb_path(),
         .serial   = "127.0.0.1:5555\n",
     });
 
@@ -335,7 +353,7 @@ TEST_CASE("connector rejects empty profile name", "[EmulatorConnector][preflight
     EmulatorConnector connector{general_profile(), runner, test_timings()};
 
     auto const result = connector.connect({
-        .adb_path     = R"(C:\adb\adb.exe)",
+        .adb_path     = valid_adb_path(),
         .serial       = "127.0.0.1:5555",
         .profile_name = "",
     });
@@ -737,13 +755,8 @@ TEST_CASE("boot timeout returns BootNotCompleted and performs no identity query"
     ScriptedRunner runner{{
         success("List of devices attached\n127.0.0.1:5555\tdevice\n"),
         success("device\n"),
-
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
-        success("0\n"),
     }};
+    runner.set_fallback_result(success("0\n"));
 
     ConnectionTimings fast_boot_timeout{
         .devices             = 5000ms,

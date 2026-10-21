@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Description>macOS GUI Client for Umamusume Assistant</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="FluentAvaloniaUI" Version="2.2.0" />
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Umamusume.AppCore\Umamusume.AppCore.csproj" />
+    <ProjectReference Include="..\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
+    <ProjectReference Include="..\Umamusume.UpdateCore\Umamusume.UpdateCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umamusume.Avalonia.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="../UmamusumeWpfGui/Assets/teio-logo.png" Link="Assets/teio-logo.png" />
+  </ItemGroup>
+
+  <Target Name="CopyNativeRuntimeForAvalonia" AfterTargets="Build">
+    <PropertyGroup>
+      <NativeCoreDll Condition="'$(NativeDllPath)' != ''">$(NativeDllPath)</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;Windows&quot;))'">$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'">$(MSBuildProjectDirectory)\..\..\build\osx-arm64-debug\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+
+      <ReplayTool Condition="'$(NativeDllPath)' != ''">$([System.IO.Path]::GetDirectoryName('$(NativeDllPath)'))/../../tools/uma_pipeline_replay</ReplayTool>
+      <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/osx-arm64/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/osx-arm64/tools/uma_pipeline_replay</ReplayTool>
+      <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/osx-arm64-debug/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/osx-arm64-debug/tools/uma_pipeline_replay</ReplayTool>
+      <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/test-cmake/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/test-cmake/tools/uma_pipeline_replay</ReplayTool>
+      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;Windows&quot;))'">$(MSBuildProjectDirectory)\..\..\build\native-staging\UmaNumericOcrWorker.exe</NativeWorker>
+      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmaNumericOcrWorker')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmaNumericOcrWorker</NativeWorker>
+      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmaNumericOcrWorker')">$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmaNumericOcrWorker</NativeWorker>
+    </PropertyGroup>
+    <Copy SourceFiles="$(NativeCoreDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeCoreDll)')" />
+    <Copy SourceFiles="$(NativeWorker)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeWorker)')" />
+    <Copy SourceFiles="$(ReplayTool)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(ReplayTool)')" />
+  </Target>
+</Project>

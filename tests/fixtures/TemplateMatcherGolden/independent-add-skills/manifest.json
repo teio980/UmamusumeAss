@@ -1,0 +1,50 @@
+{
+  "fixtureVersion": 1,
+  "sourceRevision": "52619a03d008ffa98e35f0529c34af5583440fa7",
+  "matcherSourceBlob": "5241dea6379391beed214e6e4b4b0b648eb5a0b0",
+  "testCase": "UmamusumeWpfGui.Tests.Services.DeveloperToolsImageMatchTests.Independent_add_skills_fixture_matches_the_real_text_not_the_old_blank_coordinate",
+  "sourceFiles": {
+    "screen": "tests/UmamusumeWpfGui.Tests/Fixtures/Independent/skills-final-confirmation-add.png",
+    "template": "resource/hachimi/career/modes/independent/templates/independent/skills_add.png"
+  },
+  "inputs": {
+    "screen": {
+      "file": "screen.uimg.gz",
+      "sha256": "1850399F8C5ED3F6A826FC62A602DF748BBF408417A87010798C92784491D2BA",
+      "width": 900,
+      "height": 1600,
+      "grayBytes": 1440000,
+      "rgbaBytes": 5760000
+    },
+    "template": {
+      "file": "template.uimg.gz",
+      "sha256": "C0E631882A661247EC14A0ED18F484E5A9D0D4C3F3CE43CCE6405A928CEE3A2F",
+      "width": 150,
+      "height": 38,
+      "grayBytes": 5700,
+      "rgbaBytes": 22800
+    }
+  },
+  "call": {
+    "method": "FindButton",
+    "roi": [300, 500, 300, 800],
+    "threshold": 0.8,
+    "referenceWidth": 900,
+    "referenceHeight": 1600,
+    "parameters": ""
+  },
+  "expected": {
+    "found": true,
+    "score": 0.8711967838571801,
+    "x": 374,
+    "y": 938,
+    "width": 150,
+    "height": 38
+  },
+  "comparison": {
+    "scoreAbsoluteTolerance": 0.000001,
+    "coordinateTolerancePixels": 1,
+    "candidateAndThresholdBehaviorMustMatch": true
+  },
+  "traceFormat": "UIMG v1: magic/version, little-endian width/height/gray length/RGBA length, then raw gray and RGBA bytes, gzip-compressed"
+}

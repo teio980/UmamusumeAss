@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Globalization;
-using UmamusumeWpfGui.Services.Training;
+using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.ViewModels.Tasks;
 
 namespace UmamusumeWpfGui.Services.Tasks;
@@ -40,6 +40,7 @@ public static class CareerTaskSettingsSerializer
             ["independentSkillIds"] = new JsonArray(settings.ParseIndependentSkillIds()
                 .Select(item => (JsonNode?)JsonValue.Create(item)).ToArray()),
             ["deleteExistingCareerData"] = settings.DeleteExistingCareerData,
+            ["autoRestoreTp"] = settings.AutoRestoreTp,
             // Keep exporting the legacy key so older profiles/builds retain
             // the same behavior if they are opened elsewhere.
             ["continueExistingCareer"] = !settings.DeleteExistingCareerData,
@@ -111,6 +112,14 @@ public static class CareerTaskSettingsSerializer
                 !settings.DeleteExistingCareerData);
         }
 
+        if (values.ContainsKey("autoRestoreTp"))
+        {
+            settings.AutoRestoreTp = ReadBool(
+                values,
+                "autoRestoreTp",
+                settings.AutoRestoreTp);
+        }
+
         var supportCardIds = values["supportCardIds"] is JsonArray cards
             ? string.Join(",", cards.Select(item => item?.GetValue<int>()).Where(item => item is > 0))
             : string.Empty;
@@ -120,9 +129,9 @@ public static class CareerTaskSettingsSerializer
         settings.SupportDeckPreset = ReadString(values, "supportDeckPreset") ?? settings.SupportDeckPreset;
         settings.FriendSupportCardId = ReadNullableInt(values, "friendSupportCardId");
         settings.StrategyId = ReadString(values, "strategyId") ?? settings.StrategyId;
-        var defaultRatio = UraTrainingRatio.Default;
+        var defaultRatio = NormalTrainingRatio.Default;
         var ratio = values["normalTrainingRatio"] as JsonObject;
-        settings.NormalTrainingRatio.SetRatio(new UraTrainingRatio(
+        settings.NormalTrainingRatio.SetRatio(new NormalTrainingRatio(
             ReadRatioInt(ratio, "speed", defaultRatio.Speed),
             ReadRatioInt(ratio, "stamina", defaultRatio.Stamina),
             ReadRatioInt(ratio, "power", defaultRatio.Power),

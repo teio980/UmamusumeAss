@@ -1449,7 +1449,8 @@ public sealed partial class SettingsViewModel : INotifyPropertyChanged, IDisposa
         _healthMonitor.Start(new ConnectionHealthTarget(
             DraftAdbPath,
             success.Serial,
-            DraftConnectConfig));
+            DraftConnectConfig,
+            success.OperationId));
     }
 
     private void OnHealthMonitorFailed(ConnectionHealthFailure failure)

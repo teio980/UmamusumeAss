@@ -3,6 +3,7 @@
 #include "Connection/ConnectionProfile.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -25,6 +26,7 @@ struct AdbCommandResult
     bool        started{};
     bool        timed_out{};
     bool        canceled{};
+    bool        standard_output_truncated{};
 };
 
 
@@ -38,7 +40,8 @@ public:
     [[nodiscard]] virtual AdbCommandResult run(
         AdbInvocation const&      invocation,
         std::chrono::milliseconds timeout,
-        std::stop_token           cancellation) = 0;
+        std::stop_token           cancellation,
+        std::size_t               max_standard_output_bytes = 64 * 1024) = 0;
 };
 
 
@@ -55,6 +58,7 @@ public:
         bool        started{};
         bool        timed_out{};
         bool        canceled{};
+        bool        standard_output_truncated{};
     };
 
     virtual ~IWin32Process() = default;
@@ -63,7 +67,40 @@ public:
         std::filesystem::path const& executable,
         std::wstring const&          command_line,
         std::stop_token              cancellation,
-        std::chrono::milliseconds    timeout) = 0;
+        std::chrono::milliseconds    timeout,
+        std::size_t                  max_standard_output_bytes,
+        bool                         leave_children_running_on_success) = 0;
+
+    [[nodiscard]] virtual Result execute_args(
+        std::filesystem::path const& executable,
+        std::vector<std::string> const& arguments,
+        std::stop_token              cancellation,
+        std::chrono::milliseconds    timeout,
+        std::size_t                  max_standard_output_bytes,
+        bool                         leave_children_running_on_success);
+};
+
+using IProcessRunner = IWin32Process;
+
+class IWin32InteractiveSession
+{
+public:
+    struct Output
+    {
+        std::string standard_output;
+        std::string standard_error;
+        bool standard_output_truncated{};
+        bool standard_error_truncated{};
+    };
+
+    virtual ~IWin32InteractiveSession() = default;
+
+    [[nodiscard]] virtual bool has_exited() const noexcept = 0;
+    [[nodiscard]] virtual bool write(
+        std::string_view bytes, std::stop_token cancellation) noexcept = 0;
+    [[nodiscard]] virtual Output read(
+        std::chrono::milliseconds timeout, std::stop_token cancellation) noexcept = 0;
+    virtual void close() noexcept = 0;
 };
 
 
@@ -81,7 +118,8 @@ public:
     [[nodiscard]] AdbCommandResult run(
         AdbInvocation const&      invocation,
         std::chrono::milliseconds timeout,
-        std::stop_token           cancellation) override;
+        std::stop_token           cancellation,
+        std::size_t               max_standard_output_bytes = 64 * 1024) override;
 
 private:
     IWin32Process& process_;
@@ -113,5 +151,10 @@ private:
 
 
 [[nodiscard]] std::unique_ptr<IWin32Process> create_win32_process();
+
+[[nodiscard]] std::unique_ptr<IWin32InteractiveSession> start_win32_interactive_session(
+    std::filesystem::path const& executable,
+    std::vector<std::string> const& arguments,
+    std::string& error);
 
 }

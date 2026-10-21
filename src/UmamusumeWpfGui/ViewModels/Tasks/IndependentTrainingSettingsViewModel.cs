@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
@@ -11,7 +12,7 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// Independent Training-only setup. The data catalog and selection state live
 /// here instead of in the Career task's common settings object.
 /// </summary>
-public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChanged
+public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     public const string AllAgendaFilters = "all";
     public const string AllAgendaMonths = AllAgendaFilters;
@@ -35,13 +36,19 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
     private bool _updatingSkills;
     private bool _isCareerModeActive = true;
     private bool _isAgendaFilterOpen;
-    private IndependentTrainingCatalog _catalog = IndependentTrainingCatalog.Load();
+    private readonly IUmaDatabaseService? _umaDatabase;
+    private IndependentTrainingCatalog _catalog;
     private readonly List<IndependentRaceOption> _allRaceOptions = [];
     private readonly List<IndependentSkillOption> _allSkillOptions = [];
     private static readonly string[] AgendaDistanceCategories = ["Long", "Mile", "Medium", "Sprint"];
 
-    public IndependentTrainingSettingsViewModel()
+    public IndependentTrainingSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
+        _umaDatabase = umaDatabase;
+        _catalog = IndependentTrainingCatalog.FromCoreCatalog(
+            umaDatabase?.Catalog ?? Umamusume.CoreBridge.CoreCatalog.Empty);
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
         ResetIndependentAgendaCommand = new RelayCommand(_ => ResetAgenda());
         ToggleAgendaFilterCommand = new RelayCommand(_ => IsAgendaFilterOpen = !IsAgendaFilterOpen);
         ResetAgendaFiltersCommand = new RelayCommand(_ => ResetAgendaFilters());
@@ -384,7 +391,8 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selectedSkills = ParseSkillIdsSafely(SkillIdsText).ToHashSet();
 
-        _catalog = IndependentTrainingCatalog.Load(baseDirectory);
+        _catalog = IndependentTrainingCatalog.FromCoreCatalog(
+            _umaDatabase?.Catalog ?? Umamusume.CoreBridge.CoreCatalog.Empty);
         _allRaceOptions.Clear();
         _allSkillOptions.Clear();
 
@@ -399,7 +407,7 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
                 race.RaceName);
             var hasPickerEntry = _catalog.TryGetAgendaPickerEntry(selection, out _);
             var raceCardImagePath = hasPickerEntry
-                ? IndependentTrainingCatalog.TryResolveRaceCardImagePath(race, baseDirectory)
+                ? IndependentTrainingCatalog.TryResolveRaceCardImagePath(race)
                 : null;
             var isExecutable = hasPickerEntry && raceCardImagePath is not null;
             var option = new IndependentRaceOption(race, isExecutable, raceCardImagePath)
@@ -479,6 +487,14 @@ public sealed class IndependentTrainingSettingsViewModel : INotifyPropertyChange
         OnPropertyChanged(nameof(IndependentSkillOptions));
         OnPropertyChanged(nameof(IsValid));
     }
+
+    public void Dispose()
+    {
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded -= OnDatabaseLoaded;
+    }
+
+    private void OnDatabaseLoaded(object? sender, EventArgs args) => RefreshCatalog();
 
     private void ResetAgenda()
     {

@@ -1,0 +1,27 @@
+{
+  "source": "event_home_mumu_20261016.png",
+  "capture": "ADB exec-out screencap -p; 127.0.0.1:16384",
+  "size": [
+    900,
+    1600
+  ],
+  "crops": {
+    "event_home_header.png": [
+      357,
+      395,
+      187,
+      27
+    ],
+    "event_home_cancel.png": [
+      199,
+      1132,
+      105,
+      29
+    ]
+  },
+  "processing": "Rectangular crops only; original pixels retained; no masking or background removal.",
+  "afterCancel": {
+    "source": "event_home_cancelled_mumu_20261016.png",
+    "screenId": "home"
+  }
+}

@@ -18,10 +18,14 @@
 #include "Connection/SmokeCliParser.hpp"
 #include "UmaAssistant/Connection.hpp"
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 #include <cstdlib>
 #include <filesystem>
@@ -34,13 +38,9 @@ namespace {
 namespace fs = std::filesystem;
 using namespace UmaAssistant;
 
-
-
-
-
 [[nodiscard]] fs::path resolve_resource_path()
 {
-
+#if defined(_WIN32)
     wchar_t exe_path[MAX_PATH + 1] = {};
     DWORD const len = ::GetModuleFileNameW(nullptr, exe_path,
                                             static_cast<DWORD>(std::size(exe_path)));
@@ -50,6 +50,16 @@ using namespace UmaAssistant;
         auto const candidate = exe_dir / "resource" / "connection.json";
         if (fs::exists(candidate)) return candidate;
     }
+#elif defined(__APPLE__)
+    char exe_path[1024] = {};
+    uint32_t size = sizeof(exe_path);
+    if (_NSGetExecutablePath(exe_path, &size) == 0)
+    {
+        auto const exe_dir = fs::path{exe_path}.parent_path();
+        auto const candidate = exe_dir / "resource" / "connection.json";
+        if (fs::exists(candidate)) return candidate;
+    }
+#endif
 
 
 

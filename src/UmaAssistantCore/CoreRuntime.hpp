@@ -8,6 +8,7 @@
 
 
 #include "Connection/ConnectionProfile.hpp"
+#include "Resources/ResourceSnapshot.hpp"
 #include "UmaAssistant/Connection.hpp"
 
 #include <atomic>
@@ -16,6 +17,12 @@
 #include <string>
 
 namespace UmaAssistant {
+
+struct ResourceBundle
+{
+    std::shared_ptr<ConnectionProfile const> profile;
+    std::shared_ptr<Resources::ResourceSnapshot const> resources;
+};
 
 class CoreRuntime
 {
@@ -41,7 +48,7 @@ public:
 
 
 
-    std::shared_ptr<ConnectionProfile const> profile() const noexcept;
+    [[nodiscard]] ResourceBundle resource_bundle() const noexcept;
 
     std::uint64_t allocate_operation_id() noexcept;
 
@@ -51,6 +58,7 @@ private:
     mutable std::mutex                         mutex_;
     std::string                                user_dir_;
     std::shared_ptr<ConnectionProfile const>   profile_;
+    std::shared_ptr<Resources::ResourceSnapshot const> resources_;
     bool                                       resource_loaded_ = false;
     std::atomic<std::uint64_t>                 next_operation_id_{1};
 };

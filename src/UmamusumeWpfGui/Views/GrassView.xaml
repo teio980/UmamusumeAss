@@ -9,6 +9,7 @@
              Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <c:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
     <c:LogEntryKindToColorConverter x:Key="LogColorConverter" />
     <Style x:Key="PanelBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
@@ -102,7 +103,11 @@
     </Grid.RowDefinitions>
 
     <Grid Grid.Row="0" Margin="0,0,0,16">
-      <StackPanel>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource InverseBoolToVisibility}}">
         <TextBlock Text="{DynamicResource GrassTitle}"
                    FontSize="20"
                    FontWeight="SemiBold" />
@@ -110,7 +115,18 @@
                    Text="{Binding PageStatus}"
                    Foreground="{DynamicResource TextSecondaryBrush}" />
       </StackPanel>
-      <Border HorizontalAlignment="Right"
+      <StackPanel Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource BoolToVisibility}}">
+        <TextBlock Text="{DynamicResource GrassTaskSettingsPageTitle}"
+                   FontSize="20"
+                   FontWeight="SemiBold" />
+        <TextBlock Margin="0,4,0,0"
+                   Text="{Binding SelectedTask.Name}"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </StackPanel>
+      <Border Grid.Column="1"
+              HorizontalAlignment="Right"
+              Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource InverseBoolToVisibility}}"
               Padding="10,6"
               Background="{DynamicResource SurfaceRaisedBrush}"
               BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -119,6 +135,21 @@
         <TextBlock Text="{Binding TaskCountSummary}"
                    Foreground="{DynamicResource TextSecondaryBrush}" />
       </Border>
+      <ui:Button Grid.Column="1"
+                 Width="40"
+                 Height="32"
+                 MinWidth="0"
+                 Margin="0,4,8,0"
+                 Padding="0"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Top"
+                 ToolTip="{DynamicResource GrassTaskSettingsBackToolTip}"
+                 AutomationProperties.Name="{DynamicResource GrassTaskSettingsBackToolTip}"
+                 Appearance="Primary"
+                 Visibility="{Binding IsTaskSettingsPage, Converter={StaticResource BoolToVisibility}}"
+                 Click="OnTaskSettingsBackClick">
+        <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="18" />
+      </ui:Button>
     </Grid>
 
     <Grid x:Name="HachimiWorkspace" Grid.Row="1">

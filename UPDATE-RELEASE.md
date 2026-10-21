@@ -1,78 +1,113 @@
 # Update release and signing runbook
 
-The updater trusts only the public key embedded in the WPF verifier and the
-native updater. `UpdateSigner` signs the exact UTF-8 bytes of a deterministic
-manifest with ECDSA P-256/SHA-256 and writes a base64-wrapped 64-byte IEEE
-P1363 `r||s` signature. The private key must never be committed, uploaded as an
-artifact, or printed in CI logs.
+The updater trusts the P-256 public key in the repository's `update-public.txt`.
+`Umamusume.UpdateCore` embeds that single source in the WPF updater, macOS
+application, macOS helper, and `UpdateSigner`. The protected GitHub Environment
+`update-signing` supplies the matching `UMA_UPDATE_SIGNING_KEY_PEM` secret to the
+draft-release workflow. Never commit, upload, or print the private key. Keep the
+existing production key; changing it requires a separately planned rotation
+release that updates the protected secret and every client that embeds the
+public key. The Windows native updater stores the corresponding P-256
+coordinates; its test compares them with the same `update-public.txt` key.
 
-## Bootstrap and key setup
+## First Mac installation and supported updates
 
-`v0.2.0` is the first updater-capable release. Versions older than it must be
-installed manually once; they cannot safely migrate their installation tree.
+Install the first macOS release that contains `Umamusume.MacUpdater` by
+replacing the existing `.app` manually. Earlier Mac builds do not include the
+helper needed to perform a safe in-place update. Future macOS program updates
+are ARM64-only, require macOS 14 or newer, and use a complete `.app` ZIP. They
+do not use differential packages. The user downloads the package and clicks
+**Restart to install**; the signed package is staged and checked before the app
+closes. If the app bundle is not writable or its volume cannot atomically swap
+directories, move the app to `~/Applications` and retry. The updater never asks
+for administrator access.
 
-Before publishing `v0.2.0`, generate a production key on an offline machine:
+The helper is copied from the verified package to a per-user operation folder
+before the old app exits. It verifies the signed inventory, prepares a complete
+candidate beside the installed bundle, checks the ad-hoc code signature, then
+uses a same-volume atomic directory swap. The candidate must open a window,
+initialize the native core, and load the resource catalog before the helper
+commits the update. A failed launch or health check restores the previous app.
+The helper keeps the most recent successful backup. App data and preferences
+remain in the user's Application Support directory.
 
-```powershell
-dotnet run --project tools/UpdateSigner/UpdateSigner.csproj -- --generate-key C:\secure\uma-update-private.pem C:\secure\uma-update-public.txt
-```
+Resource updates are independent from program updates. The user downloads a
+signed full resource archive and clicks **Apply resources** to activate it. The
+native core reloads the candidate and validates its catalog before the active
+resource pointer changes; failure restores the old workspace and pointer.
+Resource overrides stay in the per-user data directory and are copied into the
+new view. The bundled resource tree remains the fallback if no compatible,
+verified revision is available.
 
-Replace the development fixture public key in `ManifestVerifier.cs`,
-`src/UmamusumeAssUpdater/main.cpp`, and `tools/UpdateSigner/Program.cs` with
-the generated SPKI base64 value. Run the update tests and native build before
-publishing. Store the PEM as the `UMA_UPDATE_SIGNING_KEY_PEM` secret in the
-protected GitHub Environment named `update-signing`; require a human approval
-for that environment. The release workflow is `workflow_dispatch` only and
-creates draft program and resource releases after tests. A maintainer must
-review the draft assets/manifests/signatures and publish them manually. If the
-GitHub UI/CLI cannot promote a draft in the current policy, use the Release UI
-or an explicitly approved `gh release edit <tag> --draft=false` step.
+In **Settings → Updates**, **Delete old resources** removes downloaded but
+unstaged or uninstalled update packages, updater check caches, inactive resource
+revisions, and inactive runtime views. It waits for native work to become idle
+and can be canceled while it runs. It keeps the active resource revision and
+view, settings, logs, resource overrides, drafts, the app rollback backup, and
+any operation still needed for installer recovery. If an install/recovery
+helper is running or the active-resource pointer is invalid, the cleaner keeps
+the affected caches conservatively. It only operates inside the app's managed
+user-data directories and does not clear the user's global .NET cache.
 
-For key rotation, generate a new key, update all three embedded public-key
-locations in one code release, update the protected secret, and publish that
-release as the first version signed by the new key. Do not rotate only one
-location: old binaries intentionally stop trusting manifests signed by a key
-they do not embed. Keep the old key private and archived according to the
-project's secret-retention policy, but never place it in this repository.
-
-There is one important one-release bootstrap boundary: an installation whose
-WPF executable already trusts the new key but whose installed native helper
-still embeds the old key cannot repair itself if that WPF executable predates
-the staged-helper handoff. The old helper will reject the new-key manifest, and
-one ECDSA signature cannot satisfy both keys. Do not weaken verification by
-accepting an untrusted fallback key. Recover such an installation by closing
-the app and installing the complete portable package for the repaired release
-(or replacing the helper from that package after independently verifying the
-release manifest and package hash); the next in-app update then starts the
-helper copied from the already verified payload. This limitation is deliberate
-and should be called out in release notes whenever a signing key is rotated.
-
-## Manifest/package contract
+## Manifest and package contract
 
 Program tags are exactly `vX.Y.Z`; resource tags are exactly
-`resource-vYYYY.MM.DD.N`. The client filters both namespaces independently
-from GitHub's releases API and never uses `/releases/latest`. Manifest assets
-contain an `assetName`, not an arbitrary URL; the client derives the URL from
-the fixed `teio980/UmamusumeAss` repository and allows only GitHub HTTPS
-redirect hosts.
+`resource-vYYYY.MM.DD.N`. Windows retains its existing full and differential
+manifest protocol. macOS uses a platform-specific signed manifest and full
+asset only:
 
-Every program release includes a complete portable ZIP (including its bundled
-`resource/` fallback and updater), a per-user Windows installer, and direct
-deltas from up to the three latest stable program releases. The installer is
-built with Inno Setup and registers an uninstall entry in Windows; it installs
-the same files as the portable ZIP under %LOCALAPPDATA%\Programs and leaves
-user settings intact when uninstalled. Resource ZIPs contain the *contents* of `resource/`
-at their archive root (`foo/bar`, not `resource/foo/bar`), matching the
-resource base tree and inventory hash. Resource releases also carry direct
-deltas from up to three stable resource revisions. Any delta mismatch or
-apply-time failure falls back to a complete package on the next attempt.
+| Scope | Manifest | Signature | Full package |
+| --- | --- | --- | --- |
+| Program | `osx-arm64-program-manifest-{version}.json` | Same stem with `.sig` | `UmamusumeAss-v{version}-osx-arm64.app.zip` |
+| Resources | `osx-arm64-resource-manifest-{revision}.json` | Same stem with `.sig` | `UmamusumeAss-resource-v{revision}-osx-arm64-full.zip` |
 
-The local staging path retains the original signed manifest bytes and
-signature. It requires the ZIP's regular-file set to exactly equal the signed
-asset inventory, validates every file SHA-256, rejects path traversal,
-absolute paths, ADS, reparse escapes, and enforces the 10,000-file/1 GiB
-single-file/2 GiB expanded-size limits. Unknown files in an existing portable
-installation are never deleted. The external updater independently verifies
-the selected asset, old signed inventory/tree for deltas, target inventory/tree,
-and its journal before replacement.
+Mac manifests use schema 1, `targetOs: macos`, `targetArch: arm64`, and
+`minOsVersion: 14.0`. Resource manifests include app-version and resource
+schema compatibility. The release workflow currently creates draft releases;
+maintainers must review the platform assets, manifest inventories, and
+signatures before publishing. No release is published automatically.
 
+Windows continues to publish its full portable ZIP and installer and can also
+publish signed direct deltas from up to three recent stable releases. Windows
+delta mismatches fall back to a full package. The platform-specific Mac
+manifest prefix keeps Windows manifest discovery from selecting Mac assets.
+
+Resource archives contain the contents of `resource/` at the archive root
+(`foo/bar`, not `resource/foo/bar`). The Mac resource asset can reuse those
+same resource bytes under its platform-specific asset name.
+
+The Mac package preserves the project's ad-hoc `codesign` mode. It is signed
+before ZIP creation, then the exact archive bytes are hashed into the signed
+manifest. The release flow does not use Developer ID credentials or notarize
+the package.
+
+## Creating and reviewing a release draft
+
+Use the `Release` workflow's manual dispatch. Set `version` to the exact
+`version.txt` value and `bundled_resource_version` to the resource revision
+included with the program package. For a resource or combined release, also
+set `resource_version`. The workflow builds and tests on `windows-2022` and
+`macos-15`; the Mac CMake deployment target is 14.0. It signs manifests with
+the protected `update-signing` environment and creates draft releases only.
+
+Before publishing a draft, verify that each platform-specific program manifest
+names its corresponding full package, and that the Mac manifest contains no
+delta assets. Check the resource platform manifests and their full package
+names, the signed file inventories and hashes, the app's
+`LSMinimumSystemVersion`, and that no bundled Mach-O requires a macOS version
+newer than 14.0.
+Publish only after these checks pass. `build.yml` runs the same managed updater
+tests and creates a short-lived CI artifact; its `dist/` package is not a
+release.
+
+## Verification details
+
+The local stager retains the original signed manifest bytes and signature. It
+requires the ZIP's regular-file set to exactly equal the signed inventory,
+validates every file SHA-256, rejects traversal, absolute paths, symlinks,
+special files, and Mac case/Unicode path collisions, and enforces the
+10,000-file, 1-GiB per-file, and 2-GiB expanded-size limits. Mac app replacement
+preserves executable modes. Resource revisions are immutable and independently
+verified before activation. Recovery uses a persistent journal and compares
+the installed and candidate bundle versions to detect a swap completed before
+the journal was advanced.

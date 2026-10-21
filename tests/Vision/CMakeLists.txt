@@ -1,0 +1,47 @@
+list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+include(Catch)
+
+add_executable(VisionTests
+  VisionTests.cpp
+)
+
+target_include_directories(VisionTests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/UmaAssistantCore/Vision
+)
+
+target_link_libraries(VisionTests
+  PRIVATE
+    Catch2::Catch2
+    UmaAssistantVision
+    nlohmann_json::nlohmann_json
+    ZLIB::ZLIBSTATIC
+)
+if(WIN32)
+  target_link_libraries(VisionTests PRIVATE bcrypt)
+endif()
+
+target_compile_definitions(VisionTests
+  PRIVATE
+    CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+)
+
+uma_add_strict_warnings(VisionTests)
+
+function(uma_discover_vision_tests TARGET)
+  if(NOT MSVC)
+    get_filename_component(_uma_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    catch_discover_tests(${TARGET}
+      DISCOVERY_MODE PRE_TEST
+      DL_PATHS "${_uma_compiler_dir}"
+    )
+  else()
+    catch_discover_tests(${TARGET}
+      DISCOVERY_MODE PRE_TEST
+    )
+  endif()
+endfunction()
+
+uma_discover_vision_tests(VisionTests)

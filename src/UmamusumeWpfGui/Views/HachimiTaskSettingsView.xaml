@@ -35,47 +35,19 @@
   <ScrollViewer HorizontalContentAlignment="Stretch"
                 HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="36,24,42,42"
+    <StackPanel Margin="36,0,42,42"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Top"
                 TextElement.FontSize="12">
-      <Grid Margin="0,0,0,18">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <StackPanel>
-          <TextBlock Text="{DynamicResource GrassTaskSettingsPageTitle}"
-                     FontSize="32"
-                     FontWeight="Light" />
-          <TextBlock Margin="0,6,0,0"
-                     Text="{Binding SelectedTask.Name}"
-                     FontSize="16"
-                     FontWeight="SemiBold"
-                     TextWrapping="Wrap" />
-        </StackPanel>
-        <ui:Button Grid.Column="1"
-                   MinWidth="88"
-                   Margin="16,0,0,0"
-                   VerticalAlignment="Center"
-                   Content="{DynamicResource GrassTaskSettingsBack}"
-                   Appearance="Secondary"
-                   Click="OnBackClick" />
-      </Grid>
-
-      <TextBlock Margin="0,0,0,22"
-                 Text="{Binding SelectedTask.Description}"
-                 Style="{DynamicResource SettingCardDescriptionStyle}" />
-
       <!-- Simple task editors render their own SettingCard groups. Career's
-           Basic/Legacy/Cards Pivot is the sole task-level navigation. -->
+           category tabs are the sole task-level navigation. -->
       <ContentControl Content="{Binding SelectedTask.Settings}"
                       HorizontalContentAlignment="Stretch"
                       VerticalContentAlignment="Stretch"
                       Visibility="{Binding IsSelectedShopTask,
-                                           Converter={StaticResource InverseBoolToVisibility}}" />
+                                            Converter={StaticResource InverseBoolToVisibility}}" />
       <StackPanel Visibility="{Binding IsSelectedShopTask,
-                                        Converter={StaticResource BoolToVisibility}}"
+                                         Converter={StaticResource BoolToVisibility}}"
                   Style="{DynamicResource SettingCardGroupStyle}">
         <Border Style="{DynamicResource SettingCardStyle}">
           <Grid>

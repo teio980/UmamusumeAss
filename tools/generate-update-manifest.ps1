@@ -8,7 +8,13 @@ param(
     [string[]]$PreviousPackagePath,
     [string[]]$FromVersion,
     [string[]]$PreviousManifestPath,
-    [string]$BundledResourceVersion = $Version
+    [string]$BundledResourceVersion = $Version,
+    [string]$MinAppVersion = '0.2.0',
+    [ValidateSet('windows', 'macos')][string]$TargetOs = 'windows',
+    [ValidateSet('x64', 'arm64')][string]$TargetArch = 'x64',
+    [string]$MinOsVersion,
+    [string]$ManifestFileName,
+    [switch]$NoDeltas
 )
 
 Set-StrictMode -Version Latest
@@ -57,7 +63,7 @@ function Get-TreeHash([string]$directory) {
         foreach ($relative in $relativeFiles) {
             $nameBytes = [Text.Encoding]::UTF8.GetBytes($relative)
             $hash.AppendData($nameBytes); $hash.AppendData([byte[]](0))
-            $stream = [IO.File]::OpenRead((Join-Path $directory ($relative.Replace('/', '\'))))
+            $stream = [IO.File]::OpenRead((Join-Path $directory ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))))
             try {
                 $buffer = New-Object byte[] (128 * 1024)
                 while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
@@ -81,6 +87,15 @@ $deltaAssets = @()
 $previousPackages = @(if ($null -eq $PreviousPackagePath) { } else { $PreviousPackagePath })
 $fromVersions = @(if ($null -eq $FromVersion) { } else { $FromVersion })
 $previousManifests = @(if ($null -eq $PreviousManifestPath) { } else { $PreviousManifestPath })
+if ($TargetOs -eq 'macos') {
+    $minimumOs = $null
+    if ($TargetArch -ne 'arm64'
+        -or -not [Version]::TryParse($MinOsVersion, [ref]$minimumOs)
+        -or $minimumOs -lt [Version]'14.0') {
+        throw 'macOS update manifests must target arm64 and declare a minimum OS version of 14.0 or newer.'
+    }
+}
+if ($NoDeltas) { $previousPackages = @(); $fromVersions = @(); $previousManifests = @() }
 $temporary = [IO.Path]::Combine([IO.Path]::GetTempPath(), "uma-manifest-$([Guid]::NewGuid().ToString('N'))")
 try {
     $targetTree = Join-Path $temporary 'target'
@@ -121,8 +136,8 @@ try {
             $isProgramResource = ($Kind -eq 'program') -and $entry.path.StartsWith('resource/', [StringComparison]::OrdinalIgnoreCase)
             if ($isProgramResource -and -not $includeBundledResource) { continue }
             if (-not $sourceMap.ContainsKey($entry.path) -or $sourceMap[$entry.path].sha256 -ne $entry.sha256) {
-                $sourceFile = Join-Path $targetTree ($entry.path.Replace('/', '\'))
-                $destFile = Join-Path $deltaTree ($entry.path.Replace('/', '\'))
+                $sourceFile = Join-Path $targetTree ($entry.path.Replace('/', [IO.Path]::DirectorySeparatorChar))
+                $destFile = Join-Path $deltaTree ($entry.path.Replace('/', [IO.Path]::DirectorySeparatorChar))
                 New-Item -ItemType Directory -Path (Split-Path $destFile) -Force | Out-Null
                 Copy-Item $sourceFile $destFile -Force
             }
@@ -164,11 +179,13 @@ try {
     }
     $manifest = [ordered]@{
         schemaVersion = 1; product = 'UmamusumeAss'; kind = $Kind; channel = 'stable'
-        targetOs = 'windows'; targetArch = 'x64'; version = $Version; releaseTag = $ReleaseTag
+        targetOs = $TargetOs; targetArch = $TargetArch; version = $Version; releaseTag = $ReleaseTag
         bundledResourceVersion = $BundledResourceVersion; supportedResourceSchema = '1'
-        minAppVersion = '0.2.0'; maxAppVersion = ''; resourceSchema = '1'; assets = $assets
+        minAppVersion = $MinAppVersion; maxAppVersion = ''; resourceSchema = '1'; assets = $assets
     }
-    $manifestPath = Join-Path $output "$Kind-manifest-$Version.json"
+    if ($TargetOs -eq 'macos') { $manifest.minOsVersion = $MinOsVersion }
+    $manifestName = if ([string]::IsNullOrWhiteSpace($ManifestFileName)) { "$Kind-manifest-$Version.json" } else { $ManifestFileName }
+    $manifestPath = Join-Path $output $manifestName
     $manifest | ConvertTo-Json -Depth 20 -Compress | Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
     Write-Output $manifestPath
 } finally {

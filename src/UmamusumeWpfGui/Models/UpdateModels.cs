@@ -23,6 +23,7 @@ public sealed class UpdateManifest
     public string Channel { get; set; } = "stable";
     public string TargetOs { get; set; } = "windows";
     public string TargetArch { get; set; } = "x64";
+    public string? MinOsVersion { get; set; }
     public string Version { get; set; } = string.Empty;
     public string ReleaseTag { get; set; } = string.Empty;
     public string BundledResourceVersion { get; set; } = string.Empty;

@@ -6,6 +6,221 @@
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
+    "career_tp_restore_open": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_tp_restore_confirm.png",
+      "templThreshold": 0.88,
+      "roi": [
+        470,
+        990,
+        355,
+        110
+      ],
+      "postDelay": 650,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_list"
+      ]
+    },
+    "career_tp_restore_list": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_header.png",
+      "templThreshold": 0.88,
+      "roi": [
+        300,
+        40,
+        300,
+        80
+      ],
+      "postDelay": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_potion"
+      ]
+    },
+    "career_tp_restore_potion": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_toughness30.png",
+      "templThreshold": 0.88,
+      "roi": [
+        185,
+        330,
+        380,
+        70
+      ],
+      "postDelay": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_use"
+      ]
+    },
+    "career_tp_restore_use": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_use_btn.png",
+      "templThreshold": 0.88,
+      "roi": [
+        690,
+        355,
+        145,
+        95
+      ],
+      "postDelay": 650,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_confirm_header"
+      ]
+    },
+    "career_tp_restore_confirm_header": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_header.png",
+      "templThreshold": 0.88,
+      "roi": [
+        300,
+        370,
+        300,
+        80
+      ],
+      "postDelay": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_confirm_potion"
+      ]
+    },
+    "career_tp_restore_confirm_potion": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_confirm_potion.png",
+      "templThreshold": 0.88,
+      "roi": [
+        320,
+        620,
+        270,
+        60
+      ],
+      "postDelay": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_min"
+      ]
+    },
+    "career_tp_restore_min": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_min.png",
+      "templThreshold": 0.88,
+      "roi": [50, 790, 140, 90],
+      "postDelay": 350,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_plus"]
+    },
+    "career_tp_restore_plus": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_plus.png",
+      "templThreshold": 0.88,
+      "roi": [605, 790, 95, 100],
+      "postDelay": 350,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_ok"]
+    },
+    "career_tp_restore_ok": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_ok.png",
+      "templThreshold": 0.95,
+      "roi": [
+        470,
+        1100,
+        355,
+        105
+      ],
+      "postDelay": 650,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_returned"
+      ]
+    },
+    "career_tp_restore_returned": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_header.png",
+      "templThreshold": 0.88,
+      "roi": [
+        300,
+        475,
+        300,
+        80
+      ],
+      "postDelay": 0,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": [
+        "career_tp_restore_result_used"
+      ]
+    },
+    "career_tp_restore_result_used": {
+      "algorithm": "MatchTemplate",
+      "action": "DoNothing",
+      "template": "templates/career_entry_recover_tp_result_used_one.png",
+      "templThreshold": 0.88,
+      "roi": [180, 780, 125, 60],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_close"]
+    },
+    "career_tp_restore_close": {
+      "algorithm": "MatchTemplate",
+      "action": "ClickSelf",
+      "template": "templates/career_entry_recover_tp_result_close.png",
+      "templThreshold": 0.88,
+      "roi": [
+        265,
+        990,
+        370,
+        115
+      ],
+      "postDelay": 650,
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": ["career_tp_restore_support_ready"]
+    },
+    "career_tp_restore_support_ready": {
+      "algorithm": "MatchTemplateColor",
+      "action": "DoNothing",
+      "template": "../modes/normal/templates/support_ready_support_start.png",
+      "templThreshold": 0.85,
+      "roi": [250, 1260, 500, 180],
+      "timeoutMs": 8000,
+      "pollIntervalMs": 250,
+      "required": true,
+      "next": []
+    },
     "home": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",

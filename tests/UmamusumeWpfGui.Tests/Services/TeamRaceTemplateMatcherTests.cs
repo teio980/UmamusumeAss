@@ -9,7 +9,7 @@ public sealed class TeamRaceTemplateMatcherTests
     [InlineData("race_tab.png")]
     [InlineData("team_trials.png")]
     [InlineData("team_race.png")]
-    [InlineData("race_result.png")]
+    [InlineData("result_next.png")]
     public void Representative_template_matches_when_present_in_roi(string templateName)
     {
         var root = FindSolutionRoot();

@@ -10,6 +10,7 @@
 #include "UmaAssistant/Connection.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -267,7 +268,8 @@ struct JsonFile
 
     explicit JsonFile(std::string_view content)
     {
-        auto const rand_part = std::to_string(std::rand());
+        auto const rand_part = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())
+            + "-" + std::to_string(std::rand());
         path = fs::temp_directory_path() / ("uma_profile_test_" + rand_part + ".json");
         std::ofstream ofs(path);
         ofs << content;

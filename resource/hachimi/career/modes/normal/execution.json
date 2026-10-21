@@ -130,6 +130,7 @@
       "success": false
     },
     "normal_mode_selected_probe": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "templates/normal/mode_normal_selected.png",
@@ -179,15 +180,16 @@
       "postDelay": 600
     },
     "normal_strategy_option_front_pre": {
-      "algorithm": "MatchTemplate",
+      "required": false,
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        645,
-        895,
-        60,
-        60
+        625,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 1200,
       "pollIntervalMs": 150,
@@ -215,30 +217,31 @@
       ]
     },
     "normal_strategy_option_front_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        645,
-        895,
-        60,
-        60
+        625,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
       "success": true
     },
     "normal_strategy_option_pace_pre": {
-      "algorithm": "MatchTemplate",
+      "required": false,
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        450,
-        895,
-        60,
-        60
+        430,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 1200,
       "pollIntervalMs": 150,
@@ -266,30 +269,31 @@
       ]
     },
     "normal_strategy_option_pace_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        450,
-        895,
-        60,
-        60
+        430,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
       "success": true
     },
     "normal_strategy_option_late_pre": {
-      "algorithm": "MatchTemplate",
+      "required": false,
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        260,
-        895,
-        60,
-        60
+        240,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 1200,
       "pollIntervalMs": 150,
@@ -317,30 +321,31 @@
       ]
     },
     "normal_strategy_option_late_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        260,
-        895,
-        60,
-        60
+        240,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
       "success": true
     },
     "normal_strategy_option_end_pre": {
-      "algorithm": "MatchTemplate",
+      "required": false,
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        70,
-        895,
-        60,
-        60
+        50,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 1200,
       "pollIntervalMs": 150,
@@ -368,15 +373,15 @@
       ]
     },
     "normal_strategy_option_end_post": {
-      "algorithm": "MatchTemplate",
+      "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "../independent/templates/independent/strategy_selected_corner.png",
       "templThreshold": 0.9,
       "roi": [
-        70,
-        895,
-        60,
-        60
+        50,
+        875,
+        100,
+        90
       ],
       "timeoutMs": 3000,
       "pollIntervalMs": 150,
@@ -448,6 +453,7 @@
       "required": false
     },
     "normal_quick_mode_shorten_probe": {
+      "required": false,
       "algorithm": "MatchTemplate",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_shorten_selected.png",
@@ -498,6 +504,7 @@
       "success": true
     },
     "normal_quick_mode_skip_two_probe": {
+      "required": false,
       "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_skip_two.png",
@@ -515,6 +522,7 @@
       ]
     },
     "normal_quick_mode_skip_one_probe": {
+      "required": false,
       "algorithm": "MatchTemplateColor",
       "action": "JustReturn",
       "template": "templates/normal/quick_mode_skip_one.png",

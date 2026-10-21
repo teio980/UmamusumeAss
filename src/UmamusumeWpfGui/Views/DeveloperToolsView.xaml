@@ -871,6 +871,23 @@
                                  TextWrapping="Wrap" />
                       <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="Offline replay fixture" />
+                        <TextBox Grid.Column="1"
+                                 Margin="8,0"
+                                 Text="{Binding ReplayFixturePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <ui:Button Grid.Column="2"
+                                   Content="Browse..."
+                                   Command="{Binding SelectReplayFixtureCommand}"
+                                   Appearance="Secondary" />
+                      </Grid>
+                      <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="130" />
                           <ColumnDefinition Width="*" />
                           <ColumnDefinition Width="Auto" />

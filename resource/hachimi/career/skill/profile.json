@@ -4,5 +4,20 @@
   "scenarioId": "ura",
   "referenceWidth": 900,
   "referenceHeight": 1600,
-  "screens": []
+  "screens": [
+    {
+      "screenId": "career_skills",
+      "recognition": {
+        "template": "templates/career_skill_back.png",
+        "roi": [0, 1480, 185, 110],
+        "templThreshold": 0.8,
+        "matchColor": true,
+        "requiredText": ["Learn", "Skill Points"],
+        "verifyRequiredText": true,
+        "priority": 4
+      },
+      "actions": [],
+      "flow": "skill"
+    }
+  ]
 }

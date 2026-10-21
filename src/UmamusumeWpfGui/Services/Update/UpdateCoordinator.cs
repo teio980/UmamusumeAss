@@ -66,7 +66,8 @@ public static class UpdateSelector
         string? currentTreeHash,
         string? currentManifestHash,
         bool currentManifestSigned,
-        bool forceFull = false)
+        bool forceFull = false,
+        bool allowDelta = true)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         if (!SemVersion.TryParse(currentVersion, out var current)
@@ -77,7 +78,7 @@ public static class UpdateSelector
         var full = manifest.Assets.FirstOrDefault(asset =>
             asset.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
         if (full is null) return null;
-        var delta = !forceFull && currentManifestSigned && !string.IsNullOrWhiteSpace(currentTreeHash)
+        var delta = allowDelta && !forceFull && currentManifestSigned && !string.IsNullOrWhiteSpace(currentTreeHash)
             ? manifest.Assets.FirstOrDefault(asset =>
                 asset.Type.Equals("delta", StringComparison.OrdinalIgnoreCase)
                 && asset.FromVersion is not null

@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+             xmlns:models="using:Umamusume.AppCore.Models"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:conv="using:Umamusume.Avalonia.Converters"
+             x:Class="Umamusume.Avalonia.Views.Pages.LogsPage"
+             x:DataType="vm:LogsViewModel">
+
+    <UserControl.Resources>
+        <conv:LogKindToBrushConverter x:Key="LogBrush" />
+        <conv:LogKindToBackgroundConverter x:Key="LogBgBrush" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*" Margin="32,28,32,24">
+
+        <!-- Command & Filter Toolbar -->
+        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12,10" Margin="0,0,0,14">
+            <WrapPanel>
+                <!-- Search Query -->
+                <TextBox Grid.Column="0" Text="{Binding SearchQuery}"
+                         Watermark="{DynamicResource Ui_9bc25300fb5d}" Margin="0,0,10,8" Height="32" Width="200" VerticalAlignment="Center" />
+
+                <!-- Level Filter -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,12,8">
+                    <TextBlock Text="{DynamicResource Ui_b4addf3d0d48}" FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    <ComboBox ItemsSource="{Binding AvailableLevels}"
+                              SelectedItem="{Binding SelectedLevel}"
+                              Width="130" Height="32" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Clear Logs -->
+                <Button Grid.Column="2" Command="{Binding ClearLogsCommand}"
+                        Padding="12,7" Margin="0,0,8,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Delete" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_84fcd70d4280}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Copy Logs -->
+                <Button Command="{Binding CopyLogsCommand}"
+                        Padding="12,7" Margin="0,0,8,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Copy" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_4edd1d00875d}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Export Logs -->
+                <Button Grid.Column="3" Command="{Binding ExportLogsCommand}"
+                        Padding="12,7" Margin="0,0,8,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Save" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_188896795f1d}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <CheckBox Content="{DynamicResource Ui_aa8cf87859e1}" IsChecked="{Binding AutoScroll}" Margin="12,0,12,8" VerticalAlignment="Center" />
+                <!-- Stats Badge -->
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,8">
+                    <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="4" Padding="10,4" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Ui_b8e630ae5d80}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding FilteredCount}" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="/" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding TotalCount}" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+
+        <!-- Notification InfoBar -->
+        <ui:InfoBar Grid.Row="1"
+                    IsOpen="{Binding IsNotificationOpen}"
+                    Title="{Binding NotificationTitle}"
+                    Message="{Binding NotificationMessage}"
+                    Severity="{Binding NotificationSeverity}"
+                    IsClosable="True"
+                    CloseButtonCommand="{Binding DismissNotificationCommand}"
+                    Margin="0,0,0,14" />
+
+        <!-- Log List Box -->
+        <Border Grid.Row="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="6">
+            <ListBox x:Name="LogList" ItemsSource="{Binding FilteredLogs}"
+                     Background="Transparent">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="models:LogEntry">
+                        <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                BorderThickness="0,0,0,1" Padding="6,6">
+                            <Grid ColumnDefinitions="90,74,*">
+                                <!-- Timestamp -->
+                                <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.fff}'}"
+                                           FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           FontFamily="Menlo, Monaco, Consolas, Courier New, monospace"
+                                           VerticalAlignment="Center" />
+
+                                <!-- Level Tag -->
+                                <Border Grid.Column="1"
+                                        Background="{Binding Kind, Converter={StaticResource LogBgBrush}}"
+                                        CornerRadius="4" Padding="7,3"
+                                        HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Kind}" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{Binding Kind, Converter={StaticResource LogBrush}}"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Border>
+
+                                <!-- Message -->
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Message}"
+                                                     FontSize="12" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                     FontFamily="Menlo, Monaco, Consolas, Courier New, monospace"
+                                                     TextWrapping="Wrap" VerticalAlignment="Center" Margin="6,0,0,0" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Grid>
+</UserControl>

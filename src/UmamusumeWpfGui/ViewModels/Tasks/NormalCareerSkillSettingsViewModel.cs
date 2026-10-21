@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
 
 namespace UmamusumeWpfGui.ViewModels.Tasks;
@@ -12,25 +13,18 @@ namespace UmamusumeWpfGui.ViewModels.Tasks;
 /// Only global skills that can be selected in the existing skill catalog are
 /// offered here.
 /// </summary>
-public sealed class NormalCareerSkillSettingsViewModel : INotifyPropertyChanged
+public sealed class NormalCareerSkillSettingsViewModel : INotifyPropertyChanged, IDisposable
 {
-    private readonly IReadOnlyList<NormalCareerSkillOption> _allSkills;
+    private readonly IUmaDatabaseService? _umaDatabase;
+    private IReadOnlyList<NormalCareerSkillOption> _allSkills = [];
     private string _searchText = string.Empty;
     private bool _isCareerModeActive;
     private NormalCareerSkillOption? _selectedAvailableSkill;
     private NormalCareerSkillOption? _selectedTargetSkill;
 
-    public NormalCareerSkillSettingsViewModel(string? baseDirectory = null)
+    public NormalCareerSkillSettingsViewModel(IUmaDatabaseService? umaDatabase = null)
     {
-        _allSkills = IndependentTrainingCatalog.Load(baseDirectory).Skills
-            .Where(skill => skill.IsSelectable)
-            .OrderBy(skill => skill.SkillName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(skill => skill.SkillId)
-            .Select(skill => new NormalCareerSkillOption(skill))
-            .ToArray();
-
-        foreach (var skill in _allSkills)
-            FilteredSkills.Add(skill);
+        _umaDatabase = umaDatabase;
 
         AddSelectedSkillCommand = new RelayCommand(
             _ => AddSelectedSkill(),
@@ -46,6 +40,9 @@ public sealed class NormalCareerSkillSettingsViewModel : INotifyPropertyChanged
         RemoveSelectedSkillCommand = new RelayCommand(
             _ => RemoveSelectedTargetSkill(),
             _ => SelectedTargetSkill is not null);
+        RefreshCatalog();
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded += OnDatabaseLoaded;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -53,6 +50,38 @@ public sealed class NormalCareerSkillSettingsViewModel : INotifyPropertyChanged
     public ObservableCollection<NormalCareerSkillOption> FilteredSkills { get; } = [];
 
     public ObservableCollection<NormalCareerSkillOption> TargetSkills { get; } = [];
+
+    public void Dispose()
+    {
+        if (_umaDatabase is not null)
+            _umaDatabase.DatabaseLoaded -= OnDatabaseLoaded;
+    }
+
+    private void OnDatabaseLoaded(object? sender, EventArgs args) => RefreshCatalog();
+
+    private void RefreshCatalog()
+    {
+        var selectedIds = TargetSkills.Select(skill => skill.SkillId).ToArray();
+        _allSkills = IndependentTrainingCatalog.FromCoreCatalog(
+                _umaDatabase?.Catalog ?? Umamusume.CoreBridge.CoreCatalog.Empty)
+            .Skills.Where(skill => skill.IsSelectable)
+            .OrderBy(skill => skill.SkillName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(skill => skill.SkillId)
+            .Select(skill => new NormalCareerSkillOption(skill))
+            .ToArray();
+        FilteredSkills.Clear();
+        foreach (var skill in _allSkills)
+            FilteredSkills.Add(skill);
+        TargetSkills.Clear();
+        foreach (var id in selectedIds)
+        {
+            var selected = _allSkills.FirstOrDefault(skill => skill.SkillId == id);
+            if (selected is not null) TargetSkills.Add(selected);
+        }
+        ApplySearch();
+        OnPropertyChanged(nameof(SelectedSkillIds));
+        RaiseCommandStates();
+    }
 
     public ICommand AddSelectedSkillCommand { get; }
 

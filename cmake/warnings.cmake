@@ -24,7 +24,6 @@ function(uma_add_strict_warnings TARGET)
       -Wall -Wextra -Wpedantic
       -Werror
       -Wcast-align
-      -Wconversion
       -Wdouble-promotion
       -Wformat=2
       -Wmissing-declarations
@@ -33,17 +32,20 @@ function(uma_add_strict_warnings TARGET)
       -Wold-style-cast
       -Woverloaded-virtual
       -Wshadow
-      -Wsign-conversion
-      -Wsuggest-override
       -Wundef
       -Wunused
-      -Wuseless-cast
       -Wzero-as-null-pointer-constant
+      -Wno-missing-field-initializers
+      -Wno-unused-function
+      -Wno-unused-but-set-variable
     )
-
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       target_compile_options(${TARGET} PRIVATE
+        -Wconversion
+        -Wsign-conversion
+        -Wsuggest-override
+        -Wuseless-cast
         -Wlogical-op
         -Wduplicated-cond
         -Wduplicated-branches

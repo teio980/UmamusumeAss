@@ -5,7 +5,8 @@ namespace UmamusumeWpfGui.Services;
 public sealed record ConnectionHealthTarget(
     string AdbPath,
     string Serial,
-    string ProfileName);
+    string ProfileName,
+    ulong? SessionGeneration = null);
 
 public sealed record ConnectionHealthFailure(
     string Serial,

@@ -1,0 +1,417 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+             xmlns:pages="using:Umamusume.Avalonia.Views.Pages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:conv="using:Umamusume.Avalonia.Converters"
+             x:Class="Umamusume.Avalonia.Views.Pages.TasksPage"
+             x:Name="Root"
+             x:DataType="vm:TasksViewModel">
+
+    <UserControl.Resources>
+        <conv:ConnectionStateToBrushConverter x:Key="ConnBrush" />
+        <conv:TaskStatusToBrushConverter x:Key="TaskStatusBrush" />
+        <conv:LogKindToBrushConverter x:Key="LogBrush" />
+        <conv:LogKindToBackgroundConverter x:Key="LogBgBrush" />
+    </UserControl.Resources>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:TaskSettingsViewModel}">
+            <pages:TaskSettingsEditorView />
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid>
+        <!-- State A: Main Hachimi Workspace (Queue on left, Live Execution Log on right) -->
+        <Grid RowDefinitions="Auto,Auto,*" Margin="24,28,24,24"
+              IsVisible="{Binding !IsTaskSettingsOpen}">
+
+            <!-- Header bar with Title and Connection Pill -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="4,0,4,16">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="Hachimi~" FontSize="22" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12,6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse Width="8" Height="8" Fill="{Binding IsConnected, Converter={StaticResource ConnBrush}}" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_9f107c369768}" IsVisible="{Binding IsConnected}" FontWeight="Medium" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Ui_c0480032a3a8}" IsVisible="{Binding !IsConnected}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Notifications InfoBar -->
+            <ui:InfoBar Grid.Row="1" IsOpen="{Binding IsNotificationOpen}"
+                        Title="{Binding NotificationTitle}" Message="{Binding NotificationMessage}"
+                        Severity="{Binding NotificationSeverity}" IsClosable="True"
+                        CloseButtonCommand="{Binding DismissNotificationCommand}" Margin="0,0,0,12" />
+
+            <!-- Main Workspace: Left Task Queue & Right Real-Time Log -->
+            <Grid Grid.Row="2" ColumnDefinitions="320,Auto,*">
+
+                <!-- Left Column: Queue & Execution Controls -->
+                <Border Grid.Column="0" MinWidth="260" MaxWidth="480" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="14">
+                    <DockPanel LastChildFill="True">
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,12">
+                            <TextBlock Text="{DynamicResource GrassTaskQueueTitle}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="{Binding QueueSummary}" FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <!-- Add Task Row -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                            <ComboBox ItemsSource="{Binding AvailableTaskTypes}"
+                                      SelectedIndex="{Binding SelectedTaskTypeIndex, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Center"
+                                      VerticalContentAlignment="Center"
+                                      Height="34"
+                                      Margin="0,0,8,0">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TaskTypeOption">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Command="{Binding AddTaskCommand}"
+                                    Classes="accent" Height="34" Padding="14,0"
+                                    VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                    ToolTip.Tip="{DynamicResource Ui_94191ce210d3}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <ui:SymbolIcon Symbol="Add" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Ui_94191ce210d3}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Bottom controls stay together at the bottom of the queue card -->
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <!-- Queue Manipulation Toolbar -->
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+                                <Button Grid.Column="0" Command="{Binding SelectAllTasksCommand}" Padding="8,5" Content="{DynamicResource Ui_6bc71e03428d}" ToolTip.Tip="{DynamicResource GrassSelectAll}" />
+                                <Button Grid.Column="1" Command="{Binding InvertTaskSelectionCommand}" Padding="8,5" Content="{DynamicResource Ui_ae0588041180}" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassInvertSelection}" />
+                                <Button Grid.Column="3" Command="{Binding CopyTaskCommand}" Padding="8,5" ToolTip.Tip="{DynamicResource GrassCopyTask}">
+                                    <ui:SymbolIcon Symbol="Copy" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="4" Command="{Binding RemoveTaskCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassDeleteTask}">
+                                    <ui:SymbolIcon Symbol="Delete" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="5" Command="{Binding MoveTaskUpCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskUp}">
+                                    <ui:SymbolIcon Symbol="ChevronUp" FontSize="13" />
+                                </Button>
+                                <Button Grid.Column="6" Command="{Binding MoveTaskDownCommand}" Padding="8,5" Margin="4,0,0,0" ToolTip.Tip="{DynamicResource GrassMoveTaskDown}">
+                                    <ui:SymbolIcon Symbol="ChevronDown" FontSize="13" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Run / Stop Controls -->
+                            <Grid ColumnDefinitions="*,*" Margin="0,10,0,0">
+                                <Button Grid.Column="0" Command="{Binding StartQueueCommand}" IsEnabled="{Binding CanStartQueue}"
+                                        Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="0,9">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Play" FontSize="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_c273276937bc}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Command="{Binding StopQueueCommand}" IsEnabled="{Binding CanStopQueue}"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="0,9">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Stop" FontSize="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_a17f70a8d3d6}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                        </StackPanel>
+
+                        <!-- Tasks List fills the space above the bottom controls -->
+                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                CornerRadius="6" Padding="4">
+                            <ListBox ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+                                     Background="Transparent" BorderThickness="0"
+                                     DoubleTapped="OnTaskDoubleTapped"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TaskQueueItemViewModel">
+                                        <Border CornerRadius="6" Padding="8,7" Margin="1,1,1,3">
+                                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding DisplayStatus}" FontSize="11"
+                                                               Foreground="{Binding DisplayStatus, Converter={StaticResource TaskStatusBrush}}" />
+                                                </StackPanel>
+                                                <!-- Settings / Configure button -->
+                                                <Button Grid.Column="1" VerticalAlignment="Center" Margin="4,0" Padding="0"
+                                                        Width="26" Height="26" MinWidth="0" MinHeight="0"
+                                                        Command="{Binding #Root.((vm:TasksViewModel)DataContext).OpenTaskSettingsCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="{DynamicResource GrassConfigure}">
+                                                    <ui:SymbolIcon Symbol="Setting" FontSize="16" />
+                                                </Button>
+                                                <CheckBox Grid.Column="2" IsChecked="{Binding IsEnabled}"
+                                                          Width="26" Height="26" Padding="0"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          RenderTransformOrigin="0.5,0.5"
+                                                          ToolTip.Tip="{DynamicResource GrassEnqueue}">
+                                                    <CheckBox.RenderTransform>
+                                                        <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
+                                                    </CheckBox.RenderTransform>
+                                                </CheckBox>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </DockPanel>
+                </Border>
+
+                <!-- Column Splitter -->
+                <GridSplitter Grid.Column="1" Width="8" Background="Transparent"
+                              ResizeDirection="Columns" Margin="3,0" />
+
+                <!-- Right Column: REAL-TIME EXECUTION LOG (1:1 with Win WPF version) -->
+                <Border Grid.Column="2" MinWidth="300" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <Grid RowDefinitions="Auto,*">
+
+                        <!-- Header Bar (2-Row Layout matching Win WPF: Title on left, Status on right; Duration & Clear on row 2) -->
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Row 0: Title on Left, Status Pill on Right -->
+                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                       Text="{DynamicResource GrassTaskLogTitle}"
+                                       FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                            <Border Grid.Row="0" Grid.Column="1"
+                                    Background="{Binding HachimiTaskLog.RunStatus, Converter={StaticResource TaskStatusBrush}}"
+                                    CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HachimiTaskLog.RunStatus}" Foreground="White" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            </Border>
+
+                            <!-- Row 1: Duration on Left, Clear button on Right (Visible when log has content) -->
+                            <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0"
+                                  IsVisible="{Binding HachimiTaskLog.HasContent}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource GrassTaskLogTotalRunDuration}" FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding HachimiTaskLog.TotalRunDurationText}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button HorizontalAlignment="Right" Command="{Binding ClearHistoryCommand}"
+                                        Padding="8,4" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Delete" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Ui_84fcd70d4280}" FontSize="11" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <!-- Scrollable Grouped Execution Log -->
+                        <ScrollViewer x:Name="TaskLogScrollViewer" Grid.Row="1"
+                                      ScrollChanged="OnTaskLogScrollChanged"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Spacing="10" Margin="0,0,4,10">
+
+                                <!-- Empty Log Prompt (Clean & unobtrusive 1:1 like Win WPF) -->
+                                <TextBlock Text="{DynamicResource GrassTaskLogEmpty}"
+                                           Margin="4,6,4,4"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           IsVisible="{Binding HachimiTaskLog.IsEmpty}" />
+
+                                <!-- Top Queue Level Events -->
+                                <ItemsControl ItemsSource="{Binding HachimiTaskLog.QueueEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:HachimiTaskLogEntry">
+                                            <Border Margin="0,0,0,6" Padding="10,8"
+                                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="6">
+                                                <Grid ColumnDefinitions="4,90,*">
+                                                    <Border Grid.Column="0" CornerRadius="2"
+                                                            Background="{Binding Kind, Converter={StaticResource LogBrush}}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Step}" Margin="10,0,0,0"
+                                                               FontWeight="SemiBold" FontSize="11"
+                                                               Foreground="{Binding Kind, Converter={StaticResource LogBrush}}"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Message}" Margin="8,0,0,0"
+                                                               FontSize="12" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Per-Task Group Cards -->
+                                <ItemsControl ItemsSource="{Binding HachimiTaskLog.Tasks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:HachimiTaskLogGroupViewModel">
+                                            <Border Margin="0,0,0,8" Padding="12"
+                                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1" CornerRadius="8">
+                                                <StackPanel Spacing="8">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{Binding TaskName}"
+                                                                   FontWeight="SemiBold" FontSize="13" />
+                                                        <Border Grid.Column="1"
+                                                                Background="{Binding DisplayStatus, Converter={StaticResource TaskStatusBrush}}"
+                                                                CornerRadius="4" Padding="7,3" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayStatus}"
+                                                                       Foreground="White" FontSize="10" FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <!-- Waiting Notice -->
+                                                    <TextBlock Text="{DynamicResource GrassTaskLogWaiting}"
+                                                               FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               IsVisible="{Binding IsWaiting}" />
+
+                                                    <!-- Task Step Entries -->
+                                                    <ItemsControl ItemsSource="{Binding Entries}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:HachimiTaskLogEntry">
+                                                                <Border Margin="0,0,0,4" Padding="8,6"
+                                                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                                        CornerRadius="5">
+                                                                    <Grid ColumnDefinitions="3,84,*">
+                                                                        <Border Grid.Column="0" CornerRadius="2"
+                                                                                Background="{Binding Kind, Converter={StaticResource LogBrush}}" />
+                                                                        <TextBlock Grid.Column="1" Text="{Binding Step}" Margin="8,0,0,0"
+                                                                                   FontWeight="SemiBold" FontSize="10"
+                                                                                   Foreground="{Binding Kind, Converter={StaticResource LogBrush}}"
+                                                                                   VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Message}" Margin="6,0,0,0"
+                                                                                   FontSize="11" TextWrapping="Wrap"
+                                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                                                   VerticalAlignment="Center" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- State B: Task Settings Page (Full width workspace, "藏在task里面的") -->
+        <Grid RowDefinitions="Auto,*" Margin="24,28,24,24"
+              IsVisible="{Binding IsTaskSettingsOpen}">
+
+            <!-- Header with Back Button and Task Title -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="4,0,4,16" VerticalAlignment="Center">
+                <Button Grid.Column="0" Command="{Binding CloseTaskSettingsCommand}" Classes="accent"
+                        Padding="8,5" Margin="0,0,12,0" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center"
+                        ToolTip.Tip="{DynamicResource GrassBackToQueueToolTip}">
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Back" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource GrassBackToQueue}" FontSize="12" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource GrassTaskSettingsTitle}" FontSize="20" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Task settings use the same expander rows as the main Settings page. -->
+            <Grid Grid.Row="1">
+                <Panel>
+                    <!-- Regular Task Settings -->
+                    <Border IsVisible="{Binding IsNotShopSelected}" Background="Transparent">
+                        <ContentControl Content="{Binding SelectedTask.SettingsEditor}" />
+                    </Border>
+
+                    <!-- Shop Task Settings -->
+                    <Border IsVisible="{Binding IsShopSelected}" Background="Transparent">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10" Margin="4,14,4,0">
+                                <ui:SettingsExpander Header="{DynamicResource Ui_001ff734616d}" IsExpanded="True">
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_faa849271c88}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.Enabled}"
+                                                          OnContent="{DynamicResource Ui_faa849271c88}"
+                                                          OffContent="{DynamicResource Ui_150f40ce200d}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_39a2734ff340}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.SelectAll}"
+                                                          OnContent="{DynamicResource Ui_39a2734ff340}"
+                                                          OffContent="{DynamicResource Ui_3d5b77bfd2d4}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                </ui:SettingsExpander>
+
+                                <ui:SettingsExpander Header="{DynamicResource Ui_d625b36a8e1a}" IsExpanded="True">
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_32a362cc9736}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuyStarPieces}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_cf0f66b3fc81}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuyAlarmClock}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_662af4600452}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuyPleasingParfait}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_6ff5d6338c7c}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuyShoes}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_2ea08a029fad}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuySupportPoints}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                    <ui:SettingsExpanderItem Content="{DynamicResource Ui_5cf448ac40ea}">
+                                        <ui:SettingsExpanderItem.Footer>
+                                            <ToggleSwitch IsChecked="{Binding ShopSettings.BuyFlags}" />
+                                        </ui:SettingsExpanderItem.Footer>
+                                    </ui:SettingsExpanderItem>
+                                </ui:SettingsExpander>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Panel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

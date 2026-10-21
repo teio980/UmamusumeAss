@@ -16,10 +16,13 @@
           50
         ],
         "templThreshold": 0.92,
+        "requiredTemplate": "../training/templates/training_selection_logos/wit.png",
+        "requiredTemplateRoi": [665, 1180, 205, 250],
+        "requiredTemplateThreshold": 0.7,
+        "requiredTemplateMatchAlphaTemplate": true,
         "requiredText": [
           "Training"
         ],
-        "stable": true,
         "priority": 6
       },
       "ocrRegions": [
@@ -55,10 +58,6 @@
         {
           "semanticId": "training.skill_points",
           "bounds": { "x": 746, "y": 965, "width": 127, "height": 65 }
-        },
-        {
-          "semanticId": "training.training_level",
-          "bounds": { "x": 100, "y": 240, "width": 470, "height": 75 }
         },
         {
           "semanticId": "training.gain_strip",
@@ -110,13 +109,11 @@
         "template": "../race/templates/runtime_frames/training_result_ura.png",
         "templates": [
           "../race/templates/runtime_frames/training_turn2_result_ura.png",
-          "../race/templates/runtime_frames/training_partner_result_ura.png",
-          "../race/templates/runtime_frames/training_duel_result_ura.png"
+          "../race/templates/runtime_frames/training_partner_result_ura.png"
         ],
         "requiredText": [
           "Training"
         ],
-        "stable": true,
         "priority": 4
       },
       "actions": [
@@ -150,7 +147,6 @@
         "requiredText": [
           "Career"
         ],
-        "stable": true,
         "priority": 9
       },
       "ocrRegions": [
@@ -165,6 +161,7 @@
         },
         {
           "semanticId": "objective.turns_left",
+          "numericRoi": [25, 120, 140, 78],
           "bounds": {
             "x": 10,
             "y": 90,
@@ -268,7 +265,6 @@
           85
         ],
         "templThreshold": 0.85,
-        "stable": true,
         "priority": 5
       },
       "actions": [
@@ -286,7 +282,6 @@
         "template": "templates/career/turn/claw_how_to_play.png",
         "templThreshold": 0.94,
         "matchColorText": true,
-        "stable": true,
         "priority": -1
       },
       "actions": [],
@@ -299,7 +294,6 @@
         "template": "templates/career/turn/claw_result_cuties.png",
         "templThreshold": 0.92,
         "matchColorText": true,
-        "stable": true,
         "priority": -2
       },
       "actions": [],
@@ -318,7 +312,6 @@
         ],
         "templThreshold": 0.94,
         "matchColorText": true,
-        "stable": true,
         "priority": 5
       },
       "actions": [
@@ -342,7 +335,6 @@
         ],
         "templThreshold": 0.94,
         "matchColorText": true,
-        "stable": true,
         "priority": 5
       },
       "actions": [
@@ -365,7 +357,6 @@
           75
         ],
         "templThreshold": 0.85,
-        "stable": true,
         "priority": 5
       },
       "actions": [
@@ -392,7 +383,6 @@
           "Rest",
           "OK"
         ],
-        "stable": true,
         "priority": 5
       },
       "actions": [

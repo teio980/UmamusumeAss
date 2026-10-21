@@ -1,0 +1,178 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Umamusume.Avalonia.App"
+             RequestedThemeVariant="Default">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#1F1F1F" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#1F1F1F" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#F3F3F3" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Consistent typographic metrics across macOS and Windows: prioritize native CJK system font -->
+            <FontFamily x:Key="ContentControlThemeFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
+            <FontFamily x:Key="SystemControlFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
+
+            <!-- Symmetric control theme paddings -->
+            <Thickness x:Key="ButtonPadding">11,5,11,5</Thickness>
+            <Thickness x:Key="ComboBoxPadding">12,5,0,5</Thickness>
+            <Thickness x:Key="ComboBoxItemThemePadding">11,5,11,5</Thickness>
+            <Thickness x:Key="TextControlThemePadding">10,5,6,5</Thickness>
+
+            <DataTemplate x:Key="CompactTabHeaderTemplate">
+                <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
+
+        <!-- Global typography font family cascade -->
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource ContentControlThemeFontFamily}" />
+        </Style>
+        <Style Selector="SelectableTextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource ContentControlThemeFontFamily}" />
+        </Style>
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="{StaticResource ContentControlThemeFontFamily}" />
+        </Style>
+
+        <!-- Tab Controls -->
+        <Style Selector="TabItem">
+            <Setter Property="HeaderTemplate" Value="{StaticResource CompactTabHeaderTemplate}" />
+        </Style>
+
+        <!-- ListBoxItem Vertical Centering -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ListBoxItem /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ListBoxItem TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- SymbolIcon Vertical Alignment -->
+        <Style Selector="ui|SymbolIcon">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Button Vertical Alignment & Symmetry -->
+        <Style Selector="Button">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="11,5,11,5" />
+        </Style>
+        <Style Selector="Button /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button AccessText">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button > StackPanel">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button > StackPanel > TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button > StackPanel > ui|SymbolIcon">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ComboBox Content & Popup Item Vertical Centering -->
+        <Style Selector="ComboBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBoxItem">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="11,5,11,5" />
+        </Style>
+        <Style Selector="ComboBoxItem /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBoxItem TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- TextBox Single-line vs Multi-line Alignment -->
+        <Style Selector="TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox /template/ ScrollViewer#PART_ContentHost">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox[AcceptsReturn=True]">
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+        <Style Selector="TextBox[AcceptsReturn=True] /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="TextBox[AcceptsReturn=True] /template/ TextBlock#PART_Watermark">
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="TextBox[AcceptsReturn=True] /template/ ScrollViewer#PART_ContentHost">
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+
+        <!-- NumericUpDown & NumberBox Alignment -->
+        <Style Selector="NumericUpDown">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ui|NumberBox /template/ TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ui|NumberBox /template/ TextBox /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- CheckBox & ToggleSwitch Content Centering -->
+        <Style Selector="CheckBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="CheckBox TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ToggleSwitch TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Application.Styles>
+</Application>

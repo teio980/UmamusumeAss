@@ -159,12 +159,12 @@ public sealed class PackageLayoutTests : IDisposable
         "UmamusumeCore.dll",
         "Umamusume.CoreBridge.dll",
         "resource/hachimi/pipelines/daily_race.json",
-        "resource/hachimi/pipelines/templates/daily_race/daily_program.png",
+        "resource/hachimi/pipelines/templates/daily_race/daily_program_button.png",
         "resource/hachimi/ura/manifest.json",
         "resource/hachimi/career/catalog.json",
         "resource/hachimi/career/race/profile.json",
         "resource/hachimi/career/race/execution.json",
-        "resource/hachimi/career/race/templates/race_result_result_next.png",
+        "resource/hachimi/career/race/templates/career/race/race_result_next.png",
         "resource/hachimi/career/race/templates/runtime_frames/debut_race_result_wait.png",
         "resource.inventory.json",
         "app-version.json",
@@ -227,6 +227,7 @@ public sealed class PackageLayoutTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Packaging")]
     public void PackageScript_ProducesValidZipWithCorrectLayout()
     {
 

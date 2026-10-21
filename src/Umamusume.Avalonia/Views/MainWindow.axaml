@@ -1,0 +1,90 @@
+<wnd:AppWindow xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:wnd="using:FluentAvalonia.UI.Windowing"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:vm="using:Umamusume.Avalonia.ViewModels"
+               xmlns:pages="using:Umamusume.Avalonia.Views.Pages"
+               xmlns:conv="using:Umamusume.Avalonia.Converters"
+               x:Class="Umamusume.Avalonia.Views.MainWindow"
+               x:DataType="vm:MainWindowViewModel"
+               Title="UmamusumeAss"
+               Icon="avares://Umamusume.Avalonia/Assets/teio-logo.png"
+               Width="1120" Height="750"
+               MinWidth="980" MinHeight="640"
+               WindowStartupLocation="CenterScreen"
+               ExtendClientAreaToDecorationsHint="True"
+               ExtendClientAreaChromeHints="PreferSystemChrome, OSXThickTitleBar"
+               ExtendClientAreaTitleBarHeightHint="-1">
+
+    <wnd:AppWindow.Resources>
+        <conv:ConnectionStateToBrushConverter x:Key="ConnBrush" />
+    </wnd:AppWindow.Resources>
+
+    <wnd:AppWindow.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:TasksViewModel}">
+            <pages:TasksPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ScreenOcrViewModel}">
+            <pages:ScreenOcrPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DeveloperToolsViewModel}">
+            <pages:DeveloperToolsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LogsViewModel}">
+            <pages:LogsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <pages:SettingsPage />
+        </DataTemplate>
+    </wnd:AppWindow.DataTemplates>
+
+    <!-- Seamless Navigation Shell with macOS Traffic-light Inset -->
+    <ui:NavigationView x:Name="NavView"
+                       PaneDisplayMode="Left"
+                       IsSettingsVisible="True"
+                       IsBackButtonVisible="False"
+                       IsPaneToggleButtonVisible="False"
+                       OpenPaneLength="215"
+                       CompactPaneLength="52"
+                       SelectionChanged="OnNavSelectionChanged">
+
+        <!-- Seamless Top Drag Region & Spacer for macOS Traffic Lights -->
+        <ui:NavigationView.PaneHeader>
+            <Border Height="38" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" />
+        </ui:NavigationView.PaneHeader>
+
+        <!-- Navigation Menu Items -->
+        <ui:NavigationView.MenuItems>
+            <ui:NavigationViewItem Content="Hachimi~" Tag="Hachimi">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Home" FontSize="22" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_c7db2bd48902}" Tag="ScreenOcr">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Camera" FontSize="22" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_6d5d7228c9c4}" Tag="DeveloperTools">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Repair" FontSize="22" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItem Content="{DynamicResource Ui_a8ce402665f3}" Tag="Logs">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="List" FontSize="22" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+        </ui:NavigationView.MenuItems>
+
+        <!-- Active Content View -->
+        <ui:NavigationView.Content>
+            <Grid x:Name="ContentHost" Background="Transparent">
+                <TransitioningContentControl Content="{Binding CurrentPage}" />
+            </Grid>
+        </ui:NavigationView.Content>
+    </ui:NavigationView>
+</wnd:AppWindow>

@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:taskviews="clr-namespace:UmamusumeWpfGui.Views.Tasks"
              Foreground="{DynamicResource TextPrimaryBrush}">
-  <!-- Career's Basic/Legacy/Cards sections are the page's only Pivot. The
-       host supplies the same SettingsView tab template and moving indicator. -->
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+  <!-- Ordered from run setup through the decisions made during training. -->
   <TabControl x:Name="CareerSettingsTabs"
               HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Stretch"
@@ -12,14 +14,42 @@
               TextElement.FontSize="12"
               Style="{DynamicResource SettingsTabControlStyle}"
               ItemContainerStyle="{DynamicResource SettingsTabItemStyle}">
-    <TabItem Header="Basic">
+    <TabItem Header="{DynamicResource GrassCareerBasicTab}">
       <taskviews:CareerBasicSettingsView />
     </TabItem>
-    <TabItem Header="Legacy">
+    <TabItem Header="{DynamicResource GrassCareerLegacyTab}">
       <taskviews:CareerLegacySettingsView DataContext="{Binding Entry}" />
     </TabItem>
-    <TabItem Header="Cards">
+    <TabItem Header="{DynamicResource GrassCareerCardsTab}">
       <taskviews:CareerSupportDeckSettingsView DataContext="{Binding SupportDeck}" />
+    </TabItem>
+    <TabItem Header="{DynamicResource GrassCareerTrainingTab}"
+             Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}"
+             IsVisibleChanged="OnModeTabVisibilityChanged">
+      <taskviews:CareerTrainingStrategySettingsView />
+    </TabItem>
+    <TabItem Header="{DynamicResource GrassCareerRacesTab}"
+             Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}"
+             IsVisibleChanged="OnModeTabVisibilityChanged">
+      <taskviews:CareerRaceSettingsView />
+    </TabItem>
+    <TabItem Header="{DynamicResource GrassCareerSkillsTab}"
+             Visibility="{Binding IsNormalCareer, Converter={StaticResource BoolToVisibility}}"
+             IsVisibleChanged="OnModeTabVisibilityChanged">
+      <StackPanel Style="{DynamicResource SettingCardGroupStyle}">
+        <TextBlock Text="{DynamicResource GrassCareerSkillsGroupTitle}"
+                   Style="{DynamicResource SettingGroupTitleStyle}" />
+        <taskviews:NormalCareerSkillSettingsView DataContext="{Binding NormalSkills}" />
+      </StackPanel>
+    </TabItem>
+    <TabItem Header="{DynamicResource GrassCareerAgendaTab}"
+             Visibility="{Binding IsIndependentCareer, Converter={StaticResource BoolToVisibility}}"
+             IsVisibleChanged="OnModeTabVisibilityChanged">
+      <StackPanel Style="{DynamicResource SettingCardGroupStyle}">
+        <TextBlock Text="{DynamicResource GrassCareerIndependentGroupTitle}"
+                   Style="{DynamicResource SettingGroupTitleStyle}" />
+        <taskviews:IndependentTrainingSettingsView DataContext="{Binding Independent}" />
+      </StackPanel>
     </TabItem>
   </TabControl>
 </UserControl>

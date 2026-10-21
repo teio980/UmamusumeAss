@@ -35,11 +35,11 @@
       },
       {
         "from": "race_details",
-        "to": "race_attributes",
+        "to": "race_runner",
         "on": "race.confirm"
       },
       {
-        "from": "race_attributes",
+        "from": "race_runner",
         "to": "race_playback",
         "on": "race.start"
       },
@@ -172,6 +172,21 @@
         "from": "follow_trainer_limit",
         "to": "career_complete_close",
         "on": "career.follow_limit.cancel"
+      },
+      {
+        "from": "career_complete_close",
+        "to": "event_home",
+        "on": "career.close"
+      },
+      {
+        "from": "career_complete",
+        "to": "event_home",
+        "on": "career.to_home"
+      },
+      {
+        "from": "event_home",
+        "to": "home",
+        "on": "event_home.cancel"
       },
       {
         "from": "career_complete_close",

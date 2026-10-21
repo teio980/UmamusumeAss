@@ -18,7 +18,8 @@ public sealed class HachimiTaskSettingsViewContractTests
 
         Assert.Contains("ScrollViewer", content);
         Assert.Contains("SettingCardStyle", content);
-        Assert.Contains("GrassTaskSettingsBack", content);
+        Assert.Contains("GrassTaskSettingsBack", File.ReadAllText(Path.Combine(
+            Path.GetDirectoryName(ViewPath)!, "GrassView.xaml")));
         Assert.Contains("SelectedTask.Settings", content);
         Assert.Contains("IsSelectedShopTask", content);
         Assert.Single(document.Descendants(), element =>

@@ -17,7 +17,6 @@
         ],
         "templThreshold": 0.9,
         "matchColorText": true,
-        "stable": true,
         "priority": -3
       },
       "actions": [
@@ -41,7 +40,6 @@
           50
         ],
         "templThreshold": 0.96,
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -65,7 +63,6 @@
           40
         ],
         "templThreshold": 0.78,
-        "stable": true,
         "priority": -3
       },
       "actions": [
@@ -85,7 +82,6 @@
           "CAREER RANK",
           "Rating"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -105,7 +101,6 @@
           "SPARKS",
           "Confirm"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -125,7 +120,6 @@
           "Confirmation",
           "Keep this set of Sparks?"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -149,7 +143,6 @@
           180
         ],
         "templThreshold": 0.86,
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -181,7 +174,6 @@
           80
         ],
         "requiredTemplateThreshold": 0.84,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -212,7 +204,6 @@
           100
         ],
         "requiredTemplateThreshold": 0.78,
-        "stable": true,
         "priority": -5
       },
       "actions": [
@@ -228,6 +219,8 @@
       "screenId": "career_epithet",
       "recognition": {
         "template": "templates/career_epithet_header.png",
+        "requiredText": ["Epithet"],
+        "verifyRequiredText": true,
         "matchColorText": true,
         "roi": [
           360,
@@ -236,7 +229,6 @@
           80
         ],
         "templThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -272,7 +264,6 @@
           "Career Record",
           "Next"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -304,7 +295,6 @@
           450
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -6
       },
       "actions": [
@@ -328,7 +318,6 @@
           250
         ],
         "templThreshold": 0.88,
-        "stable": true,
         "priority": -5
       },
       "actions": [
@@ -344,6 +333,7 @@
       "screenId": "rewards",
       "recognition": {
         "template": "templates/rewards_header.png",
+        "stateSignatureRoi": [45, 178, 260, 26],
         "matchColorText": true,
         "roi": [
           130,
@@ -364,7 +354,6 @@
           "REWARDS",
           "Next"
         ],
-        "stable": true,
         "priority": 20
       },
       "actions": [
@@ -395,7 +384,6 @@
           95
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -427,7 +415,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -459,7 +446,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.94,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -491,7 +477,6 @@
           75
         ],
         "requiredTemplateThreshold": 0.9,
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -527,7 +512,6 @@
           "Career Complete",
           "To Home"
         ],
-        "stable": true,
         "priority": -4
       },
       "actions": [
@@ -538,6 +522,58 @@
       ],
       "flow": "settlement",
       "order": 71
+    },
+    {
+      "screenId": "event_home",
+      "recognition": {
+        "template": "templates/event_home_header.png",
+        "matchColorText": true,
+        "roi": [
+          320,
+          360,
+          260,
+          95
+        ],
+        "templThreshold": 0.9,
+        "requiredTemplate": "templates/event_home_cancel.png",
+        "requiredTemplateRoi": [
+          170,
+          1090,
+          180,
+          110
+        ],
+        "requiredTemplateThreshold": 0.9,
+        "priority": -5
+      },
+      "actions": [
+        {
+          "semanticId": "event_home.cancel",
+          "task": "event_home_cancel"
+        }
+      ],
+      "flow": "settlement",
+      "order": 72
+    },
+    {
+      "screenId": "all_rewards_earned",
+      "recognition": {
+        "template": "templates/all_rewards_earned_text.png",
+        "matchColorText": true,
+        "roi": [180, 890, 540, 70],
+        "templThreshold": 0.9,
+        "requiredTemplate": "templates/all_rewards_earned_close.png",
+        "requiredTemplateRoi": [380, 1000, 140, 85],
+        "requiredTemplateThreshold": 0.9,
+        "priority": -6
+      },
+      "actions": [
+        {
+          "semanticId": "all_rewards_earned.close",
+          "task": "all_rewards_earned_close"
+        }
+      ],
+      "flow": "settlement",
+      "order": 73
     }
   ]
 }

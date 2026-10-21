@@ -1,8 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-
-const string expectedPublicKey =
-    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEXSfrguQVvVr+DJuU3j8ZN0/mZgOvf94JVT9uCeuScWtBYZtubqOEJK0ESOP8PgCzSkih8yjGnWjY1W04//QxqQ==";
+using Umamusume.UpdateCore;
 
 if (args.Length >= 1 && args[0].Equals("--generate-key", StringComparison.Ordinal))
 {
@@ -45,7 +43,7 @@ try
     signer.ImportFromPem(pem);
     var actualPublicKey = Convert.ToBase64String(signer.ExportSubjectPublicKeyInfo());
     if (!CryptographicOperations.FixedTimeEquals(
-            Encoding.ASCII.GetBytes(actualPublicKey), Encoding.ASCII.GetBytes(expectedPublicKey)))
+            Encoding.ASCII.GetBytes(actualPublicKey), Encoding.ASCII.GetBytes(UpdateSigningKey.EmbeddedPublicKeyBase64)))
     {
         Console.Error.WriteLine("Signing key does not match the embedded verifier key.");
         return 4;

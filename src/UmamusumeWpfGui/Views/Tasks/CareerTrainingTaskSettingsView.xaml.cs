@@ -23,7 +23,20 @@ public partial class CareerTrainingTaskSettingsView : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(
             DispatcherPriority.Loaded,
-            new Action(() => UpdateTabIndicator(animate: false)));
+            new Action(() =>
+            {
+                EnsureVisibleSelectedTab();
+                UpdateTabIndicator(animate: false);
+            }));
+
+    private void OnModeTabVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+        EnsureVisibleSelectedTab();
+
+    private void EnsureVisibleSelectedTab()
+    {
+        if (CareerSettingsTabs?.SelectedItem is TabItem { Visibility: Visibility.Collapsed })
+            CareerSettingsTabs.SelectedIndex = 0;
+    }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {

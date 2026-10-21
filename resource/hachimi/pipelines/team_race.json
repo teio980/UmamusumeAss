@@ -81,13 +81,22 @@
     },
     "quickmode": {
       "template": "templates/team_race/quick_mode_on.png",
-      "roi": [320, 1320, 240, 45],
+      "roi": [300, 1280, 300, 110],
+      "scaleCandidates": [0.98, 1.0, 1.02],
       "templThreshold": 0.88,
       "timeoutMs": 15000,
       "postDelay": 1200,
       "required": false,
-      "next": ["seeallresult"],
-      "onErrorNext": ["seeallresult"]
+      "next": ["quickmodeEnabled"],
+      "onErrorNext": ["quickmodeEnabled"]
+    },
+    "quickmodeEnabled": {
+      "action": "Wait",
+      "template": "templates/team_race/see_all_result.png",
+      "roi": [260, 1400, 360, 160],
+      "templThreshold": 0.8,
+      "timeoutMs": 5000,
+      "next": ["seeallresult"]
     },
     "seeallresult": {
       "template": "templates/team_race/see_all_result.png",

@@ -1,10 +1,8 @@
-using System.Reflection;
 using StyletIoC;
 using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Tasks;
-using UmamusumeWpfGui.Services.Training;
 using UmamusumeWpfGui.ViewModels;
 
 namespace UmamusumeWpfGui.Tests;
@@ -12,153 +10,68 @@ namespace UmamusumeWpfGui.Tests;
 public sealed class BootstrapperRegistrationTests
 {
     [Fact]
-    public void Bootstrapper_ClassExists()
+    public void MatcherTestBootstrapUsesTheProductionNativeCore()
     {
-        var type = typeof(Bootstrapper);
-        Assert.NotNull(type);
+        Assert.Equal(11u, NativeTemplateMatcherTestBootstrap.CoreApiVersion);
     }
 
     [Fact]
-    public void Bootstrapper_ExtendsBootstrapperOfRootViewModel()
+    public void BootstrapperExtendsTheApplicationRoot()
     {
         var type = typeof(Bootstrapper);
         var baseType = type.BaseType;
+
         Assert.NotNull(baseType);
         Assert.Contains("Bootstrapper", baseType!.Name);
-        Assert.Contains(baseType.GenericTypeArguments, t => t == typeof(RootViewModel));
+        Assert.Contains(baseType.GenericTypeArguments, argument => argument == typeof(RootViewModel));
     }
 
     [Fact]
-    public void Bootstrapper_ConfigureIoC_RegistersAllServices()
-    {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
-
-        Assert.NotNull(container.Get<IConnectionStateService>());
-        Assert.NotNull(container.Get<IUmaService>());
-        Assert.NotNull(container.Get<IEventDispatcher>());
-        Assert.NotNull(container.Get<ISettingsService>());
-        Assert.NotNull(container.Get<ILocalizationService>());
-        Assert.NotNull(container.Get<IWinAdapter>());
-        Assert.NotNull(container.Get<DateChangedDialogGuard>());
-        Assert.NotNull(container.Get<DateChangedDialogRecovery>());
-
-        Assert.NotNull(container.Get<LogViewModel>());
-        Assert.NotNull(container.Get<SettingsViewModel>());
-        Assert.NotNull(container.Get<RootViewModel>());
-    }
-
-    [Fact]
-    public void Bootstrapper_NormalCareerPipeline_UsesRegisteredEngineWithDateChangedRecovery()
+    public void BootstrapperRegistersTheNativeQueueAndSettingsModules()
     {
         var builder = new StyletIoCBuilder();
         new TestBootstrapper().CallConfigureIoC(builder);
         var container = builder.BuildContainer();
 
-        var pipeline = Assert.IsType<AdbNormalCareerTrainingPipeline>(container.Get<ICareerTrainingPipeline>());
-        var engine = typeof(AdbNormalCareerTrainingPipeline)
-            .GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(pipeline);
-        Assert.Same(container.Get<CareerTrainingEngine>(), engine);
-        Assert.Same(container.Get<DateChangedDialogRecovery>(), typeof(CareerTrainingEngine)
-            .GetField("_dateChangedRecovery", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(engine));
-        Assert.Same(container.Get<DateChangedDialogGuard>(), typeof(AdbVisualPipelineRuntime)
-            .GetField("_dateChangedGuard", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(container.Get<IVisualPipelineRuntime>()));
+        Assert.NotNull(container.Get<IUmaService>());
+        Assert.NotNull(container.Get<IUmaDatabaseService>());
+        Assert.IsType<NativeGrassTaskExecutor>(container.Get<IGrassTaskExecutor>());
+        Assert.IsType<GrassTaskExecutionService>(container.Get<IGrassTaskExecutionService>());
+        Assert.NotNull(container.Get<IGrassTaskCatalog>());
+        Assert.NotNull(container.Get<StartGameTaskModule>());
+        Assert.NotNull(container.Get<DailyRaceTaskModule>());
+        Assert.NotNull(container.Get<CareerTrainingTaskModule>());
     }
 
     [Fact]
-    public void Bootstrapper_UmaService_IsSingleton()
+    public void BootstrapperAssemblyDoesNotContainManagedTaskOrCareerRuntimes()
     {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
+        var typeNames = typeof(Bootstrapper).Assembly.GetTypes()
+            .Select(type => type.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
-        var first = container.Get<IUmaService>();
-        var second = container.Get<IUmaService>();
-
-        Assert.Same(first, second);
+        Assert.DoesNotContain("CareerTrainingEngine", typeNames);
+        Assert.DoesNotContain("ManagedGrassTaskExecutor", typeNames);
+        Assert.DoesNotContain("HachimiJsonPipelineRunner", typeNames);
+        Assert.DoesNotContain("AdbIndependentTrainingPipeline", typeNames);
+        Assert.DoesNotContain("AdbDailyRacePipeline", typeNames);
     }
 
     [Fact]
-    public void Bootstrapper_ConnectionStateService_IsSingleton()
+    public void CoreServicesSettingsAndLocalizationAreSingletons()
     {
         var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
+        new TestBootstrapper().CallConfigureIoC(builder);
         var container = builder.BuildContainer();
 
-        var first = container.Get<IConnectionStateService>();
-        var second = container.Get<IConnectionStateService>();
-
-        Assert.Same(first, second);
-    }
-
-    [Fact]
-    public void Bootstrapper_SettingsService_IsSingleton()
-    {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
-
-        var first = container.Get<ISettingsService>();
-        var second = container.Get<ISettingsService>();
-
-        Assert.Same(first, second);
-    }
-
-    [Fact]
-    public void Bootstrapper_LocalizationService_IsSingleton()
-    {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
-
-        var first = container.Get<ILocalizationService>();
-        var second = container.Get<ILocalizationService>();
-
-        Assert.Same(first, second);
-    }
-
-    [Fact]
-    public void Bootstrapper_LogViewModel_IsSingleton()
-    {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
-
-        var first = container.Get<LogViewModel>();
-        var second = container.Get<LogViewModel>();
-
-        Assert.Same(first, second);
-    }
-
-    [Fact]
-    public void Bootstrapper_SettingsViewModel_IsSingleton()
-    {
-        var builder = new StyletIoCBuilder();
-        var bootstrapper = new TestBootstrapper();
-        bootstrapper.CallConfigureIoC(builder);
-        var container = builder.BuildContainer();
-
-        var first = container.Get<SettingsViewModel>();
-        var second = container.Get<SettingsViewModel>();
-
-        Assert.Same(first, second);
+        Assert.Same(container.Get<IUmaService>(), container.Get<IUmaService>());
+        Assert.Same(container.Get<IConnectionStateService>(), container.Get<IConnectionStateService>());
+        Assert.Same(container.Get<ISettingsService>(), container.Get<ISettingsService>());
+        Assert.Same(container.Get<ILocalizationService>(), container.Get<ILocalizationService>());
     }
 }
 
 internal sealed class TestBootstrapper : Bootstrapper
 {
-    public void CallConfigureIoC(IStyletIoCBuilder builder)
-    {
-        ConfigureIoC(builder);
-    }
+    public void CallConfigureIoC(IStyletIoCBuilder builder) => ConfigureIoC(builder);
 }

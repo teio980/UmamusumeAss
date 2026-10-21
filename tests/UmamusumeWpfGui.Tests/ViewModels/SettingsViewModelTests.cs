@@ -1370,7 +1370,8 @@ public sealed class SettingsViewModelTests
             new ConnectionHealthTarget(
                 vm.DraftAdbPath,
                 "127.0.0.1:16384",
-                "General"),
+                "General",
+                1),
             f.HealthMonitor.LastTarget);
     }
 
