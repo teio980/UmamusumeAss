@@ -51,6 +51,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     private bool _isUpdating;
 
     private bool IsEnglish => _task.LocalizationService?.CurrentLanguage?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
+    private string T(string chinese, string english) => UiText.Get(_task.LocalizationService, chinese, english);
 
     public IReadOnlyList<string> CareerModes { get; } = ["normal", "independent"];
     public IReadOnlyList<TaskSettingOption> CareerModeOptions => IsEnglish
@@ -128,7 +129,44 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedIndependentLineupStrategyOption));
         OnPropertyChanged(nameof(SelectedNormalLineupStrategyOption));
         OnPropertyChanged(nameof(SelectedNormalTrainingStrategyOption));
+        OnPropertyChanged(nameof(SupportCardTypeFilters));
+        OnPropertyChanged(nameof(AgendaYearFilters));
+        OnPropertyChanged(nameof(AgendaSurfaceFilters));
+        OnPropertyChanged(nameof(AgendaDistanceFilters));
+        OnPropertyChanged(nameof(AgendaGradeFilters));
+        OnPropertyChanged(nameof(RatioCyclePreview));
+        OnPropertyChanged(nameof(SelectedSupportCardCountText));
+        OnPropertyChanged(nameof(TargetNormalSkillCountText));
+        OnPropertyChanged(nameof(TargetIndependentSkillCountText));
+        OnPropertyChanged(nameof(SelectedAgendaRaceCountText));
+        OnPropertyChanged(nameof(ValidationMessage));
+        OnPropertyChanged(nameof(IsValid));
+
+        _friendCardTypeFilter = LocalizeAllFilter(_friendCardTypeFilter);
+        _manualSupportCardTypeFilter = LocalizeAllFilter(_manualSupportCardTypeFilter);
+        _agendaYearFilter = LocalizeAllFilter(_agendaYearFilter);
+        _agendaSurfaceFilter = LocalizeAllFilter(_agendaSurfaceFilter);
+        _agendaDistanceFilter = LocalizeAllFilter(_agendaDistanceFilter);
+        _agendaGradeFilter = LocalizeAllFilter(_agendaGradeFilter);
+        OnPropertyChanged(nameof(FriendCardTypeFilter));
+        OnPropertyChanged(nameof(ManualSupportCardTypeFilter));
+        OnPropertyChanged(nameof(AgendaYearFilter));
+        OnPropertyChanged(nameof(AgendaSurfaceFilter));
+        OnPropertyChanged(nameof(AgendaDistanceFilter));
+        OnPropertyChanged(nameof(AgendaGradeFilter));
+        FilterRichSupportCards();
+        FilterRichFriendCards();
+        FilterRichAgendaRaces();
+        OnPropertyChanged(nameof(RichFilteredSupportCards));
+        OnPropertyChanged(nameof(RichFilteredFriendCards));
+        OnPropertyChanged(nameof(RichFilteredAgendaRaces));
     }
+
+    private string LocalizeAllFilter(string current) => current is "全部" or "All"
+        ? (IsEnglish ? "All" : "全部")
+        : current;
+
+    private static bool IsAllFilter(string value) => value is "全部" or "All";
 
     public IReadOnlyList<string> EventHandlingModes { get; } = ["default"];
 
@@ -137,20 +175,25 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public IReadOnlyList<TaskCatalogOption> SkillOptions { get; } = AllSkillOptions;
     public IReadOnlyList<TaskCatalogOption> IndependentRaceOptions { get; } = AllIndependentRaceOptions;
 
-    public IReadOnlyList<string> SupportCardTypeFilters { get; } =
-        ["全部", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"];
+    public IReadOnlyList<string> SupportCardTypeFilters => IsEnglish
+        ? ["All", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"]
+        : ["全部", "Speed", "Stamina", "Power", "Guts", "Wit", "Friend", "Group"];
 
-    public IReadOnlyList<string> AgendaYearFilters { get; } =
-        ["全部", "First Year", "Classic Year", "Senior Year"];
+    public IReadOnlyList<string> AgendaYearFilters => IsEnglish
+        ? ["All", "First Year", "Classic Year", "Senior Year"]
+        : ["全部", "First Year", "Classic Year", "Senior Year"];
 
-    public IReadOnlyList<string> AgendaSurfaceFilters { get; } =
-        ["全部", "Turf", "Dirt"];
+    public IReadOnlyList<string> AgendaSurfaceFilters => IsEnglish
+        ? ["All", "Turf", "Dirt"]
+        : ["全部", "Turf", "Dirt"];
 
-    public IReadOnlyList<string> AgendaDistanceFilters { get; } =
-        ["全部", "Sprint", "Mile", "Medium", "Long"];
+    public IReadOnlyList<string> AgendaDistanceFilters => IsEnglish
+        ? ["All", "Sprint", "Mile", "Medium", "Long"]
+        : ["全部", "Sprint", "Mile", "Medium", "Long"];
 
-    public IReadOnlyList<string> AgendaGradeFilters { get; } =
-        ["全部", "G1", "G2", "G3", "OP", "Pre-OP"];
+    public IReadOnlyList<string> AgendaGradeFilters => IsEnglish
+        ? ["All", "G1", "G2", "G3", "OP", "Pre-OP"]
+        : ["全部", "G1", "G2", "G3", "OP", "Pre-OP"];
 
     private TaskCatalogOption[] _filteredTraineeOptions = [];
     private TaskCatalogOption[] _filteredSupportCardOptions = [];
@@ -163,16 +206,16 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     private string _independentRaceSearchText = string.Empty;
 
     private string _friendCardSearchText = string.Empty;
-    private string _friendCardTypeFilter = "全部";
-    private string _manualSupportCardTypeFilter = "全部";
+    private string _friendCardTypeFilter = "All";
+    private string _manualSupportCardTypeFilter = "All";
 
     private string _normalSkillSearchText = string.Empty;
     private string _independentSkillSearchText = string.Empty;
 
-    private string _agendaYearFilter = "全部";
-    private string _agendaSurfaceFilter = "全部";
-    private string _agendaDistanceFilter = "全部";
-    private string _agendaGradeFilter = "全部";
+    private string _agendaYearFilter = "All";
+    private string _agendaSurfaceFilter = "All";
+    private string _agendaDistanceFilter = "All";
+    private string _agendaGradeFilter = "All";
     private string _agendaSearchText = string.Empty;
 
     private List<TraineeCatalogItem> _richFilteredTrainees = [];
@@ -251,7 +294,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _manualSupportCardTypeFilter;
         set
         {
-            if (!SetProperty(ref _manualSupportCardTypeFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _manualSupportCardTypeFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichSupportCards();
             OnPropertyChanged(nameof(RichFilteredSupportCards));
         }
@@ -273,7 +316,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _friendCardTypeFilter;
         set
         {
-            if (!SetProperty(ref _friendCardTypeFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _friendCardTypeFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichFriendCards();
             OnPropertyChanged(nameof(RichFilteredFriendCards));
         }
@@ -339,7 +382,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _agendaYearFilter;
         set
         {
-            if (!SetProperty(ref _agendaYearFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _agendaYearFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichAgendaRaces();
             OnPropertyChanged(nameof(RichFilteredAgendaRaces));
         }
@@ -350,7 +393,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _agendaSurfaceFilter;
         set
         {
-            if (!SetProperty(ref _agendaSurfaceFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _agendaSurfaceFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichAgendaRaces();
             OnPropertyChanged(nameof(RichFilteredAgendaRaces));
         }
@@ -361,7 +404,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _agendaDistanceFilter;
         set
         {
-            if (!SetProperty(ref _agendaDistanceFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _agendaDistanceFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichAgendaRaces();
             OnPropertyChanged(nameof(RichFilteredAgendaRaces));
         }
@@ -372,7 +415,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => _agendaGradeFilter;
         set
         {
-            if (!SetProperty(ref _agendaGradeFilter, value ?? "全部")) return;
+            if (!SetProperty(ref _agendaGradeFilter, value ?? (IsEnglish ? "All" : "全部"))) return;
             FilterRichAgendaRaces();
             OnPropertyChanged(nameof(RichFilteredAgendaRaces));
         }
@@ -409,7 +452,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public string JsonErrorText => _jsonErrorText;
     public bool HasJsonError => !string.IsNullOrEmpty(_jsonErrorText);
     public bool IsValid => string.IsNullOrEmpty(ValidationMessage);
-    public string ValidationMessage => HasJsonError ? $"JSON 格式错误：{JsonErrorText}" : GetValidationMessage();
+    public string ValidationMessage => HasJsonError
+        ? $"{T("JSON 格式错误", "Invalid JSON")}: {JsonErrorText}"
+        : GetValidationMessage();
     public event EventHandler? SettingsChanged;
 
     public string PackageId
@@ -692,7 +737,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             var weights = new[] { SpeedRatio, StaminaRatio, PowerRatio, GutsRatio, WitRatio };
             var divisor = weights.Aggregate(0, GreatestCommonDivisor);
             if (divisor <= 0) return "—";
-            string[] labels = ["速度", "耐力", "力量", "根性", "智力"];
+            string[] labels = IsEnglish
+                ? ["Speed", "Stamina", "Power", "Guts", "Wit"]
+                : ["速度", "耐力", "力量", "根性", "智力"];
             var preview = new List<string>();
             for (var i = 0; i < weights.Length; i++)
             {
@@ -815,8 +862,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         }
     }
 
-    public string SelectedAgendaRaceCountText =>
-        $"已安排日程赛事：{ParseParts(IndependentAgendaSelectionsText).Length} 场";
+    public string SelectedAgendaRaceCountText => IsEnglish
+        ? $"Agenda races selected: {ParseParts(IndependentAgendaSelectionsText).Length}"
+        : $"已安排日程赛事：{ParseParts(IndependentAgendaSelectionsText).Length} 场";
 
     public string IndependentSkillIdsText
     {
@@ -923,7 +971,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         }
     }
 
-    public string SelectedSupportCardCountText => $"已选支援卡：{SelectedSupportCards.Count} / 6";
+    public string SelectedSupportCardCountText => IsEnglish
+        ? $"Support cards selected: {SelectedSupportCards.Count} / 6"
+        : $"已选支援卡：{SelectedSupportCards.Count} / 6";
 
     public bool PauseOnUnknownOutcome
     {
@@ -1060,6 +1110,12 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     public TaskSettingsViewModel(TaskQueueItemViewModel task)
     {
         _task = task;
+        _friendCardTypeFilter = IsEnglish ? "All" : "全部";
+        _manualSupportCardTypeFilter = IsEnglish ? "All" : "全部";
+        _agendaYearFilter = IsEnglish ? "All" : "全部";
+        _agendaSurfaceFilter = IsEnglish ? "All" : "全部";
+        _agendaDistanceFilter = IsEnglish ? "All" : "全部";
+        _agendaGradeFilter = IsEnglish ? "All" : "全部";
         _rawSettingsJson = task.Settings.ToJsonString(JsonOptions);
         _filteredTraineeOptions = AllTraineeOptions;
         _filteredSupportCardOptions = AllSupportCardOptions;
@@ -1130,7 +1186,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         {
             var card = UmaCatalogService.FindSupportCard(id) ??
                 (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SupportCardCatalogItem(parsedId, $"支援卡 #{parsedId}", "未知", "SSR", string.Empty)
+                    ? new SupportCardCatalogItem(parsedId, IsEnglish ? $"Support Card #{parsedId}" : $"支援卡 #{parsedId}", T("未知", "Unknown"), "SSR", string.Empty)
                     : null);
             if (card is not null)
                 SelectedSupportCards.Add(card);
@@ -1200,7 +1256,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         {
             var skill = UmaCatalogService.FindSkill(id) ??
                 (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SkillCatalogItem(parsedId, $"技能 #{parsedId}", "常规", null, string.Empty)
+                    ? new SkillCatalogItem(parsedId, IsEnglish ? $"Skill #{parsedId}" : $"技能 #{parsedId}", T("常规", "Career"), null, string.Empty)
                     : null);
             if (skill is not null)
                 TargetNormalSkills.Add(skill);
@@ -1208,7 +1264,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetNormalSkillCountText));
     }
 
-    public string TargetNormalSkillCountText => $"已选目标技能：{TargetNormalSkills.Count}";
+    public string TargetNormalSkillCountText => IsEnglish
+        ? $"Target skills selected: {TargetNormalSkills.Count}"
+        : $"已选目标技能：{TargetNormalSkills.Count}";
 
     // Independent Skills commands
     [RelayCommand]
@@ -1272,7 +1330,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         {
             var skill = UmaCatalogService.FindSkill(id) ??
                 (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
-                    ? new SkillCatalogItem(parsedId, $"技能 #{parsedId}", "独立", null, string.Empty)
+                    ? new SkillCatalogItem(parsedId, IsEnglish ? $"Skill #{parsedId}" : $"技能 #{parsedId}", T("独立", "Independent"), null, string.Empty)
                     : null);
             if (skill is not null)
                 TargetIndependentSkills.Add(skill);
@@ -1280,7 +1338,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetIndependentSkillCountText));
     }
 
-    public string TargetIndependentSkillCountText => $"已选目标技能：{TargetIndependentSkills.Count}";
+    public string TargetIndependentSkillCountText => IsEnglish
+        ? $"Target skills selected: {TargetIndependentSkills.Count}"
+        : $"已选目标技能：{TargetIndependentSkills.Count}";
 
     // Independent Agenda commands
     [RelayCommand]
@@ -1323,7 +1383,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var type = ManualSupportCardTypeFilter;
         _richFilteredSupportCards = UmaCatalogService.SupportCards
             .Where(c => (string.IsNullOrWhiteSpace(query) || c.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                && (type == "全部" || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
+                && (IsAllFilter(type) || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
@@ -1333,7 +1393,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var type = FriendCardTypeFilter;
         _richFilteredFriendCards = UmaCatalogService.SupportCards
             .Where(c => (string.IsNullOrWhiteSpace(query) || c.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                && (type == "全部" || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
+                && (IsAllFilter(type) || c.Type.Equals(type, StringComparison.OrdinalIgnoreCase)))
             .ToList();
     }
 
@@ -1365,10 +1425,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
         _richFilteredAgendaRaces = UmaCatalogService.IndependentRaces
             .Where(r => (string.IsNullOrWhiteSpace(query) || r.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                && (year == "全部" || r.Year.Equals(year, StringComparison.OrdinalIgnoreCase))
-                && (surface == "全部" || r.Surface.Equals(surface, StringComparison.OrdinalIgnoreCase))
-                && (dist == "全部" || r.Distance.Equals(dist, StringComparison.OrdinalIgnoreCase))
-                && (grade == "全部" || r.Grade.Equals(grade, StringComparison.OrdinalIgnoreCase)))
+                && (IsAllFilter(year) || r.Year.Equals(year, StringComparison.OrdinalIgnoreCase))
+                && (IsAllFilter(surface) || r.Surface.Equals(surface, StringComparison.OrdinalIgnoreCase))
+                && (IsAllFilter(dist) || r.Distance.Equals(dist, StringComparison.OrdinalIgnoreCase))
+                && (IsAllFilter(grade) || r.Grade.Equals(grade, StringComparison.OrdinalIgnoreCase)))
             .Select(r => new IndependentAgendaRaceItemViewModel(r, selectedKeys.Contains(r.Key), OnAgendaRaceToggled))
             .ToList();
     }
@@ -1517,50 +1577,50 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
     private string GetValidationMessage()
     {
         if (!HasValidFieldTypes())
-            return "配置中有字段类型不正确，请检查高级 JSON。";
+            return T("配置中有字段类型不正确，请检查高级 JSON。", "A setting has an invalid type. Check the advanced JSON.");
         if (IsStartGame && string.IsNullOrWhiteSpace(PackageId))
-            return "请输入游戏包名。";
+            return T("请输入游戏包名。", "Enter the game package ID.");
 
         if (IsDefinitionTask && !IsResourceFile(DefinitionPath))
-            return "管线文件不存在或路径无效。";
+            return T("管线文件不存在或路径无效。", "The pipeline file does not exist or the path is invalid.");
 
         if (IsDailyRace)
         {
             if (!int.TryParse(RaceCountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var dailyRaceCount) || dailyRaceCount is < 1 or > 6)
-                return "每日竞赛数量必须是 1 到 6。";
+                return T("每日竞赛数量必须是 1 到 6。", "Daily Race count must be between 1 and 6.");
             if (!DailyRaceModes.Contains(DailyRaceMode, StringComparer.OrdinalIgnoreCase))
-                return "每日竞赛奖励类型不受支持。";
+                return T("每日竞赛奖励类型不受支持。", "The selected Daily Race reward type is not supported.");
             if (!DailyRaceDifficulties.Contains(DailyRaceDifficulty, StringComparer.OrdinalIgnoreCase))
-                return "每日竞赛难度不受支持。";
+                return T("每日竞赛难度不受支持。", "The selected Daily Race difficulty is not supported.");
             if (!string.IsNullOrWhiteSpace(TraineeIdText) && !TraineeOptions.Any(option => option.Id == TraineeIdText))
-                return "所选马娘 ID 不在当前可用数据库中。";
+                return T("所选马娘 ID 不在当前可用数据库中。", "The selected trainee ID is not in the available database.");
         }
 
         if (IsTeamRace && (!int.TryParse(RaceCountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var teamRaceCount) || teamRaceCount is < 1 or > 5))
-            return "队伍竞技场数量必须是 1 到 5。";
+            return T("队伍竞技场数量必须是 1 到 5。", "Team Race count must be between 1 and 5.");
 
         if (!IsCareerTraining)
             return string.Empty;
 
-        if (!IsResourceFile(ManifestPath)) return "育成剧本 Manifest 文件不存在或路径无效。";
-        if (!CareerModes.Contains(CareerMode, StringComparer.OrdinalIgnoreCase)) return "育成模式不受支持。";
+        if (!IsResourceFile(ManifestPath)) return T("育成剧本 Manifest 文件不存在或路径无效。", "The Career scenario manifest does not exist or the path is invalid.");
+        if (!CareerModes.Contains(CareerMode, StringComparer.OrdinalIgnoreCase)) return T("育成模式不受支持。", "The selected Career mode is not supported.");
         if (!int.TryParse(RunCountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var runCount) || runCount < 1)
-            return "育成轮数必须是正整数。";
+            return T("育成轮数必须是正整数。", "Run count must be a positive whole number.");
 
         if (CareerMode.Equals("normal", StringComparison.OrdinalIgnoreCase))
         {
-            if (string.IsNullOrWhiteSpace(StrategyId)) return "请输入策略 ID。";
-            if (!LineupStrategies.Contains(NormalLineupStrategy, StringComparer.OrdinalIgnoreCase)) return "所选跑法不受支持。";
+            if (string.IsNullOrWhiteSpace(StrategyId)) return T("请输入策略 ID。", "Enter a strategy ID.");
+            if (!LineupStrategies.Contains(NormalLineupStrategy, StringComparer.OrdinalIgnoreCase)) return T("所选跑法不受支持。", "The selected running style is not supported.");
             if (SpeedRatio + StaminaRatio + PowerRatio + GutsRatio + WitRatio <= 0)
-                return "训练权重总和必须大于 0。";
+                return T("训练权重总和必须大于 0。", "The training weight total must be greater than 0.");
             if (NormalTrainingStrategy.Equals("custom-ratio", StringComparison.OrdinalIgnoreCase) && TotalRatio <= 0)
-                return "自定义训练比例总和必须大于 0。";
+                return T("自定义训练比例总和必须大于 0。", "The custom training ratio total must be greater than 0.");
         }
 
         if (CareerMode.Equals("independent", StringComparison.OrdinalIgnoreCase))
         {
-            if (!TrainingFocuses.Contains(IndependentTrainingFocus, StringComparer.OrdinalIgnoreCase)) return "训练侧重不受支持。";
-            if (!LineupStrategies.Contains(IndependentLineupStrategy, StringComparer.OrdinalIgnoreCase)) return "独立育成跑法不受支持。";
+            if (!TrainingFocuses.Contains(IndependentTrainingFocus, StringComparer.OrdinalIgnoreCase)) return T("训练侧重不受支持。", "The selected training focus is not supported.");
+            if (!LineupStrategies.Contains(IndependentLineupStrategy, StringComparer.OrdinalIgnoreCase)) return T("独立育成跑法不受支持。", "The selected Independent Training running style is not supported.");
         }
 
         if (SupportDeckMode.Equals("auto", StringComparison.OrdinalIgnoreCase))
@@ -1572,10 +1632,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(FriendSupportCardIdText))
             {
                 var friend = SupportCardOptions.FirstOrDefault(option => option.Id == FriendSupportCardIdText);
-                if (friend is null) return "好友支援卡 ID 无效或不可用。";
+                if (friend is null) return T("好友支援卡 ID 无效或不可用。", "The friend support card ID is invalid or unavailable.");
                 if (requiredTypes is not null && !requiredTypes.ContainsKey("Friend")
                     && (!requiredTypes.TryGetValue(friend.Category ?? string.Empty, out var required) || required == 0))
-                    return "好友支援卡类型与所选预设不匹配。";
+                    return T("好友支援卡类型与所选预设不匹配。", "The friend support card type does not match the selected preset.");
             }
             return string.Empty;
         }
@@ -1583,21 +1643,21 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var ids = ParseParts(SupportCardIdsText).ToArray();
         var friendId = FriendSupportCardIdText;
         if (ids.Distinct(StringComparer.OrdinalIgnoreCase).Count() != ids.Length)
-            return "支援卡列表中有重复 ID。";
+            return T("支援卡列表中有重复 ID。", "The support card list contains duplicate IDs.");
         if (ids.Length is not (5 or 6) || (!string.IsNullOrWhiteSpace(friendId) && ids.Length != 5))
-            return "自选卡组需要 5 张卡加可选好友卡，或不带好友卡时使用 6 张卡。";
+            return T("自选卡组需要 5 张卡加可选好友卡，或不带好友卡时使用 6 张卡。", "A manual deck needs five cards plus an optional friend card, or six cards without a friend card.");
 
         var selected = ids.Select(id => SupportCardOptions.FirstOrDefault(option => option.Id == id)).ToArray();
-        if (selected.Any(option => option is null)) return "支援卡列表包含无效或不可用的 ID。";
+        if (selected.Any(option => option is null)) return T("支援卡列表包含无效或不可用的 ID。", "The support card list contains invalid or unavailable IDs.");
         var deckTypes = selected.Select(option => option!.Category ?? string.Empty).ToList();
         if (!string.IsNullOrWhiteSpace(friendId))
         {
-            if (ids.Contains(friendId, StringComparer.OrdinalIgnoreCase)) return "好友支援卡不能与卡组中的支援卡重复。";
+            if (ids.Contains(friendId, StringComparer.OrdinalIgnoreCase)) return T("好友支援卡不能与卡组中的支援卡重复。", "The friend support card cannot duplicate a card in the deck.");
             var friend = SupportCardOptions.FirstOrDefault(option => option.Id == friendId);
-            if (friend is null) return "好友支援卡 ID 无效或不可用。";
+            if (friend is null) return T("好友支援卡 ID 无效或不可用。", "The friend support card ID is invalid or unavailable.");
             if (requiredTypes is not null && !requiredTypes.ContainsKey("Friend")
                 && (!requiredTypes.TryGetValue(friend.Category ?? string.Empty, out var required) || required == 0))
-                return "好友支援卡类型与所选预设不匹配。";
+                return T("好友支援卡类型与所选预设不匹配。", "The friend support card type does not match the selected preset.");
             deckTypes.Add(friend.Category ?? string.Empty);
         }
 
@@ -1607,7 +1667,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
             if (!requiredTypes.All(pair => actual.GetValueOrDefault(pair.Key) == pair.Value)
                 || actual.Values.Sum() != 6 - (string.IsNullOrWhiteSpace(friendId) ? 0 : 1))
-                return "所选支援卡类型不符合当前卡组预设。";
+                return T("所选支援卡类型不符合当前卡组预设。", "The selected support card types do not match the current deck preset.");
         }
         return string.Empty;
     }

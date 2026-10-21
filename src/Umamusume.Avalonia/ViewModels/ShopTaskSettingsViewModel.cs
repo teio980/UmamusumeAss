@@ -2,6 +2,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Umamusume.AppCore.Models;
 using Umamusume.AppCore.Services;
+using Umamusume.Avalonia.Services;
 
 namespace Umamusume.Avalonia.ViewModels;
 
@@ -9,6 +10,7 @@ namespace Umamusume.Avalonia.ViewModels;
 public sealed class ShopTaskSettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settingsService;
+    private readonly ILocalizationService? _localizationService;
     private HachimiShopSettings _settings;
     private string _errorText = string.Empty;
 
@@ -24,9 +26,10 @@ public sealed class ShopTaskSettingsViewModel : ObservableObject
     public bool BuySupportPoints { get => _settings.BuySupportPoints; set => SetValue(_settings.BuySupportPoints, value, v => _settings.BuySupportPoints = v, nameof(BuySupportPoints)); }
     public bool BuyFlags { get => _settings.BuyFlags; set => SetValue(_settings.BuyFlags, value, v => _settings.BuyFlags = v, nameof(BuyFlags)); }
 
-    public ShopTaskSettingsViewModel(ISettingsService settingsService)
+    public ShopTaskSettingsViewModel(ISettingsService settingsService, ILocalizationService? localizationService = null)
     {
         _settingsService = settingsService;
+        _localizationService = localizationService;
         _settings = Clone(settingsService.Load().Hachimi.Shop);
     }
 
@@ -55,7 +58,7 @@ public sealed class ShopTaskSettingsViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            ErrorText = $"商店设置保存失败：{exception.Message}";
+            ErrorText = $"{UiText.Get(_localizationService, "商店设置保存失败", "Failed to save shop settings")}: {exception.Message}";
             OnPropertyChanged(nameof(HasError));
             return false;
         }

@@ -242,7 +242,7 @@
                                         </ListBox>
 
                                         <Grid ColumnDefinitions="Auto,*">
-                                            <TextBlock Text="马娘 ID：" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{DynamicResource Ui_dcd705e98af5}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <TextBox Grid.Column="1" Margin="8,0,0,0" Width="140" HorizontalAlignment="Left"
                                                      Text="{Binding TraineeIdText, UpdateSourceTrigger=PropertyChanged}"
                                                      Watermark="{DynamicResource Ui_064be7ef82de}" />
@@ -301,11 +301,11 @@
                                     <StackPanel Spacing="10">
                                         <TextBlock Text="{DynamicResource GrassCareerAttributeSparksLabel}" FontWeight="SemiBold" FontSize="14" />
                                         <WrapPanel Orientation="Horizontal">
-                                            <CheckBox Content="速度 (Speed)" IsChecked="{Binding SparkSpeed}" Margin="0,0,16,8" />
-                                            <CheckBox Content="耐力 (Stamina)" IsChecked="{Binding SparkStamina}" Margin="0,0,16,8" />
-                                            <CheckBox Content="力量 (Power)" IsChecked="{Binding SparkPower}" Margin="0,0,16,8" />
-                                            <CheckBox Content="根性 (Guts)" IsChecked="{Binding SparkGuts}" Margin="0,0,16,8" />
-                                            <CheckBox Content="智力 (Wit)" IsChecked="{Binding SparkWit}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_f2fdffbb9ed5}" IsChecked="{Binding SparkSpeed}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_e1b1cb94d76d}" IsChecked="{Binding SparkStamina}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_043b41ab7d67}" IsChecked="{Binding SparkPower}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_3d9442ff4787}" IsChecked="{Binding SparkGuts}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource Ui_5c154ec00a60}" IsChecked="{Binding SparkWit}" Margin="0,0,16,8" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
@@ -315,16 +315,16 @@
                                     <StackPanel Spacing="10">
                                         <TextBlock Text="{DynamicResource GrassCareerAptitudeSparksLabel}" FontWeight="SemiBold" FontSize="14" />
                                         <WrapPanel Orientation="Horizontal">
-                                            <CheckBox Content="草地 (Turf)" IsChecked="{Binding SparkTurf}" Margin="0,0,16,8" />
-                                            <CheckBox Content="沙地 (Dirt)" IsChecked="{Binding SparkDirt}" Margin="0,0,16,8" />
-                                            <CheckBox Content="短距离 (Short)" IsChecked="{Binding SparkShort}" Margin="0,0,16,8" />
-                                            <CheckBox Content="一哩 (Mile)" IsChecked="{Binding SparkMile}" Margin="0,0,16,8" />
-                                            <CheckBox Content="中距离 (Medium)" IsChecked="{Binding SparkMedium}" Margin="0,0,16,8" />
-                                            <CheckBox Content="长距离 (Long)" IsChecked="{Binding SparkLong}" Margin="0,0,16,8" />
-                                            <CheckBox Content="逃 (Runner)" IsChecked="{Binding SparkRunner}" Margin="0,0,16,8" />
-                                            <CheckBox Content="先行 (Leader)" IsChecked="{Binding SparkLeader}" Margin="0,0,16,8" />
-                                            <CheckBox Content="差 (Betweener)" IsChecked="{Binding SparkBetweener}" Margin="0,0,16,8" />
-                                            <CheckBox Content="追 (Chaser)" IsChecked="{Binding SparkChaser}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkTurf}" IsChecked="{Binding SparkTurf}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkDirt}" IsChecked="{Binding SparkDirt}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkSprint}" IsChecked="{Binding SparkShort}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkMile}" IsChecked="{Binding SparkMile}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkMedium}" IsChecked="{Binding SparkMedium}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkLong}" IsChecked="{Binding SparkLong}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkRunner}" IsChecked="{Binding SparkRunner}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkLeader}" IsChecked="{Binding SparkLeader}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkBetweener}" IsChecked="{Binding SparkBetweener}" Margin="0,0,16,8" />
+                                            <CheckBox Content="{DynamicResource GrassSparkChaser}" IsChecked="{Binding SparkChaser}" Margin="0,0,16,8" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
@@ -472,7 +472,7 @@
                                                             <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Medium" />
                                                             <TextBlock Text="{Binding Type}" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                                         </StackPanel>
-                                                        <Button Grid.Column="2" Content="添加" VerticalAlignment="Center" Padding="8,4"
+                                                        <Button Grid.Column="2" Content="{DynamicResource Ui_94191ce210d3}" VerticalAlignment="Center" Padding="8,4"
                                                                 Command="{Binding #Root.((vm:TaskSettingsViewModel)DataContext).AddSupportCardCommand}"
                                                                 CommandParameter="{Binding}" />
                                                     </Grid>
@@ -511,27 +511,27 @@
 
                                                 <Grid ColumnDefinitions="80,100,70" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                                     <!-- Speed -->
-                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="速度 (Speed)" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Ui_f2fdffbb9ed5}" VerticalAlignment="Center" FontSize="12" />
                                                     <TextBox Grid.Row="0" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingSpeedText, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding SpeedPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
 
                                                     <!-- Stamina -->
-                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="耐力 (Stamina)" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Ui_e1b1cb94d76d}" VerticalAlignment="Center" FontSize="12" />
                                                     <TextBox Grid.Row="1" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingStaminaText, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding StaminaPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
 
                                                     <!-- Power -->
-                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="力量 (Power)" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Ui_043b41ab7d67}" VerticalAlignment="Center" FontSize="12" />
                                                     <TextBox Grid.Row="2" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingPowerText, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding PowerPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
 
                                                     <!-- Guts -->
-                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="根性 (Guts)" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Ui_3d9442ff4787}" VerticalAlignment="Center" FontSize="12" />
                                                     <TextBox Grid.Row="3" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingGutsText, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding GutsPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
 
                                                     <!-- Wit -->
-                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="智力 (Wit)" VerticalAlignment="Center" FontSize="12" />
+                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Ui_5c154ec00a60}" VerticalAlignment="Center" FontSize="12" />
                                                     <TextBox Grid.Row="4" Grid.Column="1" Margin="4,2" Text="{Binding NormalTrainingWitText, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding WitPercentage}" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="SemiBold" />
                                                 </Grid>
@@ -582,8 +582,8 @@
                                                       OnContent="{DynamicResource GrassNormalRacePauseOnUnknownLabel}"
                                                       OffContent="{DynamicResource GrassNormalRacePauseOnUnknownLabel}" />
                                         <ToggleSwitch IsChecked="{Binding AllowOptionalRaces}"
-                                                      OnContent="允许参加自由选报赛事 (Optional Races)"
-                                                      OffContent="允许参加自由选报赛事 (Optional Races)" />
+                                                      OnContent="{DynamicResource GrassNormalRaceOptionalLabel}"
+                                                      OffContent="{DynamicResource GrassNormalRaceOptionalLabel}" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
