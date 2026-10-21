@@ -133,6 +133,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
         IsConnected = connectionStateService.State == ConnectionState.Connected;
         _connectionStateService.StateChanged += OnConnectionStateChanged;
         _automationService.ScreenshotCaptured += OnScreenshotCaptured;
+        _automationService.ResourcesChanged += OnResourcesChanged;
         RefreshResources();
     }
 
@@ -1373,6 +1374,15 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     private void OnScreenshotCaptured(CapturedScreenshot captured) =>
         Dispatcher.UIThread.Post(() => SetScreenshot(captured));
 
+    private void OnResourcesChanged(string _) => Dispatcher.UIThread.Post(() =>
+    {
+        // RefreshResources keeps the active pipeline text/history and scenario drafts,
+        // while remapping their paths into the newly committed immutable view.
+        RefreshResources();
+        OnPropertyChanged(nameof(CanTestSystemReferenceMatch));
+        OnPropertyChanged(nameof(CanSaveSystemReference));
+    });
+
     private Task<T> RunCoreExclusiveAsync<T>(
         Func<CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken = default) =>
@@ -1583,6 +1593,7 @@ public sealed partial class DeveloperToolsViewModel : ViewModelBase, IDisposable
     {
         _connectionStateService.StateChanged -= OnConnectionStateChanged;
         _automationService.ScreenshotCaptured -= OnScreenshotCaptured;
+        _automationService.ResourcesChanged -= OnResourcesChanged;
         _pipelineCancellation?.Cancel();
         _pipelineCancellation?.Dispose();
         _pipelineCancellation = null;

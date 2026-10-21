@@ -52,10 +52,10 @@
                         CloseButtonCommand="{Binding DismissNotificationCommand}" Margin="0,0,0,12" />
 
             <!-- Main Workspace: Left Task Queue & Right Real-Time Log -->
-            <Grid Grid.Row="2" ColumnDefinitions="320,*">
+            <Grid Grid.Row="2" ColumnDefinitions="320,Auto,*">
 
                 <!-- Left Column: Queue & Execution Controls -->
-                <Border Grid.Column="0" Margin="0,0,8,0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                <Border Grid.Column="0" MinWidth="260" MaxWidth="480" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="14">
                     <DockPanel LastChildFill="True">
@@ -175,8 +175,12 @@
                     </DockPanel>
                 </Border>
 
+                <!-- Column Splitter -->
+                <GridSplitter Grid.Column="1" Width="8" Background="Transparent"
+                              ResizeDirection="Columns" Margin="3,0" />
+
                 <!-- Right Column: REAL-TIME EXECUTION LOG (1:1 with Win WPF version) -->
-                <Border Grid.Column="1" Margin="8,0,0,0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                <Border Grid.Column="2" MinWidth="300" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="16">
                     <Grid RowDefinitions="Auto,*">

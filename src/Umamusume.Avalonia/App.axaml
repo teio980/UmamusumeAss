@@ -5,19 +5,33 @@
              x:Class="Umamusume.Avalonia.App"
              RequestedThemeVariant="Default">
     <Application.Resources>
-        <!-- Consistent typographic metrics across macOS and Windows: prioritize native CJK system font -->
-        <FontFamily x:Key="ContentControlThemeFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
-        <FontFamily x:Key="SystemControlFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#1F1F1F" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#1F1F1F" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ConnectedDeviceTextBrush" Color="#F3F3F3" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
 
-        <!-- Symmetric control theme paddings -->
-        <Thickness x:Key="ButtonPadding">11,5,11,5</Thickness>
-        <Thickness x:Key="ComboBoxPadding">12,5,0,5</Thickness>
-        <Thickness x:Key="ComboBoxItemThemePadding">11,5,11,5</Thickness>
-        <Thickness x:Key="TextControlThemePadding">10,5,6,5</Thickness>
+            <!-- Consistent typographic metrics across macOS and Windows: prioritize native CJK system font -->
+            <FontFamily x:Key="ContentControlThemeFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
+            <FontFamily x:Key="SystemControlFontFamily">PingFang SC, -apple-system, BlinkMacSystemFont, Segoe UI, Inter, Helvetica Neue, Microsoft YaHei, sans-serif</FontFamily>
 
-        <DataTemplate x:Key="CompactTabHeaderTemplate">
-            <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" />
-        </DataTemplate>
+            <!-- Symmetric control theme paddings -->
+            <Thickness x:Key="ButtonPadding">11,5,11,5</Thickness>
+            <Thickness x:Key="ComboBoxPadding">12,5,0,5</Thickness>
+            <Thickness x:Key="ComboBoxItemThemePadding">11,5,11,5</Thickness>
+            <Thickness x:Key="TextControlThemePadding">10,5,6,5</Thickness>
+
+            <DataTemplate x:Key="CompactTabHeaderTemplate">
+                <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" />
+            </DataTemplate>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>

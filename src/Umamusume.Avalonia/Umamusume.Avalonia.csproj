@@ -23,6 +23,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Umamusume.AppCore\Umamusume.AppCore.csproj" />
     <ProjectReference Include="..\Umamusume.CoreBridge\Umamusume.CoreBridge.csproj" />
+    <ProjectReference Include="..\Umamusume.UpdateCore\Umamusume.UpdateCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umamusume.Avalonia.Tests" />
   </ItemGroup>
 
   <ItemGroup>

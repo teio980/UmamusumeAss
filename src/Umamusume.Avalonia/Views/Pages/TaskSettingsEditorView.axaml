@@ -169,11 +169,11 @@
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                     CornerRadius="8" Padding="16">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="{DynamicResource Ui_5b07af8d3781}" FontSize="18" FontWeight="SemiBold" Margin="2,0,2,4" />
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource Ui_5b07af8d3781}" FontSize="18" FontWeight="SemiBold" Margin="2,0,2,0" />
 
                     <!-- 7-Tab Navigation -->
-                    <TabControl Margin="0,4,0,0">
+                    <TabControl>
 
                         <!-- Tab 1: Basic Settings (基础设置) -->
                         <TabItem Header="{DynamicResource GrassCareerBasicTab}">
