@@ -124,10 +124,16 @@ public sealed partial class LogView : UserControl
         if (_scrollViewer is null)
             return;
 
-
-        _isAtBottom =
-            _scrollViewer.VerticalOffset
-            >= _scrollViewer.ScrollableHeight - 1;
+        // Extent changes happen whenever a new log row is laid out. They do
+        // not mean the user scrolled away from the bottom, so keep the current
+        // follow state until the vertical offset itself changes.
+        if (Math.Abs(e.VerticalChange) > 0.01
+            || (!_isAtBottom && e.ViewportHeightChange > 0.01))
+        {
+            _isAtBottom =
+                _scrollViewer.VerticalOffset
+                >= _scrollViewer.ScrollableHeight - 1;
+        }
     }
 
     private async void OnCopyAllClick(object sender, RoutedEventArgs e)

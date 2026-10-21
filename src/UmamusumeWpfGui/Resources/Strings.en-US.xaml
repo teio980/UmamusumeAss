@@ -60,7 +60,6 @@
   <sys:String x:Key="GrassPlaceholderTitle">Configuration placeholder</sys:String>
   <sys:String x:Key="GrassPlaceholderMessage">This task has a stable UI slot, but its game operation is intentionally reserved for a later phase.</sys:String>
   <sys:String x:Key="GrassScriptQueue">Task queue</sys:String>
-  <sys:String x:Key="GrassScriptPreparing">Preparing {0} task(s)</sys:String>
   <sys:String x:Key="GrassScriptTaskQueued">Task queued</sys:String>
   <sys:String x:Key="GrassScriptTaskRunning">Running task</sys:String>
   <sys:String x:Key="GrassScriptTaskCompleted">Task completed</sys:String>

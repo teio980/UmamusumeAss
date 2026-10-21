@@ -174,9 +174,16 @@ public sealed partial class GrassView : UserControl
         object? sender,
         ScrollChangedEventArgs e)
     {
-        _hachimiTaskLogIsAtBottom =
-            HachimiTaskLogScrollViewer.VerticalOffset
-            >= HachimiTaskLogScrollViewer.ScrollableHeight - 1;
+        // Adding log content changes the scroll extent without user input.
+        // Preserve the previous follow state so the next entry still scrolls
+        // into view when the user was already following the log.
+        if (Math.Abs(e.VerticalChange) > 0.01
+            || (!_hachimiTaskLogIsAtBottom && e.ViewportHeightChange > 0.01))
+        {
+            _hachimiTaskLogIsAtBottom =
+                HachimiTaskLogScrollViewer.VerticalOffset
+                >= HachimiTaskLogScrollViewer.ScrollableHeight - 1;
+        }
     }
 
     private void RequestHachimiTaskLogScroll()

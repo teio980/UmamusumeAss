@@ -396,19 +396,6 @@ public sealed class GrassViewModel : INotifyPropertyChanged, IDisposable, IGrass
         _stopRequested = false;
         IsQueueOperationInProgress = true;
         _logViewModel.Clear();
-        AddScriptLog(
-            Localize("GrassScriptQueue", "Task queue"),
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassScriptPreparing", "Preparing {0} task(s)"),
-                queuedTasks.Count));
-        HachimiTaskLog.AddQueueStep(
-            Localize("GrassTaskLogQueue", "Queue"),
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Localize("GrassScriptPreparing", "Preparing {0} task(s)"),
-                queuedTasks.Count),
-            HachimiTaskLogEventKind.Info);
         foreach (var task in queuedTasks)
         {
             task.SetExecutionProgress(null);
