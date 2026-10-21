@@ -47,8 +47,7 @@
                                 </Grid>
                             </Border>
 
-                            <ui:SettingsExpander Header="{DynamicResource Ui_d4cf9c709fd3}"
-                                                 Description="{Binding AdbPath}" IsExpanded="True">
+                            <ui:SettingsExpander Header="{DynamicResource Ui_d4cf9c709fd3}" IsExpanded="True">
                                 <ui:SettingsExpander.IconSource>
                                     <ui:SymbolIconSource Symbol="Repair" />
                                 </ui:SettingsExpander.IconSource>
@@ -81,16 +80,14 @@
                                                       OffContent="{DynamicResource Ui_6c14bd7f6f9e}" />
                                     </ui:SettingsExpanderItem.Footer>
                                 </ui:SettingsExpanderItem>
-                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_8ca6c0b1393f}"
-                                                         Description="{DynamicResource Ui_feb9e2b63399}">
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_8ca6c0b1393f}">
                                     <ui:SettingsExpanderItem.Footer>
                                         <ToggleSwitch IsChecked="{Binding AlwaysAutoDetectConnection}" />
                                     </ui:SettingsExpanderItem.Footer>
                                 </ui:SettingsExpanderItem>
                             </ui:SettingsExpander>
 
-                            <ui:SettingsExpander Header="{DynamicResource Ui_f6af33bc4369}"
-                                                 Description="{DynamicResource Ui_6d3175742986}" IsExpanded="True">
+                            <ui:SettingsExpander Header="{DynamicResource Ui_f6af33bc4369}" IsExpanded="True">
                                 <ui:SettingsExpander.IconSource>
                                     <ui:SymbolIconSource Symbol="Games" />
                                 </ui:SettingsExpander.IconSource>
@@ -112,8 +109,7 @@
                                         <ui:NumberBox Value="{Binding AutoStartEmulatorWaitSeconds}" Minimum="0" Maximum="300" Width="120" />
                                     </ui:SettingsExpanderItem.Footer>
                                 </ui:SettingsExpanderItem>
-                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_ab5b803dd3f2}"
-                                                         Description="{DynamicResource Ui_f915139f866f}">
+                                <ui:SettingsExpanderItem Content="{DynamicResource Ui_ab5b803dd3f2}">
                                     <ui:SettingsExpanderItem.Footer>
                                         <TextBox Text="{Binding TargetPackageIds}" Width="300" AcceptsReturn="True" MinHeight="70"
                                                  Watermark="com.cygames.umamusume" />
@@ -155,8 +151,7 @@
                 <TabItem Header="{DynamicResource SettingsNavLanguage}">
                     <StackPanel Spacing="10" Margin="4,14,4,0">
                         <TextBlock Text="{DynamicResource Ui_4d8a37136c21}" FontSize="16" FontWeight="SemiBold" />
-                        <ui:SettingsExpander Header="{DynamicResource Ui_fac085e35661}"
-                                             Description="{DynamicResource Ui_cf0311efb8c2}">
+                        <ui:SettingsExpander Header="{DynamicResource Ui_fac085e35661}">
                             <ui:SettingsExpander.IconSource>
                                 <ui:SymbolIconSource Symbol="DarkTheme" />
                             </ui:SettingsExpander.IconSource>
@@ -164,8 +159,7 @@
                                 <ComboBox ItemsSource="{Binding AvailableThemes}" SelectedItem="{Binding SelectedTheme}" Width="190" />
                             </ui:SettingsExpander.Footer>
                         </ui:SettingsExpander>
-                        <ui:SettingsExpander Header="{DynamicResource Ui_4d8a37136c21}"
-                                             Description="{DynamicResource Ui_416f3a48495b}">
+                        <ui:SettingsExpander Header="{DynamicResource Ui_4d8a37136c21}">
                             <ui:SettingsExpander.IconSource>
                                 <ui:SymbolIconSource Symbol="Font" />
                             </ui:SettingsExpander.IconSource>
@@ -244,8 +238,7 @@
                 <TabItem Header="{DynamicResource SettingsNavHachimi}">
                     <StackPanel Spacing="10" Margin="4,14,4,0">
                         <TextBlock Text="{DynamicResource Ui_65f4453f5abb}" FontSize="16" FontWeight="SemiBold" />
-                        <ui:SettingsExpander Header="{DynamicResource SettingsShopTitle}"
-                                             Description="{DynamicResource Ui_1ed86303ff2c}" IsExpanded="True">
+                        <ui:SettingsExpander Header="{DynamicResource SettingsShopTitle}" IsExpanded="True">
                             <ui:SettingsExpander.IconSource>
                                 <ui:SymbolIconSource Symbol="Shop" />
                             </ui:SettingsExpander.IconSource>
@@ -254,8 +247,7 @@
                                     <ToggleSwitch IsChecked="{Binding ShopEnabled}" />
                                 </ui:SettingsExpanderItem.Footer>
                             </ui:SettingsExpanderItem>
-                            <ui:SettingsExpanderItem Content="{DynamicResource Ui_15eef27ca060}"
-                                                     Description="{DynamicResource Ui_e8302b4999f0}">
+                            <ui:SettingsExpanderItem Content="{DynamicResource Ui_15eef27ca060}">
                                 <ui:SettingsExpanderItem.Footer>
                                     <ToggleSwitch IsChecked="{Binding ShopSelectAll}" />
                                 </ui:SettingsExpanderItem.Footer>
