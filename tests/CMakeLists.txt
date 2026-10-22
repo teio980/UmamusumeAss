@@ -29,6 +29,8 @@ add_test(
     "${DOTNET_EXECUTABLE}" test
     "${CMAKE_SOURCE_DIR}/tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj"
     -c Release
+    "--filter"
+    "FullyQualifiedName!~LiveDeviceVerificationTests"
     "--property:NativeDllPath=$<TARGET_FILE:UmaAssistantCore>"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )

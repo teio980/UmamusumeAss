@@ -21,8 +21,7 @@ internal static partial class Program
         string AppPath,
         string PayloadRoot,
         string PackagePath,
-        string ManifestPath,
-        string SignaturePath,
+        string InventoryPath,
         string OperationRoot,
         string OperationId,
         string Nonce);
@@ -45,20 +44,33 @@ internal static partial class Program
                 return 1;
             }
         }
-        if (args.Length != 10 || args[0] != "--install"
-            || !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out int parentPid)
-            || parentPid <= 0) return 64;
-        var request = new InstallRequest(parentPid, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
-        try
+        if (args.Length >= 2 && args[0] == "--install"
+            && int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out int parentPid)
+            && parentPid > 0)
         {
-            return await RunInstallAsync(request).ConfigureAwait(false);
+            InstallRequest request;
+            if (args.Length == 9)
+            {
+                request = new InstallRequest(parentPid, args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+            }
+            else if (args.Length == 10)
+            {
+                request = new InstallRequest(parentPid, args[2], args[3], args[4], args[5], args[7], args[8], args[9]);
+            }
+            else return 64;
+
+            try
+            {
+                return await RunInstallAsync(request).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                await WriteResultAsync(request.OperationRoot, new MacHealthResult(request.OperationId, request.Nonce, false, exception.Message))
+                    .ConfigureAwait(false);
+                return 1;
+            }
         }
-        catch (Exception exception)
-        {
-            await WriteResultAsync(request.OperationRoot, new MacHealthResult(request.OperationId, request.Nonce, false, exception.Message))
-                .ConfigureAwait(false);
-            return 1;
-        }
+        return 64;
     }
 
     private static async Task<int> RunRecoveryAsync(RecoveryRequest request)
@@ -80,29 +92,26 @@ internal static partial class Program
         string appInstanceLockPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "UmamusumeAss", "app-instance.lock");
         using var appLock = AcquireLock(appInstanceLockPath);
-        string manifestPath = Path.Combine(operationRoot, "manifest.json");
-        string signaturePath = Path.Combine(operationRoot, "manifest.sig");
-        byte[] manifestBytes = await File.ReadAllBytesAsync(manifestPath).ConfigureAwait(false);
-        byte[] signature = ManifestVerifier.DecodeSignature(await File.ReadAllTextAsync(signaturePath).ConfigureAwait(false));
-        var verifier = new ManifestVerifier();
-        if (!verifier.Verify(manifestBytes, signature)) throw new CryptographicException("Recovery manifest signature is invalid.");
-        var manifest = ManifestVerifier.Deserialize(manifestBytes);
-        if (!ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag, "macos", "arm64", allowDeltas: false)
-            || !manifest.Kind.Equals("program", StringComparison.Ordinal)
-            || !manifest.Version.Equals(journal.TargetVersion, StringComparison.Ordinal))
-            throw new InvalidDataException("Recovery manifest does not describe the target application.");
-        var asset = manifest.Assets.Single(item => item.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-        string packagePath = Path.Combine(operationRoot, asset.AssetName);
-        string payloadRoot = Path.Combine(operationRoot, "payload");
-        await VerifyZipAndPayloadAsync(packagePath, payloadRoot, asset).ConfigureAwait(false);
-        await VerifyAppInventoryAsync(appPath, asset).ConfigureAwait(false);
+
+        string inventoryPath = Path.Combine(operationRoot, "local-inventory.json");
+        if (!File.Exists(inventoryPath))
+            throw new FileNotFoundException("Recovery local inventory is missing.");
+
+        var inventory = JsonSerializer.Deserialize<LocalFileInventory>(await File.ReadAllTextAsync(inventoryPath).ConfigureAwait(false))
+            ?? throw new InvalidDataException("Recovery local inventory is invalid.");
+
+        if (inventory.SchemaVersion != 2
+            || !inventory.Platform.Equals("osx-arm64", StringComparison.Ordinal)
+            || !inventory.Version.Equals(journal.TargetVersion, StringComparison.Ordinal))
+            throw new InvalidDataException("Recovery inventory does not describe the target application.");
+
         string helperRelativePath = "UmamusumeAss.app/Contents/Helpers/Umamusume.MacUpdater";
-        var helperEntry = asset.Files.SingleOrDefault(file => file.Path.Equals(helperRelativePath, StringComparison.Ordinal))
-            ?? throw new InvalidDataException("Signed manifest does not include the recovery helper.");
+        var helperEntry = inventory.Files.SingleOrDefault(file => file.Path.Equals(helperRelativePath, StringComparison.Ordinal))
+            ?? throw new InvalidDataException("Local inventory does not include the recovery helper.");
         string runningHelper = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot locate recovery helper executable.");
         if (new FileInfo(runningHelper).Length != helperEntry.Size
-            || !ManifestVerifier.Sha256File(runningHelper).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("Recovery helper does not match the signed program inventory.");
+            || !ComputeSha256File(runningHelper).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("Recovery helper does not match the program inventory.");
 
         string candidateApp = Path.GetFullPath(journal.CandidatePath);
         if (!candidateApp.Equals(Path.Combine(appPath + ".update-new", "UmamusumeAss.app"), StringComparison.Ordinal))
@@ -122,20 +131,25 @@ internal static partial class Program
         await WriteJsonAsync(Path.Combine(request.OperationRoot, "helper-started.json"),
             new { request.OperationId, request.Nonce, Started = true }).ConfigureAwait(false);
         using var processLock = AcquireLock(Path.Combine(Path.GetDirectoryName(request.AppPath)!, ".umamusume-update.lock"));
-        await WriteProgressAsync(request, "Verifying signed package and preparing the new app…").ConfigureAwait(false);
-        var manifestBytes = await File.ReadAllBytesAsync(request.ManifestPath).ConfigureAwait(false);
-        var signature = ManifestVerifier.DecodeSignature(await File.ReadAllTextAsync(request.SignaturePath).ConfigureAwait(false));
-        var verifier = new ManifestVerifier();
-        if (!verifier.Verify(manifestBytes, signature)) throw new CryptographicException("Update manifest signature is invalid.");
-        var manifest = ManifestVerifier.Deserialize(manifestBytes);
-        if (!ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag, "macos", "arm64", allowDeltas: false)
-            || !manifest.Kind.Equals("program", StringComparison.Ordinal))
-            throw new InvalidDataException("The package is not a signed macOS arm64 program update.");
-        var asset = manifest.Assets.Single(item => item.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-        if (new FileInfo(request.PackagePath).Length != asset.Size
-            || !ManifestVerifier.Sha256File(request.PackagePath).Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("Update package hash does not match its signed manifest.");
-        await VerifyZipAndPayloadAsync(request.PackagePath, request.PayloadRoot, asset).ConfigureAwait(false);
+        await WriteProgressAsync(request, "Verifying package inventory and preparing the new app…").ConfigureAwait(false);
+
+        string inventoryPath = File.Exists(request.InventoryPath)
+            ? request.InventoryPath
+            : Path.Combine(request.OperationRoot, "local-inventory.json");
+        if (!File.Exists(inventoryPath))
+            throw new FileNotFoundException("Local file inventory is missing.", inventoryPath);
+
+        var inventory = JsonSerializer.Deserialize<LocalFileInventory>(await File.ReadAllTextAsync(inventoryPath).ConfigureAwait(false))
+            ?? throw new InvalidDataException("Local file inventory is invalid.");
+
+        if (inventory.SchemaVersion != 2 || !inventory.Platform.Equals("osx-arm64", StringComparison.Ordinal))
+            throw new InvalidDataException("The package is not a valid macOS arm64 full program update.");
+
+        if (new FileInfo(request.PackagePath).Length != inventory.PackageSize
+            || !ComputeSha256File(request.PackagePath).Equals(inventory.PackageSha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("Update package hash does not match its inventory.");
+
+        await VerifyZipAndPayloadAsync(request.PackagePath, request.PayloadRoot, inventory).ConfigureAwait(false);
         await WriteProgressAsync(request, "Checking the app signature and replacement volume…").ConfigureAwait(false);
 
         string appPath = Path.GetFullPath(request.AppPath);
@@ -146,22 +160,31 @@ internal static partial class Program
         if (!Directory.Exists(appPath)) throw new DirectoryNotFoundException("The running application bundle was not found.");
         ProbeSwapSupport(appParent);
         string oldVersion = ReadBundleVersion(appPath);
-        if (!SemVersion.TryParse(oldVersion, out var current) || !SemVersion.TryParse(manifest.Version, out var target) || target <= current)
+        if (!SemVersion.TryParse(oldVersion, out var current) || !SemVersion.TryParse(inventory.Version, out var target) || target <= current)
             throw new InvalidDataException("The installed bundle is not older than the verified update.");
+
+        string helperRelativePath = "UmamusumeAss.app/Contents/Helpers/Umamusume.MacUpdater";
+        var helperEntry = inventory.Files.SingleOrDefault(file => file.Path.Equals(helperRelativePath, StringComparison.Ordinal))
+            ?? throw new InvalidDataException("Local inventory does not include the update helper.");
+        string runningHelper = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot locate update helper executable.");
+        if (new FileInfo(runningHelper).Length != helperEntry.Size
+            || !ComputeSha256File(runningHelper).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("Update helper does not match the program inventory.");
 
         if (Directory.Exists(candidatePath)) Directory.Delete(candidatePath, recursive: true);
         await WriteProgressAsync(request, "Copying the verified app bundle…").ConfigureAwait(false);
         await CopyTreeAsync(request.PayloadRoot, candidatePath).ConfigureAwait(false);
         string candidateApp = Path.Combine(candidatePath, "UmamusumeAss.app");
-        if (!Directory.Exists(candidateApp) || !ReadBundleVersion(candidateApp).Equals(manifest.Version, StringComparison.Ordinal))
-            throw new InvalidDataException("The candidate app bundle version does not match the signed manifest.");
-        await VerifyAppInventoryAsync(candidateApp, asset).ConfigureAwait(false);
+        if (!Directory.Exists(candidateApp) || !ReadBundleVersion(candidateApp).Equals(inventory.Version, StringComparison.Ordinal))
+            throw new InvalidDataException("The candidate app bundle version does not match the package inventory.");
+        await VerifyAppInventoryAsync(candidateApp, inventory).ConfigureAwait(false);
         await VerifyCodesignAsync(candidateApp).ConfigureAwait(false);
         await WriteProgressAsync(request, "The verified app is ready. Preparing a safe restart…").ConfigureAwait(false);
 
+        string inventorySha256 = ComputeSha256File(inventoryPath);
         var journal = new MacUpdateJournal(request.OperationId, request.Nonce, "prepared", appPath, candidateApp,
-            backupPath, manifest.Version, oldVersion, ManifestVerifier.Sha256Bytes(manifestBytes),
-            asset.TargetTreeSha256, request.ParentPid);
+            backupPath, inventory.Version, oldVersion, inventorySha256,
+            inventory.PackageSha256, request.ParentPid);
         string journalPath = Path.Combine(request.OperationRoot, "journal.json");
         await SaveJournalAsync(journalPath, journal).ConfigureAwait(false);
         await WriteJsonAsync(Path.Combine(request.OperationRoot, "ready.json"), new { request.OperationId, request.Nonce, Ready = true }).ConfigureAwait(false);
@@ -176,9 +199,9 @@ internal static partial class Program
             journalPath, request.OperationRoot, journal, TimeSpan.FromSeconds(90)).ConfigureAwait(false);
     }
 
-    private static async Task VerifyZipAndPayloadAsync(string packagePath, string payloadRoot, UpdateAsset asset)
+    private static async Task VerifyZipAndPayloadAsync(string packagePath, string payloadRoot, LocalFileInventory inventory)
     {
-        var expected = asset.Files.ToDictionary(file => file.Path, StringComparer.Ordinal);
+        var expected = inventory.Files.ToDictionary(file => file.Path, StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         using var archive = ZipFile.OpenRead(packagePath);
         if (archive.Entries.Count > UpdatePathSafety.MaxFiles * 2) throw new InvalidDataException("Package contains too many ZIP entries.");
@@ -194,20 +217,20 @@ internal static partial class Program
                 throw new InvalidDataException($"Package contains a link or special ZIP entry: {name}");
             if (directory) continue;
             if (!seen.Add(name) || !expected.TryGetValue(name, out var signedFile))
-                throw new InvalidDataException($"Package contains an unsigned or duplicate file: {name}");
+                throw new InvalidDataException($"Package contains an unexpected or duplicate file: {name}");
             if (entry.Length != signedFile.Size) throw new InvalidDataException($"Package size mismatch: {name}");
             await using var stream = entry.Open();
             string hash = Convert.ToHexString(await SHA256.HashDataAsync(stream).ConfigureAwait(false));
             if (!hash.Equals(signedFile.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new CryptographicException($"Package file hash mismatch: {name}");
         }
-        if (!seen.SetEquals(expected.Keys)) throw new InvalidDataException("Package file set does not match its signed manifest.");
+        if (!seen.SetEquals(expected.Keys)) throw new InvalidDataException("Package file set does not match its inventory.");
 
         string[] actual = Directory.EnumerateFiles(payloadRoot, "*", SearchOption.AllDirectories)
             .Select(path => Path.GetRelativePath(payloadRoot, path).Replace(Path.DirectorySeparatorChar, '/'))
             .OrderBy(path => path, StringComparer.Ordinal).ToArray();
         if (!actual.SequenceEqual(expected.Keys.OrderBy(path => path, StringComparer.Ordinal), StringComparer.Ordinal))
-            throw new InvalidDataException("Staged payload file set does not match its signed manifest.");
+            throw new InvalidDataException("Staged payload file set does not match its inventory.");
         foreach (var pair in expected)
         {
             string path = UpdatePathSafety.ResolveUnderRoot(payloadRoot, pair.Key);
@@ -219,17 +242,14 @@ internal static partial class Program
         }
     }
 
-    private static async Task VerifyAppInventoryAsync(string appPath, UpdateAsset asset)
+    private static async Task VerifyAppInventoryAsync(string appPath, LocalFileInventory inventory)
     {
         if ((File.GetAttributes(appPath) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("The active application bundle is a link.");
         const string prefix = "UmamusumeAss.app/";
-        var expected = asset.Files.ToDictionary(file =>
-        {
-            if (!file.Path.StartsWith(prefix, StringComparison.Ordinal))
-                throw new InvalidDataException("Program inventory contains a path outside the app bundle.");
-            return file.Path[prefix.Length..];
-        }, StringComparer.Ordinal);
+        var expected = inventory.Files.Where(f => f.Path.StartsWith(prefix, StringComparison.Ordinal))
+            .ToDictionary(file => file.Path[prefix.Length..], StringComparer.Ordinal);
+
         foreach (string directory in Directory.EnumerateDirectories(appPath, "*", SearchOption.AllDirectories))
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("The installed app bundle contains a linked directory.");
@@ -237,9 +257,8 @@ internal static partial class Program
             .Select(file => Path.GetRelativePath(appPath, file).Replace(Path.DirectorySeparatorChar, '/'))
             .OrderBy(path => path, StringComparer.Ordinal).ToArray();
         if (!actual.SequenceEqual(expected.Keys.OrderBy(path => path, StringComparer.Ordinal), StringComparer.Ordinal))
-            throw new InvalidDataException("Installed app file set does not match its signed inventory.");
+            throw new InvalidDataException("Installed app file set does not match its inventory.");
 
-        using var tree = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         foreach (var pair in expected.OrderBy(item => item.Key, StringComparer.Ordinal))
         {
             string path = UpdatePathSafety.ResolveUnderRoot(appPath, pair.Key);
@@ -248,23 +267,18 @@ internal static partial class Program
             await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
                 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
             if (stream.Length != pair.Value.Size)
-                throw new InvalidDataException($"Installed app file size does not match its signed inventory: {pair.Key}");
-            tree.AppendData(Encoding.UTF8.GetBytes(prefix + pair.Key));
-            tree.AppendData([0]);
+                throw new InvalidDataException($"Installed app file size does not match its inventory: {pair.Key}");
             using var fileHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             byte[] buffer = new byte[128 * 1024];
             int read;
             while ((read = await stream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
             {
                 fileHash.AppendData(buffer, 0, read);
-                tree.AppendData(buffer, 0, read);
             }
             string hash = Convert.ToHexString(fileHash.GetHashAndReset());
             if (!hash.Equals(pair.Value.Sha256, StringComparison.OrdinalIgnoreCase))
-                throw new CryptographicException($"Installed app file hash does not match its signed inventory: {pair.Key}");
+                throw new CryptographicException($"Installed app file hash does not match its inventory: {pair.Key}");
         }
-        if (!Convert.ToHexString(tree.GetHashAndReset()).Equals(asset.TargetTreeSha256, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("Installed app tree hash does not match its signed inventory.");
     }
 
     private static async Task VerifyCodesignAsync(string appPath)
@@ -469,6 +483,12 @@ internal static partial class Program
             if (fsync(descriptor) != 0) throw new IOException($"Could not flush journal directory (errno {Marshal.GetLastPInvokeError()}).");
         }
         finally { _ = close(descriptor); }
+    }
+
+    private static string ComputeSha256File(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 128 * 1024);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     private static FileStream AcquireLock(string path)

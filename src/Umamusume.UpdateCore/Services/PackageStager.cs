@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text;
+using Umamusume.UpdateCore;
 using UmamusumeWpfGui.Models;
 
 namespace UmamusumeWpfGui.Services.Update;
