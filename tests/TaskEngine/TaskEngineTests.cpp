@@ -553,6 +553,142 @@ TEST_CASE("Nested pipelines use UTF-8 relative paths, restore context, and suppo
     std::filesystem::remove_all(temporaryRoot);
 }
 
+TEST_CASE("Parallel monitor resumes after a nested purchase outlasts its recognition timeout", "[TaskEngine][ShopReturn]")
+{
+    const auto temporaryRoot = MakeTempDirectory();
+    {
+        std::ofstream child(temporaryRoot / "shop.json");
+        REQUIRE(child.is_open());
+        child << R"({"tasks":{"Purchase":{"algorithm":"JustReturn","action":"DoNothing","success":true}}})";
+    }
+    auto definition = HachimiPipelineLoader::LoadFromJsonString(R"({
+      "tasks": {
+        "Monitor": {"algorithm":"ParallelMonitor","successTask":"TeamRace","monitorTasks":["Shop"],"timeoutMs":100,"pollIntervalMs":1},
+        "TeamRace": {"template":"team.png","action":"DoNothing","success":true,"timeoutMs":0},
+        "Shop": {"template":"shop.png","action":"RunPipeline","pipeline":"shop.json","entry":"Purchase","required":false}
+      }
+    })", Paths::ToUtf8(temporaryRoot));
+    REQUIRE(definition);
+    MockTaskExecutionContext context;
+    context.SetMockMatchSequence("team.png", {{}, {true, 0.99, 10, 20, 30, 40}});
+    context.SetMockMatch("shop.png", {true, 0.99, 100, 200, 30, 40});
+    bool purchaseSucceeded = true;
+    SECTION("purchase succeeds") {}
+    SECTION("optional purchase fails") { purchaseSucceeded = false; }
+    SECTION("purchase is canceled") { context.cancelOnSleep = true; }
+    TaskGraphRunner runner;
+    int purchases = 0;
+    runner.GetActionRegistry().RegisterHandler("DoNothing",
+        [&](const HachimiPipelineTask& task, const TaskMatchResult&, ITaskExecutionContext& execution) {
+            if (!task.success || task.templatePath) return ActionResult::Success;
+            ++purchases;
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            execution.Sleep(1);
+            return purchaseSucceeded ? ActionResult::Success : ActionResult::Failed;
+        });
+
+    const auto result = runner.Run(*definition, "Monitor", context);
+    CHECK(result.status == (context.cancelOnSleep ? TaskGraphStatus::Cancelled : TaskGraphStatus::Success));
+    CHECK(purchases == 1);
+    std::filesystem::remove_all(temporaryRoot);
+}
+
+TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[TaskEngine][ShopReturn]")
+{
+    class ShopReturnContext final : public MockTaskExecutionContext
+    {
+    public:
+        enum class Page { Shop, Confirm, Exchange, Acquired, CloseShop, ExitShop,
+            Home, RaceMenu, TeamMenu, Results, Opponent, Finished };
+
+        TaskMatchResult MatchTemplate(const std::string& path, double,
+            const std::optional<TaskRoi>&, const std::string&) override
+        {
+            const auto name = Paths::FromUtf8(path).filename().string();
+            const bool found = (page == Page::Shop && (name == "daily_sales_header.png" || name == "select_all.png"))
+                || (page == Page::Confirm && name == "confirm_enabled.png")
+                || (page == Page::Exchange && name == "exchange_confirm.png")
+                || (page == Page::Acquired && name == "exchange_complete.png")
+                || (page == Page::CloseShop && name == "exchange_close.png")
+                || (page == Page::ExitShop && name == "back.png")
+                || (page == Page::Home && (name == "game_home_selected.png" || name == "race_tab.png"))
+                || (page == Page::RaceMenu && name == "team_trials.png")
+                || (page == Page::TeamMenu && name == "team_race.png")
+                || (page == Page::Results && (name == "race_again.png" || name == "final_next.png"))
+                || (page == Page::Opponent && name == "opponent_card.png");
+            if (found) lastMatched = name;
+            return found ? TaskMatchResult{true, 0.99, 100, 200, 30, 40} : TaskMatchResult{};
+        }
+
+        bool Tap(int x, int y) override
+        {
+            tappedTemplates.push_back(lastMatched);
+            switch (page)
+            {
+            case Page::Shop: page = Page::Confirm; break;
+            case Page::Confirm: page = Page::Exchange; break;
+            case Page::Exchange: page = Page::Acquired; break;
+            case Page::Acquired: page = Page::CloseShop; break;
+            case Page::CloseShop: page = Page::ExitShop; break;
+            case Page::ExitShop: page = returnPage; break;
+            case Page::Home: page = Page::RaceMenu; break;
+            case Page::RaceMenu: page = Page::TeamMenu; break;
+            case Page::TeamMenu: page = Page::Opponent; break;
+            case Page::Results: page = lastMatched == "race_again.png" ? Page::Opponent : Page::Finished; break;
+            default: break;
+            }
+            return MockTaskExecutionContext::Tap(x, y);
+        }
+
+        Page page{Page::Shop};
+        Page returnPage{Page::TeamMenu};
+        std::string lastMatched;
+        std::vector<std::string> tappedTemplates;
+    };
+
+    using Page = ShopReturnContext::Page;
+    for (const bool viaMonitor : {false, true})
+        for (const auto returnPage : {Page::Home, Page::RaceMenu, Page::TeamMenu, Page::Results})
+            for (const bool racesRemain : {false, true})
+            {
+                CAPTURE(viaMonitor, returnPage, racesRemain);
+                auto definition = HachimiPipelineLoader::LoadFromFile(Paths::ToUtf8(
+                    SourceRoot() / "resource/hachimi/pipelines/team_race.json"));
+                REQUIRE(definition);
+                for (auto& [name, task] : definition->tasks)
+                {
+                    task.timeoutMilliseconds = name == "resultMonitor" ? 100 : 0;
+                    task.postDelay = 0;
+                }
+                // Stop once the next opponent selection is reached; the race itself
+                // is covered by the full packaged game-task replays.
+                auto& opponent = definition->tasks.at("opponent");
+                opponent.action = "DoNothing";
+                opponent.success = true;
+                ShopReturnContext context;
+                context.returnPage = returnPage;
+                TaskGraphRunOptions options;
+                options.maxTimesOverrides["raceAdvance"] = racesRemain ? 1 : 0;
+
+                const auto result = TaskGraphRunner{}.Run(*definition,
+                    viaMonitor ? "resultMonitor" : "runRandomShop", context, options);
+                INFO(result.errorMessage);
+                CHECK(result.status == TaskGraphStatus::Success);
+                CHECK(result.finalTask == (racesRemain ? "opponent" : "complete"));
+                CHECK(context.page == (racesRemain ? Page::Opponent
+                    : returnPage == Page::Results ? Page::Finished : Page::TeamMenu));
+                CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "race_tab.png")
+                    == (returnPage == Page::Home ? 1 : 0));
+                CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "team_trials.png")
+                    == (returnPage == Page::Home || returnPage == Page::RaceMenu ? 1 : 0));
+                CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "team_race.png")
+                    == (racesRemain && returnPage != Page::Results ? 1 : 0));
+                CHECK(std::count_if(context.emittedEvents.begin(), context.emittedEvents.end(), [](const auto& event) {
+                    return event.type == TaskEventType::TaskCompleted && event.taskName == "shopExchangeComplete";
+                }) == 1);
+            }
+}
+
 TEST_CASE("Task graph guards recursion, counts failed entries, and handles cancellation", "[TaskEngine]")
 {
     auto recursive = HachimiPipelineLoader::LoadFromJsonString(

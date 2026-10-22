@@ -1,7 +1,7 @@
 {
   "name": "team-race",
   "schemaVersion": 1,
-  "description": "Team Trials pipeline: repeat Race Again until the requested count, then click Next to exit.",
+  "description": "Team Trials pipeline: repeat Race Again until the requested count, then click Next to exit. After shopping, recognize Home, the Race menu, Team Trials, or race results and resume with the remaining race count.",
   "referenceWidth": 900,
   "referenceHeight": 1600,
   "tasks": {
@@ -229,8 +229,32 @@
       "pipeline": "shop.json",
       "entry": "shopProbe",
       "required": false,
-      "next": ["MiddleNext"],
-      "onErrorNext": ["MiddleNext"]
+      "next": ["resultMonitor"],
+      "onErrorNext": ["resultMonitor"]
+    },
+    "homeAfterShop": {
+      "action": "DoNothing",
+      "template": "templates/start_game/game_home_selected.png",
+      "roi": [360, 1460, 180, 130],
+      "templThreshold": 0.8,
+      "timeoutMs": 5000,
+      "next": ["raceTabAfterShop"]
+    },
+    "raceTabAfterShop": {
+      "template": "templates/team_race/race_tab.png",
+      "roi": [560, 1480, 280, 120],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1200,
+      "next": ["teamTrialsAfterShop"]
+    },
+    "teamTrialsAfterShop": {
+      "template": "templates/team_race/team_trials.png",
+      "roi": [80, 980, 420, 300],
+      "templThreshold": 0.86,
+      "timeoutMs": 12000,
+      "postDelay": 1200,
+      "next": ["teamRaceAfterShop"]
     },
     "teamRaceAfterShop": {
       "template": "templates/team_race/team_race.png",
@@ -298,7 +322,7 @@
         "storyUnlockedClose"
       ],
       "successTask": "raceagain",
-      "successTasks": ["teamRaceAfterShop"],
+      "successTasks": ["teamRaceAfterShop", "teamTrialsAfterShop", "homeAfterShop"],
       "timeoutMs": 180000,
       "pollIntervalMs": 300,
       "next": ["raceagain"]

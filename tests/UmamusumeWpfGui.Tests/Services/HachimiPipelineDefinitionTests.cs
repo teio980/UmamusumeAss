@@ -116,8 +116,8 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopProbe", trigger.Entry);
         Assert.Equal(shopEntry.Template, trigger.Template);
         Assert.Equal(shopEntry.Roi, trigger.Roi);
-        Assert.Contains("MiddleNext", trigger.Next);
-        Assert.Contains("MiddleNext", trigger.OnErrorNext);
+        Assert.Contains("resultMonitor", trigger.Next);
+        Assert.Contains("resultMonitor", trigger.OnErrorNext);
         Assert.Equal("Wait", probe.Action);
         Assert.Equal(shopEntry.Template, probe.Template);
         Assert.Equal(shopEntry.Roi, probe.Roi);
@@ -138,6 +138,15 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains("runRandomShop", monitor.MonitorTasks);
         Assert.Equal("raceagain", monitor.SuccessTask);
         Assert.Contains("teamRaceAfterShop", monitor.SuccessTasks);
+        Assert.Contains("teamTrialsAfterShop", monitor.SuccessTasks);
+        Assert.Contains("homeAfterShop", monitor.SuccessTasks);
+        var homeAfterShop = definition.GetTask("homeAfterShop");
+        Assert.Equal("templates/start_game/game_home_selected.png", homeAfterShop.Template);
+        Assert.Equal("DoNothing", homeAfterShop.Action);
+        Assert.Equal("raceTabAfterShop", homeAfterShop.Next.Single());
+        Assert.Equal("teamTrialsAfterShop", definition.GetTask("raceTabAfterShop").Next.Single());
+        Assert.Equal("teamRaceAfterShop", definition.GetTask("teamTrialsAfterShop").Next.Single());
+        Assert.Equal("raceAdvance", definition.GetTask("teamRaceAfterShop").CountKey);
         Assert.Equal(180000, monitor.TimeoutMilliseconds);
     }
 

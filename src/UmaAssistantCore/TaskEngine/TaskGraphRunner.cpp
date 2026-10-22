@@ -523,6 +523,7 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
 
             std::unordered_map<std::string, Clock::time_point, CaseInsensitiveHash, CaseInsensitiveEqual> stableSince;
             const auto started = Clock::now();
+            Clock::duration nestedPipelineTime{};
             const int timeoutMs = (std::max)(0, task.timeoutMilliseconds);
             const int pollMs = task.pollIntervalMilliseconds > 0
                 ? task.pollIntervalMilliseconds
@@ -609,8 +610,14 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
                                     if (nested)
                                     {
                                         CountMap nestedCounts;
+                                        const auto nestedStarted = Clock::now();
                                         const auto nestedResult = RunImpl(*nested, monitorTask.entry.value_or(""),
                                             context, options, depth + 1, pipelineDepth + 1, nestedCounts);
+                                        // A shop visit has its own task limits. Keep its duration
+                                        // out of the result-screen recognition budget so the
+                                        // monitor can observe the screen after returning.
+                                        nestedPipelineTime += Clock::now() - nestedStarted;
+                                        stableSince.clear();
                                         result.totalStepsExecuted += nestedResult.totalStepsExecuted;
                                         actionResult = nestedResult.status == TaskGraphStatus::Success ||
                                             nestedResult.status == TaskGraphStatus::Completed
@@ -657,7 +664,7 @@ TaskGraphRunResult TaskGraphRunner::RunImpl(
                 }
                 if (monitorFailed)
                     break;
-                if (Clock::now() - started >= std::chrono::milliseconds(timeoutMs))
+                if (Clock::now() - started - nestedPipelineTime >= std::chrono::milliseconds(timeoutMs))
                     break;
                 if (!firstFrame || timeoutMs > 0)
                     context.Sleep(pollMs);
