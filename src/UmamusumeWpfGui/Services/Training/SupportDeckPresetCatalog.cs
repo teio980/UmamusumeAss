@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Umamusume.CoreBridge;
 
 namespace UmamusumeWpfGui.Services.Training;
 
@@ -70,9 +71,11 @@ public static class SupportDeckPresetCatalog
     public static SupportDeckPresetDefinition? Find(string? preset)
     {
         var normalized = NormalizePreset(preset);
-        return AllPresets.FirstOrDefault(item => item.Value.Equals(
-            normalized,
-            StringComparison.OrdinalIgnoreCase));
+        var existing = AllPresets.FirstOrDefault(item => item.Value.Equals(normalized, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing;
+        var types = SupportDeckComposition.Parse(normalized);
+        return types is null ? null : new SupportDeckPresetDefinition(normalized,
+            string.Join(" / ", types.Where(pair => pair.Value > 0).Select(pair => $"{pair.Value} {pair.Key}")), types);
     }
 
     public static IReadOnlyDictionary<string, int>? GetRequiredTypes(string? preset) =>
@@ -87,8 +90,9 @@ public static class SupportDeckPresetCatalog
         ArgumentNullException.ThrowIfNull(cardTypes);
 
         var requiredTypes = GetRequiredTypes(preset);
-        if (requiredTypes is null)
-            return true;
+        if (NormalizePreset(preset) == CustomPreset) return true;
+        if (requiredTypes is null || requiredTypes.Values.Sum() != 6)
+            return false;
 
         var actualTypes = cardTypes
             .Where(type => !string.IsNullOrWhiteSpace(type))
@@ -102,8 +106,7 @@ public static class SupportDeckPresetCatalog
             return false;
 
         return requiredTypes.All(required =>
-            actualTypes.TryGetValue(required.Key, out var actual)
-            && actual == required.Value);
+            actualTypes.GetValueOrDefault(required.Key) == required.Value);
     }
 
     public static bool IsValidFriendCardType(
@@ -112,10 +115,10 @@ public static class SupportDeckPresetCatalog
         bool allowCustomPreset = false)
     {
         var requiredTypes = GetRequiredTypes(preset);
-        if (requiredTypes is null)
-            return allowCustomPreset;
+        if (NormalizePreset(preset) == CustomPreset) return allowCustomPreset;
+        if (requiredTypes is null || requiredTypes.Values.Sum() != 6) return false;
 
-        if (requiredTypes.ContainsKey("Friend"))
+        if (NormalizePreset(preset) == "speed2-stamina1-power1-wit1-friend1")
             return true;
 
         return !string.IsNullOrWhiteSpace(friendType)

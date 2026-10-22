@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Umamusume.CoreBridge;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;
 using UmamusumeWpfGui.Services.Training;
@@ -56,15 +57,25 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
 
     public ObservableCollection<CareerSupportCardTypeOption> SupportCardTypeOptions { get; } = [];
 
-    public IReadOnlyList<CareerSupportDeckPresetOption> SupportDeckPresets { get; } =
-        SupportDeckPresetCatalog.Presets
-            .Select(item => new CareerSupportDeckPresetOption(item.Value, item.Label))
-            .ToArray();
+    public IReadOnlyList<CareerSupportDeckPresetOption> SupportDeckPresets => IsHighestStarSupportDeck
+        ? [new("by-type", "Custom Type Counts")]
+        : [new("custom", "Custom (Any Types)"), new("by-type", "Custom Type Counts")];
+
+    public string SelectedSupportDeckPresetValue
+    {
+        get => SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase) ? "custom" : "by-type";
+        set
+        {
+            if (value == "custom") SupportDeckPreset = "custom";
+            else if (value == "by-type" && SupportDeckComposition.Parse(SupportDeckPreset) is null)
+                SupportDeckPreset = SupportDeckComposition.Default;
+        }
+    }
 
     public IReadOnlyList<CareerSupportDeckModeOption> SupportDeckModes { get; } =
     [
         new("auto", "Auto-Fill (game button)"),
-        new("highest-star", "Highest-star preset"),
+        new("highest-star", "Highest-star by type"),
         new("selected", "Selected cards"),
     ];
 
@@ -110,6 +121,9 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
                 OnPropertyChanged(nameof(SupportCardDrawerHeader));
             }
 
+            OnPropertyChanged(nameof(SupportDeckPresets));
+            OnPropertyChanged(nameof(SelectedSupportDeckPresetValue));
+            OnPropertyChanged(nameof(IsSupportTypeComposition));
             OnPropertyChanged(nameof(IsManualSupportDeck));
             OnPropertyChanged(nameof(IsSupportPresetMode));
             OnPropertyChanged(nameof(IsHighestStarSupportDeck));
@@ -119,9 +133,7 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
             if (IsHighestStarSupportDeck
                 && SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
             {
-                SupportDeckPreset = SupportDeckPresets
-                    .First(item => !item.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
-                    .Value;
+                SupportDeckPreset = SupportDeckComposition.Default;
             }
         }
     }
@@ -159,6 +171,9 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
         {
             if (SupportDeckMode.Equals("auto", StringComparison.OrdinalIgnoreCase))
                 return true;
+
+            if (IsSupportTypeComposition && SupportTypeTotal != 6)
+                return false;
 
             if (IsHighestStarSupportDeck)
             {
@@ -204,9 +219,10 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
                 cards.Add(friendCard);
             }
 
-            return SupportDeckPresetCatalog.IsValidDeck(
-                SupportDeckPreset,
-                cards.Select(card => card.Type));
+            var types = cards.Select(card => card.Type).ToList();
+            if (FriendSupportCardId is > 0 && SupportDeckPreset == "speed2-stamina1-power1-wit1-friend1")
+                types[^1] = "Friend";
+            return SupportDeckPresetCatalog.IsValidDeck(SupportDeckPreset, types);
         }
     }
 
@@ -296,21 +312,44 @@ public sealed class SupportDeckSettingsViewModel : INotifyPropertyChanged, IDisp
         get => _supportDeckPreset;
         set
         {
-            var normalized = SupportDeckPresets.Any(item =>
-                    item.Value.Equals(value, StringComparison.OrdinalIgnoreCase))
-                ? value
-                : "custom";
-            if (IsHighestStarSupportDeck
-                && normalized.Equals("custom", StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = SupportDeckPresets
-                    .First(item => !item.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
-                    .Value;
-            }
+            var normalized = SupportDeckPresetCatalog.NormalizePreset(value);
+            if (normalized != "custom" && SupportDeckComposition.Parse(normalized) is null)
+                normalized = "custom";
+            if (IsHighestStarSupportDeck && normalized == "custom")
+                normalized = SupportDeckComposition.Default;
             if (!Set(ref _supportDeckPreset, normalized))
                 return;
+            OnPropertyChanged(nameof(SelectedSupportDeckPresetValue));
+            OnPropertyChanged(nameof(IsSupportTypeComposition));
+            OnPropertyChanged(nameof(SupportSpeedCount));
+            OnPropertyChanged(nameof(SupportStaminaCount));
+            OnPropertyChanged(nameof(SupportPowerCount));
+            OnPropertyChanged(nameof(SupportGutsCount));
+            OnPropertyChanged(nameof(SupportWitCount));
+            OnPropertyChanged(nameof(SupportFriendCount));
+            OnPropertyChanged(nameof(SupportTypeTotal));
+            OnPropertyChanged(nameof(IsSupportTypeTotalInvalid));
             OnPropertyChanged(nameof(IsSupportDeckValid));
         }
+    }
+
+    public bool IsSupportTypeComposition => IsSupportPresetMode && SupportDeckPreset != "custom";
+    public int SupportSpeedCount { get => ReadSupportCount("Speed"); set => SetSupportCount("Speed", value); }
+    public int SupportStaminaCount { get => ReadSupportCount("Stamina"); set => SetSupportCount("Stamina", value); }
+    public int SupportPowerCount { get => ReadSupportCount("Power"); set => SetSupportCount("Power", value); }
+    public int SupportGutsCount { get => ReadSupportCount("Guts"); set => SetSupportCount("Guts", value); }
+    public int SupportWitCount { get => ReadSupportCount("Wit"); set => SetSupportCount("Wit", value); }
+    public int SupportFriendCount { get => ReadSupportCount("Friend"); set => SetSupportCount("Friend", value); }
+    public int SupportTypeTotal => SupportDeckComposition.Parse(SupportDeckPreset)?.Values.Sum() ?? 0;
+    public bool IsSupportTypeTotalInvalid => SupportTypeTotal != 6;
+
+    private int ReadSupportCount(string type) => SupportDeckComposition.Parse(SupportDeckPreset)?.GetValueOrDefault(type) ?? 0;
+
+    private void SetSupportCount(string type, int value)
+    {
+        var counts = SupportDeckComposition.Parse(SupportDeckPreset) ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        counts[type] = Math.Clamp(value, 0, 6);
+        SupportDeckPreset = SupportDeckComposition.Encode(counts);
     }
 
     public IReadOnlyList<int> ParseSupportCardIds()

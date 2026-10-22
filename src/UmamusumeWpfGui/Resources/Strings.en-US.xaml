@@ -227,7 +227,15 @@
   <sys:String x:Key="GrassCareerAttributeSparksLabel">Attribute sparks</sys:String>
   <sys:String x:Key="GrassCareerAptitudeSparksLabel">Aptitude sparks</sys:String>
   <sys:String x:Key="GrassCareerSupportDeckModeLabel">Support deck mode</sys:String>
-  <sys:String x:Key="GrassCareerSupportDeckPresetLabel">Support deck preset</sys:String>
+  <sys:String x:Key="GrassCareerSupportDeckPresetLabel">Support deck composition</sys:String>
+  <sys:String x:Key="GrassSupportTypeSpeed">Speed</sys:String>
+  <sys:String x:Key="GrassSupportTypeStamina">Stamina</sys:String>
+  <sys:String x:Key="GrassSupportTypePower">Power</sys:String>
+  <sys:String x:Key="GrassSupportTypeGuts">Guts</sys:String>
+  <sys:String x:Key="GrassSupportTypeWit">Wit</sys:String>
+  <sys:String x:Key="GrassSupportTypeFriend">Friend</sys:String>
+  <sys:String x:Key="GrassSupportTypeCountHint">Set type counts totaling 6, including the borrowed card. Friend is a card type.</sys:String>
+  <sys:String x:Key="GrassSupportTypeCountInvalid">Support card type counts must total 6.</sys:String>
   <sys:String x:Key="GrassCareerManualSupportCardsLabel">Manual support cards</sys:String>
   <sys:String x:Key="GrassCareerSearchCardsPlaceholder">Search name or ID</sys:String>
   <sys:String x:Key="GrassCareerSelectedSupportCardsLabel">Selected cards</sys:String>

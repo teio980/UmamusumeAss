@@ -4,6 +4,30 @@ namespace UmamusumeWpfGui.Tests.Services;
 
 public sealed class SupportDeckPresetCatalogTests
 {
+    [Theory]
+    [InlineData("types-speed3-power3", true)]
+    [InlineData("types-speed6", true)]
+    [InlineData("types-speed0-power6", true)]
+    [InlineData("types-guts3-wit2-friend1", true)]
+    [InlineData("types-speed3-power2", false)]
+    [InlineData("types-speed6-power1", false)]
+    [InlineData("types-speed3-speed3", false)]
+    [InlineData("types-unknown6", false)]
+    public void Custom_compositions_require_six_cards(string preset, bool expected)
+    {
+        var types = SupportDeckPresetCatalog.GetRequiredTypes(preset);
+        var cards = types?.SelectMany(pair => Enumerable.Repeat(pair.Key, pair.Value)) ?? [];
+        Assert.Equal(expected, SupportDeckPresetCatalog.IsValidDeck(preset, cards));
+    }
+
+    [Fact]
+    public void Friend_type_is_not_a_wildcard_in_custom_compositions()
+    {
+        Assert.False(SupportDeckPresetCatalog.IsValidFriendCardType("types-power5-friend1", "Speed"));
+        Assert.True(SupportDeckPresetCatalog.IsValidFriendCardType("types-power5-friend1", "Power"));
+        Assert.True(SupportDeckPresetCatalog.IsValidFriendCardType("types-power5-friend1", "Friend"));
+    }
+
     [Fact]
     public void Presets_expose_the_existing_order_labels_and_type_counts()
     {

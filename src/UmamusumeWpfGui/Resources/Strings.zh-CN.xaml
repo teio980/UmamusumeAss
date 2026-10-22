@@ -225,7 +225,15 @@
   <sys:String x:Key="GrassCareerAttributeSparksLabel">属性因子</sys:String>
   <sys:String x:Key="GrassCareerAptitudeSparksLabel">适性因子</sys:String>
   <sys:String x:Key="GrassCareerSupportDeckModeLabel">支援卡组模式</sys:String>
-  <sys:String x:Key="GrassCareerSupportDeckPresetLabel">支援卡组预设</sys:String>
+  <sys:String x:Key="GrassCareerSupportDeckPresetLabel">支援卡组类型配置</sys:String>
+  <sys:String x:Key="GrassSupportTypeSpeed">速度</sys:String>
+  <sys:String x:Key="GrassSupportTypeStamina">耐力</sys:String>
+  <sys:String x:Key="GrassSupportTypePower">力量</sys:String>
+  <sys:String x:Key="GrassSupportTypeGuts">毅力</sys:String>
+  <sys:String x:Key="GrassSupportTypeWit">智力</sys:String>
+  <sys:String x:Key="GrassSupportTypeFriend">友人</sys:String>
+  <sys:String x:Key="GrassSupportTypeCountHint">设置各类型卡牌数量，包含借用卡，总数须为 6。Friend 指友人类型卡。</sys:String>
+  <sys:String x:Key="GrassSupportTypeCountInvalid">支援卡各类型数量总和必须为 6。</sys:String>
   <sys:String x:Key="GrassCareerManualSupportCardsLabel">手动选择支援卡</sys:String>
   <sys:String x:Key="GrassCareerSearchCardsPlaceholder">按名称或 ID 搜索</sys:String>
   <sys:String x:Key="GrassCareerSelectedSupportCardsLabel">已选卡牌</sys:String>

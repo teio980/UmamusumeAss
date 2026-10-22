@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Umamusume.AppCore.Platform;
+using Umamusume.CoreBridge;
 using Umamusume.Avalonia.Services;
 
 namespace Umamusume.Avalonia.ViewModels;
@@ -180,21 +181,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         ? [new("auto", "Auto Recommended"), new("highest-star", "Highest Star"), new("selected", "Manual Selected")]
         : [new("auto", "自动推荐配置"), new("highest-star", "最高星级优先"), new("selected", "手动精选卡组")];
 
-    public IReadOnlyList<TaskSettingOption> SupportDeckPresets => IsEnglish
-        ? [
-            new("custom", "Custom"),
-            new("speed3-stamina3", "3 Speed / 3 Stamina"),
-            new("speed3-stamina2-wit1", "3 Speed / 2 Stamina / 1 Wit"),
-            new("speed2-stamina2-power1-wit1", "2 Spd / 2 Sta / 1 Pow / 1 Wit"),
-            new("speed2-stamina1-power1-wit1-friend1", "2 Spd / 1 Sta / 1 Pow / 1 Wit / 1 Friend"),
-          ]
-        : [
-            new("custom", "自定义"),
-            new("speed3-stamina3", "3速 3耐"),
-            new("speed3-stamina2-wit1", "3速 2耐 1智"),
-            new("speed2-stamina2-power1-wit1", "2速 2耐 1力 1智"),
-            new("speed2-stamina1-power1-wit1-friend1", "2速 1耐 1力 1智 1友人"),
-          ];
+    public IReadOnlyList<TaskSettingOption> SupportDeckPresets => SupportDeckMode == "highest-star"
+        ? [new("by-type", T("自定义卡牌类型数量", "Custom Type Counts"))]
+        : [new("custom", T("自定义选卡（不限类型）", "Custom (Any Types)")),
+           new("by-type", T("自定义卡牌类型数量", "Custom Type Counts"))];
 
     public IReadOnlyList<string> LegacySelectionModes { get; } = ["auto", "manual"];
     public IReadOnlyList<TaskSettingOption> LegacySelectionModeOptions => IsEnglish
@@ -238,6 +228,7 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(DailyRaceDifficultyOptions));
         OnPropertyChanged(nameof(SupportDeckModeOptions));
         OnPropertyChanged(nameof(SupportDeckPresets));
+        OnPropertyChanged(nameof(SupportTypeCountHint));
         OnPropertyChanged(nameof(LegacySelectionModeOptions));
         OnPropertyChanged(nameof(TrainingFocusOptions));
         OnPropertyChanged(nameof(LineupStrategyOptions));
@@ -781,11 +772,15 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
 
     public TaskSettingOption? SelectedSupportDeckPreset
     {
-        get => SupportDeckPresets.FirstOrDefault(option => option.Value.Equals(SupportDeckPreset, StringComparison.OrdinalIgnoreCase));
+        get => SupportDeckPresets.FirstOrDefault(option => option.Value ==
+            (SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase) ? "custom" : "by-type"));
         set
         {
-            if (value is not null)
-                SupportDeckPreset = value.Value;
+            if (value is null) return;
+            if (value.Value == "custom")
+                SupportDeckPreset = "custom";
+            else if (SupportDeckComposition.Parse(SupportDeckPreset) is null)
+                SupportDeckPreset = SupportDeckComposition.Default;
         }
     }
 
@@ -1146,10 +1141,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             if (SupportDeckMode == "highest-star"
                 && SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase))
             {
-                SupportDeckPreset = SupportDeckPresets
-                    .First(option => !option.Value.Equals("custom", StringComparison.OrdinalIgnoreCase))
-                    .Value;
+                SupportDeckPreset = SupportDeckComposition.Default;
             }
+            OnPropertyChanged(nameof(SupportDeckPresets));
+            OnPropertyChanged(nameof(SelectedSupportDeckPreset));
             OnPropertyChanged(nameof(IsManualSupportDeck));
             OnPropertyChanged(nameof(IsSupportPresetMode));
             OnPropertyChanged(nameof(SelectedSupportDeckModeOption));
@@ -1174,9 +1169,33 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         get => ReadString("supportDeckPreset", "custom");
         set
         {
-            SetString("supportDeckPreset", value);
+            var normalized = value.Trim().ToLowerInvariant();
+            if (SupportDeckPreset.Equals(normalized, StringComparison.OrdinalIgnoreCase)) return;
+            SetString("supportDeckPreset", normalized);
             OnPropertyChanged(nameof(SelectedSupportDeckPreset));
         }
+    }
+
+    public bool IsSupportTypeComposition => IsSupportPresetMode
+        && !SupportDeckPreset.Equals("custom", StringComparison.OrdinalIgnoreCase);
+    public int SupportSpeedCount { get => ReadSupportCount("Speed"); set => SetSupportCount("Speed", value); }
+    public int SupportStaminaCount { get => ReadSupportCount("Stamina"); set => SetSupportCount("Stamina", value); }
+    public int SupportPowerCount { get => ReadSupportCount("Power"); set => SetSupportCount("Power", value); }
+    public int SupportGutsCount { get => ReadSupportCount("Guts"); set => SetSupportCount("Guts", value); }
+    public int SupportWitCount { get => ReadSupportCount("Wit"); set => SetSupportCount("Wit", value); }
+    public int SupportFriendCount { get => ReadSupportCount("Friend"); set => SetSupportCount("Friend", value); }
+    public int SupportTypeTotal => SupportDeckComposition.Parse(SupportDeckPreset)?.Values.Sum() ?? 0;
+    public string SupportTypeCountHint => T(
+        $"已分配 {SupportTypeTotal} / 6 张（包含借用卡）；友人为卡牌类型。总数必须为 6。",
+        $"Assigned {SupportTypeTotal} / 6 cards (including the borrowed card). Friend is a card type. Total must be 6.");
+
+    private int ReadSupportCount(string type) => SupportDeckComposition.Parse(SupportDeckPreset)?.GetValueOrDefault(type) ?? 0;
+
+    private void SetSupportCount(string type, int value)
+    {
+        var counts = SupportDeckComposition.Parse(SupportDeckPreset) ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        counts[type] = Math.Clamp(value, 0, 6);
+        SupportDeckPreset = SupportDeckComposition.Encode(counts);
     }
 
     public string FriendSupportCardIdText
@@ -2003,16 +2022,21 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         if (SupportDeckMode.Equals("auto", StringComparison.OrdinalIgnoreCase))
             return string.Empty;
 
-        var requiredTypes = GetRequiredSupportTypes(SupportDeckPreset);
+        var requiredTypes = SupportDeckComposition.Parse(SupportDeckPreset);
+        if (IsSupportTypeComposition && (requiredTypes is null || requiredTypes.Values.Sum() != 6))
+            return T("支援卡各类型数量总和必须为 6。", "Support card type counts must total 6.");
+        if (SupportDeckMode == "highest-star" && requiredTypes is null)
+            return T("请配置支援卡类型数量。", "Configure the support card type counts.");
+        var legacyFriendSlot = SupportDeckPreset.Equals("speed2-stamina1-power1-wit1-friend1", StringComparison.OrdinalIgnoreCase);
         if (SupportDeckMode.Equals("highest-star", StringComparison.OrdinalIgnoreCase))
         {
             if (!string.IsNullOrWhiteSpace(FriendSupportCardIdText))
             {
                 var friend = SupportCardOptions.FirstOrDefault(option => option.Id == FriendSupportCardIdText);
                 if (friend is null) return T("好友支援卡 ID 无效或不可用。", "The friend support card ID is invalid or unavailable.");
-                if (requiredTypes is not null && !requiredTypes.ContainsKey("Friend")
+                if (requiredTypes is not null && !legacyFriendSlot
                     && (!requiredTypes.TryGetValue(friend.Category ?? string.Empty, out var required) || required == 0))
-                    return T("好友支援卡类型与所选预设不匹配。", "The friend support card type does not match the selected preset.");
+                    return T("好友支援卡类型与当前类型配置不匹配。", "The borrowed support card type does not match the configured composition.");
             }
             return string.Empty;
         }
@@ -2032,10 +2056,10 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             if (ids.Contains(friendId, StringComparer.OrdinalIgnoreCase)) return T("好友支援卡不能与卡组中的支援卡重复。", "The friend support card cannot duplicate a card in the deck.");
             var friend = SupportCardOptions.FirstOrDefault(option => option.Id == friendId);
             if (friend is null) return T("好友支援卡 ID 无效或不可用。", "The friend support card ID is invalid or unavailable.");
-            if (requiredTypes is not null && !requiredTypes.ContainsKey("Friend")
+            if (requiredTypes is not null && !legacyFriendSlot
                 && (!requiredTypes.TryGetValue(friend.Category ?? string.Empty, out var required) || required == 0))
-                return T("好友支援卡类型与所选预设不匹配。", "The friend support card type does not match the selected preset.");
-            deckTypes.Add(friend.Category ?? string.Empty);
+                return T("好友支援卡类型与当前类型配置不匹配。", "The borrowed support card type does not match the configured composition.");
+            deckTypes.Add(legacyFriendSlot ? "Friend" : friend.Category ?? string.Empty);
         }
 
         if (requiredTypes is not null)
@@ -2043,20 +2067,11 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             var actual = deckTypes.GroupBy(type => type, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
             if (!requiredTypes.All(pair => actual.GetValueOrDefault(pair.Key) == pair.Value)
-                || actual.Values.Sum() != 6 - (string.IsNullOrWhiteSpace(friendId) ? 0 : 1))
-                return T("所选支援卡类型不符合当前卡组预设。", "The selected support card types do not match the current deck preset.");
+                || actual.Values.Sum() != 6)
+                return T("所选支援卡类型不符合当前卡组类型配置。", "The selected support cards do not match the configured type counts.");
         }
         return string.Empty;
     }
-
-    private static Dictionary<string, int>? GetRequiredSupportTypes(string preset) => preset switch
-    {
-        "speed3-stamina3" => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Speed"] = 3, ["Stamina"] = 3 },
-        "speed3-stamina2-wit1" => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Speed"] = 3, ["Stamina"] = 2, ["Wit"] = 1 },
-        "speed2-stamina2-power1-wit1" => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Speed"] = 2, ["Stamina"] = 2, ["Power"] = 1, ["Wit"] = 1 },
-        "speed2-stamina1-power1-wit1-friend1" => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Speed"] = 2, ["Stamina"] = 1, ["Power"] = 1, ["Wit"] = 1, ["Friend"] = 1 },
-        _ => null,
-    };
 
     private void RefreshRawJson()
     {
@@ -2082,6 +2097,9 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
             nameof(IndependentAgendaSelectionsText), nameof(IndependentSkillIdsText),
             nameof(DeleteExistingCareerData), nameof(AutoRestoreTp), nameof(SupportDeckMode),
             nameof(IsManualSupportDeck), nameof(IsSupportPresetMode), nameof(SupportDeckPreset),
+            nameof(SupportDeckPresets), nameof(IsSupportTypeComposition), nameof(SupportSpeedCount),
+            nameof(SupportStaminaCount), nameof(SupportPowerCount), nameof(SupportGutsCount),
+            nameof(SupportWitCount), nameof(SupportFriendCount), nameof(SupportTypeTotal), nameof(SupportTypeCountHint),
             nameof(FriendSupportCardIdText), nameof(SelectedFriendCard), nameof(SupportCardIdsText),
             nameof(PauseOnUnknownOutcome), nameof(AllowOptionalRaces), nameof(LegacySelectionMode),
             nameof(IsManualLegacySelection), nameof(UseLegacyGuest), nameof(UseCachedLegacy),

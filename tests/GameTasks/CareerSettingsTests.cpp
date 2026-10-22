@@ -65,6 +65,39 @@ TEST_CASE("Career modern delete setting overrides its legacy inverse", "[GameTas
     CHECK_FALSE(config->deleteExistingCareerData);
 }
 
+TEST_CASE("Career accepts arbitrary six-card support compositions", "[GameTasks][Career][SupportComposition]")
+{
+    auto settings = Profile();
+    settings["supportDeckMode"] = "highest-star";
+    for (auto const* preset : {"types-speed3-power3", "types-guts3-wit2-friend1", "types-speed6",
+        "types-friend6", "types-speed0-power6", "speed3-stamina3"})
+    {
+        CAPTURE(preset);
+        settings["supportDeckPreset"] = preset;
+        std::string error;
+        auto config = NativeCareerTaskRunner::ParseSettings(settings, error);
+        REQUIRE(config);
+        CHECK(error.empty());
+        CHECK(config->supportDeckPreset == preset);
+    }
+}
+
+TEST_CASE("Career rejects invalid support type counts", "[GameTasks][Career][SupportComposition]")
+{
+    auto settings = Profile();
+    settings["supportDeckMode"] = "highest-star";
+    for (auto const* preset : {"custom", "types-", "types-speed0", "types-speed3-power2",
+        "types-speed6-power1", "types-speed7", "types-speed-1", "types-speed3-speed3",
+        "types-unknown6", "types-speed6-", "types-speed1.5-power4"})
+    {
+        CAPTURE(preset);
+        settings["supportDeckPreset"] = preset;
+        std::string error;
+        CHECK_FALSE(NativeCareerTaskRunner::ParseSettings(settings, error));
+        CHECK(error.find("supportDeckPreset") != std::string::npos);
+    }
+}
+
 TEST_CASE("Career parser rejects settings that draft execution silently ignored", "[GameTasks][Career]")
 {
     auto settings = Profile();

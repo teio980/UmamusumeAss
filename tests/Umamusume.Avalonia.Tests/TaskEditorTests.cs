@@ -11,6 +11,98 @@ public sealed class TaskEditorTests
     private static TaskQueueItemViewModel Career(JsonObject? settings = null) => new(UmaTaskCatalog.Get("career-training"), true, settings ?? new());
 
     [Fact]
+    public void SupportTypeCountsReplaceFixedPresetsAndSurviveReload()
+    {
+        var task = Career();
+        var editor = task.SettingsEditor;
+        editor.SupportDeckMode = "highest-star";
+        Assert.Equal("by-type", editor.SelectedSupportDeckPreset!.Value);
+        Assert.True(editor.IsSupportTypeComposition);
+        Assert.Single(editor.SupportDeckPresets);
+        editor.SupportStaminaCount = 0;
+        Assert.False(editor.IsValid);
+        editor.SupportPowerCount = 3;
+        Assert.Equal("types-speed3-power3", task.Settings["supportDeckPreset"]!.GetValue<string>());
+        Assert.Equal(6, editor.SupportTypeTotal);
+        Assert.True(editor.IsValid, editor.ValidationMessage);
+
+        var reloaded = Career(JsonNode.Parse(task.Settings.ToJsonString())!.AsObject()).SettingsEditor;
+        Assert.Equal(3, reloaded.SupportSpeedCount);
+        Assert.Equal(3, reloaded.SupportPowerCount);
+        Assert.Equal(0, reloaded.SupportStaminaCount);
+        Assert.Equal("by-type", reloaded.SelectedSupportDeckPreset!.Value);
+        reloaded.SupportDeckMode = "auto";
+        Assert.False(reloaded.IsSupportTypeComposition);
+        reloaded.SupportDeckMode = "highest-star";
+        Assert.Equal(3, reloaded.SupportPowerCount);
+    }
+
+    [Fact]
+    public void BorrowedCardMustMatchARequestedTypeEvenWhenFriendTypeIsIncluded()
+    {
+        var editor = Career(new()
+        {
+            ["supportDeckMode"] = "highest-star",
+            ["supportDeckPreset"] = "types-power5-friend1",
+        }).SettingsEditor;
+        var speedCard = editor.SupportCardOptions.First(card => card.Category == "Speed");
+        editor.FriendSupportCardIdText = speedCard.Id;
+        Assert.False(editor.IsValid);
+        editor.FriendSupportCardIdText = editor.SupportCardOptions.First(card => card.Category == "Power").Id;
+        Assert.True(editor.IsValid, editor.ValidationMessage);
+    }
+
+    [Fact]
+    public void ManualCompositionCountsTheBorrowedCardWithinTheSixCards()
+    {
+        var editor = Career(new()
+        {
+            ["supportDeckMode"] = "selected",
+            ["supportDeckPreset"] = "types-speed3-power3",
+        }).SettingsEditor;
+        var speed = editor.SupportCardOptions.Where(card => card.Category == "Speed").Take(3).ToArray();
+        var power = editor.SupportCardOptions.Where(card => card.Category == "Power").Take(3).ToArray();
+        editor.SupportCardIdsText = string.Join(", ", speed.Concat(power.Take(2)).Select(card => card.Id));
+        editor.FriendSupportCardIdText = power[2].Id;
+        Assert.True(editor.IsValid, editor.ValidationMessage);
+        editor.FriendSupportCardIdText = editor.SupportCardOptions.First(card => card.Category == "Stamina").Id;
+        Assert.False(editor.IsValid);
+    }
+
+    [Theory]
+    [InlineData("speed3-stamina3", 3, 3, 0, 0)]
+    [InlineData("speed3-stamina2-wit1", 3, 2, 0, 0)]
+    [InlineData("speed2-stamina2-power1-wit1", 2, 2, 1, 0)]
+    [InlineData("speed2-stamina1-power1-wit1-friend1", 2, 1, 1, 1)]
+    public void ExistingSupportPresetsLoadAsEditableCounts(string preset, int speed, int stamina, int power, int friend)
+    {
+        var editor = Career(new() { ["supportDeckMode"] = "highest-star", ["supportDeckPreset"] = preset }).SettingsEditor;
+        Assert.Equal("by-type", editor.SelectedSupportDeckPreset!.Value);
+        Assert.Equal(speed, editor.SupportSpeedCount);
+        Assert.Equal(stamina, editor.SupportStaminaCount);
+        Assert.Equal(power, editor.SupportPowerCount);
+        Assert.Equal(friend, editor.SupportFriendCount);
+        Assert.Equal(6, editor.SupportTypeTotal);
+    }
+
+    [Theory]
+    [InlineData("types-speed3-power3", true)]
+    [InlineData("types-guts3-wit2-friend1", true)]
+    [InlineData("types-speed6", true)]
+    [InlineData("types-friend6", true)]
+    [InlineData("types-speed0-power6", true)]
+    [InlineData("types-speed3-power2", false)]
+    [InlineData("types-speed6-power1", false)]
+    [InlineData("types-speed3-speed3", false)]
+    [InlineData("types-speed7", false)]
+    [InlineData("types-speed3-unknown3", false)]
+    public void SupportCompositionCodecRequiresSixCards(string value, bool valid)
+    {
+        var types = Umamusume.CoreBridge.SupportDeckComposition.Parse(value);
+        Assert.Equal(valid, types is not null && types.Values.Sum() == 6);
+    }
+
+    [Fact]
     public void EditingKnownFieldsPreservesFutureProfileFields()
     {
         var task = Career(new() { ["futureSetting"] = new JsonObject { ["nested"] = "retain" }, ["normalTrainingRatio"] = new JsonObject { ["stamina"] = 7, ["futureWeight"] = 9 } });

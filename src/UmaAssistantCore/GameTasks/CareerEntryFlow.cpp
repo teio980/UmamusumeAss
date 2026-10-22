@@ -1,6 +1,7 @@
 #include "CareerEntryFlow.hpp"
 
 #include "Common/PathEncoding.hpp"
+#include "Career/SupportDeckComposition.hpp"
 #include "TaskEngine/ITaskExecutionContext.hpp"
 
 #include <nlohmann/json.hpp>
@@ -1260,12 +1261,12 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
 
     if (config.supportDeckMode != "highest-star")
     { result.error = "Unknown supportDeckMode: " + config.supportDeckMode; return false; }
-    std::map<std::string, int, std::less<>> required;
-    if (config.supportDeckPreset == "speed3-stamina3") required = {{"speed", 3}, {"stamina", 3}};
-    else if (config.supportDeckPreset == "speed3-stamina2-wit1") required = {{"speed", 3}, {"stamina", 2}, {"wit", 1}};
-    else if (config.supportDeckPreset == "speed2-stamina2-power1-wit1") required = {{"speed", 2}, {"stamina", 2}, {"power", 1}, {"wit", 1}};
-    else if (config.supportDeckPreset == "speed2-stamina1-power1-wit1-friend1") required = {{"speed", 2}, {"stamina", 1}, {"power", 1}, {"wit", 1}, {"friend", 1}};
-    else { result.error = "Unknown highest-star support deck preset: " + config.supportDeckPreset; return false; }
+    auto composition = Career::ParseSupportDeckTypes(config.supportDeckPreset);
+    if (!composition || !Career::IsSixCardSupportDeck(*composition))
+    { result.error = "Support deck type counts must total six cards: " + config.supportDeckPreset; return false; }
+    auto required = *composition;
+    std::erase_if(required, [](auto const& entry) { return entry.second == 0; });
+    bool const legacyFriendSlot = config.supportDeckPreset == "speed2-stamina1-power1-wit1-friend1";
     std::string guestType;
     if (friendId)
     {
@@ -1273,15 +1274,16 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
         if (!friendCard || !friendCard->available)
         { result.error = "Configured friend support card is unavailable."; return false; }
         guestType = NormalizeKey(friendCard->type);
-        if (required.erase("friend") == 0)
+        if (!legacyFriendSlot)
         {
             auto const type = required.find(guestType);
             if (type == required.end())
             { result.error = "Configured guest support card does not fit the selected highest-star preset."; return false; }
             if (--type->second == 0) required.erase(type);
         }
+        else required.erase("friend");
     }
-    else if (required.erase("friend") > 0)
+    else if (legacyFriendSlot && required.erase("friend") > 0)
     {
         auto const candidate = std::find_if(catalogs.SupportCards().begin(), catalogs.SupportCards().end(), [](auto const& card) {
             auto const type = NormalizeKey(card.type);
@@ -1306,7 +1308,6 @@ bool ConfigureSupport(Career::CareerRuntimeConfig const& config,
         {{90, 770, 160, 160}}, {{360, 770, 160, 160}}}};
     for (auto const& [type, count] : required)
     {
-        if (type == "friend") continue;
         for (int index = 0; index < count; ++index)
         {
             TaskEngine::TaskGraphRunOptions open;

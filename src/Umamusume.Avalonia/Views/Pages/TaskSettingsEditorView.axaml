@@ -304,6 +304,48 @@
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
                                         </StackPanel>
+                                        <StackPanel IsVisible="{Binding IsSupportTypeComposition}" Spacing="8">
+                                            <TextBlock Text="{Binding SupportTypeCountHint}" FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <WrapPanel Orientation="Horizontal">
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypeSpeed}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportSpeedCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypeStamina}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportStaminaCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypePower}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportPowerCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypeGuts}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportGutsCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypeWit}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportWitCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                                <StackPanel Width="120" Spacing="4" Margin="0,0,12,8">
+                                                    <TextBlock Text="{DynamicResource GrassSupportTypeFriend}" FontSize="12" />
+                                                    <NumericUpDown Value="{Binding SupportFriendCount, Mode=TwoWay}"
+                                                                   Minimum="0" Maximum="6" Increment="1" FormatString="0"
+                                                                   AllowSpin="True" ClipValueToMinMax="True" />
+                                                </StackPanel>
+                                            </WrapPanel>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
 
@@ -532,7 +574,8 @@
                                             <ListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="svc:SkillCatalogItem">
                                                     <TextBlock Text="{Binding IndependentDisplayName}"
-                                                               FontSize="12" Margin="2" TextWrapping="Wrap" />
+                                                               FontSize="12" Margin="2" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                                 </DataTemplate>
                                             </ListBox.ItemTemplate>
                                         </ListBox>

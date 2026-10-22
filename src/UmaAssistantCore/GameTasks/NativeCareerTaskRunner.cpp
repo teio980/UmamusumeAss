@@ -9,6 +9,7 @@
 #include "Career/CareerObservationReader.hpp"
 #include "Career/CareerPersistenceStore.hpp"
 #include "Career/CareerTrainingFlowRegistry.hpp"
+#include "Career/SupportDeckComposition.hpp"
 #include "Career/Scenarios/Ura/UraTrainingFlowAdapter.hpp"
 #include "CareerDomain/Scenarios/Ura/UraScenarioModule.hpp"
 #include "CareerDomain/Scenarios/Ura/UraStrategyRegistry.hpp"
@@ -284,6 +285,12 @@ std::optional<Career::CareerRuntimeConfig> NativeCareerTaskRunner::ParseSettings
             Invalid("supportCardIds", "requires five or six cards in selected mode");
         if (config.supportDeckMode == "highest-star" && config.supportDeckPreset == "custom")
             Invalid("supportDeckPreset", "requires a preset for highest-star mode");
+        if (config.supportDeckMode != "auto" && config.supportDeckPreset != "custom")
+        {
+            auto const types = Career::ParseSupportDeckTypes(config.supportDeckPreset);
+            if (!types || !Career::IsSixCardSupportDeck(*types))
+                Invalid("supportDeckPreset", "requires card type counts from 0 to 6 totaling six cards");
+        }
         if (config.careerMode == "normal")
         {
             if (!CareerDomain::UraStrategyRegistry::IsRegistered(config.strategyId))
