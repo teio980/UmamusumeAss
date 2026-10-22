@@ -916,7 +916,7 @@ TEST_CASE("MuMu Cosmos Sho result satisfies the View Results destination marker"
     CHECK(match.score >= task->templateThreshold);
 }
 
-TEST_CASE("View Results sends two blank clicks before checking Next and stops when it appears",
+TEST_CASE("View Results keeps clicking until Next is stable or a retry appears",
     "[CareerRuntime][CareerRaceReadyRecovery][CoordinateClick]")
 {
     const auto config = PackagedConfig();
@@ -933,6 +933,13 @@ TEST_CASE("View Results sends two blank clicks before checking Next and stops wh
         bool CaptureScreen() override
         {
             image = taps.empty() ? entry : taps.size() < tapsBeforeDestination ? overlay : destination;
+            // Next can flash during the transition before the ranking TAP
+            // overlay appears. It must not end the blank-click monitor.
+            if (transientNextFrames > 0 && taps.size() >= 3)
+            {
+                image = destination;
+                --transientNextFrames;
+            }
             return ActualRaceResultContext::CaptureScreen();
         }
         bool Tap(int x, int y) override
@@ -951,11 +958,12 @@ TEST_CASE("View Results sends two blank clicks before checking Next and stops wh
         {
             sleeps.emplace_back(taps.size(), milliseconds);
             if (cancelBetweenBlankClicks && taps.size() == 2 && milliseconds == 150) cancelled = true;
-            ActualRaceResultContext::Sleep(milliseconds);
+            if (!cancelled) std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
         }
         bool IsCancelled() const override { return cancelled || ActualRaceResultContext::IsCancelled(); }
         UmaAssistant::Vision::GrayImage entry, overlay, destination;
         std::size_t tapsBeforeDestination{3}; // View Results, then two blank clicks.
+        int transientNextFrames{0};
         bool cancelBetweenBlankClicks{false};
         std::vector<std::size_t> tapsAtNextCheck;
         std::vector<std::uint64_t> capturesAtTap;
@@ -964,10 +972,23 @@ TEST_CASE("View Results sends two blank clicks before checking Next and stops wh
     context.cancelAfterCaptures = 30;
     bool expectsRetry = false;
     bool expectsCancellation = false;
+    bool expectsContinuousClicks = false;
     SECTION("Next appears after the initial pair") {}
-    SECTION("Next is delayed and each subsequent check follows one extra click")
+    SECTION("Next needs more than four blank clicks")
     {
-        context.tapsBeforeDestination = 5;
+        context.tapsBeforeDestination = 12;
+    }
+    SECTION("Transient Next does not stop clicking before the ranking overlay clears")
+    {
+        context.transientNextFrames = 2;
+        context.tapsBeforeDestination = 12;
+    }
+    SECTION("An uncleared ranking overlay keeps receiving clicks until cancellation")
+    {
+        context.tapsBeforeDestination = 100;
+        context.cancelAfterCaptures = 12;
+        expectsCancellation = true;
+        expectsContinuousClicks = true;
     }
     SECTION("A retry dialog stops blank clicks without spending an alarm")
     {
@@ -982,12 +1003,16 @@ TEST_CASE("View Results sends two blank clicks before checking Next and stops wh
     TaskGraphRunner runner;
     const auto result = runner.Run(resources->GetExecutionDefinition(), "race_runner_entry_view_results_click", context);
     INFO(result.errorMessage);
-    CHECK(context.sleeps.size() == 1);
     if (expectsCancellation)
     {
         REQUIRE(result.status == TaskGraphStatus::Cancelled);
-        CHECK(context.taps.size() == 2);
-        CHECK(context.tapsAtNextCheck.empty());
+        if (expectsContinuousClicks)
+            CHECK(context.taps.size() > 5);
+        else
+        {
+            CHECK(context.taps.size() == 2);
+            CHECK(context.tapsAtNextCheck.empty());
+        }
         CHECK_FALSE(context.HasRetainedMatch());
         return;
     }
