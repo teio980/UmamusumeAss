@@ -39,9 +39,10 @@ jobs:
 
       - name: Run Managed Unit Tests
         run: |
-          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release
+          dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release --filter 'FullyQualifiedName!~LiveDeviceVerificationTests'
           dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
           dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
+          dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj -c Release
           dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj -c Release --filter "FullyQualifiedName~PackageLayoutTests"
         shell: pwsh
 
@@ -114,6 +115,7 @@ jobs:
           dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
           dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
           dotnet test tests/Umamusume.MacUpdater.Tests/Umamusume.MacUpdater.Tests.csproj -c Release
+          dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj -c Release
         shell: bash
 
       - name: Package macOS .app Bundle ZIP

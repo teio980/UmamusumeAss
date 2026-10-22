@@ -16,7 +16,8 @@ APP_NAME="UmamusumeAss.app"
 APP_DIR="$DIST_DIR/$APP_NAME"
 TEMP_PUBLISH="$REPO_ROOT/build/temp_publish_avalonia"
 TEMP_HELPER="$REPO_ROOT/build/temp_publish_mac_updater"
-BUNDLED_RESOURCE_VERSION="${UMA_BUNDLED_RESOURCE_VERSION:-0.0.0.0}"
+VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/version.txt")"
+BUNDLED_RESOURCE_VERSION="${UMA_BUNDLED_RESOURCE_VERSION:-$VERSION}"
 
 mkdir -p "$DIST_DIR"
 rm -rf "$APP_DIR" "$TEMP_PUBLISH" "$TEMP_HELPER"
@@ -135,7 +136,9 @@ codesign --force --sign - "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
 echo "7. Creating .app ZIP distribution..."
-(cd "$DIST_DIR" && rm -f "UmamusumeAss-osx-arm64.app.zip" && zip -q -r -y "UmamusumeAss-osx-arm64.app.zip" "$APP_NAME")
+(cd "$DIST_DIR" && rm -f "UmamusumeAss-osx-arm64.app.zip" "UmamusumeAss-v$VERSION-osx-arm64.app.zip" && \
+ zip -q -r -y "UmamusumeAss-v$VERSION-osx-arm64.app.zip" "$APP_NAME" && \
+ cp "UmamusumeAss-v$VERSION-osx-arm64.app.zip" "UmamusumeAss-osx-arm64.app.zip")
 
-echo "=== Packaging complete: $DIST_DIR/UmamusumeAss-osx-arm64.app.zip ==="
+echo "=== Packaging complete: $DIST_DIR/UmamusumeAss-v$VERSION-osx-arm64.app.zip ==="
 rm -rf "$TEMP_PUBLISH" "$TEMP_HELPER"

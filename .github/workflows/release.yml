@@ -8,20 +8,10 @@ on:
         required: true
         type: string
       bundled_resource_version:
-        description: 'Resource revision embedded in the program package, for example 2026.10.21.1'
-        required: true
-        type: string
-      resource_version:
-        description: 'Resource revision being released (required for resource/both)'
+        description: 'Resource revision embedded in the program package (defaults to program version)'
         required: false
         default: ''
         type: string
-      release_kind:
-        description: 'Which channel to create as draft Releases'
-        required: true
-        default: both
-        type: choice
-        options: [program, resource, both]
 
 permissions:
   contents: write
@@ -40,8 +30,6 @@ jobs:
           $v = (Get-Content version.txt -Raw).Trim()
           if ($v -ne '${{ inputs.version }}') { throw "version.txt is $v, not the requested version" }
           if ($v -notmatch '^\d+\.\d+\.\d+$') { throw 'version must be stable semver' }
-          if ('${{ inputs.bundled_resource_version }}' -notmatch '^\d{4}\.\d{2}\.\d{2}\.\d+$') { throw 'bundled_resource_version must be YYYY.MM.DD.N' }
-          if ('${{ inputs.release_kind }}' -ne 'program' -and '${{ inputs.resource_version }}' -notmatch '^\d{4}\.\d{2}\.\d{2}\.\d+$') { throw 'resource_version must be YYYY.MM.DD.N for resource/both releases' }
       - name: Build and test native code
         shell: pwsh
         run: |
@@ -51,6 +39,7 @@ jobs:
       - name: Test managed code
         shell: pwsh
         run: |
+          dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj --configuration Release
           dotnet restore tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj
           dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore
       - name: Install Inno Setup
@@ -58,14 +47,16 @@ jobs:
         run: choco install innosetup --yes --no-progress
       - name: Package Windows program
         shell: pwsh
-        run: ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion '${{ inputs.bundled_resource_version }}' -BuildInstaller
+        run: |
+          $bv = '${{ inputs.bundled_resource_version }}'
+          if ([string]::IsNullOrWhiteSpace($bv)) { $bv = '${{ inputs.version }}' }
+          ./tools/package.ps1 -OutputDirectory dist -BundledResourceVersion $bv -BuildInstaller
       - uses: actions/upload-artifact@v6
         with:
           name: release-input-windows
           path: |
             dist/*-win-x64-full.zip
             dist/*-win-x64-setup.exe
-            build/publish
 
   build-macos:
     runs-on: macos-15
@@ -81,7 +72,6 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           test "$(tr -d '[:space:]' < version.txt)" = '${{ inputs.version }}'
-          [[ '${{ inputs.bundled_resource_version }}' =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]]
       - name: Install Ninja
         run: brew install ninja
       - name: Configure and build native code
@@ -96,6 +86,7 @@ jobs:
           dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
           dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
           dotnet test tests/Umamusume.MacUpdater.Tests/Umamusume.MacUpdater.Tests.csproj -c Release
+          dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj -c Release
       - name: Package arm64 app bundle
         env:
           UMA_BUNDLED_RESOURCE_VERSION: ${{ inputs.bundled_resource_version }}
@@ -105,12 +96,13 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: release-input-macos
-          path: dist/UmamusumeAss-osx-arm64.app.zip
+          path: |
+            dist/UmamusumeAss-*-osx-arm64.app.zip
+            dist/UmamusumeAss-osx-arm64.app.zip
 
   publish-drafts:
     needs: [build-windows, build-macos]
-    runs-on: windows-2022
-    environment: update-signing
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v7
@@ -121,142 +113,37 @@ jobs:
         with:
           name: release-input-macos
           path: release-input-macos
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - name: Generate platform manifests and assets
-        shell: pwsh
+      - name: Prepare draft release assets
+        id: prepare
+        shell: bash
+        run: |
+          v="${{ inputs.version }}"
+          mkdir -p release
+          win_zip=$(find release-input-windows -name "UmamusumeAss-v${v}-win-x64-full.zip" | head -n 1)
+          win_setup=$(find release-input-windows -name "UmamusumeAss-v${v}-win-x64-setup.exe" | head -n 1)
+          mac_zip=$(find release-input-macos -name "UmamusumeAss-v${v}-osx-arm64.app.zip" | head -n 1)
+          if [ -z "$mac_zip" ]; then
+            mac_zip=$(find release-input-macos -name "UmamusumeAss-osx-arm64.app.zip" | head -n 1)
+            cp "$mac_zip" "release/UmamusumeAss-v${v}-osx-arm64.app.zip"
+            mac_zip="release/UmamusumeAss-v${v}-osx-arm64.app.zip"
+          else
+            cp "$mac_zip" release/
+            mac_zip="release/$(basename "$mac_zip")"
+          fi
+          cp "$win_zip" release/
+          cp "$win_setup" release/
+          echo "win_zip=release/$(basename "$win_zip")" >> "$GITHUB_OUTPUT"
+          echo "win_setup=release/$(basename "$win_setup")" >> "$GITHUB_OUTPUT"
+          echo "mac_zip=$mac_zip" >> "$GITHUB_OUTPUT"
+      - name: Create draft Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $v = '${{ inputs.version }}'
-          $bv = '${{ inputs.bundled_resource_version }}'
-          $rv = '${{ inputs.resource_version }}'
-          $kind = '${{ inputs.release_kind }}'
-          $needProgram = $kind -in @('program', 'both')
-          $needResource = $kind -in @('resource', 'both')
-          $release = New-Item -ItemType Directory -Path release -Force
-          $all = gh release list --limit 100 --json tagName,isDraft,isPrerelease | ConvertFrom-Json
-
-          if ($needProgram) {
-            $winZip = Get-ChildItem release-input-windows -Recurse -File -Filter "UmamusumeAss-v$v-win-x64-full.zip" | Select-Object -First 1
-            $installer = Get-ChildItem release-input-windows -Recurse -File -Filter "UmamusumeAss-v$v-win-x64-setup.exe" | Select-Object -First 1
-            $macZip = Get-ChildItem release-input-macos -Recurse -File -Filter 'UmamusumeAss-osx-arm64.app.zip' | Select-Object -First 1
-            if ($null -eq $winZip -or $null -eq $installer -or $null -eq $macZip) { throw 'A required Windows or macOS program package is missing.' }
-            $winReleaseZip = Join-Path $release $winZip.Name
-            $winReleaseInstaller = Join-Path $release $installer.Name
-            $macReleaseZip = Join-Path $release "UmamusumeAss-v$v-osx-arm64.app.zip"
-            Copy-Item -LiteralPath $winZip.FullName -Destination $winReleaseZip -Force
-            Copy-Item -LiteralPath $installer.FullName -Destination $winReleaseInstaller -Force
-            Copy-Item -LiteralPath $macZip.FullName -Destination $macReleaseZip -Force
-
-            $programRows = @($all | Where-Object { $_.tagName -match '^v\d+\.\d+\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease } | ForEach-Object {
-              [pscustomobject]@{ Tag = $_.tagName; Version = [version]$_.tagName.Substring(1) }
-            } | Where-Object { $_.Version -lt [version]$v } | Sort-Object Version -Descending | Select-Object -First 3)
-            $programPackages = @(); $programVersions = @(); $programManifests = @()
-            foreach ($row in $programRows) {
-              $dir = Join-Path $release "previous-program-$($row.Version)"
-              New-Item -ItemType Directory -Path $dir -Force | Out-Null
-              gh release download $row.Tag --pattern '*-win-x64-full.zip' --pattern 'program-manifest-*.json' --dir $dir
-              if ($LASTEXITCODE -ne 0) { continue }
-              $zip = Get-ChildItem $dir -File -Filter '*-win-x64-full.zip' | Select-Object -First 1
-              $manifest = Get-ChildItem $dir -File -Filter 'program-manifest-*.json' | Select-Object -First 1
-              if ($null -ne $zip -and $null -ne $manifest) { $programPackages += $zip.FullName; $programVersions += $row.Version.ToString(); $programManifests += $manifest.FullName }
-            }
-            $winProgramParameters = @{
-              Version = $v; ReleaseTag = "v$v"; Kind = 'program'; PackagePath = $winReleaseZip; OutputDirectory = $release.FullName
-              BundledResourceVersion = $bv; TargetOs = 'windows'; TargetArch = 'x64'
-            }
-            if ($programPackages.Count -gt 0) {
-              $winProgramParameters.PreviousPackagePath = $programPackages
-              $winProgramParameters.FromVersion = $programVersions
-              $winProgramParameters.PreviousManifestPath = $programManifests
-            }
-            & ./tools/generate-update-manifest.ps1 @winProgramParameters
-            if ($LASTEXITCODE -ne 0) { throw 'Windows program manifest generation failed' }
-            & ./tools/generate-update-manifest.ps1 -Version $v -ReleaseTag "v$v" -Kind program -PackagePath $macReleaseZip -OutputDirectory $release.FullName -BundledResourceVersion $bv -TargetOs macos -TargetArch arm64 -MinOsVersion '14.0' -MinAppVersion '0.3.0' -ManifestFileName "osx-arm64-program-manifest-$v.json" -NoDeltas
-            if ($LASTEXITCODE -ne 0) { throw 'macOS program manifest generation failed' }
-          }
-
-          if ($needResource) {
-            $winResourceZip = Join-Path $release "UmamusumeAss-resource-v$rv-win-x64-full.zip"
-            Compress-Archive -Path (Join-Path $PWD 'resource\*') -DestinationPath $winResourceZip -CompressionLevel Optimal
-            $macResourceZip = Join-Path $release "UmamusumeAss-resource-v$rv-osx-arm64-full.zip"
-            Copy-Item -LiteralPath $winResourceZip -Destination $macResourceZip -Force
-            $resourceRows = @($all | Where-Object { $_.tagName -match '^resource-v\d{4}\.\d{2}\.\d{2}\.\d+$' -and -not $_.isDraft -and -not $_.isPrerelease } | ForEach-Object {
-              $parts = $_.tagName.Substring(10).Split('.')
-              [pscustomobject]@{ Tag = $_.tagName; Version = [int[]]$parts }
-            } | Where-Object {
-              $newParts = [int[]]$rv.Split('.')
-              for ($j = 0; $j -lt 4; $j++) { if ($_.Version[$j] -ne $newParts[$j]) { return $_.Version[$j] -lt $newParts[$j] } }
-              return $false
-            } | Sort-Object @{Expression={$_.Version[0]};Descending=$true},@{Expression={$_.Version[1]};Descending=$true},@{Expression={$_.Version[2]};Descending=$true},@{Expression={$_.Version[3]};Descending=$true} | Select-Object -First 3)
-            $resourcePackages = @(); $resourceVersions = @(); $resourceManifests = @()
-            foreach ($row in $resourceRows) {
-              $dir = Join-Path $release "previous-resource-$($row.Tag.Substring(10))"
-              New-Item -ItemType Directory -Path $dir -Force | Out-Null
-              gh release download $row.Tag --pattern '*-win-x64-full.zip' --pattern 'resource-manifest-*.json' --dir $dir
-              if ($LASTEXITCODE -ne 0) { continue }
-              $zip = Get-ChildItem $dir -File -Filter '*-win-x64-full.zip' | Select-Object -First 1
-              $manifest = Get-ChildItem $dir -File -Filter 'resource-manifest-*.json' | Select-Object -First 1
-              if ($null -ne $zip -and $null -ne $manifest) { $resourcePackages += $zip.FullName; $resourceVersions += $row.Tag.Substring(10); $resourceManifests += $manifest.FullName }
-            }
-            $resourceParameters = @{
-              Version = $rv; ReleaseTag = "resource-v$rv"; Kind = 'resource'; PackagePath = $winResourceZip; OutputDirectory = $release.FullName
-              BundledResourceVersion = $bv; TargetOs = 'windows'; TargetArch = 'x64'
-            }
-            if ($resourcePackages.Count -gt 0) {
-              $resourceParameters.PreviousPackagePath = $resourcePackages
-              $resourceParameters.FromVersion = $resourceVersions
-              $resourceParameters.PreviousManifestPath = $resourceManifests
-            }
-            & ./tools/generate-update-manifest.ps1 @resourceParameters
-            if ($LASTEXITCODE -ne 0) { throw 'Windows resource manifest generation failed' }
-            & ./tools/generate-update-manifest.ps1 -Version $rv -ReleaseTag "resource-v$rv" -Kind resource -PackagePath $macResourceZip -OutputDirectory $release.FullName -BundledResourceVersion $bv -TargetOs macos -TargetArch arm64 -MinOsVersion '14.0' -MinAppVersion '0.3.0' -ManifestFileName "osx-arm64-resource-manifest-$rv.json" -NoDeltas
-            if ($LASTEXITCODE -ne 0) { throw 'macOS resource manifest generation failed' }
-          }
-      - name: Sign platform manifests with the protected P-256 key
-        shell: pwsh
-        env:
-          UMA_UPDATE_SIGNING_KEY_PEM: ${{ secrets.UMA_UPDATE_SIGNING_KEY_PEM }}
-        run: |
-          $v = '${{ inputs.version }}'; $rv = '${{ inputs.resource_version }}'
-          if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
-            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj -c Release -- release/program-manifest-$v.json release/program-manifest-$v.sig
-            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj -c Release -- release/osx-arm64-program-manifest-$v.json release/osx-arm64-program-manifest-$v.sig
-          }
-          if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
-            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj -c Release -- release/resource-manifest-$rv.json release/resource-manifest-$rv.sig
-            dotnet run --project tools/UpdateSigner/UpdateSigner.csproj -c Release -- release/osx-arm64-resource-manifest-$rv.json release/osx-arm64-resource-manifest-$rv.sig
-          }
-      - name: Create draft Releases for review
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $v = '${{ inputs.version }}'; $rv = '${{ inputs.resource_version }}'
-          function Get-ReleaseAssetPaths([string]$manifestPath, [string]$signaturePath) {
-            $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-            $paths = @($manifest.assets | ForEach-Object {
-              $assetPath = Join-Path 'release' ([string]$_.assetName)
-              if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "Manifest asset is missing: $assetPath" }
-              (Resolve-Path -LiteralPath $assetPath).Path
-            })
-            $paths += (Resolve-Path -LiteralPath $manifestPath).Path
-            $paths += (Resolve-Path -LiteralPath $signaturePath).Path
-            return $paths
-          }
-          if ('${{ inputs.release_kind }}' -in @('program', 'both')) {
-            $winManifest = "release/program-manifest-$v.json"
-            $programAssets = @(Get-ReleaseAssetPaths $winManifest "release/program-manifest-$v.sig")
-            $programAssets += @(Get-ReleaseAssetPaths "release/osx-arm64-program-manifest-$v.json" "release/osx-arm64-program-manifest-$v.sig")
-            $programAssets += (Resolve-Path -LiteralPath "release/UmamusumeAss-v$v-win-x64-setup.exe").Path
-            gh release create "v$v" @programAssets --draft --title "UmamusumeAss v$v" --notes "Review Windows and macOS package inventories, signatures, and tests before publishing."
-            if ($LASTEXITCODE -ne 0) { throw 'Program draft Release creation failed' }
-          }
-          if ('${{ inputs.release_kind }}' -in @('resource', 'both')) {
-            $resourceAssets = @(Get-ReleaseAssetPaths "release/resource-manifest-$rv.json" "release/resource-manifest-$rv.sig")
-            $resourceAssets += @(Get-ReleaseAssetPaths "release/osx-arm64-resource-manifest-$rv.json" "release/osx-arm64-resource-manifest-$rv.sig")
-            gh release create "resource-v$rv" @resourceAssets --draft --title "UmamusumeAss resources $rv" --notes "Review Windows and macOS resource inventories and signatures before publishing."
-            if ($LASTEXITCODE -ne 0) { throw 'Resource draft Release creation failed' }
-          }
+          v="${{ inputs.version }}"
+          gh release create "v$v" \
+            "${{ steps.prepare.outputs.win_zip }}" \
+            "${{ steps.prepare.outputs.win_setup }}" \
+            "${{ steps.prepare.outputs.mac_zip }}" \
+            --draft \
+            --title "UmamusumeAss v$v" \
+            --notes $'### 升级说明\n\n- **旧版本用户**：须完全关闭正在运行的旧版本应用，手动下载并覆盖安装或解压运行新版一次。此后可在应用内自动检查并重启更新。\n- **Windows**：自动更新使用 `UmamusumeAss-v'"$v"'-win-x64-full.zip`；手动安装用户亦可下载 `UmamusumeAss-v'"$v"'-win-x64-setup.exe`。\n- **macOS**：自动更新使用 `UmamusumeAss-v'"$v"'-osx-arm64.app.zip`。\n\n请在发布前核对附件列表及 SHA-256 摘要。'

@@ -1,113 +1,61 @@
-# Update release and signing runbook
+# Update release and runbook
 
-The updater trusts the P-256 public key in the repository's `update-public.txt`.
-`Umamusume.UpdateCore` embeds that single source in the WPF updater, macOS
-application, macOS helper, and `UpdateSigner`. The protected GitHub Environment
-`update-signing` supplies the matching `UMA_UPDATE_SIGNING_KEY_PEM` secret to the
-draft-release workflow. Never commit, upload, or print the private key. Keep the
-existing production key; changing it requires a separately planned rotation
-release that updates the protected secret and every client that embeds the
-public key. The Windows native updater stores the corresponding P-256
-coordinates; its test compares them with the same `update-public.txt` key.
+## 概述与更新方式
 
-## First Mac installation and supported updates
+本项目两端均采用**完整包自动更新**架构：
+- **Windows**: 完整 ZIP (`UmamusumeAss-v{V}-win-x64-full.zip`)，包含程序与官方 `resource/` 目录。此外附带安装包 (`UmamusumeAss-v{V}-win-x64-setup.exe`) 供手动安装用户使用。
+- **macOS**: 完整 `.app.zip` (`UmamusumeAss-v{V}-osx-arm64.app.zip`)，包含完整的 `UmamusumeAss.app`（内置 `Contents/Resources/resource/`）。
 
-Install the first macOS release that contains `Umamusume.MacUpdater` by
-replacing the existing `.app` manually. Earlier Mac builds do not include the
-helper needed to perform a safe in-place update. Future macOS program updates
-are ARM64-only, require macOS 14 or newer, and use a complete `.app` ZIP. They
-do not use differential packages. The user downloads the package and clicks
-**Restart to install**; the signed package is staged and checked before the app
-closes. If the app bundle is not writable or its volume cannot atomically swap
-directories, move the app to `~/Applications` and retry. The updater never asks
-for administrator access.
+Release 不再需要附带 manifest JSON、`.sig` 签名文件或 delta 差分包。程序与资源打包一同发布，用户在应用内完成下载后点击“重启更新”，应用由后台助手安全替换并重新启动。
 
-The helper is copied from the verified package to a per-user operation folder
-before the old app exits. It verifies the signed inventory, prepares a complete
-candidate beside the installed bundle, checks the ad-hoc code signature, then
-uses a same-volume atomic directory swap. The candidate must open a window,
-initialize the native core, and load the resource catalog before the helper
-commits the update. A failed launch or health check restores the previous app.
-The helper keeps the most recent successful backup. App data and preferences
-remain in the user's Application Support directory.
+## 用户迁移说明
 
-Resource updates are independent from program updates. The user downloads a
-signed full resource archive and clicks **Apply resources** to activate it. The
-native core reloads the candidate and validates its catalog before the active
-resource pointer changes; failure restores the old workspace and pointer.
-Resource overrides stay in the per-user data directory and are copied into the
-new view. The bundled resource tree remains the fallback if no compatible,
-verified revision is available.
+- **现有旧版用户**：由于更新协议切换，须完全退出正在运行的旧版本应用，手动下载最新安装包或完整 ZIP 进行覆盖安装/解压运行一次。
+- **此后更新**：后续版本发布后，两端均可在应用内自动检查新版、下载校验并“重启更新”，无需再手动安装。
 
-In **Settings → Updates**, **Delete old resources** removes downloaded but
-unstaged or uninstalled update packages, updater check caches, inactive resource
-revisions, and inactive runtime views. It waits for native work to become idle
-and can be canceled while it runs. It keeps the active resource revision and
-view, settings, logs, resource overrides, drafts, the app rollback backup, and
-any operation still needed for installer recovery. If an install/recovery
-helper is running or the active-resource pointer is invalid, the cleaner keeps
-the affected caches conservatively. It only operates inside the app's managed
-user-data directories and does not clear the user's global .NET cache.
+## 检查、下载与校验协议
 
-## Manifest and package contract
+1. **Release 过滤**：
+   - 更新检查仅查询正式的 `vX.Y.Z` Release 标签，自动忽略 draft、prerelease、独立资源 Release（如 `resource-v*`）以及 GitHub 自动源码包。
+   - 版本按 SemVer 从高到低匹配适合当前操作系统的完整包。若高版本 Release 缺少本机包则跳过，寻找较低的可用版本。
+   - 当选中的完整包缺少有效 GitHub SHA-256 摘要（`digest: sha256:...`）时，系统明确提示无法校验（可重试或手动前往 Release 页面下载），不会误报为“没有更新”。
+2. **下载与解压校验**：
+   - 下载前刷新该附件的元数据信息。
+   - 下载完成后校验文件大小与 SHA-256 摘要，确保与 GitHub Release API 报告一致。
+   - 安全解压至受保护的暂存目录，防御路径遍历、绝对路径、重复路径、符号链接及超限解压包（限制单文件 1GB、解压总量 2GB、文件数 10000）。
+   - 检查包内程序版本（Windows 为 `version.txt`，macOS 为 `Contents/Resources/version.txt`）必须与 Release tag 严格一致。
+3. **本地文件清单 (Local Inventory)**：
+   - 客户端解压并验证通过后，在暂存目录生成 `local-inventory.json`，供独立更新助手在应用退出后再次校验暂存文件与更新助手自身。该文件完全由本地生成，无需发布者上传。
 
-Program tags are exactly `vX.Y.Z`; resource tags are exactly
-`resource-vYYYY.MM.DD.N`. Windows retains its existing full and differential
-manifest protocol. macOS uses a platform-specific signed manifest and full
-asset only:
+## 安装与资源管理
 
-| Scope | Manifest | Signature | Full package |
-| --- | --- | --- | --- |
-| Program | `osx-arm64-program-manifest-{version}.json` | Same stem with `.sig` | `UmamusumeAss-v{version}-osx-arm64.app.zip` |
-| Resources | `osx-arm64-resource-manifest-{revision}.json` | Same stem with `.sig` | `UmamusumeAss-resource-v{revision}-osx-arm64-full.zip` |
+1. **Windows 原生更新器 (`UmamusumeAssUpdater.exe`)**：
+   - 互斥量保护：使用 `Local\UmamusumeAss.Updater.v2` 防止并发更新。
+   - 等待主程序完全退出，备份原目录，替换文件；若复制失败则自动回滚原版本。
+   - 官方 `resource/` 目录整体换新，避免旧版本已删除的资源残留生效。
+   - 替换完成后自动拉起新版本主程序。
+2. **macOS 更新助手 (`Umamusume.MacUpdater`)**：
+   - 验证 candidate bundle 与本地 `local-inventory.json` 清单。
+   - 使用文件系统同卷原子替换 (`renameatx_np`) 交换 `.app` 目录。
+   - 拉起新版本进行 `--update-health` 健康检查（主窗口创建、原生核心初始化、资源目录读取）；若健康检查失败或超时则立即回滚至原版本备份。
+   - 具备中断恢复机制，如果更新中途异常退出，下次启动时根据未完成日志优先执行安全恢复。
+3. **资源处理与用户数据保留**：
+   - 取消独立资源下载与应用流程。应用启动时始终以当前安装包内置的资源为基准。
+   - 旧版本可能遗留的 `active.json` 指针不再优先生效，防止旧资源覆盖新版内置资源。
+   - 用户自定义配置（`config.json`）、任务列表（`tasks.json`）以及用户资源覆盖（`resource-overrides/`）完全独立保存在用户数据目录，更新过程严格保留。
 
-Mac manifests use schema 1, `targetOs: macos`, `targetArch: arm64`, and
-`minOsVersion: 14.0`. Resource manifests include app-version and resource
-schema compatibility. The release workflow currently creates draft releases;
-maintainers must review the platform assets, manifest inventories, and
-signatures before publishing. No release is published automatically.
+## 发布流程
 
-Windows continues to publish its full portable ZIP and installer and can also
-publish signed direct deltas from up to three recent stable releases. Windows
-delta mismatches fall back to a full package. The platform-specific Mac
-manifest prefix keeps Windows manifest discovery from selecting Mac assets.
-
-Resource archives contain the contents of `resource/` at the archive root
-(`foo/bar`, not `resource/foo/bar`). The Mac resource asset can reuse those
-same resource bytes under its platform-specific asset name.
-
-The Mac package preserves the project's ad-hoc `codesign` mode. It is signed
-before ZIP creation, then the exact archive bytes are hashed into the signed
-manifest. The release flow does not use Developer ID credentials or notarize
-the package.
-
-## Creating and reviewing a release draft
-
-Use the `Release` workflow's manual dispatch. Set `version` to the exact
-`version.txt` value and `bundled_resource_version` to the resource revision
-included with the program package. For a resource or combined release, also
-set `resource_version`. The workflow builds and tests on `windows-2022` and
-`macos-15`; the Mac CMake deployment target is 14.0. It signs manifests with
-the protected `update-signing` environment and creates draft releases only.
-
-Before publishing a draft, verify that each platform-specific program manifest
-names its corresponding full package, and that the Mac manifest contains no
-delta assets. Check the resource platform manifests and their full package
-names, the signed file inventories and hashes, the app's
-`LSMinimumSystemVersion`, and that no bundled Mach-O requires a macOS version
-newer than 14.0.
-Publish only after these checks pass. `build.yml` runs the same managed updater
-tests and creates a short-lived CI artifact; its `dist/` package is not a
-release.
-
-## Verification details
-
-The local stager retains the original signed manifest bytes and signature. It
-requires the ZIP's regular-file set to exactly equal the signed inventory,
-validates every file SHA-256, rejects traversal, absolute paths, symlinks,
-special files, and Mac case/Unicode path collisions, and enforces the
-10,000-file, 1-GiB per-file, and 2-GiB expanded-size limits. Mac app replacement
-preserves executable modes. Resource revisions are immutable and independently
-verified before activation. Recovery uses a persistent journal and compares
-the installed and candidate bundle versions to detect a swap completed before
-the journal was advanced.
+每次发布新版本：
+1. 确认 `version.txt` 已更新为正确的语义化版本号（如 `0.3.1`）。
+2. 在 GitHub Actions 页面手动触发 `Release` workflow：
+   - 输入 `version`（例如 `0.3.1`）。
+   - 可选输入 `bundled_resource_version`（默认为版本号）。
+3. Workflow 自动完成：
+   - Windows 2022 runner 编译原生核心、运行 CTest 与 managed 测试、打包 Windows 完整 ZIP 与安装包。
+   - macOS ARM64 runner 编译原生核心、运行 CTest 与 managed 测试、执行 ad-hoc codesign 并打包 `.app.zip`。
+   - 创建 GitHub Draft Release 并自动附加三项资产：
+     - `UmamusumeAss-v{V}-win-x64-full.zip`
+     - `UmamusumeAss-v{V}-win-x64-setup.exe`
+     - `UmamusumeAss-v{V}-osx-arm64.app.zip`
+4. 发布者在 GitHub Release 页面核对资产列表与说明后，正式发布 Release。
