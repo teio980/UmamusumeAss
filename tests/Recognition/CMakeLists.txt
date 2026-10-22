@@ -34,6 +34,7 @@ target_compile_definitions(RecognitionTests
     UMA_NUMERIC_OCR_WORKER_PATH="$<TARGET_FILE:UmaNumericOcrWorker>"
 )
 
+add_dependencies(RecognitionTests UmaNumericOcrWorker)
 uma_add_strict_warnings(RecognitionTests)
 
 function(uma_discover_recognition_tests TARGET)

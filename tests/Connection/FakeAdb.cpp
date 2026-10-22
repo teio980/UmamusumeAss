@@ -38,6 +38,12 @@ namespace {
 [[nodiscard]] std::string environment_value(char const* name)
 {
 #if defined(_WIN32)
+    std::array<char, 32768> buffer{};
+    auto const length = ::GetEnvironmentVariableA(name, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length > 0 && length < buffer.size())
+    {
+        return std::string(buffer.data(), length);
+    }
     char* raw = nullptr;
     std::size_t size = 0;
     if (_dupenv_s(&raw, &size, name) != 0 || raw == nullptr)

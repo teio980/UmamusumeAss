@@ -53,6 +53,31 @@ public sealed class ResourceWorkspace
 
     public string OverridesFingerprint { get; }
 
+    /// <summary>
+    /// Maps a bundled/source resource path or relative resource path into the active
+    /// writable view of this workspace. External paths pass through unchanged.
+    /// </summary>
+    public string ResolveActivePath(string sourcePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        if (!Path.IsPathFullyQualified(sourcePath))
+        {
+            var relative = sourcePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            if (relative.StartsWith("resource" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                relative = relative[("resource" + Path.DirectorySeparatorChar).Length..];
+            return Path.GetFullPath(Path.Combine(ActiveResourceRoot, relative));
+        }
+
+        var fullPath = Path.GetFullPath(sourcePath);
+        if (TryGetRelativePath(ActiveResourceRoot, fullPath, out _))
+            return fullPath;
+        if (TryGetRelativePath(SourceResourceRoot, fullPath, out var relativePath))
+            return Path.GetFullPath(Path.Combine(ActiveResourceRoot, relativePath));
+        if (TryGetRelativePath(OverridesRoot, fullPath, out relativePath))
+            return Path.GetFullPath(Path.Combine(ActiveResourceRoot, relativePath));
+        return fullPath;
+    }
+
     /// <summary>Creates or reuses a complete immutable-source view with user overrides applied.</summary>
     public static async Task<ResourceWorkspace> PrepareAsync(
         string sourceResourceRoot,

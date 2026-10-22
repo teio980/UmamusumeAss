@@ -691,32 +691,109 @@ private:
 NumericOcrBatch::NumericOcrBatch()
     : owned_process_(create_win32_process()), process_(owned_process_.get()), executable_(locate_executable())
 {
-    // Core DLL and installed worker live side by side. Static test runners use
-    // their executable directory instead, without searching the current folder.
+    // Core DLL and installed worker live side by side. Test runners, installed packages,
+    // and custom tool locations can also provide the worker via environment or search tree.
     std::filesystem::path worker_path;
+
 #if defined(_WIN32)
-    HMODULE const module = ::GetModuleHandleW(L"UmamusumeCore.dll");
-    std::array<wchar_t, 32768> buffer{};
-    auto const length = ::GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
-    if (length > 0 && length < buffer.size())
+    std::array<wchar_t, 32768> env_buffer{};
+    auto const env_len = ::GetEnvironmentVariableW(L"UMA_NUMERIC_OCR_WORKER_PATH",
+        env_buffer.data(), static_cast<DWORD>(env_buffer.size()));
+    if (env_len > 0 && env_len < env_buffer.size())
     {
-        worker_path = std::filesystem::path(std::wstring(buffer.data(), length)).parent_path()
-            / L"UmaNumericOcrWorker.exe";
+        std::filesystem::path candidate(std::wstring(env_buffer.data(), env_len));
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error))
+            worker_path = std::move(candidate);
+    }
+#else
+    char const* env_worker = std::getenv("UMA_NUMERIC_OCR_WORKER_PATH");
+    if (env_worker && *env_worker)
+    {
+        std::filesystem::path candidate(env_worker);
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error))
+            worker_path = std::move(candidate);
+    }
+#endif
+
+#if defined(_WIN32)
+    if (worker_path.empty())
+    {
+        std::vector<std::filesystem::path> search_roots;
+        HMODULE const module = ::GetModuleHandleW(L"UmamusumeCore.dll");
+        std::array<wchar_t, 32768> buffer{};
+        auto const length = ::GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (length > 0 && length < buffer.size())
+        {
+            search_roots.push_back(std::filesystem::path(std::wstring(buffer.data(), length)).parent_path());
+        }
+        auto const proc_length = ::GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (proc_length > 0 && proc_length < buffer.size())
+        {
+            search_roots.push_back(std::filesystem::path(std::wstring(buffer.data(), proc_length)).parent_path());
+        }
+        search_roots.push_back(std::filesystem::current_path());
+
+        for (auto const& root : search_roots)
+        {
+            for (std::filesystem::path cur = root; !cur.empty(); cur = cur.parent_path())
+            {
+                for (auto const& sub : {
+                    std::filesystem::path("UmaNumericOcrWorker.exe"),
+                    std::filesystem::path("Release") / "UmaNumericOcrWorker.exe",
+                    std::filesystem::path("src") / "UmaAssistantCore" / "UmaNumericOcrWorker.exe",
+                    std::filesystem::path("src") / "UmaAssistantCore" / "Release" / "UmaNumericOcrWorker.exe",
+                    std::filesystem::path("bin") / "UmaNumericOcrWorker.exe"
+                })
+                {
+                    auto candidate = cur / sub;
+                    std::error_code error;
+                    if (std::filesystem::is_regular_file(candidate, error))
+                    {
+                        worker_path = std::move(candidate);
+                        break;
+                    }
+                }
+                if (!worker_path.empty() || cur == cur.parent_path()) break;
+            }
+            if (!worker_path.empty()) break;
+        }
     }
 #elif defined(__APPLE__)
-    Dl_info info{};
-    if (dladdr(reinterpret_cast<void*>(&create_win32_process), &info) && info.dli_fname)
+    if (worker_path.empty())
     {
-        auto dylib_dir = std::filesystem::path(info.dli_fname).parent_path();
-        if (std::filesystem::exists(dylib_dir / "UmaNumericOcrWorker"))
-            worker_path = dylib_dir / "UmaNumericOcrWorker";
-        else if (std::filesystem::exists(dylib_dir.parent_path() / "MacOS" / "UmaNumericOcrWorker"))
-            worker_path = dylib_dir.parent_path() / "MacOS" / "UmaNumericOcrWorker";
-    }
-    if (worker_path.empty() || !std::filesystem::exists(worker_path))
-    {
-        if (std::filesystem::exists(std::filesystem::current_path() / "UmaNumericOcrWorker"))
-            worker_path = std::filesystem::current_path() / "UmaNumericOcrWorker";
+        std::vector<std::filesystem::path> search_roots;
+        Dl_info info{};
+        if (dladdr(reinterpret_cast<void*>(&create_win32_process), &info) && info.dli_fname)
+        {
+            search_roots.push_back(std::filesystem::path(info.dli_fname).parent_path());
+        }
+        search_roots.push_back(std::filesystem::current_path());
+
+        for (auto const& root : search_roots)
+        {
+            for (std::filesystem::path cur = root; !cur.empty(); cur = cur.parent_path())
+            {
+                for (auto const& sub : {
+                    std::filesystem::path("UmaNumericOcrWorker"),
+                    std::filesystem::path("MacOS") / "UmaNumericOcrWorker",
+                    std::filesystem::path("src") / "UmaAssistantCore" / "UmaNumericOcrWorker",
+                    std::filesystem::path("bin") / "UmaNumericOcrWorker"
+                })
+                {
+                    auto candidate = cur / sub;
+                    std::error_code error;
+                    if (std::filesystem::is_regular_file(candidate, error))
+                    {
+                        worker_path = std::move(candidate);
+                        break;
+                    }
+                }
+                if (!worker_path.empty() || cur == cur.parent_path()) break;
+            }
+            if (!worker_path.empty()) break;
+        }
     }
 #endif
     if (!worker_path.empty())
@@ -830,7 +907,7 @@ NumericOcrBatchResult NumericOcrBatch::read(
             throw std::invalid_argument("Numeric OCR requires valid grayscale crops.");
         readings.emplace(field.key, NumericOcrBatchReading{});
     }
-    if (fields.empty() || process_ == nullptr || executable_.empty()) return readings;
+    if (fields.empty() || (worker_ == nullptr && (process_ == nullptr || executable_.empty()))) return readings;
 
     auto const deadline = Clock::now() + frame_budget;
     try
@@ -864,6 +941,7 @@ NumericOcrBatchResult NumericOcrBatch::read(
                                  : std::optional<std::vector<std::string>>{};
             if (!texts)
             {
+                if (process_ == nullptr || executable_.empty()) continue;
                 if (!temporary)
                 {
                     apartment = std::make_unique<ComApartment>();

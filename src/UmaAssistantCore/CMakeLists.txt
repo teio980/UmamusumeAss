@@ -102,7 +102,11 @@ uma_add_strict_warnings(UmaAssistantVision)
 
 add_executable(UmaNumericOcrWorker Recognition/NumericOcrWorker.cpp)
 target_link_libraries(UmaNumericOcrWorker PRIVATE nlohmann_json::nlohmann_json libtesseract)
-target_compile_definitions(UmaNumericOcrWorker PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_definitions(UmaNumericOcrWorker PRIVATE
+  NOMINMAX
+  WIN32_LEAN_AND_MEAN
+  CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
 if(MINGW)
   target_link_options(UmaNumericOcrWorker PRIVATE -municode)
 endif()
@@ -132,6 +136,7 @@ target_compile_definitions(UmaAssistantOcr
   PRIVATE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
+    CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
 uma_add_strict_warnings(UmaAssistantOcr)

@@ -15,6 +15,9 @@ jobs:
   build-windows:
     name: Windows x64 (Native Core + WPF GUI)
     runs-on: windows-2022
+    env:
+      TESSDATA_PREFIX: ${{ github.workspace }}/resource/tessdata
+      UMA_NUMERIC_OCR_WORKER_PATH: ${{ github.workspace }}/build/release/src/UmaAssistantCore/Release/UmaNumericOcrWorker.exe
 
     steps:
       - name: Checkout repository
@@ -24,6 +27,33 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+
+      - name: Install WebP WIC Codec
+        shell: pwsh
+        run: |
+          $installerPath = "$env:TEMP\WebpCodecSetup.exe"
+          $msiPath = "$env:TEMP\webp_x64.msi"
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/WebpCodecSetup.exe" -OutFile $installerPath
+          $bytes = [System.IO.File]::ReadAllBytes($installerPath)
+          $sig = [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1)
+          $offsets = [System.Collections.Generic.List[int]]::new()
+          for ($i = 0; $i -le $bytes.Length - $sig.Length; $i++) {
+              $match = $true
+              for ($j = 0; $j -lt $sig.Length; $j++) {
+                  if ($bytes[$i + $j] -ne $sig[$j]) { $match = $false; break }
+              }
+              if ($match) { $offsets.Add($i) }
+          }
+          if ($offsets.Count -ge 2) {
+              $msiOffset = $offsets[1]
+              $msiBytes = [byte[]]::new($bytes.Length - $msiOffset)
+              [System.Array]::Copy($bytes, $msiOffset, $msiBytes, 0, $msiBytes.Length)
+              [System.IO.File]::WriteAllBytes($msiPath, $msiBytes)
+              Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /qn /norestart" -Wait -NoNewWindow
+              Write-Host "WebP WIC Codec installed successfully."
+          } else {
+              Write-Warning "Could not find x64 MSI signature in WebpCodecSetup.exe"
+          }
 
       - name: Configure CMake (Release)
         run: cmake -S . -B build/release -G "Visual Studio 17 2022" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -86,6 +116,8 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
       # macos-15 defaults to Xcode 16.4, whose libc++ lacks stop_token/jthread.
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      TESSDATA_PREFIX: ${{ github.workspace }}/resource/tessdata
+      UMA_NUMERIC_OCR_WORKER_PATH: ${{ github.workspace }}/build/osx-arm64/src/UmaAssistantCore/UmaNumericOcrWorker
 
     steps:
       - name: Checkout repository

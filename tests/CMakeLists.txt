@@ -15,6 +15,8 @@ add_test(
     "UMA_NATIVE_INTEGRATION=1"
     "UMA_INTEGRATION_HOST_PATH=${CMAKE_SOURCE_DIR}/tools/Umamusume.CoreBridge.IntegrationHost/bin/Release/net10.0/Umamusume.CoreBridge.IntegrationHost.dll"
     "UMA_FAKE_ADB_PATH=$<TARGET_FILE:UmaFakeAdb>"
+    "UMA_NUMERIC_OCR_WORKER_PATH=$<TARGET_FILE:UmaNumericOcrWorker>"
+    "TESSDATA_PREFIX=${CMAKE_SOURCE_DIR}/resource/tessdata"
     "${DOTNET_EXECUTABLE}" test
     "${CMAKE_SOURCE_DIR}/tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj"
     -c Release
@@ -26,6 +28,8 @@ add_test(
 add_test(
   NAME AppCoreTests
   COMMAND "${CMAKE_COMMAND}" -E env
+    "UMA_NUMERIC_OCR_WORKER_PATH=$<TARGET_FILE:UmaNumericOcrWorker>"
+    "TESSDATA_PREFIX=${CMAKE_SOURCE_DIR}/resource/tessdata"
     "${DOTNET_EXECUTABLE}" test
     "${CMAKE_SOURCE_DIR}/tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj"
     -c Release
@@ -40,6 +44,8 @@ if(WIN32)
     NAME WpfGuiTests
     COMMAND "${CMAKE_COMMAND}" -E env
       "DOTNET_CLI_TELEMETRY_OPTOUT=1"
+      "UMA_NUMERIC_OCR_WORKER_PATH=$<TARGET_FILE:UmaNumericOcrWorker>"
+      "TESSDATA_PREFIX=${CMAKE_SOURCE_DIR}/resource/tessdata"
       "${DOTNET_EXECUTABLE}" test
       "${CMAKE_SOURCE_DIR}/tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj"
       -c Release

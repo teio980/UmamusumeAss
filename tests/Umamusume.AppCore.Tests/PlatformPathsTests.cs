@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Umamusume.AppCore.Tests;
 
+[Collection("PlatformPaths")]
 public sealed class PlatformPathsTests
 {
     [Fact]

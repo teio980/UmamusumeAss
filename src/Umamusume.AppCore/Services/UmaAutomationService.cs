@@ -94,7 +94,8 @@ public sealed class UmaAutomationService : IUmaAutomationService
         ?? _umaService.ResourcePath
         ?? PlatformPaths.GetDefaultResourceDirectory();
     public ResourceWorkspace? ActiveResourceWorkspace => _resourceWorkspace;
-    public string ResolveActiveResourcePath(string sourcePath) => PlatformPaths.ResolveActiveResourcePath(sourcePath);
+    public string ResolveActiveResourcePath(string sourcePath) =>
+        _resourceWorkspace?.ResolveActivePath(sourcePath) ?? PlatformPaths.ResolveActiveResourcePath(sourcePath);
     public DeviceSessionIdentity? ActiveDeviceIdentity => _activeDeviceIdentity;
     public IUmaService CoreService => _umaService;
     public string CurrentStatus => _currentStatus;
