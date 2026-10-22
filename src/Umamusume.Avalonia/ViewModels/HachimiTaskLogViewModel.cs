@@ -6,6 +6,8 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Umamusume.AppCore.Models;
 using Umamusume.AppCore.Services;
+using Umamusume.CoreBridge;
+using Umamusume.CoreBridge.Logging;
 
 namespace Umamusume.Avalonia.ViewModels;
 
@@ -152,16 +154,30 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
             ? Tasks[update.TaskIndex]
             : null;
 
-        var stepName = update.TaskName ?? update.TaskId;
+        var stepName = IsEnglish ? "Task" : "任务";
         var msg = update.Message ?? string.Empty;
 
         switch (update.Kind)
         {
+            case UmaTaskQueueEventKind.Decision:
+                if (group is not null && !string.IsNullOrWhiteSpace(msg))
+                    group.AddEntry(IsEnglish ? "Decision" : "决策", msg, LogEntryKind.Normal);
+                break;
+
+            case UmaTaskQueueEventKind.ActionConfirmed:
+                if (group is not null)
+                    group.AddEntry(IsEnglish ? "Action" : "操作",
+                        IsEnglish
+                            ? $"{update.TaskName} {(update.Succeeded == true ? "confirmed" : "was not confirmed")}."
+                            : $"{update.TaskName}{(update.Succeeded == true ? "已确认" : "未确认")}。",
+                        update.Succeeded == true ? LogEntryKind.Success : LogEntryKind.Error);
+                break;
+
             case UmaTaskQueueEventKind.Started:
                 if (group is not null)
                 {
                     group.SetStatus(IsEnglish ? "Running" : "运行中", isWaiting: false, isRunning: true, isCompleted: false, isFailed: false);
-                    group.AddEntry(stepName, msg.Length > 0 ? msg : (IsEnglish ? "Task started" : "任务开始运行"), LogEntryKind.Normal);
+                    group.AddEntry(stepName, IsEnglish ? "Task started" : "任务开始运行", LogEntryKind.Normal);
                 }
                 break;
 
@@ -172,8 +188,7 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
                         ? $" ({completed}/{update.TotalUnits})"
                         : string.Empty;
                     group.SetStatus(IsEnglish ? $"Running{progress}" : $"运行中{progress}", isWaiting: false, isRunning: true, isCompleted: false, isFailed: false);
-                    if (msg.Length > 0)
-                        group.AddEntry(stepName, msg, LogEntryKind.Normal);
+                    AddProgressEntry(group, update);
                 }
                 break;
 
@@ -181,7 +196,7 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
                 if (group is not null)
                 {
                     group.SetStatus(IsEnglish ? "Completed" : "已完成", isWaiting: false, isRunning: false, isCompleted: true, isFailed: false);
-                    group.AddEntry(stepName, msg.Length > 0 ? msg : (IsEnglish ? "Task completed" : "任务顺利完成"), LogEntryKind.Normal);
+                    group.AddEntry(stepName, IsEnglish ? "Task completed" : "任务顺利完成", LogEntryKind.Success);
                 }
                 break;
 
@@ -189,9 +204,8 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
                 if (group is not null)
                 {
                     group.SetStatus(IsEnglish ? "Failed" : "失败", isWaiting: false, isRunning: false, isCompleted: false, isFailed: true);
-                    group.AddEntry(stepName, msg.Length > 0 ? msg : (IsEnglish ? "Task failed" : "任务执行失败"), LogEntryKind.Error);
+                    group.AddEntry(stepName, FailureMessage(msg), LogEntryKind.Error);
                 }
-                AddQueueEntry(IsEnglish ? "Task Failed" : "任务失败", IsEnglish ? $"{stepName}: {msg}" : $"{stepName}：{msg}", LogEntryKind.Error);
                 break;
 
             case UmaTaskQueueEventKind.Canceled:
@@ -206,13 +220,62 @@ public sealed partial class HachimiTaskLogViewModel : ObservableObject
                 if (group is not null)
                 {
                     group.SetStatus(IsEnglish ? "Skipped" : "已跳过", isWaiting: false, isRunning: false, isCompleted: false, isFailed: false);
-                    group.AddEntry(stepName, msg.Length > 0 ? msg : (IsEnglish ? "Task skipped" : "任务已跳过"), LogEntryKind.Warning);
+                    group.AddEntry(stepName, IsEnglish ? "Task skipped" : "任务已跳过", LogEntryKind.Warning);
                 }
                 break;
         }
 
         OnPropertyChanged(nameof(HasContent));
         OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    // Match the Windows semantic whitelist. Raw recognition, actions, retries and
+    // graph nodes belong in diagnostics, even when they carry nonempty messages.
+    private void AddProgressEntry(HachimiTaskLogGroupViewModel group, UmaTaskQueueEvent update)
+    {
+        if (string.Equals(update.TaskName, "career_status", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(update.Message))
+                group.AddEntry(IsEnglish ? "Career status" : "育成状态", update.Message, LogEntryKind.Normal);
+            return;
+        }
+        if (string.Equals(update.TaskName, "smart_training_scan", StringComparison.OrdinalIgnoreCase))
+        {
+            UraSmartTrainingScanLog.WriteJson(
+                (step, message) => group.AddEntry(step, message, LogEntryKind.Normal),
+                update.Message ?? string.Empty,
+                _localizationService is null ? null : _localizationService.GetString);
+            return;
+        }
+        if (!HachimiTaskLogSemantics.TryDescribe(HachimiTaskLogSemantics.GetLogProfile(update.TaskId),
+                update.TaskName ?? string.Empty, out var semantic))
+            return;
+
+        semantic = HachimiTaskLogSemantics.Localize(semantic,
+            _localizationService is null ? null : _localizationService.GetString,
+            _localizationService?.CurrentLanguage ?? "en-US");
+        var stepName = IsEnglish ? "Step" : "步骤";
+        switch (update.EventType)
+        {
+            case GameTaskEventType.TaskEntering:
+                group.AddEntry(stepName, semantic.StartMessage, LogEntryKind.Normal);
+                break;
+            case GameTaskEventType.TransitionVerified when semantic.SentMessage is not null:
+            case GameTaskEventType.TaskCompleted:
+                group.AddEntry(stepName, semantic.CompletedMessage, LogEntryKind.Success);
+                break;
+            case GameTaskEventType.TaskFailed:
+                group.AddEntry(stepName, semantic.FailedMessage, LogEntryKind.Error);
+                break;
+        }
+    }
+
+    private string FailureMessage(string message)
+    {
+        var failure = HachimiTaskLogSemantics.ToUserFacingFailure(message);
+        return HachimiTaskLogSemantics.Localize(new(failure, failure, failure),
+            _localizationService is null ? null : _localizationService.GetString,
+            _localizationService?.CurrentLanguage ?? "en-US").StartMessage;
     }
 
     public void EndRun(UmaTaskQueueRunResult result)

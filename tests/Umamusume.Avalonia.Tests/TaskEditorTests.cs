@@ -205,7 +205,8 @@ public sealed class TaskEditorTests
 
         Assert.True(log.Tasks[0].IsRunning);
         Assert.Single(log.Tasks[0].Entries);
-        Assert.Equal("Starting turn 1", log.Tasks[0].Entries[0].Message);
+        Assert.Equal("任务开始运行", log.Tasks[0].Entries[0].Message);
+        log.Clear();
     }
 
     private sealed class MemorySettings : ISettingsService
