@@ -64,6 +64,9 @@ set(CATCH_INSTALL_DOCS      OFF CACHE BOOL "" FORCE)
 set(CATCH_INSTALL_HELPERS   OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Catch2)
 
+# Leptonica and Tesseract default to SW on Windows. Use the dependencies
+# configured here instead of requiring an external SW package manager.
+set(SW_BUILD OFF CACHE BOOL "" FORCE)
 set(BUILD_PROG OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ENABLE_ZLIB OFF CACHE BOOL "" FORCE)

@@ -33,12 +33,14 @@ jobs:
       - name: Build and test native code
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cmake -S . -B build/release -G 'Visual Studio 17 2022' -A x64 -DUMA_BUILD_TESTS=ON
           cmake --build build/release --config Release
           ctest --test-dir build/release -C Release --output-on-failure
       - name: Test managed code
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj --configuration Release
           dotnet restore tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj
           dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore

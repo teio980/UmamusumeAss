@@ -39,6 +39,7 @@ jobs:
 
       - name: Run Managed Unit Tests
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           dotnet test tests/Umamusume.AppCore.Tests/Umamusume.AppCore.Tests.csproj -c Release --filter 'FullyQualifiedName!~LiveDeviceVerificationTests'
           dotnet test tests/Umamusume.Avalonia.Tests/Umamusume.Avalonia.Tests.csproj -c Release
           dotnet test tests/Umamusume.CoreBridge.Tests/Umamusume.CoreBridge.Tests.csproj -c Release
