@@ -17,6 +17,8 @@ URA 的日历、赛事、目标和事件规则仍在 `resource/hachimi/ura/`。�
 - 执行结果带有状态、失败类型与语义 `outcome`。业务判断使用这些值；任务名与日志文本只用于诊断。
 - 动态图片、筛选布局和视觉匹配参数在 `catalog.json` 中声明，通过资源包解析。相对模板路径按所属片段目录解析。
 
+剧本选择页先验证 `career.entry.scenario.ura_card`。未命中时，以 `scenario_select_right_arrow.png` 的透明箭头素材通过 `MatchTemplateColor` 匹配并点击右箭头，切换后仍只观察 `scenario_select`，利用轮播回绕查找 URA；命中后才执行 `scenario.next` 进入选马。`entry/profile.json` 的 `scenarioSelection.maxAdvanceAttempts` 限制向右切换次数（当前为 8）。箭头搜索范围覆盖左右摆动位置，素材不保留剧本背景；四个剧本的 ADB 实机回归截图保存在 `testdata/hachimi/ura/captures/scenario_select_20261022/`。
+
 ## 编辑与迁移
 
 赛前属性与跑法画面统一使用 `race_runner`：只匹配右侧 Runners 的局部模板，ROI 为 `[700, 1060, 180, 140]`，阈值保持 `0.88`。保留原小模板，并从实际 URA Runner 截图提取局部字样作为兼容变体；重试成功检查复用这两个小模板。旧 `race_attributes` 页面、重复动作绑定和整图识别已删除；五张历史整图移到 `ura/testdata/captures/runtime_frames/`，只用于像素回归，不进入发布包。其中四张实际为 Race Day、赛前剧情或赛事列表，回归要求它们不能被识别成 Runner。赛事详情确认、连赛保护、跑法配置、重试及直接赛果续接都使用同一 Runner 检查点。

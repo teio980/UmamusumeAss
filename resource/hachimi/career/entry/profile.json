@@ -645,6 +645,7 @@
       "recognition": {
         "template": "templates/scenario_select_header.png",
         "templates": [
+          "templates/scenario_select_header_compact.png",
           "../race/templates/runtime_frames/scenario_select_ura.png"
         ],
         "roi": [
@@ -655,8 +656,7 @@
         ],
         "templThreshold": 0.95,
         "requiredText": [
-          "Scenario Select",
-          "URA Finale"
+          "Scenario Select"
         ],
         "priority": 12
       },

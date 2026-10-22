@@ -348,19 +348,21 @@
       "success": false
     },
     "scenario_select_scenario_next_card": {
-      "algorithm": "ClickRect",
-      "action": "ClickRect",
-      "specificRect": [
-        815,
-        650,
-        75,
-        180
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/scenario_select_right_arrow.png",
+      "templThreshold": 0.94,
+      "roi": [
+        820,
+        670,
+        80,
+        130
       ],
       "preDelay": 0,
       "postDelay": 650,
       "waitMs": 0,
-      "timeoutMs": 0,
-      "pollIntervalMs": 0,
+      "timeoutMs": 5000,
+      "pollIntervalMs": 250,
       "next": [],
       "onErrorNext": [],
       "exceededNext": [],

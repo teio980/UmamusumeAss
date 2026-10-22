@@ -1442,6 +1442,9 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
     if (!initialScreens.empty()) eligibleScreens = initialScreens;
     bool supportConfigured = false;
     int tpRestores = 0;
+    int scenarioAdvanceAttempts = 0;
+    auto const scenarioSelection = resources.GetProfileOptions().value("scenarioSelection", Json::object());
+    auto const maxScenarioAdvances = std::clamp(scenarioSelection.value("maxAdvanceAttempts", 8), 1, 32);
     bool allowResume = config.continueExistingCareer;
     for (int step = 0; step < 48; ++step)
     {
@@ -1477,9 +1480,28 @@ CareerEntryResult CareerEntryFlow::Run(Career::CareerRuntimeConfig const& config
             auto const frame = context.GetCurrentFrame();
             auto const selected = resources.MatchAsset("career.entry.scenario.ura_card", context,
                 frame ? frame->frameId : 0);
-            if (!RunAction(result, resources, context, screen,
-                selected.found ? "scenario.next" : "scenario.next_card")) return result;
-            eligibleScreens = {"trainee_select"};
+            if (selected.found)
+            {
+                context.Log("INFO", "URA Finale scenario verified; proceeding to Trainee Select.");
+                if (!RunAction(result, resources, context, screen, "scenario.next")) return result;
+                eligibleScreens = {"trainee_select"};
+            }
+            else
+            {
+                if (scenarioAdvanceAttempts >= maxScenarioAdvances)
+                {
+                    result.error = "URA Finale was not found after " + std::to_string(maxScenarioAdvances)
+                        + " right-arrow advances on Scenario Select.";
+                    return result;
+                }
+                context.Log("INFO", "URA Finale is not selected; advancing with the right arrow ("
+                    + std::to_string(scenarioAdvanceAttempts + 1) + "/" + std::to_string(maxScenarioAdvances) + ").");
+                if (!RunAction(result, resources, context, screen, "scenario.next_card")) return result;
+                ++scenarioAdvanceAttempts;
+                // The carousel wraps around. Re-observe selection after every
+                // advance; Next is only valid after the URA card is verified.
+                eligibleScreens = {"scenario_select"};
+            }
         }
         else if (screen == "trainee_select")
         {

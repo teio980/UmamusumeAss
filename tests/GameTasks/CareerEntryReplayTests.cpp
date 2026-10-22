@@ -1,6 +1,7 @@
 #include "GameData/CareerSelectionCatalog.hpp"
 #include "GameData/UmaGameDatabase.hpp"
 #include "GameTasks/CareerEntryFlow.hpp"
+#include "Career/SupportDeckComposition.hpp"
 #include "GameTasks/NativeIndependentTrainingFlow.hpp"
 #include "Career/CareerVisualResources.hpp"
 #include "Career/CareerObservationReader.hpp"
@@ -99,6 +100,11 @@ public:
         const std::vector<double>&) override
     {
         templateRequests.push_back(path);
+        if (uraAfterScenarioAdvances && path.find("scenario_select_ura_card.png") != std::string::npos
+            && scenarioAdvances < *uraAfterScenarioAdvances)
+            return {};
+        if (!scenarioArrowAvailable && path.find("scenario_select_right_arrow.png") != std::string::npos)
+            return {};
         if (legacyManualReplay && path.find("legacy_trainee_badge.png") != std::string::npos)
         {
             legacyBadgeRois.push_back(roi);
@@ -168,6 +174,9 @@ public:
     std::vector<std::string> ocrTexts;
     std::vector<std::string> enteredTasks;
     std::vector<std::string> templateRequests;
+    std::optional<int> uraAfterScenarioAdvances;
+    int scenarioAdvances{0};
+    bool scenarioArrowAvailable{true};
     bool legacyManualReplay{false};
     std::vector<std::optional<TaskRoi>> legacyBadgeRois;
     std::function<void(TaskExecutionEvent const&)> onEvent;
@@ -394,6 +403,81 @@ TEST_CASE("Career entry chains trainee Next once and configures Legacy before Su
     REQUIRE(result.succeeded);
     CHECK(legacySelections == 1);
     CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "trainee_select_trainee_next") == 1);
+}
+
+TEST_CASE("Career entry cycles right until URA is verified before pressing Next",
+    "[GameTasks][Career][Replay][ScenarioSelection]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    ActionRegistry actions;
+    actions.RegisterHandler("SelectUraTrainee", [](auto const&, auto const&, auto&) { return ActionResult::Success; });
+    actions.RegisterHandler("SelectUraLegacy", [](auto const&, auto const&, auto&) { return ActionResult::Success; });
+    Career::CareerVisualResources resources(config, std::move(actions));
+    REQUIRE(resources.IsReady());
+
+    for (int const advances : {0, 1, 3})
+    {
+        CAPTURE(advances);
+        ReplayObserver observer("scenario_select");
+        CareerReplayContext context;
+        context.uraAfterScenarioAdvances = advances;
+        context.onEvent = [&](auto const& event) {
+            if (event.type != TaskEventType::TaskCompleted) return;
+            if (event.taskName == "scenario_select_scenario_next_card") ++context.scenarioAdvances;
+            else if (event.taskName == "scenario_select_scenario_next")
+            {
+                CHECK(context.scenarioAdvances == advances);
+                observer.screenId = "trainee_select";
+            }
+            else if (event.taskName == "trainee_select_trainee_next") observer.screenId = "legacy_select";
+            else if (event.taskName == "legacy_select_legacy_choose") observer.screenId = "support_ready";
+            else if (event.taskName == "support_ready_support_start") observer.screenId = "career_final_confirmation";
+        };
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context, {"scenario_select"});
+        CAPTURE(result.error);
+        REQUIRE(result.succeeded);
+        CHECK(context.scenarioAdvances == advances);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "scenario_select_scenario_next") == 1);
+    }
+}
+
+TEST_CASE("Career scenario selection stops on exhausted advances missing arrow or cancellation",
+    "[GameTasks][Career][Replay][ScenarioSelection]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("scenario_select");
+    CareerReplayContext context;
+    context.uraAfterScenarioAdvances = 99;
+    SECTION("URA never appears") {}
+    SECTION("arrow is missing") { context.scenarioArrowAvailable = false; }
+    SECTION("cancel during carousel navigation") { context.cancelOnTask = "scenario_select_scenario_next_card"; }
+    context.onEvent = [&](auto const& event) {
+        if (event.type == TaskEventType::TaskCompleted && event.taskName == "scenario_select_scenario_next_card")
+            ++context.scenarioAdvances;
+    };
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context, {"scenario_select"});
+    CHECK_FALSE(result.succeeded);
+    CHECK_FALSE(HasTask(context, "scenario_select_scenario_next"));
+    if (!context.cancelOnTask.empty())
+    {
+        CHECK(result.cancelled);
+        CHECK(context.taps.empty());
+    }
+    else if (!context.scenarioArrowAvailable)
+    {
+        CHECK(context.taps.empty());
+        CHECK_FALSE(result.error.empty());
+    }
+    else
+    {
+        CHECK(context.scenarioAdvances == 8);
+        CHECK(context.taps.size() == 8);
+        CHECK(result.error.find("8 right-arrow advances") != std::string::npos);
+    }
 }
 
 TEST_CASE("Entry accepts existing stable proof without a second observation", "[GameTasks][Career][CareerTransition]")
@@ -671,6 +755,57 @@ TEST_CASE("Highest-star presets fill five owned slots and a borrowed slot",
         CHECK(HasTask(context, "support_select_support_friend_top_card_ssr"));
         CHECK_FALSE(HasTask(context, "support_select_support_filter_friend"));
     }
+}
+
+TEST_CASE("Highest-star custom compositions select the requested types including the borrowed card",
+    "[GameTasks][Career][Replay][SupportComposition]")
+{
+    for (auto const* preset : {"types-speed3-power3", "types-guts3-wit3", "types-speed2-power3-friend1",
+        "types-friend6", "types-speed0-power6"})
+    {
+        CAPTURE(preset);
+        Career::CareerRuntimeConfig config;
+        config.resourceDirectory = ResourceRoot();
+        config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+        config.supportDeckMode = "highest-star";
+        config.supportDeckPreset = preset;
+        Career::CareerVisualResources resources(config);
+        REQUIRE(resources.IsReady());
+        ReplayObserver observer("support_ready");
+        CareerReplayContext context;
+        context.onEvent = [&](auto const& event) {
+            if (event.type == TaskEventType::TaskCompleted && event.taskName == "support_select_support_start")
+                observer.screenId = "career_final_confirmation";
+        };
+        auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+        CAPTURE(result.error);
+        REQUIRE(result.succeeded);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_select_support_open") == 6);
+        CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_select_support_top_card_ssr") == 5);
+        auto expected = Career::ParseSupportDeckTypes(preset);
+        REQUIRE(expected);
+        for (auto const& [type, count] : *expected)
+            CHECK(std::count(context.enteredTasks.begin(), context.enteredTasks.end(), "support_select_support_filter_" + type) == count);
+    }
+}
+
+TEST_CASE("Highest-star composition rejects a borrowed card outside the requested types",
+    "[GameTasks][Career][Replay][SupportComposition]")
+{
+    Career::CareerRuntimeConfig config;
+    config.resourceDirectory = ResourceRoot();
+    config.manifestPath = Paths::ToUtf8(ResourceRoot() / "hachimi/ura/manifest.json");
+    config.supportDeckMode = "highest-star";
+    config.supportDeckPreset = "types-power5-friend1";
+    config.friendSupportCardId = 30028; // Speed; Friend here is the card type, not a wildcard slot.
+    Career::CareerVisualResources resources(config);
+    REQUIRE(resources.IsReady());
+    ReplayObserver observer("support_ready");
+    CareerReplayContext context;
+    auto const result = CareerEntryFlow::Run(config, resources, observer, context);
+    CHECK_FALSE(result.succeeded);
+    CHECK(result.error.find("does not fit") != std::string::npos);
+    CHECK_FALSE(HasTask(context, "support_select_support_open"));
 }
 
 TEST_CASE("Career selection catalogs retain exact Global IDs and verified metadata", "[GameTasks][Career][Replay]")

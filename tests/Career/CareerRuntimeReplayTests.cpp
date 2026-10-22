@@ -670,6 +670,51 @@ TEST_CASE("Career entry recognizes Scenario Select despite its selected Home tab
     CHECK(observation.screenId == "scenario_select");
 }
 
+TEST_CASE("Every scenario remains Scenario Select and shares the transparent right arrow",
+    "[CareerRuntime][Replay][Entry][ScenarioSelection]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto* arrow = resources->FindExecutionTask("scenario_select_scenario_next_card");
+    REQUIRE(arrow != nullptr);
+    REQUIRE(arrow->templatePath);
+    const auto marker = UmaAssistant::Resources::WicImageDecoder::decode_file_utf8(*arrow->templatePath);
+    REQUIRE_FALSE(marker.rgba.empty());
+    CHECK(marker.rgba[3] == 0);
+
+    for (auto const* scenario : {"ura", "aoharu", "climax", "grand_concert"})
+    {
+        CAPTURE(scenario);
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures/scenario_select_20261022"
+            / (std::string(scenario) + ".png")});
+        REQUIRE(context.CaptureScreen());
+        const auto* selection = resources->FindScreen("scenario_select");
+        REQUIRE(selection);
+        const auto& header = selection->templates.at(1);
+        const auto headerMatch = context.MatchTemplateAdvanced(header.path, header.threshold, header.roi,
+            header.algorithm, 900, 1600, {});
+        CAPTURE(headerMatch.score);
+        CHECK(headerMatch.found);
+        CareerScreenObserver observer(resources);
+        const auto observation = observer.ObserveStableScreens(context, {"career_continue", "scenario_select"});
+        REQUIRE(observation.screenId == "scenario_select");
+        const auto frame = context.GetCurrentFrame();
+        REQUIRE(frame);
+        const auto ura = resources->MatchAsset("career.entry.scenario.ura_card", context, frame->frameId);
+        CHECK(ura.found == (std::string(scenario) == "ura"));
+        const auto right = resources->MatchExecutionTask("scenario_select_scenario_next_card", context, frame->frameId);
+        CAPTURE(right.score);
+        REQUIRE(right.found);
+        CHECK(right.CenterX() >= 840);
+        CHECK(right.CenterX() <= 895);
+        CHECK(right.CenterY() >= 690);
+        CHECK(right.CenterY() <= 780);
+    }
+}
+
 TEST_CASE("Career support formation distinguishes disabled and enabled Start buttons",
     "[CareerRuntime][Replay][Entry]")
 {
