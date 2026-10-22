@@ -22,6 +22,28 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# The macOS 15 runner defaults to an older libc++ without stop_token/jthread.
+# Check the selected toolchain before downloading and compiling dependencies.
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_LIBRARIES Threads::Threads)
+check_cxx_source_compiles([[
+  #include <stop_token>
+  #include <thread>
+  int main() {
+    std::stop_source source;
+    std::jthread worker([](std::stop_token token) { (void)token.stop_requested(); });
+    source.request_stop();
+    worker.request_stop();
+    worker.join();
+  }
+]] UMA_HAS_CXX20_STOP_TOKEN_AND_JTHREAD)
+unset(CMAKE_REQUIRED_LIBRARIES)
+if(NOT UMA_HAS_CXX20_STOP_TOKEN_AND_JTHREAD)
+  message(FATAL_ERROR
+    "The selected C++ standard library must support std::stop_token and std::jthread. "
+    "On macOS, select Xcode 26 or newer via DEVELOPER_DIR and configure a fresh build directory.")
+endif()
+
 
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
