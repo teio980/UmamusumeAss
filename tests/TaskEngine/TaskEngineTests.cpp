@@ -599,12 +599,17 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
     {
     public:
         enum class Page { Shop, Confirm, Exchange, Acquired, CloseShop, ExitShop,
-            Home, RaceMenu, TeamMenu, Results, Opponent, Finished };
+            Home, RaceMenu, TeamMenu, Rewards, Results, Opponent, Finished };
 
-        TaskMatchResult MatchTemplate(const std::string& path, double,
-            const std::optional<TaskRoi>&, const std::string&) override
+        TaskMatchResult MatchTemplate(const std::string& path, double threshold,
+            const std::optional<TaskRoi>&, const std::string& algorithm) override
         {
             const auto name = Paths::FromUtf8(path).filename().string();
+            // The WINNINGS overlay reproduced a grayscale Home false positive.
+            // Color matching must reject it even after an actual shop visit.
+            if (page == Page::Rewards && name == "game_home_selected.png")
+                return algorithm != "MatchTemplateColor" && threshold <= 0.807668
+                    ? TaskMatchResult{true, 0.807668, 361, 1545, 81, 32} : TaskMatchResult{};
             const bool found = (page == Page::Shop && (name == "daily_sales_header.png" || name == "select_all.png"))
                 || (page == Page::Confirm && name == "confirm_enabled.png")
                 || (page == Page::Exchange && name == "exchange_confirm.png")
@@ -614,6 +619,7 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
                 || (page == Page::Home && (name == "game_home_selected.png" || name == "race_tab.png"))
                 || (page == Page::RaceMenu && name == "team_trials.png")
                 || (page == Page::TeamMenu && name == "team_race.png")
+                || (page == Page::Rewards && name == "result_next.png")
                 || (page == Page::Results && (name == "race_again.png" || name == "final_next.png"))
                 || (page == Page::Opponent && name == "opponent_card.png");
             if (found) lastMatched = name;
@@ -634,6 +640,7 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
             case Page::Home: page = Page::RaceMenu; break;
             case Page::RaceMenu: page = Page::TeamMenu; break;
             case Page::TeamMenu: page = Page::Opponent; break;
+            case Page::Rewards: page = Page::Results; break;
             case Page::Results: page = lastMatched == "race_again.png" ? Page::Opponent : Page::Finished; break;
             default: break;
             }
@@ -648,7 +655,7 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
 
     using Page = ShopReturnContext::Page;
     for (const bool viaMonitor : {false, true})
-        for (const auto returnPage : {Page::Home, Page::RaceMenu, Page::TeamMenu, Page::Results})
+        for (const auto returnPage : {Page::Home, Page::RaceMenu, Page::TeamMenu, Page::Rewards, Page::Results})
             for (const bool racesRemain : {false, true})
             {
                 CAPTURE(viaMonitor, returnPage, racesRemain);
@@ -657,7 +664,7 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
                 REQUIRE(definition);
                 for (auto& [name, task] : definition->tasks)
                 {
-                    task.timeoutMilliseconds = name == "resultMonitor" ? 100 : 0;
+                    task.timeoutMilliseconds = task.algorithm == "ParallelMonitor" ? 100 : 0;
                     task.postDelay = 0;
                 }
                 // Stop once the next opponent selection is reached; the race itself
@@ -676,17 +683,73 @@ TEST_CASE("Packaged Team Race resumes from the actual screen after shopping", "[
                 CHECK(result.status == TaskGraphStatus::Success);
                 CHECK(result.finalTask == (racesRemain ? "opponent" : "complete"));
                 CHECK(context.page == (racesRemain ? Page::Opponent
-                    : returnPage == Page::Results ? Page::Finished : Page::TeamMenu));
+                    : returnPage == Page::Results || returnPage == Page::Rewards ? Page::Finished : Page::TeamMenu));
                 CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "race_tab.png")
                     == (returnPage == Page::Home ? 1 : 0));
                 CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "team_trials.png")
                     == (returnPage == Page::Home || returnPage == Page::RaceMenu ? 1 : 0));
                 CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "team_race.png")
-                    == (racesRemain && returnPage != Page::Results ? 1 : 0));
+                    == (racesRemain && returnPage != Page::Results && returnPage != Page::Rewards ? 1 : 0));
+                CHECK(std::count(context.tappedTemplates.begin(), context.tappedTemplates.end(), "result_next.png")
+                    == (returnPage == Page::Rewards ? 1 : 0));
                 CHECK(std::count_if(context.emittedEvents.begin(), context.emittedEvents.end(), [](const auto& event) {
                     return event.type == TaskEventType::TaskCompleted && event.taskName == "shopExchangeComplete";
                 }) == 1);
             }
+}
+
+TEST_CASE("Packaged Team Race clicks reward Next without checking post-shop Home", "[TaskEngine][ShopReturn]")
+{
+    class RewardContext final : public MockTaskExecutionContext
+    {
+    public:
+        TaskMatchResult MatchTemplate(const std::string& path, double threshold,
+            const std::optional<TaskRoi>&, const std::string&) override
+        {
+            const auto name = Paths::FromUtf8(path).filename().string();
+            if (name == "game_home_selected.png")
+            {
+                ++homeChecks;
+                return threshold <= 0.807668
+                    ? TaskMatchResult{true, 0.807668, 361, 1545, 81, 32} : TaskMatchResult{};
+            }
+            if ((rewardsVisible && name == "result_next.png")
+                || (!rewardsVisible && name == "race_again.png"))
+                return {true, 0.963371, 374, 1433, 160, 65};
+            return {};
+        }
+
+        bool Tap(int x, int y) override
+        {
+            rewardsVisible = false;
+            return MockTaskExecutionContext::Tap(x, y);
+        }
+
+        bool rewardsVisible{true};
+        int homeChecks{};
+    };
+
+    auto definition = HachimiPipelineLoader::LoadFromFile(Paths::ToUtf8(
+        SourceRoot() / "resource/hachimi/pipelines/team_race.json"));
+    REQUIRE(definition);
+    for (auto& [name, task] : definition->tasks)
+    {
+        task.timeoutMilliseconds = task.algorithm == "ParallelMonitor" ? 100 : 0;
+        task.postDelay = 0;
+    }
+    // Finish after the reward overlay is dismissed and Race Again is observed.
+    auto& raceAgain = definition->tasks.at("raceagain");
+    raceAgain.action = "DoNothing";
+    raceAgain.success = true;
+    raceAgain.next.clear();
+    RewardContext context;
+    const auto result = TaskGraphRunner{}.Run(*definition, "resultMonitor", context);
+    INFO(result.errorMessage);
+    CHECK(result.status == TaskGraphStatus::Success);
+    CHECK(result.finalTask == "raceagain");
+    CHECK(context.taps.size() == 1);
+    CHECK_FALSE(context.rewardsVisible);
+    CHECK(context.homeChecks == 0);
 }
 
 TEST_CASE("Task graph guards recursion, counts failed entries, and handles cancellation", "[TaskEngine]")

@@ -116,8 +116,8 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Equal("shopProbe", trigger.Entry);
         Assert.Equal(shopEntry.Template, trigger.Template);
         Assert.Equal(shopEntry.Roi, trigger.Roi);
-        Assert.Contains("resultMonitor", trigger.Next);
-        Assert.Contains("resultMonitor", trigger.OnErrorNext);
+        Assert.Contains("postShopMonitor", trigger.Next);
+        Assert.Contains("postShopMonitor", trigger.OnErrorNext);
         Assert.Equal("Wait", probe.Action);
         Assert.Equal(shopEntry.Template, probe.Template);
         Assert.Equal(shopEntry.Roi, probe.Roi);
@@ -135,12 +135,19 @@ public sealed class HachimiPipelineDefinitionTests
         var monitor = definition.GetTask("resultMonitor");
         Assert.Equal("ParallelMonitor", monitor.Algorithm);
         Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
-        Assert.Contains("runRandomShop", monitor.MonitorTasks);
+        Assert.Contains("runRandomShop", monitor.SuccessTasks);
+        Assert.DoesNotContain("runRandomShop", monitor.MonitorTasks);
         Assert.Equal("raceagain", monitor.SuccessTask);
         Assert.Contains("teamRaceAfterShop", monitor.SuccessTasks);
-        Assert.Contains("teamTrialsAfterShop", monitor.SuccessTasks);
-        Assert.Contains("homeAfterShop", monitor.SuccessTasks);
+        Assert.DoesNotContain("teamTrialsAfterShop", monitor.SuccessTasks);
+        Assert.DoesNotContain("homeAfterShop", monitor.SuccessTasks);
+        var postShopMonitor = definition.GetTask("postShopMonitor");
+        Assert.Equal("ParallelMonitor", postShopMonitor.Algorithm);
+        Assert.Contains("next", postShopMonitor.MonitorTasks);
+        Assert.Contains("teamTrialsAfterShop", postShopMonitor.SuccessTasks);
+        Assert.Contains("homeAfterShop", postShopMonitor.SuccessTasks);
         var homeAfterShop = definition.GetTask("homeAfterShop");
+        Assert.Equal("MatchTemplateColor", homeAfterShop.Algorithm);
         Assert.Equal("templates/start_game/game_home_selected.png", homeAfterShop.Template);
         Assert.Equal("DoNothing", homeAfterShop.Action);
         Assert.Equal("raceTabAfterShop", homeAfterShop.Next.Single());
@@ -234,7 +241,7 @@ public sealed class HachimiPipelineDefinitionTests
         Assert.Contains("next", monitor.MonitorTasks);
         Assert.Contains("newhighscore", monitor.MonitorTasks);
         Assert.Contains("teamSaleShopButton", monitor.MonitorTasks);
-        Assert.Contains("runRandomShop", monitor.MonitorTasks);
+        Assert.Contains("runRandomShop", monitor.SuccessTasks);
         Assert.Equal("raceagain", monitor.SuccessTask);
         Assert.Contains("teamRaceAfterShop", monitor.SuccessTasks);
         Assert.Equal(
