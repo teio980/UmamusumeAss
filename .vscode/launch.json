@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "macOS: Avalonia Debug (Release Core)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "macOS: Build Debug",
+      "program": "${workspaceFolder}/src/Umamusume.Avalonia/bin/Debug/net10.0/Umamusume.Avalonia.dll",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": true,
+      "env": {
+        "PATH": "${env:HOME}/.dotnet:/opt/homebrew/bin:/usr/local/bin:${env:PATH}",
+        "UMA_CORE_LIB_PATH": "${workspaceFolder}/src/Umamusume.Avalonia/bin/Debug/net10.0/UmamusumeCore.dylib",
+        "TESSDATA_PREFIX": "${workspaceFolder}/resource/tessdata"
+      }
+    }
+  ]
+}

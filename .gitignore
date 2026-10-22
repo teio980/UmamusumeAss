@@ -56,7 +56,9 @@ coverage/
 *.swp
 *.swo
 *~
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 *.DotSettings
 
 # Temp / runner files

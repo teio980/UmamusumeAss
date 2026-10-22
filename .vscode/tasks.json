@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}",
+    "env": {
+      "PATH": "${env:HOME}/.dotnet:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+    }
+  },
+  "tasks": [
+    {
+      "label": "macOS: Configure Native Release",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--preset", "osx-arm64"],
+      "problemMatcher": []
+    },
+    {
+      "label": "macOS: Build Native Release",
+      "type": "process",
+      "command": "cmake",
+      "args": [
+        "--build", "--preset", "osx-arm64",
+        "--target", "UmaAssistantCore", "UmaNumericOcrWorker", "uma_pipeline_replay",
+        "--parallel", "4"
+      ],
+      "dependsOn": "macOS: Configure Native Release",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "macOS: Build Avalonia Debug",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Umamusume.Avalonia/Umamusume.Avalonia.csproj",
+        "--configuration", "Debug",
+        "--property:NativeDllPath=${workspaceFolder}/build/osx-arm64/src/UmaAssistantCore/UmamusumeCore.dylib"
+      ],
+      "dependsOn": "macOS: Build Native Release",
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "macOS: Build Debug",
+      "type": "process",
+      "command": "/bin/cp",
+      "args": [
+        "${workspaceFolder}/build/osx-arm64/src/UmaAssistantCore/UmamusumeCore.dylib",
+        "${workspaceFolder}/build/osx-arm64/src/UmaAssistantCore/UmaNumericOcrWorker",
+        "${workspaceFolder}/build/osx-arm64/tools/uma_pipeline_replay",
+        "${workspaceFolder}/src/Umamusume.Avalonia/bin/Debug/net10.0/"
+      ],
+      "dependsOn": "macOS: Build Avalonia Debug",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

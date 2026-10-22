@@ -18,6 +18,11 @@ macOS / Windows 共用的 Avalonia 客户端，使用 [FluentAvalonia](https://g
 
 需要仓库 `global.json` 指定的 .NET SDK，以及已构建的原生核心。
 
+在 macOS 上用 VS Code 打开仓库，选择 `macOS: Avalonia Debug (Release Core)` 后按 F5。
+启动前会自动构建 Release 原生核心、OCR worker 和回放工具，再构建 Debug Avalonia 客户端，并将这一组原生产物复制到 Debug 运行目录。
+此配置与 Windows WPF 的默认调试构建方式一致：C# 断点可用，原生核心使用 Release 优化。调试配置通过 `UMA_CORE_LIB_PATH` 明确加载该运行目录里的核心。
+共享的 F5 配置保存在仓库的 `.vscode/launch.json` 和 `.vscode/tasks.json`；个人 VS Code 设置仍被 Git 忽略。
+
 ```bash
 dotnet build src/Umamusume.Avalonia/Umamusume.Avalonia.csproj
 dotnet run --project src/Umamusume.Avalonia/Umamusume.Avalonia.csproj
