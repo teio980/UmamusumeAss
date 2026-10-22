@@ -8,6 +8,7 @@ using Umamusume.AppCore.Models;
 using Umamusume.AppCore.Platform;
 using Umamusume.AppCore.Services;
 using Umamusume.Avalonia.Services;
+using Umamusume.UpdateCore;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Update;
 
@@ -23,11 +24,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly MacUpdateService _macUpdates;
     private readonly MacResourceStore _macResourceStore;
     private readonly IMacUpdateCacheCleanupService _macCacheCleanup;
-    private readonly MacResourceUpdateCoordinator _macResourceCoordinator;
     private ReleaseDownload? _availableRelease;
     private MacUpdateCheck? _macUpdateCheck;
     private StagedUpdate? _stagedProgramUpdate;
-    private StagedUpdate? _stagedResourceUpdate;
     private MacUpdateCleanupResult? _cacheCleanupResult;
     private CancellationTokenSource? _updateCts;
     private CancellationTokenSource? _connectionCts;
@@ -128,7 +127,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _macResourceStore = macResourceStore ?? new MacResourceStore();
         _macUpdates = macUpdates ?? new MacUpdateService(userDataRoot: _macResourceStore.UserDataRoot);
         _macCacheCleanup = macCacheCleanup ?? new MacUpdateCacheCleanupService(_macResourceStore.UserDataRoot);
-        _macResourceCoordinator = new MacResourceUpdateCoordinator(_macResourceStore);
         PlatformInfo = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
         ResourceDirectory = PlatformPaths.GetDefaultResourceDirectory();
         UserDataDirectory = _macResourceStore.UserDataRoot;
@@ -453,30 +451,36 @@ public sealed partial class SettingsViewModel : ViewModelBase
                 string appVersion = MacManifestCompatibility.CurrentAppVersion();
                 string resourceVersion = await _macResourceStore.ReadActiveVersionAsync(cts.Token);
                 await RestoreStagedUpdatesAsync(appVersion, resourceVersion, cts.Token);
-                _macUpdateCheck = await _macUpdates.CheckAsync(appVersion, resourceVersion, cts.Token);
                 string? skipped = _settingsService.Load().SkippedProgramVersion;
-                HasUpdate = _macUpdateCheck.HasProgramUpdate
-                    && !string.Equals(_macUpdateCheck.ProgramManifest!.Version, skipped, StringComparison.OrdinalIgnoreCase);
-                HasResourceUpdate = _macUpdateCheck.HasResourceUpdate;
+                _macUpdateCheck = await _macUpdates.CheckAsync(appVersion, skipped, resourceVersion, cts.Token);
                 _availableRelease = null;
-                if (HasUpdate)
+
+                if (_macUpdateCheck.Error is not null)
                 {
+                    _currentUpdateState = UpdateState.CheckFailed;
+                    _updateDetail = _macUpdateCheck.Error;
+                    HasUpdate = false;
+                }
+                else if (_macUpdateCheck.HasProgramUpdate)
+                {
+                    HasUpdate = true;
                     _currentUpdateState = UpdateState.UpdateAvailable;
                     _updateDetail = _macUpdateCheck.ProgramManifest!.Version;
-                }
-                else if (HasResourceUpdate)
-                {
-                    _currentUpdateState = UpdateState.UpToDate;
-                    _updateDetail = string.Empty;
+                    ShowNotification(
+                        IsEnglish ? "New version available" : "发现新版本",
+                        IsEnglish
+                            ? $"Version {_updateDetail} is available. Go to Updates section to download."
+                            : $"发现新版本 {_updateDetail}。可在下方软件更新区域下载并安装。",
+                        InfoBarSeverity.Informational);
                 }
                 else
                 {
+                    HasUpdate = false;
                     _currentUpdateState = UpdateState.UpToDate;
                     _updateDetail = string.Empty;
                 }
-                ResourceUpdateStatus = HasResourceUpdate
-                    ? (IsEnglish ? $"Resource revision {_macUpdateCheck.ResourceManifest!.Version} is available." : $"资源版本 {_macUpdateCheck.ResourceManifest!.Version} 可用。")
-                    : (IsEnglish ? "No compatible resource update available." : "没有适用于当前程序版本的资源更新。");
+                HasResourceUpdate = false;
+                ResourceUpdateStatus = string.Empty;
                 RefreshUpdateStatusText();
                 return;
             }
@@ -486,6 +490,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
             {
                 _currentUpdateState = UpdateState.UpdateAvailable;
                 _updateDetail = $"{release.Version} · {release.FileName}";
+                ShowNotification(
+                    IsEnglish ? "New version available" : "发现新版本",
+                    IsEnglish
+                        ? $"Version {release.Version} is available."
+                        : $"发现新版本 {release.Version}。",
+                    InfoBarSeverity.Informational);
             }
             else
             {
@@ -548,21 +558,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
         string resourceVersion,
         CancellationToken cancellationToken)
     {
-        var restored = await Task.Run(() => (
-            Program: _macUpdates.RestoreStaged(UpdateScope.Program, appVersion, resourceVersion),
-            Resource: _macUpdates.RestoreStaged(UpdateScope.Resource, appVersion, resourceVersion)), cancellationToken);
-        _stagedProgramUpdate = restored.Program;
-        _stagedResourceUpdate = restored.Resource;
+        var restored = await Task.Run(() =>
+            _macUpdates.RestoreStaged(UpdateScope.Program, appVersion, resourceVersion), cancellationToken);
+        _stagedProgramUpdate = restored;
         HasProgramStaged = _stagedProgramUpdate is not null;
-        HasResourceStaged = _stagedResourceUpdate is not null;
+        HasResourceStaged = false;
         if (_stagedProgramUpdate is not null)
             ProgramUpdateProgress = IsEnglish
                 ? $"Verified downloaded app update {_stagedProgramUpdate.Manifest.Version} is ready to install."
                 : $"已重新验证应用更新 {_stagedProgramUpdate.Manifest.Version}，可以重启安装。";
-        if (_stagedResourceUpdate is not null)
-            ResourceUpdateStatus = IsEnglish
-                ? $"Resource revision {_stagedResourceUpdate.Manifest.Version} is verified. Click Apply resources to activate it."
-                : $"资源版本 {_stagedResourceUpdate.Manifest.Version} 已重新验证。点击“应用资源”后才会生效。";
     }
 
     [RelayCommand]
@@ -626,54 +630,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
             _updateDetail = ex.Message;
             RefreshUpdateStatusText();
             ShowNotification(IsEnglish ? "Could not start update" : "无法启动更新", ex.Message, InfoBarSeverity.Error);
-        }
-        finally { _updateCts = null; IsUpdating = false; }
-    }
-
-    [RelayCommand]
-    private async Task DownloadResourcesAsync()
-    {
-        if (_macUpdateCheck is null || !_macUpdateCheck.HasResourceUpdate || IsUpdating) return;
-        IsUpdating = true;
-        using var cts = new CancellationTokenSource(); _updateCts = cts;
-        ResourceUpdateStatus = IsEnglish ? "Downloading and verifying resource revision…" : "正在下载并验证资源版本…";
-        try
-        {
-            _stagedResourceUpdate = await _macUpdates.DownloadResourceAsync(_macUpdateCheck,
-                new Progress<UpdateProgress>(value => ResourceUpdateStatus = value.Stage), cts.Token);
-            _macUpdates.RememberStaged(_stagedResourceUpdate);
-            HasResourceStaged = true;
-            HasResourceUpdate = false;
-            ResourceUpdateStatus = IsEnglish
-                ? $"Resource revision {_stagedResourceUpdate.Manifest.Version} is verified. Click Apply resources to activate it."
-                : $"资源版本 {_stagedResourceUpdate.Manifest.Version} 已验证。点击“应用资源”后才会生效。";
-        }
-        catch (Exception ex)
-        {
-            ResourceUpdateStatus = (IsEnglish ? "Resource download failed: " : "资源下载失败：") + ex.Message;
-        }
-        finally { _updateCts = null; IsUpdating = false; }
-    }
-
-    [RelayCommand]
-    private async Task ApplyResourcesAsync()
-    {
-        if (_stagedResourceUpdate is null || IsUpdating) return;
-        IsUpdating = true;
-        using var cts = new CancellationTokenSource(); _updateCts = cts;
-        ResourceUpdateStatus = IsEnglish ? "Waiting for native operations to finish…" : "等待当前原生操作结束…";
-        try
-        {
-            string version = await _macResourceCoordinator.ApplyAsync(_stagedResourceUpdate, _automationService, cts.Token);
-            HasResourceStaged = false;
-            HasResourceUpdate = false;
-            _macUpdates.ForgetStaged(UpdateScope.Resource);
-            _stagedResourceUpdate = null;
-            ResourceUpdateStatus = IsEnglish ? $"Resource revision {version} is active." : $"资源版本 {version} 已应用。";
-        }
-        catch (Exception ex)
-        {
-            ResourceUpdateStatus = (IsEnglish ? "Resource apply failed: " : "应用资源失败：") + ex.Message;
         }
         finally { _updateCts = null; IsUpdating = false; }
     }
@@ -747,7 +703,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
             catch (Exception exception)
             {
                 _stagedProgramUpdate = null;
-                _stagedResourceUpdate = null;
                 HasProgramStaged = false;
                 HasResourceStaged = false;
                 ProgramUpdateProgress = string.Empty;

@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Threading;
 using Umamusume.CoreBridge;
+using Umamusume.UpdateCore;
 using UmamusumeWpfGui.Models;
 using ActivityKind = UmamusumeWpfGui.Models.ActivityKind;
 
@@ -19,25 +20,21 @@ public sealed class UpdateCoordinator : IUpdateService
     };
 
     private readonly GitHubReleaseClient _github;
-    private readonly ManifestVerifier _verifier;
-    private readonly PackageStager _stager;
+    private readonly UpdateChecker _checker;
+    private readonly FullPackageStager _stager;
     private readonly IActivityRegistry _activities;
     private readonly IResourceStore _resources;
     private readonly IUmaService _uma;
     private readonly IUmaDatabaseService _database;
     private readonly UpdateStateStore _state;
     private readonly string _appDataRoot;
-    private GitHubRelease? _programRelease;
-    private GitHubRelease? _resourceRelease;
-    private byte[]? _programManifestBytes;
-    private byte[]? _programSignature;
-    private byte[]? _resourceManifestBytes;
-    private byte[]? _resourceSignature;
+
+    private FullUpdateDescriptor? _pendingDescriptor;
 
     public UpdateCoordinator(
         GitHubReleaseClient github,
         ManifestVerifier verifier,
-        PackageStager stager,
+        PackageStager oldStager,
         IActivityRegistry activities,
         IResourceStore resources,
         IUmaService uma,
@@ -45,8 +42,6 @@ public sealed class UpdateCoordinator : IUpdateService
         UpdateStateStore state)
     {
         _github = github ?? throw new ArgumentNullException(nameof(github));
-        _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
-        _stager = stager ?? throw new ArgumentNullException(nameof(stager));
         _activities = activities ?? throw new ArgumentNullException(nameof(activities));
         _resources = resources ?? throw new ArgumentNullException(nameof(resources));
         _uma = uma ?? throw new ArgumentNullException(nameof(uma));
@@ -55,6 +50,8 @@ public sealed class UpdateCoordinator : IUpdateService
         _appDataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "UmamusumeAss");
+        _checker = new UpdateChecker(_github);
+        _stager = new FullPackageStager(_github, Path.Combine(_appDataRoot, "updates"));
     }
 
     public async Task<UpdateCheckResult> CheckAsync(
@@ -63,35 +60,65 @@ public sealed class UpdateCoordinator : IUpdateService
     {
         try
         {
-            var releases = await _github.GetStableReleasesAsync(cancellationToken).ConfigureAwait(false);
-            UpdateManifest? program = null;
-            UpdateManifest? resource = null;
-            if (scope is UpdateScope.Program or UpdateScope.All)
+            var currentVersion = UpdateVersionInfo.CurrentVersion;
+            var skipped = _state.Load().SkippedProgramVersion;
+            var check = await _checker.CheckForUpdateAsync(
+                currentVersion,
+                skipped,
+                "windows-x64",
+                cancellationToken).ConfigureAwait(false);
+
+            if (check.Error is not null)
             {
-                _programRelease = releases
-                    .Where(item => GitHubReleaseClient.IsProgramTag(item.Tag))
-                    .OrderByDescending(item => ParseReleaseVersion(item.Tag))
-                    .FirstOrDefault();
-                (program, _programManifestBytes, _programSignature) =
-                    await ReadManifestAsync(_programRelease, "program-manifest", cancellationToken)
-                        .ConfigureAwait(false);
+                if (check.Update is not null)
+                    _pendingDescriptor = check.Update;
+                return new UpdateCheckResult(null, null, check.Error);
             }
-            if (scope is UpdateScope.Resource or UpdateScope.All)
+
+            if (check.Update is not null)
             {
-                _resourceRelease = releases
-                    .Where(item => GitHubReleaseClient.IsResourceTag(item.Tag))
-                    .OrderByDescending(item => ParseResourceTagVersion(item.Tag))
-                    .FirstOrDefault();
-                (resource, _resourceManifestBytes, _resourceSignature) =
-                    await ReadManifestAsync(_resourceRelease, "resource-manifest", cancellationToken)
-                        .ConfigureAwait(false);
+                _pendingDescriptor = check.Update;
+                var manifest = new UpdateManifest
+                {
+                    Version = check.Update.Version,
+                    ReleaseTag = check.Update.Tag,
+                    Assets =
+                    [
+                        new UpdateAsset
+                        {
+                            Type = "full",
+                            AssetName = check.Update.Asset.Name,
+                            Size = check.Update.Asset.Size,
+                            Sha256 = check.Update.ExpectedSha256 ?? string.Empty,
+                            TargetTreeSha256 = check.Update.ExpectedSha256 ?? string.Empty,
+                        }
+                    ]
+                };
+                return new UpdateCheckResult(manifest, null);
             }
-            return new UpdateCheckResult(program, resource);
+
+            _pendingDescriptor = null;
+            return new UpdateCheckResult(null, null);
         }
         catch (Exception exception) when (exception is HttpRequestException or IOException or JsonException)
         {
             return new UpdateCheckResult(null, null, exception.Message);
         }
+    }
+
+    public UpdatePlan? SelectProgram(UpdateManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        if (manifest.Assets.Count == 0) return null;
+        var fullAsset = manifest.Assets.FirstOrDefault(a => a.Type.Equals("full", StringComparison.OrdinalIgnoreCase))
+            ?? manifest.Assets[0];
+        return new UpdatePlan(manifest, fullAsset, manifest.ReleaseTag);
+    }
+
+    public UpdatePlan? SelectResource(UpdateManifest manifest)
+    {
+        // Standalone resource update is removed. Program and resources update together.
+        return null;
     }
 
     public async Task<StagedUpdate> DownloadAsync(
@@ -101,77 +128,71 @@ public sealed class UpdateCoordinator : IUpdateService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        var release = scope == UpdateScope.Resource ? _resourceRelease : _programRelease;
-        if (release is null)
+        if (_pendingDescriptor is null)
             throw new InvalidOperationException("Run update check before downloading.");
-        var asset = release.Assets.FirstOrDefault(item => item.Name.Equals(
-            plan.Asset.AssetName, StringComparison.Ordinal));
-        if (asset is null)
-            throw new FileNotFoundException("Selected update asset was not found in the Release.");
-        var rawManifest = scope == UpdateScope.Resource ? _resourceManifestBytes : _programManifestBytes;
-        var signature = scope == UpdateScope.Resource ? _resourceSignature : _programSignature;
-        if (rawManifest is null || signature is null)
-            throw new InvalidOperationException("The signed manifest is not staged.");
-        var previousProgramOperationId = scope == UpdateScope.Program
-            ? _state.Load().StagedProgramOperationId
-            : null;
-        var staged = await _stager.StageAsync(
-                plan,
-                asset,
-                scope,
-                rawManifest,
-                signature,
-                progress,
-                cancellationToken: cancellationToken)
+
+        var staged = await _stager.StageAsync(_pendingDescriptor, progress, cancellationToken)
             .ConfigureAwait(false);
-        if (scope == UpdateScope.Program)
+
+        _state.Update(state =>
         {
-            _state.Update(state =>
-            {
-                state.StagedProgramOperationId = staged.OperationId;
-                state.StagedProgramVersion = staged.Manifest.Version;
-                state.StagedProgramAssetName = staged.Asset.AssetName;
-            });
-            if (!string.IsNullOrWhiteSpace(previousProgramOperationId)
-                && !previousProgramOperationId.Equals(
-                    staged.OperationId, StringComparison.Ordinal))
-                TryDeleteStagedOperation(previousProgramOperationId);
-        }
-        return staged;
+            state.StagedProgramOperationId = staged.OperationId;
+            state.StagedProgramVersion = staged.Version;
+            state.StagedProgramAssetName = staged.Inventory.PackageName;
+        });
+
+        return new StagedUpdate(
+            staged.OperationId,
+            UpdateScope.Program,
+            plan.Manifest,
+            plan.Asset,
+            staged.PackagePath,
+            staged.PayloadRoot,
+            staged.InventoryPath,
+            staged.InventoryPath);
     }
 
     public StagedUpdate? RestoreStagedProgram()
     {
         try
         {
-            var state = _state.Load();
-            if (string.IsNullOrWhiteSpace(state.StagedProgramOperationId)
-                || string.IsNullOrWhiteSpace(state.StagedProgramVersion)
-                || string.IsNullOrWhiteSpace(state.StagedProgramAssetName))
-                return null;
-
-            var staged = _stager.TryRestore(
-                state.StagedProgramOperationId,
-                UpdateScope.Program,
-                state.StagedProgramAssetName);
+            var staged = _stager.TryRestoreStaged();
             if (staged is not null
-                && staged.Manifest.Version.Equals(
-                    state.StagedProgramVersion, StringComparison.Ordinal)
-                && SemVersion.TryParse(staged.Manifest.Version, out var stagedVersion)
+                && SemVersion.TryParse(staged.Version, out var stagedVersion)
                 && SemVersion.TryParse(UpdateVersionInfo.CurrentVersion, out var currentVersion)
                 && stagedVersion > currentVersion)
-                return staged;
+            {
+                var manifest = new UpdateManifest
+                {
+                    Version = staged.Version,
+                    ReleaseTag = staged.Tag,
+                    Assets =
+                    [
+                        new UpdateAsset
+                        {
+                            Type = "full",
+                            AssetName = staged.Inventory.PackageName,
+                            Size = staged.Inventory.PackageSize,
+                            Sha256 = staged.Inventory.PackageSha256,
+                            TargetTreeSha256 = staged.Inventory.PackageSha256
+                        }
+                    ]
+                };
 
-            var staleOperationId = state.StagedProgramOperationId;
-            ClearStagedProgram(staleOperationId);
-            TryDeleteStagedOperation(staleOperationId);
+                return new StagedUpdate(
+                    staged.OperationId,
+                    UpdateScope.Program,
+                    manifest,
+                    manifest.Assets[0],
+                    staged.PackagePath,
+                    staged.PayloadRoot,
+                    staged.InventoryPath,
+                    staged.InventoryPath);
+            }
+
             return null;
         }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
+        catch
         {
             return null;
         }
@@ -184,57 +205,32 @@ public sealed class UpdateCoordinator : IUpdateService
         if (string.IsNullOrWhiteSpace(operationId))
             return;
 
-        ClearStagedProgram(operationId);
-        TryDeleteStagedOperation(operationId);
-    }
-
-    public Task ClearAllUpdateCacheAsync(CancellationToken cancellationToken = default)
-    {
-        return Task.Run(() =>
+        _state.Update(s =>
         {
-            var updatesRoot = Path.Combine(_appDataRoot, "updates");
-            var checksRoot = Path.Combine(_appDataRoot, "update-checks");
-            PreserveTrustedProgramManifest();
-            DeleteCacheDirectory(updatesRoot, cancellationToken);
-            DeleteCacheDirectory(checksRoot, cancellationToken);
-            _state.Update(state =>
-            {
-                state.StagedProgramOperationId = null;
-                state.StagedProgramVersion = null;
-                state.StagedProgramAssetName = null;
-                state.BackupPath = null;
-                if (IsPathUnderRoot(state.SignedManifestPath, updatesRoot))
-                {
-                    state.CurrentManifestSigned = false;
-                    state.SignedManifestPath = null;
-                    state.SignedSignaturePath = null;
-                    state.ManifestSha256 = string.Empty;
-                    state.CurrentTreeSha256 = null;
-                    state.ForceFull = true;
-                }
-            });
-        }, cancellationToken);
+            s.StagedProgramOperationId = null;
+            s.StagedProgramVersion = null;
+            s.StagedProgramAssetName = null;
+        });
+
+        var opDir = Path.Combine(_appDataRoot, "updates", operationId);
+        try
+        {
+            if (Directory.Exists(opDir))
+                Directory.Delete(opDir, recursive: true);
+        }
+        catch { }
     }
 
-    private void PreserveTrustedProgramManifest()
+    public async Task ClearAllUpdateCacheAsync(CancellationToken cancellationToken = default)
     {
-        var state = _state.Load();
-        var updatesRoot = Path.Combine(_appDataRoot, "updates");
-        // The trusted baseline normally already lives outside the disposable
-        // update cache. Only copy it when clearing that cache would otherwise
-        // delete the source files.
-        if (!IsPathUnderRoot(state.SignedManifestPath, updatesRoot))
-            return;
-        if (!TryLoadTrustedProgramBaseline(state, out _, out _))
-            return;
-        var manifestPath = Path.Combine(_appDataRoot, "program-manifest.json");
-        var signaturePath = Path.Combine(_appDataRoot, "program-manifest.sig");
-        CopyIfDifferent(state.SignedManifestPath!, manifestPath);
-        CopyIfDifferent(state.SignedSignaturePath!, signaturePath);
-        state.SignedManifestPath = manifestPath;
-        state.SignedSignaturePath = signaturePath;
-        state.ManifestSha256 = ManifestVerifier.Sha256File(manifestPath);
-        _state.Save(state);
+        await _stager.ClearUpdateCachesAsync(cancellationToken).ConfigureAwait(false);
+        _state.Update(state =>
+        {
+            state.StagedProgramOperationId = null;
+            state.StagedProgramVersion = null;
+            state.StagedProgramAssetName = null;
+            state.BackupPath = null;
+        });
     }
 
     internal static void DeleteCacheDirectory(
@@ -248,184 +244,26 @@ public sealed class UpdateCoordinator : IUpdateService
                 return;
             try
             {
+                foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+                {
+                    try { File.SetAttributes(file, FileAttributes.Normal); } catch { }
+                }
                 Directory.Delete(directory, recursive: true);
                 return;
             }
-            catch (Exception exception) when (
-                exception is IOException or UnauthorizedAccessException)
+            catch (Exception) when (attempt < 4)
             {
-                foreach (var file in Directory.EnumerateFiles(
-                             directory, "*", SearchOption.AllDirectories))
-                {
-                    try { File.SetAttributes(file, FileAttributes.Normal); }
-                    catch (Exception attributeException) when (
-                        attributeException is IOException or UnauthorizedAccessException) { }
-                }
-                if (attempt == 4)
-                    throw;
-                Thread.Sleep(100 << attempt);
+                Thread.Sleep(50 * (attempt + 1));
             }
         }
     }
 
-    private static bool IsPathUnderRoot(string? path, string root)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return false;
-        var rootPrefix = Path.GetFullPath(root)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        return Path.GetFullPath(path).StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void ClearStagedProgram(string operationId)
-    {
-        _state.Update(state =>
-        {
-            if (!string.Equals(
-                    state.StagedProgramOperationId,
-                    operationId,
-                    StringComparison.Ordinal))
-                return;
-            state.StagedProgramOperationId = null;
-            state.StagedProgramVersion = null;
-            state.StagedProgramAssetName = null;
-        });
-    }
-
-    private void TryDeleteStagedOperation(string operationId)
-    {
-        if (!Guid.TryParseExact(operationId, "N", out _))
-            return;
-        TryDeleteOperationRoot(Path.Combine(_appDataRoot, "updates", operationId));
-    }
-
-    public UpdatePlan? SelectProgram(UpdateManifest manifest)
-    {
-        ArgumentNullException.ThrowIfNull(manifest);
-        if (!manifest.Kind.Equals("program", StringComparison.Ordinal)
-            || !ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag))
-            return null;
-        RecoverFailedProgramState();
-        var state = _state.Load();
-        var trusted = TryLoadTrustedProgramBaseline(
-            state,
-            out var currentTreeHash,
-            out var currentManifestHash);
-        return UpdateSelector.Select(
-            manifest,
-            UpdateVersionInfo.CurrentVersion,
-            trusted ? currentTreeHash : null,
-            trusted ? currentManifestHash : null,
-            currentManifestSigned: trusted,
-            forceFull: state.ForceFull || !trusted);
-    }
-
-    public UpdatePlan? SelectResource(UpdateManifest manifest)
-    {
-        ArgumentNullException.ThrowIfNull(manifest);
-        if (!manifest.Kind.Equals("resource", StringComparison.Ordinal)
-            || !ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag)
-            || !IsResourceCompatibleWithCurrentApp(manifest))
-            return null;
-        if (!TryParseResourceVersion(manifest.Version, out var target)
-            || (!_resources.RequiresFullResource
-                && TryParseResourceVersion(_resources.Active.Version, out var current)
-                && target.CompareTo(current) <= 0))
-            return null;
-        var asset = manifest.Assets.FirstOrDefault(item =>
-            item.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-        var state = _state.Load();
-        if (asset is not null && !_resources.RequiresFullResource
-            && TryLoadTrustedResourceBaseline(state, out var sourceManifestHash))
-        {
-            asset = manifest.Assets.FirstOrDefault(item =>
-                item.Type.Equals("delta", StringComparison.OrdinalIgnoreCase)
-                && item.FromVersion is not null
-                && item.FromVersion.Equals(_resources.Active.Version, StringComparison.Ordinal)
-                && item.SourceTreeSha256.Equals(
-                    _resources.Active.BaseTreeSha256, StringComparison.OrdinalIgnoreCase)
-                && item.SourceManifestSha256.Equals(sourceManifestHash, StringComparison.OrdinalIgnoreCase))
-                ?? asset;
-        }
-        return asset is null ? null : new UpdatePlan(manifest, asset, manifest.ReleaseTag);
-    }
-
-    public async Task ApplyResourceWhenIdleAsync(
+    public Task ApplyResourceWhenIdleAsync(
         StagedUpdate update,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(update);
-        if (update.Scope != UpdateScope.Resource)
-            throw new ArgumentException("The staged update is not a resource update.", nameof(update));
-        await _activities.WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
-        using var lease = _activities.Acquire(ActivityKind.ResourceReload);
-        var candidate = await _resources.PrepareAsync(
-                update.Manifest.Version,
-                update.PayloadRoot,
-                update.Asset.Type.Equals("delta", StringComparison.OrdinalIgnoreCase),
-                update.Asset.Deletes,
-                update.Asset.TargetTreeSha256,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var old = _resources.Active;
-        var oldDirectory = _resources.ActiveCompositeBaseDirectory;
-        try
-        {
-            await _uma.ReloadResourceAsync(candidate.CompositeDirectory, cancellationToken)
-                .ConfigureAwait(false);
-            var catalog = await _uma.GetCatalogAsync("all", cancellationToken).ConfigureAwait(false);
-            _database.LoadFromCoreCatalog(
-                catalog,
-                _uma.ResourcePath ?? Path.Combine(candidate.CompositeDirectory, "resource"));
-            await _resources.CommitAsync(candidate, cancellationToken).ConfigureAwait(false);
-            var resourceManifestPath = Path.Combine(
-                _appDataRoot, "resources", "current-manifest.json");
-            var resourceSignaturePath = Path.Combine(
-                _appDataRoot, "resources", "current-manifest.sig");
-            Directory.CreateDirectory(Path.GetDirectoryName(resourceManifestPath)!);
-            File.Copy(update.ManifestPath, resourceManifestPath, overwrite: true);
-            File.Copy(update.SignaturePath, resourceSignaturePath, overwrite: true);
-            _state.Update(resourceState =>
-            {
-                resourceState.OperationId = update.OperationId;
-                resourceState.Scope = "resource";
-                resourceState.Stage = "succeeded";
-                resourceState.TargetVersion = update.Manifest.Version;
-                resourceState.ResourceManifestSha256 = ManifestVerifier.Sha256File(resourceManifestPath);
-                resourceState.ResourceManifestPath = resourceManifestPath;
-                resourceState.ResourceSignaturePath = resourceSignaturePath;
-            });
-            TryDeleteOperationRoot(Path.GetDirectoryName(update.ManifestPath)!);
-        }
-        catch
-        {
-            await _resources.RollbackAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                if (Directory.Exists(oldDirectory))
-                {
-                    await _uma.ReloadResourceAsync(oldDirectory, cancellationToken).ConfigureAwait(false);
-                    var catalog = await _uma.GetCatalogAsync("all", cancellationToken).ConfigureAwait(false);
-                    _database.LoadFromCoreCatalog(
-                        catalog,
-                        _uma.ResourcePath ?? Path.Combine(oldDirectory, "resource"));
-                }
-            }
-            catch
-            {
-                // The old pointer remains authoritative; startup will repair the snapshot.
-            }
-            _state.Update(failedResourceState =>
-            {
-                failedResourceState.OperationId = update.OperationId;
-                failedResourceState.Scope = "resource";
-                failedResourceState.Stage = "failed-rollback";
-                failedResourceState.TargetVersion = old.Version;
-                failedResourceState.Error = "Resource reload failed.";
-            });
-            throw;
-        }
+        // Standalone resource update is removed.
+        return Task.CompletedTask;
     }
 
     public async Task RequestProgramRestartAsync(
@@ -433,8 +271,6 @@ public sealed class UpdateCoordinator : IUpdateService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(update);
-        if (update.Scope != UpdateScope.Program)
-            throw new ArgumentException("The staged update is not a program update.", nameof(update));
         await _activities.WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
         using var lease = _activities.Acquire(ActivityKind.Shutdown);
 
@@ -443,67 +279,34 @@ public sealed class UpdateCoordinator : IUpdateService
         var statusPath = Path.Combine(operationRoot, "status.txt");
         var planPath = Path.Combine(operationRoot, "plan.json");
         Directory.CreateDirectory(operationRoot);
-        // Keep the exact signed bytes beside the helper plan. This prevents a
-        // mutable check-cache path from being substituted after staging.
-        var manifestPath = Path.Combine(operationRoot, "manifest.json");
-        var signaturePath = Path.Combine(operationRoot, "manifest.sig");
-        // PackageStager already writes these files into operationRoot. When
-        // the user clicks "Install and restart", copying them again to the
-        // same path makes Windows report that manifest.json is in use. Reuse
-        // the staged files when the paths are identical; this also keeps the
-        // signed bytes unchanged until the native updater takes over.
-        CopyIfDifferent(update.ManifestPath, manifestPath);
-        CopyIfDifferent(update.SignaturePath, signaturePath);
-        string? sourceManifestPath = null;
-        string? sourceSignaturePath = null;
-        if (update.Asset.Type.Equals("delta", StringComparison.OrdinalIgnoreCase))
-        {
-            var current = _state.Load();
-            if (string.IsNullOrWhiteSpace(current.SignedManifestPath)
-                || string.IsNullOrWhiteSpace(current.SignedSignaturePath)
-                || !File.Exists(current.SignedManifestPath)
-                || !File.Exists(current.SignedSignaturePath))
-                throw new InvalidOperationException("A program delta requires a signed current manifest.");
-            sourceManifestPath = Path.Combine(operationRoot, "source-manifest.json");
-            sourceSignaturePath = Path.Combine(operationRoot, "source-manifest.sig");
-            File.Copy(current.SignedManifestPath, sourceManifestPath, overwrite: true);
-            File.Copy(current.SignedSignaturePath, sourceSignaturePath, overwrite: true);
-        }
+
         var installRoot = Path.GetFullPath(AppContext.BaseDirectory);
-        var installedUpdater = Path.Combine(installRoot, "UmamusumeAss.Updater.exe");
         var stagedUpdater = Path.Combine(update.PayloadRoot, "UmamusumeAss.Updater.exe");
-        var updaterSource = File.Exists(stagedUpdater)
-            ? stagedUpdater
-            : installedUpdater;
+        var installedUpdater = Path.Combine(installRoot, "UmamusumeAss.Updater.exe");
+        var updaterSource = File.Exists(stagedUpdater) ? stagedUpdater : installedUpdater;
+
         if (!File.Exists(updaterSource))
             throw new FileNotFoundException("No update helper executable is available.");
+
         var updaterCopy = Path.Combine(_appDataRoot, "updater", "UmamusumeAss.Updater.exe");
         Directory.CreateDirectory(Path.GetDirectoryName(updaterCopy)!);
 
-        // Keep the signed target baseline outside the disposable update cache.
-        // If installation fails, its version/tree check will reject it and the
-        // next attempt falls back to a full package.
-        var trustedManifestPath = Path.Combine(_appDataRoot, "program-manifest.json");
-        var trustedSignaturePath = Path.Combine(_appDataRoot, "program-manifest.sig");
-        File.Copy(manifestPath, trustedManifestPath, overwrite: true);
-        File.Copy(signaturePath, trustedSignaturePath, overwrite: true);
-
         var plan = new
         {
+            schemaVersion = 2,
             operationId = update.OperationId,
-            manifestPath,
-            signaturePath,
-            currentManifestPath = sourceManifestPath,
-            currentSignaturePath = sourceSignaturePath,
-            currentTreeSha256 = update.Asset.SourceTreeSha256,
-            manifest = new { selectedAsset = update.Asset },
-            replace = update.Asset.Files,
-            deletes = update.Asset.Deletes,
+            version = update.Manifest.Version,
+            installRoot,
+            stagingRoot = update.PayloadRoot,
+            backupRoot,
+            localInventoryPath = update.ManifestPath,
         };
+
         await File.WriteAllTextAsync(
             planPath,
             SerializeUpdaterPlan(plan),
             cancellationToken).ConfigureAwait(false);
+
         _state.Update(programState =>
         {
             programState.OperationId = update.OperationId;
@@ -511,12 +314,7 @@ public sealed class UpdateCoordinator : IUpdateService
             programState.Stage = "launching-updater";
             programState.TargetVersion = update.Manifest.Version;
             programState.BackupPath = backupRoot;
-            programState.CurrentManifestSigned = true;
-            programState.SignedManifestPath = trustedManifestPath;
-            programState.SignedSignaturePath = trustedSignaturePath;
-            programState.ManifestSha256 = ManifestVerifier.Sha256File(trustedManifestPath);
-            programState.CurrentTreeSha256 = update.Asset.TargetTreeSha256;
-            programState.ForceFull = false;
+            programState.ForceFull = true;
             programState.Error = null;
         });
 
@@ -548,8 +346,6 @@ public sealed class UpdateCoordinator : IUpdateService
         Process? updater = null;
         try
         {
-            // Same hand-off as MAA: copy the updater out of the disposable
-            // cache, start it, close the app, then let it wait for this PID.
             File.Copy(updaterSource, updaterCopy, overwrite: true);
             File.WriteAllText(statusPath, "starting\n");
             updater = Process.Start(startInfo)
@@ -579,26 +375,6 @@ public sealed class UpdateCoordinator : IUpdateService
         return JsonSerializer.Serialize(plan, UpdaterPlanJsonOptions);
     }
 
-    private static void TryDeleteOperationRoot(string operationRoot)
-    {
-        try
-        {
-            if (Directory.Exists(operationRoot))
-                Directory.Delete(operationRoot, recursive: true);
-            var updatesRoot = Directory.GetParent(operationRoot)?.FullName;
-            if (updatesRoot is not null && Directory.Exists(updatesRoot))
-                Directory.Delete(updatesRoot, recursive: false);
-        }
-        catch (IOException)
-        {
-            // Update data is cache; a later startup can retry cleanup.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Update data is cache; a later startup can retry cleanup.
-        }
-    }
-
     private static void StopUpdater(Process? updater)
     {
         if (updater is null)
@@ -611,14 +387,7 @@ public sealed class UpdateCoordinator : IUpdateService
                 updater.WaitForExit(5_000);
             }
         }
-        catch (InvalidOperationException)
-        {
-            // The helper exited between the checks.
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            // The helper may already have terminated or been blocked by policy.
-        }
+        catch { }
     }
 
     private static Task RequestApplicationShutdownAsync(Application application)
@@ -629,9 +398,6 @@ public sealed class UpdateCoordinator : IUpdateService
             return Task.CompletedTask;
         }
 
-        // Shutdown is a DispatcherObject operation. InvokeAsync ensures the
-        // request is actually executed on the WPF UI thread before this method
-        // completes; BeginInvoke alone allowed the caller to race the exit path.
         return application.Dispatcher
             .InvokeAsync(application.Shutdown, DispatcherPriority.Send)
             .Task;
@@ -644,187 +410,6 @@ public sealed class UpdateCoordinator : IUpdateService
         if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
             return;
         File.Copy(source, destination, overwrite: true);
-    }
-
-    private async Task<(UpdateManifest?, byte[]?, byte[]?)> ReadManifestAsync(
-        GitHubRelease? release,
-        string prefix,
-        CancellationToken cancellationToken)
-    {
-        if (release is null) return (null, null, null);
-        var manifestAsset = release.Assets.FirstOrDefault(item => item.Name.StartsWith(prefix, StringComparison.Ordinal)
-            && item.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
-        var signatureAsset = release.Assets.FirstOrDefault(item => item.Name.StartsWith(prefix, StringComparison.Ordinal)
-            && item.Name.EndsWith(".sig", StringComparison.OrdinalIgnoreCase));
-        if (manifestAsset is null || signatureAsset is null)
-            throw new InvalidDataException($"Release {release.Tag} does not contain a signed manifest.");
-        var directory = Path.Combine(_appDataRoot, "update-checks");
-        Directory.CreateDirectory(directory);
-        var manifestPath = Path.Combine(directory, manifestAsset.Name);
-        var signaturePath = Path.Combine(directory, signatureAsset.Name);
-        await _github.DownloadAssetFileAsync(manifestAsset, manifestPath, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        await _github.DownloadAssetFileAsync(signatureAsset, signaturePath, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        var bytes = await File.ReadAllBytesAsync(manifestPath, cancellationToken).ConfigureAwait(false);
-        var signature = ManifestVerifier.DecodeSignature(
-            await File.ReadAllTextAsync(signaturePath, cancellationToken).ConfigureAwait(false));
-        var manifest = ManifestVerifier.Deserialize(bytes);
-        if (!ManifestVerifier.IsCanonicalManifest(manifest, release.Tag)
-            || !_verifier.Verify(bytes, signature))
-            throw new InvalidDataException($"Release manifest {manifestAsset.Name} failed validation.");
-        return (manifest, bytes, signature);
-    }
-
-    private void RecoverFailedProgramState()
-    {
-        var state = _state.Load();
-        if (!state.Scope.Equals("program", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(state.BackupPath))
-            return;
-        var statusPath = Path.Combine(Directory.GetParent(state.BackupPath)!.FullName, "status.txt");
-        if (!File.Exists(statusPath)) return;
-        var status = File.ReadAllText(statusPath);
-        if (!status.StartsWith("failed", StringComparison.OrdinalIgnoreCase))
-            return;
-        if (state.ForceFull) return;
-        state.ForceFull = true;
-        state.Stage = "retry-full";
-        _state.Save(state);
-    }
-
-    private bool TryLoadTrustedProgramBaseline(
-        UpdateState state,
-        out string treeHash,
-        out string manifestHash)
-    {
-        treeHash = string.Empty;
-        manifestHash = string.Empty;
-        if (!state.CurrentManifestSigned
-            || string.IsNullOrWhiteSpace(state.SignedManifestPath)
-            || string.IsNullOrWhiteSpace(state.SignedSignaturePath)
-            || !File.Exists(state.SignedManifestPath)
-            || !File.Exists(state.SignedSignaturePath))
-            return false;
-        try
-        {
-            var bytes = File.ReadAllBytes(state.SignedManifestPath);
-            manifestHash = ManifestVerifier.Sha256Bytes(bytes);
-            if (!manifestHash.Equals(state.ManifestSha256, StringComparison.OrdinalIgnoreCase))
-                return false;
-            var signature = ManifestVerifier.DecodeSignature(
-                File.ReadAllText(state.SignedSignaturePath));
-            var manifest = ManifestVerifier.Deserialize(bytes);
-            if (!_verifier.Verify(bytes, signature)
-                || !ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag)
-                || !manifest.Version.Equals(UpdateVersionInfo.CurrentVersion, StringComparison.Ordinal))
-                return false;
-            var full = manifest.Assets.FirstOrDefault(asset =>
-                asset.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-            if (full is null
-                || !UpdateSelector.VerifyManagedTree(
-                    AppContext.BaseDirectory, full, full.TargetTreeSha256))
-                return false;
-            treeHash = full.TargetTreeSha256;
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    private bool TryLoadTrustedResourceBaseline(
-        UpdateState state,
-        out string manifestHash)
-    {
-        manifestHash = string.Empty;
-        if (string.IsNullOrWhiteSpace(state.ResourceManifestPath)
-            || string.IsNullOrWhiteSpace(state.ResourceSignaturePath)
-            || !File.Exists(state.ResourceManifestPath)
-            || !File.Exists(state.ResourceSignaturePath))
-            return false;
-        try
-        {
-            var bytes = File.ReadAllBytes(state.ResourceManifestPath);
-            manifestHash = ManifestVerifier.Sha256Bytes(bytes);
-            if (!manifestHash.Equals(state.ResourceManifestSha256, StringComparison.OrdinalIgnoreCase))
-                return false;
-            var manifest = ManifestVerifier.Deserialize(bytes);
-            var signature = ManifestVerifier.DecodeSignature(
-                File.ReadAllText(state.ResourceSignaturePath));
-            var full = manifest.Assets.FirstOrDefault(asset =>
-                asset.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-            return _verifier.Verify(bytes, signature)
-                && ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag)
-                && full is not null
-                && full.TargetTreeSha256.Equals(
-                    _resources.Active.BaseTreeSha256, StringComparison.OrdinalIgnoreCase)
-                && UpdateSelector.VerifyManagedTree(
-                    _resources.ActiveBaseDirectory, full, full.TargetTreeSha256);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    private static bool IsResourceCompatibleWithCurrentApp(UpdateManifest manifest)
-    {
-        if (!manifest.ResourceSchema.Equals("1", StringComparison.Ordinal)
-            || !manifest.SupportedResourceSchema.Equals("1", StringComparison.Ordinal)
-            || !SemVersion.TryParse(UpdateVersionInfo.CurrentVersion, out var appVersion))
-            return false;
-        if (!string.IsNullOrWhiteSpace(manifest.MinAppVersion)
-            && (!SemVersion.TryParse(manifest.MinAppVersion, out var min)
-                || appVersion < min))
-            return false;
-        if (!string.IsNullOrWhiteSpace(manifest.MaxAppVersion)
-            && (!SemVersion.TryParse(manifest.MaxAppVersion, out var max)
-                || appVersion > max))
-            return false;
-        return true;
-    }
-
-    private static SemVersion ParseReleaseVersion(string tag)
-    {
-        var value = tag.StartsWith('v') ? tag[1..] : tag;
-        return SemVersion.TryParse(value, out var version) ? version : default;
-    }
-
-    private static bool TryParseResourceVersion(string? value, out ResourceVersion version)
-    {
-        version = default;
-        if (string.IsNullOrWhiteSpace(value)) return false;
-        var parts = value.Split('.');
-        if (parts.Length != 4 || !parts.All(part => int.TryParse(
-                part, System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture, out _))) return false;
-        version = new ResourceVersion(
-            int.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture),
-            int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
-            int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture),
-            int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture));
-        return true;
-    }
-
-    private static ResourceVersion ParseResourceTagVersion(string tag)
-    {
-        return TryParseResourceVersion(
-                tag.StartsWith("resource-v", StringComparison.Ordinal)
-                    ? tag[10..] : null,
-                out var version)
-            ? version : default;
-    }
-
-    private readonly record struct ResourceVersion(int Year, int Month, int Day, int Revision)
-        : IComparable<ResourceVersion>
-    {
-        public int CompareTo(ResourceVersion other) =>
-            Year != other.Year ? Year.CompareTo(other.Year)
-            : Month != other.Month ? Month.CompareTo(other.Month)
-            : Day != other.Day ? Day.CompareTo(other.Day)
-            : Revision.CompareTo(other.Revision);
     }
 }
 

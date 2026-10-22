@@ -1,3 +1,4 @@
+using Umamusume.UpdateCore;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services.Update;
 

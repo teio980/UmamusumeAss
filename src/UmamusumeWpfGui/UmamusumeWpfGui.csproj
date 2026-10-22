@@ -22,14 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Models\UpdateModels.cs" />
-    <Compile Remove="Services\Update\ManifestVerifier.cs" />
-    <Compile Remove="Services\Update\PackageStager.cs" />
-    <Compile Remove="Services\Update\GitHubReleaseClient.cs" />
-    <Compile Remove="Services\Update\UpdateCoordinator.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Resource Include="Assets\teio-logo.ico" />
     <Resource Include="Assets\teio-logo.png" />
   </ItemGroup>

@@ -225,6 +225,33 @@ public sealed partial class SettingsViewModelTests
         string signaturePath = Path.Combine(operationRoot, "manifest.sig");
         await File.WriteAllTextAsync(signaturePath, Convert.ToBase64String(signature));
 
+        var inventory = new LocalFileInventory
+        {
+            SchemaVersion = 2,
+            Platform = "osx-arm64",
+            Version = version,
+            PackageName = asset.AssetName,
+            PackageSize = packageBytes.Length,
+            PackageSha256 = asset.Sha256,
+            Files = [new LocalFileEntry { Path = file.Path, Size = file.Size, Sha256 = file.Sha256 }]
+        };
+        string inventoryPath = Path.Combine(operationRoot, "local-inventory.json");
+        await File.WriteAllTextAsync(inventoryPath, JsonSerializer.Serialize(inventory));
+
+        var marker = new
+        {
+            OperationId = operationId,
+            Version = version,
+            Tag = tag,
+            Platform = "osx-arm64",
+            PackageName = asset.AssetName,
+            PackagePath = packagePath,
+            PayloadRoot = payloadRoot,
+            InventoryPath = inventoryPath
+        };
+        string markerPath = Path.Combine(operationRoot, "staged-update.json");
+        await File.WriteAllTextAsync(markerPath, JsonSerializer.Serialize(marker));
+
         var service = new MacUpdateService(new HttpClient(new RejectRequestsHandler()), root, verifier);
         var staged = new StagedUpdate(operationId, UpdateScope.Program, manifest, asset,
             packagePath, payloadRoot, manifestPath, signaturePath);

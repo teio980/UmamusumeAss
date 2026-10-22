@@ -4,6 +4,7 @@ using System.Windows;
 using Stylet;
 using StyletIoC;
 using Umamusume.CoreBridge;
+using Umamusume.UpdateCore;
 using UmamusumeWpfGui.Helper;
 using UmamusumeWpfGui.Models;
 using UmamusumeWpfGui.Services;

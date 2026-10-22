@@ -9,54 +9,95 @@ namespace Umamusume.Avalonia.Services;
 
 public sealed class MacProgramInstaller
 {
-    public static async Task BeginInstallAndExitAsync(
+    public static Task BeginInstallAndExitAsync(
+        StagedFullUpdate staged,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(staged);
+        return BeginInstallInternalAsync(
+            staged.OperationId,
+            staged.Version,
+            staged.PackagePath,
+            staged.PayloadRoot,
+            staged.InventoryPath,
+            progress,
+            cancellationToken);
+    }
+
+    public static Task BeginInstallAndExitAsync(
         StagedUpdate staged,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(staged);
-        if (!OperatingSystem.IsMacOS() || staged.Scope != UpdateScope.Program)
+        if (staged.Scope != UpdateScope.Program)
+            throw new PlatformNotSupportedException("Automatic program installation is available only for program updates.");
+        return BeginInstallInternalAsync(
+            staged.OperationId,
+            staged.Manifest.Version,
+            staged.PackagePath,
+            staged.PayloadRoot,
+            staged.ManifestPath,
+            progress,
+            cancellationToken);
+    }
+
+    private static async Task BeginInstallInternalAsync(
+        string operationId,
+        string targetVersion,
+        string packagePath,
+        string payloadRoot,
+        string inventoryPath,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsMacOS())
             throw new PlatformNotSupportedException("Automatic program installation is available only on macOS.");
         string appPath = FindAppBundlePath(AppContext.BaseDirectory)
             ?? throw new InvalidOperationException("The app must run from a .app bundle to install updates.");
         string parentPath = Path.GetDirectoryName(appPath)!;
         EnsureWritable(parentPath);
-        byte[] manifestBytes = await File.ReadAllBytesAsync(staged.ManifestPath, cancellationToken).ConfigureAwait(false);
-        byte[] signature = ManifestVerifier.DecodeSignature(await File.ReadAllTextAsync(staged.SignaturePath, cancellationToken).ConfigureAwait(false));
-        var verifier = new ManifestVerifier();
-        if (!verifier.Verify(manifestBytes, signature)) throw new CryptographicException("Staged update manifest signature is invalid.");
-        var manifest = ManifestVerifier.Deserialize(manifestBytes);
-        if (!ManifestVerifier.IsCanonicalManifest(manifest, staged.Manifest.ReleaseTag, "macos", "arm64", allowDeltas: false)
-            || !manifest.Kind.Equals("program", StringComparison.Ordinal)
-            || !manifest.Version.Equals(staged.Manifest.Version, StringComparison.Ordinal))
-            throw new InvalidDataException("Staged update manifest is not the expected macOS program update.");
-        var fullAsset = manifest.Assets.Single(asset => asset.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
+
+        string operationRoot = Path.GetDirectoryName(packagePath)!;
+        string resolvedInventoryPath = File.Exists(inventoryPath)
+            ? inventoryPath
+            : Path.Combine(operationRoot, "local-inventory.json");
+
+        var inventory = JsonSerializer.Deserialize<LocalFileInventory>(
+            await File.ReadAllTextAsync(resolvedInventoryPath, cancellationToken).ConfigureAwait(false))
+            ?? throw new InvalidDataException("Staged update inventory is invalid.");
+
+        if (inventory.SchemaVersion != 2
+            || !inventory.Platform.Equals("osx-arm64", StringComparison.Ordinal)
+            || !inventory.Version.Equals(targetVersion, StringComparison.Ordinal))
+            throw new InvalidDataException("Staged update inventory is not the expected macOS program update.");
+
         const string helperRelativePath = "UmamusumeAss.app/Contents/Helpers/Umamusume.MacUpdater";
-        var helperEntry = fullAsset.Files.SingleOrDefault(file => file.Path.Equals(helperRelativePath, StringComparison.Ordinal))
-            ?? throw new InvalidDataException("The signed file inventory does not contain the update helper.");
-        string verifiedHelper = UpdatePathSafety.ResolveUnderRoot(staged.PayloadRoot, helperEntry.Path);
+        var helperEntry = inventory.Files.SingleOrDefault(file => file.Path.Equals(helperRelativePath, StringComparison.Ordinal))
+            ?? throw new InvalidDataException("The file inventory does not contain the update helper.");
+        string verifiedHelper = UpdatePathSafety.ResolveUnderRoot(payloadRoot, helperEntry.Path);
         if (!File.Exists(verifiedHelper)) throw new FileNotFoundException("The verified update package does not contain its installer helper.", verifiedHelper);
         if (new FileInfo(verifiedHelper).Length != helperEntry.Size
-            || !ManifestVerifier.Sha256File(verifiedHelper).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("The update helper does not match its signed file inventory.");
-        string operationRoot = Path.GetDirectoryName(staged.PackagePath)!;
+            || !FullPackageStager.ComputeSha256File(verifiedHelper).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("The update helper does not match its file inventory.");
+
         string helperPath = Path.Combine(operationRoot, "Umamusume.MacUpdater");
         File.Copy(verifiedHelper, helperPath, overwrite: true);
         if (OperatingSystem.IsMacOS()) File.SetUnixFileMode(helperPath, File.GetUnixFileMode(verifiedHelper));
         if (new FileInfo(helperPath).Length != helperEntry.Size
-            || !ManifestVerifier.Sha256File(helperPath).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("The external update helper copy failed signed hash verification.");
+            || !FullPackageStager.ComputeSha256File(helperPath).Equals(helperEntry.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("The external update helper copy failed hash verification.");
         string nonce = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-        var start = new ProcessStartInfo(helperPath) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(staged.PackagePath)! };
+        var start = new ProcessStartInfo(helperPath) { UseShellExecute = false, WorkingDirectory = operationRoot };
         start.ArgumentList.Add("--install");
         start.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         start.ArgumentList.Add(appPath);
-        start.ArgumentList.Add(staged.PayloadRoot);
-        start.ArgumentList.Add(staged.PackagePath);
-        start.ArgumentList.Add(staged.ManifestPath);
-        start.ArgumentList.Add(staged.SignaturePath);
+        start.ArgumentList.Add(payloadRoot);
+        start.ArgumentList.Add(packagePath);
+        start.ArgumentList.Add(resolvedInventoryPath);
         start.ArgumentList.Add(operationRoot);
-        start.ArgumentList.Add(staged.OperationId);
+        start.ArgumentList.Add(operationId);
         start.ArgumentList.Add(nonce);
 
         var helper = Process.Start(start) ?? throw new IOException("Could not start the update helper.");
@@ -78,19 +119,19 @@ public sealed class MacProgramInstaller
                         using var document = JsonDocument.Parse(await File.ReadAllBytesAsync(startedPath, cancellationToken).ConfigureAwait(false));
                         var root = document.RootElement;
                         helperStarted = root.GetProperty("Started").GetBoolean()
-                            && root.GetProperty("OperationId").GetString() == staged.OperationId
+                            && root.GetProperty("OperationId").GetString() == operationId
                             && root.GetProperty("Nonce").GetString() == nonce;
                     }
                     catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException or InvalidOperationException) { }
                     if (helperStarted) break;
                 }
-                await ThrowIfHelperFailedAsync(resultPath, staged.OperationId, nonce, cancellationToken).ConfigureAwait(false);
+                await ThrowIfHelperFailedAsync(resultPath, operationId, nonce, cancellationToken).ConfigureAwait(false);
                 if (helper.HasExited) throw new IOException($"The update helper exited with code {helper.ExitCode} before acknowledging startup.");
                 await Task.Delay(100, cancellationToken).ConfigureAwait(false);
             }
             if (!helperStarted) throw new TimeoutException("The update helper did not acknowledge startup within 10 seconds.");
 
-            progress?.Report("The installer started. Verifying the signed package…");
+            progress?.Report("The installer started. Verifying the package inventory…");
             timer.Restart();
             while (timer.Elapsed < TimeSpan.FromMinutes(5))
             {
@@ -100,7 +141,7 @@ public sealed class MacProgramInstaller
                     using var document = JsonDocument.Parse(await File.ReadAllBytesAsync(readyPath, cancellationToken).ConfigureAwait(false));
                     var root = document.RootElement;
                     if (root.GetProperty("Ready").GetBoolean()
-                        && root.GetProperty("OperationId").GetString() == staged.OperationId
+                        && root.GetProperty("OperationId").GetString() == operationId
                         && root.GetProperty("Nonce").GetString() == nonce)
                     {
                         await MacAppLifecycle.RequestUpdateShutdownAsync().ConfigureAwait(false);
@@ -108,9 +149,9 @@ public sealed class MacProgramInstaller
                         return;
                     }
                 }
-                await ThrowIfHelperFailedAsync(resultPath, staged.OperationId, nonce, cancellationToken).ConfigureAwait(false);
+                await ThrowIfHelperFailedAsync(resultPath, operationId, nonce, cancellationToken).ConfigureAwait(false);
                 if (helper.HasExited) throw new IOException($"The update helper exited with code {helper.ExitCode} before becoming ready.");
-                await ReportHelperProgressAsync(operationRoot, staged.OperationId, nonce, progress, cancellationToken).ConfigureAwait(false);
+                await ReportHelperProgressAsync(operationRoot, operationId, nonce, progress, cancellationToken).ConfigureAwait(false);
                 await Task.Delay(500, cancellationToken).ConfigureAwait(false);
             }
             throw new TimeoutException("The update helper did not finish preparing the application within 5 minutes.");

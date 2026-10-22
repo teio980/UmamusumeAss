@@ -127,7 +127,7 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                                 UpdateVersionInfo.CurrentVersion,
                                 StringComparison.Ordinal)
                             || pointer.Version.Equals(bundledVersion, StringComparison.Ordinal);
-                        var bundledHashMatches = !isBundledRevision;
+                        var bundledHashMatches = false;
                         string? bundledFingerprint = null;
                         if (isBundledRevision)
                         {
@@ -155,6 +155,12 @@ public sealed class ResourceStore : IResourceStore, IDisposable
                                         .ConfigureAwait(false),
                                     StringComparison.OrdinalIgnoreCase);
                             }
+                        }
+                        else
+                        {
+                            // Old downloaded resource versions no longer take precedence
+                            // over the current package's built-in resources.
+                            staleBundledVersion = null;
                         }
                         if (bundledHashMatches)
                         {

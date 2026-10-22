@@ -130,7 +130,7 @@ public sealed class TaskEditorTests
         var task = Career();
         var editor = task.SettingsEditor;
 
-        var sampleCard = new Services.SupportCardCatalogItem(10001, "Special Week", "Speed", "SSR", "path");
+        var sampleCard = new Services.SupportCardCatalogItem(10001, "Special Week", "Speed", "SSR", "path") { IsAvailable = true };
         editor.AddSupportCard(sampleCard);
 
         Assert.Contains("10001", editor.SupportCardIdsText);
@@ -144,8 +144,18 @@ public sealed class TaskEditorTests
         var task = Career();
         var editor = task.SettingsEditor;
 
-        var skill1 = new Services.SkillCatalogItem(20001, "Skill A", "Normal", 120, "Effect");
-        var skill2 = new Services.SkillCatalogItem(20002, "Skill B", "Normal", 150, "Effect");
+        var skill1 = new Services.SkillCatalogItem(20001, "Skill A", "Normal", 120, "Effect")
+        {
+            AvailableInGlobal = true,
+            SingleModeEnabled = true,
+            NeedSkillPoint = 120
+        };
+        var skill2 = new Services.SkillCatalogItem(20002, "Skill B", "Normal", 150, "Effect")
+        {
+            AvailableInGlobal = true,
+            SingleModeEnabled = true,
+            NeedSkillPoint = 150
+        };
 
         editor.SelectedAvailableNormalSkill = skill1;
         editor.AddSelectedNormalSkillCommand.Execute(null);

@@ -24,10 +24,9 @@ public sealed class MacUpdateServiceTests
 
         string root = Path.Combine(Path.GetTempPath(), "uma-mac-update-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var verifier = new ManifestVerifier(signer.ExportSubjectPublicKeyInfo());
         const string version = "0.3.1";
         const string appFile = "UmamusumeAss.app/Contents/MacOS/Umamusume.Avalonia";
+        const string versionFile = "UmamusumeAss.app/Contents/Resources/version.txt";
         byte[] executable = Encoding.UTF8.GetBytes("macOS ARM64 app fixture");
         string packageName = $"UmamusumeAss-v{version}-osx-arm64.app.zip";
         string manifestName = MacUpdateService.ProgramManifestName(version);
@@ -37,72 +36,52 @@ public sealed class MacUpdateServiceTests
 
         try
         {
-            byte[] packageBytes = CreateExecutablePackage(root, appFile, executable);
-            var fileEntry = new UpdateFileEntry
+            string zipPath = Path.Combine(root, packageName);
+            using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
             {
-                Path = appFile,
-                Size = executable.Length,
-                Sha256 = Convert.ToHexString(SHA256.HashData(executable)),
-            };
-            var asset = new UpdateAsset
-            {
-                Type = "full",
-                AssetName = packageName,
-                Size = packageBytes.Length,
-                Sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)),
-                TargetTreeSha256 = ComputeTreeHash(appFile, executable),
-                Files = [fileEntry],
-            };
-            var manifest = new UpdateManifest
-            {
-                Kind = "program",
-                TargetOs = "macos",
-                TargetArch = "arm64",
-                MinOsVersion = "14.0",
-                Version = version,
-                ReleaseTag = "v" + version,
-                BundledResourceVersion = "2026.10.21.1",
-                MinAppVersion = "0.3.0",
-                Assets = [asset],
-            };
-            byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, CamelCaseJson);
-            byte[] signature = signer.SignData(manifestBytes, HashAlgorithmName.SHA256,
-                DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+                var execEntry = archive.CreateEntry(appFile, CompressionLevel.Optimal);
+                execEntry.ExternalAttributes = unchecked((0x81ED) << 16);
+                using (var output = execEntry.Open()) output.Write(executable);
+
+                var verEntry = archive.CreateEntry(versionFile, CompressionLevel.Optimal);
+                verEntry.ExternalAttributes = unchecked((0x81A4) << 16);
+                using (var output = verEntry.Open()) output.Write(Encoding.UTF8.GetBytes(version));
+            }
+            byte[] packageBytes = File.ReadAllBytes(zipPath);
+            string packageSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
+
             const string tag = "v0.3.1";
             const string baseUrl = "https://github.com/teio980/UmamusumeAss/releases/download/" + tag + "/";
-            var signatureName = Path.ChangeExtension(manifestName, ".sig");
             var responseAssets = new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
                 [packageName] = packageBytes,
-                [manifestName] = manifestBytes,
-                [signatureName] = Encoding.UTF8.GetBytes(Convert.ToBase64String(signature)),
             };
             var latestWindowsOnlyAsset = new
             {
                 name = "UmamusumeAss-v0.3.2-win-x64-full.zip",
                 browser_download_url = "https://github.com/teio980/UmamusumeAss/releases/download/v0.3.2/windows.zip",
                 size = 8L,
+                digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             };
-            var macAssets = responseAssets.Select(pair => new
+            var macAsset = new
             {
-                name = pair.Key,
-                browser_download_url = baseUrl + Uri.EscapeDataString(pair.Key),
-                size = (long)pair.Value.Length,
-            }).ToArray();
+                name = packageName,
+                browser_download_url = baseUrl + Uri.EscapeDataString(packageName),
+                size = (long)packageBytes.Length,
+                digest = "sha256:" + packageSha256
+            };
             string releasesJson = JsonSerializer.Serialize(new object[]
             {
                 new { tag_name = "v0.3.2", draft = false, prerelease = false, assets = new[] { latestWindowsOnlyAsset } },
-                new { tag_name = tag, draft = false, prerelease = false, assets = macAssets },
+                new { tag_name = tag, draft = false, prerelease = false, assets = new[] { macAsset } },
             });
             var handler = new ReleaseAssetHandler(releasesJson, responseAssets);
-            var service = new MacUpdateService(new HttpClient(handler), root, verifier);
+            var service = new MacUpdateService(new HttpClient(handler), root);
 
             var check = await service.CheckAsync("0.3.0", "2026.10.21.1");
             Assert.Equal(version, check.ProgramManifest?.Version);
             Assert.Equal(tag, check.ProgramRelease?.Tag);
-            Assert.Equal("osx-arm64-program-manifest-0.3.1.json", check.ProgramRelease?.Assets
-                .Single(item => item.Name == manifestName).Name);
-            Assert.Contains(check.ProgramRelease!.Assets, item => item.Name == signatureName);
+            Assert.Equal(packageName, check.ProgramRelease?.Assets[0].Name);
 
             var staged = await service.DownloadProgramAsync(check);
             service.RememberStaged(staged);
@@ -112,10 +91,6 @@ public sealed class MacUpdateServiceTests
             string stagedExecutable = Path.Combine(restored!.PayloadRoot, appFile.Replace('/', Path.DirectorySeparatorChar));
             Assert.Equal(executable, await File.ReadAllBytesAsync(stagedExecutable));
             Assert.True((File.GetUnixFileMode(stagedExecutable) & UnixFileMode.UserExecute) != 0);
-            Assert.Contains("osx-arm64-program-manifest-$v.json",
-                await File.ReadAllTextAsync(FindSolutionFile(".github/workflows/release.yml")), StringComparison.Ordinal);
-            Assert.Contains("osx-arm64-resource-manifest-$rv.json",
-                await File.ReadAllTextAsync(FindSolutionFile(".github/workflows/release.yml")), StringComparison.Ordinal);
         }
         finally
         {

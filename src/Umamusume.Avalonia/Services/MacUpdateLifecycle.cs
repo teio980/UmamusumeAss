@@ -188,22 +188,41 @@ public static class MacUpdateRecovery
     {
         helperPath = Path.Combine(operationRoot, "Umamusume.MacUpdater");
         error = string.Empty;
-        byte[] manifestBytes = File.ReadAllBytes(Path.Combine(operationRoot, "manifest.json"));
-        byte[] signature = ManifestVerifier.DecodeSignature(File.ReadAllText(Path.Combine(operationRoot, "manifest.sig")));
-        var verifier = new ManifestVerifier();
-        if (!verifier.Verify(manifestBytes, signature)) { error = "The pending update manifest signature is invalid."; return false; }
-        var manifest = ManifestVerifier.Deserialize(manifestBytes);
-        if (!ManifestVerifier.IsCanonicalManifest(manifest, manifest.ReleaseTag, "macos", "arm64", allowDeltas: false)
-            || !manifest.Kind.Equals("program", StringComparison.Ordinal)
-            || !manifest.Version.Equals(targetVersion, StringComparison.Ordinal))
-        { error = "The pending update manifest does not match the installed candidate."; return false; }
-        var asset = manifest.Assets.Single(item => item.Type.Equals("full", StringComparison.OrdinalIgnoreCase));
-        var helper = asset.Files.SingleOrDefault(item => item.Path.Equals(
+        string inventoryPath = Path.Combine(operationRoot, "local-inventory.json");
+        if (!File.Exists(inventoryPath))
+        {
+            error = "The pending update local inventory is missing.";
+            return false;
+        }
+
+        LocalFileInventory? inventory;
+        try
+        {
+            inventory = JsonSerializer.Deserialize<LocalFileInventory>(File.ReadAllText(inventoryPath));
+        }
+        catch (Exception ex)
+        {
+            error = $"The pending update inventory is invalid: {ex.Message}";
+            return false;
+        }
+
+        if (inventory is null || inventory.SchemaVersion != 2
+            || !inventory.Platform.Equals("osx-arm64", StringComparison.Ordinal)
+            || !inventory.Version.Equals(targetVersion, StringComparison.Ordinal))
+        {
+            error = "The pending update inventory does not match the installed candidate.";
+            return false;
+        }
+
+        var helper = inventory.Files.SingleOrDefault(item => item.Path.Equals(
             "UmamusumeAss.app/Contents/Helpers/Umamusume.MacUpdater", StringComparison.Ordinal));
         if (helper is null || !File.Exists(helperPath)
             || new FileInfo(helperPath).Length != helper.Size
-            || !ManifestVerifier.Sha256File(helperPath).Equals(helper.Sha256, StringComparison.OrdinalIgnoreCase))
-        { error = "The pending update recovery helper does not match its signed inventory."; return false; }
+            || !FullPackageStager.ComputeSha256File(helperPath).Equals(helper.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            error = "The pending update recovery helper does not match its inventory.";
+            return false;
+        }
         return true;
     }
 

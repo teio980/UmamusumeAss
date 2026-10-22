@@ -34,31 +34,14 @@ public sealed class MacResourceStore : IResourceSourceProvider
             ? await File.ReadAllBytesAsync(_pointerPath, cancellationToken).ConfigureAwait(false)
             : null;
 
-    public async Task<string?> GetPreferredResourceSourceRootAsync(
+    public Task<string?> GetPreferredResourceSourceRootAsync(
         string bundledSourceRoot,
         string userDataRoot,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            if (!File.Exists(_pointerPath)) return null;
-            var pointer = JsonSerializer.Deserialize<ActivePointer>(
-                await File.ReadAllTextAsync(_pointerPath, cancellationToken).ConfigureAwait(false));
-            if (pointer is null || pointer.Version is null || pointer.RelativePath is null || !IsSafeVersion(pointer.Version)) return null;
-            string bundleVersion = await ReadBundledVersionAsync(cancellationToken).ConfigureAwait(false);
-            if (CompareResourceVersions(pointer.Version, bundleVersion) < 0) return null;
-            string revisionRoot = Path.GetFullPath(Path.Combine(ResourcesRoot, pointer.RelativePath));
-            if (!IsInside(ResourcesRoot, revisionRoot)) return null;
-            if (!revisionRoot.Equals(Path.GetFullPath(Path.Combine(_revisionsRoot, pointer.Version)), StringComparison.Ordinal)) return null;
-            var verified = await VerifyRevisionAsync(revisionRoot, cancellationToken).ConfigureAwait(false);
-            if (verified is null || !verified.Value.Manifest.Version.Equals(pointer.Version, StringComparison.Ordinal)
-                || !MacManifestCompatibility.IsCompatible(verified.Value.Manifest, MacManifestCompatibility.CurrentAppVersion())) return null;
-            return verified.Value.PayloadRoot;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or CryptographicException or InvalidDataException or FormatException or ArgumentException)
-        {
-            return null;
-        }
+        // Cancel independent resource updates. Startup on both sides is based on the built-in resources
+        // of the current installation package; old downloaded resource versions no longer take precedence.
+        return Task.FromResult<string?>(null);
     }
 
     public async Task<string> InstallRevisionAsync(StagedUpdate staged, CancellationToken cancellationToken = default)

@@ -227,10 +227,6 @@
                                                 IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
                                         <Button Content="{Binding RestartUpdateLabel}" Command="{Binding RestartToInstallUpdateCommand}"
                                                 IsVisible="{Binding HasProgramStaged}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
-                                        <Button Content="{Binding ResourceDownloadLabel}" Command="{Binding DownloadResourcesCommand}"
-                                                IsVisible="{Binding HasResourceUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
-                                        <Button Content="{Binding ResourceApplyLabel}" Command="{Binding ApplyResourcesCommand}"
-                                                IsVisible="{Binding HasResourceStaged}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
                                         <Button Content="{DynamicResource Ui_b0d08cd6b4fd}" Command="{Binding SkipVersionCommand}"
                                                 IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsUpdating}" Margin="0,0,8,8" />
                                         <Button Content="{Binding DeleteOldResourcesLabel}" Command="{Binding DeleteOldResourcesCommand}"
@@ -238,8 +234,6 @@
                                         <Button Content="{DynamicResource Ui_4d0b4688c787}" Command="{Binding CancelUpdateCommand}"
                                                 IsVisible="{Binding IsUpdating}" Margin="0,0,8,8" />
                                     </WrapPanel>
-                                    <TextBlock Text="{Binding ResourceUpdateStatus}" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     <TextBlock Text="{Binding ProgramUpdateProgress}" TextWrapping="Wrap"
                                                IsVisible="{Binding IsUpdating}"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

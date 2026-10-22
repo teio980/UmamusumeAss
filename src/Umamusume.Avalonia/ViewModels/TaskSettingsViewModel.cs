@@ -1507,7 +1507,11 @@ public sealed partial class TaskSettingsViewModel : ObservableObject
         var currentIds = ParseParts(NormalSkillIdsText);
         foreach (var id in currentIds)
         {
-            var skill = UmaCatalogService.FindSkill(id);
+            var skill = UmaCatalogService.FindSkill(id) ??
+                (int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId)
+                    ? new SkillCatalogItem(parsedId, IsEnglish ? $"Skill #{parsedId}" : $"技能 #{parsedId}", T("常规", "Career"), 120, string.Empty)
+                      { AvailableInGlobal = true, SingleModeEnabled = true, NeedSkillPoint = 120 }
+                    : null);
             if (skill is { IsIndependentSelectable: true })
                 TargetNormalSkills.Add(skill);
         }
