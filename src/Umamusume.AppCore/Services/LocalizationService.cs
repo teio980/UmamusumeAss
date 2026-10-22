@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Xml.Linq;
 
 namespace Umamusume.AppCore.Services;
 
@@ -116,11 +117,28 @@ public sealed class LocalizationService : ILocalizationService
         ["BlueStacksAirDetected"] = "Pre-selected host BlueStacks Air (127.0.0.1:5555)",
     };
 
+    private static readonly Lazy<Dictionary<string, string>> TaskLogZh = new(() => ReadTaskLogStrings("zh-CN"));
+    private static readonly Lazy<Dictionary<string, string>> TaskLogEn = new(() => ReadTaskLogStrings("en-US"));
+
+    private static Dictionary<string, string> ReadTaskLogStrings(string language)
+    {
+        using var stream = typeof(LocalizationService).Assembly.GetManifestResourceStream($"TaskLog.Strings.{language}.xaml")!;
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        return XDocument.Load(stream).Root!.Elements()
+            .Where(element => element.Attribute(x + "Key")?.Value is { } key
+                && (key.StartsWith("HachimiTaskLog_", StringComparison.Ordinal)
+                    || key.StartsWith("GrassSmartTraining", StringComparison.Ordinal)
+                    || key.StartsWith("GrassNormalTraining", StringComparison.Ordinal)))
+            .ToDictionary(element => element.Attribute(x + "Key")!.Value, element => element.Value, StringComparer.Ordinal);
+    }
+
     public string GetString(string key)
     {
         var dict = _currentLanguage.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? ZhStrings : EnStrings;
         if (dict.TryGetValue(key, out var val)) return val;
         if (EnStrings.TryGetValue(key, out val)) return val;
+        var taskLog = _currentLanguage.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? TaskLogZh : TaskLogEn;
+        if (taskLog.Value.TryGetValue(key, out val)) return val;
         return key;
     }
 }

@@ -244,7 +244,13 @@ public class UmaAutomationServiceTests
             fake.Emit(new TaskStartedEvent(44, 1, 900, "mail-collection", 0, 2));
             fake.Emit(new GameTaskProgressEvent(44, 2, "mail-collection", GameTaskEventType.TaskEntering,
                 "home", "mail", 0, 1, 2, true, 0.9, 10, 20, "Opening mailbox", 10, 900));
-            fake.Emit(new TaskCompletedEvent(44, 3, 900, "mail-collection", 1, 1, "done"));
+            fake.Emit(new TaskProgressEvent(44, 3, (int)GameTaskEventType.ActionExecuted,
+                "internalProbe", "mail", 1, true, 0.9, 10, 20, "technical action", 11, 900));
+            fake.Emit(new TaskDecisionEvent(44, 4, 900, "mail", "Collect all rewards"));
+            fake.Emit(new TaskActionConfirmedEvent(44, 5, 900, "Collect rewards", true));
+            fake.Emit(new TaskDecisionEvent(45, 6, 900, "mail", "Unrelated operation"));
+            fake.Emit(new TaskActionConfirmedEvent(44, 7, 999, "Unrelated instance", true));
+            fake.Emit(new TaskCompletedEvent(44, 8, 900, "mail-collection", 1, 1, "done"));
             fake.Emit(new TaskStartedEvent(44, 4, 901, "daily-race", 1, 2));
             fake.Emit(new TaskCompletedEvent(44, 5, 901, "daily-race", 1, 1, "done"));
             return Task.FromResult(new QueueRunResult(true, 2, 0, 0, tasks.Count,
@@ -277,8 +283,16 @@ public class UmaAutomationServiceTests
             request => Assert.Equal("daily-race", request.TaskId));
         Assert.Contains(updates, update => update.Kind == UmaTaskQueueEventKind.Started && update.TaskIndex == 0);
         Assert.Contains(updates, update => update.Kind == UmaTaskQueueEventKind.Progress
-            && update.Message == "Opening mailbox" && update.TaskId == "mail-collection");
+            && update.Message == "Opening mailbox" && update.TaskId == "mail-collection"
+            && update.EventType == GameTaskEventType.TaskEntering);
         Assert.Contains(updates, update => update.Kind == UmaTaskQueueEventKind.Completed && update.TaskId == "daily-race");
+        Assert.Contains(updates, update => update.Kind == UmaTaskQueueEventKind.Decision
+            && update.Message == "Collect all rewards" && update.TaskIndex == 0);
+        Assert.Contains(updates, update => update.Kind == UmaTaskQueueEventKind.ActionConfirmed
+            && update.TaskName == "Collect rewards" && update.Succeeded == true);
+        Assert.DoesNotContain(updates, update => update.Message == "Unrelated operation"
+            || update.TaskName == "Unrelated instance");
+        Assert.Contains(logger.Entries, entry => entry.Message == "technical action" && entry.Category == "TaskRuntime");
 
         var mailSettings = UmaTaskSettingsSerializer.Deserialize(fake.LastQueueRequests[0].SettingsJson);
         Assert.True(Path.IsPathFullyQualified(mailSettings["definitionPath"]!.GetValue<string>()));

@@ -34,6 +34,8 @@ public enum UmaTaskQueueEventKind
     Failed,
     Canceled,
     Skipped,
+    Decision,
+    ActionConfirmed,
 }
 
 public sealed record UmaTaskQueueEvent(
@@ -45,7 +47,8 @@ public sealed record UmaTaskQueueEvent(
     string? TaskName = null,
     string? Message = null,
     bool? Succeeded = null,
-    ConnectionErrorCode? ErrorCode = null);
+    ConnectionErrorCode? ErrorCode = null,
+    GameTaskEventType? EventType = null);
 
 public sealed record UmaTaskQueueRunResult(
     bool Succeeded,

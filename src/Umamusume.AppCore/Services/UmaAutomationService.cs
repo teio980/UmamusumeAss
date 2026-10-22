@@ -683,6 +683,9 @@ public sealed class UmaAutomationService : IUmaAutomationService
 
                 case GameTaskProgressEvent gameTaskProgress
                     when TryResolveTaskIndex(gameTaskProgress.TaskInstanceId, gameTaskProgress.OperationId, out var gameIndex):
+                    if (gameTaskProgress.EventType is GameTaskEventType.ActionExecuted or GameTaskEventType.TaskFailed)
+                        _logger.Log(gameTaskProgress.Message,
+                            gameTaskProgress.Succeeded ? LogEntryKind.Normal : LogEntryKind.Error, "TaskRuntime");
                     Report(new(
                         gameIndex,
                         requests[gameIndex].TaskId,
@@ -691,11 +694,14 @@ public sealed class UmaAutomationService : IUmaAutomationService
                         gameTaskProgress.TotalUnits,
                         gameTaskProgress.TaskName,
                         gameTaskProgress.Message,
-                        gameTaskProgress.Succeeded));
+                        gameTaskProgress.Succeeded,
+                        EventType: gameTaskProgress.EventType));
                     break;
 
                 case TaskProgressEvent taskProgress
                     when TryResolveTaskIndex(taskProgress.TaskInstanceId, taskProgress.OperationId, out var progressIndex):
+                    _logger.Log(taskProgress.Message,
+                        taskProgress.Succeeded ? LogEntryKind.Normal : LogEntryKind.Error, "TaskRuntime");
                     Report(new(
                         progressIndex,
                         requests[progressIndex].TaskId,
@@ -705,6 +711,18 @@ public sealed class UmaAutomationService : IUmaAutomationService
                         taskProgress.TaskName,
                         taskProgress.Message,
                         taskProgress.Succeeded));
+                    break;
+
+                case TaskDecisionEvent decision
+                    when TryResolveTaskIndex(decision.TaskId, decision.OperationId, out var decisionIndex):
+                    Report(new(decisionIndex, requests[decisionIndex].TaskId, UmaTaskQueueEventKind.Decision,
+                        TaskName: decision.DecisionType, Message: decision.Details));
+                    break;
+
+                case TaskActionConfirmedEvent confirmed
+                    when TryResolveTaskIndex(confirmed.TaskId, confirmed.OperationId, out var confirmedIndex):
+                    Report(new(confirmedIndex, requests[confirmedIndex].TaskId, UmaTaskQueueEventKind.ActionConfirmed,
+                        TaskName: confirmed.ActionName, Succeeded: confirmed.Confirmed));
                     break;
 
                 case RuntimeDiagnosticEvent diagnostic when AcceptOperation(diagnostic.OperationId):

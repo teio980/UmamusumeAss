@@ -10,6 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../UmamusumeWpfGui/Resources/Strings.zh-CN.xaml" LogicalName="TaskLog.Strings.zh-CN.xaml" WithCulture="false" />
+    <EmbeddedResource Include="../UmamusumeWpfGui/Resources/Strings.en-US.xaml" LogicalName="TaskLog.Strings.en-US.xaml" WithCulture="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Umamusume.AppCore.Tests" />
     <InternalsVisibleTo Include="Umamusume.Avalonia" />
   </ItemGroup>
