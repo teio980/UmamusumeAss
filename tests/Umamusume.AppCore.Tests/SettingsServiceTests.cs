@@ -181,7 +181,8 @@ public sealed class SettingsServiceTests
         try
         {
             var service = new JsonSettingsService(targetPath);
-            Assert.ThrowsAny<IOException>(() => service.Save(new ConnectionSettings()));
+            var ex = Assert.ThrowsAny<Exception>(() => service.Save(new ConnectionSettings()));
+            Assert.True(ex is IOException or UnauthorizedAccessException);
         }
         finally
         {

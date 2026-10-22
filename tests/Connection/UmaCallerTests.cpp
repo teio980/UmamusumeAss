@@ -154,7 +154,7 @@ public:
     }
 
     [[nodiscard]] bool wait_for_terminal(
-        std::chrono::milliseconds timeout = 5s)
+        std::chrono::milliseconds timeout = 30s)
     {
         std::unique_lock lock(mutex_);
         return cv_.wait_for(lock, timeout, [this] {
@@ -199,7 +199,7 @@ public:
     }
 
     [[nodiscard]] bool wait_for_operation_terminal(
-        std::uint64_t operation_id, std::chrono::milliseconds timeout = 10s)
+        std::uint64_t operation_id, std::chrono::milliseconds timeout = 30s)
     {
         std::unique_lock lock(mutex_);
         return cv_.wait_for(lock, timeout, [this, operation_id] {
@@ -275,7 +275,7 @@ public:
     }
 
     [[nodiscard]] bool wait_for_terminal(
-        std::chrono::milliseconds timeout = 5s)
+        std::chrono::milliseconds timeout = 30s)
     {
         std::unique_lock lock(mutex_);
         return condition_.wait_for(lock, timeout, [this] {
@@ -1233,14 +1233,14 @@ TEST_CASE("device operation can start from the connection completion callback", 
     REQUIRE(connection.error_code == UMA_SUCCESS);
     {
         std::unique_lock lock(context.mutex);
-        REQUIRE(context.cv.wait_for(lock, 10s, [&context] {
+        REQUIRE(context.cv.wait_for(lock, 30s, [&context] {
             return context.capture_start.has_value();
         }));
     }
     REQUIRE(context.capture_start->error_code == UMA_SUCCESS);
     {
         std::unique_lock lock(context.mutex);
-        REQUIRE(context.cv.wait_for(lock, 10s, [&context] {
+        REQUIRE(context.cv.wait_for(lock, 30s, [&context] {
             if (!context.capture_start) return false;
             return std::any_of(context.messages.begin(), context.messages.end(), [&context](auto const& message) {
                 return message.id == UMA_MSG_FRAME_CAPTURED

@@ -63,6 +63,10 @@ jobs:
         run: cmake --build build/release --config Release
         shell: pwsh
 
+      - name: Stage Native Runtime
+        run: cmake --install build/release --prefix build/native-staging --config Release
+        shell: pwsh
+
       - name: Run CTest (Release)
         run: ctest --test-dir build/release -C Release --output-on-failure
         shell: pwsh

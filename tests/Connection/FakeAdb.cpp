@@ -39,11 +39,24 @@ namespace {
 [[nodiscard]] std::string environment_value(char const* name)
 {
 #if defined(_WIN32)
-    std::array<char, 32768> buffer{};
-    auto const length = ::GetEnvironmentVariableA(name, buffer.data(), static_cast<DWORD>(buffer.size()));
+    std::wstring wide_name;
+    if (name)
+    {
+        int needed = ::MultiByteToWideChar(CP_UTF8, 0, name, -1, nullptr, 0);
+        if (needed > 0)
+        {
+            wide_name.resize(static_cast<std::size_t>(needed - 1));
+            ::MultiByteToWideChar(CP_UTF8, 0, name, -1, wide_name.data(), needed);
+        }
+    }
+    std::vector<wchar_t> buffer(32768);
+    auto const length = ::GetEnvironmentVariableW(wide_name.c_str(), buffer.data(), static_cast<DWORD>(buffer.size()));
     if (length > 0 && length < buffer.size())
     {
-        return std::string(buffer.data(), length);
+        int size_needed = ::WideCharToMultiByte(CP_UTF8, 0, buffer.data(), static_cast<int>(length), nullptr, 0, nullptr, nullptr);
+        std::string result(size_needed, '\0');
+        ::WideCharToMultiByte(CP_UTF8, 0, buffer.data(), static_cast<int>(length), result.data(), size_needed, nullptr, nullptr);
+        return result;
     }
     char* raw = nullptr;
     std::size_t size = 0;
@@ -56,6 +69,23 @@ namespace {
 #else
     char const* val = std::getenv(name);
     return val ? std::string(val) : std::string{};
+#endif
+}
+
+[[nodiscard]] std::filesystem::path to_path(std::string const& utf8)
+{
+#if defined(_WIN32)
+    if (utf8.empty()) return {};
+    int needed = ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
+    if (needed > 0)
+    {
+        std::wstring wide(static_cast<std::size_t>(needed), L'\0');
+        ::MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), wide.data(), needed);
+        return std::filesystem::path(wide);
+    }
+    return std::filesystem::path(utf8);
+#else
+    return std::filesystem::path(utf8);
 #endif
 }
 
@@ -560,8 +590,8 @@ int main(int argc, char** argv)
         if ((mode.empty() || mode == "png") && exec_out && png)
         {
             auto const configured = environment_value("UMA_FAKE_ADB_SCREENSHOT_PATH");
-            std::ifstream image(configured.empty() ? UMA_FAKE_PNG_PATH : configured,
-                                std::ios::binary);
+            auto const image_path = to_path(configured.empty() ? UMA_FAKE_PNG_PATH : configured);
+            std::ifstream image(image_path, std::ios::binary);
             if (!image) return 3;
             std::cout << image.rdbuf();
             return 0;
@@ -569,8 +599,8 @@ int main(int argc, char** argv)
         if (mode == "shell-png" && shell_png)
         {
             auto const configured = environment_value("UMA_FAKE_ADB_SCREENSHOT_PATH");
-            std::ifstream image(configured.empty() ? UMA_FAKE_PNG_PATH : configured,
-                                std::ios::binary);
+            auto const image_path = to_path(configured.empty() ? UMA_FAKE_PNG_PATH : configured);
+            std::ifstream image(image_path, std::ios::binary);
             if (!image) return 3;
             std::cout << image.rdbuf();
             return 0;
@@ -584,8 +614,8 @@ int main(int argc, char** argv)
             || mode == "gzip" || mode == "gzip-truncated" || mode == "gzip-corrupt"
             || mode == "shell-png") return 3;
         auto const configured = environment_value("UMA_FAKE_ADB_SCREENSHOT_PATH");
-        std::ifstream image(configured.empty() ? UMA_FAKE_PNG_PATH : configured,
-                            std::ios::binary);
+        auto const image_path = to_path(configured.empty() ? UMA_FAKE_PNG_PATH : configured);
+        std::ifstream image(image_path, std::ios::binary);
         if (!image) return 3;
         std::cout << image.rdbuf();
         return 0;

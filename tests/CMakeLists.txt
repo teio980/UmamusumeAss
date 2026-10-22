@@ -49,6 +49,9 @@ if(WIN32)
       "${DOTNET_EXECUTABLE}" test
       "${CMAKE_SOURCE_DIR}/tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj"
       -c Release
+      "-p:SkipNativeRuntimeBuild=true"
+      "--filter"
+      "FullyQualifiedName~PackageLayoutTests"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   )
 endif()

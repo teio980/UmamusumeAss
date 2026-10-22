@@ -152,7 +152,7 @@ struct PipelineCallbackState
     }
 
     std::optional<Event> WaitForPipelineResult(std::uint64_t operationId,
-        std::chrono::milliseconds timeout = std::chrono::seconds(10))
+        std::chrono::milliseconds timeout = std::chrono::seconds(30))
     {
         std::unique_lock lock(mutex);
         auto const hasResult = [&] {

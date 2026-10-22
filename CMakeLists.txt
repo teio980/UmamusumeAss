@@ -103,12 +103,17 @@ FetchContent_Declare(
   leptonica
   URL      https://github.com/DanBloomberg/leptonica/archive/refs/tags/1.85.0.tar.gz
   URL_HASH SHA256=c01376bce0379d4ea4bc2ec5d5cbddaa49e2f06f88242619ab8c059e21adf233
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(leptonica)
 target_include_directories(leptonica PUBLIC
   $<BUILD_INTERFACE:${leptonica_SOURCE_DIR}/src>
   $<BUILD_INTERFACE:${leptonica_BINARY_DIR}/src>
 )
+
+# Workaround for Leptonica 1.85.0 install bug when consumed via FetchContent
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src")
+file(WRITE "${CMAKE_BINARY_DIR}/src/endianness.h" "/* Generated placeholder for Leptonica install */\n")
 
 file(WRITE "${CMAKE_BINARY_DIR}/cmake/Leptonica/LeptonicaConfig.cmake" "
 set(Leptonica_VERSION \"1.85.0\")
@@ -135,6 +140,7 @@ FetchContent_Declare(
   tesseract
   URL      https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz
   URL_HASH SHA256=f2fb34ca035b6d087a42875a35a7a5c4155fa9979c6132365b1e5a28ebc3fc11
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(tesseract)
 target_include_directories(libtesseract PUBLIC

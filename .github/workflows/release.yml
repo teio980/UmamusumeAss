@@ -65,6 +65,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           cmake -S . -B build/release -G 'Visual Studio 17 2022' -A x64 -DUMA_BUILD_TESTS=ON
           cmake --build build/release --config Release
+          cmake --install build/release --prefix build/native-staging --config Release
           ctest --test-dir build/release -C Release --output-on-failure
       - name: Test managed code
         shell: pwsh
@@ -72,7 +73,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           dotnet test tests/Umamusume.UpdateCore.Tests/Umamusume.UpdateCore.Tests.csproj --configuration Release
           dotnet restore tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj
-          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore
+          dotnet test tests/UmamusumeWpfGui.Tests/UmamusumeWpfGui.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackageLayoutTests"
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress

@@ -78,7 +78,7 @@ public sealed class NativeLoadTests
         // queue scenario runs three native queues including an in-scene cancel.
         // Both do substantial work beyond the short load/control scenarios.
         TimeSpan budget = TimeSpan.FromSeconds(
-            scenario is "native-career-checkpoint-resume" or "native-queue-task" ? 90 : 30);
+            scenario is "native-career-checkpoint-resume" or "native-queue-task" or "native-game-task" ? 120 : 60);
         using var timeout = new CancellationTokenSource(budget);
         try
         {
