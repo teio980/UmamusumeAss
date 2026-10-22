@@ -29,7 +29,16 @@ namespace {
 
 std::filesystem::path locate_tessdata_path()
 {
+#if defined(_MSC_VER)
+    char* raw_env = nullptr;
+    std::size_t env_size = 0;
+    if (_dupenv_s(&raw_env, &env_size, "TESSDATA_PREFIX") != 0)
+        raw_env = nullptr;
+    std::unique_ptr<char, decltype(&std::free)> env_storage(raw_env, &std::free);
+    char const* env = env_storage.get();
+#else
     char const* env = std::getenv("TESSDATA_PREFIX");
+#endif
     if (env && *env)
     {
         std::filesystem::path p(env);
