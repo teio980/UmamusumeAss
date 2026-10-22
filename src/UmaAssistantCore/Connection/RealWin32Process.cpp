@@ -56,7 +56,7 @@ void create_inheritable_pipe(
     sa.bInheritHandle = TRUE;
     sa.lpSecurityDescriptor = nullptr;
 
-    if (!::CreatePipe(&r, &w, &sa, 0)) {
+    if (!::CreatePipe(&r, &w, &sa, 1024 * 1024)) {
         return;
     }
 
@@ -682,7 +682,7 @@ void RealWin32Process::drain_pipe(
     std::atomic<bool>&  truncated,
     bool                stop_when_parent_exits)
 {
-    char buf[4096];
+    char buf[65536];
     DWORD bytes_read = 0;
     std::optional<DWORD> drain_after_exit;
 
