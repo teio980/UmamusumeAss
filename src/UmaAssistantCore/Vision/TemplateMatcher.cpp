@@ -458,8 +458,18 @@ MatchResult find(
             }
         };
 
-        std::vector<std::jthread> workers;
+        // Apple libc++ on the macOS CI runner does not provide std::jthread.
+        std::vector<std::thread> workers;
         workers.reserve(worker_count - 1);
+        struct JoinWorkers
+        {
+            std::vector<std::thread>& threads;
+            ~JoinWorkers()
+            {
+                for (auto& thread : threads)
+                    if (thread.joinable()) thread.join();
+            }
+        } join_workers{workers};
         try
         {
             for (unsigned index = 1; index < worker_count; ++index)
@@ -469,7 +479,7 @@ MatchResult find(
         {
             // Resource pressure should reduce parallelism, not disable an otherwise
             // valid recognition request. The caller below drains all unclaimed rows;
-            // jthread also joins any workers if this path itself unwinds.
+            // join_workers also joins any workers if this path itself unwinds.
         }
         scan_rows();
         for (auto& worker : workers) worker.join();
