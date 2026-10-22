@@ -8,6 +8,7 @@ These are real crops from the configured 900x1600 MuMu portrait session:
 - `start_game/data_download.png`: the Data Download dialog title.
 - `start_game/promo_skip.png`: the promotional page skip control.
 - `start_game/notices_close.png`: the Notices dialog Close button.
+- `start_game/back.png`: the Notices detail Back text, cropped to 78x34 at (411, 1459) from the 900x1600 BlueStacks ADB capture, with the original button background retained and no transparency mask. The startup monitor clicks it and resumes checking startup controls.
 - `start_game/rewards_collected_close.png`: the event Rewards Collected dialog Close text, cropped to 89x32 at (405, 1130) from the 900x1600 ADB capture, with the original button background retained and no transparency mask.
 
 Team Race templates are kept separately under `team_race/`.
