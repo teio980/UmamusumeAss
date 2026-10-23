@@ -3,6 +3,7 @@ include(Catch)
 
 add_executable(RecognitionTests
   RecognitionTests.cpp
+  MacOcrRegressionTests.cpp
   NumericOcrBatchTests.cpp
   NumericOcrWorkerTests.cpp
 )

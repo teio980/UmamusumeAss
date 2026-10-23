@@ -6,6 +6,11 @@
 #include "UmaAssistantCore/TaskEngine/RecognitionPipeline.hpp"
 #include "UmaAssistantCore/TaskEngine/TaskGraphRunner.hpp"
 #include "MockTaskExecutionContext.hpp"
+#if defined(__APPLE__)
+#include "UmaAssistantCore/Recognition/WindowsOcrRecognizer.hpp"
+#include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
+#include "UmaAssistantCore/Resources/ImageTransforms.hpp"
+#endif
 
 #include <chrono>
 #include <algorithm>
@@ -19,6 +24,36 @@
 using namespace UmaAssistant::TaskEngine;
 using namespace UmaAssistant::TaskEngine::Tests;
 namespace Paths = UmaAssistant::Paths;
+
+#if defined(__APPLE__)
+TEST_CASE("Mac real OCR reaches task matching without merging distinct shop rows", "[TaskEngine][MacOcr]")
+{
+    using namespace UmaAssistant;
+    auto image = Resources::WicImageDecoder::decode_file(std::filesystem::path(UMA_SOURCE_ROOT)
+        / "tests/UmamusumeWpfGui.Tests/Fixtures/Shop/daily-sales-alarm-and-parfait.png");
+    image = Resources::crop_image(image, 175, 585, 520, 565);
+    Recognition::WindowsOcrRecognizer reader;
+    MockTaskExecutionContext context;
+    for (const auto& line : reader.recognize(image, "en-US").detections)
+        context.mockOcrDetections.push_back({line.text, line.bounds.x + 175, line.bounds.y + 585,
+            line.bounds.width, line.bounds.height, line.confidence});
+    HachimiPipelineDefinition definition;
+    HachimiPipelineTask task;
+    task.algorithm = "OcrText";
+    task.action = "FindText";
+    task.fuzzyThreshold = 1.0;
+    task.targetText = "Pleasing Parfait";
+    auto result = RecognitionPipeline::EvaluateTask(definition, "shop-item", task, context);
+    REQUIRE(result.matched);
+    CHECK(result.methodUsed == "Ocr");
+    CHECK(result.matchResult.y >= 585);
+    CHECK(result.matchResult.y < 1150);
+    task.targetText = "Alarm Clock";
+    CHECK_FALSE(RecognitionPipeline::EvaluateTask(definition, "shop-item", task, context).matched);
+    task.unique = false;
+    CHECK(RecognitionPipeline::EvaluateTask(definition, "shop-item", task, context).matched);
+}
+#endif
 
 TEST_CASE("Overriding a post delay still waits for the visual successor before continuing", "[TaskEngine][CareerWait]")
 {

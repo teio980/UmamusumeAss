@@ -6,6 +6,7 @@
 #include "GameTasks/NativeGameTaskRunner.hpp"
 #include "Common/PathEncoding.hpp"
 #include "Resources/WicImageDecoder.hpp"
+#include "Resources/ImageTransforms.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -85,6 +86,36 @@ inline DWORD GetEnvironmentVariableW(wchar_t const* name, wchar_t* buffer, DWORD
 #include <sstream>
 #include <thread>
 #include <vector>
+
+#if defined(__APPLE__)
+TEST_CASE("Mac isolated and task image OCR share fixes and respect cancellation", "[NativeTaskContext][MacOcr]")
+{
+    using namespace UmaAssistant;
+    auto image = Resources::WicImageDecoder::decode_file(std::filesystem::path(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/career_skill_gourmand_selected_bluestacks_mac_20261023.png");
+    image = Resources::crop_image(image, 625, 704, 220, 155);
+    Recognition::WindowsOcrRecognizer reader;
+    std::stop_source cancellation;
+    TaskEngine::NativeTaskExecutionContext context(nullptr, nullptr, &reader, nullptr, 1,
+        cancellation.get_token(), {});
+    const auto isolated = context.CreateImageRecognitionContext();
+    for (const auto& lines : {context.RecognizeImageText(image, "en-US"),
+        isolated->RecognizeImageText(image, "en-US")})
+    {
+        int obtained = 0;
+        for (const auto& line : lines)
+        {
+            INFO(line.text);
+            if (line.text.find("Obtained") != std::string::npos
+                || line.text.find("OBTAINED") != std::string::npos) ++obtained;
+        }
+        CHECK(obtained == 1);
+    }
+    cancellation.request_stop();
+    CHECK(context.RecognizeImageText(image, "en-US").empty());
+    CHECK(isolated->RecognizeImageText(image, "en-US").empty());
+}
+#endif
 
 namespace
 {

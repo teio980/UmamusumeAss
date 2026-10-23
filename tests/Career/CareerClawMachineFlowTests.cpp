@@ -3,9 +3,13 @@
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/ResourceSnapshot.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
+#include "UmaAssistantCore/Resources/ImageTransforms.hpp"
+#include "UmaAssistantCore/Recognition/WindowsOcrRecognizer.hpp"
+#include "UmaAssistantCore/Vision/ColorAnalysis.hpp"
 #include "tests/TaskEngine/MockTaskExecutionContext.hpp"
 #include <fstream>
 #include <stdexcept>
+#include <cmath>
 
 namespace
 {
@@ -127,6 +131,37 @@ TEST_CASE("Claw vision locates controls and result buttons in packaged captures"
     CHECK_FALSE(CareerClawVision::MatchMarker(other, *game, settings, .94).found);
     CHECK_FALSE(CareerClawVision::MatchMarker(other, *result, settings, .92).found);
 }
+
+#if defined(__APPLE__)
+TEST_CASE("Mac actual claw credit OCR survives the production color preprocessing", "[Career][Claw][MacOcr]")
+{
+    const auto resources = LoadResources();
+    const auto settings = CareerClawMachineSettings::FromJson(resources->GetProfileOptions());
+    Resources::ResourceSnapshot images(Root());
+    const auto* asset = resources->FindAsset("career.turn.claw.credit_label");
+    REQUIRE(asset);
+    const auto labelImage = images.load_image(asset->path);
+    REQUIRE(labelImage);
+    Recognition::WindowsOcrRecognizer reader;
+    for (const auto* file : {"claw_machine_ready.png", "claw_machine_credit2.png"})
+    {
+        CAPTURE(file);
+        const auto frame = Resources::WicImageDecoder::decode_file(Capture(file));
+        const auto label = CareerClawVision::MatchMarker(frame, *labelImage, settings, settings.creditLabelThreshold, false);
+        REQUIRE(label.found);
+        const int padding = static_cast<int>(std::ceil(label.height * settings.creditOcrPaddingLabelRatio));
+        const int left = (std::max)(0, label.x - padding);
+        auto crop = Resources::crop_image(frame, left, label.y - padding, frame.width - left, label.height + padding * 2);
+        crop = Resources::resize_image(crop, static_cast<int>(crop.width * settings.ocrScale),
+            static_cast<int>(crop.height * settings.ocrScale));
+        crop = Vision::binarize_color(crop, settings.ocrTextColor);
+        std::vector<TaskOcrDetection> detections;
+        for (const auto& line : reader.recognize(crop, "en-US").detections)
+            detections.push_back({line.text, line.bounds.x, line.bounds.y, line.bounds.width, line.bounds.height, line.confidence});
+        CHECK(CareerClawMachineFlow::ParseCredit(detections) == (std::string(file) == "claw_machine_ready.png" ? 3 : 2));
+    }
+}
+#endif
 
 TEST_CASE("Claw flow finishes observed credits and confirms the result exit", "[Career][Claw][Replay]")
 {

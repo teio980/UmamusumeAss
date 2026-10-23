@@ -258,15 +258,52 @@ TEST_CASE("Countdown numeric OCR accepts unsigned integers without changing trai
     }
 }
 
+#if defined(__APPLE__)
+TEST_CASE("Mac integer OCR trims quote whitespace without accepting units or multiple values", "[MacOcr]")
+{
+    using UmaAssistant::Recognition::NumericOcrFormat;
+    for (const auto& [raw, expected] : std::vector<std::pair<std::string, std::optional<int>>>{
+        {"85 '", 85}, {"' 7", 7}, {" ' 11 ' ", 11}, {"' ' 7 ' '", 7},
+        {"11 12 '", std::nullopt}, {"' -7 '", std::nullopt}, {"' 85% '", std::nullopt},
+        {"' 85° '", std::nullopt}, {"' Failure 7 '", std::nullopt}, {"' '", std::nullopt}})
+    {
+        CAPTURE(raw);
+        FakeWin32Process process;
+        process.results.assign(6, success(tsv({{1, raw}})));
+        NumericOcrBatch service(process, process.expected_executable);
+        const std::vector<NumericOcrBatchField> fields{{"integer", crop_with_ink_groups(2), 9999, false,
+            NumericOcrFormat::UnsignedInteger}};
+        CHECK(service.read(fields).at("integer").value == expected);
+    }
+}
+
+TEST_CASE("Mac CLI numeric OCR does not require optional tessdata configs", "[MacOcr]")
+{
+    FakeWin32Process process;
+    process.results = {success(tsv({})), success(tsv({})), success(tsv({})),
+        success(tsv({})), success(tsv({{1, "+7"}}))};
+    NumericOcrBatch service(process, process.expected_executable);
+    const std::vector<NumericOcrBatchField> fields{{"gain", crop_with_ink_groups(2), 999, true}};
+    CHECK(service.read(fields).at("gain").value == 7);
+    REQUIRE(process.command_lines.size() == 5);
+    CHECK(process.command_lines.front().find(L"tessedit_create_tsv=1") != std::wstring::npos);
+    CHECK(process.command_lines.back().find(L"thresholding_method=2") != std::wstring::npos);
+}
+#endif
+
 TEST_CASE("Numeric OCR rejects gain values whose crop glyph count disagrees")
 {
     FakeWin32Process process;
+#if defined(__APPLE__)
+    process.results.assign(6, success(tsv({{1, "+11"}})));
+#else
     process.results = {
         success(tsv({{1, "+11"}})),
         success(tsv({{1, "+11"}})),
         success(tsv({{1, "+11"}})),
         success(tsv({{1, "+11"}})),
     };
+#endif
     NumericOcrBatch service(process, process.expected_executable);
     std::vector<NumericOcrBatchField> fields{{"ambiguous", crop_with_ink_groups(2), 999, true}};
 
@@ -274,8 +311,13 @@ TEST_CASE("Numeric OCR rejects gain values whose crop glyph count disagrees")
 
     CHECK_FALSE(readings.at("ambiguous").value.has_value());
     CHECK(readings.at("ambiguous").glyphMismatch);
+#if defined(__APPLE__)
+    CHECK(readings.at("ambiguous").rawText == "+11 | +11 | +11 | +11 | +11 | +11");
+    CHECK((process.psms == std::vector<std::string>{"7", "8", "13", "7", "7", "7"}));
+#else
     CHECK(readings.at("ambiguous").rawText == "+11 | +11 | +11 | +11");
     CHECK((process.psms == std::vector<std::string>{"7", "8", "13", "7"}));
+#endif
 }
 
 TEST_CASE("Numeric OCR number parsing follows training OCR tokens")

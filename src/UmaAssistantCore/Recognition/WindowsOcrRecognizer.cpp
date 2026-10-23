@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -26,6 +27,49 @@
 
 namespace UmaAssistant::Recognition {
 namespace {
+
+#if defined(__APPLE__)
+bool IsUniformImage(const Vision::GrayImage& image)
+{
+    if (!image.rgba.empty())
+    {
+        for (std::size_t index = 4; index < image.rgba.size(); index += 4)
+            if (image.rgba[index] != image.rgba[0] || image.rgba[index + 1] != image.rgba[1]
+                || image.rgba[index + 2] != image.rgba[2]) return false;
+        return true;
+    }
+    return std::all_of(image.gray.begin(), image.gray.end(), [&](const auto value) {
+        return value == image.gray.front();
+    });
+}
+
+bool SameTextLine(const TextDetection& left, const TextDetection& right)
+{
+    const int overlapX = (std::max)(0, (std::min)(left.bounds.x + left.bounds.width,
+        right.bounds.x + right.bounds.width) - (std::max)(left.bounds.x, right.bounds.x));
+    const int overlapY = (std::max)(0, (std::min)(left.bounds.y + left.bounds.height,
+        right.bounds.y + right.bounds.height) - (std::max)(left.bounds.y, right.bounds.y));
+    const int minWidth = (std::min)(left.bounds.width, right.bounds.width);
+    const int minHeight = (std::min)(left.bounds.height, right.bounds.height);
+    return minWidth > 0 && minHeight > 0 && overlapX * 2 >= minWidth
+        && overlapY * 2 >= minHeight;
+}
+
+void MergeTextLines(std::vector<TextDetection>& lines, std::vector<TextDetection> extra,
+    bool replaceExisting = true)
+{
+    for (auto& candidate : extra)
+    {
+        const auto existing = std::find_if(lines.begin(), lines.end(), [&](const auto& line) {
+            return SameTextLine(line, candidate);
+        });
+        if (existing == lines.end())
+            lines.push_back(std::move(candidate));
+        else if (replaceExisting && candidate.confidence > existing->confidence)
+            *existing = std::move(candidate);
+    }
+}
+#endif
 
 std::filesystem::path locate_tessdata_path()
 {
@@ -53,6 +97,23 @@ std::filesystem::path locate_tessdata_path()
 
     // Check application bundle and binary location on macOS
 #if defined(__APPLE__)
+    // A framework-dependent Avalonia launch runs inside dotnet. Resolve the
+    // loaded library as well as the executable so packaged models do not rely
+    // on the launcher's working directory or the original source checkout.
+    static const char libraryAnchor{};
+    Dl_info libraryInfo{};
+    if (dladdr(&libraryAnchor, &libraryInfo) != 0 && libraryInfo.dli_fname)
+    {
+        for (auto cur = std::filesystem::path(libraryInfo.dli_fname).parent_path();
+            !cur.empty(); cur = cur.parent_path())
+        {
+            candidates.push_back(cur / "resource" / "tessdata");
+            candidates.push_back(cur / "tessdata");
+            candidates.push_back(cur / "Resources" / "resource" / "tessdata");
+            candidates.push_back(cur / "Resources" / "tessdata");
+            if (cur == cur.parent_path()) break;
+        }
+    }
     char exe_buf[1024];
     uint32_t size = sizeof(exe_buf);
     if (_NSGetExecutablePath(exe_buf, &size) == 0)
@@ -143,6 +204,10 @@ struct WindowsOcrRecognizer::Impl
         if (res != 0)
         {
             initialized = false;
+#if defined(__APPLE__)
+            throw std::runtime_error("Could not initialize Mac OCR with English model at "
+                + data_path.string());
+#endif
             return;
         }
 
@@ -151,6 +216,9 @@ struct WindowsOcrRecognizer::Impl
         initialized = true;
         current_language = lang;
     }
+
+    std::vector<TextDetection> read_image(const Vision::GrayImage& image,
+        tesseract::PageSegMode mode, int thresholdMethod);
 };
 
 WindowsOcrRecognizer::WindowsOcrRecognizer()
@@ -203,22 +271,74 @@ TextRecognitionResult WindowsOcrRecognizer::recognize(
     }
     result.language = impl_->current_language;
 
-    if (image.rgba.size() == expected_rgba)
+#if defined(__APPLE__)
+    // Single-line segmentation otherwise invents glyphs on blank UI panels.
+    if (IsUniformImage(image)) return result;
+#endif
+    result.detections = impl_->read_image(image, tesseract::PSM_AUTO, 0);
+#if defined(__APPLE__)
+    // Global color Otsu can erase whole selected skill cards and white badge
+    // lettering. A local Sauvola pass recovers those lines even when the first
+    // pass found other text. Merge in source coordinates to avoid duplicate
+    // rows, which would make skill selection ambiguous.
+    if (image.width >= 8 && image.height >= 8)
+        MergeTextLines(result.detections, impl_->read_image(image, tesseract::PSM_AUTO, 2));
+    if (image.width >= 200 && image.height >= 200)
     {
-        impl_->api.SetImage(image.rgba.data(), image.width, image.height, 4, image.width * 4);
+        // UI grids have no paragraph layout. AUTO can omit an entire date or
+        // button even when it confidently reads the surrounding cells. Sparse
+        // segmentation contributes missing lines only; its word fragments must
+        // not replace already recognized complete lines.
+        auto sparse = impl_->read_image(image, tesseract::PSM_SPARSE_TEXT, 2);
+        std::erase_if(sparse, [](const auto& line) {
+            return line.confidence < 0.70 || std::none_of(line.text.begin(), line.text.end(), [](unsigned char ch) {
+                return std::isalnum(ch) != 0;
+            });
+        });
+        MergeTextLines(result.detections, std::move(sparse), false);
     }
-    else if (image.gray.size() == expected_gray)
+    if (result.detections.empty() && image.height <= 180 && image.width <= 1200)
     {
-        impl_->api.SetImage(image.gray.data(), image.width, image.height, 1, image.width);
+        // A cropped digit or short label has no page layout to discover.
+        MergeTextLines(result.detections, impl_->read_image(image, tesseract::PSM_SINGLE_LINE, 0));
+    }
+    std::stable_sort(result.detections.begin(), result.detections.end(), [](const auto& left, const auto& right) {
+        return left.bounds.y == right.bounds.y ? left.bounds.x < right.bounds.x
+            : left.bounds.y < right.bounds.y;
+    });
+#endif
+    return result;
+}
+
+std::vector<TextDetection> WindowsOcrRecognizer::Impl::read_image(
+    const Vision::GrayImage& image, tesseract::PageSegMode mode, int thresholdMethod)
+{
+    std::vector<TextDetection> detections;
+    api.SetPageSegMode(mode);
+    api.SetVariable("thresholding_method", std::to_string(thresholdMethod).c_str());
+#if defined(__APPLE__)
+    api.ClearAdaptiveClassifier();
+#endif
+    if (!image.rgba.empty())
+    {
+        api.SetImage(image.rgba.data(), image.width, image.height, 4, image.width * 4);
+    }
+    else
+    {
+        api.SetImage(image.gray.data(), image.width, image.height, 1, image.width);
     }
 
-    if (impl_->api.Recognize(nullptr) != 0)
+    if (api.Recognize(nullptr) != 0)
     {
-        impl_->api.Clear();
-        return result;
+        api.Clear();
+#if defined(__APPLE__)
+        throw std::runtime_error("Mac OCR recognition failed.");
+#else
+        return detections;
+#endif
     }
 
-    std::unique_ptr<tesseract::ResultIterator> ri(impl_->api.GetIterator());
+    std::unique_ptr<tesseract::ResultIterator> ri(api.GetIterator());
     if (ri && !ri->Empty(tesseract::RIL_TEXTLINE))
     {
         tesseract::PageIteratorLevel const level = tesseract::RIL_TEXTLINE;
@@ -247,12 +367,12 @@ TextRecognitionResult WindowsOcrRecognizer::recognize(
             detection.bounds.width = right - left;
             detection.bounds.height = bottom - top;
             detection.confidence = static_cast<double>(std::clamp(conf, 0.0f, 100.0f)) / 100.0;
-            result.detections.push_back(std::move(detection));
+            detections.push_back(std::move(detection));
         } while (ri->Next(level));
     }
 
-    impl_->api.Clear();
-    return result;
+    api.Clear();
+    return detections;
 }
 
 } // namespace UmaAssistant::Recognition

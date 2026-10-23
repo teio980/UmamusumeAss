@@ -1559,7 +1559,11 @@ std::int32_t recognize_text(
     try
     {
         UmaAssistant::Vision::GrayImage input;
-        if (!copy_image_view(image, input) || input.rgba.empty())
+        if (!copy_image_view(image, input)
+#if !defined(__APPLE__)
+            || input.rgba.empty()
+#endif
+        )
             return UMA_ERROR_INVALID_ARGUMENT;
         auto const recognized = state->ocr.recognize(input,
             utf8_language == nullptr ? std::string_view{} : std::string_view{utf8_language});

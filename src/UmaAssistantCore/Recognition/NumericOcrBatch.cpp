@@ -437,6 +437,13 @@ void write_image_list(std::filesystem::path const& list_path,
         bool trimmed = true;
         while (trimmed && first != last)
         {
+#if defined(__APPLE__)
+            // Removing an OCR quote can expose whitespace ("85 '" / "' 7").
+            // Only trim at the edges: embedded spaces or a second value still fail.
+            while (first != last && ascii_space(*first)) ++first;
+            while (first != last && ascii_space(*(last - 1))) --last;
+            if (first == last) break;
+#endif
             trimmed = false;
             const std::string_view view(&*first, static_cast<std::size_t>(last - first));
             for (auto const quote : quotes)
@@ -548,10 +555,19 @@ void write_image_list(std::filesystem::path const& list_path,
 [[nodiscard]] std::wstring build_tesseract_command(
     std::filesystem::path const& executable,
     std::filesystem::path const& input_list,
-    std::string const& psm)
+    std::string const& psm, int thresholdMethod)
 {
+#if defined(__APPLE__)
+    // Packaged language models do not contain the optional CLI "tsv" config.
+    std::vector<std::string> arguments{utf8_path(input_list), "stdout", "--psm", psm,
+        "-l", "eng", "-c", "tessedit_create_tsv=1", "-c",
+        "thresholding_method=" + std::to_string(thresholdMethod)};
+    return build_windows_command_line(executable, arguments);
+#else
+    (void)thresholdMethod;
     return build_windows_command_line(executable,
         {utf8_path(input_list), "stdout", "--psm", psm, "-l", "eng", "tsv"});
+#endif
 }
 
 void append_reading(NumericOcrBatchReading& reading, std::string const& raw)
@@ -573,7 +589,7 @@ struct NumericOcrBatch::WorkerState
     explicit WorkerState(WorkerFactory create) : factory(std::move(create)) {}
 
     [[nodiscard]] std::optional<std::vector<std::string>> read(
-        std::span<Vision::GrayImage const> images, int mode, Clock::time_point deadline,
+        std::span<Vision::GrayImage const> images, int mode, int thresholdMethod, Clock::time_point deadline,
         std::stop_token cancellation)
     {
         std::lock_guard lock(mutex);
@@ -601,7 +617,13 @@ struct NumericOcrBatch::WorkerState
                     color ? std::span<std::uint8_t const>(rgb) : std::span<std::uint8_t const>(image.gray))}});
         }
         auto const id = ++next_id;
-        auto const request = nlohmann::json{{"id", id}, {"psm", mode}, {"images", std::move(pages)}}.dump() + "\n";
+        auto requestValue = nlohmann::json{{"id", id}, {"psm", mode}, {"images", std::move(pages)}};
+#if defined(__APPLE__)
+        requestValue["thresholding"] = thresholdMethod;
+#else
+        (void)thresholdMethod;
+#endif
+        auto const request = requestValue.dump() + "\n";
         if (request.size() > NumericOcrProtocol::max_request_bytes) return std::nullopt;
 
         std::stop_source bounded;
@@ -918,8 +940,12 @@ NumericOcrBatchResult NumericOcrBatch::read(
         std::vector<std::filesystem::path> normal_images(fields.size());
         std::vector<std::filesystem::path> padded_images(fields.size());
 
-        struct Mode { char const* psm; bool padded; };
-        constexpr std::array modes{Mode{"7", false}, Mode{"8", false}, Mode{"13", false}, Mode{"7", true}};
+        struct Mode { char const* psm; bool padded; int thresholdMethod{0}; };
+        constexpr std::array modes{Mode{"7", false}, Mode{"8", false}, Mode{"13", false}, Mode{"7", true}
+#if defined(__APPLE__)
+            , Mode{"7", false, 2}, Mode{"7", true, 2}
+#endif
+        };
         for (auto const mode : modes)
         {
             throw_if_cancelled(cancellation);
@@ -937,7 +963,7 @@ NumericOcrBatchResult NumericOcrBatch::read(
             }
             if (pending.empty() || Clock::now() >= deadline) continue;
 
-            auto texts = worker_ ? worker_->read(images, std::stoi(mode.psm), deadline, cancellation)
+            auto texts = worker_ ? worker_->read(images, std::stoi(mode.psm), mode.thresholdMethod, deadline, cancellation)
                                  : std::optional<std::vector<std::string>>{};
             if (!texts)
             {
@@ -965,7 +991,7 @@ NumericOcrBatchResult NumericOcrBatch::read(
                 auto const remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now());
                 if (remaining <= std::chrono::milliseconds::zero()) break;
                 auto const result = process_->execute(executable_,
-                    build_tesseract_command(executable_, list_path, mode.psm), cancellation,
+                    build_tesseract_command(executable_, list_path, mode.psm, mode.thresholdMethod), cancellation,
                     remaining, max_tsv_bytes, false);
                 throw_if_cancelled(cancellation);
                 if (result.canceled)

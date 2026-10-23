@@ -3,6 +3,69 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+#if defined(__APPLE__)
+#include <nlohmann/json.hpp>
+#include <filesystem>
+#include <string>
+#endif
+
+#if defined(__APPLE__)
+namespace {
+void UMA_CALL IgnoreOcrCallback(int32_t, const char*, void*) {}
+}
+
+TEST_CASE("Mac screenshot OCR ABI accepts gray-only images and preserves JSON bounds", "[UmaCaller][MacOcr][ocr]")
+{
+    REQUIRE(UmaSetUserDir(CMAKE_SOURCE_DIR) == UMA_SUCCESS);
+    REQUIRE(UmaLoadResource(CMAKE_SOURCE_DIR) == UMA_SUCCESS);
+    UmaHandle handle = UmaCreate(&IgnoreOcrCallback, nullptr);
+    REQUIRE(handle != nullptr);
+    struct HandleOwner { UmaHandle handle; ~HandleOwner() { UmaDestroy(handle); } } owner{handle};
+    const auto path = std::filesystem::path(CMAKE_SOURCE_DIR)
+        / "testdata/hachimi/ura/captures/career_skill_gourmand_selected_bluestacks_mac_20261023.png";
+    UmaDecodedImage decoded = nullptr;
+    REQUIRE(UmaDecodeImageFile(path.string().c_str(), &decoded) == UMA_SUCCESS);
+    struct ImageOwner { UmaDecodedImage image; ~ImageOwner() { UmaReleaseDecodedImage(image); } } imageOwner{decoded};
+    UmaDecodedImageInfo info{};
+    REQUIRE(UmaGetDecodedImageInfo(decoded, &info) == UMA_SUCCESS);
+    std::vector<std::uint8_t> gray(info.gray_length), rgba(info.rgba_length);
+    REQUIRE(UmaCopyDecodedImage(decoded, gray.data(), gray.size(), rgba.data(), rgba.size()) == UMA_SUCCESS);
+    UmaImageView source{info.width, info.height, gray.data(), gray.size(), rgba.data(), rgba.size()};
+    const UmaImageTransformOptions options{625, 704, 220, 155, 0, 0, 0, 0};
+    UmaDecodedImage cropped = nullptr;
+    REQUIRE(UmaTransformImage(&source, &options, &cropped) == UMA_SUCCESS);
+    ImageOwner cropOwner{cropped};
+    REQUIRE(UmaGetDecodedImageInfo(cropped, &info) == UMA_SUCCESS);
+    gray.resize(info.gray_length); rgba.resize(info.rgba_length);
+    REQUIRE(UmaCopyDecodedImage(cropped, gray.data(), gray.size(), rgba.data(), rgba.size()) == UMA_SUCCESS);
+    for (const bool grayscale : {false, true})
+    {
+        CAPTURE(grayscale);
+        UmaImageView view{info.width, info.height, gray.data(), gray.size(),
+            grayscale ? nullptr : rgba.data(), grayscale ? 0u : static_cast<std::uint64_t>(rgba.size())};
+        std::uint64_t required = 0;
+        REQUIRE(UmaRecognizeText(handle, &view, "en-US", nullptr, 0, &required) == UMA_ERROR_BUFFER_TOO_SMALL);
+        REQUIRE(required > 1);
+        std::vector<char> json(required);
+        REQUIRE(UmaRecognizeText(handle, &view, "en-US", json.data(), json.size(), &required) == UMA_SUCCESS);
+        REQUIRE(json[required - 1] == '\0');
+        const auto result = nlohmann::json::parse(json.data());
+        CHECK(result.at("width") == 220); CHECK(result.at("height") == 155);
+        int obtained = 0;
+        for (const auto& detection : result.at("detections"))
+        {
+            if (detection.at("text").get<std::string>().find("Obtained") != std::string::npos) ++obtained;
+            const auto& bounds = detection.at("bounds");
+            CHECK(bounds.at("x").get<int>() >= 0); CHECK(bounds.at("y").get<int>() >= 0);
+            CHECK(bounds.at("x").get<int>() + bounds.at("width").get<int>() <= 220);
+            CHECK(bounds.at("y").get<int>() + bounds.at("height").get<int>() <= 155);
+        }
+        CHECK(obtained == 1);
+        --view.gray_length;
+        CHECK(UmaRecognizeText(handle, &view, "en-US", nullptr, 0, &required) == UMA_ERROR_INVALID_ARGUMENT);
+    }
+}
+#endif
 
 TEST_CASE("image transforms reject malformed arguments and retain owned cropped planes", "[UmaCaller][abi][vision]")
 {

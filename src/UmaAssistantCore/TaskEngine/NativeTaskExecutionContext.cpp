@@ -422,8 +422,13 @@ std::vector<TaskOcrDetection> NativeTaskExecutionContext::RecognizeText(
             result.push_back(std::move(d));
         }
     }
+    catch (const std::exception& error)
+    {
+        Log("WARN", std::string("Text OCR failed: ") + error.what());
+    }
     catch (...)
     {
+        Log("WARN", "Text OCR failed with an unknown error.");
     }
 
     return result;

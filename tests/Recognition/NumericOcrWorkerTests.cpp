@@ -3,6 +3,7 @@
 #include "Connection/AdbCommandRunner.hpp"
 #include "Common/PathEncoding.hpp"
 #include "Resources/WicImageDecoder.hpp"
+#include "Resources/ImageTransforms.hpp"
 #include "Vision/NumericImageProcessing.hpp"
 
 #if defined(_WIN32)
@@ -220,7 +221,11 @@ TEST_CASE("Numeric OCR worker falls back to CLI only when initialization is unav
     CHECK_FALSE(first.at("gain").value);
     CHECK_FALSE(service.read(fields).at("gain").value);
     CHECK(starts == 1);
+#if defined(__APPLE__)
+    CHECK(process.calls == 12);
+#else
     CHECK(process.calls == 8);
+#endif
     CHECK(trace->closed);
 }
 
@@ -261,6 +266,73 @@ TEST_CASE("Numeric OCR worker retains a five second frame budget", "[OcrWorker]"
     CHECK(trace->closed);
     CHECK(process.calls == 0);
 }
+
+#if defined(__APPLE__)
+TEST_CASE("Mac worker and CLI read actual countdown stats and skill balances", "[OcrWorker][OcrIntegration][MacOcr]")
+{
+    using namespace UmaAssistant;
+    const auto root = std::filesystem::path(CMAKE_SOURCE_DIR) / "testdata/hachimi/ura/captures";
+    const auto main = Resources::WicImageDecoder::decode_file(root / "career_main_normal_bluestacks_mac_20261023.png");
+    std::vector<NumericOcrBatchField> fields;
+    fields.push_back({"countdown", Resources::crop_image(main, 25, 120, 140, 78), 99, false, NumericOcrFormat::UnsignedInteger});
+    const std::array<int, 6> lefts{96, 239, 379, 536, 663, 775};
+    const std::array<int, 6> expected{168, 129, 240, 85, 103, 178};
+    for (std::size_t i = 0; i < lefts.size(); ++i)
+        fields.push_back({std::to_string(i), Resources::crop_image(main, lefts[i], i == 5 ? 1080 : 1069, 73, 33),
+            9999, false, NumericOcrFormat::UnsignedInteger});
+    const auto before = Resources::WicImageDecoder::decode_file(root / "career_skill_gourmand_before_bluestacks_mac_20261023.png");
+    const auto selected = Resources::WicImageDecoder::decode_file(root / "career_skill_gourmand_selected_bluestacks_mac_20261023.png");
+    fields.push_back({"before-points", Resources::crop_image(before, 690, 505, 85, 43), 9999, false, NumericOcrFormat::UnsignedInteger});
+    fields.push_back({"selected-points", Resources::crop_image(selected, 690, 505, 85, 43), 9999, false, NumericOcrFormat::UnsignedInteger});
+    fields.push_back({"price", Resources::crop_image(before, 697, 787, 70, 35), 9999, false, NumericOcrFormat::UnsignedInteger});
+    const auto training = Resources::WicImageDecoder::decode_file(root / "smart_runtime_20261006/speed-1.png");
+    const auto failure = Vision::prepare_numeric_glyphs(Resources::crop_image(training, 15, 1135, 230, 90), false, UmaColorRule{});
+    REQUIRE(failure);
+    fields.push_back({"failure", *failure, 100, false});
+    auto process = create_win32_process();
+    NumericOcrBatch worker(*process, {}, [] {
+        std::string error;
+        return start_win32_interactive_session(std::filesystem::path(UMA_NUMERIC_OCR_WORKER_PATH), {}, error);
+    });
+    const auto executable = NumericOcrBatch::locate_executable();
+    REQUIRE_FALSE(executable.empty());
+    NumericOcrBatch cli(*process, executable);
+    for (auto* backend : {&worker, &cli})
+    {
+        const auto result = backend->read(fields);
+        CAPTURE(result.at("countdown").rawText, result.at("countdown").failureReason);
+        CHECK(result.at("countdown").value == 7);
+        CHECK(result.at("before-points").value == 543);
+        CHECK(result.at("selected-points").value == 183);
+        CHECK(result.at("price").value == 360);
+        CHECK(result.at("failure").value == 0);
+        for (std::size_t i = 0; i < expected.size(); ++i)
+        {
+            const auto& reading = result.at(std::to_string(i));
+            CAPTURE(i, reading.rawText, reading.failureReason);
+            CHECK(reading.value == expected[i]);
+        }
+    }
+}
+
+TEST_CASE("Mac numeric OCR retries unresolved fields with local thresholding", "[OcrWorker][MacOcr]")
+{
+    UnusedCli process;
+    auto trace = std::make_shared<WorkerTrace>();
+    trace->replies = {{"", "4%"}, {""}, {""}, {""}, {"+7"}};
+    NumericOcrBatch service(process, L"tesseract", [trace] { return std::make_unique<FakeWorker>(trace); });
+    auto fields = gain_fields();
+    fields.push_back({"failure", gain_crop(), 100, false});
+    const auto result = service.read(fields);
+    CHECK(result.at("gain").value == 7);
+    CHECK(result.at("failure").value == 4);
+    REQUIRE(trace->requests.size() == 5);
+    CHECK(trace->requests.front().at("thresholding") == 0);
+    CHECK(trace->requests.back().at("thresholding") == 2);
+    CHECK(trace->requests.back().at("images").size() == 1);
+    CHECK(process.calls == 0);
+}
+#endif
 
 TEST_CASE("Installed Tesseract worker recognizes repeated in-memory requests", "[OcrWorker][OcrIntegration]")
 {

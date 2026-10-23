@@ -39,20 +39,23 @@
     <PropertyGroup>
       <NativeCoreDll Condition="'$(NativeDllPath)' != ''">$(NativeDllPath)</NativeCoreDll>
       <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;Windows&quot;))'">$(MSBuildProjectDirectory)\..\..\build\native-staging\UmamusumeCore.dll</NativeCoreDll>
-      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
       <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
       <NativeCoreDll Condition="'$(NativeCoreDll)' == '' and '$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'">$(MSBuildProjectDirectory)\..\..\build\osx-arm64-debug\src\UmaAssistantCore\UmamusumeCore.dylib</NativeCoreDll>
+      <NativeCoreDll Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'">$([MSBuild]::NormalizePath('$(NativeCoreDll)'))</NativeCoreDll>
 
       <ReplayTool Condition="'$(NativeDllPath)' != ''">$([System.IO.Path]::GetDirectoryName('$(NativeDllPath)'))/../../tools/uma_pipeline_replay</ReplayTool>
       <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/osx-arm64/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/osx-arm64/tools/uma_pipeline_replay</ReplayTool>
       <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/osx-arm64-debug/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/osx-arm64-debug/tools/uma_pipeline_replay</ReplayTool>
       <ReplayTool Condition="!Exists('$(ReplayTool)') and Exists('$(MSBuildProjectDirectory)/../../build/test-cmake/tools/uma_pipeline_replay')">$(MSBuildProjectDirectory)/../../build/test-cmake/tools/uma_pipeline_replay</ReplayTool>
       <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;Windows&quot;))'">$(MSBuildProjectDirectory)\..\..\build\native-staging\UmaNumericOcrWorker.exe</NativeWorker>
-      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmaNumericOcrWorker')">$(MSBuildProjectDirectory)\..\..\build\test-cmake\src\UmaAssistantCore\UmaNumericOcrWorker</NativeWorker>
-      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))' and Exists('$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmaNumericOcrWorker')">$(MSBuildProjectDirectory)\..\..\build\osx-arm64\src\UmaAssistantCore\UmaNumericOcrWorker</NativeWorker>
+      <NativeWorker Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'">$([System.IO.Path]::GetDirectoryName('$(NativeCoreDll)'))/UmaNumericOcrWorker</NativeWorker>
     </PropertyGroup>
     <Copy SourceFiles="$(NativeCoreDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeCoreDll)')" />
     <Copy SourceFiles="$(NativeWorker)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(NativeWorker)')" />
+    <!-- Keep framework-dependent Mac launches independent of the source checkout.
+         The .app packager separately supplies Contents/Resources/resource/tessdata. -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/../../resource/tessdata/eng.traineddata" DestinationFolder="$(TargetDir)tessdata/" SkipUnchangedFiles="true" Condition="'$([MSBuild]::IsOSPlatform(&quot;OSX&quot;))'" />
     <Copy SourceFiles="$(ReplayTool)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(ReplayTool)')" />
   </Target>
 </Project>

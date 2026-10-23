@@ -147,7 +147,7 @@ public:
     TesseractEngine(TesseractEngine const&) = delete;
     TesseractEngine& operator=(TesseractEngine const&) = delete;
 
-    [[nodiscard]] std::string read(json const& image, int mode)
+    [[nodiscard]] std::string read(json const& image, int mode, int thresholdMethod)
     {
         int const width = image.at("width").get<int>();
         int const height = image.at("height").get<int>();
@@ -163,6 +163,7 @@ public:
         api_.Clear();
         api_.ClearAdaptiveClassifier();
         api_.SetPageSegMode(static_cast<tesseract::PageSegMode>(mode));
+        api_.SetVariable("thresholding_method", std::to_string(thresholdMethod).c_str());
         api_.SetImage(pixels.data(), width, height, channels, width * channels);
         if (api_.Recognize(nullptr) != 0)
             return {};
@@ -189,10 +190,12 @@ int run_worker(std::filesystem::path const& hint)
             auto const request = json::parse(line);
             int const mode = request.at("psm").get<int>();
             if (mode != 7 && mode != 8 && mode != 13) return 3;
+            int const thresholdMethod = request.value("thresholding", 0);
+            if (thresholdMethod != 0 && thresholdMethod != 2) return 3;
             auto const& images = request.at("images");
             if (!images.is_array() || images.empty() || images.size() > 64) return 3;
             json texts = json::array();
-            for (auto const& image : images) texts.push_back(engine.read(image, mode));
+            for (auto const& image : images) texts.push_back(engine.read(image, mode, thresholdMethod));
             auto const response = json{{"id", request.at("id")}, {"texts", std::move(texts)}}.dump();
             if (response.size() > Protocol::max_response_bytes) return 3;
             std::cout << response << '\n' << std::flush;
