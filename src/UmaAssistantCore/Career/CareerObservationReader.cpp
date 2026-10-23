@@ -413,6 +413,46 @@ double DetectionConfidence(const std::vector<TaskEngine::TaskOcrDetection>& dete
     return found ? confidence : 0.0;
 }
 
+std::optional<std::pair<std::string, double>> ReadMoodFallback(
+    TaskEngine::ITaskExecutionContext& context,
+    const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
+    const TaskEngine::TaskRoi& roi)
+{
+    if (!frame || frame->width <= 0 || frame->height <= 0
+        || frame->grayPixels.size() != static_cast<std::size_t>(frame->width) * frame->height
+        || frame->rgbaPixels.size() != frame->grayPixels.size() * 4
+        || !SameFrame(context, frame) || context.IsCancelled())
+        return std::nullopt;
+    try
+    {
+        const auto crop = Resources::crop_image(ToVisionImage(*frame),
+            static_cast<int>(std::lround(roi.x * frame->width / 900.0)),
+            static_cast<int>(std::lround(roi.y * frame->height / 1600.0)),
+            static_cast<int>(std::lround(roi.width * frame->width / 900.0)),
+            static_cast<int>(std::lround(roi.height * frame->height / 1600.0)));
+        // On colored badges, Tesseract's per-channel Otsu threshold can merge
+        // the white letters with the background (the orange Normal badge loses
+        // all lettering). Isolate the white text before enlarging instead.
+        // Read only this captured frame so the recovered mood cannot go stale.
+        UmaColorRule whiteText{};
+        whiteText.minimum_red = whiteText.minimum_green = whiteText.minimum_blue = 220;
+        whiteText.maximum_red = whiteText.maximum_green = whiteText.maximum_blue = 255;
+        whiteText.minimum_red_green = whiteText.minimum_green_blue = -35;
+        whiteText.maximum_red_green = whiteText.maximum_green_blue = 35;
+        const auto masked = Vision::binarize_color(crop, whiteText);
+        const auto enlarged = Resources::resize_image(masked, masked.width * 4, masked.height * 4);
+        const auto detections = context.RecognizeImageText(enlarged, "en-US");
+        if (!SameFrame(context, frame) || context.IsCancelled()) return std::nullopt;
+        const auto text = JoinText(detections);
+        const auto confidence = DetectionConfidence(detections);
+        if (confidence > 0.0 && CareerObservationReader::ParseMood(text))
+            return std::pair<std::string, double>{text, confidence};
+        context.Log("DEBUG", "Career mood processed crop remained unreadable: " + text);
+    }
+    catch (...) {}
+    return std::nullopt;
+}
+
 std::optional<std::pair<int, double>> ReadCountdownFallback(
     TaskEngine::ITaskExecutionContext& context,
     const std::shared_ptr<const TaskEngine::TaskFrameSnapshot>& frame,
@@ -1298,6 +1338,20 @@ CareerDomain::CareerObservation CareerScreenObserver::ObserveScreensCore(
         }
         else if (semantic == "mood.current")
         {
+            if (confidence <= 0.0 || !CareerObservationReader::ParseMood(text))
+            {
+                const auto fallback = ReadMoodFallback(context, frame, roi);
+                if (!SameFrame(context, frame) || context.IsCancelled())
+                    return CareerDomain::CareerObservation{};
+                if (fallback)
+                {
+                    text = fallback->first;
+                    confidence = fallback->second;
+                    m_mainTextCache.Remember(semantic, *frame, roi, text, confidence);
+                    context.Log("DEBUG", "Career mood recovered from processed crop: " + text
+                        + "; confidence=" + std::to_string(confidence));
+                }
+            }
             if (confidence > 0.0)
             {
                 if (auto mood = CareerObservationReader::ParseMood(text))

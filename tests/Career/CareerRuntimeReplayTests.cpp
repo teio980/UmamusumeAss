@@ -884,6 +884,76 @@ TEST_CASE("MuMu Oguri pre-debut main remains a turn screen during startup resume
     CHECK(observation.turnsToGoal == 11);
 }
 
+TEST_CASE("Career main reads outlined mood badges including the live BlueStacks macOS frame",
+    "[CareerRuntime][Replay][Mood]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (const auto& [fixture, mood] : std::vector<std::pair<std::string, std::string>>{
+        {"career_main_normal_bluestacks_mac_20261023.png", "normal"},
+        {"career_main_oguri_predebut_mumu_20261013.png", "normal"},
+        {"training_main_before_debut_race_ura.png", "good"},
+        {"career_main_oguri_finale_training_available.png", "great"}})
+    {
+        CAPTURE(fixture);
+        ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures" / fixture});
+        context.nativeOcr = true;
+        CareerScreenObserver observer(resources);
+
+        const auto observation = observer.ObserveScreens(context, {"career_main"});
+
+        INFO("Processed OCR: " << context.processedOcrText);
+        INFO("Diagnostics: " << context.diagnostics);
+        REQUIRE(observation.screenId == "career_main");
+        REQUIRE(observation.moodEvidence.IsReliable());
+        CHECK(observation.moodEvidence.Value() == mood);
+        CHECK(observation.moodText == mood);
+        CHECK(context.tapAttempts == 0);
+    }
+}
+
+TEST_CASE("Recovered mood is discarded when the badge becomes unreadable",
+    "[CareerRuntime][Replay][Mood]")
+{
+    auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    auto const capture = root / "testdata/hachimi/ura/captures/career_main_normal_bluestacks_mac_20261023.png";
+    ScreenshotReplayContext context({capture});
+    context.nativeOcr = true;
+    CareerScreenObserver observer(resources);
+    const auto initial = observer.ObserveScreens(context, {"career_main"});
+    REQUIRE(initial.moodText == "normal");
+
+    auto const* main = resources->FindScreen("career_main");
+    REQUIRE(main != nullptr);
+    const auto region = std::find_if(main->ocrRegions.begin(), main->ocrRegions.end(),
+        [](const auto& item) { return item.semanticId == "mood.current"; });
+    REQUIRE(region != main->ocrRegions.end());
+    auto image = UmaAssistant::Resources::WicImageDecoder::decode_file(capture);
+    for (int y = region->roi.y; y < region->roi.y + region->roi.height; ++y)
+        for (int x = region->roi.x; x < region->roi.x + region->roi.width; ++x)
+        {
+            const auto pixel = static_cast<std::size_t>(y) * image.width + x;
+            image.gray[pixel] = 0;
+            image.rgba[pixel * 4] = image.rgba[pixel * 4 + 1] = image.rgba[pixel * 4 + 2] = 0;
+            image.rgba[pixel * 4 + 3] = 255;
+        }
+    context.frameOverride = std::move(image);
+
+    const auto unreadable = observer.ObserveScreens(context, {"career_main"});
+
+    REQUIRE(unreadable.screenId == "career_main");
+    CHECK_FALSE(unreadable.moodEvidence.HasValue());
+    CHECK_FALSE(unreadable.moodText.has_value());
+    CHECK(context.tapAttempts == 0);
+}
+
 TEST_CASE("Finale training main remains a decision page after a goal update",
     "[CareerRuntime][Replay][CareerRaceEntryRegression]")
 {
