@@ -264,7 +264,65 @@ struct SkillScanResult
 {
     enum class Kind { Unknown, NotFound, Obtained, Purchasable } kind{Kind::Unknown};
     std::optional<TaskEngine::TaskMatchResult> plus;
+    std::optional<TaskEngine::TaskOcrDetection> rowName;
 };
+
+#if defined(__APPLE__)
+bool VerifySelectedSkillRow(const CareerVisualResources& resources,
+    TaskEngine::ITaskExecutionContext& context, const std::string& skillName,
+    const TaskEngine::TaskOcrDetection& priorName)
+{
+    const auto names = ReadRegionRoi(resources, "career.skill.row_name");
+    const auto statuses = ReadRegionRoi(resources, "career.skill.row_status");
+    if (!names || !statuses) return false;
+    auto nameRoi = *names;
+    nameRoi.y = (std::max)(names->y, priorName.y - 12);
+    nameRoi.height = (std::min)(priorName.height + 24, names->y + names->height - nameRoi.y);
+    if (nameRoi.height <= 0) return false;
+    double minSimilarity = .84;
+    try { minSimilarity = resources.FindRegion("career.skill.row_name")->at("metadata").value("minSimilarity", .84); }
+    catch (...) {}
+    for (int attempt = 0; attempt < 3 && !context.IsCancelled(); ++attempt)
+    {
+        if (!context.CaptureScreen()) return false;
+        const auto frame = context.GetCurrentFrame();
+        if (!frame) return false;
+        const auto rowNames = context.RecognizeText("en-US", nameRoi);
+        const auto afterNames = context.GetCurrentFrame();
+        if (!afterNames || afterNames.get() != frame.get() || afterNames->frameId != frame->frameId)
+            return false;
+        std::vector<TaskEngine::TaskOcrDetection> matches;
+        for (const auto& name : rowNames)
+            if (name.CenterX() >= nameRoi.x && name.CenterX() <= nameRoi.x + nameRoi.width
+                && name.CenterY() >= nameRoi.y && name.CenterY() <= nameRoi.y + nameRoi.height
+                && SkillNameSimilarity(skillName, name.text) >= minSimilarity)
+                matches.push_back(name);
+        if (matches.size() == 1)
+        {
+            auto status = *statuses;
+            status.y = (std::max)(status.y, matches.front().y
+                + ReadRegionMetadataInt(resources, "career.skill.row_status", "rowTopOffset").value_or(-15));
+            status.width = ReadRegionMetadataInt(resources, "career.skill.row_status", "width").value_or(status.width);
+            status.height = ReadRegionMetadataInt(resources, "career.skill.row_status", "height").value_or(status.height);
+            const auto rowStatus = context.RecognizeText("en-US", status);
+            const auto afterStatus = context.GetCurrentFrame();
+            if (!afterStatus || afterStatus.get() != frame.get() || afterStatus->frameId != frame->frameId)
+                return false;
+            if (std::any_of(rowStatus.begin(), rowStatus.end(), [&](const auto& item) {
+                return item.CenterX() >= status.x && item.CenterX() <= status.x + status.width
+                    && item.CenterY() >= status.y && item.CenterY() <= status.y + status.height
+                    && Fold(item.text).find("obtained") != std::string::npos;
+            })) return true;
+        }
+        if (attempt < 2)
+        {
+            context.Log("DEBUG", "Selected skill row is not settled; rechecking the original row without scrolling.");
+            context.Sleep(200);
+        }
+    }
+    return false;
+}
+#endif
 
 SkillScanResult ScanForSkill(
     const CareerVisualResources& resources,
@@ -340,7 +398,7 @@ SkillScanResult ScanForSkill(
                 plusAsset->path, plusAsset->threshold, plusRoi, "MatchTemplateColor", 900, 1600, {});
             const auto plusFrame = context.GetCurrentFrame();
             if (!plusFrame || plusFrame.get() != frame.get() || plusFrame->frameId != frame->frameId) return {};
-            if (plus.found) return {SkillScanResult::Kind::Purchasable, plus};
+            if (plus.found) return {SkillScanResult::Kind::Purchasable, plus, matches.front()};
         }
 
         // Hash the visible list at a fixed sparse interval to stop safely at the end.
@@ -596,8 +654,14 @@ ActionExecutionStatus CareerSkillLearningFlow::RunBeforeRace(TaskEngine::ITaskEx
             }
             if (!TapSkillMatch(context, *scan.plus)) return ActionExecutionStatus::Failed;
             context.Sleep(ReadRegionMetadataInt(*resources, "career.skill.plus_search", "tapDelayMs").value_or(350));
-            const auto selected = ScanForSkill(*resources, context, skill->skillName);
-            if (selected.kind != SkillScanResult::Kind::Obtained)
+#if defined(__APPLE__)
+            const bool selected = scan.rowName
+                && VerifySelectedSkillRow(*resources, context, skill->skillName, *scan.rowName);
+#else
+            const bool selected = ScanForSkill(*resources, context, skill->skillName).kind
+                == SkillScanResult::Kind::Obtained;
+#endif
+            if (!selected)
             {
                 if (!ReturnToRaceDayScreen(*resources, context)) return ActionExecutionStatus::Failed;
                 context.Log("ERROR", "Selected skill row was not confirmed as obtained after tapping its plus marker.");

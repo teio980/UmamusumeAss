@@ -6,6 +6,17 @@
   "referenceHeight": 1600,
   "templates": {},
   "tasks": {
+    "goal_not_reached_cancel": {
+      "algorithm": "MatchTemplateColor",
+      "action": "ClickSelf",
+      "template": "templates/goal_not_reached_cancel.png",
+      "templThreshold": 0.9,
+      "roi": [160, 1095, 185, 100],
+      "postDelay": 650,
+      "timeoutMs": 12000,
+      "pollIntervalMs": 250,
+      "required": true
+    },
     "career_main_goal_details": {
       "algorithm": "MatchTemplate",
       "action": "ClickSelf",

@@ -21,7 +21,13 @@ URA 的日历、赛事、目标和事件规则仍在 `resource/hachimi/ura/`。�
 
 ## 编辑与迁移
 
-赛前属性与跑法画面统一使用 `race_runner`：只匹配右侧 Runners 的局部模板，ROI 为 `[700, 1060, 180, 140]`，阈值保持 `0.88`。保留原小模板，并从实际 URA Runner 截图提取局部字样作为兼容变体；重试成功检查复用这两个小模板。旧 `race_attributes` 页面、重复动作绑定和整图识别已删除；五张历史整图移到 `ura/testdata/captures/runtime_frames/`，只用于像素回归，不进入发布包。其中四张实际为 Race Day、赛前剧情或赛事列表，回归要求它们不能被识别成 Runner。赛事详情确认、连赛保护、跑法配置、重试及直接赛果续接都使用同一 Runner 检查点。
+回合结算或事件后出现的 `Goal Not Reached` 提示由 `turn/profile.json` 的 `goal_not_reached_warning` 识别，要求标题和 Cancel 字样同时命中。`goal_not_reached_cancel` 匹配并点击 Cancel，随后只确认返回 `career_main`。标题模板为 288×30，Cancel 模板为 106×30，均直接从 900×1600 的 ADB 截图裁出，保留原背景、无透明蒙版；提示中的剩余回合数、奖杯、角色及目标正文不进入模板。取消前后的实机截图保存在 `testdata/hachimi/ura/captures/goal_not_reached*_bluestacks_mac_20261023.png`。
+
+结算称号页 `career_epithet` 只匹配 Epithet 标题，不再追加 OCR 文字校验。标题模板直接从 BlueStacks ADB 截图裁为 112×39，保留绿色原背景、无透明蒙版；颜色文字匹配的 ROI 为 `[360, 40, 180, 80]`，阈值为 `0.9`。历史截图和 `career_epithet_bluestacks_mac_20261023.png` 覆盖结算续接与恢复识别，OCR 即使把标题读成 `rpitnet` 也不影响判断。
+
+`Rewards Collected` 弹窗会随奖励列表高度伸缩。标题搜索范围为 `[250, 30, 400, 620]`，Close 的识别与动作搜索范围统一为 `[250, 950, 400, 600]`，覆盖居中短弹窗与五项奖励的满高弹窗；仍要求标题和 Close 同时匹配，阈值保持 `0.96` 和 `0.9`。`rewards_collected_full_height_bluestacks_mac_20261023.png` 保存满高弹窗的 ADB 截图，回放验证从 Rewards 续接并点击实际 Close 字样。
+
+赛前属性与跑法画面统一使用 `race_runner`：只匹配右侧 Runners 的局部模板，ROI 为 `[700, 1060, 180, 140]`，阈值保持 `0.88`。两个模板裁至 84×21 和 89×21，保留文字原背景、无透明蒙版，页面识别使用颜色文字匹配，避免浅色空白区域误命中；重试成功检查复用这两个小模板。旧 `race_attributes` 页面、重复动作绑定和整图识别已删除；五张历史整图移到 `ura/testdata/captures/runtime_frames/`，只用于像素回归，不进入发布包。其中四张实际为 Race Day、赛前剧情或赛事列表，回归要求它们不能被识别成 Runner。赛事详情确认、连赛保护、跑法配置、重试及直接赛果续接都使用同一 Runner 检查点。
 
 定点空点使用通用任务节点 `algorithm: JustReturn`、`action: ClickRect` 和 `specificRect`，不依赖 TAP 模板。`ClickRect`（以及 `ClickSpecificRect`）可设置 `repeat`（默认 1，范围 1–100）和 `repeat_delay`（两次点击间的等待，毫秒，默认 0，范围 0–10000）。重复点击要求明确的四项 `specificRect`；显式 `JustReturn` 定点点击直接通过设备坐标输入通道执行，第一次点击前及重复点击之间均不截图、不做输入前视觉检查；设备会校验当前分辨率及旋转方向。带识别证据的点击继续使用原有帧凭据。失败或取消会立即终止剩余点击。
 

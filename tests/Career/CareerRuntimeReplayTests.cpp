@@ -823,6 +823,46 @@ TEST_CASE("Career entry recognizes live MuMu Support Formation with an empty bor
         resources->GetExecutionDefinition(), {autoFill->taskName}, context).has_value());
 }
 
+TEST_CASE("Epithet recognition uses its cropped title without OCR and rejects Runner markers",
+    "[CareerRuntime][Replay][CareerEpithetTemplate]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (const auto* file : {"career_epithet_after_rating_record_updated.png",
+        "career_epithet_bluestacks_mac_20261023.png"})
+    {
+        for (bool resume : {false, true})
+        {
+            CAPTURE(file, resume);
+            ScreenshotReplayContext context({root / "testdata/hachimi/ura/captures" / file});
+            context.ocrDetections = {{"rpitnet", 401, 70, 95, 25, 0.0}};
+            CareerScreenObserver observer(resources);
+            UmaAssistant::CareerDomain::CareerObservation previous;
+            previous.screenId = "career_result_close";
+            observer.RememberObservation(previous);
+            const auto transition = CareerTransitionPolicy::AfterAction({}, "career_result_close", "career.close");
+            const auto observed = resume
+                ? observer.ObserveScreens(context, {"career_epithet", "race_runner"}, true)
+                : observer.ObserveTransition(context, transition);
+            REQUIRE(observed.screenId == "career_epithet");
+            CHECK(context.ocrCalls == 0);
+            const auto* runner = resources->FindScreen("race_runner");
+            REQUIRE(runner);
+            for (const auto& marker : runner->templates)
+            {
+                const auto match = context.MatchTemplateAdvanced(marker.path, marker.threshold,
+                    marker.roi, marker.algorithm, 900, 1600, {});
+                INFO("Runner false-positive score " << match.score);
+                CHECK_FALSE(match.found);
+            }
+            CHECK(context.tapAttempts == 0);
+        }
+    }
+}
+
 TEST_CASE("Native Career perception identifies real entry turn event race and settlement frames",
     "[CareerRuntime][Replay][NativePerceptionParity]")
 {
@@ -1091,12 +1131,14 @@ TEST_CASE("Settlement catalog recognizes every captured optional popup in its ac
         {"ura_sparks_keep_confirmed.png", "sparks_confirmation", "career_result_close"},
         {"rating_record_updated.png", "career_result_close", "career_rating_record_updated"},
         {"career_epithet_after_rating_record_updated.png", "career_rating_record_updated", "career_epithet"},
+        {"career_epithet_bluestacks_mac_20261023.png", "career_result_close", "career_epithet"},
         {"rewards_support_mumu_20261013.png", "rewards", "rewards"},
         // This older capture has a Next score of 0.709, below the authored
         // 0.78 gate. It must wait for a verified button rather than click it.
         {"ura_rewards_next.png", "rewards", "rewards", false},
         {"rewards_collected.png", "rewards", "rewards_collected"},
         {"rewards_collected_ticket_mumu_20261013.png", "rewards", "rewards_collected"},
+        {"rewards_collected_full_height_bluestacks_mac_20261023.png", "rewards", "rewards_collected"},
         {"all_rewards_earned_mumu_20261017.png", "rewards", "all_rewards_earned"},
         {"rewards_ura_mumu_20261013.png", "rewards_collected", "rewards"},
         {"event_reward_mumu_20261013.png", "rewards", "event_reward"},

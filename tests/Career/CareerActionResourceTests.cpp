@@ -178,9 +178,25 @@ public:
         std::vector<TaskOcrDetection> result;
         if (roi && roi->x == 625 && roi->y < 750)
         {
+            if (m_plusTapped && delayedStatusReads > 0)
+            {
+                --delayedStatusReads;
+                return {};
+            }
+            if (m_plusTapped && changeFrameDuringStatus) CaptureScreen();
             if (m_plusTapped)
                 result.push_back({"Obtained", 630, 595, 130, 30, 0.99});
             return result;
+        }
+        if (m_plusTapped && roi && roi->x == 155 && roi->height > 200)
+        {
+            ++selectedListReads;
+            if (hideSelectedListName) return {};
+        }
+        if (m_plusTapped && roi && roi->x == 140 && roi->height <= 100)
+        {
+            ++selectedRowReads;
+            if (hideSelectedRowName) return {};
         }
         const auto skillName = CurrentSkillName();
         if (!skillName.empty())
@@ -229,7 +245,7 @@ public:
         return Tap(x, y);
     }
 
-    bool Swipe(int, int, int, int, int) override { return true; }
+    bool Swipe(int, int, int, int, int) override { ++swipes; return true; }
     bool InputText(const std::string&) override { return true; }
     bool SendKey(const std::string&) override { return true; }
     void Sleep(int) override {}
@@ -260,6 +276,13 @@ public:
     int captureFailuresRemaining{0};
     int plusTaps{0};
     int learnTaps{0};
+    int swipes{0};
+    int selectedListReads{0};
+    int selectedRowReads{0};
+    int delayedStatusReads{0};
+    bool hideSelectedListName{false};
+    bool hideSelectedRowName{false};
+    bool changeFrameDuringStatus{false};
     std::vector<std::pair<int, int>> taps;
     std::vector<std::string> matchedTemplates;
     std::optional<TaskRoi> lastRoi;
@@ -821,6 +844,55 @@ TEST_CASE("Normal skills read actual BlueStacks Mac skill points before race ent
         return message.find("Saving 169 Skill Pts for") != std::string::npos;
     }));
 }
+
+#if defined(__APPLE__)
+TEST_CASE("Mac skill selection verifies the original row without scrolling", "[CareerRuntime][SkillReplay][MacOcr]")
+{
+    auto config = PackagedConfig();
+    config.normalSkillIds = {200012};
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    CareerActionReplayContext context({"Right-Handed ○"});
+    context.hideSelectedListName = true;
+    CareerSkillLearningFlow flow(config, resources);
+    REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
+    CHECK(context.plusTaps == 1);
+    CHECK(context.learnTaps == 1);
+    CHECK(context.selectedRowReads == 1);
+    CHECK(context.selectedListReads == 0);
+    CHECK(context.swipes == 0);
+}
+
+TEST_CASE("Mac skill row confirmation is bounded and retains frame identity", "[CareerRuntime][SkillReplay][MacOcr]")
+{
+    auto config = PackagedConfig();
+    config.normalSkillIds = {200012};
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    CareerActionReplayContext context({"Right-Handed ○"});
+    bool succeeds = false;
+    SECTION("A delayed selected badge can settle in the same row")
+    {
+        context.delayedStatusReads = 2;
+        succeeds = true;
+    }
+    SECTION("A missing target name never authorizes learning")
+    {
+        context.hideSelectedRowName = true;
+    }
+    SECTION("A status read from another frame never authorizes learning")
+    {
+        context.changeFrameDuringStatus = true;
+    }
+    CareerSkillLearningFlow flow(config, resources);
+    const auto status = flow.RunBeforeRace(context);
+    CHECK(status == (succeeds ? ActionExecutionStatus::Success : ActionExecutionStatus::Failed));
+    CHECK(context.learnTaps == (succeeds ? 1 : 0));
+    CHECK(context.selectedRowReads <= 3);
+    CHECK(context.selectedListReads == 0);
+    CHECK(context.swipes == 0);
+}
+#endif
 
 TEST_CASE("Race entry retries once after the source remains confirmed", "[CareerRuntime][CareerParity]")
 {
@@ -1513,6 +1585,61 @@ TEST_CASE("Settlement retries a full unstable observation after slow capture ins
     CHECK(context.taps.size() == 1);
 }
 
+TEST_CASE("Rewards Collected recognizes variable dialog heights and closes the matched button",
+    "[CareerRuntime][CareerRewardsDialog][CareerRewardsTransition]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto filename = GENERATE("rewards_collected.png", "rewards_collected_ticket_mumu_20261013.png",
+        "rewards_collected_full_height_bluestacks_mac_20261023.png");
+    CAPTURE(filename);
+    ActualRaceResultContext context(filename);
+    CareerScreenObserver observer(resources);
+    CareerObservation previous;
+    previous.screenId = "rewards";
+    observer.RememberObservation(previous);
+    const auto transition = CareerTransitionPolicy::AfterAction({}, "rewards", "rewards.next");
+    const auto observation = observer.ObserveTransition(context, transition);
+    REQUIRE(observation.screenId == "rewards_collected");
+
+    // Match the actual Close glyph across layouts; no fixed tap can satisfy this.
+    const auto marker = context.LoadTemplateImage(UmaAssistant::Paths::ToUtf8(
+        config.resourceDirectory / "hachimi/career/settlement/templates/rewards_collected_close.png"));
+    const auto close = UmaAssistant::Vision::find_color(context.image, *marker, {}, 0.9, 900, 1600);
+    REQUIRE(close.found);
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance(), observation, context)
+        == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= close.x);
+    CHECK(context.taps.front().first < close.x + close.width);
+    CHECK(context.taps.front().second >= close.y);
+    CHECK(context.taps.front().second < close.y + close.height);
+}
+
+TEST_CASE("Rewards Collected requires both title and Close even in a full height dialog",
+    "[CareerRuntime][CareerRewardsDialog]")
+{
+    auto resources = std::make_shared<CareerVisualResources>(PackagedConfig());
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("rewards_collected_full_height_bluestacks_mac_20261023.png");
+    const bool hideTitle = GENERATE(false, true);
+    const int top = hideTitle ? 30 : 1420;
+    const int height = hideTitle ? 100 : 130;
+    for (int y = top; y < top + height; ++y)
+        for (int x = 250; x < 650; ++x)
+        {
+            const auto pixel = static_cast<std::size_t>(y) * context.image.width + x;
+            context.image.gray[pixel] = 0;
+            for (int channel = 0; channel < 4; ++channel)
+                context.image.rgba[pixel * 4 + channel] = channel == 3 ? 255 : 0;
+        }
+    CareerScreenObserver observer(resources);
+    CHECK(observer.ObserveScreens(context, {"rewards_collected"}).screenId == "unknown");
+    CHECK(context.taps.empty());
+}
+
 TEST_CASE("Coordinator replays the actual completed settlement through all six actions to Home", "[CareerRuntime][CareerSettlementAudit][CareerRewardsTransition]")
 {
     const auto config = PackagedConfig();
@@ -1617,6 +1744,86 @@ TEST_CASE("Event Home cancels through the actual settlement screenshots to Home"
     CHECK(context.taps.back().first < 304);
     CHECK(context.taps.back().second >= 1132);
     CHECK(context.taps.back().second < 1161);
+}
+
+TEST_CASE("Goal Not Reached is recognized after an event and cancels to the career main page",
+    "[CareerRuntime][CareerGoalNotReached]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("goal_not_reached_bluestacks_mac_20261023.png");
+    CareerScreenObserver observer(resources);
+    const bool resumeAtPopup = GENERATE(false, true);
+    auto transition = CareerTransitionPolicy::AfterAction({}, "event_choice", "event.choice_first");
+    const auto observation = resumeAtPopup ? observer.ObserveCareer(context)
+        : observer.ObserveTransition(context, transition);
+    REQUIRE(observation.screenId == "goal_not_reached_warning");
+    CHECK(observation.screenKind == CareerScreenKind::ConfirmationDialog);
+
+    CareerActionExecutor executor(config, resources);
+    REQUIRE(executor.ExecuteForObservation(ActionIntent::MakeAdvance("Cancel the goal reminder."),
+        observation, context) == ActionExecutionStatus::Success);
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 198);
+    CHECK(context.taps.front().first < 304);
+    CHECK(context.taps.front().second >= 1131);
+    CHECK(context.taps.front().second < 1161);
+
+    transition = CareerTransitionPolicy::AfterAction(transition, observation.screenId, "goal.not_reached.cancel");
+    CHECK(transition.phase == CareerTransitionPhase::Main);
+    CHECK(std::find(transition.candidates.begin(), transition.candidates.end(), "career_main") != transition.candidates.end());
+    CHECK(std::find(transition.candidates.begin(), transition.candidates.end(), "race_list") == transition.candidates.end());
+    context.image = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        config.resourceDirectory.parent_path() / "testdata/hachimi/ura/captures/goal_not_reached_cancelled_bluestacks_mac_20261023.png");
+    REQUIRE(observer.ObserveTransition(context, transition).screenId == "career_main");
+    CHECK(context.taps.size() == 1);
+}
+
+TEST_CASE("Goal reminder requires both its title and Cancel button", "[CareerRuntime][CareerGoalNotReached]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("goal_not_reached_bluestacks_mac_20261023.png");
+    const bool hideTitle = GENERATE(false, true);
+    const int left = hideTitle ? 280 : 160;
+    const int top = hideTitle ? 365 : 1095;
+    const int width = hideTitle ? 340 : 185;
+    const int height = hideTitle ? 90 : 100;
+    for (int y = top; y < top + height; ++y)
+        for (int x = left; x < left + width; ++x)
+        {
+            const auto pixel = static_cast<std::size_t>(y) * context.image.width + x;
+            context.image.gray[pixel] = 0;
+            for (int channel = 0; channel < 4; ++channel)
+                context.image.rgba[pixel * 4 + channel] = channel == 3 ? 255 : 0;
+        }
+    CareerScreenObserver observer(resources);
+    CHECK(observer.ObserveScreens(context, {"goal_not_reached_warning"}).screenId == "unknown");
+    CHECK(context.taps.empty());
+}
+
+TEST_CASE("Career coordinator cancels the goal reminder without submitting a turn",
+    "[CareerRuntime][CareerGoalNotReached]")
+{
+    const auto config = PackagedConfig();
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    ActualRaceResultContext context("goal_not_reached_bluestacks_mac_20261023.png");
+    context.nextImage = UmaAssistant::Resources::WicImageDecoder::decode_file(
+        config.resourceDirectory.parent_path() / "testdata/hachimi/ura/captures/goal_not_reached_cancelled_bluestacks_mac_20261023.png");
+    context.cancelAfterCaptures = 16;
+    CareerFlowCoordinator coordinator(std::make_shared<CareerScreenObserver>(resources),
+        std::make_shared<CareerActionExecutor>(config, resources),
+        std::make_shared<UraScenarioModule>(), std::make_shared<DefaultTrainingStrategy>(), config);
+    const auto result = coordinator.Step(context);
+    CAPTURE(result.failureReason);
+    REQUIRE(result.status == CareerRunStatus::Running);
+    REQUIRE(context.taps.size() == 1);
+    CHECK(context.taps.front().first >= 198);
+    CHECK(context.taps.front().first < 304);
+    CHECK(coordinator.GetState().confirmedTurnActions == 0);
 }
 
 TEST_CASE("Training selection executes single tap on raised card and does not hit rest button", "[CareerRuntime][CareerTrainingAction]")

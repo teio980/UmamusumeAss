@@ -24,7 +24,7 @@ void TurnDestinations(CareerTransitionContext& result)
 {
     // EventHandle advances passive training/support events. Observe the next
     // supported page instead of competing with it by looking for Skip.
-    Add(result.candidates, {"event_choice", "scenario_event", "inheritance_event"});
+    Add(result.candidates, {"event_choice", "scenario_event", "inheritance_event", "goal_not_reached_warning"});
     if (result.continuation == Phase::TrainingOutcome || result.resumedEvent) Add(result.candidates, {"training_result"});
     if (result.semanticActionId == "recreation.confirm" || result.sourceScreenId == "claw_machine"
         || result.sourceScreenId == "claw_machine_result")
@@ -98,6 +98,7 @@ CareerTransitionContext CareerTransitionPolicy::AfterAction(const CareerTransiti
         else if (action == "action.races" || action == "action.finale_races")
             select(Phase::RaceEntry, {"race_day", "race_streak_warning", "race_recommendations", "race_list", "race_list_empty"});
     }
+    else if (id == "goal_not_reached_warning") select(Phase::Main, {"career_main"});
     else if (id == "training_selection" && action == "training.back") select(Phase::Main, {"career_main"});
     else if (id == "training_selection" || id == "rest_confirmation" || id == "summer_rest_confirmation"
         || id == "infirmary_confirmation" || id == "recreation_confirmation" || IsEvent(id))

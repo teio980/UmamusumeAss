@@ -219,8 +219,6 @@
       "screenId": "career_epithet",
       "recognition": {
         "template": "templates/career_epithet_header.png",
-        "requiredText": ["Epithet"],
-        "verifyRequiredText": true,
         "matchColorText": true,
         "roi": [
           360,
@@ -228,7 +226,7 @@
           180,
           80
         ],
-        "templThreshold": 0.9,
+        "templThreshold": 0.96,
         "priority": -4
       },
       "actions": [
@@ -282,9 +280,9 @@
         "matchColorText": true,
         "roi": [
           250,
-          250,
+          30,
           400,
-          400
+          620
         ],
         "templThreshold": 0.96,
         "requiredTemplate": "templates/rewards_collected_close.png",
@@ -292,7 +290,7 @@
           250,
           950,
           400,
-          450
+          600
         ],
         "requiredTemplateThreshold": 0.9,
         "priority": -6

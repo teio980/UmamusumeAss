@@ -6,6 +6,28 @@
   "referenceHeight": 1600,
   "screens": [
     {
+      "screenId": "goal_not_reached_warning",
+      "recognition": {
+        "template": "templates/goal_not_reached_title.png",
+        "roi": [280, 365, 340, 90],
+        "templThreshold": 0.9,
+        "matchColor": true,
+        "requiredTemplate": "templates/goal_not_reached_cancel.png",
+        "requiredTemplateRoi": [160, 1095, 185, 100],
+        "requiredTemplateThreshold": 0.9,
+        "requiredTemplateMatchColor": true,
+        "priority": -4
+      },
+      "actions": [
+        {
+          "semanticId": "goal.not_reached.cancel",
+          "task": "goal_not_reached_cancel"
+        }
+      ],
+      "flow": "turn",
+      "order": 74
+    },
+    {
       "screenId": "training_selection",
       "recognition": {
         "template": "../training/templates/training_selection_header.png",

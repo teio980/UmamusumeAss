@@ -400,6 +400,7 @@
       "screenId": "race_runner",
       "recognition": {
         "template": "templates/career/race/race_runner_label.png",
+        "matchColorText": true,
         "templates": [
           "templates/career/race/race_runner_label_ura.png"
         ],
