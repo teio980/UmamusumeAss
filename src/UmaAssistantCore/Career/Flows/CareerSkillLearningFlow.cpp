@@ -174,7 +174,9 @@ std::optional<int> ReadNumberFromRegion(
 {
     const auto frame = context.GetCurrentFrame();
     if (!frame) return std::nullopt;
-    const auto detections = context.RecognizeText("en-US");
+    // Segment the numeric region itself; full-screen OCR can omit the balance
+    // or merge it into an unrelated line outside the region.
+    const auto detections = context.RecognizeText("en-US", roi);
     const auto after = context.GetCurrentFrame();
     if (!after || after.get() != frame.get() || after->frameId != frame->frameId)
         return std::nullopt;

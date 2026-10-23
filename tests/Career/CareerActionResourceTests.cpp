@@ -10,6 +10,8 @@
 #include "UmaAssistantCore/Career/Flows/CareerSkillLearningFlow.hpp"
 #include "UmaAssistantCore/Common/PathEncoding.hpp"
 #include "UmaAssistantCore/Resources/WicImageDecoder.hpp"
+#include "UmaAssistantCore/Resources/ImageTransforms.hpp"
+#include "UmaAssistantCore/Recognition/WindowsOcrRecognizer.hpp"
 #include "UmaAssistantCore/Vision/TemplateMatcher.hpp"
 #include "UmaAssistantCore/TaskEngine/ITaskExecutionContext.hpp"
 #include "tests/TaskEngine/MockTaskExecutionContext.hpp"
@@ -174,7 +176,7 @@ public:
                 {"Career", 700, 1200, 120, 30, 0.99}};
         }
         std::vector<TaskOcrDetection> result;
-        if (roi && roi->x >= 600 && roi->x < 700 && roi->y < 750)
+        if (roi && roi->x == 625 && roi->y < 750)
         {
             if (m_plusTapped)
                 result.push_back({"Obtained", 630, 595, 130, 30, 0.99});
@@ -775,6 +777,49 @@ TEST_CASE("Normal skills use same-frame OCR, price checks, and confirmed catalog
         CHECK(context.skillsOpened == openedAfterConfirmedPurchase);
         CHECK(context.plusTaps == 2);
     }
+}
+
+TEST_CASE("Normal skills read actual BlueStacks Mac skill points before race entry",
+    "[CareerRuntime][SkillReplay][SkillPointsOcr]")
+{
+    class SkillPointsContext final : public ActualRaceResultContext
+    {
+    public:
+        SkillPointsContext()
+            : ActualRaceResultContext("career_skill_race_day_169_bluestacks_mac_20261023.png") {}
+
+        std::vector<TaskOcrDetection> RecognizeText(const std::string& language,
+            const std::optional<TaskRoi>& roi) override
+        {
+            auto input = roi
+                ? UmaAssistant::Resources::crop_image(image, roi->x, roi->y, roi->width, roi->height)
+                : image;
+            std::vector<TaskOcrDetection> result;
+            for (const auto& detection : reader.recognize(input, language).detections)
+                result.push_back({detection.text,
+                    detection.bounds.x + (roi ? roi->x : 0),
+                    detection.bounds.y + (roi ? roi->y : 0),
+                    detection.bounds.width, detection.bounds.height, detection.confidence});
+            return result;
+        }
+
+    private:
+        UmaAssistant::Recognition::WindowsOcrRecognizer reader;
+    } context;
+
+    auto config = PackagedConfig();
+    // Corner Adept ○ costs 180, so the real flow must read the screenshot's
+    // 169 points and return without opening Skills.
+    config.normalSkillIds = {200332};
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    CareerSkillLearningFlow flow(config, resources);
+
+    REQUIRE(flow.RunBeforeRace(context) == ActionExecutionStatus::Success);
+    CHECK(context.taps.empty());
+    CHECK(std::any_of(context.logs.begin(), context.logs.end(), [](const auto& message) {
+        return message.find("Saving 169 Skill Pts for") != std::string::npos;
+    }));
 }
 
 TEST_CASE("Race entry retries once after the source remains confirmed", "[CareerRuntime][CareerParity]")
