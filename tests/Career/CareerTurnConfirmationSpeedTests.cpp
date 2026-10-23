@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <thread>
@@ -597,6 +598,51 @@ TEST_CASE("Main source proof does not enable shortcuts for training",
     CHECK(std::none_of(context.logs.begin(), context.logs.end(), [](const auto& log) {
         return log.find("Turn action timing:") != std::string::npos;
     }));
+}
+
+TEST_CASE("Missing turn entry markers request a fresh page observation without claiming success",
+    "[Career][TurnConfirmationSpeed][CareerActionReobserve]")
+{
+    const std::string action = GENERATE("action.rest", "action.summer_rest", "action.infirmary", "action.recreation");
+    CareerRuntimeConfig config;
+    config.resourceDirectory = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR) / "resource";
+    nlohmann::json execution;
+    std::ifstream(config.resourceDirectory / "hachimi/career/turn/execution.json") >> execution;
+    const auto* entry = TurnResources()->FindAction("career_main", action);
+    REQUIRE(entry != nullptr);
+    auto& task = execution["tasks"][entry->taskName];
+    task["timeoutMs"] = 0;
+    task["retryTimes"] = 0;
+    auto resources = std::make_shared<CareerVisualResources>(config, ActionRegistry{},
+        std::vector<CareerJsonOverride>{{UmaAssistant::Paths::ToUtf8(
+            config.resourceDirectory / "hachimi/career/turn/execution.json"), execution.dump()}});
+    REQUIRE(resources->IsReady());
+    TurnConfirmationContext context;
+    context.screens = {"event_choice"};
+    CareerActionExecutor executor(resources);
+
+    REQUIRE(executor.ExecuteAction("career_main", action, context) == ActionExecutionStatus::Reobserve);
+
+    CHECK(context.clickedFrames.empty());
+    CHECK(context.captureCount == 1);
+    CHECK_FALSE(executor.TakeActionHandoff());
+    CHECK(std::none_of(context.emittedEvents.begin(), context.emittedEvents.end(), [](const auto& event) {
+        return event.type == TaskEventType::ActionExecuted && event.succeeded;
+    }));
+    CareerScreenObserver observer(resources);
+    CHECK(observer.ObserveCareer(context).screenId == "event_choice");
+}
+
+TEST_CASE("A rejected turn entry tap fails instead of requesting an input retry",
+    "[Career][TurnConfirmationSpeed][CareerActionReobserve]")
+{
+    TurnConfirmationContext context;
+    context.screens = {"career_main"};
+    context.tapResult = false;
+    CareerActionExecutor executor(TurnResources());
+    CHECK(executor.ExecuteAction("career_main", "action.rest", context) == ActionExecutionStatus::Failed);
+    CHECK(context.clickedFrames.size() == 1);
+    CHECK_FALSE(executor.TakeActionHandoff());
 }
 
 TEST_CASE("A delayed turn dialog still falls back to the original transition polling",

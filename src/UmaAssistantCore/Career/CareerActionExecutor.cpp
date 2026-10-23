@@ -239,6 +239,18 @@ ActionExecutionStatus CareerActionExecutor::ExecuteTask(
     const auto result = m_resources->RunTask(taskName, context, runOptions);
     if (context.IsCancelled() || result.status == TaskEngine::TaskGraphStatus::Cancelled)
         return ActionExecutionStatus::Cancelled;
+    // Opening a turn dialog cannot consume a turn until its confirmation is
+    // clicked. A missing entry marker means no input was sent: let the
+    // coordinator identify the current page instead of waiting for a dialog.
+    const bool openingTurnDialog = Fold(screenId) == "career_main"
+        && (semanticId == "action.rest" || semanticId == "action.summer_rest"
+            || semanticId == "action.infirmary" || semanticId == "action.recreation");
+    if (openingTurnDialog && result.status == TaskEngine::TaskGraphStatus::TimedOut
+        && Fold(result.finalTask) == Fold(taskName))
+    {
+        context.Log("WARNING", "Career Main action marker disappeared before input; re-observing the current page.");
+        return ActionExecutionStatus::Reobserve;
+    }
     if (result.status == TaskEngine::TaskGraphStatus::Success
         || result.status == TaskEngine::TaskGraphStatus::Completed)
     {

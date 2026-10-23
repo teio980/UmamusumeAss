@@ -26,7 +26,9 @@ enum class ActionExecutionStatus
     Failed,
     InterruptedByEvent,
     InterruptedByDateChange,
-    Cancelled
+    Cancelled,
+    // No input was sent because the source action marker disappeared.
+    Reobserve
 };
 
 class ICareerActionExecutor

@@ -16,6 +16,74 @@ using namespace UmaAssistant::Career;
 using namespace UmaAssistant::Career::Tests;
 using namespace UmaAssistant::TaskEngine::Tests;
 
+TEST_CASE("An unexecuted Main action reopens event recognition without consuming a turn",
+    "[Career][Replay][CareerActionReobserve]")
+{
+    class RecoveryObserver final : public MockCareerObserver
+    {
+    public:
+        CareerObservation ObserveTransition(UmaAssistant::TaskEngine::ITaskExecutionContext& context,
+            const CareerTransitionContext&, std::shared_ptr<const UmaAssistant::TaskEngine::TaskFrameSnapshot> = {}) override
+        {
+            ++restrictedCalls;
+            return Observe(context);
+        }
+        int restrictedCalls{0};
+    };
+    auto observer = std::make_shared<RecoveryObserver>();
+    auto executor = std::make_shared<MockCareerActionExecutor>();
+    executor->returnStatus = ActionExecutionStatus::Reobserve;
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    main.energyPercent = ObservedValue<int>::Make(44);
+    main.turnPositionText = "Junior Year Pre-Debut";
+    CareerObservation event;
+    event.screenId = "event_choice";
+    event.screenKind = CareerScreenKind::EventChoice;
+    observer->observationSequence = {main, event};
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(),
+        std::make_shared<DefaultTrainingStrategy>());
+    MockTaskExecutionContext context;
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(executor->executedIntents.size() == 1);
+    CHECK(executor->executedIntents.front().kind == ActionIntentKind::Rest);
+    CHECK(executor->confirmCompletionCalledCount == 0);
+    CHECK(coordinator.GetState().confirmedTurnActions == 0);
+    CHECK(coordinator.GetState().lastIntent.kind == ActionIntentKind::DoNothing);
+    executor->returnStatus = ActionExecutionStatus::Success;
+
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+
+    CHECK(observer->restrictedCalls == 0);
+    REQUIRE(executor->executedIntents.size() == 2);
+    CHECK(executor->executedIntents.back().kind == ActionIntentKind::SelectEventOption);
+    CHECK(executor->confirmCompletionCalledCount == 1);
+    CHECK(coordinator.GetState().confirmedTurnActions == 0);
+}
+
+TEST_CASE("Repeated unavailable Main actions stop after bounded page re-observation",
+    "[Career][Replay][CareerActionReobserve]")
+{
+    auto observer = std::make_shared<MockCareerObserver>();
+    auto executor = std::make_shared<MockCareerActionExecutor>();
+    executor->returnStatus = ActionExecutionStatus::Reobserve;
+    CareerObservation main;
+    main.screenId = "career_main";
+    main.screenKind = CareerScreenKind::MainTurn;
+    main.energyPercent = ObservedValue<int>::Make(44);
+    main.turnPositionText = "Junior Year Pre-Debut";
+    observer->observationSequence = {main};
+    CareerFlowCoordinator coordinator(observer, executor, std::make_shared<UraScenarioModule>(),
+        std::make_shared<DefaultTrainingStrategy>());
+    MockTaskExecutionContext context;
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    REQUIRE(coordinator.Step(context).status == CareerRunStatus::Running);
+    CHECK(coordinator.Step(context).status == CareerRunStatus::Failed);
+    CHECK(executor->confirmCompletionCalledCount == 0);
+    CHECK(coordinator.GetState().confirmedTurnActions == 0);
+}
+
 TEST_CASE("A verified Rest invalidates unsafe candidates and requests a new scan at full energy",
     "[Career][Replay][SmartRestRegression]")
 {

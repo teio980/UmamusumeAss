@@ -103,9 +103,7 @@
       "retryDelayMs": 750,
       "pollIntervalMs": 250,
       "next": [],
-      "onErrorNext": [
-        "career_main_action_recover"
-      ],
+      "onErrorNext": [],
       "exceededNext": [],
       "sub": [],
       "monitorTasks": [],

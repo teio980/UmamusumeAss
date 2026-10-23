@@ -759,7 +759,8 @@ void CareerVisualResources::LoadProfiles(const CareerRuntimeConfig& config)
                     required.path = Paths::ToUtf8(resolved);
                     required.threshold = recognition.value("requiredTemplateThreshold", required.threshold);
                     required.roi = requiredRoi;
-                    required.algorithm = algorithm;
+                    required.algorithm = recognition.value("requiredTemplateMatchColor", false)
+                        ? "MatchTemplateColor" : algorithm;
                     required.requiresAlphaMatching = recognition.value("requiredTemplateMatchAlphaTemplate", false);
                     if (!std::filesystem::exists(resolved))
                     {

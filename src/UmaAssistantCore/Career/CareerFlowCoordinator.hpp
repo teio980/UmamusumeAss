@@ -84,6 +84,7 @@ private:
     std::optional<CareerDomain::ActionIntent> m_pendingRaceIntent;
     bool m_terminalScreenSeen{false};
     int m_unknownObservations{0};
+    int m_actionReobservations{0};
     std::string m_lastLoggedCareerStatus;
     CareerTransitionContext m_transitionContext;
 };

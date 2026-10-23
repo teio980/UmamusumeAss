@@ -143,7 +143,8 @@
           500,
           400
         ],
-        "requiredTemplateThreshold": 0.78,
+        "requiredTemplateThreshold": 0.90,
+        "requiredTemplateMatchColor": true,
         "requiredText": [
           "Career"
         ],

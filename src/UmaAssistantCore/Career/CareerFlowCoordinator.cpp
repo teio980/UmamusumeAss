@@ -228,6 +228,7 @@ void CareerFlowCoordinator::ResetAfterRecovery() noexcept
     // game may resume inside the same race flow after returning to Home.
     m_terminalScreenSeen = false;
     m_unknownObservations = 0;
+    m_actionReobservations = 0;
     m_lastLoggedCareerStatus.clear();
     if (m_trainingFlow)
         m_trainingFlow->Reset();
@@ -476,6 +477,9 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         result.failureReason = operation;
     };
     const auto perform = [&](const CareerDomain::ActionIntent& intent) {
+        const auto previousIntent = m_state.lastIntent;
+        const bool previousRaceReplayCompleted = m_state.raceReplayFlowCompleted;
+        const bool previousRaceStrategyConfigured = m_state.raceStrategyConfigured;
         if ((observation.screenKind == CareerDomain::CareerScreenKind::MainTurn
                 && intent.kind != CareerDomain::ActionIntentKind::DoNothing)
             || (intent.kind == CareerDomain::ActionIntentKind::Training
@@ -509,6 +513,28 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
         EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuting,
             m_state.scenarioId, actionTask, false, observation.score, intent.reason);
         const auto status = m_actionExecutor->ExecuteForObservation(intent, observation, context);
+        if (status == ActionExecutionStatus::Reobserve && !context.IsCancelled())
+        {
+            EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuted,
+                m_state.scenarioId, actionTask, false, observation.score,
+                "Action marker was absent; no input was sent. Re-identifying the current page.");
+            m_nextConfirmedObservation.reset();
+            // Widen recognition without discarding the race/training/outing
+            // continuation that may still be producing consecutive events.
+            m_transitionContext.candidates.clear();
+            m_state.lastIntent = previousIntent;
+            m_state.raceReplayFlowCompleted = previousRaceReplayCompleted;
+            m_state.raceStrategyConfigured = previousRaceStrategyConfigured;
+            SynchronizeObservationPolicy();
+            m_observer->ClearMainTextCache();
+            result.totalTurnsExecuted = m_state.turnIndex;
+            if (++m_actionReobservations >= 3)
+            {
+                result.status = CareerRunStatus::Failed;
+                result.failureReason = "Career Main action marker was missing in 3 consecutive attempts.";
+            }
+            return false;
+        }
         if (status != ActionExecutionStatus::Success)
         {
             EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuted,
@@ -517,6 +543,7 @@ CareerRunResult CareerFlowCoordinator::Step(TaskEngine::ITaskExecutionContext& c
             failAction("Career action could not execute safely: " + intent.reason, status);
             return false;
         }
+        m_actionReobservations = 0;
         EmitCareerEvent(context, TaskEngine::TaskEventType::ActionExecuted,
             m_state.scenarioId, actionTask, true, observation.score, intent.reason);
         if (intent.kind == CareerDomain::ActionIntentKind::Training

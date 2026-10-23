@@ -405,6 +405,57 @@ TEST_CASE("EventHandle can finish a support event before training returns to Car
     CHECK(context.tapAttempts == 0);
 }
 
+TEST_CASE("Event dialogue panels cannot satisfy the Career Main action marker",
+    "[CareerRuntime][Replay][CareerMainGuard]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    for (const auto& fixture : std::vector<std::filesystem::path>{
+        "testdata/hachimi/ura/captures/classic_cycle_after_milech_update.png",
+        "testdata/hachimi/ura/captures/turn3_after_event.png",
+        "resource/hachimi/ura/testdata/captures/runtime_frames/support_event_choice_ura.png"})
+    {
+        CAPTURE(fixture);
+        ScreenshotReplayContext context({root / fixture});
+        CareerScreenObserver observer(resources);
+        // Isolate the Main guard even when the Effects marker would normally
+        // recognize this event first. Both independent frames must reject it.
+        const auto main = observer.ObserveScreens(context, {"career_main"});
+        CHECK(main.screenId == "unknown");
+        CHECK_FALSE(main.visualFrameEvidence);
+        CHECK(context.CaptureCount() >= 2);
+        CHECK(context.tapAttempts == 0);
+    }
+}
+
+TEST_CASE("Consecutive event choices stay events until the actual Career Main appears",
+    "[CareerRuntime][Replay][CareerMainGuard]")
+{
+    const auto root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
+    CareerRuntimeConfig config;
+    config.resourceDirectory = root / "resource";
+    auto resources = std::make_shared<CareerVisualResources>(config);
+    REQUIRE(resources->IsReady());
+    const auto first = root / "testdata/hachimi/ura/captures/turn3_after_event.png";
+    const auto second = root / "resource/hachimi/ura/testdata/captures/runtime_frames/support_event_choice_ura.png";
+    const auto main = root / "testdata/hachimi/ura/captures/career_main_normal_bluestacks_mac_20261023.png";
+    ScreenshotReplayContext context({first, first, second, second, main, main});
+    CareerScreenObserver observer(resources);
+    auto transition = CareerTransitionPolicy::AfterAction({}, "training_selection", "training.speed");
+    for (const auto* expected : {"event_choice", "event_choice", "career_main"})
+    {
+        const auto observation = observer.ObserveTransition(context, transition);
+        REQUIRE(observation.screenId == expected);
+        CHECK(observation.stableFrameCount == 2);
+        transition = CareerTransitionPolicy::AfterAction(transition, observation.screenId, "event.choice_first");
+    }
+    CHECK(context.CaptureCount() == 6);
+    CHECK(context.tapAttempts == 0);
+}
+
 TEST_CASE("Career fixed screenshots report recognition work and elapsed time", "[CareerPerformance]")
 {
     auto const root = UmaAssistant::Paths::FromUtf8(CMAKE_SOURCE_DIR);
