@@ -401,7 +401,10 @@ public static class UmaCatalogService
                 string name = item.TryGetProperty("skillName", out var nameProp) ? nameProp.GetString() ?? string.Empty : string.Empty;
                 string originalName = ReadString(item, "originalName");
                 string type = item.TryGetProperty("skillType", out var typeProp) ? typeProp.GetString() ?? "Normal" : "Normal";
-                int? needPt = item.TryGetProperty("needSkillPoint", out var ptProp) && ptProp.TryGetInt32(out int pt) ? pt : null;
+                // Unique skills can have a null cost; TryGetInt32 requires a JSON number.
+                int? needPt = item.TryGetProperty("needSkillPoint", out var ptProp)
+                    && ptProp.ValueKind == JsonValueKind.Number
+                    && ptProp.TryGetInt32(out int pt) ? pt : null;
                 string effect = item.TryGetProperty("effectSummary", out var effProp) ? effProp.GetString() ?? string.Empty : string.Empty;
                 int rarity = ReadInt(item, "rarity");
                 int gradeValue = ReadInt(item, "gradeValue");
